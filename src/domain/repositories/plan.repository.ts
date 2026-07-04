@@ -1,0 +1,9 @@
+import type { Plan } from '@/domain/entities';
+import type { Result } from '@/shared/lib/result';
+import type { AppError } from '@/shared/lib/errors';
+
+export interface IPlanRepository {
+  findAll(): Promise<Result<Plan[], AppError>>;
+  findById(id: string): Promise<Result<Plan, AppError>>;
+  findBySlug(slug: string): Promise<Result<Plan, AppError>>;
+}
