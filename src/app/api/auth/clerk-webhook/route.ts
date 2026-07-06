@@ -1,8 +1,8 @@
-import { Webhook } from 'svix';
+import type { WebhookEvent } from '@clerk/nextjs/server';
 import { headers } from 'next/headers';
-import { WebhookEvent } from '@clerk/nextjs/server';
-import { PocketBaseUserRepository } from '@/infrastructure/database/pocketbase.user-repo';
+import { Webhook } from 'svix';
 import { SyncUserUseCase } from '@/application/auth/sync-user.use-case';
+import { PocketBaseUserRepository } from '@/infrastructure/database/pocketbase.user-repo';
 import { env } from '@/shared/config/env';
 import { logger } from '@/shared/lib/logger';
 

@@ -1,7 +1,7 @@
 import type { Workout, WorkoutProgram } from '@/domain/entities';
-import type { Result } from '@/shared/lib/result';
 import type { AppError } from '@/shared/lib/errors';
-import type { PaginationParams, PaginatedResult } from '@/shared/types';
+import type { Result } from '@/shared/lib/result';
+import type { PaginatedResult, PaginationParams } from '@/shared/types';
 
 export interface IWorkoutRepository {
   findPrograms(): Promise<Result<WorkoutProgram[], AppError>>;

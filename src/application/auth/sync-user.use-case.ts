@@ -1,8 +1,8 @@
-import type { IUserRepository } from '@/domain/repositories';
-import { Result } from '@/shared/lib/result';
 import type { User } from '@/domain/entities';
+import type { IUserRepository } from '@/domain/repositories';
 import type { AppError } from '@/shared/lib/errors';
 import { logger } from '@/shared/lib/logger';
+import type { Result } from '@/shared/lib/result';
 
 interface SyncUserInput {
   clerkId: string;

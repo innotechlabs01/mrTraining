@@ -1,6 +1,6 @@
 import type { User } from '@/domain/entities';
-import type { Result } from '@/shared/lib/result';
 import type { AppError } from '@/shared/lib/errors';
+import type { Result } from '@/shared/lib/result';
 
 export interface IUserRepository {
   findById(id: string): Promise<Result<User, AppError>>;

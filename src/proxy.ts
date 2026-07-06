@@ -1,15 +1,13 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
-const isProtectedRoute = createRouteMatcher([
-  '/dashboard(.*)',
-  '/api/(.*)',
-]);
+const isProtectedRoute = createRouteMatcher(['/dashboard(.*)', '/api/(.*)']);
 
 const isAuthRoute = createRouteMatcher([
+  '/sign-in(.*)',
+  '/sign-up(.*)',
   '/login(.*)',
-  '/register(.*)',
   '/api/auth/clerk-webhook(.*)',
-  '/api/stripe/webhook(.*)',
+  '/api/paddle/webhook(.*)',
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -25,5 +23,6 @@ export default clerkMiddleware(async (auth, req) => {
 export const config = {
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/(api|trpc)(.*)',
   ],
 };

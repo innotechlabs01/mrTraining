@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { PocketBasePlanRepository } from '@/infrastructure/database/pocketbase.plan-repo';
-import { GetPlansUseCase } from '@/application/plans/get-plans.use-case';
 import { toPlanDTO } from '@/application/dtos';
+import { GetPlansUseCase } from '@/application/plans/get-plans.use-case';
+import { PocketBasePlanRepository } from '@/infrastructure/database/pocketbase.plan-repo';
 
 export async function GET() {
   try {

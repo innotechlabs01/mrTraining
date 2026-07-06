@@ -1,7 +1,7 @@
-import type { IUserRepository } from '@/domain/repositories';
-import { Result } from '@/shared/lib/result';
 import type { User } from '@/domain/entities';
+import type { IUserRepository } from '@/domain/repositories';
 import type { AppError } from '@/shared/lib/errors';
+import type { Result } from '@/shared/lib/result';
 
 export class GetOrCreateUserUseCase {
   constructor(private readonly userRepo: IUserRepository) {}

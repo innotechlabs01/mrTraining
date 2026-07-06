@@ -18,14 +18,30 @@ export class User {
     return new User(props);
   }
 
-  get id(): string { return this.props.id; }
-  get clerkId(): string { return this.props.clerkId; }
-  get email(): string { return this.props.email; }
-  get fullName(): string { return this.props.fullName; }
-  get role(): UserRole { return this.props.role; }
-  get avatarUrl(): string | null { return this.props.avatarUrl; }
-  get createdAt(): Date { return this.props.createdAt; }
-  get updatedAt(): Date { return this.props.updatedAt; }
+  get id(): string {
+    return this.props.id;
+  }
+  get clerkId(): string {
+    return this.props.clerkId;
+  }
+  get email(): string {
+    return this.props.email;
+  }
+  get fullName(): string {
+    return this.props.fullName;
+  }
+  get role(): UserRole {
+    return this.props.role;
+  }
+  get avatarUrl(): string | null {
+    return this.props.avatarUrl;
+  }
+  get createdAt(): Date {
+    return this.props.createdAt;
+  }
+  get updatedAt(): Date {
+    return this.props.updatedAt;
+  }
 
   get planTier(): PlanTier {
     if (this.props.role === 'admin') return 'pro';

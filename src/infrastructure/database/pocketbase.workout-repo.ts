@@ -1,17 +1,24 @@
-import type { IWorkoutRepository, CreateWorkoutData, UpdateWorkoutData } from '@/domain/repositories';
-import { Workout, WorkoutProgram } from '@/domain/entities';
+import type { Workout, WorkoutProgram } from '@/domain/entities';
+import type {
+  CreateWorkoutData,
+  IWorkoutRepository,
+  UpdateWorkoutData,
+} from '@/domain/repositories';
+import { type AppError, NotFoundError } from '@/shared/lib/errors';
 import { Result } from '@/shared/lib/result';
-import { NotFoundError, type AppError } from '@/shared/lib/errors';
+import type { PaginatedResult, PaginationParams } from '@/shared/types';
+import { mapWorkoutProgramRecord, mapWorkoutRecord } from '../mappers/pb-to-entity.mapper';
 import { getAdminPocketBase } from './pocketbase.client';
-import { mapWorkoutRecord, mapWorkoutProgramRecord } from '../mappers/pb-to-entity.mapper';
-import type { PaginationParams, PaginatedResult } from '@/shared/types';
 
 export class PocketBaseWorkoutRepository implements IWorkoutRepository {
   async findPrograms(): Promise<Result<WorkoutProgram[], AppError>> {
     try {
       const pb = await getAdminPocketBase();
       const records = await pb.collection('workout_programs').getFullList();
-      return Result.ok(records.map(mapWorkoutProgramRecord)) as unknown as Result<WorkoutProgram[], AppError>;
+      return Result.ok(records.map(mapWorkoutProgramRecord)) as unknown as Result<
+        WorkoutProgram[],
+        AppError
+      >;
     } catch (error: unknown) {
       return Result.fail(error as AppError);
     }
@@ -21,7 +28,10 @@ export class PocketBaseWorkoutRepository implements IWorkoutRepository {
     try {
       const pb = await getAdminPocketBase();
       const record = await pb.collection('workout_programs').getOne(id);
-      return Result.ok(mapWorkoutProgramRecord(record)) as unknown as Result<WorkoutProgram, AppError>;
+      return Result.ok(mapWorkoutProgramRecord(record)) as unknown as Result<
+        WorkoutProgram,
+        AppError
+      >;
     } catch (error: unknown) {
       const err = error as { status?: number };
       if (err.status === 404) return Result.fail(new NotFoundError('WorkoutProgram', id));

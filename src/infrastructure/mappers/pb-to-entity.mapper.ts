@@ -1,6 +1,6 @@
 import type { RecordModel } from 'pocketbase';
-import type { PlanTier, SubscriptionStatus, DifficultyLevel, UserRole } from '@/shared/types';
-import { User, Plan, Subscription, WorkoutProgram, Workout } from '@/domain/entities';
+import { Plan, Subscription, User, Workout, WorkoutProgram } from '@/domain/entities';
+import type { DifficultyLevel, PlanTier, SubscriptionStatus, UserRole } from '@/shared/types';
 
 export function mapUserRecord(record: RecordModel): User {
   return User.create({
@@ -23,8 +23,7 @@ export function mapPlanRecord(record: RecordModel): Plan {
     priceMonthly: record.price_monthly,
     priceAnnual: record.price_annual ?? null,
     features: Array.isArray(record.features) ? record.features : [],
-    stripePriceIdMonthly: record.stripe_price_id_monthly,
-    stripePriceIdAnnual: record.stripe_price_id_annual ?? null,
+    paddlePriceId: record.paddle_price_id,
     isFeatured: record.is_featured ?? false,
     sortOrder: record.sort_order ?? 0,
   });
@@ -36,8 +35,8 @@ export function mapSubscriptionRecord(record: RecordModel): Subscription {
     userId: record.user_id,
     planId: record.plan_id,
     status: record.status as SubscriptionStatus,
-    stripeSubscriptionId: record.stripe_subscription_id,
-    stripeCustomerId: record.stripe_customer_id,
+    paddleSubscriptionId: record.paddle_subscription_id,
+    paddleCustomerId: record.paddle_customer_id,
     currentPeriodStart: new Date(record.current_period_start),
     currentPeriodEnd: new Date(record.current_period_end),
     createdAt: new Date(record.created),

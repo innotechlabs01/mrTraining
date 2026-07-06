@@ -1,13 +1,12 @@
+export type { IPlanRepository } from './plan.repository';
 export type {
-  IUserRepository,
   CreateUserData,
+  IUserRepository,
   UpdateUserData,
 } from './user.repository';
 
-export type { IPlanRepository } from './plan.repository';
-
 export type {
-  IWorkoutRepository,
   CreateWorkoutData,
+  IWorkoutRepository,
   UpdateWorkoutData,
 } from './workout.repository';

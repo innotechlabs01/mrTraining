@@ -1,9 +1,9 @@
+import type { Plan } from '@/domain/entities';
 import type { IPlanRepository } from '@/domain/repositories';
-import { Plan } from '@/domain/entities';
+import { type AppError, NotFoundError } from '@/shared/lib/errors';
 import { Result } from '@/shared/lib/result';
-import { NotFoundError, type AppError } from '@/shared/lib/errors';
-import { getAdminPocketBase } from './pocketbase.client';
 import { mapPlanRecord } from '../mappers/pb-to-entity.mapper';
+import { getAdminPocketBase } from './pocketbase.client';
 
 export class PocketBasePlanRepository implements IPlanRepository {
   async findAll(): Promise<Result<Plan[], AppError>> {

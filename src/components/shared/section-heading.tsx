@@ -28,7 +28,9 @@ export function SectionHeading({
       <h2 className="font-headline-lg text-3xl md:text-[40px] md:leading-[48px] font-bold uppercase mb-4">
         {title}
       </h2>
-      <div className={cn('h-1 w-24', accentClass, align === 'center' ? 'mx-auto' : 'mx-auto md:mx-0')} />
+      <div
+        className={cn('h-1 w-24', accentClass, align === 'center' ? 'mx-auto' : 'mx-auto md:mx-0')}
+      />
       {subtitle && <p className="text-on-surface-variant mt-4 max-w-xl font-body-md">{subtitle}</p>}
     </div>
   );

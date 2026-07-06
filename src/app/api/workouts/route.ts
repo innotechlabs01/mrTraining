@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { PocketBaseWorkoutRepository } from '@/infrastructure/database/pocketbase.workout-repo';
-import { PocketBaseUserRepository } from '@/infrastructure/database/pocketbase.user-repo';
+import { NextResponse } from 'next/server';
 import { GetWorkoutsUseCase } from '@/application/training/get-workouts.use-case';
+import { PocketBaseUserRepository } from '@/infrastructure/database/pocketbase.user-repo';
+import { PocketBaseWorkoutRepository } from '@/infrastructure/database/pocketbase.workout-repo';
 
 export async function GET() {
   try {

@@ -12,15 +12,17 @@
     "check": "biome ci .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "setup-db": "npx tsx scripts/setup-pocketbase.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.12",
+    "@paddle/paddle-js": "^1.6.4",
+    "dotenv": "^17.4.2",
     "next": "16.2.10",
     "pocketbase": "^0.27.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "stripe": "^22.3.0",
     "svix": "^1.96.1",
     "zod": "^4.4.3"
   },

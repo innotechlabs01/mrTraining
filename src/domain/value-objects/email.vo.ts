@@ -1,5 +1,5 @@
-import { Result } from '@/shared/lib/result';
 import { DomainError } from '@/shared/lib/errors';
+import { Result } from '@/shared/lib/result';
 
 export class Email {
   private constructor(private readonly value: string) {}

@@ -1,16 +1,16 @@
-import type { IUserRepository, CreateUserData, UpdateUserData } from '@/domain/repositories';
-import { Result } from '@/shared/lib/result';
+import type { User } from '@/domain/entities';
+import type { CreateUserData, IUserRepository, UpdateUserData } from '@/domain/repositories';
 import type { AppError } from '@/shared/lib/errors';
-import { User } from '@/domain/entities';
 import { NotFoundError } from '@/shared/lib/errors';
-import { getAdminPocketBase } from './pocketbase.client';
+import { Result } from '@/shared/lib/result';
 import { mapUserRecord } from '../mappers/pb-to-entity.mapper';
+import { getAdminPocketBase } from './pocketbase.client';
 
 export class PocketBaseUserRepository implements IUserRepository {
   async findById(id: string): Promise<Result<User, AppError>> {
     try {
       const pb = await getAdminPocketBase();
-      const record = await pb.collection('users').getOne(id);
+      const record = await pb.collection('app_users').getOne(id);
       return Result.ok(mapUserRecord(record)) as unknown as Result<User, AppError>;
     } catch (error: unknown) {
       const err = error as { status?: number };
@@ -22,7 +22,7 @@ export class PocketBaseUserRepository implements IUserRepository {
   async findByClerkId(clerkId: string): Promise<Result<User, AppError>> {
     try {
       const pb = await getAdminPocketBase();
-      const records = await pb.collection('users').getList(1, 1, {
+      const records = await pb.collection('app_users').getList(1, 1, {
         filter: `clerk_id = "${clerkId}"`,
       });
       if (records.items.length === 0) {
@@ -37,7 +37,7 @@ export class PocketBaseUserRepository implements IUserRepository {
   async findByEmail(email: string): Promise<Result<User, AppError>> {
     try {
       const pb = await getAdminPocketBase();
-      const records = await pb.collection('users').getList(1, 1, {
+      const records = await pb.collection('app_users').getList(1, 1, {
         filter: `email = "${email}"`,
       });
       if (records.items.length === 0) {
@@ -52,7 +52,7 @@ export class PocketBaseUserRepository implements IUserRepository {
   async create(data: CreateUserData): Promise<Result<User, AppError>> {
     try {
       const pb = await getAdminPocketBase();
-      const record = await pb.collection('users').create({
+      const record = await pb.collection('app_users').create({
         clerk_id: data.clerkId,
         email: data.email,
         full_name: data.fullName,
@@ -72,7 +72,7 @@ export class PocketBaseUserRepository implements IUserRepository {
       if (data.fullName !== undefined) updateData.full_name = data.fullName;
       if (data.role !== undefined) updateData.role = data.role;
       if (data.avatarUrl !== undefined) updateData.avatar_url = data.avatarUrl;
-      const record = await pb.collection('users').update(id, updateData);
+      const record = await pb.collection('app_users').update(id, updateData);
       return Result.ok(mapUserRecord(record)) as unknown as Result<User, AppError>;
     } catch (error: unknown) {
       const err = error as { status?: number };
