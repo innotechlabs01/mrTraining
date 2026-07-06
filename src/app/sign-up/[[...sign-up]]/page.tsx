@@ -1,11 +1,19 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { SignUp } from '@clerk/nextjs';
+import { Suspense, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { SignUp, useAuth } from '@clerk/nextjs';
 
 function SignUpContent() {
+  const { isSignedIn } = useAuth();
+  const router = useRouter();
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (isSignedIn) {
+      router.push('/dashboard');
+    }
+  }, [isSignedIn, router]);
   const plan = searchParams.get('plan');
 
   const redirectUrl = plan
