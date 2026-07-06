@@ -14,7 +14,10 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
 });
 
+let _env: z.infer<typeof envSchema> | null = null;
+
 function buildEnv() {
+  if (_env) return _env;
   const parsed = envSchema.safeParse({
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
     CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
@@ -33,8 +36,13 @@ function buildEnv() {
     throw new Error(`Invalid environment variables: ${parsed.error.message}`);
   }
 
-  return parsed.data;
+  _env = parsed.data;
+  return _env;
 }
 
-export const env = buildEnv();
+export const env = new Proxy({} as z.infer<typeof envSchema>, {
+  get(_target, prop) {
+    return (buildEnv() as Record<string, unknown>)[prop as string];
+  },
+});
 export type Env = z.infer<typeof envSchema>;

@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "setup-db": "npx tsx scripts/setup-pocketbase.ts"
+    "setup-db": "npx tsx scripts/setup-pocketbase.ts",
+    "seed-db": "npx tsx scripts/seed-pocketbase.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.12",
