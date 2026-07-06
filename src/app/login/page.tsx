@@ -1,11 +1,21 @@
 'use client';
 
-import { useState, Suspense } from 'react';
-import { useSignIn } from '@clerk/nextjs';
+import { useState, Suspense, useEffect } from 'react';
+import { useSignIn, useAuth } from '@clerk/nextjs';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 function LoginContent() {
+  const { isSignedIn } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (isSignedIn) {
+      router.push('/dashboard');
+    }
+  }, [isSignedIn, router]);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [globalError, setGlobalError] = useState<string | null>(null);
@@ -14,8 +24,6 @@ function LoginContent() {
   const [mfaError, setMfaError] = useState<string | null>(null);
 
   const { signIn, errors, fetchStatus } = useSignIn();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const plan = searchParams.get('plan');
   const redirectUrl = plan ? `/dashboard?checkout=${plan}` : '/dashboard';
 
