@@ -1,71 +1,71 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
+import { useState } from 'react';
 import { Button } from '@/components/shared';
 
 const NAV_LINKS = [
-  { href: '#method', label: 'The Method' },
-  { href: '#community', label: 'Results' },
+  { href: '#programs', label: 'Programs' },
+  { href: '#coaches', label: 'Coaches' },
   { href: '#ecosystem', label: 'Ecosystem' },
-  { href: '#pricing', label: 'Pricing' },
+  { href: '#transformations', label: 'Transformations' },
 ] as const;
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-outline-variant/30">
-      <div className="max-w-container-max mx-auto px-margin-mobile md:px-gutter flex justify-between items-center h-20">
-        <Link
-          href="/"
-          className="font-display-xl text-2xl font-black italic text-electric-orange tracking-tighter"
-        >
-          MR TRAINING
+    <nav className="fixed top-0 w-full z-50 bg-[#131315]/80 backdrop-blur-md border-b border-[#2C2C2E]/30">
+      <div className="max-w-[1280px] mx-auto px-5 md:px-6 flex justify-between items-center h-20">
+        <Link href="/" className="flex items-baseline gap-0">
+          <span className="font-display-xl text-2xl font-black italic text-[#007AFF] tracking-tighter">
+            MR
+          </span>
+          <span className="font-display-xl text-2xl font-black italic text-white tracking-tighter">
+            {' '}TRAINING
+          </span>
         </Link>
 
-        <div className="hidden md:flex space-x-8 items-center">
+        <div className="hidden md:flex space-x-10 items-center">
           {NAV_LINKS.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="font-label-bold text-label-bold uppercase tracking-wider text-on-surface hover:text-electric-orange transition-colors duration-300"
+              className="font-label-bold text-xs uppercase tracking-[0.15em] text-[#e5e1e4] hover:text-[#FF5C00] transition-colors duration-300"
             >
               {link.label}
             </a>
           ))}
-          <Button size="md">JOIN ELITE</Button>
+          <Button size="md">START TRAINING</Button>
         </div>
 
         <button
-          className="md:hidden text-electric-orange"
+          className="md:hidden text-[#FF5C00]"
           onClick={() => setIsOpen(!isOpen)}
           aria-label="Toggle menu"
         >
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            {isOpen ? (
-              <path d="M6 6l12 12M18 6L6 18" />
-            ) : (
-              <path d="M3 12h18M3 6h18M3 18h18" />
-            )}
+            {isOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M3 12h18M3 6h18M3 18h18" />}
           </svg>
         </button>
       </div>
 
       {isOpen && (
-        <div className="md:hidden bg-background/95 backdrop-blur-md border-b border-outline-variant/30">
-          <div className="px-margin-mobile py-4 space-y-4">
+        <div className="md:hidden bg-[#131315]/95 backdrop-blur-md border-b border-[#2C2C2E]/30">
+          <div className="px-5 py-4 space-y-4">
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
-                className="block font-label-bold uppercase tracking-wider text-on-surface hover:text-electric-orange py-2"
+                className="block font-label-bold text-xs uppercase tracking-[0.15em] text-[#e5e1e4] hover:text-[#FF5C00] py-2"
                 onClick={() => setIsOpen(false)}
               >
                 {link.label}
               </a>
             ))}
-            <Button size="md" className="w-full">JOIN ELITE</Button>
+            <Button size="md" className="w-full">
+              START TRAINING
+            </Button>
           </div>
         </div>
       )}
