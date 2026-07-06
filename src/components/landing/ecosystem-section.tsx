@@ -1,80 +1,110 @@
 const FEATURES = [
-  'Direct wearable telemetry sync (Garmin, Whoop, Apple)',
-  'Dynamic CRM dashboard for detailed progress tracking',
-  'Instant communication with your dedicated head coach',
+  {
+    icon: 'person_pin' as const,
+    title: 'Personal Coach',
+    description: 'Daily direct access to elite trainers for adjustments and accountability.',
+  },
+  {
+    icon: 'directions_run' as const,
+    title: 'Running Coach',
+    description: 'Bio-mechanical analysis and personalized marathon preparation protocols.',
+  },
+  {
+    icon: 'devices' as const,
+    title: 'Wearables',
+    description: 'Seamless bi-directional sync with Garmin, Apple Watch, and WHOOP.',
+  },
+  {
+    icon: 'calendar_month' as const,
+    title: 'Elite Events',
+    description: 'Exclusive access to global summits and destination training camps.',
+  },
 ];
 
-const APP_MOCKUP =
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuDhZS0k-zY_zNvRZ39rqXAAjBTILlbkjaI5SfPXRhNzGCAgIiKycxaRLU8b9cTFqMisfRSkm9f4upA4Gr8eH9m-KAOXEakGcc8XL2dSziShID3Z-_P5ES8cyO3iunohnFtqqVS573Jh-jQCwDg2AOubjEEzUA4yfpwDQD8Bul1CgJmYdsqWGH85FYrwaZp_xzVlQFhMn_FKykL7o8KoHyihEDwO91emk3egDde0WxbJgRSi7xIDP52lxnKUtdjmMkmr2K1g67EobsYU';
-
-const CRM_MOCKUP =
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuBtQG05JFHgrx3ywoPFH-ms8kP_ZHQ35KrB6jweAL0qtJ_91zJG8asmorf7PpaRIDpmzLckiLJtmIKYjIU2DDK0LdpMLywxJOLySoXA5HXMwW8iFCU6gRzxAjFBnHtumHiYHoKXabKLcNhKXRju01sVJOShwRsgKnhzFwNNEz4qHWQh6d5jLuA2uECG6yUNrgfZzyUbJQ2Z1z9toDLm1I4SJDIftHHE1OXzuU9kiQz0DB5l0_e5B9y1rueAGK81F3nIjaIkVHopKyFT';
+function FeatureIcon({ icon }: { icon: string }) {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="1.5">
+      {icon === 'person_pin' && (
+        <>
+          <circle cx="9" cy="7" r="4" />
+          <path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" />
+          <path d="M16 3.13a4 4 0 010 7.75" />
+          <path d="M21 21v-2a4 4 0 00-3-3.85" />
+        </>
+      )}
+      {icon === 'directions_run' && (
+        <>
+          <circle cx="13" cy="5" r="2" />
+          <path d="M9 20l3-8 4 8" />
+          <path d="M5 12l4-2 3 3 4-2" />
+        </>
+      )}
+      {icon === 'devices' && (
+        <>
+          <rect x="4" y="4" width="16" height="16" rx="2" />
+          <path d="M8 10h8v6H8z" />
+          <path d="M12 16v2" />
+        </>
+      )}
+      {icon === 'calendar_month' && (
+        <>
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+          <line x1="12" y1="14" x2="12" y2="18" />
+          <line x1="10" y1="16" x2="14" y2="16" />
+        </>
+      )}
+    </svg>
+  );
+}
 
 export function EcosystemSection() {
   return (
-    <section className="py-section-gap-lg overflow-hidden bg-background" id="ecosystem">
-      <div className="max-w-container-max mx-auto px-margin-mobile md:px-gutter">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          <div>
-            <h2 className="font-headline-lg text-3xl md:text-[40px] md:leading-[48px] font-bold uppercase mb-8">
-              Integrated <br />
-              <span className="text-velocity-blue">Ecosystem</span>
-            </h2>
-            <p className="text-lg text-on-surface-variant mb-8 font-body-lg">
-              The MR Training App isn&apos;t just a workout log. It&apos;s a command center that
-              bridges the gap between your physical effort and data-driven insights. Syncs directly
-              with your performance ecosystem.
-            </p>
+    <section className="py-[120px] bg-[#131315]" id="ecosystem">
+      <div className="max-w-[1280px] mx-auto px-5 md:px-6">
+        <div className="text-center mb-16">
+          <h2 className="font-headline-lg text-3xl md:text-[40px] md:leading-[48px] font-bold uppercase mb-4">
+            The MR Training Ecosystem
+          </h2>
+          <p className="text-[#8E8E93] max-w-2xl mx-auto font-body-lg">
+            A 360-degree integration of technology, expert coaching, and data analytics.
+          </p>
+        </div>
 
-            <ul className="space-y-4 mb-10">
-              {FEATURES.map((feature) => (
-                <li key={feature} className="flex items-center gap-3">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-electric-orange shrink-0">
-                    <path d="M9 12l2 2 4-4" />
-                    <circle cx="12" cy="12" r="10" />
-                  </svg>
-                  <span className="font-body-md">{feature}</span>
-                </li>
-              ))}
-            </ul>
-
-            <div className="flex gap-4">
-              <button className="bg-surface-container-highest px-6 py-4 flex items-center gap-3 hover:bg-surface-bright transition-colors border border-outline-variant/30 rounded">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
-                </svg>
-                <div className="text-left">
-                  <p className="text-[10px] uppercase opacity-60 leading-none">Download on the</p>
-                  <p className="font-bold leading-none">App Store</p>
-                </div>
-              </button>
-              <button className="bg-surface-container-highest px-6 py-4 flex items-center gap-3 hover:bg-surface-bright transition-colors border border-outline-variant/30 rounded">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.199l2.807 1.626a1 1 0 010 1.732l-2.807 1.626L15.206 12l2.492-2.492zM5.864 2.658L16.8 8.99l-2.302 2.302-8.634-8.634z" />
-                </svg>
-                <div className="text-left">
-                  <p className="text-[10px] uppercase opacity-60 leading-none">Get it on</p>
-                  <p className="font-bold leading-none">Google Play</p>
-                </div>
-              </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {FEATURES.slice(0, 2).map((feature) => (
+            <div
+              key={feature.title}
+              className="bg-[#1E1E20] border border-[#2C2C2E]/50 rounded-xl p-8 hover:border-[#FF5C00]/50 transition-all duration-500"
+            >
+              <div className="w-14 h-14 bg-[#007AFF]/10 flex items-center justify-center rounded-full mb-6">
+                <FeatureIcon icon={feature.icon} />
+              </div>
+              <h3 className="font-headline-md text-2xl font-bold uppercase mb-3">{feature.title}</h3>
+              <p className="text-[#8E8E93] leading-relaxed">{feature.description}</p>
             </div>
+          ))}
+
+          <div className="md:col-span-2 flex justify-center -my-2">
+            <span className="bg-[#007AFF] text-white px-6 py-2 rounded-full font-label-bold text-xs uppercase tracking-[0.2em]">
+              HUB
+            </span>
           </div>
 
-          <div className="relative">
-            <div className="absolute -inset-10 bg-electric-orange/10 blur-[100px] rounded-full" />
-            <div className="relative z-10 p-4 bg-deep-slate rounded-xl border border-outline-variant/30 shadow-2xl rotate-3">
-              <div
-                className="aspect-[9/19] bg-cover bg-center rounded-lg shadow-inner"
-                style={{ backgroundImage: `url(${APP_MOCKUP})` }}
-              />
+          {FEATURES.slice(2).map((feature) => (
+            <div
+              key={feature.title}
+              className="bg-[#1E1E20] border border-[#2C2C2E]/50 rounded-xl p-8 hover:border-[#FF5C00]/50 transition-all duration-500"
+            >
+              <div className="w-14 h-14 bg-[#007AFF]/10 flex items-center justify-center rounded-full mb-6">
+                <FeatureIcon icon={feature.icon} />
+              </div>
+              <h3 className="font-headline-md text-2xl font-bold uppercase mb-3">{feature.title}</h3>
+              <p className="text-[#8E8E93] leading-relaxed">{feature.description}</p>
             </div>
-            <div className="absolute -bottom-10 -left-10 z-20 p-4 bg-deep-slate rounded-xl border border-velocity-blue shadow-2xl -rotate-6 hidden md:block">
-              <div
-                className="aspect-video w-64 bg-cover bg-center rounded-lg"
-                style={{ backgroundImage: `url(${CRM_MOCKUP})` }}
-              />
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>
