@@ -1,6 +1,6 @@
 import type { RecordModel } from 'pocketbase';
-import { Plan, Subscription, User, Workout, WorkoutProgram } from '@/domain/entities';
-import type { DifficultyLevel, PlanTier, SubscriptionStatus, UserRole } from '@/shared/types';
+import { Exercise, Plan, ProgressMetric, Subscription, User, Workout, WorkoutProgram } from '@/domain/entities';
+import type { DifficultyLevel, MetricType, PlanTier, SubscriptionStatus, UserRole } from '@/shared/types';
 
 export function mapUserRecord(record: RecordModel): User {
   return User.create({
@@ -66,5 +66,31 @@ export function mapWorkoutRecord(record: RecordModel): Workout {
     completedAt: record.completed_at ? new Date(record.completed_at) : null,
     notes: record.notes ?? null,
     createdAt: new Date(record.created),
+  });
+}
+
+export function mapExerciseRecord(record: RecordModel): Exercise {
+  return Exercise.create({
+    id: record.id,
+    workoutId: record.workout_id,
+    name: record.name,
+    sets: record.sets,
+    reps: record.reps,
+    weightKg: record.weight_kg ?? null,
+    restSeconds: record.rest_seconds ?? null,
+    notes: record.notes ?? null,
+    sortOrder: record.sort_order ?? 0,
+    completed: record.completed ?? false,
+  });
+}
+
+export function mapProgressMetricRecord(record: RecordModel): ProgressMetric {
+  return ProgressMetric.create({
+    id: record.id,
+    userId: record.user_id,
+    metricType: record.metric_type as MetricType,
+    value: record.value,
+    unit: record.unit,
+    recordedAt: new Date(record.recorded_at),
   });
 }
