@@ -13,10 +13,12 @@ export function Button({
   children,
   ...props
 }: ButtonProps) {
-  const baseClasses = 'font-label-bold uppercase tracking-widest transition-all duration-200 active:scale-95';
+  const baseClasses =
+    'font-label-bold uppercase tracking-widest transition-all duration-200 active:scale-95';
 
   const variantClasses = {
-    primary: 'bg-electric-orange text-on-primary-container hover:opacity-90 shadow-[0_0_20px_rgba(255,92,0,0.4)]',
+    primary:
+      'bg-electric-orange text-on-primary-container hover:opacity-90 shadow-[0_0_20px_rgba(255,92,0,0.3)]',
     outline: 'border border-on-surface hover:bg-white hover:text-black',
     ghost: 'text-on-surface hover:text-electric-orange',
   };
