@@ -5,26 +5,27 @@ const CTA_BG =
 
 export function CTASection() {
   return (
-    <section className="py-section-gap-lg relative overflow-hidden bg-background">
+    <section className="py-[120px] relative overflow-hidden bg-[#131315]">
       <div className="absolute inset-0 z-0">
         <div
-          className="w-full h-full bg-cover bg-center opacity-40"
+          className="w-full h-full bg-cover bg-center opacity-30"
           style={{ backgroundImage: `url(${CTA_BG})` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#131315] via-[#131315]/60 to-transparent" />
       </div>
 
-      <div className="relative z-10 max-w-container-max mx-auto px-margin-mobile md:px-gutter">
+      <div className="relative z-10 max-w-[1280px] mx-auto px-5 md:px-6">
         <div className="max-w-2xl">
           <h2 className="font-display-xl text-4xl md:text-[40px] md:leading-[48px] font-bold uppercase mb-6 text-white">
-            Ready to <span className="text-electric-orange">Optimize?</span>
+            The best time to start was <span className="text-[#FF5C00]">Yesterday.</span>
+            <br />
+            The second best time is <span className="text-[#007AFF]">Now.</span>
           </h2>
-          <p className="text-lg text-on-surface-variant mb-10 font-body-lg">
-            Stop guessing. Start measuring. Join the elite community and take control of your
-            performance trajectory today.
+          <p className="text-lg text-[#8E8E93] mb-10 font-body-lg">
+            Risk-Free 14-Day Performance Evaluation
           </p>
           <Button size="lg" className="tracking-[0.2em]">
-            Apply for Membership
+            Join the Ecosystem
           </Button>
         </div>
       </div>
