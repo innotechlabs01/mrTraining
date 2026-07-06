@@ -1,6 +1,6 @@
 export function RunningSection() {
   return (
-    <section className="py-[120px] bg-[#1E1E20] overflow-hidden relative">
+    <section className="py-[120px] bg-[#1C1C1C] overflow-hidden relative">
       <div className="absolute inset-0 z-0 opacity-20">
         <div
           className="w-full h-full bg-cover bg-center"
@@ -19,13 +19,13 @@ export function RunningSection() {
             </blockquote>
             <div className="space-y-6">
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-[#FF5C00]/10 rounded-full flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 bg-[#FF6B00]/10 rounded-full flex items-center justify-center shrink-0">
                   <svg
                     width="20"
                     height="20"
                     viewBox="0 0 24 24"
                     fill="none"
-                    stroke="#FF5C00"
+                    stroke="#FF6B00"
                     strokeWidth="2"
                   >
                     <circle cx="12" cy="12" r="10" />
@@ -36,19 +36,19 @@ export function RunningSection() {
                   <h4 className="font-label-bold text-sm uppercase tracking-wider mb-1">
                     Race Preparation
                   </h4>
-                  <p className="text-sm text-[#8E8E93]">
+                  <p className="text-sm text-[#C4C7C7]">
                     Customized plans for 10K, Half, and Full Marathons with taper-logic.
                   </p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-[#FF5C00]/10 rounded-full flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 bg-[#FF6B00]/10 rounded-full flex items-center justify-center shrink-0">
                   <svg
                     width="20"
                     height="20"
                     viewBox="0 0 24 24"
                     fill="none"
-                    stroke="#FF5C00"
+                    stroke="#FF6B00"
                     strokeWidth="2"
                   >
                     <path d="M2 16l4-4 4 4 4-4 4 4" />
@@ -59,7 +59,7 @@ export function RunningSection() {
                   <h4 className="font-label-bold text-sm uppercase tracking-wider mb-1">
                     Gait Analysis
                   </h4>
-                  <p className="text-sm text-[#8E8E93]">
+                  <p className="text-sm text-[#C4C7C7]">
                     Video review of your running form by Olympic-level biomechanics experts.
                   </p>
                 </div>

@@ -60,7 +60,7 @@ export function PricingSection() {
   const router = useRouter();
 
   return (
-    <section className="py-[120px] bg-[#131315]" id="pricing">
+    <section className="py-[120px] bg-[#0F0F0F]" id="pricing">
       <div className="max-w-[1280px] mx-auto px-5 md:px-6">
         <div className="text-center mb-16">
           <h2 className="font-headline-lg text-3xl md:text-[40px] md:leading-[48px] font-bold uppercase mb-4">
@@ -72,16 +72,16 @@ export function PricingSection() {
           {PLANS.map((plan) => (
             <div
               key={plan.name}
-              className={`bg-[#1E1E20] border rounded-xl p-8 flex flex-col relative ${
-                plan.featured ? 'border-[#FF5C00] shadow-2xl scale-105' : 'border-[#2C2C2E]/50'
+              className={`bg-[#1C1C1C] border rounded-xl p-8 flex flex-col relative ${
+                plan.featured ? 'border-[#FF6B00] shadow-2xl scale-105' : 'border-[#2C2C2C]/50'
               }`}
             >
               {plan.badge && (
                 <div
                   className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 px-4 py-1 font-label-bold text-[10px] uppercase tracking-widest rounded-full ${
                     plan.featured
-                      ? 'bg-[#FF5C00] text-[#131315]'
-                      : 'bg-[#007AFF] text-white'
+                      ? 'bg-[#FF6B00] text-[#0F0F0F]'
+                      : 'bg-[#0066FF] text-white'
                   }`}
                 >
                   {plan.badge}
@@ -90,16 +90,16 @@ export function PricingSection() {
 
               <h3
                 className={`font-headline-md text-2xl font-bold uppercase mb-2 ${
-                  plan.featured ? 'text-[#FF5C00]' : ''
+                  plan.featured ? 'text-[#FF6B00]' : ''
                 }`}
               >
                 {plan.name}
               </h3>
-              <p className="text-[#8E8E93] mb-6 font-body-md text-sm">{plan.tagline}</p>
+              <p className="text-[#C4C7C7] mb-6 font-body-md text-sm">{plan.tagline}</p>
 
               <div className="mb-8">
                 <span className="text-4xl font-extrabold text-white">{plan.price}</span>
-                {plan.period && <span className="text-[#8E8E93] font-body-md">{plan.period}</span>}
+                {plan.period && <span className="text-[#C4C7C7] font-body-md">{plan.period}</span>}
               </div>
 
               <ul className="space-y-4 mb-10 flex-grow">
@@ -110,7 +110,7 @@ export function PricingSection() {
                       height="16"
                       viewBox="0 0 24 24"
                       fill="none"
-                      stroke={plan.featured ? '#FF5C00' : '#007AFF'}
+                      stroke={plan.featured ? '#FF6B00' : '#0066FF'}
                       strokeWidth="2"
                       className="shrink-0"
                     >
@@ -154,7 +154,7 @@ export function PricingSection() {
                 </Button>
               ) : (
                 <Button
-                  variant={plan.featured ? 'primary' : 'outline'}
+                  variant={plan.featured ? 'primary' : 'secondary'}
                   className="w-full"
                   onClick={() => handlePlanSelect(plan.name.toLowerCase(), plan.priceId!)}
                   disabled={loading === plan.name.toLowerCase()}

@@ -25,7 +25,7 @@ const TECH_FEATURES = [
 
 export function TechAdvantage() {
   return (
-    <section className="py-[120px] bg-[#1E1E20]">
+    <section className="py-[120px] bg-[#1C1C1C]">
       <div className="max-w-[1280px] mx-auto px-5 md:px-6">
         <SectionHeading
           title="The Apex Tech Advantage"
@@ -37,15 +37,15 @@ export function TechAdvantage() {
           {TECH_FEATURES.map((feature) => (
             <div
               key={feature.title}
-              className="bg-[#131315] border border-[#2C2C2E]/50 rounded-xl p-8 text-center hover:border-[#007AFF]/50 transition-all duration-500"
+              className="bg-[#0F0F0F] border border-[#2C2C2C]/50 rounded-xl p-8 text-center hover:border-[#0066FF]/50 transition-all duration-500"
             >
-              <div className="w-16 h-16 bg-[#007AFF]/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="w-16 h-16 bg-[#0066FF]/10 rounded-full flex items-center justify-center mx-auto mb-6">
                 <svg
                   width="28"
                   height="28"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#007AFF"
+                  stroke="#0066FF"
                   strokeWidth="1.5"
                 >
                   {feature.icon === 'sync' && (
@@ -82,7 +82,7 @@ export function TechAdvantage() {
               <h3 className="font-headline-md text-lg font-bold uppercase mb-3">
                 {feature.title}
               </h3>
-              <p className="text-[#8E8E93] text-sm leading-relaxed">{feature.description}</p>
+              <p className="text-[#C4C7C7] text-sm leading-relaxed">{feature.description}</p>
             </div>
           ))}
         </div>

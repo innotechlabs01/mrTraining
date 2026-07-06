@@ -29,7 +29,7 @@ const COACHES = [
 
 export function CoachesSection() {
   return (
-    <section className="py-[120px] bg-[#131315]" id="coaches">
+    <section className="py-[120px] bg-[#0F0F0F]" id="coaches">
       <div className="max-w-[1280px] mx-auto px-5 md:px-6">
         <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
           <SectionHeading
@@ -37,7 +37,7 @@ export function CoachesSection() {
             subtitle="Lead by the world's most sought-after performance specialists."
             className="mb-0"
           />
-          <button className="flex items-center gap-2 text-[#FF5C00] font-label-bold text-xs uppercase tracking-[0.2em] group shrink-0">
+          <button className="flex items-center gap-2 text-[#FF6B00] font-label-bold text-xs uppercase tracking-[0.2em] group shrink-0">
             View All Coaches{' '}
             <span className="group-hover:translate-x-2 transition-transform">&rarr;</span>
           </button>
@@ -47,21 +47,21 @@ export function CoachesSection() {
           {COACHES.map((coach) => (
             <div
               key={coach.name}
-              className="bg-[#1E1E20] border border-[#2C2C2E]/50 rounded-xl p-8 hover:border-[#007AFF]/50 transition-all duration-500"
+              className="bg-[#1C1C1C] border border-[#2C2C2C]/50 rounded-xl p-8 hover:border-[#0066FF]/50 transition-all duration-500"
             >
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-[#007AFF] to-[#007AFF]/60 rounded-full flex items-center justify-center text-white font-headline-md text-xl font-bold">
+                <div className="w-16 h-16 bg-gradient-to-br from-[#0066FF] to-[#0066FF]/60 rounded-full flex items-center justify-center text-white font-headline-md text-xl font-bold">
                   {coach.initials}
                 </div>
                 <div>
-                  <span className="inline-block px-3 py-1 bg-[#007AFF]/20 border border-[#007AFF]/30 text-[#007AFF] font-label-bold text-[10px] uppercase tracking-[0.15em] rounded mb-2">
+                  <span className="inline-block px-3 py-1 bg-[#0066FF]/20 border border-[#0066FF]/30 text-[#0066FF] font-label-bold text-[10px] uppercase tracking-[0.15em] rounded mb-2">
                     {coach.specialty}
                   </span>
                   <h3 className="font-headline-md text-lg font-bold">{coach.name}</h3>
-                  <p className="text-xs text-[#8E8E93]">{coach.role}</p>
+                  <p className="text-xs text-[#C4C7C7]">{coach.role}</p>
                 </div>
               </div>
-              <p className="text-[#8E8E93] text-sm leading-relaxed">{coach.description}</p>
+              <p className="text-[#C4C7C7] text-sm leading-relaxed">{coach.description}</p>
             </div>
           ))}
         </div>

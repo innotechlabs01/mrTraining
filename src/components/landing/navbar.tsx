@@ -15,10 +15,10 @@ export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-[#131315]/80 backdrop-blur-md border-b border-[#2C2C2E]/30">
+    <nav className="fixed top-0 w-full z-50 bg-[#0F0F0F]/80 backdrop-blur-md border-b border-[#2C2C2C]/30">
       <div className="max-w-[1280px] mx-auto px-5 md:px-6 flex justify-between items-center h-20">
         <Link href="/" className="flex items-baseline gap-0">
-          <span className="font-display-xl text-2xl font-black italic text-[#007AFF] tracking-tighter">
+          <span className="font-display-xl text-2xl font-black italic text-[#0066FF] tracking-tighter">
             MR
           </span>
           <span className="font-display-xl text-2xl font-black italic text-white tracking-tighter">
@@ -31,7 +31,7 @@ export function Navbar() {
             <a
               key={link.href}
               href={link.href}
-              className="font-label-bold text-xs uppercase tracking-[0.15em] text-[#e5e1e4] hover:text-[#FF5C00] transition-colors duration-300"
+              className="font-label-bold text-xs uppercase tracking-[0.15em] text-[#E2E2E2] hover:text-[#FF6B00] transition-colors duration-300"
             >
               {link.label}
             </a>
@@ -40,7 +40,7 @@ export function Navbar() {
         </div>
 
         <button
-          className="md:hidden text-[#FF5C00]"
+          className="md:hidden text-[#FF6B00]"
           onClick={() => setIsOpen(!isOpen)}
           aria-label="Toggle menu"
         >
@@ -51,13 +51,13 @@ export function Navbar() {
       </div>
 
       {isOpen && (
-        <div className="md:hidden bg-[#131315]/95 backdrop-blur-md border-b border-[#2C2C2E]/30">
+        <div className="md:hidden bg-[#0F0F0F]/95 backdrop-blur-md border-b border-[#2C2C2C]/30">
           <div className="px-5 py-4 space-y-4">
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
-                className="block font-label-bold text-xs uppercase tracking-[0.15em] text-[#e5e1e4] hover:text-[#FF5C00] py-2"
+                className="block font-label-bold text-xs uppercase tracking-[0.15em] text-[#E2E2E2] hover:text-[#FF6B00] py-2"
                 onClick={() => setIsOpen(false)}
               >
                 {link.label}

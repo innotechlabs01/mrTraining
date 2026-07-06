@@ -5,23 +5,23 @@ const CTA_BG =
 
 export function CTASection() {
   return (
-    <section className="py-[120px] relative overflow-hidden bg-[#131315]">
+    <section className="py-[120px] relative overflow-hidden bg-[#0F0F0F]">
       <div className="absolute inset-0 z-0">
         <div
           className="w-full h-full bg-cover bg-center opacity-30"
           style={{ backgroundImage: `url(${CTA_BG})` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#131315] via-[#131315]/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0F0F0F] via-[#0F0F0F]/60 to-transparent" />
       </div>
 
       <div className="relative z-10 max-w-[1280px] mx-auto px-5 md:px-6">
         <div className="max-w-2xl">
           <h2 className="font-display-xl text-4xl md:text-[40px] md:leading-[48px] font-bold uppercase mb-6 text-white">
-            The best time to start was <span className="text-[#FF5C00]">Yesterday.</span>
+            The best time to start was <span className="text-[#FF6B00]">Yesterday.</span>
             <br />
-            The second best time is <span className="text-[#007AFF]">Now.</span>
+            The second best time is <span className="text-[#0066FF]">Now.</span>
           </h2>
-          <p className="text-lg text-[#8E8E93] mb-10 font-body-lg">
+          <p className="text-lg text-[#C4C7C7] mb-10 font-body-lg">
             Risk-Free 14-Day Performance Evaluation
           </p>
           <Button size="lg" className="tracking-[0.2em]">

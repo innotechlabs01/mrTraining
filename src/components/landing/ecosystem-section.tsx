@@ -23,7 +23,7 @@ const FEATURES = [
 
 function FeatureIcon({ icon }: { icon: string }) {
   return (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="1.5">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0066FF" strokeWidth="1.5">
       {icon === 'person_pin' && (
         <>
           <circle cx="9" cy="7" r="4" />
@@ -62,13 +62,13 @@ function FeatureIcon({ icon }: { icon: string }) {
 
 export function EcosystemSection() {
   return (
-    <section className="py-[120px] bg-[#131315]" id="ecosystem">
+    <section className="py-[120px] bg-[#0F0F0F]" id="ecosystem">
       <div className="max-w-[1280px] mx-auto px-5 md:px-6">
         <div className="text-center mb-16">
           <h2 className="font-headline-lg text-3xl md:text-[40px] md:leading-[48px] font-bold uppercase mb-4">
             The MR Training Ecosystem
           </h2>
-          <p className="text-[#8E8E93] max-w-2xl mx-auto font-body-lg">
+          <p className="text-[#C4C7C7] max-w-2xl mx-auto font-body-lg">
             A 360-degree integration of technology, expert coaching, and data analytics.
           </p>
         </div>
@@ -77,18 +77,18 @@ export function EcosystemSection() {
           {FEATURES.slice(0, 2).map((feature) => (
             <div
               key={feature.title}
-              className="bg-[#1E1E20] border border-[#2C2C2E]/50 rounded-xl p-8 hover:border-[#FF5C00]/50 transition-all duration-500"
+              className="bg-[#1C1C1C] border border-[#2C2C2C]/50 rounded-xl p-8 hover:border-[#FF6B00]/50 transition-all duration-500"
             >
-              <div className="w-14 h-14 bg-[#007AFF]/10 flex items-center justify-center rounded-full mb-6">
+              <div className="w-14 h-14 bg-[#0066FF]/10 flex items-center justify-center rounded-full mb-6">
                 <FeatureIcon icon={feature.icon} />
               </div>
               <h3 className="font-headline-md text-2xl font-bold uppercase mb-3">{feature.title}</h3>
-              <p className="text-[#8E8E93] leading-relaxed">{feature.description}</p>
+              <p className="text-[#C4C7C7] leading-relaxed">{feature.description}</p>
             </div>
           ))}
 
           <div className="md:col-span-2 flex justify-center -my-2">
-            <span className="bg-[#007AFF] text-white px-6 py-2 rounded-full font-label-bold text-xs uppercase tracking-[0.2em]">
+            <span className="bg-[#0066FF] text-white px-6 py-2 rounded-full font-label-bold text-xs uppercase tracking-[0.2em]">
               HUB
             </span>
           </div>
@@ -96,13 +96,13 @@ export function EcosystemSection() {
           {FEATURES.slice(2).map((feature) => (
             <div
               key={feature.title}
-              className="bg-[#1E1E20] border border-[#2C2C2E]/50 rounded-xl p-8 hover:border-[#FF5C00]/50 transition-all duration-500"
+              className="bg-[#1C1C1C] border border-[#2C2C2C]/50 rounded-xl p-8 hover:border-[#FF6B00]/50 transition-all duration-500"
             >
-              <div className="w-14 h-14 bg-[#007AFF]/10 flex items-center justify-center rounded-full mb-6">
+              <div className="w-14 h-14 bg-[#0066FF]/10 flex items-center justify-center rounded-full mb-6">
                 <FeatureIcon icon={feature.icon} />
               </div>
               <h3 className="font-headline-md text-2xl font-bold uppercase mb-3">{feature.title}</h3>
-              <p className="text-[#8E8E93] leading-relaxed">{feature.description}</p>
+              <p className="text-[#C4C7C7] leading-relaxed">{feature.description}</p>
             </div>
           ))}
         </div>
