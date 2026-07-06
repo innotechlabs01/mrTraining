@@ -3,14 +3,14 @@
 @theme {
   --color-secondary: #ffb693;
   --color-on-secondary-fixed-variant: #7a3000;
-  --color-surface-dim: #121414;
+  --color-surface-dim: #0F0F0F;
   --color-error: #ffb4ab;
   --color-surface-container: #1e2020;
   --color-primary: #c8c6c5;
   --color-deep-slate: #1a1c1c;
   --color-on-tertiary-fixed-variant: #003fa4;
   --color-on-tertiary-container: #3072ff;
-  --color-surface: #121414;
+  --color-surface: #0F0F0F;
   --color-primary-fixed: #e5e2e1;
   --color-secondary-fixed-dim: #ffb693;
   --color-tertiary: #b3c5ff;
@@ -25,8 +25,8 @@
   --color-on-tertiary-fixed: #001849;
   --color-on-error-container: #ffdad6;
   --color-tertiary-container: #000c2e;
-  --color-velocity-blue: #007AFF;
-  --color-performance-blue: #007AFF;
+  --color-velocity-blue: #0066FF;
+  --color-performance-blue: #0066FF;
   --color-surface-variant: #333535;
   --color-on-secondary-container: #572000;
   --color-on-primary-fixed-variant: #474646;
@@ -41,12 +41,12 @@
   --color-inverse-on-surface: #2f3131;
   --color-on-error: #690005;
   --color-on-primary-fixed: #1c1b1b;
-  --color-electric-orange: #FF5C00;
+  --color-electric-orange: #FF6B00;
   --color-on-primary-container: #7d7b7b;
   --color-surface-container-low: #1a1c1c;
   --color-on-tertiary: #002b75;
   --color-on-surface: #e2e2e2;
-  --color-background: #121414;
+  --color-background: #0F0F0F;
   --color-secondary-container: #fe6b00;
   --color-tertiary-fixed: #dae1ff;
   --color-primary-container: #0f0f0f;
@@ -74,17 +74,17 @@
 }
 
 .glass-card {
-  background: rgba(30, 32, 32, 0.7);
+  background: rgba(28, 28, 28, 0.7);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .hero-gradient {
-  background: linear-gradient(0deg, #121414 0%, rgba(18, 20, 20, 0.4) 50%, rgba(18, 20, 20, 0) 100%);
+  background: linear-gradient(0deg, #0F0F0F 0%, rgba(15, 15, 15, 0.4) 50%, rgba(15, 15, 15, 0) 100%);
 }
 
 .text-glow:hover {
-  text-shadow: 0 0 15px rgba(254, 107, 0, 0.6);
+  text-shadow: 0 0 15px rgba(255, 107, 0, 0.6);
 }
 
 .masonry {

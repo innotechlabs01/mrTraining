@@ -1,7 +1,7 @@
 import { cn } from '@/shared/lib/cn';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'outline' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'outline';
   size?: 'sm' | 'md' | 'lg';
   children: React.ReactNode;
 }
@@ -18,9 +18,9 @@ export function Button({
 
   const variantClasses = {
     primary:
-      'bg-electric-orange text-on-primary-container hover:opacity-90 shadow-[0_0_20px_rgba(255,92,0,0.3)]',
-    outline: 'border border-on-surface hover:bg-white hover:text-black',
-    ghost: 'text-on-surface hover:text-electric-orange',
+      'bg-electric-orange text-black hover:opacity-90 shadow-[0_8px_32px_rgba(0,0,0,0.5)]',
+    secondary: 'bg-performance-blue text-white hover:opacity-90',
+    outline: 'border-2 border-white text-white hover:bg-white hover:text-black',
   };
 
   const sizeClasses = {
