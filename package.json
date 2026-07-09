@@ -1,0 +1,16 @@
+{
+  "name": "mr-training",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @mrtraining/web dev",
+    "build": "pnpm --filter @mrtraining/web build",
+    "lint": "pnpm --filter @mrtraining/web lint",
+    "test": "node_modules/.bin/jest"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1",
+    "ts-jest": "^29.4.11"
+  }
+}
