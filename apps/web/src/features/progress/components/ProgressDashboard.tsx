@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import { SportScoreCard } from './SportScoreCard';
 import { ProgressComparisonChart } from './ProgressComparisonChart';
 import { ProgressTrendChart } from './ProgressTrendChart';
@@ -29,7 +30,50 @@ interface ProgressDashboardProps {
   className?: string;
 }
 
-export function ProgressDashboard({ sportScores, trends, insights, className }: ProgressDashboardProps) {
+function ProgressDashboardBase({ sportScores, trends, insights, className }: ProgressDashboardProps) {
+  const chartSports = useMemo(
+    () =>
+      sportScores.map((s) => ({
+        label: s.label,
+        score: s.score,
+        color: s.color,
+        icon: s.icon,
+      })),
+    [sportScores]
+  );
+
+  const sportCards = useMemo(
+    () =>
+      sportScores.map((sport) => {
+        const config = SPORTS_CONFIG[sport.label.toLowerCase()];
+        return (
+          <SportScoreCard
+            key={sport.label}
+            sportLabel={sport.label}
+            icon={sport.icon}
+            color={sport.color}
+            score={sport.score}
+            metrics={sport.metrics}
+          />
+        );
+      }),
+    [sportScores]
+  );
+
+  const trendCharts = useMemo(
+    () =>
+      trends.map((t) => (
+        <ProgressTrendChart
+          key={t.sportLabel}
+          data={t.data}
+          sportLabel={t.sportLabel}
+          color={t.color}
+          trend={t.trend}
+        />
+      )),
+    [trends]
+  );
+
   return (
     <div className={className}>
       <div className="mb-8">
@@ -40,30 +84,11 @@ export function ProgressDashboard({ sportScores, trends, insights, className }: 
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
-        {sportScores.map((sport) => {
-          const config = SPORTS_CONFIG[sport.label.toLowerCase()];
-          return (
-            <SportScoreCard
-              key={sport.label}
-              sportLabel={sport.label}
-              icon={sport.icon}
-              color={sport.color}
-              score={sport.score}
-              metrics={sport.metrics}
-            />
-          );
-        })}
+        {sportCards}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 mb-8">
-        <ProgressComparisonChart
-          sports={sportScores.map((s) => ({
-            label: s.label,
-            score: s.score,
-            color: s.color,
-            icon: s.icon,
-          }))}
-        />
+        <ProgressComparisonChart sports={chartSports} />
         <ActionableInsights insights={insights} />
       </div>
 
@@ -71,18 +96,12 @@ export function ProgressDashboard({ sportScores, trends, insights, className }: 
         <div>
           <h2 className="text-xl font-semibold mb-4">Trends Over Time</h2>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {trends.map((t) => (
-              <ProgressTrendChart
-                key={t.sportLabel}
-                data={t.data}
-                sportLabel={t.sportLabel}
-                color={t.color}
-                trend={t.trend}
-              />
-            ))}
+            {trendCharts}
           </div>
         </div>
       )}
     </div>
   );
 }
+
+export const ProgressDashboard = memo(ProgressDashboardBase);
