@@ -11,7 +11,7 @@ export default function SignUpPage() {
     <AuthShell title="Create your account" subtitle="Join MR Training today">
       <SignUpForm
         onSuccess={() => router.push('/role-selection')}
-        onBack={() => router.push('/welcome')}
+        onBack={() => router.push('/')}
       />
     </AuthShell>
   );

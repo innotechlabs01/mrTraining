@@ -8,7 +8,7 @@ export default function WelcomeDashboardPage() {
 
   return (
     <WelcomeDashboard
-      onGoToDashboard={() => router.push('/')}
+      onGoToDashboard={() => router.push('/athlete/today')}
     />
   );
 }

@@ -13,7 +13,7 @@ export default function OrganizationInvitePage() {
         type="organization"
         inviterName="Your Coach"
         onAccept={() => router.push('/welcome-dashboard')}
-        onDecline={() => router.push('/welcome')}
+        onDecline={() => router.push('/')}
       />
     </AuthShell>
   );

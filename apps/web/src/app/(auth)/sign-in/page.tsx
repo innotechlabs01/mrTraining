@@ -10,9 +10,9 @@ export default function SignInPage() {
   return (
     <AuthShell title="Welcome back" subtitle="Sign in to your MR Training account">
       <SignInForm
-        onSuccess={() => router.push('/welcome-dashboard')}
+        onSuccess={() => router.push('/athlete/today')}
         onForgotPassword={() => router.push('/forgot-password')}
-        onBack={() => router.push('/welcome')}
+        onBack={() => router.push('/')}
       />
     </AuthShell>
   );
