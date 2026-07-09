@@ -16,7 +16,7 @@ export interface CreateNutritionGoalsCommand {
   dailyVariability?: number;
 }
 
-export interface NutritionGoals {
+export interface NutritionGoalsProps {
   id: string;
   athleteId: string;
   organizationId: string;

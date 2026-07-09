@@ -7,7 +7,7 @@ describe('Recipe', () => {
       athleteId: 'athlete-123',
       organizationId: 'org-456',
       servings: 2,
-      difficulty: 'easy',
+      difficulty: 'easy' as const,
       ingredients: [
         {
           id: 'ing-1',

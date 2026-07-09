@@ -10,14 +10,27 @@ export interface CreateShoppingItemCommand {
   estimatedCost?: number;
 }
 
-export interface ShoppingItem {
+export type ShoppingItemCategory =
+  | 'produce'
+  | 'protein'
+  | 'dairy'
+  | 'grains'
+  | 'pantry'
+  | 'frozen'
+  | 'beverages'
+  | 'snacks'
+  | 'other';
+
+export type ShoppingItemPriority = 'essential' | 'optional' | 'extra';
+
+export interface ShoppingItemProps {
   id: string;
   shoppingListId: string;
   name: string;
   quantity: number;
   unit: string;
-  category: 'produce' | 'protein' | 'dairy' | 'grains' | 'pantry' | 'frozen' | 'beverages' | 'snacks' | 'other';
-  priority: 'essential' | 'optional' | 'extra';
+  category: ShoppingItemCategory;
+  priority: ShoppingItemPriority;
   notes?: string;
   unitPrice?: number;
   estimatedCost?: number;
@@ -32,8 +45,8 @@ export class ShoppingItem {
   readonly name: string;
   readonly quantity: number;
   readonly unit: string;
-  readonly category: 'produce' | 'protein' | 'dairy' | 'grains' | 'pantry' | 'frozen' | 'beverages' | 'snacks' | 'other';
-  readonly priority: 'essential' | 'optional' | 'extra';
+  readonly category: ShoppingItemCategory;
+  readonly priority: ShoppingItemPriority;
   readonly notes?: string;
   readonly unitPrice?: number;
   readonly estimatedCost?: number;
@@ -41,34 +54,20 @@ export class ShoppingItem {
   readonly createdAt: string;
   readonly updatedAt: string;
 
-  private constructor(
-    id: string,
-    shoppingListId: string,
-    name: string,
-    quantity: number,
-    unit: string,
-    category: 'produce' | 'protein' | 'dairy' | 'grains' | 'pantry' | 'frozen' | 'beverages' | 'snacks' | 'other',
-    priority: 'essential' | 'optional' | 'extra',
-    notes?: string,
-    unitPrice?: number,
-    estimatedCost?: number,
-    isPurchased: boolean = false,
-    createdAt?: string,
-    updatedAt?: string
-  ) {
-    this.id = id;
-    this.shoppingListId = shoppingListId;
-    this.name = name;
-    this.quantity = quantity;
-    this.unit = unit;
-    this.category = category;
-    this.priority = priority;
-    this.notes = notes;
-    this.unitPrice = unitPrice;
-    this.estimatedCost = estimatedCost;
-    this.isPurchased = isPurchased;
-    this.createdAt = createdAt || new Date().toISOString();
-    this.updatedAt = updatedAt || new Date().toISOString();
+  constructor(props: ShoppingItemProps) {
+    this.id = props.id;
+    this.shoppingListId = props.shoppingListId;
+    this.name = props.name;
+    this.quantity = props.quantity;
+    this.unit = props.unit;
+    this.category = props.category;
+    this.priority = props.priority;
+    this.notes = props.notes;
+    this.unitPrice = props.unitPrice;
+    this.estimatedCost = props.estimatedCost;
+    this.isPurchased = props.isPurchased;
+    this.createdAt = props.createdAt;
+    this.updatedAt = props.updatedAt;
 
     this.validate();
   }
@@ -87,21 +86,44 @@ export class ShoppingItem {
 
   static create(command: CreateShoppingItemCommand, shoppingListId: string): ShoppingItem {
     const estimatedCost = command.unitPrice ? command.unitPrice * command.quantity : undefined;
+    const now = new Date().toISOString();
 
-    return new ShoppingItem(
-      crypto.randomUUID(),
+    return new ShoppingItem({
+      id: crypto.randomUUID(),
       shoppingListId,
-      command.name,
-      command.quantity,
-      command.unit,
-      command.category,
-      command.priority || 'essential',
-      command.notes,
-      command.unitPrice,
+      name: command.name,
+      quantity: command.quantity,
+      unit: command.unit,
+      category: command.category,
+      priority: command.priority || 'essential',
+      notes: command.notes,
+      unitPrice: command.unitPrice,
       estimatedCost,
-      false,
-      new Date().toISOString(),
-      new Date().toISOString()
-    );
+      isPurchased: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  static fromProps(props: ShoppingItemProps): ShoppingItem {
+    return new ShoppingItem(props);
+  }
+
+  toProps(): ShoppingItemProps {
+    return {
+      id: this.id,
+      shoppingListId: this.shoppingListId,
+      name: this.name,
+      quantity: this.quantity,
+      unit: this.unit,
+      category: this.category,
+      priority: this.priority,
+      notes: this.notes,
+      unitPrice: this.unitPrice,
+      estimatedCost: this.estimatedCost,
+      isPurchased: this.isPurchased,
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
+    };
   }
 }

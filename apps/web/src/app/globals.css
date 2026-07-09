@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-brand-primary: #FF6B00;
+    --color-brand-secondary: #0066FF;
+    --color-success: #00C853;
+    --color-error: #FF3D00;
+    --color-warning: #FFB300;
+
+    --font-display: 'Montserrat', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2A2A2C transparent;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    background-color: #0A0B0D;
+    color: #FFFFFF;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: rgba(255, 107, 0, 0.3);
+    color: #FFFFFF;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .text-gradient-orange {
+    background: linear-gradient(135deg, #FF6B00, #FF8A33);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .glass-card-hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .section-container {
+    @apply mx-auto max-w-7xl px-6 lg:px-8;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}

@@ -83,7 +83,7 @@ export class MealPlan {
     this._meals = meals;
   }
 
-  static create(command: CreateMealPlanCommand): MealPlan {
+  static create(command: CreateMealPlanCommand, meals?: MealSchedule[]): MealPlan {
     return new MealPlan(
       crypto.randomUUID(),
       command.name,
@@ -94,7 +94,8 @@ export class MealPlan {
       command.nutritionGoals,
       command.description,
       command.tags,
-      'draft'
+      'draft',
+      meals || []
     );
   }
 

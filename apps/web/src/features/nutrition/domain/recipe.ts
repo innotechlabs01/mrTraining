@@ -83,11 +83,14 @@ export class Recipe {
     organizationId: string,
     servings: number,
     difficulty: 'easy' | 'medium' | 'hard',
+    instructions: string[],
+    ingredients: RecipeIngredient[],
+    createdAt: string,
+    updatedAt: string,
+    createdBy: string,
     tags?: string[],
     prepTime?: number,
     cookTime?: number,
-    instructions: string[],
-    ingredients: RecipeIngredient[],
     images?: RecipeImage[],
     calories?: number,
     protein?: number,
@@ -96,9 +99,6 @@ export class Recipe {
     fiber?: number,
     sugar?: number,
     sodium?: number,
-    createdAt: string,
-    updatedAt: string,
-    createdBy: string,
     suggestions?: string[]
   ) {
     this.id = id;
@@ -143,6 +143,26 @@ export class Recipe {
     }
   }
 
+  static fromProps(props: {
+    id: string; name: string; athleteId: string; organizationId: string;
+    servings: number; difficulty: 'easy' | 'medium' | 'hard';
+    instructions: string[]; ingredients: RecipeIngredient[];
+    createdAt: string; updatedAt: string; createdBy: string;
+    tags?: string[]; prepTime?: number; cookTime?: number; images?: RecipeImage[];
+    calories?: number; protein?: number; carbs?: number; fat?: number;
+    fiber?: number; sugar?: number; sodium?: number;
+  }): Recipe {
+    return new Recipe(
+      props.id, props.name, props.athleteId, props.organizationId,
+      props.servings, props.difficulty,
+      props.instructions, props.ingredients,
+      props.createdAt, props.updatedAt, props.createdBy,
+      props.tags, props.prepTime, props.cookTime, props.images,
+      props.calories, props.protein, props.carbs, props.fat,
+      props.fiber, props.sugar, props.sodium
+    );
+  }
+
   static create(command: CreateRecipeCommand, createdBy: string): Recipe {
     const nutrition = calculateNutrition(command.ingredients, command.servings);
     const now = new Date().toISOString();
@@ -154,11 +174,14 @@ export class Recipe {
       command.organizationId,
       command.servings,
       command.difficulty,
+      command.instructions,
+      command.ingredients,
+      now,
+      now,
+      createdBy,
       command.tags,
       command.prepTime,
       command.cookTime,
-      command.instructions,
-      command.ingredients,
       command.images || [],
       nutrition.calories,
       nutrition.protein,
@@ -166,10 +189,7 @@ export class Recipe {
       nutrition.fat,
       nutrition.fiber,
       nutrition.sugar,
-      nutrition.sodium,
-      now,
-      now,
-      createdBy
+      nutrition.sodium
     );
   }
 
