@@ -2,7 +2,8 @@
 
 import { motion } from 'framer-motion'
 import { Workout, WorkoutHistoryEntry } from '../types'
-import { formatDuration, formatDate, WORKOUT_GOAL_LABELS, WORKOUT_TYPE_LABELS } from '../hooks/helpers'
+import { formatDuration, formatDate } from '../hooks/helpers'
+import { WORKOUT_GOAL_LABELS, WORKOUT_TYPE_LABELS } from '../data/_mocks'
 import { cn } from '@/lib/utils'
 import { Play, Clock, Target, ChevronRight, CheckCircle2, Circle, AlertCircle, MoreVertical } from 'lucide-react'
 

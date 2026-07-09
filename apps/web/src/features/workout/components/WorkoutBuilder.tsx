@@ -431,9 +431,9 @@ function ExerciseBlock({
         className="flex items-center gap-2 p-3 cursor-pointer hover:bg-[#1C1C1C] transition-colors"
         onClick={onToggleExpand}
       >
-        <Reorder.Handle className="cursor-grab text-[rgba(255,255,255,0.4)] hover:text-[rgba(255,255,255,0.7)]">
+        <div className="cursor-grab text-[rgba(255,255,255,0.4)] hover:text-[rgba(255,255,255,0.7)]">
           <GripVertical className="w-5 h-5" />
-        </Reorder.Handle>
+        </div>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-[#FFFFFF] truncate">
             {exercise.exerciseName || 'Select exercise'}

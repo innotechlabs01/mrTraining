@@ -33,13 +33,16 @@ export default function RecipeDetailPage({ params }: { params: { id: string } })
       </div>
 
       <NutritionLabel
-        calories={recipe.calories ?? 0}
-        protein={recipe.protein ?? 0}
-        carbs={recipe.carbs ?? 0}
-        fat={recipe.fat ?? 0}
-        fiber={recipe.fiber}
-        sugar={recipe.sugar}
-        sodium={recipe.sodium}
+        title="Nutrition per serving"
+        values={[
+          { label: 'Calories', value: recipe.calories ?? 0, unit: ' kcal' },
+          { label: 'Protein', value: recipe.protein ?? 0, unit: 'g' },
+          { label: 'Carbs', value: recipe.carbs ?? 0, unit: 'g' },
+          { label: 'Fat', value: recipe.fat ?? 0, unit: 'g' },
+          ...(recipe.fiber !== undefined ? [{ label: 'Fiber', value: recipe.fiber!, unit: 'g' }] : []),
+          ...(recipe.sugar !== undefined ? [{ label: 'Sugar', value: recipe.sugar!, unit: 'g' }] : []),
+          ...(recipe.sodium !== undefined ? [{ label: 'Sodium', value: recipe.sodium!, unit: 'mg' }] : []),
+        ]}
       />
 
       <div>

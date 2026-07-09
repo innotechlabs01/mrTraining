@@ -28,7 +28,7 @@ export function timeAgo(dateStr: string): string {
 export const MUSCLE_GROUP_LABELS: Record<string, string> = {
   chest: 'Chest', back: 'Back', shoulders: 'Shoulders', biceps: 'Biceps',
   triceps: 'Triceps', legs: 'Legs', glutes: 'Glutes', hamstrings: 'Hamstrings',
-  quads: 'Quads', calves: 'Calves', core: 'Core', full_body: 'Full Body',
+  quads: 'Quads', calves: 'Calves', core: 'Core', forearms: 'Forearms', full_body: 'Full Body',
 }
 
 export const EQUIPMENT_LABELS: Record<string, string> = {

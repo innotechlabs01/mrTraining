@@ -1,5 +1,39 @@
 // Types
-export * from './types'
+export type {
+  MuscleGroup,
+  Equipment,
+  Difficulty,
+  WorkoutGoal,
+  ScheduleStatus,
+  SessionStatus,
+  WorkoutType,
+  ExerciseCategory,
+  SetType,
+  RestPeriod,
+  WeightUnit,
+  DistanceUnit,
+  Exercise,
+  WorkoutExercise,
+  WorkoutPlan,
+  WorkoutTemplate,
+  ScheduleEvent,
+  PerformedSet,
+  PerformedExercise,
+  WorkoutSessionRecord,
+  WorkoutStats,
+  ExerciseDetail,
+  WorkoutExerciseDetail,
+  WorkoutSet,
+  Workout,
+  WorkoutProgram,
+  ScheduledWorkout,
+  AIWorkoutSuggestion,
+  WorkoutAnalytics as WorkoutAnalyticsData,
+  PersonalRecord,
+  WorkoutHistoryEntry,
+  WorkoutFilterOptions,
+  WorkoutBuilderFormData,
+} from './types'
 
 // Hooks
 export { useExerciseLibrary } from './hooks/useExerciseLibrary'

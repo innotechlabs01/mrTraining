@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { WorkoutPlan, WorkoutTemplate, WorkoutGoal, WorkoutExercise } from '../types'
-import { MOCK_WORKOUTS, MOCK_TEMPLATES } from '../data/_mocks'
+import { MOCK_WORKOUT_PLANS, MOCK_TEMPLATES } from '../data/_mocks'
 import { generateId } from './helpers'
 
 export function useWorkoutPlans() {
@@ -15,7 +15,7 @@ export function useWorkoutPlans() {
     let mounted = true
     const timer = setTimeout(() => {
       if (!mounted) return
-      setPlans(MOCK_WORKOUTS)
+      setPlans(MOCK_WORKOUT_PLANS)
       setTemplates(MOCK_TEMPLATES)
       setLoading(false)
     }, 600)

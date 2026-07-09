@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Workout, WorkoutExerciseDetail, WorkoutSet } from '../types'
-import { formatDuration, WORKOUT_GOAL_LABELS } from '../hooks/helpers'
+import { formatDuration } from '../hooks/helpers'
+import { WORKOUT_GOAL_LABELS } from '../data/_mocks'
 import { cn } from '@/lib/utils'
 import {
   Play, Pause, RotateCcw, CheckCircle2, Clock, ChevronRight, ChevronLeft,

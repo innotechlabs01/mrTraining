@@ -1,7 +1,7 @@
 // ============ Enums ============
 export type MuscleGroup =
   | 'chest' | 'back' | 'shoulders' | 'biceps' | 'triceps' | 'legs'
-  | 'glutes' | 'hamstrings' | 'quads' | 'calves' | 'core' | 'full_body'
+  | 'glutes' | 'hamstrings' | 'quads' | 'calves' | 'core' | 'forearms' | 'full_body'
 
 export type Equipment =
   | 'barbell' | 'dumbbell' | 'kettlebell' | 'machine' | 'cable'

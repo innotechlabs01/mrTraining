@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useEffect, useCallback } from 'react'
 import type { AthleteBlockId, AthleteTimeBlock, MorningData } from '../types'
 import { MOCK_TIME_BLOCKS, MOCK_MORNING } from '../data/_mocks'

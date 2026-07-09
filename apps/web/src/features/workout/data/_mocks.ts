@@ -193,6 +193,7 @@ export const MOCK_WORKOUTS: Workout[] = [
     goal: 'conditioning',
     estimatedDuration: 35,
     status: 'completed',
+    tags: ['full-body', 'conditioning', 'circuit'],
     exercises: [
       createWorkoutExercise('ex-10', 'Kettlebell Swings', 1, 3, 15, 24, 45),
       createWorkoutExercise('ex-9', 'Box Jumps', 2, 3, 8, undefined, 45),
@@ -209,6 +210,7 @@ export const MOCK_WORKOUTS: Workout[] = [
     goal: 'hypertrophy',
     estimatedDuration: 45,
     status: 'in_progress',
+    tags: ['push', 'hypertrophy', 'upper'],
     exercises: [
       createWorkoutExercise('ex-2', 'Bench Press', 1, 4, 10, 70),
       createWorkoutExercise('ex-5', 'Overhead Press', 2, 3, 12, 40),
@@ -401,6 +403,7 @@ export const MOCK_ANALYTICS: WorkoutAnalytics = {
     missedWorkouts: 3,
     completionRate: 87.5,
     averageDuration: 48,
+    totalVolume: 21320,
     totalTime: 1152, // minutes
   },
   volume: {
@@ -468,6 +471,24 @@ export const MOCK_AI_SUGGESTIONS: AIWorkoutSuggestion[] = [
     createdAt: '2026-07-08T10:30:00Z',
   },
 ]
+
+export const MOCK_STATS: WorkoutStats = {
+  totalSessions: 21,
+  totalVolume: 21320,
+  averageRpe: 7.6,
+  streak: 4,
+  consistency: 87.5,
+  weeklyVolume: [
+    { week: '2026-06-22', volume: 7200 },
+    { week: '2026-06-29', volume: 8500 },
+    { week: '2026-07-06', volume: 4800 },
+  ],
+  recentPrs: [
+    { exercise: 'Barbell Back Squat', date: '2026-07-04', value: '152 kg' },
+    { exercise: 'Bench Press', date: '2026-06-28', value: '108 kg' },
+    { exercise: 'Deadlift', date: '2026-06-20', value: '180 kg' },
+  ],
+}
 
 // ============ Labels & Constants ============
 export const WORKOUT_GOAL_LABELS: Record<WorkoutGoal, string> = {
