@@ -3,8 +3,28 @@
 import { Logo } from './logo';
 import { FadeInView } from './animation-primitives';
 import { ChevronRight } from 'lucide-react';
+import { useLang } from './i18n';
 
-const footerLinks = [
+const esLinks = [
+  {
+    title: 'Producto',
+    links: ['Funcionalidades', 'Precios', 'Integraciones', 'Cambios', 'Ruta'],
+  },
+  {
+    title: 'Recursos',
+    links: ['Documentación', 'API', 'Comunidad', 'Blog', 'Centro de ayuda'],
+  },
+  {
+    title: 'Empresa',
+    links: ['Nosotros', 'Empleo', 'Prensa', 'Socios', 'Contacto'],
+  },
+  {
+    title: 'Legal',
+    links: ['Privacidad', 'Términos', 'Cookies', 'GDPR', 'CCPA'],
+  },
+];
+
+const enLinks = [
   {
     title: 'Product',
     links: ['Features', 'Pricing', 'Integrations', 'Changelog', 'Roadmap'],
@@ -24,6 +44,9 @@ const footerLinks = [
 ];
 
 export function FooterSection() {
+  const { es } = useLang();
+  const l = es ? esLinks : enLinks;
+
   return (
     <footer className="relative py-16 lg:py-20 bg-surface-0 border-t border-surface-4 overflow-hidden">
       <div className="section-container">
@@ -32,7 +55,9 @@ export function FooterSection() {
             <div className="col-span-2 md:col-span-1">
               <Logo size="md" className="mb-4" />
               <p className="text-body-sm text-text-tertiary mb-4 max-w-xs">
-                The unified coaching platform for modern coaches and their athletes.
+                {es
+                  ? 'La plataforma de entrenamiento unificada para deportistas modernos.'
+                  : 'The unified training platform for modern athletes.'}
               </p>
               <div className="flex gap-3">
                 {['Twitter', 'LinkedIn', 'GitHub', 'YouTube'].map(s => (
@@ -47,7 +72,7 @@ export function FooterSection() {
               </div>
             </div>
 
-            {footerLinks.map(group => (
+            {l.map(group => (
               <div key={group.title}>
                 <h4 className="font-display font-semibold text-body-sm text-text-primary mb-4">
                   {group.title}
@@ -71,10 +96,10 @@ export function FooterSection() {
 
           <div className="pt-8 border-t border-surface-4 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-body-xs text-text-tertiary">
-              &copy; {new Date().getFullYear()} MR Training. All rights reserved.
+              &copy; {new Date().getFullYear()} MR Training. {es ? 'Todos los derechos reservados.' : 'All rights reserved.'}
             </p>
             <p className="text-body-xs text-text-tertiary">
-              Built for coaches who demand more.
+              {es ? 'Hecho para bestias que nunca se rinden.' : 'Built for beasts who never quit.'}
             </p>
           </div>
         </FadeInView>
