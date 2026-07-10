@@ -15,6 +15,7 @@ const events = [
     locationEs: 'City Tennis Center',
     locationEn: 'City Tennis Center',
     registered: 48,
+    img: 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800&q=85',
   },
   {
     nameEs: 'Campamento Élite',
@@ -25,6 +26,7 @@ const events = [
     locationEs: 'Mountain Performance Center',
     locationEn: 'Mountain Performance Center',
     registered: 24,
+    img: 'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=800&q=85',
   },
 ];
 
@@ -38,7 +40,7 @@ export function EventsSection() {
         <SectionReveal>
           <div className="text-center mb-16">
             <FadeInView>
-              <h2 className="font-display font-black text-h2 lg:text-h1 uppercase text-text-primary mb-4">
+              <h2 className="font-display font-black text-h2 lg:text-h1 uppercase text-text-primary mb-4 tracking-wide">
                 {txt('Competencias. Campamentos. Meetups.', 'Competitions. Camps. Meetups.')}{' '}
                 <span className="text-gradient-fire">{txt('Todo en uno.', 'All in one place.')}</span>
               </h2>
@@ -54,18 +56,22 @@ export function EventsSection() {
             {events.map((event, i) => (
               <FadeInView key={event.nameEn} delay={i * 0.2}>
                 <motion.div
-                  className="group relative glass-card rounded-xl p-6 transition-all duration-300 border border-surface-6 hover:border-brand-primary/30"
+                  className="relative group rounded-xl overflow-hidden border border-surface-6 hover:border-brand-primary/40 transition-all duration-500"
+                  style={{ minHeight: '340px' }}
                   whileHover={{ y: -4 }}
                 >
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-brand-primary/20 to-brand-ember/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  <div className="relative z-10">
-                    <span className="font-display text-overline text-brand-primary uppercase tracking-[0.1em]">
+                  <img src={event.img} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-surface-0 via-surface-0/70 to-surface-0/30" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-brand-primary/5 to-transparent" />
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ boxShadow: 'inset 0 0 40px rgba(255,107,0,0.15)' }} />
+                  <div className="relative z-10 p-6 flex flex-col justify-end h-full min-h-[340px]">
+                    <span className="font-display text-overline text-brand-primary uppercase tracking-[0.12em] font-bold">
                       {txt(event.sportEs, event.sportEn)}
                     </span>
-                    <h3 className="font-display font-bold text-h3 text-text-primary mt-2 mb-4">
+                    <h3 className="font-display font-bold text-h3 text-text-primary mt-2 mb-4 drop-shadow-lg">
                       {txt(event.nameEs, event.nameEn)}
                     </h3>
-                    <div className="space-y-3 text-body-sm text-text-secondary">
+                    <div className="space-y-2 text-body-sm text-text-secondary/90">
                       <div className="flex items-center gap-3">
                         <CalendarDays className="w-4 h-4 text-brand-primary" />
                         {event.date}
@@ -79,11 +85,8 @@ export function EventsSection() {
                         {event.registered} {txt('Inscritos', 'Registered')}
                       </div>
                     </div>
-                    <div className="mt-6 pt-4 border-t border-white/10">
-                      <a
-                        href="/sign-up"
-                        className="text-body-sm font-semibold text-brand-primary hover:text-brand-primary-hover transition-colors uppercase"
-                      >
+                    <div className="mt-5 pt-4 border-t border-white/10">
+                      <a href="/sign-up" className="text-body-sm font-bold text-brand-primary hover:text-brand-primary-hover transition-colors uppercase tracking-wider">
                         {txt('Inscríbete →', 'Register Now →')}
                       </a>
                     </div>
