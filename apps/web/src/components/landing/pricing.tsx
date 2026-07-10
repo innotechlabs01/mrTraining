@@ -13,7 +13,7 @@ const plans = [
     descEs: 'Para coaches independientes que empiezan.',
     descEn: 'For independent coaches getting started.',
     monthly: 29,
-    annual: 19,
+    annual: 22,
     featuresEs: ['Hasta 20 atletas', 'Builder de entrenos', 'Analítica básica', 'App móvil', 'Soporte por email'],
     featuresEn: ['Up to 20 athletes', 'Core training builder', 'Basic performance analytics', 'Mobile app access', 'Email support'],
     ctaEs: 'Empieza gratis',
@@ -47,7 +47,7 @@ const plans = [
 ];
 
 export function PricingSection() {
-  const { txt } = useLang();
+  const { txt, es } = useLang();
   const [annual, setAnnual] = useState(false);
 
   return (
@@ -57,7 +57,7 @@ export function PricingSection() {
         <SectionReveal>
           <div className="text-center mb-16">
             <FadeInView>
-              <p className="font-display font-semibold text-overline text-brand-primary mb-3">PRICING</p>
+              <p className="font-display font-semibold text-overline text-brand-primary mb-3 uppercase">{txt('Precios', 'Pricing')}</p>
               <h2 className="font-display font-black text-h2 lg:text-h1 uppercase text-text-primary mb-4">
                 {txt('Precios simples y claros.', 'Simple, transparent pricing.')}
               </h2>
@@ -95,7 +95,7 @@ export function PricingSection() {
                 whileHover={{ y: -4 }}
               >
                 {plan.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-brand-primary text-body-sm font-semibold text-white uppercase flex items-center gap-1">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-brand-primary text-body-sm font-semibold text-white uppercase flex items-center gap-1 whitespace-nowrap">
                     🔥 {txt('Fundador 50% OFF', 'Founder 50% OFF')}
                   </div>
                 )}
@@ -117,21 +117,21 @@ export function PricingSection() {
                         </motion.span>
                       </AnimatePresence>
                     </span>
-                    <span className="text-body text-text-tertiary">/mo</span>
+                    <span className="text-body text-text-tertiary">{es ? '/mes' : '/mo'}</span>
                   </div>
                 </div>
 
                 <ul className="space-y-3 mb-8">
-                  {plan.featuresEn.map((f, idx) => (
+                  {(es ? plan.featuresEs : plan.featuresEn).map((f, idx) => (
                     <li key={idx} className="flex items-start gap-3 text-body-sm text-text-secondary">
                       <Check className="w-4 h-4 text-brand-primary mt-0.5 shrink-0" />
-                      {txt((plan.featuresEs as string[])[idx], (plan.featuresEn as string[])[idx])}
+                      {f}
                     </li>
                   ))}
                 </ul>
 
                 <motion.a
-                  href="/sign-up"
+                  href={plan.highlight ? '/sign-up' : plan.name === 'Elite' ? '#contact' : '/sign-up'}
                   className={cn(
                     'flex items-center justify-center gap-2 w-full py-3 rounded-lg font-semibold text-body-sm transition-all duration-300',
                     plan.highlight ? 'bg-brand-primary text-white hover:bg-brand-primary-hover' : 'bg-surface-5 text-text-primary hover:bg-surface-4 border border-surface-6'

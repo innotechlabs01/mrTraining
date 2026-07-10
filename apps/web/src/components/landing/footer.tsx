@@ -4,6 +4,7 @@ import { Logo } from './logo';
 import { FadeInView } from './animation-primitives';
 import { ChevronRight } from 'lucide-react';
 import { useLang } from './i18n';
+import { Twitter, Github, Youtube, Linkedin } from 'lucide-react';
 
 const esLinks = [
   {
@@ -43,6 +44,13 @@ const enLinks = [
   },
 ];
 
+const socialLinks = [
+  { icon: Twitter, href: 'https://x.com/mrtraining', label: 'Twitter' },
+  { icon: Linkedin, href: 'https://linkedin.com/company/mrtraining', label: 'LinkedIn' },
+  { icon: Github, href: 'https://github.com/mrtraining', label: 'GitHub' },
+  { icon: Youtube, href: 'https://youtube.com/@mrtraining', label: 'YouTube' },
+];
+
 export function FooterSection() {
   const { es } = useLang();
   const l = es ? esLinks : enLinks;
@@ -60,13 +68,16 @@ export function FooterSection() {
                   : 'The unified training platform for modern athletes.'}
               </p>
               <div className="flex gap-3">
-                {['Twitter', 'LinkedIn', 'GitHub', 'YouTube'].map(s => (
+                {socialLinks.map(s => (
                   <a
-                    key={s}
-                    href="#"
-                    className="w-9 h-9 rounded-lg bg-surface-3 flex items-center justify-center text-text-tertiary hover:text-brand-primary hover:bg-surface-4 transition-all duration-300 text-body-xs font-semibold"
+                    key={s.label}
+                    href={s.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={s.label}
+                    className="w-9 h-9 rounded-lg bg-surface-3 flex items-center justify-center text-text-tertiary hover:text-brand-primary hover:bg-surface-4 transition-all duration-300"
                   >
-                    {s[0]}
+                    <s.icon className="w-4 h-4" />
                   </a>
                 ))}
               </div>

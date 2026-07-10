@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, useScroll, useMotionValueEvent } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { Logo } from './logo';
 import { cn } from '@/lib/utils';
@@ -13,13 +13,13 @@ export function LandingNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { lang, setLang, txt } = useLang();
   const { scrollY } = useScroll();
-  let lastScrollY = 0;
+  const lastScrollY = useRef(0);
 
   useMotionValueEvent(scrollY, 'change', (current: number) => {
     setScrolled(current > window.innerHeight * 0.4);
-    if (current > lastScrollY && current > 100) setHidden(true);
+    if (current > lastScrollY.current && current > 100) setHidden(true);
     else setHidden(false);
-    lastScrollY = current;
+    lastScrollY.current = current;
   });
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export function LandingNav() {
             <button
               onClick={() => setLang(lang === 'es' ? 'en' : 'es')}
               className="text-body-sm font-semibold text-text-secondary hover:text-brand-primary transition-colors border border-white/10 rounded-md px-2 py-1"
-              aria-label="Toggle language"
+              aria-label={txt('Cambiar idioma', 'Toggle language')}
             >
               {lang === 'es' ? 'EN' : 'ES'}
             </button>
@@ -60,30 +60,44 @@ export function LandingNav() {
             </a>
           </div>
 
-          <button className="md:hidden p-2 text-text-secondary" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle menu">
+          <button className="md:hidden p-2 text-text-secondary" onClick={() => setMobileOpen(!mobileOpen)} aria-label={txt('Abrir menú', 'Toggle menu')}>
             {mobileOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </nav>
       </motion.header>
 
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-surface-0 md:hidden">
-          <div className="flex flex-col items-center justify-center h-full gap-8">
-            {links.map((l) => (
-              <a key={l.href} href={l.href} className="text-h3 text-text-primary" onClick={() => setMobileOpen(false)}>{l.label}</a>
-            ))}
-            <button
-              onClick={() => { setLang(lang === 'es' ? 'en' : 'es'); setMobileOpen(false); }}
-              className="text-h3 text-text-secondary border border-white/10 rounded-md px-4 py-2"
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            className="fixed inset-0 z-40 bg-surface-0 md:hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div
+              className="flex flex-col items-center justify-center h-full gap-8"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.2, delay: 0.05 }}
             >
-              {txt('Idioma: Español', 'Language: English')}
-            </button>
-            <a href="/sign-up" className="inline-flex items-center justify-center h-12 px-8 text-body font-semibold rounded-sm bg-brand-primary text-text-inverse" onClick={() => setMobileOpen(false)}>
-              {txt('Entrenar gratis', 'Train free')}
-            </a>
-          </div>
-        </div>
-      )}
+              {links.map((l) => (
+                <a key={l.href} href={l.href} className="text-h3 text-text-primary" onClick={() => setMobileOpen(false)}>{l.label}</a>
+              ))}
+              <button
+                onClick={() => { setLang(lang === 'es' ? 'en' : 'es'); setMobileOpen(false); }}
+                className="text-h3 text-text-secondary border border-white/10 rounded-md px-4 py-2"
+              >
+                {txt('Idioma: Español', 'Language: English')}
+              </button>
+              <a href="/sign-up" className="inline-flex items-center justify-center h-12 px-8 text-body font-semibold rounded-sm bg-brand-primary text-text-inverse" onClick={() => setMobileOpen(false)}>
+                {txt('Entrenar gratis', 'Train free')}
+              </a>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
