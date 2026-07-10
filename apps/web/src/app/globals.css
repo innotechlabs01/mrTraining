@@ -99,4 +99,20 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  .text-glow-fire {
+    text-shadow: 0 0 30px rgba(255, 107, 0, 0.4), 0 0 60px rgba(255, 107, 0, 0.2);
+  }
+
+  .fire-border-glow {
+    box-shadow: 0 0 12px rgba(255, 107, 0, 0.3), inset 0 0 12px rgba(255, 107, 0, 0.05);
+  }
+
+  .fire-gradient-bg {
+    background: linear-gradient(90deg, rgba(255, 107, 0, 0.15), transparent, rgba(255, 107, 0, 0.15));
+  }
+
+  .grain-strong {
+    opacity: 0.12;
+  }
 }
