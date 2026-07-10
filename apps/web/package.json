@@ -10,7 +10,7 @@
     "test": "jest --passWithNoTests"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.39.5",
+    "@clerk/nextjs": "^6.38.3",
     "clsx": "^2.1.1",
     "framer-motion": "^11.11.0",
     "lucide-react": "^0.451.0",
