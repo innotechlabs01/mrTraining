@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
+import { PlansCTA } from './plans-modal';
 
 export function IronGymCta() {
   return (
@@ -40,13 +41,10 @@ export function IronGymCta() {
                 placeholder="Your Email Address..."
                 className="sm:col-span-2 h-14 px-4 rounded-md bg-transparent border border-white/20 text-white placeholder-white/60 focus:outline-none focus:border-brand-primary"
               />
-              <a
-                href="/sign-in"
-                className="sm:col-span-2 inline-flex items-center justify-center gap-2 h-14 rounded-md bg-brand-primary text-white font-semibold hover:bg-brand-primary-hover transition-colors"
-              >
+              <PlansCTA className="sm:col-span-2 inline-flex items-center justify-center gap-2 h-14 rounded-md bg-brand-primary text-white font-semibold hover:bg-brand-primary-hover transition-colors">
                 Lest join now
                 <ArrowRight className="w-4 h-4" />
-              </a>
+              </PlansCTA>
             </form>
           </motion.div>
 

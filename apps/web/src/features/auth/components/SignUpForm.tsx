@@ -24,7 +24,9 @@ const PASSWORD_REQUIREMENTS = [
 
 export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signUp, isLoaded, setActive } = useSignUp();
+  const plan = searchParams.get('plan');
 
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
@@ -69,7 +71,7 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
       const code = err.errors?.[0]?.code;
       if (code === 'form_identifier_exists') {
         // Email already has an account — send them straight to sign-in, prefilled.
-        router.push(`/sign-in?email=${encodeURIComponent(email)}`);
+        router.push(`/sign-in?email=${encodeURIComponent(email)}${plan ? `&plan=${plan}` : ''}`);
         return;
       } else if (code === 'form_identifier_invalid') {
         setError('Please enter a valid email address');

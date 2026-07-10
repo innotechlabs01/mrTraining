@@ -23,6 +23,8 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack }: SignInFormPr
 
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState(searchParams.get('email') ?? '');
+  const plan = searchParams.get('plan');
+  const signUpHref = `/sign-up${plan ? `?plan=${plan}` : ''}`;
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -252,7 +254,7 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack }: SignInFormPr
 
       <div className="text-center text-body-sm text-text-secondary">
         Don&apos;t have an account?{' '}
-        <Link href="/sign-up" className="text-brand-primary font-semibold transition-colors duration-200 hover:text-brand-primary-hover">
+        <Link href={signUpHref} className="text-brand-primary font-semibold transition-colors duration-200 hover:text-brand-primary-hover">
           Sign up
         </Link>
       </div>

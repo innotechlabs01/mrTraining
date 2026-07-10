@@ -1,5 +1,7 @@
 'use client';
 
+import { PlansCTA } from './plans-modal';
+
 const links = [
   { label: 'Home', href: '#home', active: true },
   { label: 'Service', href: '#why' },
@@ -30,12 +32,9 @@ export function IronGymNavbar() {
           ))}
         </div>
 
-        <a
-          href="#contact"
-          className="px-6 py-3 rounded-md bg-brand-primary text-white text-sm font-semibold hover:bg-brand-primary-hover transition-colors"
-        >
+        <PlansCTA className="px-6 py-3 rounded-md bg-brand-primary text-white text-sm font-semibold hover:bg-brand-primary-hover transition-colors">
           started now
-        </a>
+        </PlansCTA>
       </nav>
     </header>
   );
