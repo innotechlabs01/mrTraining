@@ -28,7 +28,7 @@ export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth();
 
   if (userId && isAuthEntryRoute(req)) {
-    return NextResponse.redirect(new URL('/athlete/today', req.url));
+    return NextResponse.redirect(new URL('/coach', req.url));
   }
 
   if (!isPublicRoute(req)) {

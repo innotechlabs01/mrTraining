@@ -8,7 +8,11 @@ export default function RoleSelectionPage() {
   const router = useRouter();
 
   const handleSelect = (role: string) => {
-    router.push(`/onboarding/${role}`);
+    if (role === 'coach' || role === 'strength-coach') {
+      router.push('/coach');
+    } else {
+      router.push(`/onboarding/${role}`);
+    }
   };
 
   return (
