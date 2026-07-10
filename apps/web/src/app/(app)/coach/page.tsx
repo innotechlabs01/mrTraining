@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import CoachDashboard from '@/features/coach/components/dashboard/CoachDashboard'
 
 export default function CoachPage() {
-  redirect('/coach/today')
+  return <CoachDashboard />
 }

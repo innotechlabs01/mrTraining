@@ -152,3 +152,90 @@ export interface AiProgramParams {
   intensity: 'low' | 'medium' | 'high'
   duration: number
 }
+
+export type TrainingMode = 'virtual' | 'presencial' | 'hibrido' | 'running'
+
+export interface DashboardMetrics {
+  monthlyRevenue: number
+  revenueTrend: number
+  activeAthletes: number
+  athleteTrend: number
+  newAthletesThisMonth: number
+  newAthleteTrend: number
+  pendingPayments: number
+  pendingPaymentCount: number
+  overduePaymentCount: number
+  todaySessions: number
+  todaySessionsCompleted: number
+  upcomingEvents: number
+}
+
+export interface RevenuePoint {
+  month: string
+  amount: number
+}
+
+export interface Plan {
+  id: string
+  name: string
+  description: string
+  price: number
+  currency: string
+  billingPeriod: 'monthly' | 'quarterly' | 'yearly'
+  trainingMode: TrainingMode[]
+  maxAthletes: number
+  maxSessionsPerWeek: number
+  features: string[]
+  isActive: boolean
+  athleteCount: number
+}
+
+export interface CoachEvent {
+  id: string
+  title: string
+  date: string
+  time: string
+  endTime: string
+  type: 'competition' | 'meeting' | 'reunion' | 'evaluacion' | 'other'
+  modality: TrainingMode
+  location?: string
+  description?: string
+  athleteIds: string[]
+  status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled'
+}
+
+export interface AssignedWorkout {
+  id: string
+  athleteId: string
+  athleteName: string
+  contentId: string
+  contentType: 'workout' | 'program'
+  contentName: string
+  modality: TrainingMode
+  startDate: string
+  endDate: string
+  daysOfWeek: number[]
+  status: 'active' | 'completed' | 'paused'
+  progress: number
+}
+
+export type NavSectionId =
+  | 'dashboard'
+  | 'users'
+  | 'training'
+  | 'training-workouts'
+  | 'training-programs'
+  | 'training-asignar'
+  | 'planes'
+  | 'events'
+  | 'settings'
+  | 'support'
+  | 'timeline'
+
+export interface NavItem {
+  id: NavSectionId
+  label: string
+  icon: string
+  href?: string
+  children?: NavItem[]
+}
