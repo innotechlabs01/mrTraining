@@ -49,7 +49,7 @@ const FAQSection = dynamic(
   { ssr: false }
 );
 const FinalCTACSection = dynamic(
-  () => import('@/components/landing/final-cta').then(m => m.FinalCTACSection),
+  () => import('@/components/landing/final-cta').then(m => m.FinalCtaSection),
   { ssr: false }
 );
 const FooterSection = dynamic(

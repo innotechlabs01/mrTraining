@@ -1,126 +1,73 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { SectionReveal, FadeInView } from './animation-primitives';
-import { ArrowRight, Flame } from 'lucide-react';
-import { useLang } from './i18n';
+import { FireParticles } from './fire-particles';
 
-interface Particle {
-  x: number;
-  y: number;
-  size: number;
-  opacity: number;
-  speedX: number;
-  speedY: number;
-}
-
-export function FinalCTACSection() {
-  const { txt } = useLang();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const particlesRef = useRef<Particle[]>([]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const resize = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-    };
-    resize();
-    window.addEventListener('resize', resize);
-
-    const count = 40;
-    particlesRef.current = Array.from({ length: count }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      size: Math.random() * 2 + 1,
-      opacity: Math.random() * 0.5 + 0.1,
-      speedX: (Math.random() - 0.5) * 0.3,
-      speedY: (Math.random() - 0.5) * 0.3,
-    }));
-
-    let animId: number;
-    const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      particlesRef.current.forEach(p => {
-        p.x += p.speedX;
-        p.y += p.speedY;
-        if (p.x < 0) p.x = canvas.width;
-        if (p.x > canvas.width) p.x = 0;
-        if (p.y < 0) p.y = canvas.height;
-        if (p.y > canvas.height) p.y = 0;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 107, 0, ${p.opacity})`;
-        ctx.fill();
-      });
-      animId = requestAnimationFrame(animate);
-    };
-    animate();
-
-    return () => {
-      window.removeEventListener('resize', resize);
-      cancelAnimationFrame(animId);
-    };
-  }, []);
-
+export function FinalCtaSection() {
   return (
-    <section id="cta" className="relative py-32 lg:py-48 bg-surface-0 overflow-hidden">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand-primary/15 rounded-full blur-[200px] animate-fire-flicker" />
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
+    <section id="cta-final" className="relative py-24 lg:py-0 min-h-[60vh] lg:min-h-screen bg-surface-0 overflow-hidden">
+      <div className="absolute inset-0">
+        <img
+          src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1920&q=85"
+          alt="Atleta entrenando con determinación"
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="lazy"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-surface-0 via-surface-0/70 to-surface-0/30" />
+        <div className="absolute inset-0 bg-gradient-to-r from-surface-0/60 via-transparent to-surface-0/40" />
+      </div>
       <div className="grain" />
+      <FireParticles count={120} speed={0.8} />
 
-      <div className="section-container relative z-10">
+      <div className="section-container relative z-10 flex flex-col items-center justify-center min-h-[60vh] lg:min-h-screen text-center">
         <SectionReveal>
-          <div className="max-w-3xl mx-auto text-center">
-            <FadeInView>
-              <motion.div
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-primary/10 border border-brand-primary/30 text-brand-primary text-body-sm font-semibold mb-6 uppercase"
-                whileHover={{ scale: 1.05 }}
+          <FadeInView>
+            <motion.h2
+              className="font-display font-black text-h1 lg:text-hero uppercase leading-[1.05] tracking-wide max-w-4xl mx-auto"
+              animate={{ textShadow: ['0 0 20px rgba(255,107,0,0.3)', '0 0 40px rgba(255,107,0,0.5)', '0 0 20px rgba(255,107,0,0.3)'] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <span className="text-text-primary">MR {''}</span>
+              <span className="text-gradient-fire">Training</span>
+            </motion.h2>
+          </FadeInView>
+
+          <FadeInView delay={0.15}>
+            <p className="mt-6 text-body-xl text-text-secondary max-w-2xl mx-auto leading-relaxed">
+              La plataforma que coaches de alto rendimiento usan para transformar atletas.
+              <br />
+              Sin Spreadsheets. Sin caos. Sin excusas.
+            </p>
+          </FadeInView>
+
+          <FadeInView delay={0.3}>
+            <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-5">
+              <motion.a
+                href="/sign-up"
+                className="inline-flex items-center justify-center h-14 px-10 text-body font-bold uppercase tracking-widest rounded-sm bg-brand-primary text-text-inverse hover:bg-brand-primary-hover transition-all fire-border-glow"
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.96 }}
               >
-                <Flame className="w-4 h-4" />
-                {txt('Empieza gratis 14 días', 'Start your 14-day free trial')}
-              </motion.div>
-            </FadeInView>
+                Entrenar Gratis
+              </motion.a>
+              <motion.a
+                href="#features"
+                className="inline-flex items-center justify-center h-14 px-10 text-body font-bold uppercase tracking-widest rounded-sm border border-surface-6 text-text-primary hover:border-brand-primary/50 hover:bg-surface-3 transition-all"
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.97 }}
+              >
+                Ver Funciones
+              </motion.a>
+            </div>
+          </FadeInView>
 
-            <FadeInView delay={0.1}>
-              <h2 className="font-display font-black text-h1 lg:text-[5rem] leading-[0.95] text-text-primary mb-6 uppercase">
-                {txt('Tu mejor versión', 'Your best version')}
-                <br />
-                <span className="text-gradient-fire">{txt('te está esperando', 'is waiting')}</span>
-              </h2>
-            </FadeInView>
-
-            <FadeInView delay={0.2}>
-              <p className="text-body-lg text-text-secondary max-w-xl mx-auto mb-10">
-                {txt('Únete a miles de coaches y atletas que ya hicieron el cambio. Sin tarjeta.', 'Join thousands of coaches and athletes who already made the switch. No credit card required.')}
-              </p>
-            </FadeInView>
-
-            <FadeInView delay={0.3}>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <motion.a
-                  href="/sign-up"
-                  className="inline-flex items-center gap-2 px-10 py-4 rounded-sm bg-brand-primary text-text-inverse font-bold text-body uppercase animate-glow-pulse"
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  {txt('Empieza gratis', 'Start free')}
-                  <ArrowRight className="w-5 h-5" />
-                </motion.a>
-              </div>
-            </FadeInView>
-
-            <FadeInView delay={0.4}>
-              <p className="text-body-sm text-text-tertiary mt-6">
-                {txt('Prueba 14 días · Cancela cuando quieras · Sin tarjeta en Starter', 'Free 14-day trial · Cancel anytime · No card for Starter')}
-              </p>
-            </FadeInView>
-          </div>
+          <FadeInView delay={0.4}>
+            <p className="mt-8 text-body-sm text-text-tertiary flex items-center justify-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+              Sin tarjeta de crédito. Sin compromiso. Sin trucos.
+            </p>
+          </FadeInView>
         </SectionReveal>
       </div>
     </section>
