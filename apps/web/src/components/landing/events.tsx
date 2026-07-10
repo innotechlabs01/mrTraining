@@ -86,7 +86,7 @@ export function EventsSection() {
                       </div>
                     </div>
                     <div className="mt-5 pt-4 border-t border-white/10">
-                      <a href="/sign-up" className="text-body-sm font-bold text-brand-primary hover:text-brand-primary-hover transition-colors uppercase tracking-wider">
+                      <a href="/sign-in" className="text-body-sm font-bold text-brand-primary hover:text-brand-primary-hover transition-colors uppercase tracking-wider">
                         {txt('Inscríbete →', 'Register Now →')}
                       </a>
                     </div>

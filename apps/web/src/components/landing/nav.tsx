@@ -55,7 +55,7 @@ export function LandingNav() {
             >
               {lang === 'es' ? 'EN' : 'ES'}
             </button>
-            <a href="/sign-up" className="inline-flex items-center justify-center h-10 px-5 text-body-sm font-semibold rounded-sm bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-pressed transition-colors animate-glow-pulse fire-border-glow">
+            <a href="/sign-in" className="inline-flex items-center justify-center h-10 px-5 text-body-sm font-semibold rounded-sm bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-pressed transition-colors animate-glow-pulse fire-border-glow">
               {txt('Entrenar gratis', 'Train free')}
             </a>
           </div>
@@ -91,7 +91,7 @@ export function LandingNav() {
               >
                 {txt('Idioma: Español', 'Language: English')}
               </button>
-              <a href="/sign-up" className="inline-flex items-center justify-center h-12 px-8 text-body font-semibold rounded-sm bg-brand-primary text-text-inverse" onClick={() => setMobileOpen(false)}>
+              <a href="/sign-in" className="inline-flex items-center justify-center h-12 px-8 text-body font-semibold rounded-sm bg-brand-primary text-text-inverse" onClick={() => setMobileOpen(false)}>
                 {txt('Entrenar gratis', 'Train free')}
               </a>
             </motion.div>

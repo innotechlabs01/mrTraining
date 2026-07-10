@@ -57,7 +57,7 @@ export function HeroSection() {
         <FadeInView delay={0.7}>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <motion.a
-              href="/sign-up"
+              href="/sign-in"
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.97 }}
               className="inline-flex items-center justify-center h-14 px-10 text-body font-bold uppercase tracking-widest rounded-sm bg-brand-primary text-text-inverse hover:bg-brand-primary-hover transition-all animate-glow-pulse fire-border-glow"

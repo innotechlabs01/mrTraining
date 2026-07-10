@@ -44,7 +44,7 @@ export function FinalCtaSection() {
           <FadeInView delay={0.3}>
             <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-5">
               <motion.a
-                href="/sign-up"
+                href="/sign-in"
                 className="inline-flex items-center justify-center h-14 px-10 text-body font-bold uppercase tracking-widest rounded-sm bg-brand-primary text-text-inverse hover:bg-brand-primary-hover transition-all fire-border-glow"
                 whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.96 }}

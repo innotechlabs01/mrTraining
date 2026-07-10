@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader2 } from 'lucide-react';
 import { useSignIn } from '@clerk/nextjs';
@@ -248,6 +249,13 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack }: SignInFormPr
           Back to welcome
         </button>
       )}
+
+      <div className="text-center text-body-sm text-text-secondary">
+        Don&apos;t have an account?{' '}
+        <Link href="/sign-up" className="text-brand-primary font-semibold transition-colors duration-200 hover:text-brand-primary-hover">
+          Sign up
+        </Link>
+      </div>
     </div>
   );
 }

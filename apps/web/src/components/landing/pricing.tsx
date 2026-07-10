@@ -132,7 +132,7 @@ export function PricingSection() {
                 </ul>
 
                 <motion.a
-                  href={plan.highlight ? '/sign-up' : plan.name === 'Elite' ? '#contact' : '/sign-up'}
+                  href={plan.highlight ? '/sign-in' : plan.name === 'Elite' ? '#contact' : '/sign-in'}
                   className={cn(
                     'flex items-center justify-center gap-2 w-full py-3 rounded-lg font-semibold text-body-sm transition-all duration-300',
                     plan.highlight ? 'bg-brand-primary text-white hover:bg-brand-primary-hover fire-border-glow' : 'bg-surface-5 text-text-primary hover:bg-surface-4 border border-surface-6 fire-border-glow'
