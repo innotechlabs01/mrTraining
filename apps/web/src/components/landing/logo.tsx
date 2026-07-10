@@ -36,7 +36,7 @@ export function Logo({ className, monogramOnly = false, size = 'md' }: LogoProps
       </svg>
       {!monogramOnly && (
         <span
-          className="font-display font-bold uppercase text-text-primary tracking-[0.1em]"
+          className="font-display font-bold uppercase text-gradient-fire tracking-[0.1em]"
           style={{ fontSize: s.wordmark }}
         >
           TRAINING

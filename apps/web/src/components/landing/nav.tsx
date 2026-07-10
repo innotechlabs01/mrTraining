@@ -36,7 +36,7 @@ export function LandingNav() {
   return (
     <>
       <motion.header
-        className={cn('fixed top-0 left-0 right-0 z-50 transition-colors duration-500', scrolled ? 'bg-surface-0/80 backdrop-blur-xl border-b border-white/5' : 'bg-transparent')}
+        className={cn('fixed top-0 left-0 right-0 z-50 transition-colors duration-500 border-b border-brand-primary/10', scrolled ? 'bg-surface-0/80 backdrop-blur-xl border-white/5' : 'bg-transparent')}
         initial={{ y: 0 }}
         animate={{ y: hidden ? -80 : 0 }}
         transition={{ duration: 0.3 }}
@@ -55,7 +55,7 @@ export function LandingNav() {
             >
               {lang === 'es' ? 'EN' : 'ES'}
             </button>
-            <a href="/sign-up" className="inline-flex items-center justify-center h-10 px-5 text-body-sm font-semibold rounded-sm bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-pressed transition-colors animate-glow-pulse">
+            <a href="/sign-up" className="inline-flex items-center justify-center h-10 px-5 text-body-sm font-semibold rounded-sm bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-pressed transition-colors animate-glow-pulse fire-border-glow">
               {txt('Entrenar gratis', 'Train free')}
             </a>
           </div>
@@ -69,7 +69,7 @@ export function LandingNav() {
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
-            className="fixed inset-0 z-40 bg-surface-0 md:hidden"
+            className="fixed inset-0 z-40 bg-surface-0 border border-brand-primary/20 fire-border-glow md:hidden"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
