@@ -9,6 +9,7 @@ import {
   Dumbbell, Apple, Heart, Users, Trophy,
   CreditCard, Brain, BarChart3, Users2, MessageCircle,
 } from 'lucide-react';
+import { FireParticles } from './fire-particles';
 
 const modules = [
   { id: 'training', icon: Dumbbell, label: 'Training', orbit: 0, angle: 0, color: 'text-brand-primary' },
@@ -102,8 +103,8 @@ export function FeaturesSection() {
             {[140, 190, 240].map((r, i) => (
               <div
                 key={i}
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-surface-6/50"
-                style={{ width: r * 2, height: r * 2 }}
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border"
+                style={{ width: r * 2, height: r * 2, borderColor: `rgba(255, 107, 0, ${0.05 + i * 0.03})` }}
               />
             ))}
 
@@ -112,7 +113,7 @@ export function FeaturesSection() {
                 animate={{ scale: [1, 1.05, 1] }}
                 transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <div className="w-20 h-20 rounded-full bg-surface-3 border border-brand-primary/40 flex items-center justify-center fire-glow">
+                <div className="w-20 h-20 rounded-full bg-surface-3 border border-brand-primary/50 flex items-center justify-center" style={{ boxShadow: '0 0 40px rgba(255,107,0,0.3), 0 0 80px rgba(255,107,0,0.1)' }}>
                   <Logo monogramOnly size="lg" />
                 </div>
               </motion.div>
@@ -145,8 +146,8 @@ export function FeaturesSection() {
                   <div
                     className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ${
                       activeModule === mod.id
-                        ? 'bg-brand-primary/20 border border-brand-primary'
-                        : 'bg-surface-3 border border-surface-6 group-hover:border-brand-primary/30'
+                        ? 'bg-brand-primary/20 border border-brand-primary fire-border-glow'
+                        : 'bg-surface-3 border border-surface-6 group-hover:border-brand-primary/50 group-hover:shadow-[0_0_16px_rgba(255,107,0,0.2)]'
                     }`}
                   >
                     <mod.icon className={`w-5 h-5 ${mod.color}`} />
@@ -162,7 +163,7 @@ export function FeaturesSection() {
           <AnimatePresence>
             {activeModule && moduleDetails[activeModule] && (
               <motion.div
-                className="max-w-lg mx-auto mt-8 p-6 rounded-lg bg-surface-3 border border-brand-primary/20"
+                className="max-w-lg mx-auto mt-8 p-6 rounded-lg bg-surface-3 border border-brand-primary/30 fire-border-glow"
                 initial={{ opacity: 0, y: 16, height: 0 }}
                 animate={{ opacity: 1, y: 0, height: 'auto' }}
                 exit={{ opacity: 0, y: -8, height: 0 }}
@@ -211,6 +212,7 @@ export function FeaturesSection() {
           ))}
         </div>
       </div>
+      <FireParticles count={20} speed={0.5} />
     </section>
   );
 }
