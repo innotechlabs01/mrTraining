@@ -11,6 +11,8 @@ module.exports = {
           'primary-hover': '#E85D00',
           'primary-pressed': '#CC5200',
           'primary-light': '#FF8A33',
+          ember: '#FFB300',
+          'ember-light': '#FFD166',
           secondary: '#0066FF',
           'secondary-hover': '#3385FF',
           'secondary-pressed': '#0044CC',
@@ -61,6 +63,8 @@ module.exports = {
         'float': 'float 6s ease-in-out infinite',
         'orbit': 'orbit 60s linear infinite',
         'streak': 'streak 20s linear infinite',
+        'fire-flicker': 'fire-flicker 3s ease-in-out infinite',
+        'marquee': 'marquee 28s linear infinite',
       },
       keyframes: {
         'glow-pulse': {
@@ -78,6 +82,15 @@ module.exports = {
         streak: {
           '0%': { transform: 'translateX(-100%) translateY(-100%)' },
           '100%': { transform: 'translateX(100%) translateY(100%)' },
+        },
+        'fire-flicker': {
+          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+          '45%': { opacity: '0.92', transform: 'scale(1.02)' },
+          '70%': { opacity: '0.97', transform: 'scale(0.99)' },
+        },
+        marquee: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
         },
       },
     },
