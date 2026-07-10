@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader2, Check, X } from 'lucide-react';
 import { useSignUp } from '@clerk/nextjs';
@@ -22,6 +23,7 @@ const PASSWORD_REQUIREMENTS = [
 ];
 
 export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
+  const router = useRouter();
   const { signUp, isLoaded, setActive } = useSignUp();
 
   const [step, setStep] = useState<Step>('email');
@@ -66,7 +68,9 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
     } catch (err: any) {
       const code = err.errors?.[0]?.code;
       if (code === 'form_identifier_exists') {
-        setError('An account with this email already exists');
+        // Email already has an account — send them straight to sign-in, prefilled.
+        router.push(`/sign-in?email=${encodeURIComponent(email)}`);
+        return;
       } else if (code === 'form_identifier_invalid') {
         setError('Please enter a valid email address');
       } else {
@@ -175,7 +179,7 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      {error && <ErrorState message={error} onRetry={() => setError('')} />}
+      {error && error !== 'already_exists' && <ErrorState message={error} onRetry={() => setError('')} />}
 
       <AnimatePresence mode="wait">
         {step === 'email' && (

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader2 } from 'lucide-react';
 import { useSignIn } from '@clerk/nextjs';
@@ -16,10 +17,11 @@ interface SignInFormProps {
 type Step = 'email' | 'password';
 
 export function SignInForm({ onSuccess, onForgotPassword, onBack }: SignInFormProps) {
+  const searchParams = useSearchParams();
   const { signIn, isLoaded, setActive } = useSignIn();
 
   const [step, setStep] = useState<Step>('email');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(searchParams.get('email') ?? '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
