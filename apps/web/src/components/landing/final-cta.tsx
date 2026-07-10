@@ -3,7 +3,8 @@
 import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { SectionReveal, FadeInView } from './animation-primitives';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, Flame } from 'lucide-react';
+import { useLang } from './i18n';
 
 interface Particle {
   x: number;
@@ -14,7 +15,8 @@ interface Particle {
   speedY: number;
 }
 
-export function FinalCTASection() {
+export function FinalCTACSection() {
+  const { txt } = useLang();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
 
@@ -68,64 +70,54 @@ export function FinalCTASection() {
 
   return (
     <section id="cta" className="relative py-32 lg:py-48 bg-surface-0 overflow-hidden">
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 w-full h-full pointer-events-none"
-      />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand-primary/15 rounded-full blur-[200px] animate-fire-flicker" />
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
+      <div className="grain" />
 
       <div className="section-container relative z-10">
         <SectionReveal>
           <div className="max-w-3xl mx-auto text-center">
             <FadeInView>
               <motion.div
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-primary/10 border border-brand-primary/20 text-brand-primary text-body-sm font-semibold mb-6"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-primary/10 border border-brand-primary/30 text-brand-primary text-body-sm font-semibold mb-6 uppercase"
                 whileHover={{ scale: 1.05 }}
               >
-                <Sparkles className="w-4 h-4" />
-                Start your 14-day free trial
+                <Flame className="w-4 h-4" />
+                {txt('Empieza gratis 14 días', 'Start your 14-day free trial')}
               </motion.div>
             </FadeInView>
 
             <FadeInView delay={0.1}>
-              <h2 className="font-display font-bold text-h1 lg:text-[4rem] leading-tight text-text-primary mb-6">
-                Ready to transform
+              <h2 className="font-display font-black text-h1 lg:text-[5rem] leading-[0.95] text-text-primary mb-6 uppercase">
+                {txt('Tu mejor versión', 'Your best version')}
                 <br />
-                <span className="text-gradient">how you coach?</span>
+                <span className="text-gradient-fire">{txt('te está esperando', 'is waiting')}</span>
               </h2>
             </FadeInView>
 
             <FadeInView delay={0.2}>
-              <p className="text-body-lg text-text-tertiary max-w-xl mx-auto mb-10">
-                Join thousands of coaches and athletes who have already made the switch.
-                No credit card required.
+              <p className="text-body-lg text-text-secondary max-w-xl mx-auto mb-10">
+                {txt('Únete a miles de coaches y atletas que ya hicieron el cambio. Sin tarjeta.', 'Join thousands of coaches and athletes who already made the switch. No credit card required.')}
               </p>
             </FadeInView>
 
             <FadeInView delay={0.3}>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <motion.a
-                  href="#"
-                  className="inline-flex items-center gap-2 px-8 py-4 rounded-lg bg-brand-primary text-white font-semibold text-body"
+                  href="/sign-up"
+                  className="inline-flex items-center gap-2 px-10 py-4 rounded-sm bg-brand-primary text-text-inverse font-bold text-body uppercase animate-glow-pulse"
                   whileHover={{ scale: 1.04 }}
                   whileTap={{ scale: 0.97 }}
                 >
-                  Start free trial
+                  {txt('Empieza gratis', 'Start free')}
                   <ArrowRight className="w-5 h-5" />
-                </motion.a>
-                <motion.a
-                  href="#"
-                  className="inline-flex items-center gap-2 px-8 py-4 rounded-lg bg-surface-3 text-text-primary font-semibold text-body border border-surface-6 hover:bg-surface-4 transition-colors duration-300"
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  Talk to sales
                 </motion.a>
               </div>
             </FadeInView>
 
             <FadeInView delay={0.4}>
               <p className="text-body-sm text-text-tertiary mt-6">
-                Free 14-day trial &bull; Cancel anytime &bull; No credit card for Starter
+                {txt('Prueba 14 días · Cancela cuando quieras · Sin tarjeta en Starter', 'Free 14-day trial · Cancel anytime · No card for Starter')}
               </p>
             </FadeInView>
           </div>

@@ -5,59 +5,64 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { SectionReveal, FadeInView } from './animation-primitives';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLang } from './i18n';
 
 const faqs = [
   {
-    q: 'What is MR Training?',
-    a: 'MR Training is a unified coaching platform that combines training program design, athlete performance analytics, AI-powered coaching insights, event management, nutrition tracking, and team communication into one seamless experience. No more juggling spreadsheets, apps, and whiteboards.',
+    qEs: '¿Qué es MR Training?',
+    qEn: 'What is MR Training?',
+    aEs: 'Plataforma de coaching unificada: diseño de planes, analítica, IA, eventos, nutrición y comunicación en un solo lugar. Sin hojas de cálculo ni apps sueltas.',
+    aEn: 'MR Training is a unified coaching platform combining program design, analytics, AI insights, events, nutrition, and communication in one seamless experience. No more spreadsheets and scattered apps.',
   },
   {
-    q: 'How does the AI coaching work?',
-    a: 'Our AI analyzes training load, performance trends, recovery data, and athlete feedback to generate personalized program adjustments. It detects overtraining patterns before injuries happen, suggests optimal rest periods, and can auto-generate entire training blocks based on your coaching philosophy and athlete goals.',
+    qEs: '¿Cómo funciona la IA?',
+    qEn: 'How does the AI coaching work?',
+    aEs: 'Analiza carga, tendencias, recuperación y feedback para ajustar planes. Detecta sobreentrenamiento antes de lesionarte y genera bloques completos según tus objetivos.',
+    aEn: 'Our AI analyzes training load, trends, recovery, and feedback to generate personalized adjustments. It detects overtraining before injuries and can auto-generate training blocks.',
   },
   {
-    q: 'Can I import my existing athletes and programs?',
-    a: 'Absolutely. We support bulk CSV/JSON import for athlete profiles, training history, and performance data. Most coaches have their full program library migrated within an hour. Our onboarding team will guide you through the process step by step.',
+    qEs: '¿Puedo importar mis atletas y planes?',
+    qEn: 'Can I import my existing athletes and programs?',
+    aEs: 'Sí. Importación masiva CSV/JSON de perfiles e historial. La mayoría migra su librería en una hora, con ayuda de nuestro equipo.',
+    aEn: 'Absolutely. Bulk CSV/JSON import for profiles and history. Most coaches migrate within an hour, guided by our onboarding team.',
   },
   {
-    q: 'Is there a mobile app for athletes?',
-    a: 'Yes. Athletes get a companion mobile app where they can view their daily training plan, log workouts, track nutrition, communicate with their coach, and see real-time progress. Available on iOS and Android.',
+    qEs: '¿Hay app para atletas?',
+    qEn: 'Is there a mobile app for athletes?',
+    aEs: 'Sí. App móvil para ver el plan diario, registrar entrenos, nutrición, hablar con el coach y ver progreso. iOS y Android.',
+    aEn: 'Yes. Athletes get a companion app to view daily plans, log workouts, track nutrition, message their coach, and see progress. iOS and Android.',
   },
   {
-    q: 'Can I try before committing?',
-    a: 'Yes — start with a 14-day free trial on any plan. No credit card required for Starter. For Pro and Elite, we require a card but you can cancel anytime within the trial period for a full refund.',
+    qEs: '¿Puedo probar antes?',
+    qEn: 'Can I try before committing?',
+    aEs: 'Sí: 14 días gratis en cualquier plan. Sin tarjeta en Starter. En Pro/Elite pedimos tarjeta pero cancelas y te devolvemos.',
+    aEn: 'Yes — 14-day free trial on any plan. No card required for Starter. For Pro/Elite a card is required but you can cancel anytime for a full refund.',
   },
   {
-    q: 'How does multi-coach collaboration work?',
-    a: 'Elite plan includes full multi-coach support. Share athlete profiles, co-author programs, assign specific coaches to specific athletes or groups, and maintain a shared coaching notes feed. Permissions are granular — you control who sees what.',
-  },
-  {
-    q: 'What kind of support do you offer?',
-    a: 'Starter gets email support with <24h response. Pro gets priority with <4h response. Elite gets a dedicated account manager, phone/video support, and guaranteed <1h critical response. All plans have access to our knowledge base and community forum.',
-  },
-  {
-    q: 'Is my data secure?',
-    a: 'Yes. We use 256-bit encryption at rest and TLS 1.3 in transit. Our infrastructure is SOC 2 compliant, hosted on AWS with daily backups. We never share or sell your data. See our privacy policy for full details.',
+    qEs: '¿Es seguro mis datos?',
+    qEn: 'Is my data secure?',
+    aEs: 'Sí. Encriptación 256-bit, TLS 1.3, SOC 2, backups diarios. Nunca compartimos ni vendemos tus datos.',
+    aEn: 'Yes. 256-bit encryption at rest, TLS 1.3, SOC 2 compliant, daily backups. We never share or sell your data.',
   },
 ];
 
 export function FAQSection() {
+  const { txt } = useLang();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   return (
     <section id="faq" className="relative py-24 lg:py-32 bg-surface-0 overflow-hidden">
-      <div className="section-container">
+      <div className="grain" />
+      <div className="section-container relative">
         <SectionReveal>
           <div className="text-center mb-16">
             <FadeInView>
-              <p className="font-display font-semibold text-overline text-brand-primary mb-3">
-                FAQ
-              </p>
-              <h2 className="font-display font-bold text-h2 lg:text-h1 text-text-primary mb-4">
-                Questions? We have answers.
+              <p className="font-display font-semibold text-overline text-brand-primary mb-3">FAQ</p>
+              <h2 className="font-display font-black text-h2 lg:text-h1 uppercase text-text-primary mb-4">
+                {txt('Preguntas frecuentes.', 'Questions? We have answers.')}
               </h2>
               <p className="text-body-lg text-text-tertiary max-w-2xl mx-auto">
-                Everything you need to know about MR Training.
+                {txt('Todo lo que necesitas saber.', 'Everything you need to know about MR Training.')}
               </p>
             </FadeInView>
           </div>
@@ -70,26 +75,17 @@ export function FAQSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.04, duration: 0.3 }}
-                className={cn(
-                  'rounded-xl border transition-colors duration-300',
-                  openIndex === i
-                    ? 'bg-surface-2 border-surface-6'
-                    : 'bg-surface-1 border-surface-4 hover:border-surface-5'
-                )}
+                className={cn('rounded-xl border transition-colors duration-300', openIndex === i ? 'bg-surface-2 border-brand-primary/40' : 'bg-surface-1 border-surface-4 hover:border-surface-5')}
               >
                 <button
                   className="w-full flex items-center justify-between gap-4 p-5 text-left"
                   onClick={() => setOpenIndex(openIndex === i ? null : i)}
                 >
                   <span className="font-display font-semibold text-body text-text-primary">
-                    {faq.q}
+                    {txt(faq.qEs, faq.qEn)}
                   </span>
-                  <motion.div
-                    animate={{ rotate: openIndex === i ? 180 : 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="shrink-0"
-                  >
-                    <ChevronDown className="w-5 h-5 text-text-tertiary" />
+                  <motion.div animate={{ rotate: openIndex === i ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0">
+                    <ChevronDown className="w-5 h-5 text-brand-primary" />
                   </motion.div>
                 </button>
                 <AnimatePresence>
@@ -102,7 +98,7 @@ export function FAQSection() {
                       className="overflow-hidden"
                     >
                       <p className="px-5 pb-5 text-body-sm text-text-tertiary leading-relaxed">
-                        {faq.a}
+                        {txt(faq.aEs, faq.aEn)}
                       </p>
                     </motion.div>
                   )}

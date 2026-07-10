@@ -8,36 +8,28 @@ const HeroSection = dynamic(
   () => import('@/components/landing/hero').then(m => m.HeroSection),
   { ssr: false }
 );
-const StorytellingSection = dynamic(
-  () => import('@/components/landing/storytelling').then(m => m.StorytellingSection),
-  { ssr: false }
-);
-const ProblemSection = dynamic(
-  () => import('@/components/landing/problem').then(m => m.ProblemSection),
-  { ssr: false }
-);
-const TransformationSection = dynamic(
-  () => import('@/components/landing/transformation').then(m => m.TransformationSection),
-  { ssr: false }
-);
-const AICoachSection = dynamic(
-  () => import('@/components/landing/ai-coach').then(m => m.AICoachSection),
-  { ssr: false }
-);
-const FeaturesSection = dynamic(
-  () => import('@/components/landing/features').then(m => m.FeaturesSection),
+const PromoMarquee = dynamic(
+  () => import('@/components/landing/promo-marquee').then(m => m.PromoMarquee),
   { ssr: false }
 );
 const AthleteJourneySection = dynamic(
   () => import('@/components/landing/athlete-journey').then(m => m.AthleteJourneySection),
   { ssr: false }
 );
-const CoachJourneySection = dynamic(
-  () => import('@/components/landing/athlete-journey').then(m => m.CoachJourneySection),
+const StorytellingSection = dynamic(
+  () => import('@/components/landing/storytelling').then(m => m.StorytellingSection),
   { ssr: false }
 );
-const CommunitySection = dynamic(
-  () => import('@/components/landing/community').then(m => m.CommunitySection),
+const TransformationSection = dynamic(
+  () => import('@/components/landing/transformation').then(m => m.TransformationSection),
+  { ssr: false }
+);
+const ChallengeSection = dynamic(
+  () => import('@/components/landing/challenge').then(m => m.ChallengeSection),
+  { ssr: false }
+);
+const FeaturesSection = dynamic(
+  () => import('@/components/landing/features').then(m => m.FeaturesSection),
   { ssr: false }
 );
 const EventsSection = dynamic(
@@ -56,8 +48,8 @@ const FAQSection = dynamic(
   () => import('@/components/landing/faq').then(m => m.FAQSection),
   { ssr: false }
 );
-const FinalCTASection = dynamic(
-  () => import('@/components/landing/final-cta').then(m => m.FinalCTASection),
+const FinalCTACSection = dynamic(
+  () => import('@/components/landing/final-cta').then(m => m.FinalCTACSection),
   { ssr: false }
 );
 const FooterSection = dynamic(
@@ -65,33 +57,23 @@ const FooterSection = dynamic(
   { ssr: false }
 );
 
-function SectionFallback() {
-  return (
-    <div className="w-full h-[400px] bg-surface-1 animate-pulse flex items-center justify-center">
-      <div className="w-8 h-8 rounded-full border-2 border-brand-primary border-t-transparent animate-spin" />
-    </div>
-  );
-}
-
 export default function LandingPage() {
   return (
     <>
       <LandingNav />
       <main>
         <HeroSection />
-        <StorytellingSection />
-        <ProblemSection />
-        <TransformationSection />
-        <AICoachSection />
-        <FeaturesSection />
+        <PromoMarquee />
         <AthleteJourneySection />
-        <CoachJourneySection />
-        <CommunitySection />
+        <StorytellingSection />
+        <TransformationSection />
+        <ChallengeSection />
+        <FeaturesSection />
         <EventsSection />
         <TestimonialsSection />
         <PricingSection />
         <FAQSection />
-        <FinalCTASection />
+        <FinalCTACSection />
       </main>
       <FooterSection />
     </>

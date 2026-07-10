@@ -26,8 +26,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 }
 
 export function useLang() {
-  const { lang } = useContext(LanguageContext);
+  const { lang, setLang } = useContext(LanguageContext);
   const es = lang === 'es';
   const txt = (e: string, n: string) => (es ? e : n);
-  return { lang, es, en: !es, txt };
+  return { lang, setLang, es, en: !es, txt };
 }
