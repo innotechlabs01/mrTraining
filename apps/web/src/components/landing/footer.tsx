@@ -57,12 +57,13 @@ export function FooterSection() {
 
   return (
     <footer className="relative py-16 lg:py-20 bg-surface-0 border-t border-surface-4 overflow-hidden">
+      <div className="absolute top-0 left-1/4 w-64 h-64 bg-brand-ember/10 rounded-full blur-[100px]" />
       <div className="section-container">
         <FadeInView>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
             <div className="col-span-2 md:col-span-1">
               <Logo size="md" className="mb-4" />
-              <p className="text-body-sm text-text-tertiary mb-4 max-w-xs">
+              <p className="text-body-sm text-text-tertiary mb-4 max-w-xs text-gradient-fire">
                 {es
                   ? 'La plataforma de entrenamiento unificada para deportistas modernos.'
                   : 'The unified training platform for modern athletes.'}
@@ -75,7 +76,7 @@ export function FooterSection() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={s.label}
-                    className="w-9 h-9 rounded-lg bg-surface-3 flex items-center justify-center text-text-tertiary hover:text-brand-primary hover:bg-surface-4 transition-all duration-300"
+                    className="w-9 h-9 rounded-lg bg-surface-3 flex items-center justify-center text-text-tertiary hover:text-brand-primary hover:bg-surface-4 transition-all duration-300 fire-border-glow"
                   >
                     <s.icon className="w-4 h-4" />
                   </a>

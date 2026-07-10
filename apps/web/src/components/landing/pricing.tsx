@@ -6,6 +6,7 @@ import { SectionReveal, FadeInView } from './animation-primitives';
 import { Check, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLang } from './i18n';
+import { FireParticles } from './fire-particles';
 
 const plans = [
   {
@@ -89,8 +90,8 @@ export function PricingSection() {
                 viewport={{ once: true, margin: '-64px' }}
                 transition={{ delay: i * 0.12, duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
                 className={cn(
-                  'relative rounded-xl border p-6 lg:p-8 transition-all duration-300',
-                  plan.highlight ? 'bg-surface-4 border-brand-primary fire-glow' : 'bg-surface-3 border-surface-6 hover:border-surface-5'
+                  'relative rounded-xl overflow-hidden border p-6 lg:p-8 transition-all duration-300',
+                  plan.highlight ? 'bg-surface-3 border-brand-primary/40 fire-border-glow' : 'bg-surface-3 border-surface-6 hover:border-surface-5'
                 )}
                 whileHover={{ y: -4 }}
               >
@@ -134,7 +135,7 @@ export function PricingSection() {
                   href={plan.highlight ? '/sign-up' : plan.name === 'Elite' ? '#contact' : '/sign-up'}
                   className={cn(
                     'flex items-center justify-center gap-2 w-full py-3 rounded-lg font-semibold text-body-sm transition-all duration-300',
-                    plan.highlight ? 'bg-brand-primary text-white hover:bg-brand-primary-hover' : 'bg-surface-5 text-text-primary hover:bg-surface-4 border border-surface-6'
+                    plan.highlight ? 'bg-brand-primary text-white hover:bg-brand-primary-hover fire-border-glow' : 'bg-surface-5 text-text-primary hover:bg-surface-4 border border-surface-6 fire-border-glow'
                   )}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -147,6 +148,7 @@ export function PricingSection() {
           </div>
         </SectionReveal>
       </div>
+      <FireParticles count={20} speed={0.5} />
     </section>
   );
 }

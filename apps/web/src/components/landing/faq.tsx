@@ -6,6 +6,7 @@ import { SectionReveal, FadeInView } from './animation-primitives';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLang } from './i18n';
+import { FireParticles } from './fire-particles';
 
 const faqs = [
   {
@@ -67,7 +68,7 @@ export function FAQSection() {
             </FadeInView>
           </div>
 
-          <div className="max-w-3xl mx-auto space-y-3">
+          <div className="max-w-3xl mx-auto space-y-3 fire-border-glow rounded-xl">
             {faqs.map((faq, i) => (
               <motion.div
                 key={i}
@@ -108,6 +109,7 @@ export function FAQSection() {
           </div>
         </SectionReveal>
       </div>
+      <FireParticles count={15} speed={0.3} />
     </section>
   );
 }
