@@ -1,5 +1,6 @@
 'use client';
 
+import { Flame } from 'lucide-react';
 import { useLang } from './i18n';
 
 export function PromoMarquee() {
@@ -14,12 +15,12 @@ export function PromoMarquee() {
   const row = [...items, ...items];
 
   return (
-    <div className="relative overflow-hidden bg-brand-primary border-y border-brand-ember/30">
-      <div className="flex whitespace-nowrap animate-marquee py-3">
+    <div className="relative overflow-hidden fire-gradient-bg border-y border-brand-primary/20">
+      <div className="flex whitespace-nowrap animate-marquee py-4">
         {row.map((item, i) => (
-          <span key={i} className="flex items-center gap-6 px-6 text-sm font-black uppercase tracking-wider text-surface-0">
+          <span key={i} className="flex items-center gap-8 px-8 text-body font-black uppercase tracking-[0.15em] text-brand-primary/80">
             {item}
-            <span className="text-surface-0/50">🔥</span>
+            <Flame className="w-4 h-4 text-brand-primary/40" />
           </span>
         ))}
       </div>
