@@ -15,6 +15,7 @@ const isPublicRoute = createRouteMatcher([
   '/invite(.*)',
   '/welcome-dashboard',
   '/api(.*)',
+  '/ui-ux-pro-max(.*)',
 ]);
 
 const isAuthEntryRoute = createRouteMatcher([

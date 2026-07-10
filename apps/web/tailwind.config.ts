@@ -32,6 +32,24 @@ module.exports = {
         teal: { accent: '#00BFA5' },
         violet: { accent: '#7C4DFF' },
         coral: { accent: '#FF5252' },
+        uiux: {
+          primary: '#6366F1',
+          'primary-hover': '#4F46E5',
+          'primary-light': '#EEF2FF',
+          secondary: '#0EA5E9',
+          'secondary-light': '#F0F9FF',
+          surface: {
+            0: '#FFFFFF',
+            1: '#F8FAFC',
+            2: '#F1F5F9',
+            3: '#E2E8F0',
+          },
+          text: {
+            primary: '#0F172A',
+            secondary: '#475569',
+            tertiary: '#94A3B8',
+          },
+        },
       },
       fontFamily: {
         display: ['Montserrat', ...fontFamily.sans],
