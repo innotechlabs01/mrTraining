@@ -8,6 +8,7 @@ import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader2 } from 'lucide-react';
 import { useSignIn } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
 import { ErrorState } from './ErrorState';
+import { translateClerkError } from '../clerk-errors';
 
 interface SignInFormProps {
   onSuccess?: () => void;
@@ -46,14 +47,7 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack }: SignInFormPr
       await signIn.create({ identifier: email });
       setStep('password');
     } catch (err: any) {
-      const code = err.errors?.[0]?.code;
-      if (code === 'form_identifier_not_found') {
-        setError('No account found with this email address');
-      } else if (code === 'form_identifier_invalid') {
-        setError('Please enter a valid email address');
-      } else {
-        setError(err.errors?.[0]?.message || 'Something went wrong. Please try again.');
-      }
+      setError(translateClerkError(err, 'No se pudo iniciar sesión. Inténtalo de nuevo.'));
     } finally {
       setIsLoading(false);
     }
@@ -78,15 +72,7 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack }: SignInFormPr
         onSuccess?.();
       }
     } catch (err: any) {
-      const code = err.errors?.[0]?.code;
-      const message = err.errors?.[0]?.message;
-      if (code === 'form_password_incorrect') {
-        setError('Incorrect password. Try again or reset your password.');
-      } else if (code === 'user_locked_out') {
-        setError('Account temporarily locked due to too many failed attempts. Try again later.');
-      } else {
-        setError(message || 'Something went wrong. Please try again.');
-      }
+      setError(translateClerkError(err, 'No se pudo iniciar sesión. Inténtalo de nuevo.'));
     } finally {
       setIsLoading(false);
     }

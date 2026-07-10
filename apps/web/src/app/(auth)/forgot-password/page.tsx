@@ -8,7 +8,7 @@ export default function ForgotPasswordPage() {
   const router = useRouter();
 
   return (
-    <AuthShell title="Reset your password" subtitle="We'll send you a reset code">
+    <AuthShell title="Restablece tu contraseña" subtitle="Te enviaremos un código de restablecimiento">
       <ForgotPasswordForm
         onBack={() => router.push('/sign-in')}
       />

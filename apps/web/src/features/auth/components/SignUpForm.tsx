@@ -8,6 +8,7 @@ import { useSignUp } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
 import { CodeInput } from './CodeInput';
 import { ErrorState } from './ErrorState';
+import { translateClerkError } from '../clerk-errors';
 
 interface SignUpFormProps {
   onSuccess?: () => void;
@@ -63,7 +64,10 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
     setError('');
 
     try {
-      await signUp.create({ emailAddress: email });
+      await signUp.create({
+        emailAddress: email,
+        ...(plan ? { unsafeMetadata: { plan } } : {}),
+      });
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
       setStep('verify');
       startResendCountdown();
@@ -73,10 +77,8 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
         // Email already has an account — send them straight to sign-in, prefilled.
         router.push(`/sign-in?email=${encodeURIComponent(email)}${plan ? `&plan=${plan}` : ''}`);
         return;
-      } else if (code === 'form_identifier_invalid') {
-        setError('Please enter a valid email address');
       } else {
-        setError(err.errors?.[0]?.message || 'Something went wrong. Please try again.');
+        setError(translateClerkError(err, 'No se pudo continuar. Inténtalo de nuevo.'));
       }
     } finally {
       setIsLoading(false);
@@ -101,14 +103,7 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
         setStep('password');
       }
     } catch (err: any) {
-      const code = err.errors?.[0]?.code;
-      if (code === 'form_code_incorrect') {
-        setError('Invalid verification code. Please try again.');
-      } else if (code === 'form_code_expired') {
-        setError('Verification code expired. Request a new one.');
-      } else {
-        setError(err.errors?.[0]?.message || 'Failed to verify code. Please try again.');
-      }
+      setError(translateClerkError(err, 'No se pudo verificar el código. Inténtalo de nuevo.'));
     } finally {
       setIsLoading(false);
     }
@@ -125,7 +120,7 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
       startResendCountdown();
       setCode('');
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || 'Failed to resend code');
+      setError(translateClerkError(err, 'No se pudo reenviar el código.'));
     } finally {
       setIsLoading(false);
     }
@@ -140,21 +135,17 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
     setError('');
 
     try {
-      await signUp.update({ password });
+      await signUp.update({
+        password,
+        ...(plan ? { unsafeMetadata: { plan } } : {}),
+      });
 
       if (signUp.createdSessionId) {
         await setActive({ session: signUp.createdSessionId });
         onSuccess?.();
       }
     } catch (err: any) {
-      const message = err.errors?.[0]?.message;
-      if (err.errors?.[0]?.code === 'form_password_pwned') {
-        setError('This password has been compromised. Please choose a different one.');
-      } else if (err.errors?.[0]?.code === 'form_password_length_too_short') {
-        setError('Password must be at least 8 characters long.');
-      } else {
-        setError(message || 'Something went wrong. Please try again.');
-      }
+      setError(translateClerkError(err, 'No se pudo crear la cuenta. Inténtalo de nuevo.'));
     } finally {
       setIsLoading(false);
     }

@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
 import { CodeInput } from './CodeInput';
 import { ErrorState } from './ErrorState';
+import { translateClerkError, translateStatic } from '../clerk-errors';
 
 interface ForgotPasswordFormProps {
   onBack?: () => void;
@@ -39,7 +40,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
       });
       setStep('reset');
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || 'Failed to send reset code');
+      setError(translateClerkError(err, 'No se pudo enviar el código de restablecimiento.'));
     } finally {
       setIsLoading(false);
     }
@@ -48,11 +49,11 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
   const handleReset = useCallback(async () => {
     if (!isLoaded || !code || code.length < 6 || !newPassword) return;
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(translateStatic('Passwords do not match', 'Las contraseñas no coinciden.'));
       return;
     }
     if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters');
+      setError(translateStatic('Password must be at least 8 characters', 'La contraseña debe tener al menos 8 caracteres.'));
       return;
     }
     setIsLoading(true);
@@ -70,11 +71,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
 
       setStep('success');
     } catch (err: any) {
-      if (err.errors?.[0]?.code === 'form_code_incorrect') {
-        setError('Invalid code. Please try again.');
-      } else {
-        setError(err.errors?.[0]?.message || 'Failed to reset password');
-      }
+      setError(translateClerkError(err, 'No se pudo restablecer la contraseña.'));
     } finally {
       setIsLoading(false);
     }
@@ -103,7 +100,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
         >
           <div className="text-center">
             <p className="text-body-sm text-text-secondary">
-              Enter your email and we'll send you a reset code
+              Introduce tu correo y te enviaremos un código de restablecimiento
             </p>
           </div>
 
@@ -113,7 +110,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
 
           <div className="flex flex-col gap-2">
             <label htmlFor="forgot-email" className="text-caption text-text-secondary font-medium">
-              Email
+              Correo electrónico
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" />
@@ -149,7 +146,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
             {isLoading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              'Send Reset Code'
+              'Enviar código'
             )}
           </button>
 
@@ -159,7 +156,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
             className="flex items-center justify-center gap-1.5 text-body-sm text-text-secondary transition-colors duration-200 hover:text-text-primary"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to sign in
+            Volver a iniciar sesión
           </button>
         </motion.div>
       )}
@@ -175,7 +172,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
         >
           <div className="text-center">
             <p className="text-body-sm text-text-secondary">
-              Enter the 6-digit code sent to{' '}
+              Introduce el código de 6 dígitos enviado a{' '}
               <span className="font-medium text-text-primary">{email}</span>
             </p>
           </div>
@@ -194,7 +191,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
 
           <div className="flex flex-col gap-2">
             <label htmlFor="new-password" className="text-caption text-text-secondary font-medium">
-              New Password
+              Nueva contraseña
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" />
@@ -227,7 +224,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
 
           <div className="flex flex-col gap-2">
             <label htmlFor="confirm-password" className="text-caption text-text-secondary font-medium">
-              Confirm Password
+              Confirmar contraseña
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" />
@@ -272,7 +269,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
             {isLoading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              'Reset Password'
+              'Restablecer contraseña'
             )}
           </button>
 
@@ -282,7 +279,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
             className="flex items-center justify-center gap-1.5 text-body-sm text-text-secondary transition-colors duration-200 hover:text-text-primary"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to email
+            Volver al correo
           </button>
         </motion.div>
       )}
@@ -302,10 +299,10 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
 
           <div className="text-center">
             <p className="text-h3 font-display font-semibold text-text-primary mb-1">
-              Password Reset
+              Contraseña restablecida
             </p>
             <p className="text-body-sm text-text-secondary">
-              Your password has been successfully reset
+              Tu contraseña ha sido restablecida con éxito
             </p>
           </div>
 
@@ -318,7 +315,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0',
             )}
           >
-            Back to Sign In
+            Volver a iniciar sesión
           </button>
         </motion.div>
       )}
