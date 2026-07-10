@@ -1,200 +1,74 @@
 'use client';
 
-import { SectionReveal, FadeInView } from './animation-primitives';
-import { Sunrise, Utensils, Dumbbell, Moon } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { FadeInView, SectionReveal } from './animation-primitives';
+import { useLang } from './i18n';
 
-const athleteSteps = [
-  {
-    time: '7:00 AM',
-    label: 'WAKE',
-    icon: Sunrise,
-    title: 'Recovery Score: 82',
-    description: 'Sleep: 7.5h. HRV trending up. Your body is ready for today.',
-    color: 'text-violet-accent',
-  },
-  {
-    time: '12:00 PM',
-    label: 'FUEL',
-    icon: Utensils,
-    title: 'Nutrition Plan Ready',
-    description: 'Macros calculated for today\'s training load. Meals pre-logged and waiting.',
-    color: 'text-success',
-  },
-  {
-    time: '6:00 PM',
-    label: 'TRAIN',
-    icon: Dumbbell,
-    title: 'Today\'s Workout',
-    description: 'Log sets in real time. Get coach feedback before your rest timer ends.',
-    color: 'text-brand-primary',
-  },
-  {
-    time: '9:00 PM',
-    label: 'RECOVER',
-    icon: Moon,
-    title: 'Sleep & Recovery',
-    description: 'Mobility routine. Sleep tracking. Readiness score for tomorrow.',
-    color: 'text-brand-secondary',
-  },
+const sports = [
+  { id: 'gym', label: 'Gym', img: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&q=80' },
+  { id: 'running', label: 'Running', img: 'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=600&q=80' },
+  { id: 'crossfit', label: 'CrossFit', img: 'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=600&q=80' },
+  { id: 'tennis', label: 'Tenis', img: 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=600&q=80' },
+  { id: 'swimming', label: 'Natación', img: 'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=600&q=80' },
+  { id: 'cycling', label: 'Ciclismo', img: 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=600&q=80' },
+];
+
+const athletes = [
+  { id: 'athlete1', img: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=600&q=80' },
+  { id: 'athlete2', img: 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?w=600&q=80' },
+  { id: 'athlete3', img: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80' },
 ];
 
 export function AthleteJourneySection() {
+  const { txt } = useLang();
+  const athleteLabels = [txt('Atleta', 'Athlete'), txt('Coach', 'Coach'), txt('Comunidad', 'Community')];
+
   return (
-    <section className="relative py-24 lg:py-32 bg-surface-0 overflow-hidden">
-      <div className="section-container">
+    <section id="deportes" className="relative py-24 lg:py-32 bg-surface-1 overflow-hidden">
+      <div className="grain" />
+      <div className="section-container relative">
         <SectionReveal>
-          <div className="text-center mb-16">
-            <FadeInView>
-              <p className="font-display text-overline text-brand-primary uppercase tracking-[0.1em] mb-4">
-                For Athletes
-              </p>
-              <h2 className="font-display font-bold text-h2 lg:text-h1 text-text-primary mb-4">
-                Your day, amplified.
-              </h2>
-            </FadeInView>
-            <FadeInView delay={0.1}>
-              <p className="text-body-lg text-text-secondary max-w-xl mx-auto">
-                From wake-up to lights out, MR Training is with you — not distracting you,
-                guiding you.
-              </p>
-            </FadeInView>
-          </div>
-
-          {/* Timeline */}
-          <div className="relative max-w-4xl mx-auto">
-            {/* Connecting line */}
-            <div className="hidden lg:block absolute top-[72px] left-[10%] right-[10%] h-0.5 bg-surface-6" />
-
-            <div className="grid lg:grid-cols-4 gap-8">
-              {athleteSteps.map((step, i) => (
-                <FadeInView key={step.label} delay={i * 0.15}>
-                  <div className="relative flex flex-col items-center text-center">
-                    {/* Node */}
-                    <div className="relative z-10 mb-6">
-                      <motion.div
-                        className={cn(
-                          'w-14 h-14 rounded-full flex items-center justify-center border-2 transition-all',
-                          'bg-surface-1 border-surface-6'
-                        )}
-                        whileHover={{ scale: 1.1 }}
-                      >
-                        <step.icon className={cn('w-6 h-6', step.color)} />
-                      </motion.div>
-                      {i < athleteSteps.length - 1 && (
-                        <div className="hidden lg:block absolute top-1/2 left-full w-[calc(100%+2rem)] h-0.5 bg-brand-primary/30 -z-10" />
-                      )}
-                    </div>
-
-                    {/* Time badge */}
-                    <span className="font-display text-overline text-text-tertiary mb-2">
-                      {step.time}
-                    </span>
-                    <span className={cn('font-display font-bold text-h4 mb-3', step.color)}>
-                      {step.label}
-                    </span>
-                    <p className="text-body-sm text-text-secondary leading-relaxed">
-                      <span className="block font-semibold text-text-primary mb-1">
-                        {step.title}
-                      </span>
-                      {step.description}
-                    </p>
-                  </div>
-                </FadeInView>
-              ))}
-            </div>
-          </div>
+          <FadeInView>
+            <h2 className="font-display font-black text-h2 lg:text-h1 uppercase text-text-primary text-center mb-4">
+              {txt('Donde sea que te retes', 'Wherever you get challenged')}
+            </h2>
+          </FadeInView>
+          <FadeInView delay={0.2}>
+            <p className="text-body-lg text-text-secondary text-center max-w-2xl mx-auto mb-12">
+              {txt('Un solo lugar para todo lo que te hace mejor. Elige tu campo de batalla.', 'One place for everything that makes you better. Pick your battlefield.')}
+            </p>
+          </FadeInView>
         </SectionReveal>
-      </div>
-    </section>
-  );
-}
 
-const coachSteps = [
-  {
-    label: 'DESIGN',
-    icon: Dumbbell,
-    title: 'Build Programs',
-    description: 'AI-assisted program builder with templates. Periodization built in.',
-    color: 'text-brand-primary',
-  },
-  {
-    label: 'ASSIGN',
-    icon: Utensils,
-    title: 'Push to Athletes',
-    description: 'Assign programs in 1 click. Auto-syncs to every device. No manual setup.',
-    color: 'text-success',
-  },
-  {
-    label: 'MONITOR',
-    icon: Sunrise,
-    title: 'Real-Time Adherence',
-    description: 'See who\'s training. Get alerts when athletes need attention.',
-    color: 'text-warning',
-  },
-  {
-    label: 'GROW',
-    icon: Moon,
-    title: 'Scale Your Business',
-    description: 'Analytics, revenue tracking, and retention insights. Built for growth.',
-    color: 'text-brand-secondary',
-  },
-];
-
-export function CoachJourneySection() {
-  return (
-    <section className="relative py-24 lg:py-32 bg-surface-1 overflow-hidden">
-      <div className="section-container">
-        <SectionReveal>
-          <div className="text-center mb-16">
-            <FadeInView>
-              <p className="font-display text-overline text-brand-primary uppercase tracking-[0.1em] mb-4">
-                For Coaches
-              </p>
-              <h2 className="font-display font-bold text-h2 lg:text-h1 text-text-primary mb-4">
-                Your coaching business, running itself.
-              </h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {sports.map((s, i) => (
+            <FadeInView key={s.id} delay={i * 0.06}>
+              <div className="relative group overflow-hidden rounded-lg aspect-[4/5] border border-surface-6">
+                <img src={s.img} alt={s.label} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                <div className="absolute inset-0 bg-gradient-to-t from-surface-0 via-surface-0/30 to-brand-primary/10" />
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <span className="font-display font-bold text-xl uppercase text-text-primary">{s.label}</span>
+                </div>
+              </div>
             </FadeInView>
-            <FadeInView delay={0.1}>
-              <p className="text-body-lg text-text-secondary max-w-xl mx-auto">
-                Spend your time coaching, not administering. The platform handles the rest.
-              </p>
-            </FadeInView>
-          </div>
+          ))}
+        </div>
 
-          <div className="relative max-w-4xl mx-auto">
-            <div className="hidden lg:block absolute top-[72px] left-[10%] right-[10%] h-0.5 bg-surface-6" />
-            <div className="grid lg:grid-cols-4 gap-8">
-              {coachSteps.map((step, i) => (
-                <FadeInView key={step.label} delay={i * 0.15}>
-                  <div className="relative flex flex-col items-center text-center">
-                    <div className="relative z-10 mb-6">
-                      <motion.div
-                        className={cn(
-                          'w-14 h-14 rounded-full flex items-center justify-center border-2 transition-all',
-                          'bg-surface-2 border-surface-6'
-                        )}
-                        whileHover={{ scale: 1.1 }}
-                      >
-                        <step.icon className={cn('w-6 h-6', step.color)} />
-                      </motion.div>
-                    </div>
-                    <span className={cn('font-display font-bold text-h4 mb-3', step.color)}>
-                      {step.label}
-                    </span>
-                    <p className="text-body-sm text-text-secondary leading-relaxed">
-                      <span className="block font-semibold text-text-primary mb-1">
-                        {step.title}
-                      </span>
-                      {step.description}
-                    </p>
-                  </div>
-                </FadeInView>
-              ))}
-            </div>
+        <FadeInView delay={0.1}>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
+            {athleteLabels.map((label, i) => (
+              <div key={athletes[i].id} className="relative group overflow-hidden rounded-lg w-28 h-28 border border-surface-6">
+                <img src={athletes[i].img} alt={label} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                <div className="absolute inset-0 bg-gradient-to-t from-surface-0/80 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-2">
+                  <span className="text-xs font-semibold uppercase text-text-primary">{label}</span>
+                </div>
+              </div>
+            ))}
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-ember/10 border border-brand-ember/30 text-ember-text font-semibold text-sm uppercase">
+              🔥 {txt('+ Eventos y competencias', '+ Events & competitions')}
+            </span>
           </div>
-        </SectionReveal>
+        </FadeInView>
       </div>
     </section>
   );
