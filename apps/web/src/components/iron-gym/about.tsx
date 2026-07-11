@@ -5,29 +5,25 @@ import { ArrowRight } from 'lucide-react';
 
 export function IronGymAbout() {
   return (
-    <section className="relative bg-black py-24 overflow-hidden">
-      <img
-        src="/iron-gym/about-bg.png"
-        alt=""
-        className="absolute inset-0 w-full h-full object-cover opacity-30"
-      />
-      <div className="absolute inset-0 bg-black/70" />
-
-      <div className="relative z-10 max-w-7xl mx-auto px-6">
+    <section id="about" className="bg-white py-24">
+      <div className="max-w-7xl mx-auto px-6">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            className="relative"
+            className="flex gap-4"
           >
             <img
-              src="/iron-gym/about-img.png"
-              alt="Training session"
-              className="w-full max-w-[384px] rounded-md shadow-2xl"
+              src="/iron-gym/program-1.png"
+              alt="Personal training"
+              className="w-[200px] rounded-xl object-cover aspect-[5/9]"
             />
-            <div className="absolute -bottom-6 -left-6 w-40 h-48 bg-brand-primary/20 rounded-md -z-10" />
-            <div className="absolute -top-6 -right-6 w-40 h-48 border-2 border-brand-primary/40 rounded-md -z-10" />
+            <img
+              src="/iron-gym/program-2.png"
+              alt="Group coaching"
+              className="w-[350px] rounded-xl object-cover aspect-[5/6] self-end"
+            />
           </motion.div>
 
           <motion.div
@@ -35,23 +31,20 @@ export function IronGymAbout() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-4xl lg:text-5xl font-black text-white leading-tight">
-              we have a lot of experience
+            <p className="text-[#9e9e9e] font-medium text-lg">Are you looking for a Mentor?</p>
+            <h2 className="mt-2 text-4xl lg:text-5xl font-bold text-[#424242] leading-tight">
+              Coaches
             </h2>
-            <p className="mt-6 text-white/70 leading-relaxed">
-              In quisque nunc dictumst etiam pellentesque et. Vel malesuada diam lorem tellus.
-              Amet mauris feugiat ipsum natoque odio donec. Sit at lacus consequat justo odio
-              condimentum dui. Faucibus id blandit feugiat mi tellus sit etiam donec aliquam.
-              Dictumst egestas ut facilisi vel. Sem consequat fermentum pellentesque risus purus
-              quis gravida. Nulla porttitor ultrices facilisis non commodo diam morbi cursus eu.
-              Semper ut in mauris gravida id cursus urna. Magnis vulputate orci risus felis eget
-              lectus morbi. Et cursus mauris condimentum pretium arcu sed dignissim.
+            <p className="mt-6 text-[#9e9e9e] leading-relaxed text-lg">
+              Our expert coaches bring years of experience across disciplines — from strength
+              training and bodybuilding to functional fitness and martial arts. Whether you are
+              a beginner or an advanced athlete, we have a program built for you.
             </p>
             <a
               href="#contact"
-              className="inline-flex items-center gap-2 mt-8 px-8 py-4 rounded-md bg-brand-primary text-white font-semibold hover:bg-brand-primary-hover transition-colors"
+              className="inline-flex items-center gap-2 mt-8 px-8 py-4 rounded-md bg-[#212121] text-white font-semibold hover:bg-[#424242] transition-colors"
             >
-              About Us
+              Explore More
               <ArrowRight className="w-4 h-4" />
             </a>
           </motion.div>

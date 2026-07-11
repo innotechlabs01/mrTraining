@@ -1,22 +1,24 @@
 import { IronGymNavbar } from '@/components/iron-gym/navbar';
 import { IronGymHero } from '@/components/iron-gym/hero';
+import { IronGymStats } from '@/components/iron-gym/stats';
 import { IronGymWhyChooseUs } from '@/components/iron-gym/why-choose-us';
 import { IronGymAbout } from '@/components/iron-gym/about';
 import { IronGymTrainers } from '@/components/iron-gym/trainers';
+import { IronGymPlans } from '@/components/iron-gym/plans';
 import { IronGymTestimonials } from '@/components/iron-gym/testimonials';
-import { IronGymCta } from '@/components/iron-gym/cta';
 import { IronGymFooter } from '@/components/iron-gym/footer';
 
 export default function MarketingPage() {
   return (
-    <main className="bg-black">
+    <main>
       <IronGymNavbar />
       <IronGymHero />
+      <IronGymStats />
       <IronGymWhyChooseUs />
       <IronGymAbout />
       <IronGymTrainers />
+      <IronGymPlans />
       <IronGymTestimonials />
-      <IronGymCta />
       <IronGymFooter />
     </main>
   );

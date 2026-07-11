@@ -1,8 +1,9 @@
 'use client'
 
-import { Bell, Menu } from 'lucide-react'
+import { Bell, Menu, LogOut } from 'lucide-react'
 import { useToday } from '../../hooks/useToday'
 import { useMessages } from '../../hooks/useMessages'
+import { useMockAuth } from '@/features/auth/contexts/MockAuthContext'
 import { useCoachPanel } from './CoachPanelContext'
 
 function formatWeekday(dateStr: string): string {
@@ -18,10 +19,11 @@ const STATUS_COLORS: Record<string, string> = {
   past: 'bg-[#6B7280]',
 }
 
-export function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
+export function TopBar({ onMenuClick, user }: { onMenuClick: () => void; user: { name: string; initials: string } | null }) {
   const { currentBlock, date } = useToday()
   const { unreadCount } = useMessages()
   const { openPanel } = useCoachPanel()
+  const { logout } = useMockAuth()
 
   return (
     <header className="fixed top-0 left-0 right-0 h-14 bg-surface-1/80 backdrop-blur-md border-b border-surface-4 z-20 flex items-center justify-between px-4 lg:px-6">
@@ -60,11 +62,21 @@ export function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
           )}
         </button>
 
-        <div
-          className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-primary to-brand-primary-hover flex items-center justify-center text-white text-xs font-bold"
-          aria-hidden="true"
-        >
-          MR
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => { logout(); window.location.href = '/' }}
+            className="p-1.5 rounded-lg text-[#9CA3AF] hover:text-white hover:bg-surface-3 transition-colors"
+            aria-label="Cerrar sesión"
+          >
+            <LogOut size={16} />
+          </button>
+          <div
+            className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-primary to-brand-primary-hover flex items-center justify-center text-white text-xs font-bold"
+            title={user?.name ?? 'Coach'}
+          >
+            {user?.initials ?? 'MR'}
+          </div>
         </div>
       </div>
     </header>

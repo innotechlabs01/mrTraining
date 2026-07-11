@@ -2,12 +2,15 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Search, MoreHorizontal, Flag, Mail, Phone } from 'lucide-react'
+import { Search, Flag } from 'lucide-react'
 import { useAthletes } from '@/features/coach/hooks/useAthletes'
+import { useCoachPanel } from '@/features/coach/components/layout/CoachPanelContext'
+import { MOCK_ATHLETE_DETAILS } from '@/features/coach/data/_mocks'
 import { cn } from '@/lib/utils'
 
 export default function CoachUsersPage() {
   const { athletes } = useAthletes()
+  const { openPanel } = useCoachPanel()
   const [search, setSearch] = useState('')
   const [filterFlagged, setFilterFlagged] = useState(false)
 
@@ -17,6 +20,11 @@ export default function CoachUsersPage() {
     if (filterFlagged) return (matchName || matchSport) && a.flag
     return matchName || matchSport
   })
+
+  const handleCardClick = (athleteId: string) => {
+    const detail = MOCK_ATHLETE_DETAILS[athleteId]
+    if (detail) openPanel('athlete', detail as unknown as Record<string, unknown>)
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -54,12 +62,13 @@ export default function CoachUsersPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map((athlete, i) => (
-          <motion.div
+          <motion.button
             key={athlete.id}
+            onClick={() => handleCardClick(athlete.id)}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
-            className="rounded-2xl border border-white/5 bg-surface-1 p-4 hover:border-white/10 transition-all group"
+            className="w-full text-left rounded-2xl border border-white/5 bg-surface-1 p-4 hover:border-brand-primary/30 hover:bg-surface-2 transition-all group"
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
@@ -86,12 +95,7 @@ export default function CoachUsersPage() {
                 <p className="text-xs text-amber-400/80">{athlete.flag.message}</p>
               </div>
             )}
-            <div className="mt-3 flex items-center gap-2 text-white/20">
-              <Mail size={12} />
-              <Phone size={12} />
-              <MoreHorizontal size={14} className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
-          </motion.div>
+          </motion.button>
         ))}
       </div>
     </div>

@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --color-brand-primary: #FF6B00;
+    --color-brand-primary: #15AAF2;
     --color-brand-secondary: #0066FF;
     --color-success: #00C853;
     --color-error: #FF3D00;
@@ -32,7 +32,7 @@
   }
 
   ::selection {
-    background-color: rgba(255, 107, 0, 0.3);
+    background-color: rgba(21, 170, 242, 0.3);
     color: #FFFFFF;
   }
 
@@ -50,22 +50,22 @@
 
 @layer components {
   .text-gradient-orange {
-    background: linear-gradient(135deg, #FF6B00, #FF8A33);
+    background: linear-gradient(135deg, #15AAF2, #4FC3F7);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .text-gradient-fire {
-    background: linear-gradient(135deg, #FF6B00, #FFB300);
+    background: linear-gradient(135deg, #15AAF2, #7FD8FF);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  .ember-text { color: #FFB300; }
-  .ember-text-light { color: #FFD166; }
-  .fire-glow { box-shadow: 0 0 24px rgba(255, 107, 0, 0.45); }
+  .ember-text { color: #7FD8FF; }
+  .ember-text-light { color: #B3E5FF; }
+  .fire-glow { box-shadow: 0 0 24px rgba(21, 170, 242, 0.45); }
 
   .grain {
     position: absolute;
@@ -101,15 +101,15 @@
   }
 
   .text-glow-fire {
-    text-shadow: 0 0 30px rgba(255, 107, 0, 0.4), 0 0 60px rgba(255, 107, 0, 0.2);
+    text-shadow: 0 0 30px rgba(21, 170, 242, 0.4), 0 0 60px rgba(21, 170, 242, 0.2);
   }
 
   .fire-border-glow {
-    box-shadow: 0 0 12px rgba(255, 107, 0, 0.3), inset 0 0 12px rgba(255, 107, 0, 0.05);
+    box-shadow: 0 0 12px rgba(21, 170, 242, 0.3), inset 0 0 12px rgba(21, 170, 242, 0.05);
   }
 
   .fire-gradient-bg {
-    background: linear-gradient(90deg, rgba(255, 107, 0, 0.15), transparent, rgba(255, 107, 0, 0.15));
+    background: linear-gradient(90deg, rgba(21, 170, 242, 0.15), transparent, rgba(21, 170, 242, 0.15));
   }
 
   .grain-strong {

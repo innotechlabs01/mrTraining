@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Brain,
   CalendarCheck,
+  Moon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TimeBlock } from '../../types'
@@ -25,6 +26,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   'message-square': MessageSquare,
   brain: Brain,
   'calendar-check': CalendarCheck,
+  moon: Moon,
 }
 
 interface TimeBlockCardProps {

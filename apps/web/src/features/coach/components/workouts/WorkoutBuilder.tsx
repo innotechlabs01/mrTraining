@@ -16,6 +16,7 @@ import {
   generateId,
 } from '@/features/workout'
 import type { WorkoutExercise, Exercise, WorkoutGoal, WorkoutPlan } from '@/features/workout'
+import { InfoTip } from './InfoTip'
 
 const GOALS = Object.entries(GOAL_LABELS).map(([value, label]) => ({
   value: value as WorkoutGoal,
@@ -582,6 +583,7 @@ export default function WorkoutBuilder() {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-white/40">Goal:</span>
+                <InfoTip text="Objetivo principal de la sesión: fuerza, hipertrofia, resistencia, movilidad o activación. Define cómo interpretar repeticiones y cargas." placement="bottom" />
                 <select
                   value={goal}
                   onChange={e => setGoal(e.target.value as WorkoutGoal)}
@@ -597,13 +599,21 @@ export default function WorkoutBuilder() {
                 <>
                   <span className="text-xs text-white/30">|</span>
                   <span className="text-xs text-white/50">
-                    Duration: <span className="text-white font-medium">{formatDuration(duration)}</span>
+                    <span className="inline-flex items-center gap-1">
+                      Duration:
+                      <InfoTip text="Tiempo total estimado de la sesión, calculado a partir de series, repeticiones y descansos de cada ejercicio." placement="bottom" />
+                    </span>{' '}
+                    <span className="text-white font-medium">{formatDuration(duration)}</span>
                   </span>
                   {volume > 0 && (
                     <>
                       <span className="text-xs text-white/30">|</span>
                       <span className="text-xs text-white/50">
-                        Volume: <span className="text-white font-medium">{volume.toLocaleString()} kg</span>
+                        <span className="inline-flex items-center gap-1">
+                          Volume:
+                          <InfoTip text="Volumen total de carga levantada: suma de (series × repeticiones × peso) de todos los ejercicios, en kg." placement="bottom" />
+                        </span>{' '}
+                        <span className="text-white font-medium">{volume.toLocaleString()} kg</span>
                       </span>
                     </>
                   )}
@@ -687,8 +697,9 @@ export default function WorkoutBuilder() {
                       </div>
 
                       {editingExercise === we.id ? (
-                        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/5">
+                        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5 flex-wrap">
                           <div className="flex items-center gap-1.5">
+                            <InfoTip text="Sets: número de series del ejercicio (veces que repites la carga). Ej. 4 = haz el ejercicio 4 veces." />
                             <input
                               type="number"
                               value={we.sets}
@@ -697,6 +708,7 @@ export default function WorkoutBuilder() {
                               min={1}
                             />
                             <span className="text-xs text-white/40">×</span>
+                            <InfoTip text="Reps: repeticiones por serie. Puede ser un número (12) o 'AMRAP' / 'failure' (hasta el fallo)." />
                             <input
                               type="text"
                               value={we.reps}
@@ -712,6 +724,7 @@ export default function WorkoutBuilder() {
                               className="w-14 bg-surface-3 border border-white/10 rounded-md px-2 py-1 text-xs text-white text-center outline-none focus:border-orange-500/50"
                             />
                             <span className="text-xs text-white/40">@</span>
+                            <InfoTip text="Peso: carga por repetición en kg. Déjalo vacío para peso corporal o ejercicios sin carga." />
                             <input
                               type="number"
                               value={we.weight ?? ''}
@@ -721,6 +734,7 @@ export default function WorkoutBuilder() {
                               placeholder="kg"
                             />
                             <span className="text-xs text-white/40">|</span>
+                            <InfoTip text="Rest: descanso en segundos entre series para recuperarte antes de la siguiente." />
                             <input
                               type="number"
                               value={we.rest}
@@ -730,16 +744,19 @@ export default function WorkoutBuilder() {
                             />
                             <span className="text-xs text-white/40">s</span>
                           </div>
-                          <input
-                            type="number"
-                            value={we.rpeTarget ?? ''}
-                            onChange={e => updateExerciseField(we.id, 'rpeTarget', e.target.value ? Number(e.target.value) : '')}
-                            placeholder="RPE"
-                            className="w-14 bg-surface-3 border border-white/10 rounded-md px-2 py-1 text-xs text-white text-center outline-none focus:border-orange-500/50"
-                            min={1}
-                            max={10}
-                            step={0.5}
-                          />
+                          <div className="flex items-center gap-1.5">
+                            <InfoTip text="RPE: esfuerzo percibido del 1 al 10 (10 = máximo esfuerzo posible). Guía de intensidad." />
+                            <input
+                              type="number"
+                              value={we.rpeTarget ?? ''}
+                              onChange={e => updateExerciseField(we.id, 'rpeTarget', e.target.value ? Number(e.target.value) : '')}
+                              placeholder="RPE"
+                              className="w-14 bg-surface-3 border border-white/10 rounded-md px-2 py-1 text-xs text-white text-center outline-none focus:border-orange-500/50"
+                              min={1}
+                              max={10}
+                              step={0.5}
+                            />
+                          </div>
                           <button
                             onClick={() => setEditingExercise(null)}
                             className="text-xs text-orange-400 hover:text-orange-300 font-medium"

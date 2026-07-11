@@ -189,7 +189,7 @@ export default function MorningBrief() {
 
       <motion.div variants={itemVariants}>
         <button
-          onClick={() => openPanel('session', { view: 'check-in' })}
+          onClick={() => openPanel('timeblock', { blockId: 'check-in' })}
           className="w-full h-12 bg-brand-primary hover:bg-brand-primary-hover rounded-md font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
         >
           Start Today's Review

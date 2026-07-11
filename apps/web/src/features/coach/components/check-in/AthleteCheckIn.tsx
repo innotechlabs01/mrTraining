@@ -127,7 +127,14 @@ export default function AthleteCheckIn() {
                 <AthleteReadinessCard
                   key={athlete.id}
                   athlete={athlete}
-                  onClick={() => openPanel('athlete', { name: athlete.name, sport: athlete.sport, readiness: athlete.readiness })}
+                  onClick={() =>
+                    openPanel('athlete', {
+                      id: athlete.id,
+                      name: athlete.name,
+                      sport: athlete.sport,
+                      readiness: athlete.readiness,
+                    })
+                  }
                 />
               ))}
             </AnimatePresence>

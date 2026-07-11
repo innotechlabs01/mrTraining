@@ -10,6 +10,7 @@ export type TimeBlockId =
   | 'communication'
   | 'insights'
   | 'daily-summary'
+  | 'evening-recap'
 
 export interface TimeBlock {
   id: TimeBlockId
@@ -124,7 +125,7 @@ export interface DailySummary {
   tomorrowPreview: TomorrowPreview
 }
 
-export type PanelType = 'athlete' | 'message' | 'session' | 'exercise' | null
+export type PanelType = 'athlete' | 'message' | 'session' | 'exercise' | 'timeblock' | null
 
 export interface PanelState {
   type: PanelType
@@ -175,6 +176,15 @@ export interface RevenuePoint {
   amount: number
 }
 
+export interface PlanDiscount {
+  type: 'percentage' | 'fixed'
+  value: number
+  label?: string
+  validFrom?: string
+  validUntil?: string
+  code?: string
+}
+
 export interface Plan {
   id: string
   name: string
@@ -188,6 +198,19 @@ export interface Plan {
   features: string[]
   isActive: boolean
   athleteCount: number
+  discount?: PlanDiscount | null
+}
+
+export type EventFormat = 'lista' | 'formulario' | 'running'
+
+export type EventFormFieldKind = 'text' | 'multiple' | 'select'
+
+export interface EventFormField {
+  id: string
+  label: string
+  kind: EventFormFieldKind
+  options?: string[]
+  required?: boolean
 }
 
 export interface CoachEvent {
@@ -202,6 +225,38 @@ export interface CoachEvent {
   description?: string
   athleteIds: string[]
   status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled'
+  format?: EventFormat
+  formFields?: EventFormField[]
+  listItems?: string[]
+  running?: {
+    distanceKm?: number
+    meetingPoint?: string
+    pace?: string
+  }
+  public?: boolean
+}
+
+// ---- Live Sessions (calendar) ----
+
+export type LiveSessionStatus = 'scheduled' | 'live' | 'completed' | 'cancelled'
+
+export interface LiveSessionItem {
+  id: string
+  title: string
+  description?: string
+  date: string
+  startTime: string
+  endTime: string
+  modality: TrainingMode
+  location?: string
+  notes?: string
+  public: boolean
+  capacity: number
+  enrolled: number
+  status: LiveSessionStatus
+  link?: string
+  distanceKm?: number
+  pace?: string
 }
 
 export interface AssignedWorkout {
@@ -217,6 +272,13 @@ export interface AssignedWorkout {
   daysOfWeek: number[]
   status: 'active' | 'completed' | 'paused'
   progress: number
+}
+
+export interface PublicPageConfig {
+  brandName: string
+  tagline?: string
+  welcomeMessage?: string
+  footerText: string
 }
 
 export type NavSectionId =
@@ -238,4 +300,78 @@ export interface NavItem {
   icon: string
   href?: string
   children?: NavItem[]
+}
+
+// ---- Support / Help desk ----
+
+export type TicketStatus = 'open' | 'resolved'
+export type TicketCategory = 'problem' | 'question' | 'feedback'
+export type TicketPriority = 'low' | 'medium' | 'high'
+export type TicketAuthor = 'coach' | 'support'
+
+export interface TicketMessage {
+  id: string
+  author: TicketAuthor
+  body: string
+  imageUrl?: string
+  createdAt: string
+}
+
+export interface SupportTicket {
+  id: string
+  number: number
+  subject: string
+  category: TicketCategory
+  priority: TicketPriority
+  status: TicketStatus
+  createdAt: string
+  resolvedAt?: string
+  messages: TicketMessage[]
+}
+
+// ---- Coach payment methods (only bank transfer) ----
+
+export type AccountType = 'checking' | 'savings'
+
+export interface PaymentMethod {
+  id: string
+  bank: string
+  holder: string
+  accountType: AccountType
+  accountNumber: string
+  clabe: string
+  notes?: string
+}
+
+/** A transfer method is only enabled/visible to users once its info is complete. */
+export function isPaymentMethodComplete(m: PaymentMethod): boolean {
+  return Boolean(m.bank && m.holder && m.accountNumber && m.clabe)
+}
+
+// ---- Sales / inventory (coach emprendimiento) ----
+
+export interface Product {
+  id: string
+  name: string
+  brand?: string
+  imageUrl?: string
+  price: number // precio de venta (lo que paga el cliente)
+  received: number // precio recibido por el coach (neto por unidad)
+  gross: number // precio bruto (antes de descuento/impuesto)
+  stock: number
+  lowStockThreshold: number
+  createdAt: string
+}
+
+export interface Sale {
+  id: string
+  productId: string
+  productName: string
+  brand?: string
+  quantity: number
+  unitPrice: number // snapshot del precio de venta
+  unitReceived: number // snapshot del precio recibido
+  total: number
+  date: string // YYYY-MM-DD
+  createdAt: string
 }

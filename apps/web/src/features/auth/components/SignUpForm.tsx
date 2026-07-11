@@ -28,9 +28,11 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
   const searchParams = useSearchParams();
   const { signUp, isLoaded, setActive } = useSignUp();
   const plan = searchParams.get('plan');
+  const planType = searchParams.get('planType');
+  const initialEmail = searchParams.get('email') || '';
 
   const [step, setStep] = useState<Step>('email');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(initialEmail);
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -64,9 +66,13 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
     setError('');
 
     try {
+      const unsafeMetadata: Record<string, string> = {};
+      if (plan) unsafeMetadata.plan = plan;
+      if (planType) unsafeMetadata.planType = planType;
+
       await signUp.create({
         emailAddress: email,
-        ...(plan ? { unsafeMetadata: { plan } } : {}),
+        unsafeMetadata: Object.keys(unsafeMetadata).length > 0 ? unsafeMetadata : undefined,
       });
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
       setStep('verify');
@@ -135,9 +141,13 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
     setError('');
 
     try {
+      const unsafeMetadata: Record<string, string> = {};
+      if (plan) unsafeMetadata.plan = plan;
+      if (planType) unsafeMetadata.planType = planType;
+
       await signUp.update({
         password,
-        ...(plan ? { unsafeMetadata: { plan } } : {}),
+        unsafeMetadata: Object.keys(unsafeMetadata).length > 0 ? unsafeMetadata : undefined,
       });
 
       if (signUp.createdSessionId) {
@@ -145,7 +155,16 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
         onSuccess?.();
       }
     } catch (err: any) {
-      setError(translateClerkError(err, 'No se pudo crear la cuenta. Inténtalo de nuevo.'));
+      const clerkCode = err.errors?.[0]?.code;
+      if (clerkCode === 'form_password_pwned') {
+        setPassword('');
+        setError(
+          'Esta contraseña ha sido comprometida en una filtración de datos. ' +
+          'Elige una contraseña diferente y más segura.',
+        );
+      } else {
+        setError(translateClerkError(err, 'No se pudo crear la cuenta. Inténtalo de nuevo.'));
+      }
     } finally {
       setIsLoading(false);
     }

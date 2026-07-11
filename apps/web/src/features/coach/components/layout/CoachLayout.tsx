@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import type { PanelState, PanelType } from '../../types'
+import { useRequireAuth } from '@/features/auth/contexts/MockAuthContext'
 import { CoachPanelContext } from './CoachPanelContext'
 import { CoachSidebar } from './CoachSidebar'
 import { TopBar } from './TopBar'
@@ -10,6 +11,7 @@ import { RightPanel } from './RightPanel'
 export { useCoachPanel } from './CoachPanelContext'
 
 export default function CoachLayout({ children }: { children: React.ReactNode }) {
+  const { user } = useRequireAuth()
   const [panel, setPanel] = useState<PanelState>({ type: null, data: {} })
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -30,7 +32,7 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
     <CoachPanelContext.Provider value={value}>
       <div className="relative min-h-screen bg-surface-0">
         <CoachSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <TopBar onMenuClick={() => setSidebarOpen(true)} />
+        <TopBar onMenuClick={() => setSidebarOpen(true)} user={user} />
         <main className="pt-14 min-h-screen lg:ml-60">{children}</main>
         <RightPanel />
       </div>

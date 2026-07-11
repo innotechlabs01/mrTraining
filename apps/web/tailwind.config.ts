@@ -1,5 +1,19 @@
 const { fontFamily } = require('tailwindcss/defaultTheme');
 
+// Designated brand color: #15AAF2 (single source of truth for accents).
+const BRAND_SCALE = {
+  50: '#E8F7FF',
+  100: '#C7ECFF',
+  200: '#9FDDFF',
+  300: '#7FD8FF',
+  400: '#4FC3F7',
+  500: '#15AAF2',
+  600: '#0E93D4',
+  700: '#0A7BB3',
+  800: '#086291',
+  900: '#064B6E',
+};
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ['./src/**/*.{ts,tsx}'],
@@ -7,16 +21,29 @@ module.exports = {
     extend: {
       colors: {
         brand: {
-          primary: '#FF6B00',
-          'primary-hover': '#E85D00',
-          'primary-pressed': '#CC5200',
-          'primary-light': '#FF8A33',
-          ember: '#FFB300',
-          'ember-light': '#FFD166',
-          secondary: '#0066FF',
-          'secondary-hover': '#3385FF',
-          'secondary-pressed': '#0044CC',
+          primary: '#15AAF2',
+          'primary-hover': '#0E93D4',
+          'primary-pressed': '#0A7BB3',
+          'primary-light': '#4FC3F7',
+          ember: '#7FD8FF',
+          'ember-light': '#B3E5FF',
+          secondary: '#15AAF2',
+          'secondary-hover': '#0E93D4',
+          'secondary-pressed': '#0A7BB3',
         },
+        // Single designated brand color. Decorative/brand-ish accent scales are
+        // aliased to the #15AAF2 scale so the whole UI stays on-brand.
+        // (red/green/emerald/amber/yellow are kept for error/success/warning semantics.)
+        orange: BRAND_SCALE,
+        blue: BRAND_SCALE,
+        sky: BRAND_SCALE,
+        cyan: BRAND_SCALE,
+        indigo: BRAND_SCALE,
+        purple: BRAND_SCALE,
+        violet: BRAND_SCALE,
+        fuchsia: BRAND_SCALE,
+        pink: BRAND_SCALE,
+        teal: BRAND_SCALE,
         surface: {
           0: '#0A0B0D',
           1: '#0F0F0F',
@@ -29,13 +56,11 @@ module.exports = {
         success: '#00C853',
         error: '#FF3D00',
         warning: '#FFB300',
-        teal: { accent: '#00BFA5' },
-        violet: { accent: '#7C4DFF' },
         coral: { accent: '#FF5252' },
         uiux: {
-          primary: '#6366F1',
-          'primary-hover': '#4F46E5',
-          'primary-light': '#EEF2FF',
+          primary: '#15AAF2',
+          'primary-hover': '#0E93D4',
+          'primary-light': '#4FC3F7',
           secondary: '#0EA5E9',
           'secondary-light': '#F0F9FF',
           surface: {
@@ -86,8 +111,8 @@ module.exports = {
       },
       keyframes: {
         'glow-pulse': {
-          '0%, 100%': { boxShadow: '0 0 20px rgba(255,107,0,0.3)' },
-          '50%': { boxShadow: '0 0 40px rgba(255,107,0,0.6)' },
+          '0%, 100%': { boxShadow: '0 0 20px rgba(21,170,242,0.3)' },
+          '50%': { boxShadow: '0 0 40px rgba(21,170,242,0.6)' },
         },
         float: {
           '0%, 100%': { transform: 'translateY(0px)' },

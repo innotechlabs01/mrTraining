@@ -14,12 +14,14 @@ import {
   UserPlus,
   CreditCard,
   Calendar,
+  Radio,
   Settings,
   LifeBuoy,
   ChevronDown,
   ChevronRight,
   Clock,
   X,
+  Package,
 } from 'lucide-react'
 
 interface NavItemConfig {
@@ -43,8 +45,17 @@ const NAV_ITEMS: NavItemConfig[] = [
       { id: 'training-asignar', label: 'Asignar', href: '/coach/training/asignar' },
     ],
   },
-  { id: 'planes', label: 'Planes', icon: CreditCard, href: '/coach/planes' },
-  { id: 'events', label: 'Eventos', icon: Calendar, href: '/coach/events' },
+  {
+    id: 'commercial',
+    label: 'Comercial',
+    icon: Package,
+    children: [
+      { id: 'planes', label: 'Planes', href: '/coach/planes' },
+      { id: 'events', label: 'Eventos', href: '/coach/events' },
+      { id: 'live-sessions', label: 'Live Sessions', href: '/coach/live-session' },
+      { id: 'ventas', label: 'Ventas / Inventario', href: '/coach/ventas' },
+    ],
+  },
   { id: 'settings', label: 'Settings', icon: Settings, href: '/coach/settings' },
   { id: 'support', label: 'Soporte', icon: LifeBuoy, href: '/coach/support' },
 ]
@@ -63,6 +74,7 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
   const router = useRouter()
   const { blocks } = useToday()
   const [trainingOpen, setTrainingOpen] = useState(() => isChildActive(pathname, NAV_ITEMS[2].children!))
+  const [commercialOpen, setCommercialOpen] = useState(() => isChildActive(pathname, NAV_ITEMS[3].children!))
   const [timelineOpen, setTimelineOpen] = useState(false)
 
   const currentBlockId = blocks.find((b) => pathname.endsWith(b.id))?.id ?? null
@@ -74,15 +86,20 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/5">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded-md bg-brand-primary/10 text-brand-primary font-display font-bold text-sm leading-none">
-            MR
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-white/5 ring-1 ring-white/10">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/icon/icon_mr.png"
+                alt="MR Training"
+                className="h-7 w-7 object-contain"
+              />
+            </div>
+            <span className="font-display text-sm font-semibold text-white/90 tracking-wide">
+              Coach OS
+            </span>
           </div>
-          <span className="font-display text-sm font-semibold text-white/90 tracking-wide">
-            Coach OS
-          </span>
-        </div>
         <button onClick={onClose} className="lg:hidden p-1 text-white/40 hover:text-white/70">
           <X size={18} />
         </button>
@@ -92,10 +109,14 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
         {NAV_ITEMS.map((item) => {
           if (item.children) {
             const hasActiveChild = isChildActive(pathname, item.children)
+            const isTraining = item.id === 'training'
+            const isCommercial = item.id === 'commercial'
+            const isOpen = isTraining ? trainingOpen : isCommercial ? commercialOpen : false
+            const setOpen = isTraining ? setTrainingOpen : isCommercial ? setCommercialOpen : () => {}
             return (
               <div key={item.id}>
                 <button
-                  onClick={() => setTrainingOpen(!trainingOpen)}
+                  onClick={() => setOpen(!isOpen)}
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
                     hasActiveChild
@@ -109,11 +130,11 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
                     size={14}
                     className={cn(
                       'transition-transform duration-200',
-                      trainingOpen && 'rotate-180',
+                      isOpen && 'rotate-180',
                     )}
                   />
                 </button>
-                {trainingOpen && (
+                {isOpen && (
                   <div className="ml-8 mt-0.5 space-y-0.5 border-l border-white/10 pl-2">
                     {item.children.map((child) => {
                       const active = isExactActive(pathname, child.href)

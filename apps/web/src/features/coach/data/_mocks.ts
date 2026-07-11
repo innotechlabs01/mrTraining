@@ -8,6 +8,7 @@ import type {
   Plan,
   CoachEvent,
   AssignedWorkout,
+  SupportTicket,
 } from '../types'
 
 export const MOCK_TIME_BLOCKS: TimeBlock[] = [
@@ -20,6 +21,7 @@ export const MOCK_TIME_BLOCKS: TimeBlock[] = [
   { id: 'communication', label: 'Communication', time: '6:00 PM', endTime: '6:30 PM', icon: 'message-square', status: 'upcoming' },
   { id: 'insights', label: 'AI Insights', time: '7:00 PM', endTime: '7:20 PM', icon: 'brain', status: 'upcoming' },
   { id: 'daily-summary', label: 'Daily Summary', time: '8:00 PM', endTime: '8:10 PM', icon: 'calendar-check', status: 'upcoming' },
+  { id: 'evening-recap', label: 'Evening Recap', time: '8:30 PM', endTime: '9:00 PM', icon: 'moon', status: 'upcoming' },
 ]
 
 export const MOCK_ATHLETES: AthleteBrief[] = [
@@ -235,6 +237,81 @@ export const MOCK_REVENUE_HISTORY = [
   { month: 'Jul', amount: 13800 },
 ]
 
+export const MOCK_TICKETS: SupportTicket[] = [
+  {
+    id: 'tk-seed-1',
+    number: 1,
+    subject: 'El gráfico de ingresos no se actualiza',
+    category: 'problem',
+    priority: 'high',
+    status: 'open',
+    createdAt: '2026-07-08T09:12:00.000Z',
+    messages: [
+      {
+        id: 'msg-seed-1',
+        author: 'coach',
+        body: 'Desde ayer el dashboard de ingresos muestra los mismos valores aunque confirmé un pago. Adjunto captura del comportamiento.',
+        imageUrl: '',
+        createdAt: '2026-07-08T09:12:00.000Z',
+      },
+      {
+        id: 'msg-seed-2',
+        author: 'support',
+        body: 'Gracias por el reporte #1. Estamos revisando el cálculo de ingresos del mes; te confirmamos en breve. Mientras tanto, el pago quedó registrado correctamente.',
+        createdAt: '2026-07-08T11:40:00.000Z',
+      },
+    ],
+  },
+  {
+    id: 'tk-seed-2',
+    number: 2,
+    subject: '¿Cómo comparto el link público de un evento?',
+    category: 'question',
+    priority: 'low',
+    status: 'resolved',
+    createdAt: '2026-07-05T14:03:00.000Z',
+    resolvedAt: '2026-07-05T15:20:00.000Z',
+    messages: [
+      {
+        id: 'msg-seed-3',
+        author: 'coach',
+        body: 'Quiero que mis atletas se inscriban a un evento sin loguearse. ¿Se puede?',
+        createdAt: '2026-07-05T14:03:00.000Z',
+      },
+      {
+        id: 'msg-seed-4',
+        author: 'support',
+        body: 'Sí. Abre el evento, activa "Hacer público" y copia el enlace que se genera. Cualquiera con el link puede registrarse. Ticket resuelto.',
+        createdAt: '2026-07-05T15:20:00.000Z',
+      },
+    ],
+  },
+]
+
+export const MOCK_DASHBOARD_EXTRA = {
+  revenueGoal: 15000,
+  newAthletesGoal: 10,
+  streakDays: 12,
+  bestStreak: 21,
+  planDistribution: [
+    { name: 'Starter', athletes: 8, revenue: 392, color: 'bg-emerald-500' },
+    { name: 'Pro', athletes: 12, revenue: 1188, color: 'bg-blue-500' },
+    { name: 'Elite', athletes: 4, revenue: 796, color: 'bg-purple-500' },
+  ],
+  motivationalMessages: [
+    'Cada sesión que planificas acerca a un atleta a su próximo récord.',
+    'Los grandes resultados se construyen en los días que nadie ve.',
+    'Tu constancia es la diferencia entre prometer y transformar.',
+    'Revisa, ajusta y crece: el mejor programa es el que evoluciona contigo.',
+  ],
+  recentActivity: [
+    { id: 'act-1', icon: 'user', text: 'Lucas Weber se unió al plan Elite', time: 'Hace 2 h' },
+    { id: 'act-2', icon: 'event', text: 'Confirmaste: Competencia Regional de Atletismo', time: 'Hace 5 h' },
+    { id: 'act-3', icon: 'payment', text: 'Sarah Johnson renovó su plan Pro', time: 'Ayer' },
+    { id: 'act-4', icon: 'trend', text: 'Marcus Chen batió su mejor marca en 400m', time: 'Ayer' },
+  ],
+} as const
+
 export const MOCK_PLANS: Plan[] = [
   {
     id: 'plan-1',
@@ -274,6 +351,13 @@ export const MOCK_PLANS: Plan[] = [
     ],
     isActive: true,
     athleteCount: 12,
+    discount: {
+      type: 'percentage',
+      value: 20,
+      label: 'Promo verano',
+      validFrom: '2026-07-01',
+      validUntil: '2026-12-31',
+    },
   },
   {
     id: 'plan-3',
@@ -328,6 +412,8 @@ export const MOCK_EVENTS: CoachEvent[] = [
     description: 'Competencia regional con atletas de todo el estado',
     athleteIds: ['ath-1', 'ath-2', 'ath-5'],
     status: 'confirmed',
+    format: 'lista',
+    listItems: ['Llegar 45 min antes', 'Traer chip de cronometraje', 'Calentamiento en pista 2', 'Hidratación personal'],
   },
   {
     id: 'evt-2',
@@ -340,6 +426,12 @@ export const MOCK_EVENTS: CoachEvent[] = [
     description: 'Revisión de progreso semanal y ajustes de programa',
     athleteIds: ['ath-1', 'ath-2', 'ath-3', 'ath-4', 'ath-5', 'ath-6', 'ath-7', 'ath-8'],
     status: 'scheduled',
+    format: 'formulario',
+    formFields: [
+      { id: 'ff-1', label: '¿Asistirás?', kind: 'multiple', options: ['Sí, presencial', 'Sí, virtual', 'No puedo'] },
+      { id: 'ff-2', label: 'Tema a tratar', kind: 'text' },
+      { id: 'ff-3', label: '¿Traes datos de sueño?', kind: 'select', options: ['Sí', 'No'] },
+    ],
   },
   {
     id: 'evt-3',
@@ -364,6 +456,41 @@ export const MOCK_EVENTS: CoachEvent[] = [
     description: 'Análisis de video y corrección de técnica vía Zoom',
     athleteIds: ['ath-2', 'ath-8'],
     status: 'scheduled',
+  },
+  {
+    id: 'evt-5',
+    title: 'Inscripción Carrera 5K Primavera',
+    date: '2026-07-18',
+    time: '7:00 AM',
+    endTime: '9:00 AM',
+    type: 'other',
+    modality: 'presencial',
+    location: 'Parque Fundadores',
+    description: 'Registro de participantes para la carrera benéfica de primavera',
+    athleteIds: ['ath-1', 'ath-3', 'ath-4'],
+    status: 'scheduled',
+    format: 'formulario',
+    public: true,
+    formFields: [
+      { id: 'ff-1', label: 'Talla de playera', kind: 'select', options: ['S', 'M', 'L', 'XL'] },
+      { id: 'ff-2', label: 'Categoría', kind: 'multiple', options: ['Abierta', 'Máster 40+', 'Juvenil'] },
+      { id: 'ff-3', label: 'Contacto de emergencia', kind: 'text' },
+    ],
+  },
+  {
+    id: 'evt-6',
+    title: 'Long Run Dominical',
+    date: '2026-07-13',
+    time: '6:30 AM',
+    endTime: '8:30 AM',
+    type: 'reunion',
+    modality: 'running',
+    location: 'Sendero Río',
+    description: 'Rodaje largo de resistencia para grupo de alto rendimiento',
+    athleteIds: ['ath-1', 'ath-5', 'ath-7'],
+    status: 'confirmed',
+    format: 'running',
+    running: { distanceKm: 21, pace: '5:30', meetingPoint: 'Puerta principal' },
   },
 ]
 
@@ -411,6 +538,199 @@ export const MOCK_ASSIGNED_WORKOUTS: AssignedWorkout[] = [
     progress: 100,
   },
 ]
+
+export interface AthleteDetailData {
+  id: string
+  name: string
+  email: string
+  phone: string
+  sport: string
+  serviceType: string
+  plan: { name: string; price: number; billingPeriod: string }
+  schedule: { days: string; time: string }
+  startDate: string
+  emergencyContact: string
+  weightHistory: { date: string; weight: number; muscleMass: number; bodyFat: number }[]
+  runningDevice?: { brand: string; model: string; synced: boolean; lastSync?: string }
+  readiness: { sleep: number; hrv: number; recovery: number; score: number }
+  flag?: { type: string; severity: string; message: string }
+}
+
+export const MOCK_ATHLETE_DETAILS: Record<string, AthleteDetailData> = {
+  'ath-1': {
+    id: 'ath-1',
+    name: 'Marcus Chen',
+    email: 'marcus.chen@email.com',
+    phone: '+1 (555) 123-4567',
+    sport: 'Track - 400m',
+    serviceType: 'Presencial',
+    plan: { name: 'Pro', price: 99, billingPeriod: 'mensual' },
+    schedule: { days: 'Lun, Mié, Vie', time: '7:00 - 9:00 AM' },
+    startDate: '15 Ene 2026',
+    emergencyContact: 'Lisa Chen - +1 (555) 987-6543',
+    weightHistory: [
+      { date: 'Feb', weight: 76.2, muscleMass: 38.1, bodyFat: 11.2 },
+      { date: 'Mar', weight: 75.8, muscleMass: 38.5, bodyFat: 10.8 },
+      { date: 'Abr', weight: 75.5, muscleMass: 38.8, bodyFat: 10.5 },
+      { date: 'May', weight: 74.9, muscleMass: 39.0, bodyFat: 10.3 },
+      { date: 'Jun', weight: 74.6, muscleMass: 39.2, bodyFat: 10.1 },
+      { date: 'Jul', weight: 74.3, muscleMass: 39.4, bodyFat: 9.9 },
+    ],
+    readiness: { sleep: 7.2, hrv: 65, recovery: 82, score: 78 },
+  },
+  'ath-2': {
+    id: 'ath-2',
+    name: 'Sarah Johnson',
+    email: 'sarah.johnson@email.com',
+    phone: '+1 (555) 234-5678',
+    sport: 'Swimming',
+    serviceType: 'Híbrido',
+    plan: { name: 'Elite', price: 199, billingPeriod: 'mensual' },
+    schedule: { days: 'Lun a Vie', time: '6:00 - 8:00 AM' },
+    startDate: '3 Mar 2026',
+    emergencyContact: 'Tom Johnson - +1 (555) 876-5432',
+    weightHistory: [
+      { date: 'Feb', weight: 63.5, muscleMass: 30.2, bodyFat: 16.8 },
+      { date: 'Mar', weight: 63.0, muscleMass: 30.6, bodyFat: 16.5 },
+      { date: 'Abr', weight: 62.8, muscleMass: 30.9, bodyFat: 16.2 },
+      { date: 'May', weight: 62.5, muscleMass: 31.1, bodyFat: 16.0 },
+      { date: 'Jun', weight: 62.3, muscleMass: 31.3, bodyFat: 15.8 },
+      { date: 'Jul', weight: 62.0, muscleMass: 31.5, bodyFat: 15.6 },
+    ],
+    readiness: { sleep: 8.1, hrv: 72, recovery: 91, score: 88 },
+  },
+  'ath-3': {
+    id: 'ath-3',
+    name: 'David Park',
+    email: 'david.park@email.com',
+    phone: '+1 (555) 345-6789',
+    sport: 'Track - 100m',
+    serviceType: 'Presencial',
+    plan: { name: 'Pro', price: 99, billingPeriod: 'mensual' },
+    schedule: { days: 'Lun, Mié, Vie', time: '8:00 - 10:00 AM' },
+    startDate: '20 Feb 2026',
+    emergencyContact: 'Jenna Park - +1 (555) 765-4321',
+    weightHistory: [
+      { date: 'Feb', weight: 80.1, muscleMass: 40.5, bodyFat: 10.5 },
+      { date: 'Mar', weight: 79.8, muscleMass: 40.8, bodyFat: 10.2 },
+      { date: 'Abr', weight: 79.5, muscleMass: 41.0, bodyFat: 10.0 },
+      { date: 'May', weight: 80.2, muscleMass: 40.3, bodyFat: 10.8 },
+      { date: 'Jun', weight: 80.8, muscleMass: 39.8, bodyFat: 11.5 },
+      { date: 'Jul', weight: 81.3, muscleMass: 39.5, bodyFat: 11.9 },
+    ],
+    readiness: { sleep: 5.8, hrv: 45, recovery: 38, score: 42 },
+    flag: { type: 'readiness', severity: 'high', message: 'HRV dropped 35% from baseline — posible sobreentreno' },
+  },
+  'ath-4': {
+    id: 'ath-4',
+    name: 'Emily Rodriguez',
+    email: 'emily.r@email.com',
+    phone: '+1 (555) 456-7890',
+    sport: 'Crossfit',
+    serviceType: 'Híbrido',
+    plan: { name: 'Starter', price: 49, billingPeriod: 'mensual' },
+    schedule: { days: 'Mar, Jue, Sáb', time: '9:00 - 10:30 AM' },
+    startDate: '10 Abr 2026',
+    emergencyContact: 'Carlos Rodriguez - +1 (555) 654-3210',
+    weightHistory: [
+      { date: 'Feb', weight: 68.4, muscleMass: 32.0, bodyFat: 15.5 },
+      { date: 'Mar', weight: 68.0, muscleMass: 32.3, bodyFat: 15.2 },
+      { date: 'Abr', weight: 67.6, muscleMass: 32.6, bodyFat: 14.9 },
+      { date: 'May', weight: 67.2, muscleMass: 32.8, bodyFat: 14.7 },
+      { date: 'Jun', weight: 66.8, muscleMass: 33.0, bodyFat: 14.5 },
+      { date: 'Jul', weight: 66.5, muscleMass: 33.2, bodyFat: 14.3 },
+    ],
+    readiness: { sleep: 7.5, hrv: 68, recovery: 75, score: 74 },
+  },
+  'ath-5': {
+    id: 'ath-5',
+    name: 'James Thompson',
+    email: 'james.thompson@email.com',
+    phone: '+1 (555) 567-8901',
+    sport: 'Track - 200m',
+    serviceType: 'Presencial',
+    plan: { name: 'Pro', price: 99, billingPeriod: 'mensual' },
+    schedule: { days: 'Lun, Mié, Vie', time: '10:00 AM - 12:00 PM' },
+    startDate: '5 Ene 2026',
+    emergencyContact: 'Mary Thompson - +1 (555) 543-2109',
+    weightHistory: [
+      { date: 'Feb', weight: 72.8, muscleMass: 36.0, bodyFat: 12.0 },
+      { date: 'Mar', weight: 72.5, muscleMass: 36.2, bodyFat: 11.8 },
+      { date: 'Abr', weight: 72.0, muscleMass: 36.5, bodyFat: 11.5 },
+      { date: 'May', weight: 71.6, muscleMass: 36.8, bodyFat: 11.3 },
+      { date: 'Jun', weight: 71.3, muscleMass: 37.0, bodyFat: 11.0 },
+      { date: 'Jul', weight: 71.0, muscleMass: 37.2, bodyFat: 10.8 },
+    ],
+    readiness: { sleep: 6.9, hrv: 58, recovery: 65, score: 63 },
+    flag: { type: 'attendance', severity: 'medium', message: 'Llegó 15 min tarde a la sesión de ayer' },
+  },
+  'ath-6': {
+    id: 'ath-6',
+    name: 'Aisha Patel',
+    email: 'aisha.patel@email.com',
+    phone: '+1 (555) 678-9012',
+    sport: 'Marathon',
+    serviceType: 'Running',
+    plan: { name: 'Elite', price: 199, billingPeriod: 'mensual' },
+    schedule: { days: 'Lun a Sáb', time: '5:30 - 7:00 AM' },
+    startDate: '1 Dic 2025',
+    emergencyContact: 'Raj Patel - +1 (555) 432-1098',
+    weightHistory: [
+      { date: 'Feb', weight: 58.2, muscleMass: 26.5, bodyFat: 18.0 },
+      { date: 'Mar', weight: 57.8, muscleMass: 26.8, bodyFat: 17.7 },
+      { date: 'Abr', weight: 57.5, muscleMass: 27.0, bodyFat: 17.5 },
+      { date: 'May', weight: 57.0, muscleMass: 27.3, bodyFat: 17.2 },
+      { date: 'Jun', weight: 56.6, muscleMass: 27.5, bodyFat: 17.0 },
+      { date: 'Jul', weight: 56.3, muscleMass: 27.8, bodyFat: 16.8 },
+    ],
+    readiness: { sleep: 8.3, hrv: 78, recovery: 94, score: 92 },
+    runningDevice: { brand: 'Garmin', model: 'Forerunner 265', synced: true, lastSync: 'Hoy 5:30 AM' },
+  },
+  'ath-7': {
+    id: 'ath-7',
+    name: 'Lucas Weber',
+    email: 'lucas.weber@email.com',
+    phone: '+1 (555) 789-0123',
+    sport: 'Triathlon',
+    serviceType: 'Running',
+    plan: { name: 'Elite', price: 199, billingPeriod: 'mensual' },
+    schedule: { days: 'Lun a Sáb', time: '6:00 - 8:30 AM' },
+    startDate: '15 Feb 2026',
+    emergencyContact: 'Anna Weber - +1 (555) 321-0987',
+    weightHistory: [
+      { date: 'Feb', weight: 70.5, muscleMass: 34.0, bodyFat: 13.5 },
+      { date: 'Mar', weight: 70.0, muscleMass: 34.3, bodyFat: 13.2 },
+      { date: 'Abr', weight: 69.6, muscleMass: 34.5, bodyFat: 13.0 },
+      { date: 'May', weight: 69.2, muscleMass: 34.8, bodyFat: 12.7 },
+      { date: 'Jun', weight: 68.8, muscleMass: 35.0, bodyFat: 12.5 },
+      { date: 'Jul', weight: 69.5, muscleMass: 34.2, bodyFat: 13.3 },
+    ],
+    readiness: { sleep: 6.2, hrv: 52, recovery: 45, score: 50 },
+    flag: { type: 'injury', severity: 'high', message: 'Molestia en isquiotibial reportada — carga reducida' },
+    runningDevice: { brand: 'Apple', model: 'Watch Ultra 2', synced: false, lastSync: 'Hace 3 días' },
+  },
+  'ath-8': {
+    id: 'ath-8',
+    name: 'Sophie Martin',
+    email: 'sophie.martin@email.com',
+    phone: '+1 (555) 890-1234',
+    sport: 'Track - 800m',
+    serviceType: 'Virtual',
+    plan: { name: 'Starter', price: 49, billingPeriod: 'mensual' },
+    schedule: { days: 'Mar, Jue, Sáb', time: '7:00 - 8:30 AM' },
+    startDate: '22 Mar 2026',
+    emergencyContact: 'Pierre Martin - +1 (555) 210-9876',
+    weightHistory: [
+      { date: 'Feb', weight: 60.5, muscleMass: 28.0, bodyFat: 16.5 },
+      { date: 'Mar', weight: 60.2, muscleMass: 28.2, bodyFat: 16.3 },
+      { date: 'Abr', weight: 59.8, muscleMass: 28.5, bodyFat: 16.0 },
+      { date: 'May', weight: 59.5, muscleMass: 28.8, bodyFat: 15.8 },
+      { date: 'Jun', weight: 59.2, muscleMass: 29.0, bodyFat: 15.5 },
+      { date: 'Jul', weight: 59.0, muscleMass: 29.2, bodyFat: 15.3 },
+    ],
+    readiness: { sleep: 7.8, hrv: 70, recovery: 85, score: 81 },
+  },
+}
 
 export const MOCK_AI_SUGGESTED_MESSAGES: AiSuggestion[] = [
   {
