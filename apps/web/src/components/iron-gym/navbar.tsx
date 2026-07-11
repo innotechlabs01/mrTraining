@@ -8,7 +8,7 @@ const links = [
   { label: 'Home', href: '/' },
   { label: 'About', href: '/about' },
   { label: 'Services', href: '/services' },
-  { label: 'Plans', href: '/coach/planes' },
+  { label: 'Plans', href: '/planes' },
 ];
 
 export function IronGymNavbar() {
@@ -58,7 +58,7 @@ export function IronGymNavbar() {
             Coaching
           </button>
           <a
-            href="/coach/planes"
+            href="/planes"
             className="px-6 py-3 rounded-md bg-white text-[#212121] text-sm font-semibold hover:bg-gray-100 transition-colors"
           >
             Get Started
