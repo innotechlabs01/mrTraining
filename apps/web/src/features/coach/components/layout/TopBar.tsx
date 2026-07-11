@@ -5,6 +5,7 @@ import { useToday } from '../../hooks/useToday'
 import { useMessages } from '../../hooks/useMessages'
 import { useMockAuth } from '@/features/auth/contexts/MockAuthContext'
 import { useCoachPanel } from './CoachPanelContext'
+import { ThemeToggle } from './ThemeToggle'
 
 function formatWeekday(dateStr: string): string {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -26,31 +27,33 @@ export function TopBar({ onMenuClick, user }: { onMenuClick: () => void; user: {
   const { logout } = useMockAuth()
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-14 bg-surface-1/80 backdrop-blur-md border-b border-surface-4 z-20 flex items-center justify-between px-4 lg:px-6">
+    <header className="fixed top-0 left-0 right-0 h-14 bg-surface-1/80 backdrop-blur-md border-b border-surface-3 z-20 flex items-center justify-between px-4 lg:px-6">
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={onMenuClick}
-          className="p-1.5 rounded-lg text-[#9CA3AF] hover:text-white hover:bg-surface-3 transition-colors lg:hidden"
+          className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-3 transition-colors lg:hidden"
           aria-label="Open navigation menu"
         >
           <Menu size={20} />
         </button>
-        <h1 className="text-sm font-semibold text-white">Today</h1>
-        <span className="text-xs text-[#9CA3AF] hidden sm:inline">{formatWeekday(date)}</span>
+        <h1 className="text-sm font-semibold text-text-primary">Today</h1>
+        <span className="text-xs text-text-secondary hidden sm:inline">{formatWeekday(date)}</span>
       </div>
 
       <div className="flex items-center gap-3">
         {currentBlock && (
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-md bg-surface-3 border border-surface-5">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-md bg-surface-3 border border-surface-4">
             <span className={`w-1.5 h-1.5 rounded-full ${STATUS_COLORS[currentBlock.status]}`} />
-            <span className="text-xs text-[#9CA3AF]">{currentBlock.label}</span>
+            <span className="text-xs text-text-secondary">{currentBlock.label}</span>
           </div>
         )}
 
+        <ThemeToggle />
+
         <button
           type="button"
-          className="relative p-2 rounded-lg text-[#9CA3AF] hover:text-white hover:bg-surface-3 transition-colors"
+          className="relative p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-3 transition-colors"
           onClick={() => openPanel('message', {})}
           aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
         >
@@ -66,13 +69,13 @@ export function TopBar({ onMenuClick, user }: { onMenuClick: () => void; user: {
           <button
             type="button"
             onClick={() => { logout(); window.location.href = '/' }}
-            className="p-1.5 rounded-lg text-[#9CA3AF] hover:text-white hover:bg-surface-3 transition-colors"
+            className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-3 transition-colors"
             aria-label="Cerrar sesión"
           >
             <LogOut size={16} />
           </button>
           <div
-            className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-primary to-brand-primary-hover flex items-center justify-center text-white text-xs font-bold"
+            className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-primary to-brand-primary-hover flex items-center justify-center text-white text-xs font-bold shrink-0"
             title={user?.name ?? 'Coach'}
           >
             {user?.initials ?? 'MR'}

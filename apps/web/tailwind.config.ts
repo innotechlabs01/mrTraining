@@ -16,6 +16,7 @@ const BRAND_SCALE = {
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'class',
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {
@@ -45,14 +46,16 @@ module.exports = {
         pink: BRAND_SCALE,
         teal: BRAND_SCALE,
         surface: {
-          0: '#0A0B0D',
-          1: '#0F0F0F',
-          2: '#141416',
-          3: '#1A1A1C',
-          4: '#1C1C1C',
-          5: '#242426',
+          0: 'var(--bg)',
+          1: 'var(--bg-elevated)',
+          2: 'var(--bg-card)',
+          3: 'var(--border)',
+          4: 'var(--border)',
+          5: 'var(--border)',
           6: '#2A2A2C',
         },
+        'text-primary': 'var(--text)',
+        'text-secondary': 'var(--text-secondary)',
         success: '#00C853',
         error: '#FF3D00',
         warning: '#FFB300',

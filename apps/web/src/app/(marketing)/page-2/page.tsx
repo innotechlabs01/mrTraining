@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 /* -------------------------------------------------------------------------
    SPYRO — fitness classes landing page (Unsplash images)
@@ -31,7 +31,7 @@ function img(seed: string, w: number, h: number) {
   return `https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=${w}&h=${h}&fit=crop`;
 }
 
-const NAV_LINKS = ["Classes", "Team", "About Us", "Gallery"];
+const NAV_LINKS = ["Classes", "Team", "About Us", "Coaching", "Gallery"];
 
 const MOVES = [
   {
@@ -246,6 +246,14 @@ function Accordion({ item, open, onToggle }: { item: { q: string; a: string }; o
 export default function Page2() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [faqOpen, setFaqOpen] = useState(0);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <div className="sp-root">
@@ -311,7 +319,8 @@ export default function Page2() {
         .sp-btn-white { background: var(--white); color: var(--bg); }
 
         /* ---------- nav ---------- */
-        .sp-nav { position: sticky; top: 0; z-index: 50; background: rgba(11,13,18,0.85); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+        .sp-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 50; transition: background .3s, border-color .3s, backdrop-filter .3s; border-bottom: 1px solid transparent; }
+        .sp-nav.scrolled { background: rgba(11,13,18,0.85); backdrop-filter: blur(8px); border-bottom-color: var(--line); }
         .sp-nav-inner { display: flex; align-items: center; justify-content: space-between; height: 78px; }
         .sp-logo { font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--orange); letter-spacing: 0.03em; }
         .sp-links { display: flex; gap: 32px; }
@@ -329,6 +338,21 @@ export default function Page2() {
         .sp-hero-bg {
           position: absolute; inset: 0;
           background: radial-gradient(60% 80% at 78% 30%, rgba(242,97,29,0.14), transparent 70%);
+        }
+        .sp-hero-watermark {
+          position: absolute; top: 50%; right: 8%; transform: translateY(-50%);
+          text-align: right; z-index: 1; user-select: none; pointer-events: none;
+        }
+        .sp-hero-watermark .mr-line {
+          font-family: var(--font-display); font-weight: 800;
+          font-size: clamp(80px, 14vw, 200px); text-transform: uppercase;
+          letter-spacing: 0.06em; line-height: 0.85;
+          color: transparent; -webkit-text-stroke: 2px rgba(242,97,29,0.2);
+        }
+        .sp-hero-watermark .training-line {
+          font-family: var(--font-body); font-weight: 300; text-transform: lowercase;
+          font-size: clamp(18px, 3vw, 32px); letter-spacing: 0.35em;
+          color: rgba(242,97,29,0.14); margin-top: 4px;
         }
         .sp-hero-grid { display: grid; grid-template-columns: 1fr 1fr; align-items: center; min-height: 640px; }
         .sp-hero-text { position: relative; z-index: 2; padding: 60px 0; }
@@ -501,6 +525,7 @@ export default function Page2() {
           .sp-hero-grid { grid-template-columns: 1fr; min-height: auto; }
           .sp-hero-photo { min-height: 360px; order: -1; }
           .sp-hero-photo::before { background: linear-gradient(0deg, var(--bg) 0%, transparent 30%); }
+          .sp-hero-watermark { display: none; }
           .sp-moves-grid { grid-template-columns: 1fr 1fr; }
           .sp-move-wide { grid-column: 1 / -1; }
           .sp-classes-grid { grid-template-columns: 1fr; }
@@ -536,12 +561,12 @@ export default function Page2() {
       `}</style>
 
       {/* ---------------- NAV ---------------- */}
-      <header className="sp-nav">
+      <header className={`sp-nav${scrolled ? ' scrolled' : ''}`}>
         <div className="sp-container sp-nav-inner">
           <div className="sp-logo">SPYRO</div>
           <nav className="sp-links">
             {NAV_LINKS.map((l) => (
-              <a key={l} href={`#${l.toLowerCase().replace(/\s/g, "-")}`}>{l}</a>
+              <a key={l} href={l === "Coaching" ? "/coach/login" : `#${l.toLowerCase().replace(/\s/g, "-")}`}>{l}</a>
             ))}
           </nav>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -558,10 +583,13 @@ export default function Page2() {
         </div>
       </header>
 
+      {/* Spacer for fixed nav */}
+      <div style={{ height: 78 }} />
+
       {menuOpen && (
         <div className="sp-mobile-menu">
           {NAV_LINKS.map((l) => (
-            <a key={l} href={`#${l.toLowerCase().replace(/\s/g, "-")}`} onClick={() => setMenuOpen(false)}>{l}</a>
+              <a key={l} href={l === "Coaching" ? "/coach/login" : `#${l.toLowerCase().replace(/\s/g, "-")}`} onClick={() => setMenuOpen(false)}>{l}</a>
           ))}
         </div>
       )}
@@ -569,6 +597,10 @@ export default function Page2() {
       {/* ---------------- HERO ---------------- */}
       <section className="sp-hero">
         <div className="sp-hero-bg" aria-hidden="true" />
+        <div className="sp-hero-watermark" aria-hidden="true">
+          <div className="mr-line">MR</div>
+          <div className="training-line">training</div>
+        </div>
         <div className="sp-hero-grid">
           <div className="sp-container sp-hero-text">
             <h1>

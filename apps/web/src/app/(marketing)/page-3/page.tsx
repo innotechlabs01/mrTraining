@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 /* -------------------------------------------------------------------------
    IRONGYM — hardcore strength gym landing page (Unsplash images)
@@ -26,7 +26,7 @@ function img(seed: string, w: number, h: number) {
   return `https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=${w}&h=${h}&fit=crop`;
 }
 
-const NAV_LINKS = ["Home", "Service", "Trainers", "Testimonial", "Contact Us"];
+const NAV_LINKS = ["Home", "Service", "Trainers", "Testimonial", "Coaching", "Contact Us"];
 
 const STATS = [
   { value: "20+", label: "Years of Experience" },
@@ -140,7 +140,7 @@ function Stars({ count = 5 }: { count?: number }) {
   return (
     <div style={{ display: "flex", gap: 3 }}>
       {Array.from({ length: count }).map((_, i) => (
-        <span key={i} style={{ color: "#e0201a" }}><Icon name="star" /></span>
+        <span key={i} style={{ color: "#15aaf2" }}><Icon name="star" /></span>
       ))}
     </div>
   );
@@ -150,6 +150,14 @@ export default function Page3() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [trainerStart, setTrainerStart] = useState(0);
   const [testiIndex, setTestiIndex] = useState(0);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const visibleTrainers = [0, 1, 2].map((i) => TRAINERS[(trainerStart + i) % TRAINERS.length]);
   const testimonial = TESTIMONIALS[testiIndex];
@@ -164,8 +172,8 @@ export default function Page3() {
           --bg-elevated: #121212;
           --bg-card: #141414;
           --line: #2a2a2a;
-          --red: #e0201a;
-          --red-dark: #b81812;
+          --red: #15aaf2;
+          --red-dark: #0d8bc4;
           --white: #ffffff;
           --muted: #9a9a9a;
           --muted-2: #6e6e6e;
@@ -224,8 +232,9 @@ export default function Page3() {
         .ig-btn-solid:hover { background: var(--red-dark); }
 
         /* ---------- nav ---------- */
-        .ig-nav { position: sticky; top: 0; z-index: 50; background: rgba(10,10,10,0.9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
-        .ig-nav-inner { display: flex; align-items: center; justify-content: space-between; height: 80px; }
+        .ig-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 50; transition: background .3s, border-color .3s, backdrop-filter .3s; border-bottom: 1px solid transparent; background: transparent; }
+        .ig-nav.scrolled { background: rgba(10,10,10,0.85); backdrop-filter: blur(8px); border-bottom-color: var(--line); }
+        .ig-nav-inner { display: flex; align-items: center; justify-content: space-between; height: 120px; }
         .ig-logo { font-family: var(--font-display); font-weight: 700; font-size: 20px; letter-spacing: 0.02em; text-transform: uppercase; }
         .ig-logo .accent { color: var(--red); }
         .ig-links { display: flex; gap: 30px; }
@@ -233,7 +242,7 @@ export default function Page3() {
         .ig-links a.active, .ig-links a:hover { color: var(--red); }
         .ig-menu-toggle { display: none; background: none; border: none; color: var(--white); cursor: pointer; }
         .ig-mobile-menu {
-          position: fixed; inset: 0; top: 80px; background: var(--bg); z-index: 49;
+          position: fixed; inset: 0; top: 120px; background: var(--bg); z-index: 49;
           padding: 30px 32px; display: flex; flex-direction: column; gap: 22px;
         }
         .ig-mobile-menu a { font-family: var(--font-display); font-size: 24px; text-transform: uppercase; }
@@ -248,10 +257,12 @@ export default function Page3() {
                       linear-gradient(0deg, var(--bg) 0%, transparent 34%);
         }
         .ig-hero-outline {
-          position: absolute; top: 4%; right: 2%; font-family: var(--font-display); font-weight: 700;
-          font-size: clamp(60px, 11vw, 150px); text-transform: uppercase; line-height: 0.85;
-          color: transparent; -webkit-text-stroke: 1.5px rgba(255,255,255,0.16);
-          text-align: right; z-index: 1; letter-spacing: 0.02em; user-select: none;
+          position: absolute; top: -60px; right: 2%;
+          z-index: 51; user-select: none; pointer-events: none;
+        }
+        .ig-hero-outline img {
+          height: clamp(180px, 28vw, 380px); width: auto;
+          mix-blend-mode: screen; opacity: 1;
         }
         .ig-hero-inner { position: relative; z-index: 2; padding-bottom: 60px; width: 100%; }
         .ig-hero-inner h1 {
@@ -371,12 +382,14 @@ export default function Page3() {
       `}</style>
 
       {/* ---------------- NAV ---------------- */}
-      <header className="ig-nav">
+      <header className={`ig-nav${scrolled ? ' scrolled' : ''}`}>
         <div className="ig-container ig-nav-inner">
-          <div className="ig-logo">IRON<span className="accent">GYM</span></div>
+          <div className="ig-logo" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <img src="/images/icon/icon_mr_rp.png" alt="MR Training" style={{ height: 100, width: 'auto' }} />
+          </div>
           <nav className="ig-links">
             {NAV_LINKS.map((l, i) => (
-              <a key={l} href={`#${l.toLowerCase().replace(/\s/g, "-")}`} className={i === 0 ? "active" : ""}>
+              <a key={l} href={l === "Coaching" ? "/coach/login" : `#${l.toLowerCase().replace(/\s/g, "-")}`} className={i === 0 ? "active" : ""}>
                 {l}
               </a>
             ))}
@@ -395,10 +408,13 @@ export default function Page3() {
         </div>
       </header>
 
+      {/* Spacer for fixed nav */}
+      <div style={{ height: 120 }} />
+
       {menuOpen && (
         <div className="ig-mobile-menu">
           {NAV_LINKS.map((l) => (
-            <a key={l} href={`#${l.toLowerCase().replace(/\s/g, "-")}`} onClick={() => setMenuOpen(false)}>{l}</a>
+              <a key={l} href={l === "Coaching" ? "/coach/login" : `#${l.toLowerCase().replace(/\s/g, "-")}`} onClick={() => setMenuOpen(false)}>{l}</a>
           ))}
         </div>
       )}
@@ -408,7 +424,9 @@ export default function Page3() {
         <div className="ig-hero-photo">
           <img src={img("irongym-hero", 1400, 900)} alt="Athlete doing a seated dumbbell curl in the gym" />
         </div>
-        <div className="ig-hero-outline" aria-hidden="true">LEVEL<br />UP</div>
+        <div className="ig-hero-outline" aria-hidden="true">
+          <img src="/images/icon/icon_mr_rp_wapp.png" alt="" />
+        </div>
         <div className="ig-container ig-hero-inner">
           <h1>
             Ready to Train
@@ -577,17 +595,20 @@ export default function Page3() {
       {/* ---------------- FOOTER ---------------- */}
       <footer className="ig-footer">
         <div className="ig-container">
-          <div className="ig-logo">IRON<span className="accent">GYM</span></div>
+          <div className="ig-logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <img src="/images/icon/icon_mr.png" alt="MR Training" style={{ height: 36, width: 'auto' }} />
+            <span>MR TRAINING</span>
+          </div>
           <nav className="ig-footer-links">
             {NAV_LINKS.map((l, i) => (
-              <a key={l} href={`#${l.toLowerCase().replace(/\s/g, "-")}`} className={i === 0 ? "active" : ""}>
+              <a key={l} href={l === "Coaching" ? "/coach/login" : `#${l.toLowerCase().replace(/\s/g, "-")}`} className={i === 0 ? "active" : ""}>
                 {l}
               </a>
             ))}
           </nav>
           <div className="ig-footer-bottom">
             <span>Privacy &nbsp;|&nbsp; Terms and condition</span>
-            <span>&copy; {new Date().getFullYear()} All rights reserved. IronGym Company</span>
+            <span>&copy; {new Date().getFullYear()} All rights reserved. MR Training</span>
           </div>
         </div>
       </footer>

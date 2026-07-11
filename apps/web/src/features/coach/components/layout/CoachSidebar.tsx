@@ -86,9 +86,9 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/5">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-surface-3">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-white/5 ring-1 ring-white/10">
+            <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-surface-3 ring-1 ring-surface-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/images/icon/icon_mr.png"
@@ -96,11 +96,11 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
                 className="h-7 w-7 object-contain"
               />
             </div>
-            <span className="font-display text-sm font-semibold text-white/90 tracking-wide">
+            <span className="font-display text-sm font-semibold text-text-primary tracking-wide">
               Coach OS
             </span>
           </div>
-        <button onClick={onClose} className="lg:hidden p-1 text-white/40 hover:text-white/70">
+        <button onClick={onClose} className="lg:hidden p-1 text-text-muted hover:text-text-secondary">
           <X size={18} />
         </button>
       </div>
@@ -121,7 +121,7 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
                     'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
                     hasActiveChild
                       ? 'text-brand-primary bg-brand-primary/10'
-                      : 'text-white/50 hover:text-white/70 hover:bg-white/5',
+                      : 'text-text-secondary hover:text-text-primary hover:bg-surface-3',
                   )}
                 >
                   <item.icon size={18} />
@@ -135,7 +135,7 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
                   />
                 </button>
                 {isOpen && (
-                  <div className="ml-8 mt-0.5 space-y-0.5 border-l border-white/10 pl-2">
+                  <div className="ml-8 mt-0.5 space-y-0.5 border-l border-surface-3 pl-2">
                     {item.children.map((child) => {
                       const active = isExactActive(pathname, child.href)
                       return (
@@ -146,7 +146,7 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
                             'w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm transition-all',
                             active
                               ? 'text-brand-primary bg-brand-primary/10'
-                              : 'text-white/40 hover:text-white/60 hover:bg-white/5',
+                              : 'text-text-muted hover:text-text-secondary hover:bg-surface-3',
                           )}
                         >
                           {child.label}
@@ -168,7 +168,7 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
                 'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
                 active
                   ? 'text-brand-primary bg-brand-primary/10'
-                  : 'text-white/50 hover:text-white/70 hover:bg-white/5',
+                  : 'text-text-secondary hover:text-text-primary hover:bg-surface-3',
               )}
             >
               <item.icon size={18} />
@@ -177,12 +177,12 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
           )
         })}
 
-        <div className="my-3 mx-3 h-px bg-white/5" />
+        <div className="my-3 mx-3 h-px bg-surface-3" />
 
         <div>
           <button
             onClick={() => setTimelineOpen(!timelineOpen)}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-white/40 hover:text-white/60 hover:bg-white/5 transition-all"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-text-muted hover:text-text-secondary hover:bg-surface-3 transition-all"
           >
             <Clock size={16} />
             <span className="flex-1 text-left text-xs uppercase tracking-wider font-semibold">
@@ -220,7 +220,7 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
     <>
       <aside
         className={cn(
-          'fixed left-0 top-0 w-60 h-screen bg-surface-1 border-r border-white/5 z-30 flex flex-col',
+          'fixed left-0 top-0 w-60 h-screen bg-surface-1 border-r border-surface-3 z-30 flex flex-col',
           'transition-transform duration-300 ease-out lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full',
         )}
