@@ -1,9 +1,13 @@
+'use client';
+
+import { useState } from 'react';
 import { IronGymNavbar } from '@/components/iron-gym/navbar';
 import { IronGymFooter } from '@/components/iron-gym/footer';
 import Link from 'next/link';
 
 const plans = [
   {
+    key: 'solo',
     name: 'Solo Coach',
     price: 29,
     period: '/mo',
@@ -23,6 +27,7 @@ const plans = [
     popular: false,
   },
   {
+    key: 'team',
     name: 'Team',
     price: 79,
     period: '/mo',
@@ -42,6 +47,7 @@ const plans = [
     popular: true,
   },
   {
+    key: 'enterprise',
     name: 'Enterprise',
     price: 199,
     period: '/mo',
@@ -63,6 +69,16 @@ const plans = [
 ];
 
 export default function PlansPage() {
+  const [selectedPlan, setSelectedPlan] = useState<string | null>('team');
+
+  const handlePlanSelect = (key: string) => {
+    setSelectedPlan(key);
+  };
+
+  const getSignupUrl = (planKey: string) => {
+    return `/coach/login?plan=${planKey}`;
+  };
+
   return (
     <main className="min-h-screen">
       <IronGymNavbar />
@@ -77,67 +93,97 @@ export default function PlansPage() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
-          {plans.map((plan) => (
-            <article
-              key={plan.name}
-              className={`relative rounded-2xl border p-8 transition-all ${
-                plan.popular
-                  ? 'border-brand-primary/50 bg-brand-primary/5 shadow-xl shadow-brand-primary/10 ring-2 ring-brand-primary/20'
-                  : 'border-white/5 bg-white/[0.02] hover:border-white/10'
-              }`}
-            >
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="px-3 py-1 text-xs font-semibold text-brand-primary bg-brand-primary/10 rounded-full">
-                    Most Popular
-                  </span>
-                </div>
-              )}
+          {plans.map((plan) => {
+            const isSelected = selectedPlan === plan.key;
+            const isEnterprise = plan.key === 'enterprise';
 
-              <h3 className="text-xl font-semibold text-white mb-1">{plan.name}</h3>
-              <p className="text-white/50 text-sm mb-6">{plan.description}</p>
-
-              <div className="mb-6">
-                <span className="text-4xl sm:text-5xl font-bold font-display text-white">
-                  ${plan.price}
-                </span>
-                <span className="text-white/50">{plan.period}</span>
-              </div>
-
-              <ul className="space-y-3 mb-8">
-                {plan.features.map((feature, i) => (
-                  <li key={i} className="flex items-start gap-3 text-white/70">
-                    <svg
-                      className="w-5 h-5 text-brand-primary flex-shrink-0 mt-0.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <Link
-                href={plan.popular ? '/coach/login' : '/coach/login'}
-                className={`block w-full py-3 rounded-lg text-center font-semibold text-sm transition-colors ${
-                  plan.popular
-                    ? 'bg-brand-primary text-white hover:bg-brand-primary/90'
-                    : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'
+            return (
+              <article
+                key={plan.key}
+                onClick={() => handlePlanSelect(plan.key)}
+                className={`relative rounded-2xl border p-8 transition-all cursor-pointer ${
+                  isSelected
+                    ? 'border-brand-primary/50 bg-brand-primary/5 shadow-xl shadow-brand-primary/10 ring-2 ring-brand-primary/30'
+                    : plan.popular
+                    ? 'border-brand-primary/50 bg-brand-primary/5 shadow-xl shadow-brand-primary/10 ring-2 ring-brand-primary/20'
+                    : 'border-white/5 bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.03]'
                 }`}
               >
-                {plan.cta}
-              </Link>
-            </article>
-          ))}
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="px-3 py-1 text-xs font-semibold text-brand-primary bg-brand-primary/10 rounded-full">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+
+                {isSelected && (
+                  <div className="absolute -top-1.5 -right-1.5">
+                    <svg className="w-6 h-6 text-brand-primary" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+
+                <h3 className="text-xl font-semibold text-white mb-1">{plan.name}</h3>
+                <p className="text-white/50 text-sm mb-6">{plan.description}</p>
+
+                <div className="mb-6">
+                  <span className="text-4xl sm:text-5xl font-bold font-display text-white">
+                    ${plan.price}
+                  </span>
+                  <span className="text-white/50">{plan.period}</span>
+                </div>
+
+                <ul className="space-y-3 mb-8">
+                  {plan.features.map((feature, i) => (
+                    <li key={i} className="flex items-start gap-3 text-white/70">
+                      <svg
+                        className="w-5 h-5 text-brand-primary flex-shrink-0 mt-0.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {isEnterprise ? (
+                  <a
+                    href="/contact"
+                    className="block w-full py-3 rounded-lg text-center font-semibold text-sm bg-white/10 text-white hover:bg-white/20 border border-white/10 transition-colors"
+                  >
+                    {plan.cta}
+                  </a>
+                ) : (
+                  <Link
+                    href={getSignupUrl(plan.key)}
+                    className={`block w-full py-3 rounded-lg text-center font-semibold text-sm transition-colors ${
+                      plan.popular || isSelected
+                        ? 'bg-brand-primary text-white hover:bg-brand-primary/90'
+                        : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'
+                    }`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {plan.cta}
+                  </Link>
+                )}
+              </article>
+            );
+          })}
         </div>
 
         <div className="mt-16 text-center">
-          <p className="text-white/50 mb-4">All plans include a 14-day free trial. No credit card required.</p>
+          <p className="text-white/50 mb-4">
+            Selected: <span className="text-brand-primary font-medium capitalize">
+              {plans.find(p => p.key === selectedPlan)?.name || 'Team'}
+            </span> plan — change anytime on signup.
+          </p>
           <Link
-            href="/coach/login"
+            href={getSignupUrl(selectedPlan || 'team')}
             className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-brand-primary text-white font-semibold hover:bg-brand-primary/90 transition-colors"
           >
             Create Free Account →
