@@ -17,12 +17,12 @@ export function IronGymAbout() {
             <img
               src="/iron-gym/program-1.png"
               alt="Personal training"
-              className="w-[200px] rounded-xl object-cover aspect-[5/9]"
+              className="w-[40%] sm:w-[200px] rounded-xl object-cover aspect-[5/9]"
             />
             <img
               src="/iron-gym/program-2.png"
               alt="Group coaching"
-              className="w-[350px] rounded-xl object-cover aspect-[5/6] self-end"
+              className="w-[60%] sm:w-[350px] rounded-xl object-cover aspect-[5/6] self-end"
             />
           </motion.div>
 
