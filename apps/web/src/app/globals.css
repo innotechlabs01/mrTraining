@@ -42,7 +42,6 @@
     scroll-behavior: smooth;
     background-color: var(--bg);
     color: var(--text);
-    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   body {
@@ -54,36 +53,6 @@
     background-color: rgba(21, 170, 242, 0.3);
     color: var(--text);
   }
-
-  /* Light mode: override hardcoded dark-mode colors globally */
-  :root:not(.dark) .text-white { color: var(--text) !important; }
-  :root:not(.dark) .text-white\/90 { color: rgba(15, 23, 42, 0.9) !important; }
-  :root:not(.dark) .text-white\/80 { color: rgba(15, 23, 42, 0.8) !important; }
-  :root:not(.dark) .text-white\/70 { color: rgba(15, 23, 42, 0.7) !important; }
-  :root:not(.dark) .text-white\/60 { color: rgba(15, 23, 42, 0.6) !important; }
-  :root:not(.dark) .text-white\/50 { color: rgba(15, 23, 42, 0.5) !important; }
-  :root:not(.dark) .text-white\/40 { color: rgba(15, 23, 42, 0.4) !important; }
-  :root:not(.dark) .text-white\/\[0\.02\] { color: rgba(15, 23, 42, 0.02) !important; }
-
-  :root:not(.dark) .bg-white\/\[0\.02\] { background-color: rgba(15, 23, 42, 0.03) !important; }
-  :root:not(.dark) .bg-white\/\[0\.03\] { background-color: rgba(15, 23, 42, 0.05) !important; }
-  :root:not(.dark) .bg-white\/\[0\.05\] { background-color: rgba(15, 23, 42, 0.06) !important; }
-  :root:not(.dark) .bg-white\/5 { background-color: rgba(15, 23, 42, 0.06) !important; }
-  :root:not(.dark) .bg-white\/10 { background-color: rgba(15, 23, 42, 0.08) !important; }
-
-  :root:not(.dark) .border-white\/5 { border-color: rgba(15, 23, 42, 0.08) !important; }
-  :root:not(.dark) .border-white\/10 { border-color: rgba(15, 23, 42, 0.12) !important; }
-  :root:not(.dark) .border-white\/\[0\.02\] { border-color: rgba(15, 23, 42, 0.06) !important; }
-  :root:not(.dark) .border-white\/\[0\.05\] { border-color: rgba(15, 23, 42, 0.08) !important; }
-  :root:not(.dark) .border-white\/\[0\.08\] { border-color: rgba(15, 23, 42, 0.1) !important; }
-
-  :root:not(.dark) .hover\:text-white:hover { color: var(--text) !important; }
-  :root:not(.dark) .hover\:bg-white\/5:hover { background-color: rgba(15, 23, 42, 0.06) !important; }
-
-  :root:not(.dark) .ring-white\/10 { --tw-ring-color: rgba(15, 23, 42, 0.1) !important; }
-
-  :root:not(.dark) .via-white\/\[0\.04\] { --tw-gradient-via-color: rgba(15, 23, 42, 0.03) !important; }
-  :root:not(.dark) .via-white\/10 { --tw-gradient-via-color: rgba(15, 23, 42, 0.08) !important; }
 
   /* Keep brand accent visible in light mode */
   :root:not(.dark) .from-brand-primary { --tw-gradient-from: #15AAF2; }

@@ -261,9 +261,14 @@ export default function Page2() {
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&family=Caveat:wght@600;700&display=swap');
 
         .sp-root {
+          color-scheme: dark;
           --bg: #0b0d12;
           --bg-elevated: #12151c;
           --bg-card: #171b23;
+          --border: #262b35;
+          --text: #ffffff;
+          --text-secondary: #9aa0ac;
+          --text-muted: #6b7280;
           --line: #262b35;
           --white: #ffffff;
           --muted: #9aa0ac;

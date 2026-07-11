@@ -168,9 +168,14 @@ export default function Page3() {
         @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
 
         .ig-root {
+          color-scheme: dark;
           --bg: #0a0a0a;
           --bg-elevated: #121212;
           --bg-card: #141414;
+          --border: #2a2a2a;
+          --text: #ffffff;
+          --text-secondary: #9a9a9a;
+          --text-muted: #6e6e6e;
           --line: #2a2a2a;
           --red: #15aaf2;
           --red-dark: #0d8bc4;
@@ -339,6 +344,8 @@ export default function Page3() {
         /* ---------- footer ---------- */
         .ig-footer { padding: 50px 0 26px; text-align: center; border-top: 1px solid var(--line); }
         .ig-footer .ig-logo { font-size: 22px; margin-bottom: 22px; display: inline-block; }
+        .ig-footer-logo { display: flex; justify-content: center; margin-bottom: 22px; }
+        .ig-footer-logo img { height: 80px; width: auto; opacity: 0.85; filter: drop-shadow(0 0 18px rgba(21,170,242,0.3)); }
         .ig-footer-links { display: flex; gap: 30px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; }
         .ig-footer-links a { font-family: var(--font-display); font-size: 12.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
         .ig-footer-links a.active, .ig-footer-links a:hover { color: var(--red); }
@@ -595,9 +602,8 @@ export default function Page3() {
       {/* ---------------- FOOTER ---------------- */}
       <footer className="ig-footer">
         <div className="ig-container">
-          <div className="ig-logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            <img src="/images/icon/icon_mr.png" alt="MR Training" style={{ height: 36, width: 'auto' }} />
-            <span>MR TRAINING</span>
+          <div className="ig-footer-logo">
+            <img src="/images/icon/icon_mr_rp_wapp.png" alt="MR Training" />
           </div>
           <nav className="ig-footer-links">
             {NAV_LINKS.map((l, i) => (
