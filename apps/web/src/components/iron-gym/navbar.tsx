@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import { Dumbbell } from 'lucide-react';
 
 const links = [
-  { label: 'Home', href: '#home', active: true },
-  { label: 'About', href: '#about' },
-  { label: 'Services', href: '#services' },
-  { label: 'Contact', href: '#contact' },
+  { label: 'Home', href: '/' },
+  { label: 'About', href: '/about' },
+  { label: 'Services', href: '/services' },
+  { label: 'Plans', href: '/coach/planes' },
 ];
 
 export function IronGymNavbar() {
@@ -31,10 +31,10 @@ export function IronGymNavbar() {
       }`}
     >
       <nav className="max-w-7xl mx-auto h-[88px] px-6 flex items-center justify-between">
-        <a href="#home" className="flex items-center gap-2 text-white">
+        <a href="/" className="flex items-center gap-2 text-white">
           <Dumbbell className="w-8 h-8 text-brand-primary" />
           <span className="text-xl font-bold tracking-tight">
-            Iron<span className="text-brand-primary">Gym</span>
+            MR<span className="text-brand-primary">Training</span>
           </span>
         </a>
 
@@ -43,9 +43,7 @@ export function IronGymNavbar() {
             <a
               key={l.label}
               href={l.href}
-              className={`text-sm font-medium transition-colors ${
-                l.active ? 'text-white' : 'text-[#9e9e9e] hover:text-white'
-              }`}
+              className="text-sm font-medium transition-colors text-[#9e9e9e] hover:text-white"
             >
               {l.label}
             </a>
@@ -60,10 +58,10 @@ export function IronGymNavbar() {
             Coaching
           </button>
           <a
-            href="#contact"
+            href="/coach/planes"
             className="px-6 py-3 rounded-md bg-white text-[#212121] text-sm font-semibold hover:bg-gray-100 transition-colors"
           >
-            Join Now
+            Get Started
           </a>
         </div>
       </nav>

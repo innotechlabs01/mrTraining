@@ -5,19 +5,39 @@ import { Dumbbell, Phone, Mail, Facebook, Twitter, Instagram } from 'lucide-reac
 const linkColumns = [
   {
     title: 'Quick Links',
-    links: ['Home', 'About Us', 'Services', 'Contact'],
+    links: [
+      { label: 'Home', href: '/' },
+      { label: 'About Us', href: '/about' },
+      { label: 'Services', href: '/services' },
+      { label: 'Plans', href: '/coach/planes' },
+    ],
   },
   {
     title: 'Programs',
-    links: ['Strength', 'Cardio', 'Yoga', 'Boxing'],
+    links: [
+      { label: 'Strength', href: '/programs/strength' },
+      { label: 'Cardio', href: '/programs/cardio' },
+      { label: 'Yoga', href: '/programs/yoga' },
+      { label: 'Boxing', href: '/programs/boxing' },
+    ],
   },
   {
     title: 'Support',
-    links: ['FAQ', 'Privacy', 'Terms', 'Help'],
+    links: [
+      { label: 'FAQ', href: '/faq' },
+      { label: 'Privacy', href: '/privacy' },
+      { label: 'Terms', href: '/terms' },
+      { label: 'Help', href: '/help' },
+    ],
   },
   {
     title: 'More',
-    links: ['Blog', 'Careers', 'Gallery', 'Events'],
+    links: [
+      { label: 'Blog', href: '/blog' },
+      { label: 'Careers', href: '/careers' },
+      { label: 'Gallery', href: '/gallery' },
+      { label: 'Events', href: '/events' },
+    ],
   },
 ];
 
@@ -40,15 +60,15 @@ export function IronGymFooter() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid sm:grid-cols-2 lg:grid-cols-6 gap-10">
             <div className="lg:col-span-2">
-              <a href="#home" className="flex items-center gap-2 text-[#212121]">
+              <a href="/" className="flex items-center gap-2 text-[#212121]">
                 <Dumbbell className="w-7 h-7 text-brand-primary" />
                 <span className="text-lg font-bold">
-                  Iron<span className="text-brand-primary">Gym</span>
+                  MR<span className="text-brand-primary">Training</span>
                 </span>
               </a>
               <p className="mt-4 text-sm text-[#212121] leading-relaxed max-w-xs">
-                Empowering your fitness journey with expert coaching, world-class equipment, and
-                a supportive community.
+                Unified coaching platform for modern coaches. AI-powered programs,
+                performance analytics, events, nutrition, and team communication.
               </p>
               <p className="mt-4 text-sm text-[#212121]">shaikhsaad256@gmail.com</p>
               <div className="flex items-center gap-4 mt-4">
@@ -69,12 +89,12 @@ export function IronGymFooter() {
                 <h4 className="font-semibold text-[#111111] text-sm mb-4">{col.title}</h4>
                 <ul className="space-y-3">
                   {col.links.map((link) => (
-                    <li key={link}>
+                    <li key={link.label}>
                       <a
-                        href="#"
+                        href={link.href}
                         className="text-sm text-[#212121] hover:text-brand-primary transition-colors"
                       >
-                        {link}
+                        {link.label}
                       </a>
                     </li>
                   ))}
@@ -88,11 +108,11 @@ export function IronGymFooter() {
       <div className="border-t border-gray-100 bg-white">
         <div className="max-w-7xl mx-auto px-6 h-16 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-[#212121]">
           <div className="flex items-center gap-4">
-            <a href="#" className="hover:text-brand-primary transition-colors">Privacy</a>
+            <a href="/privacy" className="hover:text-brand-primary transition-colors">Privacy</a>
             <span className="w-px h-4 bg-gray-300" />
-            <a href="#" className="hover:text-brand-primary transition-colors">Terms and condition</a>
+            <a href="/terms" className="hover:text-brand-primary transition-colors">Terms and condition</a>
           </div>
-          <div>&copy; 2024 All rights reserved. IronGym Company</div>
+          <div>&copy; 2024 All rights reserved. MR Training Company</div>
         </div>
       </div>
     </footer>
