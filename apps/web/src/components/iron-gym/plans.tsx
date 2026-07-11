@@ -35,7 +35,7 @@ export function IronGymPlans() {
   const visiblePlans = plans.filter((p) => p.billingPeriod === billing);
 
   return (
-    <section id="contact" className="bg-white py-24">
+    <section id="planes" className="bg-white py-24">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-12">
           <p className="text-[#9e9e9e] font-medium text-lg">Planes y Precios</p>

@@ -11,7 +11,7 @@ const stats = [
 
 export function IronGymStats() {
   return (
-    <section className="bg-[#111111] py-12">
+    <section id="stats" className="bg-[#111111] py-12">
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex flex-wrap justify-evenly gap-8">
           {stats.map((s, i) => (
