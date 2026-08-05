@@ -56,6 +56,7 @@ module.exports = {
         },
         'text-primary': 'var(--text)',
         'text-secondary': 'var(--text-secondary)',
+        'text-muted': 'var(--text-muted)',
         success: '#00C853',
         error: '#FF3D00',
         warning: '#FFB300',
