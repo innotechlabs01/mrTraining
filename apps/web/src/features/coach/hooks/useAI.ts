@@ -1,40 +1,38 @@
 'use client'
 
-import { useMemo, useCallback } from 'react'
-import type { AiSuggestion, AiProgramParams, AiGeneratedProgram } from '../types'
-import { MOCK_AI_SUGGESTED_MESSAGES } from '../data/_mocks'
+import { useState, useEffect } from 'react'
+import type { AiSuggestion } from '../types'
+import { coachingApi } from '@/features/shared/api/client'
 
 export function useAI() {
-  const suggestedMessages = useMemo(() => MOCK_AI_SUGGESTED_MESSAGES, [])
+  const [suggestions, setSuggestions] = useState<AiSuggestion[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const generateProgram = useCallback(
-    (_params: AiProgramParams): Promise<AiGeneratedProgram> => {
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          resolve({
-            id: 'gen-prog-1',
-            days: _params.days,
-            focus: _params.focus,
-            intensity: _params.intensity,
-            sessions: _params.days.map((day) => ({
-              day,
-              exercises: [
-                { id: `gen-${day}-1`, name: 'Dynamic Warmup', sets: 1, reps: 10, rest: 0 },
-                { id: `gen-${day}-2`, name: 'Main Movement', sets: 4, reps: 6, rest: 120 },
-                { id: `gen-${day}-3`, name: 'Accessory', sets: 3, reps: 10, rest: 60 },
-                { id: `gen-${day}-4`, name: 'Core Work', sets: 3, reps: 15, rest: 45 },
-              ],
-            })),
-            reasoning: `This program focuses on ${_params.focus} at ${_params.intensity} intensity across ${_params.days.length} days. Periodized to build progressively with adequate recovery.`,
-          })
-        }, 2000)
-      })
-    },
-    [],
-  )
+  const loadSuggestions = () => {
+    setIsLoading(true)
+    coachingApi.getAISuggestions<AiSuggestion[]>()
+      .then(data => setSuggestions(data))
+      .catch(() => setError('Failed to load AI suggestions'))
+      .finally(() => setIsLoading(false))
+  }
+
+  useEffect(() => {
+    loadSuggestions()
+  }, [])
+
+  const addSuggestion = async (suggestion: AiSuggestion) => {
+    return coachingApi.saveAISuggestion<{ id: string }>(suggestion).then(res => {
+      setSuggestions(prev => [...prev, { ...suggestion, id: res.id }])
+      return res.id
+    })
+  }
 
   return {
-    suggestedMessages,
-    generateProgram,
+    suggestions,
+    isLoading,
+    error,
+    addSuggestion,
+    refresh: loadSuggestions,
   }
 }

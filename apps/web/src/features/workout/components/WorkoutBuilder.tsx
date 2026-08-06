@@ -234,7 +234,7 @@ export function WorkoutBuilder({
                 Describe the workout you want to create. For example:
               </p>
               <p className="text-xs text-[rgba(255,255,255,0.4)] italic mb-3">
-                "4-day upper/lower split for an intermediate lifter focusing on hypertrophy. Include progressive overload scheme."
+                &quot;4-day upper/lower split for an intermediate lifter focusing on hypertrophy. Include progressive overload scheme.&quot;
               </p>
               <div className="flex gap-2">
                 <input

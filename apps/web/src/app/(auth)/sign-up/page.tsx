@@ -24,7 +24,8 @@ function SignUpFormWrapper() {
 
   return (
     <SignUpForm
-      onSuccess={() => router.push(plan ? '/athlete/today' : '/role-selection')}
+      role="coach"
+      onSuccess={() => router.push(plan ? '/coach/plan' : '/coach')}
       onBack={() => router.push('/')}
     />
   );

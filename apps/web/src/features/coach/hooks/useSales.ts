@@ -1,38 +1,27 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import type { Sale, Product } from '../types'
-
-const STORAGE_KEY = 'mr-training-sales'
-
-function load(): Sale[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as Sale[]) : []
-  } catch {
-    return []
-  }
-}
-
-function uid() {
-  return `sale_${Math.random().toString(36).slice(2, 9)}${Date.now().toString(36).slice(-3)}`
-}
+import type { Sale } from '../types'
+import { coachingApi } from '@/features/shared/api/client'
 
 export function useSales() {
   const [sales, setSales] = useState<Sale[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [hydrated, setHydrated] = useState(false)
 
-  useEffect(() => {
-    setSales(load())
-    setHydrated(true)
+  const loadSales = useCallback(() => {
+    setIsLoading(true)
+    coachingApi.getSales<Sale[]>()
+      .then(data => setSales(data))
+      .catch(() => {})
+      .finally(() => { setIsLoading(false); setHydrated(true) })
   }, [])
 
   useEffect(() => {
-    if (hydrated) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sales))
-  }, [sales, hydrated])
+    loadSales()
+  }, [loadSales])
 
-  const registerSale = useCallback((data: {
+  const registerSale = useCallback(async (data: {
     productId: string
     productName: string
     brand?: string
@@ -40,15 +29,14 @@ export function useSales() {
     unitPrice: number
     unitReceived: number
   }) => {
-    setSales((prev) => {
-      const total = data.quantity * data.unitPrice
-      const createdAt = new Date().toISOString()
-      const date = createdAt.split('T')[0]
-      return [
-        { ...data, id: uid(), total, date, createdAt },
-        ...prev,
-      ]
-    })
+    const total = data.quantity * data.unitPrice
+    const createdAt = new Date().toISOString()
+    const date = createdAt.split('T')[0]
+    const res = await coachingApi.saveSale<{ id: string }>({ ...data, total, date, createdAt })
+    setSales(prev => [
+      { ...data, id: res.id, total, date, createdAt },
+      ...prev,
+    ])
   }, [])
 
   const getSalesForDay = useCallback((date: string) => {
@@ -73,9 +61,13 @@ export function useSales() {
       acc[key].total += s.total
       return acc
     }, {} as Record<string, {productId:string; productName:string; brand?:string; quantity:number; total:number}>)
-
     return Object.values(aggregated)
   }, [sales])
 
-  return { sales, hydrated, registerSale, getSalesForDay, getAggregatedToday }
+  const removeSale = useCallback(async (id: string) => {
+    await coachingApi.deleteSale(id)
+    setSales(prev => prev.filter(s => s.id !== id))
+  }, [])
+
+  return { sales, isLoading, hydrated, registerSale, getSalesForDay, getAggregatedToday, removeSale, refresh: loadSales }
 }

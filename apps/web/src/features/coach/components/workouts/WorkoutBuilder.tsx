@@ -378,7 +378,7 @@ export default function WorkoutBuilder() {
     setWorkingExercises(prev => prev.map(e => {
       if (e.id !== id) return e
       if ((field === 'weight' || field === 'rpeTarget') && value === '') {
-        const { [field]: _, ...rest } = e as any
+        const { [field]: _, ...rest } = e
         return rest as WorkoutExercise
       }
       return { ...e, [field]: value }

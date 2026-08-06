@@ -15,30 +15,9 @@ import {
   ArrowRight,
   Trophy,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { DailySummary } from '../../types';
-
-const MOCK_SUMMARY: DailySummary = {
-  date: new Date().toISOString().split('T')[0],
-  athleteCount: 8,
-  sessionCount: 3,
-  completedSessions: 2,
-  completedSessionNames: ['Morning Speed Work', 'Strength & Conditioning'],
-  messageCount: 4,
-  notesCount: 3,
-  highlights: [
-    'Sarah Johnson set a new 100m personal best during warmup drills',
-    'James Thompson showed improved block technique — start phase faster by 0.12s',
-    'Aisha Patel completing first week of marathon base building — great consistency',
-  ],
-  aiRecommendation:
-    'Consider reducing David Park\'s load tomorrow and scheduling a recovery session for Lucas Weber. Overall team readiness is trending positively.',
-  tomorrowPreview: {
-    athleteCount: 6,
-    sessionCount: 2,
-    suggestedFocus: 'Recovery and technique — lighter load after today\'s intensity',
-  },
-};
+import { cn } from '@/lib/utils'
+import { useDailySummary } from '../../hooks/useDailySummary'
+import { EmptyState } from '../shared/EmptyState'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -53,46 +32,46 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
 };
 
-export default function DailySummary() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showCheckmark, setShowCheckmark] = useState(false);
-
-  const summary = useMemo(() => MOCK_SUMMARY, []);
+export default function DailySummaryComponent() {
+  const { summary, isLoading, error } = useDailySummary()
+  const [showCheckmark, setShowCheckmark] = useState(false)
 
   useEffect(() => {
-    const loadTimer = setTimeout(() => setLoading(false), 500);
-    const checkTimer = setTimeout(() => setShowCheckmark(true), 200);
-    return () => {
-      clearTimeout(loadTimer);
-      clearTimeout(checkTimer);
-    };
-  }, []);
+    if (!isLoading && summary) {
+      const t = setTimeout(() => setShowCheckmark(true), 200)
+      return () => clearTimeout(t)
+    }
+  }, [isLoading, summary])
 
-  const handleRetry = useCallback(() => {
-    setError(null);
-    setLoading(true);
-    setTimeout(() => setLoading(false), 500);
-  }, []);
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-primary border-t-transparent" />
+      </div>
+    )
+  }
 
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 rounded-xl bg-surface-1 p-12">
-        <AlertCircle className="h-8 w-8 text-error" />
-        <p className="text-sm text-secondary">Failed to load summary</p>
-        <button
-          type="button"
-          onClick={handleRetry}
-          className="flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Retry
-        </button>
+        <AlertCircle className="h-8 w-8 text-red-400" />
+        <p className="text-sm text-white/60">Failed to load daily summary</p>
       </div>
-    );
+    )
   }
 
-  if (loading) {
+  if (!summary) {
+    return (
+      <EmptyState
+        icon={CalendarCheck}
+        title="No hay resumen del dia"
+        description="Completa tus time blocks y sesiones para generar un resumen diario."
+        className="py-10"
+      />
+    )
+  }
+
+  if (isLoading) {
     return (
       <div className="space-y-4">
         <div className="mx-auto h-24 w-24 animate-pulse rounded-full bg-surface-3" />

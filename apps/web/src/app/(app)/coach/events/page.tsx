@@ -50,7 +50,7 @@ const FORMAT_FILTERS: { label: string; value: EventFormat | 'all' }[] = [
 ]
 
 export default function CoachEventsPage() {
-  const { events, upsertEvent, deleteEvent } = useEvents()
+  const { events, addEvent, updateEvent, deleteEvent } = useEvents()
   const [typeFilter, setTypeFilter] = useState('all')
   const [formatFilter, setFormatFilter] = useState<EventFormat | 'all'>('all')
   const [editing, setEditing] = useState<CoachEvent | null>(null)
@@ -62,7 +62,11 @@ export default function CoachEventsPage() {
   )
 
   const handleSave = (event: CoachEvent) => {
-    upsertEvent(event)
+    if (events.find(e => e.id === event.id)) {
+      updateEvent(event.id, event)
+    } else {
+      addEvent(event)
+    }
     setEditing(null)
     setShowNew(false)
   }
@@ -71,7 +75,7 @@ export default function CoachEventsPage() {
     const ev = events.find((e) => e.id === id)
     if (!ev) return
     const updated = { ...ev, public: !ev.public }
-    upsertEvent(updated)
+    updateEvent(id, updated)
     setDetail(updated)
   }
 

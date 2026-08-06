@@ -2,43 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Dumbbell, ChevronDown, ChevronUp, Menu, X } from 'lucide-react';
+import { Dumbbell, Menu, X } from 'lucide-react';
 
 const mainLinks = [
   { label: 'Home', href: '#home' },
-  { label: 'About', href: '#about' },
-  { label: 'Services', href: '#services' },
-];
-
-const dropdownItems = [
-  { label: 'Strength', href: '/programs/strength' },
-  { label: 'Cardio', href: '/programs/cardio' },
-  { label: 'Yoga & Mobility', href: '/programs/yoga' },
-  { label: 'Boxing & Combat', href: '/programs/boxing' },
-];
-
-const supportItems = [
-  { label: 'FAQ', href: '/faq' },
-  { label: 'Privacy', href: '/privacy' },
-  { label: 'Terms', href: '/terms' },
-  { label: 'Help Center', href: '/help' },
-];
-
-const moreItems = [
-  { label: 'Blog', href: '/blog' },
-  { label: 'Careers', href: '/careers' },
-  { label: 'Gallery', href: '/gallery' },
-  { label: 'Events', href: '/events' },
-  { label: 'Spyro Classes', href: '/page-2' },
-  { label: 'IronGym Landing', href: '/page-3' },
 ];
 
 export function IronGymNavbar() {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [mobileDropdown, setMobileDropdown] = useState<string | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -99,96 +72,15 @@ export function IronGymNavbar() {
             </a>
           ))}
 
-          {/* Programs Dropdown */}
-          <div className="relative" onMouseEnter={() => setOpenDropdown('programs')} onMouseLeave={() => setOpenDropdown(null)}>
-            <button
-              className="flex items-center gap-1 text-sm font-medium transition-colors text-[#9e9e9e] hover:text-white cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setOpenDropdown(openDropdown === 'programs' ? null : 'programs');
-              }}
-            >
-              Programs
-              <ChevronDown className="w-4 h-4" />
-            </button>
-            {openDropdown === 'programs' && (
-              <div className="absolute top-full left-0 mt-2 w-48 rounded-xl border border-white/10 bg-[#111111] py-2 shadow-xl z-50">
-                {dropdownItems.map((item) => (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    className="block px-4 py-2 text-sm text-[#9e9e9e] hover:text-white hover:bg-white/5 transition-colors"
-                  >
-                    {item.label}
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Support Dropdown */}
-          <div className="relative" onMouseEnter={() => setOpenDropdown('support')} onMouseLeave={() => setOpenDropdown(null)}>
-            <button
-              className="flex items-center gap-1 text-sm font-medium transition-colors text-[#9e9e9e] hover:text-white cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setOpenDropdown(openDropdown === 'support' ? null : 'support');
-              }}
-            >
-              Support
-              <ChevronDown className="w-4 h-4" />
-            </button>
-            {openDropdown === 'support' && (
-              <div className="absolute top-full left-0 mt-2 w-48 rounded-xl border border-white/10 bg-[#111111] py-2 shadow-xl z-50">
-                {supportItems.map((item) => (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    className="block px-4 py-2 text-sm text-[#9e9e9e] hover:text-white hover:bg-white/5 transition-colors"
-                  >
-                    {item.label}
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* More Dropdown */}
-          <div className="relative" onMouseEnter={() => setOpenDropdown('more')} onMouseLeave={() => setOpenDropdown(null)}>
-            <button
-              className="flex items-center gap-1 text-sm font-medium transition-colors text-[#9e9e9e] hover:text-white cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setOpenDropdown(openDropdown === 'more' ? null : 'more');
-              }}
-            >
-              More
-              <ChevronDown className="w-4 h-4" />
-            </button>
-            {openDropdown === 'more' && (
-              <div className="absolute top-full left-0 mt-2 w-48 rounded-xl border border-white/10 bg-[#111111] py-2 shadow-xl z-50">
-                {moreItems.map((item) => (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    className="block px-4 py-2 text-sm text-[#9e9e9e] hover:text-white hover:bg-white/5 transition-colors"
-                  >
-                    {item.label}
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-
           <a
-            href="#planes"
+            href="#contact-us"
             onClick={(e) => {
               e.preventDefault();
-              handleAnchorClick('#planes');
+              handleAnchorClick('#contact-us');
             }}
             className="text-sm font-medium transition-colors text-[#9e9e9e] hover:text-white cursor-pointer"
           >
-            Plans
+            Contact
           </a>
         </div>
 
@@ -201,10 +93,10 @@ export function IronGymNavbar() {
             Coaching
           </button>
           <a
-            href="#planes"
+            href="#contact-us"
             onClick={(e) => {
               e.preventDefault();
-              handleAnchorClick('#planes');
+              handleAnchorClick('#contact-us');
             }}
             className="px-6 py-3 rounded-md bg-white text-[#212121] text-sm font-semibold hover:bg-gray-100 transition-colors"
           >
@@ -237,81 +129,12 @@ export function IronGymNavbar() {
               </a>
             ))}
 
-            {/* Mobile: Programs */}
-            <button
-              onClick={() => setMobileDropdown(mobileDropdown === 'programs' ? null : 'programs')}
-              className="flex items-center justify-between text-lg font-semibold text-white py-3 border-b border-white/10"
-            >
-              Programs
-              {mobileDropdown === 'programs' ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-            </button>
-            {mobileDropdown === 'programs' && (
-              <div className="pl-4 pb-2">
-                {dropdownItems.map((item) => (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    className="block py-2 text-[#9e9e9e] hover:text-white transition-colors"
-                  >
-                    {item.label}
-                  </a>
-                ))}
-              </div>
-            )}
-
-            {/* Mobile: Support */}
-            <button
-              onClick={() => setMobileDropdown(mobileDropdown === 'support' ? null : 'support')}
-              className="flex items-center justify-between text-lg font-semibold text-white py-3 border-b border-white/10"
-            >
-              Support
-              {mobileDropdown === 'support' ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-            </button>
-            {mobileDropdown === 'support' && (
-              <div className="pl-4 pb-2">
-                {supportItems.map((item) => (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    className="block py-2 text-[#9e9e9e] hover:text-white transition-colors"
-                  >
-                    {item.label}
-                  </a>
-                ))}
-              </div>
-            )}
-
-            {/* Mobile: More */}
-            <button
-              onClick={() => setMobileDropdown(mobileDropdown === 'more' ? null : 'more')}
-              className="flex items-center justify-between text-lg font-semibold text-white py-3 border-b border-white/10"
-            >
-              More
-              {mobileDropdown === 'more' ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-            </button>
-            {mobileDropdown === 'more' && (
-              <div className="pl-4 pb-2">
-                {moreItems.map((item) => (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    className="block py-2 text-[#9e9e9e] hover:text-white transition-colors"
-                  >
-                    {item.label}
-                  </a>
-                ))}
-              </div>
-            )}
-
             <a
-              href="#planes"
-              onClick={(e) => { e.preventDefault(); handleAnchorClick('#planes'); }}
+              href="#contact-us"
+              onClick={(e) => { e.preventDefault(); handleAnchorClick('#contact-us'); }}
               className="text-lg font-semibold text-white py-3 border-b border-white/10"
             >
-              Plans
+              Contact
             </a>
 
             <div className="flex flex-col gap-3 mt-6">
@@ -322,8 +145,8 @@ export function IronGymNavbar() {
                 Coaching
               </button>
               <a
-                href="#planes"
-                onClick={(e) => { e.preventDefault(); handleAnchorClick('#planes'); }}
+                href="#contact-us"
+                onClick={(e) => { e.preventDefault(); handleAnchorClick('#contact-us'); }}
                 className="w-full px-6 py-3 rounded-md bg-white text-[#212121] text-sm font-semibold hover:bg-gray-100 transition-colors text-center"
               >
                 Get Started

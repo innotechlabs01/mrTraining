@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus,
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTickets } from '@/features/coach/hooks/useTickets'
-import type { SupportTicket, TicketCategory, TicketPriority, TicketStatus } from '@/features/coach/types'
+import type { SupportTicket, TicketCategory, TicketPriority, TicketStatus, TicketMessage } from '@/features/coach/types'
 
 const CATEGORY: Record<TicketCategory, { label: string; className: string }> = {
   problem: { label: 'Problema', className: 'bg-red-500/15 text-red-400' },
@@ -46,25 +46,71 @@ function fmtDate(iso: string) {
 }
 
 export default function CoachSupportPage() {
-  const { tickets, createTicket, addMessage, resolveTicket, reopenTicket } = useTickets()
+  const { tickets: remoteTickets, addTicket } = useTickets()
+  const [localTickets, setLocalTickets] = useState<SupportTicket[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | TicketStatus>('all')
   const [composing, setComposing] = useState(false)
 
+  useEffect(() => {
+    setLocalTickets(remoteTickets)
+  }, [remoteTickets])
+
   const sorted = useMemo(
-    () => [...tickets].sort((a, b) => a.createdAt.localeCompare(b.createdAt)).reverse(),
-    [tickets],
+    () => [...localTickets].sort((a, b) => a.createdAt.localeCompare(b.createdAt)).reverse(),
+    [localTickets],
   )
   const visible = sorted.filter((t) => (filter === 'all' ? true : t.status === filter))
 
-  const selected = tickets.find((t) => t.id === selectedId) ?? visible[0] ?? null
+  const selected = localTickets.find((t) => t.id === selectedId) ?? visible[0] ?? null
 
   useEffect(() => {
     if (!selectedId && visible[0]) setSelectedId(visible[0].id)
   }, [visible, selectedId])
 
-  const openCount = tickets.filter((t) => t.status === 'open').length
-  const nextNum = Math.max(0, ...tickets.map((t) => t.number)) + 1
+  const openCount = localTickets.filter((t) => t.status === 'open').length
+  const nextNum = Math.max(0, ...localTickets.map((t) => t.number)) + 1
+
+  const createTicket = useCallback((input: {
+    subject: string
+    category: TicketCategory
+    priority: TicketPriority
+    body: string
+    imageUrl?: string
+  }) => {
+    const ticket: SupportTicket = {
+      id: crypto.randomUUID(),
+      number: nextNum,
+      subject: input.subject,
+      category: input.category,
+      priority: input.priority,
+      status: 'open',
+      createdAt: new Date().toISOString(),
+      messages: [{
+        id: crypto.randomUUID(),
+        author: 'coach',
+        body: input.body,
+        imageUrl: input.imageUrl,
+        createdAt: new Date().toISOString(),
+      }],
+    }
+    addTicket(ticket)
+    setLocalTickets(prev => [...prev, ticket])
+    return ticket
+  }, [addTicket, nextNum])
+
+  const addMessage = useCallback((ticketId: string, author: 'coach' | 'support', body: string, imageUrl?: string) => {
+    const msg: TicketMessage = { id: crypto.randomUUID(), author, body, imageUrl, createdAt: new Date().toISOString() }
+    setLocalTickets(prev => prev.map(t => t.id === ticketId ? { ...t, messages: [...t.messages, msg] } : t))
+  }, [])
+
+  const resolveTicket = useCallback((ticketId: string) => {
+    setLocalTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: 'resolved', resolvedAt: new Date().toISOString() } : t))
+  }, [])
+
+  const reopenTicket = useCallback((ticketId: string) => {
+    setLocalTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: 'open', resolvedAt: undefined } : t))
+  }, [])
 
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col p-6 max-w-7xl mx-auto">

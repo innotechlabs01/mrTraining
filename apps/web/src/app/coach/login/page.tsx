@@ -56,12 +56,6 @@ export default function CoachLoginPage() {
           ))}
         </div>
 
-        <div className="mt-6 text-center">
-          <a href="/athletic/login" className="text-sm text-brand-primary hover:text-brand-primary-hover transition-colors">
-            I&apos;m an Athlete — Sign in here
-          </a>
-        </div>
-
         <p className="text-center text-xs text-text-muted mt-4">
           Modo desarrollo — autenticación simulada
         </p>

@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, ArrowLeft, Loader2 } from 'lucide-react';
 import { CodeInput } from './CodeInput';
 import { ErrorState } from './ErrorState';
+import { ClerkApiError } from '../clerk-errors';
 
 interface VerifyCodeFormProps {
   email: string;
@@ -65,11 +66,12 @@ export function VerifyCodeForm({ email, onSuccess, onBack }: VerifyCodeFormProps
       } else {
         setError('Verification failed. Please try again.');
       }
-    } catch (err: any) {
-      if (err.errors?.[0]?.code === 'form_code_incorrect') {
+    } catch (err: unknown) {
+      const clerkErr = err as ClerkApiError;
+      if (clerkErr.errors?.[0]?.code === 'form_code_incorrect') {
         setError('Invalid code. Please check and try again.');
       } else {
-        setError(err.errors?.[0]?.message || 'Failed to verify code');
+        setError(clerkErr.errors?.[0]?.message || 'Failed to verify code');
       }
     } finally {
       setIsLoading(false);
@@ -95,8 +97,9 @@ export function VerifyCodeForm({ email, onSuccess, onBack }: VerifyCodeFormProps
     try {
       await signUp.prepareEmailAddressVerification();
       startResendTimer();
-    } catch (err: any) {
-      setError(err.errors?.[0]?.message || 'Failed to resend code');
+    } catch (err: unknown) {
+      const clerkErr = err as ClerkApiError;
+      setError(clerkErr.errors?.[0]?.message || 'Failed to resend code');
     }
   }, [isLoaded, signUp, isResendDisabled, startResendTimer]);
 

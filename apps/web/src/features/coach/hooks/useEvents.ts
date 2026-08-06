@@ -1,55 +1,52 @@
-'use client';
+'use client'
 
-import { useState, useEffect, useCallback } from 'react';
-import { MOCK_EVENTS } from '@/features/coach/data/_mocks';
-import type { CoachEvent } from '@/features/coach/types';
-
-const STORAGE_KEY = 'mr-training-events';
-
-function loadEvents(): CoachEvent[] {
-  if (typeof window === 'undefined') return MOCK_EVENTS;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return MOCK_EVENTS;
-    const parsed = JSON.parse(raw) as CoachEvent[];
-    if (!Array.isArray(parsed) || parsed.length === 0) return MOCK_EVENTS;
-    return parsed;
-  } catch {
-    return MOCK_EVENTS;
-  }
-}
+import { useState, useEffect } from 'react'
+import type { CoachEvent } from '../types'
+import { coachingApi } from '@/features/shared/api/client'
 
 export function useEvents() {
-  const [events, setEvents] = useState<CoachEvent[]>(MOCK_EVENTS);
+  const [events, setEvents] = useState<CoachEvent[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadEvents = () => {
+    setIsLoading(true)
+    coachingApi.getEvents<CoachEvent[]>()
+      .then(data => setEvents(data))
+      .catch(() => setError('Failed to load events'))
+      .finally(() => setIsLoading(false))
+  }
 
   useEffect(() => {
-    setEvents(loadEvents());
-  }, []);
+    loadEvents()
+  }, [])
 
-  const upsertEvent = useCallback((event: CoachEvent) => {
-    setEvents((prev) => {
-      const exists = prev.some((e) => e.id === event.id);
-      const next = exists ? prev.map((e) => (e.id === event.id ? event : e)) : [event, ...prev];
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        /* ignore storage errors */
-      }
-      return next;
-    });
-  }, []);
+  const addEvent = async (event: CoachEvent) => {
+    return coachingApi.saveEvent<{ id: string }>(event).then(res => {
+      setEvents(prev => [...prev, { ...event, id: res.id }])
+      return res.id
+    })
+  }
 
-  const deleteEvent = useCallback((id: string) => {
-    setEvents((prev) => {
-      const next = prev.filter((e) => e.id !== id);
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
-  }, []);
+  const updateEvent = async (id: string, event: CoachEvent) => {
+    return coachingApi.updateEvent<{ ok: boolean }>(id, event).then(() => {
+      setEvents(prev => prev.map(e => e.id === id ? { ...event, id } : e))
+    })
+  }
 
-  return { events, upsertEvent, deleteEvent };
+  const deleteEvent = async (id: string) => {
+    return coachingApi.deleteEvent<{ ok: boolean }>(id).then(() => {
+      setEvents(prev => prev.filter(e => e.id !== id))
+    })
+  }
+
+  return {
+    events,
+    isLoading,
+    error,
+    addEvent,
+    updateEvent,
+    deleteEvent,
+    refresh: loadEvents,
+  }
 }

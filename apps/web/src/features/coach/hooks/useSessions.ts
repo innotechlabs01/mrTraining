@@ -1,23 +1,33 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import type { CoachSession } from '../types'
-import { MOCK_SESSIONS } from '../data/_mocks'
+import { coachingApi } from '@/features/shared/api/client'
 
 export function useSessions() {
-  const sessions = useMemo(() => MOCK_SESSIONS, [])
+  const [sessions, setSessions] = useState<CoachSession[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const getSessionById = (id: string): CoachSession | undefined =>
-    sessions.find((s) => s.id === id)
+  useEffect(() => {
+    coachingApi.getSessions<CoachSession[]>()
+      .then(data => setSessions(data))
+      .catch(() => setError('Failed to load sessions'))
+      .finally(() => setIsLoading(false))
+  }, [])
 
-  const getSessionsForAthlete = (athleteId: string): CoachSession[] =>
-    sessions.filter((s) => s.athleteIds.includes(athleteId))
+  const athleteSessionMap: Record<string, CoachSession[]> = {}
+  for (const session of sessions) {
+    for (const aid of session.athleteIds) {
+      if (!athleteSessionMap[aid]) athleteSessionMap[aid] = []
+      athleteSessionMap[aid].push(session)
+    }
+  }
 
   return {
     sessions,
-    getSessionById,
-    getSessionsForAthlete,
-    isLoading: false,
-    error: null,
+    athleteSessionMap,
+    isLoading,
+    error,
   }
 }

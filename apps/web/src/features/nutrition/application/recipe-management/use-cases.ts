@@ -1,4 +1,4 @@
-import { Recipe } from '../../domain/recipe';
+import { Recipe, RecipeIngredient } from '../../domain/recipe';
 import { CreateRecipeCommand, UpdateRecipeCommand, GetRecipeCommand, ApproveRecipeCommand } from './types';
 import { NutritionInfo } from '../../domain/recipe';
 
@@ -12,11 +12,11 @@ interface RecipeRepository {
 }
 
 interface NutritionCalculator {
-  calculateRecipeNutrition(ingredients: any[], servings: number): Promise<NutritionInfo>;
+  calculateRecipeNutrition(ingredients: RecipeIngredient[], servings: number): Promise<NutritionInfo>;
 }
 
 interface AIEnhancementService {
-  enhanceRecipe(recipe: Partial<Recipe>): Promise<any>;
+  enhanceRecipe(recipe: Partial<Recipe>): Promise<Recipe>;
 }
 
 export class CreateRecipeUseCase {

@@ -35,6 +35,7 @@ interface NavItemConfig {
 const NAV_ITEMS: NavItemConfig[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/coach' },
   { id: 'users', label: 'Usuarios', icon: Users, href: '/coach/users' },
+  { id: 'agendamiento', label: 'Agendamiento', icon: Calendar, href: '/coach/agendamiento' },
   {
     id: 'training',
     label: 'Training',
@@ -186,7 +187,7 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
           >
             <Clock size={16} />
             <span className="flex-1 text-left text-xs uppercase tracking-wider font-semibold">
-              Today's Timeline
+              Today&apos;s Timeline
             </span>
             <ChevronDown
               size={14}

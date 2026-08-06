@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { ErrorState } from './ErrorState';
 
 interface InvitationScreenProps {
-  type: 'organization' | 'coach' | 'athlete';
+  type: 'organization' | 'coach';
   inviterName: string;
   orgName?: string;
   onAccept: () => void;

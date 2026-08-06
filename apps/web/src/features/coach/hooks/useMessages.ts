@@ -1,25 +1,27 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import type { MessageThread } from '../types'
-import { MOCK_MESSAGE_THREADS } from '../data/_mocks'
+import { coachingApi } from '@/features/shared/api/client'
 
 export function useMessages() {
-  const threads = useMemo(() => MOCK_MESSAGE_THREADS, [])
+  const [threads, setThreads] = useState<MessageThread[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const unreadCount = useMemo(
-    () => threads.filter((t) => t.unread).length,
-    [threads],
-  )
+  useEffect(() => {
+    coachingApi.getMessageThreads<MessageThread[]>()
+      .then(data => setThreads(data))
+      .catch(() => setError('Failed to load messages'))
+      .finally(() => setIsLoading(false))
+  }, [])
 
-  const getThreadById = (id: string): MessageThread | undefined =>
-    threads.find((t) => t.id === id)
+  const unreadCount = threads.filter(t => t.unread).length
 
   return {
     threads,
     unreadCount,
-    getThreadById,
-    isLoading: false,
-    error: null,
+    isLoading,
+    error,
   }
 }

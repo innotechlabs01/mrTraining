@@ -1,71 +1,62 @@
-'use client';
+'use client'
 
-import { useState, useEffect, useCallback } from 'react';
-import type { PaymentMethod } from '@/features/coach/types';
-
-const STORAGE_KEY = 'mr-training-payment-methods';
-
-function uid() {
-  return `pm-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
+import { useState, useEffect, useCallback } from 'react'
+import type { PaymentMethod } from '@/features/coach/types'
+import { coachingApi } from '@/features/shared/api/client'
 
 export interface NewPaymentMethodInput {
-  bank: string;
-  holder: string;
-  accountType: PaymentMethod['accountType'];
-  accountNumber: string;
-  clabe: string;
-  notes?: string;
+  bank: string
+  holder: string
+  accountType: PaymentMethod['accountType']
+  accountNumber: string
+  clabe: string
+  notes?: string
 }
 
 export function usePaymentMethods() {
-  const [methods, setMethods] = useState<PaymentMethod[]>([]);
-
-  useEffect(() => {
-    load();
-  }, []);
+  const [methods, setMethods] = useState<PaymentMethod[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   const load = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setMethods(JSON.parse(raw));
-    } catch {
-      /* ignore */
-    }
-  }, []);
+    setIsLoading(true)
+    coachingApi.getPaymentMethods<PaymentMethod[]>()
+      .then(data => setMethods(data))
+      .catch(() => {})
+      .finally(() => setIsLoading(false))
+  }, [])
 
-  const persist = useCallback((next: PaymentMethod[]) => {
-    setMethods(next);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  useEffect(() => {
+    load()
+  }, [load])
 
   const addMethod = useCallback(
-    (input: NewPaymentMethodInput) => {
-      const method: PaymentMethod = { id: uid(), ...input };
-      persist([...methods, method]);
-      return method;
+    async (input: NewPaymentMethodInput) => {
+      const res = await coachingApi.savePaymentMethod<{ id: string }>(input)
+      const method: PaymentMethod = { id: res.id, notes: '', ...input }
+      setMethods(prev => [...prev, method])
+      return method
     },
-    [methods, persist],
-  );
+    [],
+  )
 
   const updateMethod = useCallback(
-    (id: string, patch: Partial<PaymentMethod>) => {
-      persist(methods.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+    async (id: string, patch: Partial<PaymentMethod>) => {
+      const current = methods.find(m => m.id === id)
+      if (!current) return
+      const updated = { ...current, ...patch }
+      await coachingApi.updatePaymentMethod(id, updated)
+      setMethods(prev => prev.map(m => m.id === id ? updated : m))
     },
-    [methods, persist],
-  );
+    [methods],
+  )
 
   const removeMethod = useCallback(
-    (id: string) => {
-      persist(methods.filter((m) => m.id !== id));
+    async (id: string) => {
+      await coachingApi.deletePaymentMethod(id)
+      setMethods(prev => prev.filter(m => m.id !== id))
     },
-    [methods, persist],
-  );
+    [],
+  )
 
-  return { methods, addMethod, updateMethod, removeMethod };
+  return { methods, isLoading, addMethod, updateMethod, removeMethod }
 }

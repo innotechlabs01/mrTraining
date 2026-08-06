@@ -81,7 +81,7 @@ export default function MidDayReview() {
         <Sun className="w-12 h-12 text-[#6B7280] mx-auto mb-4" />
         <h3 className="text-lg font-semibold mb-2">Morning complete, no afternoon sessions</h3>
         <p className="text-sm text-secondary">
-          Your morning is done and there's nothing scheduled for the afternoon. Enjoy the rest of your day!
+          Your morning is done and there&apos;s nothing scheduled for the afternoon. Enjoy the rest of your day!
         </p>
       </motion.div>
     )

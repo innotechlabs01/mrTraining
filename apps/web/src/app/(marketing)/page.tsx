@@ -388,8 +388,7 @@ export default function Page() {
             ))}
           </nav>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <a href='/coach/login' className='ig-btn ig-btn-solid'>Coaches</a>
-            <a href='/sign-in' className='ig-btn'>Athletes</a>
+            <a href='/sign-in' className='ig-btn ig-btn-solid'>Sign In</a>
             <button
               className='ig-menu-toggle'
               onClick={() => setMenuOpen((v) => !v)}
@@ -429,8 +428,7 @@ export default function Page() {
             exercise that focuses on strength, endurance, and overall
             fitness improvement.
           </p>
-          <a href='/coach/login' className='ig-btn'>For Coaches</a>
-          <a href='/sign-in' className='ig-btn ig-btn-solid'>For Athletes</a>
+          <a href='/sign-in' className='ig-btn ig-btn-solid'>Sign In</a>
           <div className='ig-hero-stats'>
             {data.stats.map((s) => (
               <div className='ig-hero-stat' key={s.label}>

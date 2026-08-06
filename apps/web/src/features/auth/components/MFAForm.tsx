@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Smartphone, Mail, ArrowLeft, Loader2, Check } from 'lucide-react';
 import { CodeInput } from './CodeInput';
 import { ErrorState } from './ErrorState';
+import { ClerkApiError } from '../clerk-errors';
 
 interface MFAFormProps {
   onSuccess?: () => void;
@@ -72,11 +73,12 @@ export function MFAForm({ onSuccess, onBack }: MFAFormProps) {
 
     try {
       await signIn.prepareSecondFactor({
-        strategy: selectedMethodConfig.clerkStrategy as any,
-      });
+        strategy: selectedMethodConfig.clerkStrategy,
+      } as Parameters<typeof signIn.prepareSecondFactor>[0]);
       setStep('verify');
-    } catch (err: any) {
-      setError(err.errors?.[0]?.message || 'Failed to prepare verification');
+    } catch (err: unknown) {
+      const clerkErr = err as ClerkApiError;
+      setError(clerkErr.errors?.[0]?.message || 'Failed to prepare verification');
     } finally {
       setIsLoading(false);
     }
@@ -90,18 +92,19 @@ export function MFAForm({ onSuccess, onBack }: MFAFormProps) {
     try {
       const result = await signIn.attemptSecondFactor({
         code: verificationCode,
-        strategy: selectedMethodConfig.clerkStrategy as any,
+        strategy: selectedMethodConfig.clerkStrategy as 'totp' | 'phone_code',
       });
 
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
         onSuccess?.();
       }
-    } catch (err: any) {
-      if (err.errors?.[0]?.code === 'form_code_incorrect') {
+    } catch (err: unknown) {
+      const clerkErr = err as ClerkApiError;
+      if (clerkErr.errors?.[0]?.code === 'form_code_incorrect') {
         setError('Invalid code. Please try again.');
       } else {
-        setError(err.errors?.[0]?.message || 'Verification failed');
+        setError(clerkErr.errors?.[0]?.message || 'Verification failed');
       }
     } finally {
       setIsLoading(false);
@@ -143,7 +146,7 @@ export function MFAForm({ onSuccess, onBack }: MFAFormProps) {
               Choose your verification method
             </p>
             <p className="text-body-sm text-text-secondary">
-              Select how you'd like to verify your identity
+              Select how you&apos;d like to verify your identity
             </p>
           </div>
 
@@ -155,7 +158,7 @@ export function MFAForm({ onSuccess, onBack }: MFAFormProps) {
             {methods.map((method) => {
               const isSelected = selectedMethod === method.id;
               const isAvailable = !factors || factors.some(
-                (f: any) => f.strategy === method.clerkStrategy,
+                (f) => f.strategy === method.clerkStrategy,
               );
 
               return (

@@ -1,31 +1,37 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import type { AthleteBrief } from '../types'
-import { MOCK_ATHLETES } from '../data/_mocks'
+import { coachingApi } from '@/features/shared/api/client'
 
 export function useAthletes() {
-  const athletes = useMemo(() => MOCK_ATHLETES, [])
+  const [athletes, setAthletes] = useState<AthleteBrief[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const flaggedAthletes = useMemo(
-    () => athletes.filter((a) => a.flag !== undefined),
-    [athletes],
+  useEffect(() => {
+    coachingApi.getAthletes<AthleteBrief[]>()
+      .then(data => setAthletes(data))
+      .catch(() => setError('Failed to load athletes'))
+      .finally(() => setIsLoading(false))
+  }, [])
+
+  const athletesWithFlags = athletes.filter(a => a.flag)
+  const flaggedAthletes = athletesWithFlags
+  const athletesNeedingAttention = athletes.filter(
+    (a) => a.readiness.score < 60 || a.flag?.severity === 'high',
   )
-
-  const athletesNeedingAttention = useMemo(
-    () => athletes.filter((a) => a.readiness.score < 60 || a.flag?.severity === 'high'),
-    [athletes],
-  )
-
-  const getAthleteById = (id: string): AthleteBrief | undefined =>
-    athletes.find((a) => a.id === id)
+  const readinessMap = Object.fromEntries(athletes.map(a => [a.id, a.readiness]))
+  const getAthleteById = (id: string) => athletes.find((a) => a.id === id)
 
   return {
     athletes,
+    athletesWithFlags,
     flaggedAthletes,
     athletesNeedingAttention,
+    readinessMap,
     getAthleteById,
-    isLoading: false,
-    error: null,
+    isLoading,
+    error,
   }
 }

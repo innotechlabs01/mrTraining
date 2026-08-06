@@ -14,7 +14,7 @@ interface ComposeMessageModalProps {
 
 export default function ComposeMessageModal({ onClose, onSend }: ComposeMessageModalProps) {
   const { athletes } = useAthletes();
-  const { suggestedMessages } = useAI();
+  const { suggestions: suggestedMessages } = useAI();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [messageType, setMessageType] = useState<'individual' | 'announcement'>('individual');

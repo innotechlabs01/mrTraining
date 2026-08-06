@@ -142,7 +142,7 @@ export class CreateMealPlanUseCase {
     command: CreateMealPlanCommand,
     nutritionGoals: NutritionGoals
   ): Promise<MealSchedule[]> {
-    const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const daysOfWeek: MealSchedule['dayOfWeek'][] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     const mealsPerDay = 3;
     
     return daysOfWeek.slice(0, this.getWeekDayCount(command.startDate, command.endDate)).map((day, dayIndex) => {
@@ -151,7 +151,7 @@ export class CreateMealPlanUseCase {
       return mealTypeVariations.map((mealType, mealIndex) => ({
         id: `${day}-${mealType}-${dayIndex}-${mealIndex}`,
         mealPlanId: '',
-        dayOfWeek: day as any,
+        dayOfWeek: day,
         mealType,
         time: this.getDefaultMealTime(mealType, day),
         foods: this.generateSampleFoods(mealType, nutritionGoals),

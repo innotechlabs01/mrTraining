@@ -23,7 +23,7 @@ export function IronGymSupport() {
         >
           <p className="text-brand-primary font-medium text-lg mb-3">Support & Legal</p>
           <h2 className="text-4xl lg:text-5xl font-bold font-display text-white leading-tight">
-            We\'re Here to Help
+            We&apos;re Here to Help
           </h2>
           <p className="mt-4 text-lg text-[#bdbdbd] max-w-2xl mx-auto">
             Comprehensive documentation, transparent policies, and responsive support.

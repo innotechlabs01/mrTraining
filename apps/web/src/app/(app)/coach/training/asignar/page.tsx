@@ -5,9 +5,37 @@ import { motion } from 'framer-motion'
 import { Search, Check, Dumbbell, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAthletes } from '@/features/coach/hooks/useAthletes'
+import { useMockAuth } from '@/features/auth/contexts/MockAuthContext'
+import { workoutApi, type Workout } from '@/features/shared/api/client'
 import type { TrainingMode } from '@/features/coach/types'
 
+type WorkoutPlan = {
+  id: string
+  name: string
+  focus?: string
+  estimatedDuration?: number
+  coachNote?: string
+  exercises: Array<{ id: string; name: string; sets: number; reps: number; rest: number; completedSets: number; weight?: number }>
+}
+
 type AssignType = 'workout' | 'program'
+
+const MOCK_TODAY_WORKOUT: WorkoutPlan = {
+  id: 'wo-1', name: 'Morning Strength + HIIT Finisher', focus: 'Full Body', estimatedDuration: 55,
+  coachNote: 'Focus on controlled tempo. No rushing.',
+  exercises: [
+    { id: 'ex-bb-1', name: 'Barbell Back Squat', sets: 4, reps: 8, rest: 90, completedSets: 0, weight: 80 },
+    { id: 'ex-bb-2', name: 'Bench Press', sets: 4, reps: 8, rest: 90, completedSets: 0, weight: 60 },
+    { id: 'ex-bb-3', name: 'Pull-Ups', sets: 3, reps: 10, rest: 60, completedSets: 0 },
+    { id: 'ex-bb-4', name: 'HIIT: Burpees', sets: 3, reps: 15, rest: 30, completedSets: 0 },
+  ],
+}
+
+const MOCK_WORKOUT_MAP: Record<string, WorkoutPlan> = {
+  'wk-1': MOCK_TODAY_WORKOUT,
+  'wk-2': { id: 'wo-2', name: 'Flying 30m Sprints', focus: 'Top Speed', estimatedDuration: 45, coachNote: 'Explode out of blocks', exercises: [{ id: 'ex-fast-1', name: 'Dynamic Warmup', sets: 1, reps: 10, rest: 0, completedSets: 0 }, { id: 'ex-fast-2', name: 'A-Skips', sets: 3, reps: 20, rest: 60, completedSets: 0 }, { id: 'ex-fast-3', name: 'Flying 30m Sprints', sets: 5, reps: 1, rest: 120, completedSets: 0 }, { id: 'ex-fast-4', name: 'Block Starts', sets: 5, reps: 1, rest: 90, completedSets: 0 }] },
+  'wk-3': { id: 'wo-3', name: 'Strength & Conditioning', focus: 'Max Strength', estimatedDuration: 75, exercises: [{ id: 'ex-strength-1', name: 'Back Squat', sets: 5, reps: 5, rest: 180, completedSets: 0, weight: 100 }, { id: 'ex-strength-2', name: 'Bench Press', sets: 4, reps: 8, rest: 120, completedSets: 0, weight: 60 }, { id: 'ex-strength-3', name: 'Deadlift', sets: 3, reps: 3, rest: 180, completedSets: 0, weight: 120 }] },
+};
 
 const MOCK_CONTENT = {
   workout: [
@@ -37,12 +65,14 @@ const MODALITIES: { label: string; value: TrainingMode }[] = [
 
 export default function CoachAsignarPage() {
   const { athletes } = useAthletes()
+  const { user } = useMockAuth()
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>([])
   const [assignType, setAssignType] = useState<AssignType>('workout')
   const [selectedContent, setSelectedContent] = useState('')
   const [modality, setModality] = useState<TrainingMode>('presencial')
   const [selectedDays, setSelectedDays] = useState<number[]>([])
   const [searchAthlete, setSearchAthlete] = useState('')
+  const [assigning, setAssigning] = useState(false)
 
   const toggleAthlete = (id: string) => {
     setSelectedAthletes((prev) =>
@@ -61,6 +91,63 @@ export default function CoachAsignarPage() {
   )
 
   const contentOptions = assignType === 'workout' ? MOCK_CONTENT.workout : MOCK_CONTENT.program
+
+  const handleAssign = async () => {
+    if (!selectedContent || selectedAthletes.length === 0 || !user) return
+    setAssigning(true)
+    try {
+      const contentOption = contentOptions.find(c => c.id === selectedContent)
+      const workoutPlan = assignType === 'workout' ? MOCK_WORKOUT_MAP[selectedContent] : undefined
+      
+      // Use the start date from the form or today
+      const startDate = new Date().toISOString().split('T')[0]
+      
+      for (const athId of selectedAthletes) {
+        const athlete = athletes.find(a => a.id === athId)
+        
+        // Convert the workout plan to the API format
+        const exercises = workoutPlan?.exercises.map((ex, idx) => ({
+          exerciseId: ex.id,
+          section: 'main',
+          sortOrder: idx,
+          notes: '',
+          restSeconds: ex.rest || 0,
+          tempo: '',
+          sets: ex.sets ? Array.isArray(ex.sets) 
+            ? ex.sets.map((s, si: number) => ({
+              setNumber: si + 1,
+              setType: 'normal',
+              prescribedReps: s.reps || null,
+              prescribedWeight: s.weight || null,
+              prescribedRPE: null,
+            }))
+            : [{
+              setNumber: 1,
+              setType: 'normal',
+              prescribedReps: ex.reps || null,
+              prescribedWeight: ex.weight || null,
+              prescribedRPE: null,
+            }]
+          : [],
+        })) || []
+        
+        await workoutApi.create({
+          name: contentOption?.name || 'Workout',
+          description: workoutPlan?.focus || '',
+          sportType: athlete?.sport || 'general',
+          scheduledDate: startDate,
+          athleteId: athId,
+          exercises,
+        })
+      }
+      alert(`Asignado a ${selectedAthletes.length} atleta${selectedAthletes.length > 1 ? 's' : ''}`)
+    } catch (error) {
+      console.error('Failed to assign workout:', error)
+      alert('Error al asignar el workout')
+    } finally {
+      setAssigning(false)
+    }
+  }
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -220,7 +307,8 @@ export default function CoachAsignarPage() {
             </div>
 
             <button
-              disabled={!selectedContent || selectedAthletes.length === 0}
+              disabled={!selectedContent || selectedAthletes.length === 0 || assigning}
+              onClick={handleAssign}
               className={cn(
                 'w-full py-2.5 rounded-lg text-sm font-semibold transition-all',
                 selectedContent && selectedAthletes.length > 0
@@ -228,7 +316,7 @@ export default function CoachAsignarPage() {
                   : 'bg-white/5 text-white/20 cursor-not-allowed',
               )}
             >
-              Asignar a {selectedAthletes.length > 0 ? `${selectedAthletes.length} atleta${selectedAthletes.length > 1 ? 's' : ''}` : 'seleccionar atletas'}
+              {assigning ? 'Asignando...' : `Asignar a ${selectedAthletes.length > 0 ? `${selectedAthletes.length} atleta${selectedAthletes.length > 1 ? 's' : ''}` : 'seleccionar atletas'}`}
             </button>
           </div>
         </div>

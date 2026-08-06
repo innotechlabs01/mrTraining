@@ -12,7 +12,7 @@ export type AuthStep =
   | 'invitation'
   | 'welcome-dashboard';
 
-export type UserRole = 'athlete' | 'coach' | 'parent' | 'strength-coach';
+export type UserRole = 'coach' | 'parent' | 'strength-coach';
 
 export type MfaMethod = 'authenticator' | 'sms' | 'email';
 

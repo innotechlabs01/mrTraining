@@ -10,7 +10,7 @@ import { isPlanDiscountActive, getPlanDiscountedPrice, getPlanDiscountAmount, fo
 import { PlanModal } from '@/features/coach/components/plans/PlanModal'
 
 export default function CoachPlanesPage() {
-  const { plans, upsertPlan } = usePlans()
+  const { plans, addPlan, updatePlan } = usePlans()
   const [editing, setEditing] = useState<Plan | null>(null)
   const [showNew, setShowNew] = useState(false)
 
@@ -20,7 +20,11 @@ export default function CoachPlanesPage() {
   }
 
   const handleSave = (plan: Plan) => {
-    upsertPlan(plan)
+    if (plans.find(p => p.id === plan.id)) {
+      updatePlan(plan.id, plan)
+    } else {
+      addPlan(plan)
+    }
     setEditing(null)
     setShowNew(false)
   }

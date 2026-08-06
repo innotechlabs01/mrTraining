@@ -390,7 +390,7 @@ export default function SalesPage() {
                     <td colSpan={7} className="px-4 py-12 text-center text-white/50">
                       <Package className="mx-auto mb-2 size-8 text-white/20" />
                       <p className="text-sm">Sin productos registrados.</p>
-                      <p className="text-[11px] mt-1">Haz clic en "Nuevo producto" para empezar.</p>
+                      <p className="text-[11px] mt-1">Haz clic en &quot;Nuevo producto&quot; para empezar.</p>
                     </td>
                   </tr>
                 )}
@@ -476,7 +476,7 @@ export default function SalesPage() {
               <div className="col-span-full flex flex-col items-center justify-center py-12 text-white/50">
                 <Package className="mb-2 size-10 text-white/20" />
                 <p className="text-sm">Sin productos registrados.</p>
-                <p className="text-[11px] mt-1">Haz clic en "Nuevo producto" para empezar.</p>
+                <p className="text-[11px] mt-1">Haz clic en &quot;Nuevo producto&quot; para empezar.</p>
               </div>
             )}
           </div>

@@ -1,52 +1,52 @@
-'use client';
+'use client'
 
-import { useState, useEffect, useCallback } from 'react';
-import { MOCK_PLANS } from '@/features/coach/data/_mocks';
-import type { Plan } from '@/features/coach/types';
-
-const STORAGE_KEY = 'mr-training-plans';
-
-function loadPlans(): Plan[] {
-  if (typeof window === 'undefined') return MOCK_PLANS;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return MOCK_PLANS;
-    const parsed = JSON.parse(raw) as Plan[];
-    if (!Array.isArray(parsed) || parsed.length === 0) return MOCK_PLANS;
-    return parsed;
-  } catch {
-    return MOCK_PLANS;
-  }
-}
+import { useState, useEffect } from 'react'
+import type { Plan } from '../types'
+import { coachingApi } from '@/features/shared/api/client'
 
 export function usePlans() {
-  const [plans, setPlans] = useState<Plan[]>(MOCK_PLANS);
+  const [plans, setPlans] = useState<Plan[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadPlans = () => {
+    setIsLoading(true)
+    coachingApi.getPlans<Plan[]>()
+      .then(data => setPlans(data))
+      .catch(() => setError('Failed to load plans'))
+      .finally(() => setIsLoading(false))
+  }
 
   useEffect(() => {
-    setPlans(loadPlans());
-  }, []);
+    loadPlans()
+  }, [])
 
-  const upsertPlan = useCallback((plan: Plan) => {
-    setPlans((prev) => {
-      const exists = prev.some((p) => p.id === plan.id);
-      const next = exists ? prev.map((p) => (p.id === plan.id ? plan : p)) : [...prev, plan];
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        /* ignore storage errors */
-      }
-      return next;
-    });
-  }, []);
+  const addPlan = async (plan: Plan) => {
+    return coachingApi.savePlan<{ id: string }>(plan).then(res => {
+      setPlans(prev => [...prev, { ...plan, id: res.id }])
+      return res.id
+    })
+  }
 
-  const resetPlans = useCallback(() => {
-    try {
-      window.localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* ignore */
-    }
-    setPlans(MOCK_PLANS);
-  }, []);
+  const updatePlan = async (id: string, plan: Plan) => {
+    return coachingApi.updatePlan<{ ok: boolean }>(id, plan).then(() => {
+      setPlans(prev => prev.map(p => p.id === id ? { ...plan, id } : p))
+    })
+  }
 
-  return { plans, upsertPlan, resetPlans };
+  const deletePlan = async (id: string) => {
+    return coachingApi.deletePlan<{ ok: boolean }>(id).then(() => {
+      setPlans(prev => prev.filter(p => p.id !== id))
+    })
+  }
+
+  return {
+    plans,
+    isLoading,
+    error,
+    addPlan,
+    updatePlan,
+    deletePlan,
+    refresh: loadPlans,
+  }
 }

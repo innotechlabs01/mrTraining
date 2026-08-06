@@ -1,4 +1,5 @@
 import { CreateShoppingListUseCase, AddItemUseCase, MarkItemPurchasedUseCase } from '../../application/shopping-list/use-cases';
+import { CreateShoppingListCommand } from '../../application/shopping-list/types';
 import { ShoppingList } from '../../domain/shopping-list';
 import { ShoppingItem } from '../../domain/shopping-item';
 
@@ -43,7 +44,7 @@ describe('CreateShoppingListUseCase', () => {
   });
 
   it('should create a shopping list with valid properties', async () => {
-    const command: any = {
+    const command: CreateShoppingListCommand = {
       athleteId: 'athlete-123',
       coachId: 'coach-456',
       organizationId: 'org-789',
@@ -62,7 +63,7 @@ describe('CreateShoppingListUseCase', () => {
   });
 
   it('should throw error when required properties are missing', async () => {
-    const command: any = {
+    const command: CreateShoppingListCommand = {
       athleteId: '',
       coachId: 'coach-456',
       organizationId: 'org-789',

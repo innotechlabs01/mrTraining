@@ -23,13 +23,17 @@ import {
   ShoppingCart,
   Package,
   BarChart3,
+  Dumbbell,
+  ListChecks,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { MOCK_DASHBOARD_METRICS, MOCK_REVENUE_HISTORY, MOCK_DASHBOARD_EXTRA, MOCK_ATHLETES } from '../../data/_mocks'
 import { useEvents } from '../../hooks/useEvents'
 import { useProducts } from '../../hooks/useProducts'
 import { useSales } from '../../hooks/useSales'
-import type { CoachEvent, EventFormat } from '../../types'
+import { useAthletes } from '../../hooks/useAthletes'
+import { coachingApi } from '@/features/shared/api/client'
+import { EmptyState } from '../shared/EmptyState'
+import type { CoachEvent, EventFormat, DashboardMetrics, RevenuePoint } from '../../types'
 
 const FORMAT_LABEL: Record<EventFormat, string> = {
   lista: 'Lista',
@@ -184,14 +188,26 @@ function formatCurrency(n: number) {
 }
 
 export default function CoachDashboard() {
-  const m = MOCK_DASHBOARD_METRICS
-  const extra = MOCK_DASHBOARD_EXTRA
   const now = useNow()
-  const { events } = useEvents()
-  const { products } = useProducts()
-  const { sales, getAggregatedToday } = useSales()
+  const { events, isLoading: eventsLoading } = useEvents()
+  const { products, isLoading: productsLoading } = useProducts()
+  const { sales, getAggregatedToday, isLoading: salesLoading } = useSales()
+  const { athletes, isLoading: athletesLoading } = useAthletes()
 
+  const [dashboard, setDashboard] = useState<{ metrics: DashboardMetrics; extra: Record<string, unknown>; revenueHistory: RevenuePoint[] } | null>(null)
+  const [dashboardLoading, setDashboardLoading] = useState(true)
   const [msgIndex, setMsgIndex] = useState(0)
+
+  useEffect(() => {
+    coachingApi.getDashboard<{ metrics: DashboardMetrics; extra: Record<string, unknown>; revenueHistory: RevenuePoint[] } | null>()
+      .then(data => setDashboard(data))
+      .catch(() => {})
+      .finally(() => setDashboardLoading(false))
+  }, [])
+
+  const m = dashboard?.metrics ?? null
+  const extra = dashboard?.extra ?? null
+  const revenueHistory = dashboard?.revenueHistory ?? []
 
   // Sales analytics
   const todayAggregated = getAggregatedToday()
@@ -229,13 +245,19 @@ export default function CoachDashboard() {
     return Object.values(agg).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
   }, [sales])
 
-  useEffect(() => {
-    const id = setInterval(() => setMsgIndex((i) => (i + 1) % extra.motivationalMessages.length), 6000)
-    return () => clearInterval(id)
-  }, [extra.motivationalMessages.length])
+  const motivationalMessages = (extra?.motivationalMessages as string[]) || [
+    'Cada sesion que planificas acerca a un atleta a su proximo record.',
+    'Los grandes resultados se construyen en los dias que nadie ve.',
+    'Tu constancia es la diferencia entre prometer y transformar.',
+  ]
 
-  const revenuePct = Math.min(100, Math.round((m.monthlyRevenue / extra.revenueGoal) * 100))
-  const athletePct = Math.min(100, Math.round((m.newAthletesThisMonth / extra.newAthletesGoal) * 100))
+  useEffect(() => {
+    const id = setInterval(() => setMsgIndex((i) => (i + 1) % motivationalMessages.length), 6000)
+    return () => clearInterval(id)
+  }, [motivationalMessages.length])
+
+  const revenuePct = m ? Math.min(100, Math.round((m.monthlyRevenue / ((extra?.revenueGoal as number) || 1)) * 100)) : 0
+  const athletePct = m ? Math.min(100, Math.round((m.newAthletesThisMonth / ((extra?.newAthletesGoal as number) || 1)) * 100)) : 0
 
   const upcomingEvents = useMemo(() => {
     return events
@@ -245,11 +267,33 @@ export default function CoachDashboard() {
   }, [events, now])
 
   const attention = useMemo(
-    () => MOCK_ATHLETES.filter((a) => a.flag && a.flag.severity === 'high').slice(0, 4),
-    [],
+    () => athletes.filter((a) => a.flag && a.flag.severity === 'high').slice(0, 4),
+    [athletes],
   )
 
-  const maxRevenue = Math.max(...MOCK_REVENUE_HISTORY.map((r) => r.amount))
+  const isLoading = dashboardLoading || eventsLoading || productsLoading || salesLoading || athletesLoading
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-primary border-t-transparent" />
+      </div>
+    )
+  }
+
+  if (!m) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={BarChart3}
+          title="No hay datos del dashboard"
+          description="Comienza a registrar atletas, sesiones y eventos para ver tus metricas aqui."
+        />
+      </div>
+    )
+  }
+
+  const maxRevenue = Math.max(1, ...revenueHistory.map((r) => r.amount))
 
   const clock = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
   const dateLabel = now.toLocaleDateString('es-MX', {
@@ -298,7 +342,7 @@ export default function CoachDashboard() {
                 {greeting(now)}, Coach
               </h1>
               <div className="mt-2 h-6 overflow-hidden">
-                <AnimatedMessage index={msgIndex} messages={extra.motivationalMessages} />
+                <AnimatedMessage index={msgIndex} messages={motivationalMessages} />
               </div>
             </div>
           </div>
@@ -309,7 +353,7 @@ export default function CoachDashboard() {
               </div>
               <div>
                 <p className="text-xl font-bold font-display leading-none text-white tabular-nums">
-                  {extra.streakDays}
+                  {(extra?.streakDays as number) || 0}
                 </p>
                 <p className="text-[11px] text-white/40">días seguidos</p>
               </div>
@@ -320,7 +364,7 @@ export default function CoachDashboard() {
               </div>
               <div>
                 <p className="text-xl font-bold font-display leading-none text-white tabular-nums">
-                  {extra.bestStreak}
+                  {(extra?.bestStreak as number) || 0}
                 </p>
                 <p className="text-[11px] text-white/40">mejor racha</p>
               </div>
@@ -329,47 +373,107 @@ export default function CoachDashboard() {
         </div>
       </motion.div>
 
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { label: 'Today', href: '/coach/today', icon: Clock, color: 'text-brand-primary bg-brand-primary/10' },
+          { label: 'Athletes', href: '/coach/users', icon: Users, color: 'text-blue-400 bg-blue-500/10' },
+          { label: 'Workouts', href: '/coach/workouts', icon: Dumbbell, color: 'text-emerald-400 bg-emerald-500/10' },
+          { label: 'Programs', href: '/coach/training/programs', icon: ListChecks, color: 'text-purple-400 bg-purple-500/10' },
+        ].map((a, i) => (
+          <motion.a
+            key={a.label}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 + i * 0.05 }}
+            href={a.href}
+            className="flex flex-col items-center gap-2 rounded-xl border border-white/5 bg-surface-1 p-4 text-center transition-colors hover:border-white/10 hover:bg-surface-2"
+          >
+            <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', a.color)}>
+              <a.icon size={18} />
+            </div>
+            <span className="text-xs font-medium text-white/70">{a.label}</span>
+          </motion.a>
+        ))}
+      </div>
+
+      {/* Athlete Readiness */}
+      <div className="rounded-2xl border border-white/5 bg-surface-1 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-white/80">Athlete Readiness</h3>
+          <Link href="/coach/users" className="text-xs text-brand-primary hover:text-brand-primary-hover">
+            View all
+          </Link>
+        </div>
+        <div className="flex gap-3 overflow-x-auto pb-1">
+          {athletes.filter((a) => a.flag).slice(0, 5).map((a) => (
+            <Link
+              key={a.id}
+              href={`/coach/users/${a.id}`}
+              className="shrink-0 flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-3 hover:bg-white/[0.04] transition-colors"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-primary/30 to-brand-primary/10 text-xs font-bold text-white">
+                {a.name.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-white/90">{a.name}</p>
+                <p className="truncate text-[11px] text-red-300/80">{a.flag?.message}</p>
+              </div>
+              <span className={cn(
+                'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                a.flag?.severity === 'high' ? 'bg-red-500/20 text-red-300' : 'bg-amber-500/20 text-amber-300',
+              )}>
+                {a.flag?.severity === 'high' ? 'High' : 'Med'}
+              </span>
+            </Link>
+          ))}
+          {athletes.filter((a) => a.flag).length === 0 && (
+            <p className="text-xs text-white/30">No flags at this time.</p>
+          )}
+        </div>
+      </div>
+
       {/* Metrics */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           index={0}
           title="Ingresos del mes"
-          value={m.monthlyRevenue}
+          value={m?.monthlyRevenue || 0}
           display={formatCurrency}
           icon={DollarSign}
-          trend={m.revenueTrend}
+          trend={m?.revenueTrend || 0}
           trendLabel="vs mes ant."
-          trendUp={m.revenueTrend > 0}
+          trendUp={m ? m.revenueTrend > 0 : false}
           accent="bg-emerald-500/20 text-emerald-400"
         />
         <MetricCard
           index={1}
           title="Atletas activos"
-          value={m.activeAthletes}
+          value={m?.activeAthletes || 0}
           display={(n) => `${Math.round(n)}`}
           icon={Users}
-          trend={m.athleteTrend}
+          trend={m?.athleteTrend || 0}
           trendLabel="vs mes ant."
-          trendUp={m.athleteTrend > 0}
+          trendUp={m ? m.athleteTrend > 0 : false}
           accent="bg-blue-500/20 text-blue-400"
         />
         <MetricCard
           index={2}
           title="Nuevos este mes"
-          value={m.newAthletesThisMonth}
+          value={m?.newAthletesThisMonth || 0}
           display={(n) => `${Math.round(n)}`}
           icon={UserPlus}
-          trend={m.newAthleteTrend}
+          trend={m?.newAthleteTrend || 0}
           trendUp
           accent="bg-purple-500/20 text-purple-400"
         />
         <MetricCard
           index={3}
           title="Pagos pendientes"
-          value={m.pendingPayments}
+          value={m?.pendingPayments || 0}
           display={formatCurrency}
           icon={AlertTriangle}
-          trendLabel={`${m.pendingPaymentCount} pend., ${m.overduePaymentCount} venc.`}
+          trendLabel={`${m?.pendingPaymentCount || 0} pend., ${m?.overduePaymentCount || 0} venc.`}
           trendUp={false}
           accent="bg-amber-500/20 text-amber-400"
         />
@@ -391,8 +495,8 @@ export default function CoachDashboard() {
           </div>
           <ProgressBar value={revenuePct} className="mt-4" />
           <p className="mt-3 text-xs text-white/40">
-            {formatCurrency(m.monthlyRevenue)} de {formatCurrency(extra.revenueGoal)} ·{' '}
-            <span className="text-brand-primary/90">te faltan {formatCurrency(extra.revenueGoal - m.monthlyRevenue)}</span>
+            {formatCurrency(m?.monthlyRevenue || 0)} de {formatCurrency((extra?.revenueGoal as number) || 0)} ·{' '}
+            <span className="text-brand-primary/90">te faltan {formatCurrency(((extra?.revenueGoal as number) || 0) - (m?.monthlyRevenue || 0))}</span>
           </p>
         </DashboardCard>
 
@@ -404,8 +508,8 @@ export default function CoachDashboard() {
             <h2 className="text-sm font-semibold text-white/80">Crecimiento</h2>
           </div>
           <p className="mt-3 text-2xl font-bold font-display text-white tabular-nums">
-            {m.newAthletesThisMonth}
-            <span className="text-base font-normal text-white/30"> / {extra.newAthletesGoal}</span>
+            {m?.newAthletesThisMonth || 0}
+            <span className="text-base font-normal text-white/30"> / {(extra?.newAthletesGoal as number) || 0}</span>
           </p>
           <ProgressBar value={athletePct} className="mt-3" />
           <p className="mt-2 text-xs text-white/40">nuevos atletas este mes</p>
@@ -420,11 +524,11 @@ export default function CoachDashboard() {
           </div>
           <div className="mt-3 flex items-baseline gap-1.5">
             <Zap size={20} className="text-orange-400" />
-            <p className="text-2xl font-bold font-display text-white tabular-nums">{extra.streakDays}</p>
-            <span className="text-xs text-white/40">días</span>
+          <p className="text-2xl font-bold font-display text-white tabular-nums">{(extra?.streakDays as number) || 0}</p>
+          <span className="text-xs text-white/40">días</span>
           </div>
           <p className="mt-2 text-xs text-white/40">
-            ¡Sigue así! Récord: <span className="text-white/70">{extra.bestStreak} días</span>
+            ¡Sigue así! Récord: <span className="text-white/70">{(extra?.bestStreak as number) || 0} días</span>
           </p>
         </DashboardCard>
       </div>
@@ -440,11 +544,11 @@ export default function CoachDashboard() {
               <h2 className="text-sm font-semibold text-white/80">Evolución de ingresos</h2>
             </div>
             <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-[11px] font-semibold text-green-400">
-              <TrendingUp size={11} /> +{m.revenueTrend}%
+              <TrendingUp size={11} /> +{m?.revenueTrend || 0}%
             </span>
           </div>
           <div className="mt-5 flex items-end gap-2.5 h-36">
-            {MOCK_REVENUE_HISTORY.map((r, i) => (
+            {revenueHistory.map((r, i) => (
               <div key={r.month} className="flex flex-1 flex-col items-center gap-1.5">
                 <span className="text-[10px] tabular-nums text-white/30">
                   ${(r.amount / 1000).toFixed(1)}k
@@ -455,7 +559,7 @@ export default function CoachDashboard() {
                   transition={{ duration: 0.9, delay: 0.2 + i * 0.08, ease: [0.22, 1, 0.36, 1] }}
                   className={cn(
                     'w-full rounded-t-md bg-gradient-to-t from-brand-primary/50 to-brand-primary/90 transition-colors hover:from-brand-primary hover:to-brand-primary',
-                    i === MOCK_REVENUE_HISTORY.length - 1 && 'ring-2 ring-brand-primary/40',
+                    i === revenueHistory.length - 1 && 'ring-2 ring-brand-primary/40',
                   )}
                 />
                 <span className="text-[10px] text-white/40">{r.month}</span>
@@ -557,8 +661,8 @@ export default function CoachDashboard() {
             <h2 className="text-sm font-semibold text-white/80">Distribución por plan</h2>
           </div>
           <div className="mt-4 space-y-3">
-            {extra.planDistribution.map((p) => {
-              const pct = Math.round((p.athletes / m.activeAthletes) * 100)
+            {((extra?.planDistribution as Array<{ name: string; athletes: number; revenue: number; color: string }>) || []).map((p) => {
+              const pct = m ? Math.round((p.athletes / (m.activeAthletes || 1)) * 100) : 0
               return (
                 <div key={p.name}>
                   <div className="mb-1 flex items-center justify-between text-xs">
@@ -670,7 +774,7 @@ export default function CoachDashboard() {
           </span>
         </div>
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {extra.recentActivity.map((a) => {
+          {((extra?.recentActivity as Array<{ id: string; icon: string; text: string; time: string }>) || []).map((a) => {
             const Icon = ACTIVITY_ICON[a.icon] ?? Sparkles
             return (
               <div

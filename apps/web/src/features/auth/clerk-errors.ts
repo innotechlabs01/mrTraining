@@ -26,11 +26,16 @@ const ES: Record<string, string> = {
 
 const DEFAULT_FALLBACK = 'Algo salió mal. Inténtalo de nuevo.';
 
+export interface ClerkApiError {
+  errors?: Array<{ code?: string; message?: string }>;
+}
+
 export function translateClerkError(
-  err: any,
+  err: unknown,
   fallback: string = DEFAULT_FALLBACK,
 ): string {
-  const code = err?.errors?.[0]?.code;
+  const clerkErr = err as ClerkApiError | null;
+  const code = clerkErr?.errors?.[0]?.code;
   const locale = getLocale().toLowerCase();
 
   if (locale.startsWith('es') && code && ES[code]) {
@@ -38,7 +43,7 @@ export function translateClerkError(
   }
 
   // Non-Spanish locales: keep Clerk's original (English) message.
-  return err?.errors?.[0]?.message || fallback;
+  return clerkErr?.errors?.[0]?.message || fallback;
 }
 
 export function translateStatic(message: string, esVersion: string): string {

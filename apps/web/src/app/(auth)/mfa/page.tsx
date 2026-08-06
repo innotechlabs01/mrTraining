@@ -10,7 +10,7 @@ export default function MFAPage() {
   return (
     <AuthShell title="Two-factor authentication" subtitle="Enter your verification code">
       <MFAForm
-        onSuccess={() => router.push('/athlete/today')}
+        onSuccess={() => router.push('/coach')}
         onBack={() => router.push('/sign-in')}
       />
     </AuthShell>

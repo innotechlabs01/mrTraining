@@ -49,7 +49,7 @@ export default function LiveSession() {
 
   const isLoading = sessionsLoading
   const error = sessionsError
-  const isBeforeLiveSession = !['live-session', 'mid-day', 'daily-summary'].includes(currentBlockId)
+  const isBeforeLiveSession = !['live-session', 'mid-day', 'daily-summary'].includes(currentBlockId as string)
   const noActiveSession = activeSessions.length === 0
   const hasData = !noActiveSession
 

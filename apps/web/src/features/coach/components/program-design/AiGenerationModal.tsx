@@ -11,13 +11,43 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const FOCUS_OPTIONS = ['strength', 'endurance', 'speed', 'mixed'] as const;
 const INTENSITY_OPTIONS = ['low', 'medium', 'high'] as const;
 
+async function generateLocalProgram(params: AiProgramParams): Promise<AiGeneratedProgram> {
+  await new Promise(r => setTimeout(r, 1500))
+  const focusExercises: Record<string, string[]> = {
+    strength: ['Squats', 'Deadlifts', 'Bench Press', 'Rows', 'Overhead Press'],
+    endurance: ['Running Intervals', 'Cycling', 'Swimming', 'Rowing', 'Jump Rope'],
+    speed: ['Sprints', 'Agility Drills', 'Plyometrics', 'Hill Repeats', 'Ladder Drills'],
+    mixed: ['Burpees', 'Kettlebell Swings', 'Pull-ups', 'Box Jumps', 'Battle Ropes'],
+  }
+  const exercises = focusExercises[params.focus] || focusExercises.mixed
+  const intensityMultiplier = params.intensity === 'high' ? 1.5 : params.intensity === 'low' ? 0.7 : 1
+  const sessions = params.days.map((day) => ({
+    day,
+    exercises: exercises.slice(0, 4).map((name, i) => ({
+      id: `ex-${day}-${i}`,
+      name,
+      sets: Math.round(3 * intensityMultiplier),
+      reps: params.focus === 'endurance' ? 15 : params.focus === 'speed' ? 6 : 10,
+      rest: params.intensity === 'high' ? 90 : params.intensity === 'low' ? 45 : 60,
+    })),
+  }))
+  return {
+    id: `ai-gen-${Date.now()}`,
+    days: params.days,
+    focus: params.focus,
+    intensity: params.intensity,
+    sessions,
+    reasoning: `${params.focus} focused program with ${params.intensity} intensity across ${params.days.length} days. Designed for ${params.duration}min sessions.`,
+  }
+}
+
 interface AiGenerationModalProps {
   onClose: () => void;
   onApply: (program: AiGeneratedProgram) => void;
 }
 
 export default function AiGenerationModal({ onClose, onApply }: AiGenerationModalProps) {
-  const { generateProgram } = useAI();
+  const { addSuggestion } = useAI();
 
   const [selectedDays, setSelectedDays] = useState<string[]>(['Mon', 'Wed', 'Fri']);
   const [focus, setFocus] = useState<AiProgramParams['focus']>('mixed');
@@ -37,17 +67,25 @@ export default function AiGenerationModal({ onClose, onApply }: AiGenerationModa
     setGenerating(true);
     setGeneratedProgram(null);
     try {
-      const result = await generateProgram({
+      const result = await generateLocalProgram({
         days: selectedDays,
         focus,
         intensity,
         duration,
       });
       setGeneratedProgram(result);
+      await addSuggestion({
+        id: '',
+        type: 'generation',
+        title: `Generated ${focus} program`,
+        description: `${selectedDays.length}-day program with ${intensity} intensity`,
+        reasoning: result.reasoning,
+        actionLabel: 'Apply',
+      });
     } finally {
       setGenerating(false);
     }
-  }, [selectedDays, focus, intensity, duration, generateProgram]);
+  }, [selectedDays, focus, intensity, duration, addSuggestion]);
 
   const handleApply = useCallback(() => {
     if (generatedProgram) onApply(generatedProgram);

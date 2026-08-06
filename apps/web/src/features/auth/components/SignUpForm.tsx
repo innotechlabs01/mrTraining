@@ -8,11 +8,12 @@ import { useSignUp } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
 import { CodeInput } from './CodeInput';
 import { ErrorState } from './ErrorState';
-import { translateClerkError } from '../clerk-errors';
+import { translateClerkError, ClerkApiError } from '../clerk-errors';
 
 interface SignUpFormProps {
   onSuccess?: () => void;
   onBack?: () => void;
+  role?: 'coach';
 }
 
 type Step = 'email' | 'verify' | 'password';
@@ -23,7 +24,7 @@ const PASSWORD_REQUIREMENTS = [
   { label: 'One number', test: (p: string) => /\d/.test(p) },
 ];
 
-export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
+export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signUp, isLoaded, setActive } = useSignUp();
@@ -73,12 +74,14 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
       await signUp.create({
         emailAddress: email,
         unsafeMetadata: Object.keys(unsafeMetadata).length > 0 ? unsafeMetadata : undefined,
-      });
+        publicMetadata: { role } as unknown as never,
+      } as unknown as never);
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
       setStep('verify');
       startResendCountdown();
-    } catch (err: any) {
-      const code = err.errors?.[0]?.code;
+    } catch (err: unknown) {
+      const clerkErr = err as ClerkApiError;
+      const code = clerkErr.errors?.[0]?.code;
       if (code === 'form_identifier_exists') {
         // Email already has an account — send them straight to sign-in, prefilled.
         router.push(`/sign-in?email=${encodeURIComponent(email)}${plan ? `&plan=${plan}` : ''}`);
@@ -108,7 +111,7 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
       } else {
         setStep('password');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(translateClerkError(err, 'No se pudo verificar el código. Inténtalo de nuevo.'));
     } finally {
       setIsLoading(false);
@@ -125,7 +128,7 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
       startResendCountdown();
       setCode('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(translateClerkError(err, 'No se pudo reenviar el código.'));
     } finally {
       setIsLoading(false);
@@ -154,8 +157,9 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
         await setActive({ session: signUp.createdSessionId });
         onSuccess?.();
       }
-    } catch (err: any) {
-      const clerkCode = err.errors?.[0]?.code;
+    } catch (err: unknown) {
+      const clerkErr = err as ClerkApiError;
+      const clerkCode = clerkErr.errors?.[0]?.code;
       if (clerkCode === 'form_password_pwned') {
         setPassword('');
         setError(

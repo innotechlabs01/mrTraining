@@ -35,8 +35,6 @@ export function PaymentModal({ open, onClose, plan }: PaymentModalProps) {
   const [codeError, setCodeError] = useState('');
   const [codeValid, setCodeValid] = useState(false);
 
-  if (!open) return null;
-
   const discount = plan.discount ?? null;
   const hasDiscount = !!discount && discount.value > 0;
   const requiresCode = hasDiscount && !!discount!.code;
@@ -49,6 +47,8 @@ export function PaymentModal({ open, onClose, plan }: PaymentModalProps) {
   }, [hasDiscount, requiresCode, codeValid, discount, plan.price]);
 
   const saved = plan.price - finalPrice;
+
+  if (!open) return null;
 
   const validateEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 

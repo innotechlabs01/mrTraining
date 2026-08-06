@@ -14,11 +14,12 @@ interface SignInFormProps {
   onSuccess?: () => void;
   onForgotPassword?: () => void;
   onBack?: () => void;
+  role?: string;
 }
 
 type Step = 'email' | 'password';
 
-export function SignInForm({ onSuccess, onForgotPassword, onBack }: SignInFormProps) {
+export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignInFormProps) {
   const searchParams = useSearchParams();
   const { signIn, isLoaded, setActive } = useSignIn();
 
@@ -33,15 +34,17 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack }: SignInFormPr
 
   const validateEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
+  const redirectUrlComplete = '/coach';
+
   const handleOAuth = async (strategy: 'oauth_google' | 'oauth_apple') => {
     if (!isLoaded || !signIn) return;
     try {
       await signIn.authenticateWithRedirect({
         strategy,
         redirectUrl: '/sso-callback',
-        redirectUrlComplete: '/athlete/today',
+        redirectUrlComplete,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(translateClerkError(err, 'No se pudo iniciar con el proveedor.'));
     }
   };
@@ -59,7 +62,7 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack }: SignInFormPr
     try {
       await signIn.create({ identifier: email });
       setStep('password');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(translateClerkError(err, 'No se pudo iniciar sesión. Inténtalo de nuevo.'));
     } finally {
       setIsLoading(false);
@@ -84,7 +87,7 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack }: SignInFormPr
         await setActive({ session: result.createdSessionId });
         onSuccess?.();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(translateClerkError(err, 'No se pudo iniciar sesión. Inténtalo de nuevo.'));
     } finally {
       setIsLoading(false);

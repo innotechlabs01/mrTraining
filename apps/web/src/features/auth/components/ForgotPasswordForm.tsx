@@ -39,7 +39,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
         identifier: email,
       });
       setStep('reset');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(translateClerkError(err, 'No se pudo enviar el código de restablecimiento.'));
     } finally {
       setIsLoading(false);
@@ -70,7 +70,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
       }
 
       setStep('success');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(translateClerkError(err, 'No se pudo restablecer la contraseña.'));
     } finally {
       setIsLoading(false);

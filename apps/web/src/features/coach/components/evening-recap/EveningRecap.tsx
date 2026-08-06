@@ -10,8 +10,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useSessions } from '../../hooks/useSessions';
-import { MOCK_DAILY_SUMMARY } from '../../data/_mocks';
+import { useSessions } from '../../hooks/useSessions'
+import { useDailySummary } from '../../hooks/useDailySummary'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -24,8 +24,37 @@ const itemVariants = {
 };
 
 export default function EveningRecap() {
-  const { sessions } = useSessions();
-  const summary = MOCK_DAILY_SUMMARY;
+  const { sessions } = useSessions()
+  const { summary, isLoading } = useDailySummary()
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-primary border-t-transparent" />
+      </div>
+    )
+  }
+
+  if (!summary) {
+    return (
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="space-y-6"
+      >
+        <motion.div variants={itemVariants} className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-primary/15">
+            <Moon className="h-5 w-5 text-brand-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold font-display text-white">Evening Recap</h2>
+            <p className="text-sm text-[#6B7280]">No hay resumen del dia aun.</p>
+          </div>
+        </motion.div>
+      </motion.div>
+    )
+  }
 
   const completedSessions = sessions.filter((s) => s.status === 'completed');
 

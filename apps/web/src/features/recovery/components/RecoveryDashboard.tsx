@@ -212,13 +212,10 @@ export default function RecoveryDashboard() {
           variants={itemVariants}
           className="flex justify-center pt-2"
         >
-          <a
-            href="/athlete/today/nutrition"
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-orange-500 text-white font-semibold text-sm shadow-lg shadow-orange-500/25 hover:bg-orange-400 active:scale-[0.97] transition-all"
-          >
-            Next: Nutrition
-            <span className="text-lg">→</span>
-          </a>
+          <div className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-green-500 text-white font-semibold text-sm shadow-lg shadow-green-500/25">
+            Recovery complete
+            <span className="text-lg">✓</span>
+          </div>
         </motion.div>
       )}
 

@@ -2,22 +2,15 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Dumbbell, ClipboardList, Users, Medal, ArrowRight } from 'lucide-react';
+import { ClipboardList, Users, Medal, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RoleSelectorProps {
-  onSelect: (role: 'athlete' | 'coach' | 'parent' | 'strength-coach') => void;
+  onSelect: (role: 'coach' | 'parent' | 'strength-coach') => void;
   onSkip?: () => void;
 }
 
 const roles = [
-  {
-    id: 'athlete' as const,
-    icon: Dumbbell,
-    title: "I'm an Athlete",
-    description: 'Track your performance, follow programs, and connect with coaches',
-    accent: 'text-brand-primary',
-  },
   {
     id: 'coach' as const,
     icon: ClipboardList,
@@ -119,7 +112,7 @@ export function RoleSelector({ onSelect, onSkip }: RoleSelectorProps) {
 
       <div className="flex flex-col gap-3 mt-2">
         <button
-          onClick={() => selected && onSelect(selected as 'athlete' | 'coach' | 'parent' | 'strength-coach')}
+          onClick={() => selected && onSelect(selected as 'coach' | 'parent' | 'strength-coach')}
           disabled={!selected}
           className={cn(
             'w-full h-12 rounded-md font-semibold text-body-sm transition-all duration-200',

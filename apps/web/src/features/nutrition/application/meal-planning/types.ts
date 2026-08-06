@@ -1,5 +1,7 @@
+import { MealPlan } from '../../domain/meal-plan';
+
 export interface MealPlanRepository {
-  save(mealPlan: any): Promise<any>;
+  save(mealPlan: MealPlan): Promise<MealPlan>;
 }
 
 export interface NutritionCalculator {
@@ -8,7 +10,7 @@ export interface NutritionCalculator {
 }
 
 export interface NotificationService {
-  notify(mealPlan: any): Promise<void>;
+  notify(mealPlan: MealPlan): Promise<void>;
 }
 
 export interface NutritionGoals {

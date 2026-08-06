@@ -27,7 +27,7 @@ type ThreadTab = 'all' | 'unread' | 'athletes';
 
 export default function CommunicationHub() {
   const { threads, unreadCount, isLoading, error } = useMessages();
-  const { suggestedMessages } = useAI();
+  const { suggestions } = useAI();
   const [activeTab, setActiveTab] = useState<ThreadTab>('all');
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [showCompose, setShowCompose] = useState(false);
@@ -51,8 +51,8 @@ export default function CommunicationHub() {
   );
 
   const visibleSuggestions = showAllSuggestions
-    ? suggestedMessages
-    : suggestedMessages.slice(0, 2);
+    ? suggestions
+    : suggestions.slice(0, 2);
 
   const handleSendSuggestion = useCallback((suggestionId: string) => {
     setSendingSuggestion(suggestionId);
@@ -196,7 +196,7 @@ export default function CommunicationHub() {
             ))}
         </div>
 
-        {suggestedMessages.length > 0 && (
+        {suggestions.length > 0 && (
           <div className="mt-4 space-y-2">
             <div className="flex items-center gap-2">
               <Sparkles className="h-3.5 w-3.5 text-brand-primary" />
@@ -247,7 +247,7 @@ export default function CommunicationHub() {
                 </motion.div>
               ))}
             </AnimatePresence>
-            {suggestedMessages.length > 2 && (
+            {suggestions.length > 2 && (
               <button
                 type="button"
                 onClick={() => setShowAllSuggestions(!showAllSuggestions)}
@@ -255,7 +255,7 @@ export default function CommunicationHub() {
               >
                 {showAllSuggestions
                   ? 'Show less'
-                  : `Show ${suggestedMessages.length - 2} more suggestions`}
+                  : `Show ${suggestions.length - 2} more suggestions`}
               </button>
             )}
           </div>

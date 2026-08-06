@@ -82,7 +82,7 @@ export default function AthleteCheckIn() {
         <Users className="w-12 h-12 text-[#6B7280] mx-auto mb-4" />
         <h3 className="text-lg font-semibold font-display mb-2">No athletes today</h3>
         <p className="text-sm text-secondary">
-          Athletes will appear here once they're assigned to today's sessions.
+          Athletes will appear here once they&apos;re assigned to today&apos;s sessions.
         </p>
       </motion.div>
     )

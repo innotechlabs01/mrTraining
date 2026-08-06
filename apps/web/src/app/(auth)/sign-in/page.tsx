@@ -5,11 +5,10 @@ import { useRouter } from 'next/navigation';
 import { AuthShell } from '@/features/auth/components/AuthShell';
 import { SignInForm } from '@/features/auth/components/SignInForm';
 import { motion } from 'framer-motion';
-import { Dumbbell, ClipboardList } from 'lucide-react';
+import { ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const ROLES = [
-  { id: 'athlete', label: 'Athlete', icon: Dumbbell, desc: 'Track your training & follow programs' },
   { id: 'coach', label: 'Coach', icon: ClipboardList, desc: 'Manage athletes & create programs' },
 ];
 
@@ -18,11 +17,7 @@ export default function SignInPage() {
   const [role, setRole] = useState<string | null>(null);
 
   const handleSuccess = () => {
-    if (role === 'coach') {
-      router.push('/coach/plan');
-    } else {
-      router.push('/athlete/plan');
-    }
+    router.push('/coach');
   };
 
   return (

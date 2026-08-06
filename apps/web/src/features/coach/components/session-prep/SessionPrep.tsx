@@ -118,7 +118,7 @@ export default function SessionPrep() {
         <Calendar className="w-12 h-12 text-[#6B7280] mx-auto mb-4" />
         <h3 className="text-lg font-semibold font-display mb-2">No sessions planned</h3>
         <p className="text-sm text-secondary">
-          Sessions will appear here once they're scheduled for today.
+          Sessions will appear here once they&apos;re scheduled for today.
         </p>
       </motion.div>
     )
@@ -128,7 +128,7 @@ export default function SessionPrep() {
     <div className="space-y-4">
       <div>
         <h2 className="text-xl font-semibold font-display">Session Preparation</h2>
-        <p className="text-sm text-secondary">Review and adjust today's sessions</p>
+        <p className="text-sm text-secondary">Review and adjust today&apos;s sessions</p>
       </div>
 
       <div className="space-y-3">
@@ -307,7 +307,7 @@ function AdjustmentCard({
           </div>
         </div>
       </div>
-      <p className="text-xs text-[#6B7280] italic">"{suggestion.reasoning}"</p>
+      <p className="text-xs text-[#6B7280] italic">&quot;{suggestion.reasoning}&quot;</p>
       <div className="flex items-center gap-2">
         <button
           onClick={onApply}
