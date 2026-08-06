@@ -1,4 +1,4 @@
-import type { Clerk } from '@clerk/clerk-react-native';
+import type { Clerk } from '@clerk/clerk-expo';
 
 let clerkInstance: Clerk | null = null;
 

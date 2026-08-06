@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth, useUser } from '@clerk/clerk-react-native';
+import { useAuth, useUser } from '@clerk/clerk-expo';
 
 export function ProfileScreen() {
   const { signOut } = useAuth();

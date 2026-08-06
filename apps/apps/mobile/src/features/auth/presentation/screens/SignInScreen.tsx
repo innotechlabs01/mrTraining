@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSignIn } from '@clerk/clerk-react-native';
+import { useSignIn } from '@clerk/clerk-expo';
 
 export function SignInScreen() {
   const { signIn, isLoaded } = useSignIn();
