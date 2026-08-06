@@ -41,6 +41,7 @@ const STATUS_LABEL: Record<string, string> = {
   scheduled: 'Agendada', completed: 'Completada', cancelled: 'Cancelada', rescheduled: 'Reprogramada',
 }
 
+
 export default function AgendamientoPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
@@ -400,3 +401,4 @@ function AvailabilityEditor() {
       </div>
     </div>
   )
+}
