@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Copy, Check, Smartphone, Download, QrCode } from 'lucide-react';
+import { Copy, Check, Smartphone, Download } from 'lucide-react';
 
 const EXPO_OWNER = 'innotechlabssas';
 const EXPO_SLUG = 'mr-training';
