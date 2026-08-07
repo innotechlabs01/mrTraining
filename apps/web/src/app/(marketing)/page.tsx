@@ -364,14 +364,65 @@ export default function Page() {
          .ig-plan-features li { font-size: 12.5px; color: var(--muted); padding: 6px 0; border-bottom: 1px solid var(--line); }
          .ig-plan-features li:before { content: '✓'; color: var(--red); margin-right: 8px; }
 
-         .ig-contact-grid { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 60px; }
-        .ig-contact-info h3 { font-family: var(--font-display); font-weight: 700; font-size: 26px; margin: 0 0 16px; }
-        .ig-contact-info .ig-contact-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; color: var(--muted); font-size: 14px; }
-        .ig-contact-info .ig-contact-row strong { color: var(--white); font-weight: 600; }
-        .ig-contact-info a.social { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); margin-right: 16px; font-size: 13px; transition: color .15s; }
-        .ig-contact-info a.social:hover { color: var(--red); }
+         .ig-contact { background: var(--bg-elevated); }
+         .ig-contact-card {
+           background: var(--surface);
+           border: 1px solid var(--line);
+           border-radius: 24px;
+           padding: 48px;
+           display: grid;
+           grid-template-columns: 1fr 1.2fr;
+           gap: 48px;
+           align-items: start;
+         }
+         .ig-contact-info { display: flex; flex-direction: column; gap: 20px; }
+         .ig-contact-info h3 { font-family: var(--font-display); font-weight: 700; font-size: 28px; margin: 0; }
+         .ig-contact-info p { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0; }
+         .ig-contact-methods { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+         .ig-contact-method {
+           display: flex; align-items: center; gap: 14px;
+           padding: 14px 16px;
+           border-radius: 12px;
+           background: var(--bg-card);
+           border: 1px solid var(--line);
+           color: var(--white);
+           font-size: 14px;
+           text-decoration: none;
+           transition: border-color .15s, transform .15s;
+         }
+         .ig-contact-method:hover { border-color: var(--red); transform: translateX(4px); }
+         .ig-contact-method svg { color: var(--red); flex-shrink: 0; }
+         .ig-contact-method span { color: var(--muted); font-size: 12px; display: block; }
+         .ig-contact-method strong { color: var(--white); font-weight: 600; }
+         .ig-contact-socials { display: flex; gap: 12px; margin-top: 8px; }
+         .ig-contact-social {
+           display: inline-flex; align-items: center; justify-content: center;
+           width: 40px; height: 40px; border-radius: 10px;
+           background: var(--bg-card); border: 1px solid var(--line);
+           color: var(--muted); font-size: 12px; font-weight: 600;
+           text-decoration: none; transition: all .15s;
+         }
+         .ig-contact-social:hover { border-color: var(--red); color: var(--red); }
 
-        .ig-footer { padding: 50px 0 26px; text-align: center; border-top: 1px solid var(--line); }
+         .ig-form { display: flex; flex-direction: column; gap: 16px; }
+         .ig-form input, .ig-form textarea {
+           width: 100%;
+           background: var(--bg-card);
+           border: 1px solid var(--line);
+           border-radius: 12px;
+           padding: 14px 16px;
+           color: var(--white);
+           font-family: var(--font-body);
+           font-size: 14px;
+           outline: none;
+           transition: border-color .15s;
+         }
+         .ig-form input::placeholder, .ig-form textarea::placeholder { color: var(--muted-2); }
+         .ig-form input:focus, .ig-form textarea:focus { border-color: var(--red); }
+         .ig-form textarea { min-height: 120px; resize: vertical; }
+         .ig-form button { align-self: flex-start; }
+
+         .ig-footer { padding: 50px 0 26px; text-align: center; border-top: 1px solid var(--line); }
         .ig-footer .ig-logo { font-size: 22px; margin-bottom: 22px; display: inline-block; }
         .ig-footer-logo { display: flex; justify-content: center; margin-bottom: 22px; }
         .ig-footer-logo img { height: 80px; width: auto; opacity: 0.85; filter: drop-shadow(0 0 18px rgba(21,170,242,0.3)); }
@@ -383,13 +434,13 @@ export default function Page() {
           color: var(--muted-2); font-size: 12px; flex-wrap: wrap; gap: 10px;
         }
 
-        @media (max-width: 980px) {
-          .ig-reasons-grid { grid-template-columns: 1fr; }
-          .ig-exp-grid, .ig-contact-grid { grid-template-columns: 1fr; gap: 40px 0; }
-          .ig-exp-photo { order: -1; }
-          .ig-hero { min-height: 480px; }
-          .ig-hero-stats { flex-wrap: wrap; row-gap: 16px; }
-        }
+         @media (max-width: 980px) {
+           .ig-reasons-grid { grid-template-columns: 1fr; }
+           .ig-exp-grid, .ig-contact-card { grid-template-columns: 1fr; gap: 40px 0; }
+           .ig-exp-photo { order: -1; }
+           .ig-hero { min-height: 480px; }
+           .ig-hero-stats { flex-wrap: wrap; row-gap: 16px; }
+         }
         @media (max-width: 680px) {
           .ig-container { padding: 0 16px; }
           .ig-links { display: none; }
@@ -648,52 +699,80 @@ export default function Page() {
         </div>
       </section>
 
-      <section className='ig-section' id='contact'>
+      <section className='ig-section ig-contact' id='contact'>
         <div className='ig-container'>
-          <div className='ig-section-head'>
+          <div className='ig-section-head' style={{ textAlign: 'center', marginBottom: 40 }}>
             <h2 className='ig-h2'>Comencemos <span className='accent'>hoy</span></h2>
-            <p className='ig-lede'>
-              Contáctame por WhatsApp o email. Te respondo en menos de 24 horas.
+            <p className='ig-lede' style={{ margin: '0 auto' }}>
+              Cuéntame tu objetivo. Te respondo en menos de 24 horas.
             </p>
           </div>
-          <div className='ig-contact-grid'>
+          <div className='ig-contact-card'>
             <div className='ig-contact-info'>
-              <h3>Datos de contacto</h3>
-              <div className='ig-contact-row'>
-                <Icon name='whatsapp' />
-                <span><strong>WhatsApp:</strong> {brand.contact.city.split(',')[0]}</span>
+              <div>
+                <h3>¿Listo para entrenar?</h3>
+                <p>
+                  Agenda una consulta gratuita por WhatsApp o envíame un mensaje. Juntos diseñamos un plan que se ajuste a tu vida.
+                </p>
               </div>
-              <div className='ig-contact-row'>
-                <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'><path d='M4 4h16c1.1 0 2 .9 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8c0-1.1.9-2 2-2h12L9 4 4 9z' /></svg>
-                <span><strong>Email:</strong> {brand.contact.email}</span>
+
+              <div className='ig-contact-methods'>
+                <a
+                  href={brand.contact.whatsapp}
+                  className='ig-contact-method'
+                  target='_blank'
+                  rel='noopener noreferrer'
+                >
+                  <Icon name='whatsapp' />
+                  <div>
+                    <span>Escríbeme por</span>
+                    <strong>WhatsApp</strong>
+                  </div>
+                </a>
+                <a
+                  href={`mailto:${brand.contact.email}`}
+                  className='ig-contact-method'
+                >
+                  <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'><path d='M4 4h16c1.1 0 2 .9 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8c0-1.1.9-2 2-2h12L9 4 4 9z' /></svg>
+                  <div>
+                    <span>Envíame un correo a</span>
+                    <strong>{brand.contact.email}</strong>
+                  </div>
+                </a>
+                <div className='ig-contact-method' style={{ cursor: 'default' }}>
+                  <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'><circle cx='12' cy='12' r='10'/><line x1='12' y1='16' x2='12' y2='12'/><line x1='12' y1='8' x2='12.01' y2='8'/></svg>
+                  <div>
+                    <span>Atención en</span>
+                    <strong>{brand.contact.city}</strong>
+                  </div>
+                </div>
               </div>
-              <div className='ig-contact-row'>
-                <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'><circle cx='12' cy='12' r='10'/><line x1='12' y1='16' x2='12' y2='12'/><line x1='12' y1='8' x2='12.01' y2='8'/></svg>
-                <span><strong>Ubícación:</strong> {brand.contact.city}</span>
-              </div>
-              <div className='ig-contact-row' style={{ marginTop: 16 }}>
-                {brand.contact.socialLinks.map((s) => (
-                  <a key={s.label} href={s.href} className='social'>{s.label}</a>
-                ))}
+
+              <div>
+                <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>Sígueme en redes</p>
+                <div className='ig-contact-socials'>
+                  {brand.contact.socialLinks.map((s) => (
+                    <a key={s.label} href={s.href} className='ig-contact-social' target='_blank' rel='noopener noreferrer'>
+                      {s.label[0]}
+                    </a>
+                  ))}
+                </div>
               </div>
             </div>
+
             <form
               className='ig-form'
               onSubmit={(e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
-                const qs = new URLSearchParams({
-                  nombre: fd.get('nombre') as string,
-                  email: fd.get('email') as string,
-                  mensaje: fd.get('mensaje') as string,
-                }).toString();
-                window.location.href = `mailto:${brand.contact.email}?subject=Consulta MR Training&body=${encodeURIComponent(qs)}`;
+                const body = `Nombre: ${fd.get('nombre')}%0D%0AEmail: ${fd.get('email')}%0D%0AMensaje: ${fd.get('mensaje')}`;
+                window.location.href = `mailto:${brand.contact.email}?subject=Consulta MR Training&body=${body}`;
               }}
             >
               <input type='text' name='nombre' placeholder='Tu nombre' required />
               <input type='email' name='email' placeholder='Tu email' required />
-              <textarea name='mensaje' placeholder='¿Qué te gustaría mejorar?' rows={4} required style={{ background: 'transparent', border: '1px solid var(--line)', color: 'var(--text)', padding: '13px 16px', fontFamily: 'var(--font-body)', fontSize: '13.5px', resize: 'vertical' }} />
-              <button type='submit' className='ig-btn ig-btn-solid' style={{ justifySelf: 'start' }}>
+              <textarea name='mensaje' placeholder='¿Cuál es tu objetivo? ¿Cuánto tiempo llevas entrenando?' rows={4} required />
+              <button type='submit' className='ig-btn ig-btn-solid'>
                 Enviar mensaje
               </button>
             </form>
