@@ -45,13 +45,13 @@ const linking = {
     const sub = Linking.addEventListener('url', ({ url }) => listener(url));
     return () => sub.remove();
   },
-  getStateFromPath(path: string, config: Record<string, unknown>) {
+  getStateFromPath(path: string) {
     const code = extractCodeFromUrl(path);
     if (code) {
       return {
         routes: [
           {
-            name: 'InviteAccept',
+            name: 'InviteAccept' as const,
             params: { code },
           },
         ],

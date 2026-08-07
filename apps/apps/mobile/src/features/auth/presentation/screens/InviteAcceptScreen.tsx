@@ -3,7 +3,7 @@ import { View, Text, ActivityIndicator, StyleSheet, Pressable } from 'react-nati
 import { useAuth } from '@clerk/clerk-expo';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../../../app/Navigation';
+import type { RootStackParamList } from '../../../../navigation/Navigation';
 
 const API_URL = __DEV__
   ? 'http://localhost:3000'

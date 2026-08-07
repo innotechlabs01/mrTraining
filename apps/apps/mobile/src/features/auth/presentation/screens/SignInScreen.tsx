@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSignIn, useSignUp } from '@clerk/clerk-expo';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../../../app/Navigation';
+import type { RootStackParamList } from '../../../../navigation/Navigation';
 
 type AuthNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Auth'>;
 

@@ -4,24 +4,24 @@
  * Use this to test deep linking on iOS Simulator or Android Emulator.
  * 
  * iOS Simulator:
- *   xcrun simctl openurl booted "mrtraining://invite?token=test123"
+ *   xcrun simctl openurl booted "mrtraining://invite?code=MR-A3X9"
  * 
  * Android Emulator:
- *   adb shell am start -a android.intent.action.VIEW -d "mrtraining://invite?token=test123" com.mrtraining
+ *   adb shell am start -a android.intent.action.VIEW -d "mrtraining://invite?code=MR-A3X9" com.innotechlabssas.mrtraining
  * 
  * Or test with https:
- *   xcrun simctl openurl booted "https://app.mrtraining.com/invite?token=test123"
+ *   xcrun simctl openurl booted "https://app.mrtraining.com/invite?code=MR-A3X9"
  */
 
 import { Linking } from 'react-native';
 
 const DEEP_LINK_TEST_URLS = {
   // Custom scheme
-  invite: 'mrtraining://invite?token=test-invite-token-123',
-  inviteWithoutToken: 'mrtraining://invite',
+  invite: 'mrtraining://invite?code=test-invite-code-123',
+  inviteWithoutCode: 'mrtraining://invite',
   
   // HTTPS fallback
-  httpsInvite: 'https://app.mrtraining.com/invite?token=test-invite-token-123',
+  httpsInvite: 'https://app.mrtraining.com/invite?code=test-invite-code-123',
   
   // Auth
   auth: 'mrtraining://auth',
@@ -69,7 +69,7 @@ export function parseDeepLink(url: string): {
   params: Record<string, string>;
 } | null {
   try {
-    // Handle custom scheme: mrtraining://invite?token=xxx
+    // Handle custom scheme: mrtraining://invite?code=xxx
     if (url.startsWith('mrtraining://')) {
       const withoutScheme = url.replace('mrtraining://', '');
       const [pathAndParams] = withoutScheme.split('?');
@@ -94,7 +94,7 @@ export function parseDeepLink(url: string): {
       };
     }
     
-    // Handle HTTPS: https://app.mrtraining.com/invite?token=xxx
+    // Handle HTTPS: https://app.mrtraining.com/invite?code=xxx
     if (url.startsWith('https://')) {
       const urlObj = new URL(url);
       const params: Record<string, string> = {};
