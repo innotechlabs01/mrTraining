@@ -3,10 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Copy, Check, Smartphone, Download, ExternalLink } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 const EXPO_GO_URL = process.env.NEXT_PUBLIC_EXPO_GO_URL || 'exp://@innotechlabssas/mr-training';
-const APP_SCHEME = process.env.NEXT_PUBLIC_APP_SCHEME || 'mrtraining';
 
 function InviteContent() {
   const searchParams = useSearchParams();
@@ -14,6 +12,18 @@ function InviteContent() {
   const [copied, setCopied] = useState(false);
   const [coachName, setCoachName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [platform, setPlatform] = useState<'ios' | 'android' | 'other'>('other');
+
+  useEffect(() => {
+    const ua = navigator.userAgent || navigator.vendor || (window as unknown as { opera?: string }).opera || '';
+    if (/iPad|iPhone|iPod/.test(ua)) {
+      setPlatform('ios');
+    } else if (/Android/.test(ua)) {
+      setPlatform('android');
+    } else {
+      setPlatform('other');
+    }
+  }, []);
 
   useEffect(() => {
     if (!code) {
@@ -31,8 +41,14 @@ function InviteContent() {
       .finally(() => setLoading(false));
   }, [code]);
 
-  const expoGoLink = code ? `${EXPO_GO_URL}/--/invite?code=${encodeURIComponent(code)}` : '';
-  const appLink = code ? `${APP_SCHEME}://invite?code=${encodeURIComponent(code)}` : '';
+  const expoGoDeepLink = code
+    ? `${EXPO_GO_URL}/--/invite?code=${encodeURIComponent(code)}`
+    : EXPO_GO_URL;
+
+  const storeLink =
+    platform === 'ios'
+      ? 'https://apps.apple.com/app/expo-go/id982107779'
+      : 'https://play.google.com/store/apps/details?id=host.exp.exponent';
 
   const handleCopy = async (text: string) => {
     try {
@@ -48,18 +64,6 @@ function InviteContent() {
       document.body.removeChild(input);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const handleOpenExpoGo = () => {
-    if (expoGoLink) {
-      window.location.href = expoGoLink;
-    }
-  };
-
-  const handleOpenApp = () => {
-    if (appLink) {
-      window.location.href = appLink;
     }
   };
 
@@ -100,7 +104,7 @@ function InviteContent() {
         ) : (
           <div className="space-y-4">
             <div className="rounded-2xl border border-brand-primary/20 bg-brand-primary/5 p-6 text-center">
-              <p className="text-xs text-text-secondary uppercase tracking-wider mb-2">Código del equipo</p>
+              <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">Código del equipo</p>
               <p className="text-4xl font-mono font-bold text-brand-primary tracking-[0.2em]">
                 {code}
               </p>
@@ -114,54 +118,37 @@ function InviteContent() {
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-surface-1 p-6 space-y-4">
-              <h2 className="text-sm font-semibold text-text-primary text-center">Abrir en la app</h2>
+              <h2 className="text-sm font-semibold text-text-primary text-center">Paso 1: Descarga Expo Go</h2>
 
-              <button
-                onClick={handleOpenExpoGo}
-                className={cn(
-                  'w-full flex items-center justify-center gap-2 h-12 rounded-xl bg-brand-primary text-white font-semibold text-sm',
-                  'hover:bg-brand-primary/90 transition-colors'
-                )}
+              <a
+                href={storeLink}
+                className="w-full flex items-center justify-center gap-2 h-12 rounded-xl bg-brand-primary text-white font-semibold text-sm hover:bg-brand-primary/90 transition-colors"
+              >
+                <Download size={18} />
+                Descargar Expo Go
+              </a>
+
+              <p className="text-xs text-text-secondary text-center">
+                {platform === 'ios' && 'Te llevará al App Store'}
+                {platform === 'android' && 'Te llevará a Play Store'}
+                {platform === 'other' && 'Descarga Expo Go desde tu tienda de apps'}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-surface-1 p-6 space-y-4">
+              <h2 className="text-sm font-semibold text-text-primary text-center">Paso 2: Abrir en Expo Go</h2>
+
+              <a
+                href={expoGoDeepLink}
+                className="w-full flex items-center justify-center gap-2 h-12 rounded-xl border border-white/10 bg-surface-2 text-text-primary font-semibold text-sm hover:bg-surface-3 transition-colors"
               >
                 <Smartphone size={18} />
                 Abrir en Expo Go
-              </button>
+              </a>
 
-              <button
-                onClick={handleOpenApp}
-                className={cn(
-                  'w-full flex items-center justify-center gap-2 h-12 rounded-xl border border-white/10 bg-surface-2 text-text-primary font-semibold text-sm',
-                  'hover:bg-surface-3 transition-colors'
-                )}
-              >
-                <ExternalLink size={18} />
-                Abrir en MR Training
-              </button>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-surface-1 p-6">
-              <h3 className="text-sm font-semibold text-text-primary mb-4 flex items-center gap-2">
-                <Download size={16} />
-                ¿No tienes la app?
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                <a
-                  href="https://apps.apple.com/app/expo-go/id982107779"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 h-11 rounded-xl border border-white/10 bg-surface-2 text-text-primary text-sm font-medium hover:bg-surface-3 transition-colors"
-                >
-                  App Store
-                </a>
-                <a
-                  href="https://play.google.com/store/apps/details?id=host.exp.exponent"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 h-11 rounded-xl border border-white/10 bg-surface-2 text-text-primary text-sm font-medium hover:bg-surface-3 transition-colors"
-                >
-                  Play Store
-                </a>
-              </div>
+              <p className="text-xs text-text-secondary text-center">
+                Después de instalar Expo Go, vuelve aquí y toca este botón
+              </p>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-surface-1 p-5">
@@ -169,15 +156,15 @@ function InviteContent() {
               <ol className="space-y-3 text-sm text-text-secondary">
                 <li className="flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary text-xs flex items-center justify-center shrink-0">1</span>
-                  <span>Descarga Expo Go desde App Store o Play Store</span>
+                  <span>Toca &quot;Descargar Expo Go&quot; e instala la app</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary text-xs flex items-center justify-center shrink-0">2</span>
-                  <span>Toca &quot;Abrir en Expo Go&quot; arriba</span>
+                  <span>Vuelve a esta página y toca &quot;Abrir en Expo Go&quot;</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary text-xs flex items-center justify-center shrink-0">3</span>
-                  <span>Si no se abre automáticamente, abre Expo Go, carga MR Training y escribe el código</span>
+                  <span>MR Training se abrirá dentro de Expo Go. Acepta la invitación.</span>
                 </li>
               </ol>
             </div>
