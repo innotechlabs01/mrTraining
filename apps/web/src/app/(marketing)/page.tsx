@@ -584,7 +584,7 @@ export default function Page() {
             ))}
           </nav>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <a href='/planes' className='ig-btn ig-btn-solid'>Ver Planes</a>
+            <a href='/sign-in' className='ig-btn ig-btn-solid'>Iniciar sesión</a>
             <button
               className='ig-menu-toggle'
               onClick={() => setMenuOpen((v) => !v)}
@@ -626,9 +626,6 @@ export default function Page() {
               </div>
             ))}
           </div>
-          <a href='/planes' className='ig-btn ig-btn-solid' style={{ marginTop: 30 }}>
-            Ver Planes
-          </a>
         </div>
       </section>
 
@@ -911,7 +908,7 @@ export default function Page() {
                   </div>
                 </a>
                 <div className='ig-contact-method' style={{ cursor: 'default' }}>
-                  <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'><circle cx='12' cy='12' r='10'/><line x1='12' y1='16' x2='12' y2='12'/><line x1='12' y1='8' x2='12.01' y2='8'/></svg>
+                  <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'><circle cx='12' cy='12' r='10' /><line x1='12' y1='16' x2='12' y2='12' /><line x1='12' y1='8' x2='12.01' y2='8' /></svg>
                   <div>
                     <span>Atención en</span>
                     <strong>{brand.contact.city}</strong>
