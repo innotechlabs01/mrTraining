@@ -139,7 +139,7 @@ export default function Page() {
     const map: Record<string, string> = {
       Inicio: '#home',
       'Sobre MAO': '#about',
-      'Asesoría Online': '#planes',
+      'Asesoría Online': '#asesoria',
       Planes: '#planes',
       Testimonios: '#testimonials',
       Tienda: '#tienda',
@@ -165,6 +165,7 @@ export default function Page() {
   const tienda = data.tienda ?? { title: 'Tienda', copy: 'Accesorios y suplementos recomendados.' };
   const blog = data.blog ?? { title: 'Blog', subtitle: 'Artículos, técnicas y progresos.' };
   const plansSection = data.plans ?? { title: 'Planes', subtitle: 'Elige el acompañamiento que se ajuste a tu nivel y objetivo.' };
+  const asesoriaSection = data.asesoria ?? { title: 'Asesoría Online', subtitle: 'Tu entrenamiento puede tener dirección, estés donde estés.' };
 
   return (
     <div className='ig-root'>
@@ -364,6 +365,119 @@ export default function Page() {
          .ig-plan-features li { font-size: 12.5px; color: var(--muted); padding: 6px 0; border-bottom: 1px solid var(--line); }
          .ig-plan-features li:before { content: '✓'; color: var(--red); margin-right: 8px; }
 
+         .ig-asesoria { background: var(--bg-elevated); }
+         .ig-asesoria-intro {
+           display: grid;
+           grid-template-columns: 1.2fr 1fr;
+           gap: 48px;
+           align-items: start;
+           margin-bottom: 60px;
+         }
+         .ig-asesoria-intro-text h3 {
+           font-family: var(--font-display);
+           font-size: 26px;
+           font-weight: 700;
+           margin: 0 0 16px;
+           line-height: 1.2;
+         }
+         .ig-asesoria-intro-text p {
+           color: var(--muted);
+           font-size: 14px;
+           line-height: 1.7;
+           margin: 0 0 16px;
+         }
+         .ig-asesoria-for {
+           background: var(--surface);
+           border: 1px solid var(--line);
+           border-radius: 16px;
+           padding: 24px;
+         }
+         .ig-asesoria-for h4 {
+           font-family: var(--font-display);
+           font-size: 15px;
+           font-weight: 600;
+           text-transform: uppercase;
+           margin: 0 0 16px;
+           color: var(--red);
+         }
+         .ig-asesoria-for ul {
+           list-style: none;
+           padding: 0;
+           margin: 0;
+           display: flex;
+           flex-direction: column;
+           gap: 10px;
+         }
+         .ig-asesoria-for li {
+           color: var(--muted);
+           font-size: 13px;
+           line-height: 1.5;
+           padding-left: 18px;
+           position: relative;
+         }
+         .ig-asesoria-for li:before {
+           content: '●';
+           color: var(--red);
+           position: absolute;
+           left: 0;
+           top: 0;
+         }
+         .ig-asesoria-steps-title {
+           font-family: var(--font-display);
+           font-size: 22px;
+           font-weight: 700;
+           text-align: center;
+           margin: 0 0 32px;
+         }
+         .ig-asesoria-steps {
+           display: grid;
+           grid-template-columns: repeat(3, 1fr);
+           gap: 20px;
+           margin-bottom: 48px;
+         }
+         .ig-asesoria-step {
+           background: var(--surface);
+           border: 1px solid var(--line);
+           border-radius: 16px;
+           padding: 24px;
+           position: relative;
+           transition: transform .15s, border-color .15s;
+         }
+         .ig-asesoria-step:hover { transform: translateY(-3px); border-color: var(--red); }
+         .ig-asesoria-step-n {
+           font-family: var(--font-display);
+           font-size: 36px;
+           font-weight: 700;
+           color: var(--red);
+           opacity: 0.9;
+           margin-bottom: 12px;
+         }
+         .ig-asesoria-step-title {
+           font-family: var(--font-display);
+           font-size: 16px;
+           font-weight: 600;
+           margin: 0 0 8px;
+         }
+         .ig-asesoria-step-desc {
+           color: var(--muted);
+           font-size: 13px;
+           line-height: 1.6;
+           margin: 0;
+         }
+         .ig-asesoria-cta {
+           background: linear-gradient(135deg, var(--red)/10, transparent);
+           border: 1px solid var(--red);
+           border-radius: 16px;
+           padding: 32px;
+           text-align: center;
+         }
+         .ig-asesoria-cta p {
+           font-family: var(--font-display);
+           font-size: 20px;
+           font-weight: 600;
+           margin: 0 0 16px;
+         }
+
          .ig-contact { background: var(--bg-elevated); }
          .ig-contact-card {
            background: var(--surface);
@@ -436,7 +550,8 @@ export default function Page() {
 
          @media (max-width: 980px) {
            .ig-reasons-grid { grid-template-columns: 1fr; }
-           .ig-exp-grid, .ig-contact-card { grid-template-columns: 1fr; gap: 40px 0; }
+           .ig-exp-grid, .ig-contact-card, .ig-asesoria-intro { grid-template-columns: 1fr; gap: 40px 0; }
+           .ig-asesoria-steps { grid-template-columns: 1fr; }
            .ig-exp-photo { order: -1; }
            .ig-hero { min-height: 480px; }
            .ig-hero-stats { flex-wrap: wrap; row-gap: 16px; }
@@ -547,6 +662,62 @@ export default function Page() {
           </div>
           <div className='ig-exp-photo'>
             <img src={brand.aboutPhoto} alt={brand.aboutPhotoAlt} />
+          </div>
+        </div>
+      </section>
+
+      <section className="ig-section ig-asesoria" id="asesoria">
+        <div className="ig-container">
+          <div className="ig-section-head" style={{ textAlign: 'center', marginBottom: 48 }}>
+            <h2 className="ig-section-title">{asesoriaSection.title}</h2>
+            <p className="ig-section-subtitle" style={{ maxWidth: '700px', margin: '0 auto' }}>{asesoriaSection.subtitle}</p>
+          </div>
+
+          <div className="ig-asesoria-intro">
+            <div className="ig-asesoria-intro-text">
+              <h3>Entrena con dirección, estés donde estés.</h3>
+              <p>
+                La asesoría online está pensada para personas que quieren entrenar por su cuenta, pero no quieren seguir improvisando. Puedes estar en otra ciudad, entrenar en un gimnasio, hacerlo desde casa o tener horarios cambiantes. El plan se construye alrededor de tu realidad.
+              </p>
+              <p>
+                No se trata de enviarte un archivo y desaparecer. Según el plan que elijas, tendrás valoración, planificación, seguimiento, revisión de técnica y ajustes durante el proceso.
+              </p>
+              <a href="#planes" className="ig-btn ig-btn-solid">Quiero mi asesoría online</a>
+            </div>
+            <div className="ig-asesoria-for">
+              <h4>¿Para quién es?</h4>
+              <ul>
+                <li>Para quien quiere empezar a entrenar y no sabe cómo organizarse.</li>
+                <li>Para quien lleva tiempo entrenando, pero siente que no está avanzando.</li>
+                <li>Para quien quiere ganar masa muscular, mejorar fuerza o disminuir grasa.</li>
+                <li>Para quien necesita un plan que se adapte a poco tiempo disponible.</li>
+                <li>Para quien viaja, cambia de gimnasio o entrena desde casa.</li>
+                <li>Para quien quiere aprender a entrenar con más seguridad y autonomía.</li>
+              </ul>
+            </div>
+          </div>
+
+          <h3 className="ig-asesoria-steps-title">Así funciona tu proceso</h3>
+          <div className="ig-asesoria-steps">
+            {[
+              { n: '01', title: 'Eliges el plan', desc: 'Revisas las opciones y seleccionas el nivel de acompañamiento que mejor se adapta a ti.' },
+              { n: '02', title: 'Completas la valoración', desc: 'Me cuentas sobre tu experiencia, disponibilidad, objetivos, antecedentes y lugar de entrenamiento.' },
+              { n: '03', title: 'Recibes tu planificación', desc: 'Con tu información se crea una ruta de entrenamiento clara y personalizada.' },
+              { n: '04', title: 'Empiezas a entrenar', desc: 'Sigues las indicaciones, registras tu trabajo y reportas dudas o avances según el plan.' },
+              { n: '05', title: 'Revisamos el proceso', desc: 'Evaluamos técnica, cumplimiento, sensaciones y resultados.' },
+              { n: '06', title: 'Ajustamos lo necesario', desc: 'El plan cambia cuando tu evolución o tus condiciones lo requieren.' },
+            ].map((step) => (
+              <div key={step.n} className="ig-asesoria-step">
+                <div className="ig-asesoria-step-n">{step.n}</div>
+                <h4 className="ig-asesoria-step-title">{step.title}</h4>
+                <p className="ig-asesoria-step-desc">{step.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="ig-asesoria-cta">
+            <p>Tu proceso no necesita ser perfecto. Necesita tener dirección.</p>
+            <a href="#contact" className="ig-btn ig-btn-solid">Hablar con MAO</a>
           </div>
         </div>
       </section>

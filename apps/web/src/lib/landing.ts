@@ -62,6 +62,10 @@ export interface LandingData {
     title: string;
     subtitle: string;
   };
+  asesoria: {
+    title: string;
+    subtitle: string;
+  };
   updatedAt: string;
 }
 
@@ -152,6 +156,10 @@ const FALLBACK_DATA: LandingData = {
   plans: {
     title: 'Planes',
     subtitle: 'Elige el acompañamiento que se ajuste a tu nivel y objetivo.',
+  },
+  asesoria: {
+    title: 'Asesoría Online',
+    subtitle: 'Tu entrenamiento puede tener dirección, estés donde estés.',
   },
   updatedAt: new Date().toISOString(),
 };
