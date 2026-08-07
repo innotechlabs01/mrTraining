@@ -185,7 +185,12 @@ export async function getLandingContent(): Promise<LandingData> {
     if (result.rows.length === 0) return FALLBACK_DATA;
     const row = result.rows[0];
     const parsed = JSON.parse(row.content as string) as LandingData;
-    return { ...parsed, version: row.version as number };
+    return {
+      ...FALLBACK_DATA,
+      ...parsed,
+      brand: { ...FALLBACK_DATA.brand, ...parsed.brand },
+      version: row.version as number,
+    };
   } catch {
     return FALLBACK_DATA;
   }
@@ -209,3 +214,5 @@ export async function updateLandingContent(
 
   return payload;
 }
+
+export const FALLBACK_BRAND = FALLBACK_DATA.brand;

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { LandingData } from '@/lib/landing';
+import { LandingData, FALLBACK_BRAND } from '@/lib/landing';
 import { Package, Book, Clock, Eye } from 'lucide-react';
 
 async function fetchPublicProducts() {
@@ -149,7 +149,9 @@ export default function Page() {
     return <div className='flex items-center justify-center min-h-screen text-white'>Error loading landing</div>;
   }
 
-  const brand = data.brand;
+  const brand = data.brand ?? FALLBACK_BRAND;
+  const tienda = data.tienda ?? { title: 'Tienda', copy: 'Accesorios y suplementos recomendados.' };
+  const blog = data.blog ?? { title: 'Blog', subtitle: 'Artículos, técnicas y progresos.' };
 
   return (
     <div className='ig-root'>
@@ -502,8 +504,8 @@ export default function Page() {
 
       <section className="ig-section" id="tienda">
         <div className="ig-container">
-          <h2 className="ig-section-title">{data.tienda.title}</h2>
-          <p className="ig-section-subtitle" style={{ textAlign: 'center', maxWidth: '700px', margin: '0 auto 40px' }}>{data.tienda.copy}</p>
+          <h2 className="ig-section-title">{tienda.title}</h2>
+          <p className="ig-section-subtitle" style={{ textAlign: 'center', maxWidth: '700px', margin: '0 auto 40px' }}>{tienda.copy}</p>
 
           {!productsHydrated ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
@@ -541,8 +543,8 @@ export default function Page() {
 
       <section className="ig-section" id="blog">
         <div className="ig-container">
-          <h2 className="ig-section-title">{data.blog.title}</h2>
-          <p className="ig-section-subtitle" style={{ textAlign: 'center', maxWidth: '700px', margin: '0 auto 40px' }}>{data.blog.subtitle}</p>
+          <h2 className="ig-section-title">{blog.title}</h2>
+          <p className="ig-section-subtitle" style={{ textAlign: 'center', maxWidth: '700px', margin: '0 auto 40px' }}>{blog.subtitle}</p>
 
           {!blogHydrated ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
