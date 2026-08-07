@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Copy, Check, Smartphone, Download, ExternalLink } from 'lucide-react';
+import { Copy, Check, Smartphone, Download, QrCode } from 'lucide-react';
 
-const EXPO_GO_URL = process.env.NEXT_PUBLIC_EXPO_GO_URL || 'exp://@innotechlabssas/mr-training';
+const EXPO_OWNER = 'innotechlabssas';
+const EXPO_SLUG = 'mr-training';
+const EXPO_PROJECT_URL = `https://expo.dev/@${EXPO_OWNER}/${EXPO_SLUG}`;
 
 function InviteContent() {
   const searchParams = useSearchParams();
@@ -41,14 +43,18 @@ function InviteContent() {
       .finally(() => setLoading(false));
   }, [code]);
 
-  const expoGoDeepLink = code
-    ? `${EXPO_GO_URL}/--/invite?code=${encodeURIComponent(code)}`
-    : EXPO_GO_URL;
-
   const storeLink =
     platform === 'ios'
       ? 'https://apps.apple.com/app/expo-go/id982107779'
       : 'https://play.google.com/store/apps/details?id=host.exp.exponent';
+
+  const expoOpenUrl = code
+    ? `${EXPO_PROJECT_URL}?serviceType=classic&distribution=expo-go&code=${encodeURIComponent(code)}`
+    : EXPO_PROJECT_URL;
+
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
+    code ? `exp://exp.host/@${EXPO_OWNER}/${EXPO_SLUG}/--/invite?code=${code}` : EXPO_PROJECT_URL
+  )}`;
 
   const handleCopy = async (text: string) => {
     try {
@@ -118,6 +124,21 @@ function InviteContent() {
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-surface-1 p-6 space-y-4">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-40 h-40 rounded-xl overflow-hidden bg-white p-2">
+                  <img
+                    src={qrCodeUrl}
+                    alt="QR para abrir en Expo Go"
+                    className="w-full h-full"
+                  />
+                </div>
+                <p className="text-xs text-text-secondary text-center">
+                  Escanea este código con la cámara de tu celular
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-surface-1 p-6 space-y-4">
               <h2 className="text-sm font-semibold text-text-primary text-center">Paso 1: Descarga Expo Go</h2>
 
               <a
@@ -136,10 +157,12 @@ function InviteContent() {
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-surface-1 p-6 space-y-4">
-              <h2 className="text-sm font-semibold text-text-primary text-center">Paso 2: Abrir en Expo Go</h2>
+              <h2 className="text-sm font-semibold text-text-primary text-center">Paso 2: Abrir MR Training</h2>
 
               <a
-                href={expoGoDeepLink}
+                href={expoOpenUrl}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-full flex items-center justify-center gap-2 h-12 rounded-xl border border-white/10 bg-surface-2 text-text-primary font-semibold text-sm hover:bg-surface-3 transition-colors"
               >
                 <Smartphone size={18} />
@@ -156,7 +179,7 @@ function InviteContent() {
               <ol className="space-y-3 text-sm text-text-secondary">
                 <li className="flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary text-xs flex items-center justify-center shrink-0">1</span>
-                  <span>Toca &quot;Descargar Expo Go&quot; e instala la app</span>
+                  <span>Descarga Expo Go desde tu tienda de apps</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary text-xs flex items-center justify-center shrink-0">2</span>
@@ -164,7 +187,7 @@ function InviteContent() {
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary text-xs flex items-center justify-center shrink-0">3</span>
-                  <span>MR Training se abrirá dentro de Expo Go. Acepta la invitación.</span>
+                  <span>Expo Go abrirá MR Training. Acepta la invitación con el código.</span>
                 </li>
               </ol>
             </div>
