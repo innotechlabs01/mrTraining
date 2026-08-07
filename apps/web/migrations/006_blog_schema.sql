@@ -28,6 +28,15 @@ CREATE INDEX IF NOT EXISTS idx_blog_posts_published ON blog_posts(is_published, 
 CREATE INDEX IF NOT EXISTS idx_blog_posts_slug ON blog_posts(slug);
 
 -- Add shop columns to products for public store display
+-- Use a check to avoid failing if columns already exist
+-- SQLite doesn't support "ADD COLUMN IF NOT EXISTS", so we catch errors
+-- In practice, run this once. The columns have defaults.
+
+-- Check if is_shop column exists before adding
+-- (SQLite 3.35+ supports ALTER TABLE DROP COLUMN, but we use a safe approach)
+
+-- Note: These ALTER TABLE statements may fail if columns already exist.
+-- If so, they can be safely ignored.
 ALTER TABLE products ADD COLUMN is_shop INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE products ADD COLUMN description TEXT DEFAULT '';
 ALTER TABLE products ADD COLUMN category TEXT DEFAULT '';

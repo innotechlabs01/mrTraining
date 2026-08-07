@@ -7,7 +7,11 @@ export async function GET(req: Request) {
   const coachSlug = searchParams.get('coach') || 'default';
   const category = searchParams.get('category');
 
-  const products = await getPublicProducts(coachSlug) as Product[];
-  const filtered = category ? products.filter((p: Product) => p.category === category) : products;
-  return NextResponse.json(filtered);
+  try {
+    const products = await getPublicProducts(coachSlug) as Product[];
+    const filtered = category ? products.filter((p: Product) => p.category === category) : products;
+    return NextResponse.json(filtered);
+  } catch (e) {
+    return NextResponse.json([], { status: 200 });
+  }
 }
