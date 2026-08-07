@@ -57,7 +57,9 @@ const linking = {
         ],
       };
     }
-    return undefined;
+    return {
+      routes: [{ name: 'Auth' as const }],
+    };
   },
 };
 
