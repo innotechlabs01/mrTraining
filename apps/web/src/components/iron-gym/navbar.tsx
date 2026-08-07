@@ -6,6 +6,11 @@ import { Dumbbell, Menu, X } from 'lucide-react';
 
 const mainLinks = [
   { label: 'Home', href: '#home' },
+  { label: 'Sobre MAO', href: '#about' },
+  { label: 'Asesoría Online', href: '/planes' },
+  { label: 'Planes', href: '/planes' },
+  { label: 'Testimonios', href: '#testimonials' },
+  { label: 'Contacto', href: '#contact-us' },
 ];
 
 export function IronGymNavbar() {
@@ -86,12 +91,12 @@ export function IronGymNavbar() {
 
         {/* Desktop CTAs */}
         <div className="hidden md:flex items-center gap-3">
-          <button
-            onClick={() => router.push('/coach/login')}
-            className="px-5 py-3 rounded-md border border-white/30 text-white text-sm font-semibold hover:bg-white/10 transition-colors"
-          >
-            Coaching
-          </button>
+            <button
+             onClick={() => router.push('/sign-in')}
+             className="px-5 py-3 rounded-md border border-white/30 text-white text-sm font-semibold hover:bg-white/10 transition-colors"
+           >
+             Iniciar sesión
+           </button>
           <a
             href="#contact-us"
             onClick={(e) => {
@@ -139,10 +144,10 @@ export function IronGymNavbar() {
 
             <div className="flex flex-col gap-3 mt-6">
               <button
-                onClick={() => { router.push('/coach/login'); setMobileOpen(false); }}
+                onClick={() => { router.push('/sign-in'); setMobileOpen(false); }}
                 className="w-full px-5 py-3 rounded-md border border-white/30 text-white text-sm font-semibold hover:bg-white/10 transition-colors"
               >
-                Coaching
+               Iniciar sesión
               </button>
               <a
                 href="#contact-us"

@@ -1,36 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-
-interface LandingData {
-  version: number;
-  navLinks: string[];
-  stats: { value: string; label: string }[];
-  reasons: { n: string; title: string; copy: string }[];
-  trainers: { name: string; seed: string }[];
-  testimonials: { quote: string; name: string; seed: string }[];
-  updatedAt: string;
-}
-
-function img(seed: string, w: number, h: number) {
-  const unsplashMap: Record<string, string> = {
-    'irongym-hero': 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=1400&h=900&fit=crop',
-    'irongym-experience': 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=700&h=700&fit=crop',
-    'irongym-final': 'https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=600&h=700&fit=crop',
-    'ig-trainer-1': 'https://images.unsplash.com/photo-1567013127542-490d757e51fc?w=400&h=460&fit=crop',
-    'ig-trainer-2': 'https://images.unsplash.com/photo-1594381898411-846e7d193883?w=400&h=460&fit=crop',
-    'ig-trainer-3': 'https://images.unsplash.com/photo-1548690312-e3b507d8c110?w=400&h=460&fit=crop',
-    'ig-trainer-4': 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=400&h=460&fit=crop',
-    'ig-trainer-5': 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=460&fit=crop',
-    'ig-testi-1': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop',
-    'ig-testi-2': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop',
-    'ig-testi-3': 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=120&h=120&fit=crop',
-    'spyro-app-1': 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=300&h=640&fit=crop',
-    'spyro-app-2': 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=300&h=640&fit=crop',
-  };
-  if (unsplashMap[seed]) return unsplashMap[seed];
-  return `https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=${w}&h=${h}&fit=crop`;
-}
+import React, { useState, useEffect } from 'react';
+import { LandingData } from '@/lib/landing';
 
 function Icon({ name, ...rest }: { name: string } & React.SVGProps<SVGSVGElement>) {
   const common = {
@@ -80,14 +51,25 @@ function Icon({ name, ...rest }: { name: string } & React.SVGProps<SVGSVGElement
           <line x1='19' y1='5' x2='5' y2='19' />
         </svg>
       );
+    case 'whatsapp':
+      return (
+        <svg {...common} width='20' height='20' fill='currentColor' stroke='none'>
+          <path d='M12.04 2.01C6.5 2.01 2 6.19 2 11.36c0 1.93.49 3.79 1.41 5.37l-1.33 4.54 4.67-2.7c1.45.38 2.96.59 4.49.59 5.54 0 9.75-4.56 9.75-9.95S17.58 2.01 12.04 2.01Zm5.34 13.66c-.28.18-2.57 1.46-4.85 2.72-.18.1-.31.07-.41-.03C9.85 17.52 7.3 16.87 6.3 16.27c-.28-.18-.5-.18-.7-.19-.18-.02-1.29-.44-2.19-1.55-.24-.33-.43-.7-.43-1.14 0-.44.22-.7.59-1 .42.22 1.53.95 2.49 2.06.2.22.39.26.53.06.13-.17 1.77-2.55 2.12-2.88a.49.49 0 0 0-.06-.83c-.32.1-1.78.64-3.07 1.56a17.97 17.97 0 0 1-2.36-3c-.23-.4-.46-.41-.59-.42-.13 0-.39-.03-.59-.03a1.3 1.3 0 0 0-.95.42 1.33 1.33 0 0 0-.32.9C5.28 10.72 8.35 13.67 10.8 15c.35 0 .84.07 1.3-.18.39-.19 1.05-.58 1.49-.99s.72-.89.8-.96c.08-.07. 0-0 0 0 0 .09.17 1.35-.05 1.49Z' />
+          <circle cx='12' cy='12' r='9' />
+        </svg>
+      );
     default:
       return null;
   }
 }
 
+function img(seed: string, w: number, h: number, alt = '') {
+  return `https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=${w}&h=${h}&fit=crop`;
+}
+
 function Stars({ count = 5 }: { count?: number }) {
   return (
-    <div style={{ display: 'flex', gap: 3 }}>
+    <div style={{ display: 'flex', gap: 2 }}>
       {Array.from({ length: count }).map((_, i) => (
         <span key={i} style={{ color: '#15aaf2' }}><Icon name='star' /></span>
       ))}
@@ -97,7 +79,6 @@ function Stars({ count = 5 }: { count?: number }) {
 
 export default function Page() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [trainerStart, setTrainerStart] = useState(0);
   const [testiIndex, setTestiIndex] = useState(0);
   const [scrolled, setScrolled] = useState(false);
   const [data, setData] = useState<LandingData | null>(null);
@@ -117,10 +98,17 @@ export default function Page() {
       .catch(() => setLoading(false));
   }, []);
 
-  const visibleTrainers = data?.trainers
-    ? [0, 1, 2].map((i) => data.trainers[(trainerStart + i) % data.trainers.length])
-    : [];
-  const testimonial = data?.testimonials ? data.testimonials[testiIndex] : null;
+  const navHref = (label: string) => {
+    const map: Record<string, string> = {
+      Inicio: '#home',
+      'Sobre MAO': '#about',
+      'Asesoría Online': '/planes',
+      Planes: '/planes',
+      Testimonios: '#testimonials',
+      Contacto: '#contact',
+    };
+    return map[label] || `#${label.toLowerCase().replace(/\s/g, '-')}`;
+  };
 
   if (loading) {
     return (
@@ -133,6 +121,8 @@ export default function Page() {
   if (!data) {
     return <div className='flex items-center justify-center min-h-screen text-white'>Error loading landing</div>;
   }
+
+  const brand = data.brand;
 
   return (
     <div className='ig-root'>
@@ -149,7 +139,7 @@ export default function Page() {
           --text-secondary: #9a9a9a;
           --text-muted: #6e6e6e;
           --line: #2a2a2a;
-          --red: #15aaf2;
+          --red: ${brand.colors.primary};
           --red-dark: #0d8bc4;
           --white: #ffffff;
           --muted: #9a9a9a;
@@ -231,22 +221,14 @@ export default function Page() {
           background: linear-gradient(90deg, var(--bg) 8%, rgba(10,10,10,0.55) 42%, rgba(10,10,10,0.15) 75%),
                       linear-gradient(0deg, var(--bg) 0%, transparent 34%);
         }
-        .ig-hero-outline {
-          position: absolute; top: -60px; right: 2%;
-          z-index: 51; user-select: none; pointer-events: none;
-        }
-        .ig-hero-outline img {
-          height: clamp(180px, 28vw, 380px); width: auto;
-          mix-blend-mode: screen; opacity: 1;
-        }
         .ig-hero-inner { position: relative; z-index: 2; padding-bottom: 60px; width: 100%; }
         .ig-hero-inner h1 {
           font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
           font-size: clamp(38px, 5.6vw, 60px); line-height: 0.98; margin: 0;
         }
         .ig-hero-inner h1 .accent { color: var(--red); display: block; }
-        .ig-hero-copy { color: var(--muted); font-size: 14.5px; max-width: 40ch; margin: 18px 0 26px; }
-        .ig-hero-stats { display: flex; gap: 0; margin-top: 40px; }
+        .ig-hero-tagline { color: var(--white); font-size: 18px; max-width: 42ch; margin: 14px 0 22px; letter-spacing: -0.01em; }
+        .ig-hero-stats { display: flex; gap: 0; margin-top: 30px; }
         .ig-hero-stat { padding: 0 26px; border-left: 1px solid var(--line); }
         .ig-hero-stat:first-child { padding-left: 0; border-left: none; }
         .ig-hero-stat-val { font-family: var(--font-display); font-weight: 700; color: var(--red); font-size: 26px; }
@@ -271,36 +253,6 @@ export default function Page() {
         }
         .ig-exp-photo img { position: relative; z-index: 1; width: 100%; height: 400px; object-fit: cover; filter: grayscale(0.3); }
 
-        .ig-app-cta { background: var(--red); padding: 76px 0; overflow: hidden; }
-        .ig-app-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; align-items: center; gap: 40px; }
-        .ig-app-grid h2 { font-family: var(--font-display); font-weight: 700; font-size: clamp(26px, 3.6vw, 36px); margin: 0 0 14px; }
-        .ig-app-grid p { color: rgba(255,255,255,0.85); margin: 0 0 26px; max-width: 42ch; }
-        .ig-store-row { display: flex; gap: 14px; }
-        .ig-store-btn {
-          display: flex; align-items: center; gap: 10px; background: #0a0a0a; color: var(--white);
-          padding: 10px 18px; border-radius: 10px; font-size: 11px; line-height: 1.2;
-        }
-        .ig-store-btn strong { display: block; font-size: 14px; font-family: var(--font-display); }
-        .ig-phones { display: flex; justify-content: center; gap: -20px; position: relative; height: 340px; }
-        .ig-phone {
-          width: 150px; height: 320px; border-radius: 22px; border: 6px solid #0a0a0a; overflow: hidden;
-          box-shadow: 0 20px 40px rgba(0,0,0,0.3); position: absolute;
-        }
-        .ig-phone img { width: 100%; height: 100%; object-fit: cover; }
-        .ig-phone.p1 { left: 30%; top: 30px; z-index: 2; }
-        .ig-phone.p2 { left: 55%; top: 0; z-index: 1; }
-
-        .ig-trainer-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-        .ig-trainer-card { border: 1px solid var(--line); }
-        .ig-trainer-card img { width: 100%; height: 260px; object-fit: cover; }
-        .ig-trainer-body { padding: 18px 20px 22px; text-align: center; }
-        .ig-trainer-name { font-family: var(--font-display); font-weight: 600; text-transform: uppercase; font-size: 16px; margin: 0 0 8px; }
-        .ig-trainer-rate { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
-        .ig-trainer-stars { display: flex; justify-content: center; gap: 3px; }
-        .ig-dots { display: flex; justify-content: center; gap: 8px; margin-top: 34px; }
-        .ig-dots button { width: 7px; height: 7px; border-radius: 50%; border: none; background: var(--line); cursor: pointer; padding: 0; }
-        .ig-dots button.active { background: var(--red); width: 22px; border-radius: 4px; }
-
         .ig-testi { background: var(--bg-elevated); text-align: center; }
         .ig-testi-quote { max-width: 720px; margin: 0 auto 20px; color: var(--muted); font-size: 15px; }
         .ig-testi-name { font-family: var(--font-display); font-weight: 600; text-transform: uppercase; font-size: 15px; margin-top: 18px; }
@@ -309,20 +261,16 @@ export default function Page() {
         .ig-testi-nav button { background: none; border: none; color: var(--white); cursor: pointer; opacity: 0.7; }
         .ig-testi-nav button:hover { opacity: 1; color: var(--red); }
 
-        .ig-final { padding: 100px 0; }
-        .ig-final-box { border: 1.5px dashed var(--red); padding: 50px; display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 50px; align-items: center; }
-        .ig-final-photo { position: relative; }
-        .ig-final-photo::before { content: ''; position: absolute; inset: -14px; border: 1.5px solid var(--red); z-index: 0; }
-        .ig-final-photo img { position: relative; z-index: 1; width: 100%; height: 420px; object-fit: cover; }
-        .ig-final-copy { color: var(--muted); font-size: 14px; margin: 16px 0 26px; }
-        .ig-form { display: flex; flex-direction: column; gap: 14px; max-width: 420px; }
-        .ig-form-row { display: flex; gap: 14px; }
-        .ig-form input {
-          background: transparent; border: 1px solid var(--line); color: var(--white);
-          padding: 13px 16px; font-family: var(--font-body); font-size: 13.5px; flex: 1; width: 100%;
-        }
-        .ig-form input::placeholder { color: var(--muted-2); }
-        .ig-form input:focus { outline: none; border-color: var(--red); }
+        .ig-dots { display: flex; justify-content: center; gap: 8px; margin-top: 34px; }
+        .ig-dots button { width: 7px; height: 7px; border-radius: 50%; border: none; background: var(--line); cursor: pointer; padding: 0; }
+        .ig-dots button.active { background: var(--red); width: 22px; border-radius: 4px; }
+
+        .ig-contact-grid { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 60px; }
+        .ig-contact-info h3 { font-family: var(--font-display); font-weight: 700; font-size: 26px; margin: 0 0 16px; }
+        .ig-contact-info .ig-contact-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; color: var(--muted); font-size: 14px; }
+        .ig-contact-info .ig-contact-row strong { color: var(--white); font-weight: 600; }
+        .ig-contact-info a.social { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); margin-right: 16px; font-size: 13px; transition: color .15s; }
+        .ig-contact-info a.social:hover { color: var(--red); }
 
         .ig-footer { padding: 50px 0 26px; text-align: center; border-top: 1px solid var(--line); }
         .ig-footer .ig-logo { font-size: 22px; margin-bottom: 22px; display: inline-block; }
@@ -338,14 +286,10 @@ export default function Page() {
 
         @media (max-width: 980px) {
           .ig-reasons-grid { grid-template-columns: 1fr; }
-          .ig-exp-grid { grid-template-columns: 1fr; gap: 40px 0; }
+          .ig-exp-grid, .ig-contact-grid { grid-template-columns: 1fr; gap: 40px 0; }
           .ig-exp-photo { order: -1; }
-          .ig-trainer-row { grid-template-columns: 1fr 1fr; }
-          .ig-final-box { grid-template-columns: 1fr; padding: 30px; }
-          .ig-hero-outline { display: none; }
           .ig-hero { min-height: 480px; }
-          .ig-app-grid { grid-template-columns: 1fr; }
-          .ig-phones { margin-top: 20px; }
+          .ig-hero-stats { flex-wrap: wrap; row-gap: 16px; }
         }
         @media (max-width: 680px) {
           .ig-container { padding: 0 16px; }
@@ -354,41 +298,28 @@ export default function Page() {
           .ig-nav .ig-btn-solid { display: none; }
           .ig-hero { min-height: 400px; }
           .ig-hero-inner h1 { font-size: clamp(28px, 8vw, 42px); }
-          .ig-hero-stats { flex-wrap: wrap; row-gap: 16px; }
-          .ig-hero-stat { padding: 0 16px; }
-          .ig-hero-stat:first-child { padding-left: 0; }
           .ig-section { padding: 56px 0; }
           .ig-section-head { margin-bottom: 32px; }
-          .ig-trainer-row { grid-template-columns: 1fr; }
-          .ig-exp-grid { gap: 24px 0; }
           .ig-exp-photo img { height: 280px; }
-          .ig-final { padding: 56px 0; }
-          .ig-final-box { padding: 20px; }
-          .ig-final-photo img { height: 280px; }
-          .ig-form-row { flex-direction: column; }
           .ig-footer { padding: 32px 0 18px; }
           .ig-footer-bottom { flex-direction: column; text-align: center; }
-          .ig-phones { position: relative; height: 260px; }
-          .ig-phone { width: 120px; height: 240px; }
-          .ig-phone.p1 { left: 15%; top: 20px; }
-          .ig-phone.p2 { left: 50%; top: 0; }
         }
       `}</style>
 
       <header className={`ig-nav${scrolled ? ' scrolled' : ''}`}>
         <div className='ig-container ig-nav-inner'>
-          <div className='ig-logo' style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <a href='#' className='ig-logo' style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <img src='/images/icon/icon_mr_rp.png' alt='MR Training' style={{ height: 100, width: 'auto' }} />
-          </div>
+          </a>
           <nav className='ig-links'>
             {data.navLinks.map((l) => (
-              <a key={l} href={l === 'Coaching' ? '/coach/login' : `#${l.toLowerCase().replace(/\s/g, '-')}`} className={l === 'Home' ? 'active' : ''}>
+              <a key={l} href={navHref(l)} className={l === 'Inicio' ? 'active' : ''}>
                 {l}
               </a>
             ))}
           </nav>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <a href='/sign-in' className='ig-btn ig-btn-solid'>Sign In</a>
+            <a href='/planes' className='ig-btn ig-btn-solid'>Ver Planes</a>
             <button
               className='ig-menu-toggle'
               onClick={() => setMenuOpen((v) => !v)}
@@ -406,29 +337,22 @@ export default function Page() {
       {menuOpen && (
         <div className='ig-mobile-menu'>
           {data.navLinks.map((l) => (
-            <a key={l} href={l === 'Coaching' ? '/coach/login' : `#${l.toLowerCase().replace(/\s/g, '-')}`} onClick={() => setMenuOpen(false)}>{l}</a>
+            <a key={l} href={navHref(l)} onClick={() => setMenuOpen(false)}>{l}</a>
           ))}
         </div>
       )}
 
       <section className='ig-hero' id='home'>
         <div className='ig-hero-photo'>
-          <img src={img('irongym-hero', 1400, 900)} alt='Athlete doing a seated dumbbell curl in the gym' />
-        </div>
-        <div className='ig-hero-outline' aria-hidden='true'>
-          <img src='/images/icon/icon_mr_rp_wapp.png' alt='' />
+          <img src={brand.heroPhoto} alt={brand.heroPhotoAlt} />
         </div>
         <div className='ig-container ig-hero-inner'>
           <h1>
-            Ready to Train
-            <span className='accent'>Your Body</span>
+            Entrena con<span className='accent'> Mao</span>
           </h1>
-          <p className='ig-hero-copy'>
-            Gym training is a structured, disciplined approach to physical
-            exercise that focuses on strength, endurance, and overall
-            fitness improvement.
+          <p className='ig-hero-tagline'>
+            {brand.heroSubtitle}
           </p>
-          <a href='/sign-in' className='ig-btn ig-btn-solid'>Sign In</a>
           <div className='ig-hero-stats'>
             {data.stats.map((s) => (
               <div className='ig-hero-stat' key={s.label}>
@@ -437,16 +361,18 @@ export default function Page() {
               </div>
             ))}
           </div>
+          <a href='/planes' className='ig-btn ig-btn-solid' style={{ marginTop: 30 }}>
+            Ver Planes
+          </a>
         </div>
       </section>
 
-      <section className='ig-section ig-why' id='service'>
+      <section className='ig-section ig-why'>
         <div className='ig-container'>
           <div className='ig-section-head'>
-            <h2 className='ig-h2'>Why <span className='accent'>Choose Us</span></h2>
+            <h2 className='ig-h2'><span className='accent'>Cómo</span> Entrenamos</h2>
             <p className='ig-lede'>
-              Gym training offers a versatile, customizable experience,
-              letting everyone set and hit their own fitness goals.
+              No hay plantillas genéricas. Cada decisión se toma para ti.
             </p>
           </div>
           <div className='ig-reasons-grid'>
@@ -461,97 +387,27 @@ export default function Page() {
         </div>
       </section>
 
-      <section className='ig-section'>
+      <section className='ig-section' id='about'>
         <div className='ig-container ig-exp-grid'>
           <div className='ig-exp-text'>
-            <h2 className='ig-h2'>We Have a Lot of<span className='accent' style={{ display: 'block' }}>Experience</span></h2>
-            <p>
-              Our coaching staff has spent two decades on the floor,
-              building programs for beginners and competitive lifters
-              alike. We track every session, every plate, every rep.
-            </p>
-            <p>
-              Whether you&apos;re chasing your first pull-up or your next
-              competition total, the plan adjusts to where you actually
-              are, not where a template assumes you are.
-            </p>
-            <a href='#service' className='ig-btn'>About Us</a>
+            <div className='ig-eyebrow'>{brand.aboutTitle}</div>
+            {brand.aboutCopy.map((p, i) => (
+              <p key={i}>{p}</p>
+            ))}
           </div>
           <div className='ig-exp-photo'>
-            <img src={img('irongym-experience', 700, 700)} alt='Athlete performing a pull-up on a rig' />
+            <img src={brand.aboutPhoto} alt={brand.aboutPhotoAlt} />
           </div>
         </div>
       </section>
 
-      <section className='ig-app-cta'>
-        <div className='ig-container ig-app-grid'>
-          <div>
-            <h2>Download the most loved fitness app</h2>
-            <p>Start your fitness journey with us. Join the cult.</p>
-            <div className='ig-store-row'>
-              <a href='#' className='ig-store-btn' onClick={(e) => e.preventDefault()}>
-                <svg width='16' height='16' viewBox='0 0 24 24' fill='currentColor' stroke='none'>
-                  <path d='M4 3.5c-.3.3-.5.7-.5 1.2v14.6c0 .5.2.9.5 1.2l9-8.5-9-8.5Z' />
-                  <path d='M15 12l2.6-1.5-3-1.7L12 11l2.6 2.2 3-1.7L15 12Z' opacity='0.85' />
-                </svg>
-                <span>GET IT ON<strong>Google Play</strong></span>
-              </a>
-              <a href='#' className='ig-store-btn' onClick={(e) => e.preventDefault()}>
-                <svg width='16' height='16' viewBox='0 0 24 24' fill='currentColor' stroke='none'>
-                  <path d='M16.4 12.6c0-2.2 1.8-3.2 1.9-3.3-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.6.8-3.3.8-.7 0-1.7-.8-2.9-.8-1.5 0-2.9.9-3.6 2.2-1.6 2.7-.4 6.7 1.1 8.9.7 1.1 1.6 2.3 2.8 2.2 1.1 0 1.5-.7 2.9-.7s1.7.7 2.9.7c1.2 0 2-1.1 2.7-2.2.9-1.2 1.2-2.4 1.2-2.5-.1 0-2.4-.9-2.5-3.6ZM14 5.8c.6-.7 1-1.7.9-2.8-.9.1-2 .6-2.6 1.4-.6.6-1.1 1.7-.9 2.7 1 .1 2-.5 2.6-1.3Z' />
-                </svg>
-                <span>Download on the<strong>App Store</strong></span>
-              </a>
-            </div>
-          </div>
-          <div className='ig-phones'>
-            <div className='ig-phone p2'><img src={img('spyro-app-2', 300, 640)} alt='App schedule screen' /></div>
-            <div className='ig-phone p1'><img src={img('spyro-app-1', 300, 640)} alt='App home screen' /></div>
-          </div>
-        </div>
-      </section>
-
-      <section className='ig-section ig-why' id='trainers'>
+      <section className='ig-section ig-testi' id='testimonials'>
         <div className='ig-container'>
-          <div className='ig-section-head'>
-            <h2 className='ig-h2'>Our Professional<span className='accent' style={{ display: 'block' }}>Trainers</span></h2>
-            <p className='ig-lede'>
-              Whether you&apos;re looking to set up a home gym or enhance your
-              current workout routine, our team has run the program.
-            </p>
-          </div>
-          <div className='ig-trainer-row'>
-            {visibleTrainers.map((t) => (
-              <div className='ig-trainer-card' key={t.name}>
-                <img src={img(t.seed, 400, 460)} alt={t.name} />
-                <div className='ig-trainer-body'>
-                  <h3 className='ig-trainer-name'>{t.name}</h3>
-                  <div className='ig-trainer-rate'>Rate Trainer:</div>
-                  <div className='ig-trainer-stars'><Stars /></div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className='ig-dots'>
-            {data.trainers.map((_, i) => (
-              <button
-                key={i}
-                className={i === trainerStart ? 'active' : ''}
-                onClick={() => setTrainerStart(i)}
-                aria-label={`Show trainer set ${i + 1}`}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className='ig-section ig-testi' id='testimonial'>
-        <div className='ig-container'>
-          <h2 className='ig-h2'>What <span className='accent'>Clients Say</span> With Us</h2>
-          <p className='ig-testi-quote'>&ldquo;{testimonial?.quote}&rdquo;</p>
+          <h2 className='ig-h2'>Lo que <span className='accent'>dicen</span> mis atletas</h2>
+          <p className='ig-testi-quote'>&ldquo;{data.testimonials[testiIndex]?.quote}&rdquo;</p>
           <div style={{ display: 'flex', justifyContent: 'center' }}><Stars /></div>
-          <div className='ig-testi-name'>{testimonial?.name}</div>
-          <img className='ig-testi-avatar' src={`https://i.pravatar.cc/120?img=${testiIndex + 20}`} alt={testimonial?.name} />
+          <div className='ig-testi-name'>{data.testimonials[testiIndex]?.name}</div>
+          <img className='ig-testi-avatar' src={`https://i.pravatar.cc/120?img=${testiIndex + 20}`} alt={data.testimonials[testiIndex]?.name} />
           <div className='ig-testi-nav'>
             <button
               onClick={() => setTestiIndex((i) => (i - 1 + data.testimonials.length) % data.testimonials.length)}
@@ -579,27 +435,55 @@ export default function Page() {
         </div>
       </section>
 
-      <section className='ig-final' id='contact-us'>
+      <section className='ig-section' id='contact'>
         <div className='ig-container'>
-          <div className='ig-final-box'>
-            <div className='ig-final-photo'>
-              <img src={img('irongym-final', 600, 700)} alt='Athlete flexing after a training session' />
-            </div>
-            <div>
-              <h2 className='ig-h2'>Let&apos;s Start Gym<span className='accent' style={{ display: 'block' }}>Training Now</span></h2>
-              <p className='ig-final-copy'>
-                Get 50% off your first three classes when you sign up for
-                any GYM membership this month.
-              </p>
-              <div className='ig-form' style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-                <a href='/coach/login' className='ig-btn' style={{ alignSelf: 'flex-start' }}>
-                  I&apos;m a Coach
-                </a>
-                <a href='/sign-in' className='ig-btn' style={{ alignSelf: 'flex-start', borderColor: 'var(--red)', color: 'var(--white)' }}>
-                  I&apos;m an Athlete
-                </a>
+          <div className='ig-section-head'>
+            <h2 className='ig-h2'>Comencemos <span className='accent'>hoy</span></h2>
+            <p className='ig-lede'>
+              Contáctame por WhatsApp o email. Te respondo en menos de 24 horas.
+            </p>
+          </div>
+          <div className='ig-contact-grid'>
+            <div className='ig-contact-info'>
+              <h3>Datos de contacto</h3>
+              <div className='ig-contact-row'>
+                <Icon name='whatsapp' />
+                <span><strong>WhatsApp:</strong> {brand.contact.city.split(',')[0]}</span>
+              </div>
+              <div className='ig-contact-row'>
+                <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'><path d='M4 4h16c1.1 0 2 .9 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8c0-1.1.9-2 2-2h12L9 4 4 9z' /></svg>
+                <span><strong>Email:</strong> {brand.contact.email}</span>
+              </div>
+              <div className='ig-contact-row'>
+                <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'><circle cx='12' cy='12' r='10'/><line x1='12' y1='16' x2='12' y2='12'/><line x1='12' y1='8' x2='12.01' y2='8'/></svg>
+                <span><strong>Ubícación:</strong> {brand.contact.city}</span>
+              </div>
+              <div className='ig-contact-row' style={{ marginTop: 16 }}>
+                {brand.contact.socialLinks.map((s) => (
+                  <a key={s.label} href={s.href} className='social'>{s.label}</a>
+                ))}
               </div>
             </div>
+            <form
+              className='ig-form'
+              onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                const qs = new URLSearchParams({
+                  nombre: fd.get('nombre') as string,
+                  email: fd.get('email') as string,
+                  mensaje: fd.get('mensaje') as string,
+                }).toString();
+                window.location.href = `mailto:${brand.contact.email}?subject=Consulta MR Training&body=${encodeURIComponent(qs)}`;
+              }}
+            >
+              <input type='text' name='nombre' placeholder='Tu nombre' required />
+              <input type='email' name='email' placeholder='Tu email' required />
+              <textarea name='mensaje' placeholder='¿Qué te gustaría mejorar?' rows={4} required style={{ background: 'transparent', border: '1px solid var(--line)', color: 'var(--text)', padding: '13px 16px', fontFamily: 'var(--font-body)', fontSize: '13.5px', resize: 'vertical' }} />
+              <button type='submit' className='ig-btn ig-btn-solid' style={{ justifySelf: 'start' }}>
+                Enviar mensaje
+              </button>
+            </form>
           </div>
         </div>
       </section>
@@ -611,14 +495,14 @@ export default function Page() {
           </div>
           <nav className='ig-footer-links'>
             {data.navLinks.map((l) => (
-              <a key={l} href={l === 'Coaching' ? '/coach/login' : `#${l.toLowerCase().replace(/\s/g, '-')}`} className={l === 'Home' ? 'active' : ''}>
+              <a key={l} href={navHref(l)} className={l === 'Inicio' ? 'active' : ''}>
                 {l}
               </a>
             ))}
           </nav>
           <div className='ig-footer-bottom'>
-            <span>Privacy &nbsp;|&nbsp; Terms and condition</span>
-            <span>&copy; {new Date().getFullYear()} All rights reserved. MR Training</span>
+            <span>Privacidad &nbsp;|&nbsp; Términos y condiciones</span>
+            <span>&copy; {new Date().getFullYear()} Todos los derechos reservados. MR Training</span>
           </div>
         </div>
       </footer>

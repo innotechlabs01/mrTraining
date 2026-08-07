@@ -25,9 +25,30 @@ type LandingStat = {
   label: string;
 };
 
+type LandingBrand = {
+  colors: {
+    primary: string;
+  };
+  font: string;
+  heroSubtitle: string;
+  heroPhoto: string;
+  heroPhotoAlt: string;
+  aboutTitle: string;
+  aboutPhoto: string;
+  aboutPhotoAlt: string;
+  aboutCopy: string[];
+  contact: {
+    whatsapp: string;
+    email: string;
+    city: string;
+    socialLinks: { label: string; href: string; icon: string }[];
+  };
+};
+
 export interface LandingData {
   version: number;
   navLinks: string[];
+  brand: LandingBrand;
   stats: LandingStat[];
   reasons: LandingSection[];
   trainers: LandingTrainer[];
@@ -37,55 +58,77 @@ export interface LandingData {
 
 const FALLBACK_DATA: LandingData = {
   version: 1,
-  navLinks: ['Home', 'Service', 'Trainers', 'Testimonial', 'Coaching', 'Contact Us'],
+  navLinks: ['Inicio', 'Sobre MAO', 'Asesoría Online', 'Planes', 'Testimonios', 'Contacto'],
+  brand: {
+    colors: {
+      primary: '#15aaf2',
+    },
+    font: "Oswald, var(--font-display)",
+    heroSubtitle: 'Transforma tu fuerza en disciplina, tu disciplina en resultado.',
+    heroPhoto: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=1400&h=900&fit=crop',
+    heroPhotoAlt: 'Mao levantando una barra con disco',
+    aboutTitle: 'Sobre Mao Restrepo',
+    aboutPhoto: 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=700&h=700&fit=crop',
+    aboutPhotoAlt: 'Mao entrenando a un atleta',
+    aboutCopy: [
+      "Soy Mao Restrepo — entrenador online con más de 8 años de experiencia preparando atletas para fuerza, resistencia y transformación física.",
+      "Mi filosofía no se basa en dietas mágicas ni ejercicios viralizados. Se trata de un sistema simple: progresión constante, feedback honesto y un plan que se adapte a tu vida real.",
+      "Trabajo con clientes de todo nivel: desde principiantes absolutos hasta atletas competitivos. Lo que todos comparten es un plan a medida — nunca uno-size-fits-all — y una comunicación directa vía WhatsApp para que nunca estés solo en el proceso.",
+    ],
+    contact: {
+      whatsapp: 'https://wa.me/5215512345678',
+      email: 'mao@mrtraining.com',
+      city: 'Ciudad de México, México',
+      socialLinks: [
+        { label: 'Instagram', href: 'https://instagram.com/', icon: 'instagram' },
+        { label: 'YouTube', href: 'https://youtube.com/', icon: 'youtube' },
+      ],
+    },
+  },
   stats: [
-    { value: '20+', label: 'Years of Experience' },
-    { value: '15K+', label: 'Members Join' },
-    { value: '14K+', label: 'Happy Members' },
+    { value: '12K+', label: 'Horas de Entrenamiento' },
+    { value: '8+', label: 'Años de Experiencia' },
+    { value: '300+', label: 'Atletas Transformados' },
   ],
   reasons: [
     {
       n: '01',
-      title: 'Personal Training',
-      copy: 'Our gyms offer personalized training sessions with certified personal trainers who create custom workout plans based on your goals.',
+      title: 'Programación a Medida',
+      copy: 'Cada plan se escribe para ti: objetivos, historial, horarios y limitaciones. Sin plantillas compartidas.',
     },
     {
       n: '02',
-      title: 'Equipment and Facilities',
-      copy: 'Full racks, free weights, and cardio machines, serviced year-round and updated as soon as something wears out.',
+      title: 'Feedback en Tiempo Real',
+      copy: 'Revisamos tus sesiones vía video, ajustamos cargas y corregimos técnica cada semana. No entrenas en soledad.',
     },
     {
       n: '03',
-      title: 'Nutrition Counseling',
-      copy: 'One-on-one nutrition guidance that fits your training block, not a generic sheet handed out at sign-up.',
+      title: 'Seguimiento Nutricional',
+      copy: 'Macros claros, sin restricciones extrema. Planes que caben en tu rutina, no en un libro de cocina.',
     },
     {
       n: '04',
-      title: 'Speciality Programs',
-      copy: 'Powerlifting, bodybuilding prep, and sport-specific conditioning blocks run by coaches who compete themselves.',
+      title: 'Comunidad de Resultados',
+      copy: 'Únete a una comunidad privada de atletas que ya transformaron su cuerpo y comparten tips cada día.',
     },
   ],
   trainers: [
-    { name: 'Borney Exiteid', seed: 'ig-trainer-1' },
-    { name: 'Elsa Windia', seed: 'ig-trainer-2' },
-    { name: 'Georege Aryo', seed: 'ig-trainer-3' },
-    { name: 'Mika Thornton', seed: 'ig-trainer-4' },
-    { name: 'Priya Sharma', seed: 'ig-trainer-5' },
+    { name: 'Mao Restrepo', seed: 'ig-trainer-1' },
   ],
   testimonials: [
     {
-      quote: 'I am extremely grateful for the positive impact gym training has had on my life; through consistent training and expert guidance from coaches, I\'ve witnessed a remarkable transformation in strength, endurance, and overall fitness.',
-      name: 'Jhony Breaker',
+      quote: 'En 12 semanas subí 18 kg a mi press de banca y aprendí a comer sin pasar hambre. La claridad de Mao sobre progresión real es brutal.',
+      name: 'Andrés R.',
       seed: 'ig-testi-1',
     },
     {
-      quote: 'The coaches here don\'t let you coast. Every session has a plan, and every plan gets adjusted based on how last week actually went.',
-      name: 'Maria Ortiz',
+      quote: 'Vine sin saber levantar una pesa. Ahora marqué mi primera competencia de powerlifting y Mao marcó 1º lugar en mi categoría.',
+      name: 'Valeria M.',
       seed: 'ig-testi-2',
     },
     {
-      quote: 'Six months ago I couldn\'t do a single pull-up. The specialty program got me to five clean reps, and I\'m still counting.',
-      name: 'Dev Patel',
+      quote: 'La diferencia es que Mao no te deja fallar. Si una semana te fue mal, ya es lunes y ajusta todo. Eso da resultados.',
+      name: 'Luis F.',
       seed: 'ig-testi-3',
     },
   ],
