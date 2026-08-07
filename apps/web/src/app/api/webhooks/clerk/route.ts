@@ -3,6 +3,23 @@ import { Webhook } from 'svix';
 import { getDB, generateUniqueCoachCode } from '@/lib/coach-isolation-db';
 
 const webhookSecret = process.env.CLERK_WEBHOOK_SECRET || '';
+const clerkSecretKey = process.env.CLERK_SECRET_KEY || '';
+
+async function setClerkMetadata(userId: string, metadata: Record<string, unknown>) {
+  if (!clerkSecretKey) return;
+  try {
+    await fetch(`https://api.clerk.com/v1/users/${userId}/metadata`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${clerkSecretKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ public_metadata: metadata }),
+    });
+  } catch (err) {
+    console.error('Failed to set Clerk metadata:', err);
+  }
+}
 
 export async function POST(req: Request) {
   if (!webhookSecret) {
@@ -32,27 +49,25 @@ export async function POST(req: Request) {
     const name = `${(first_name as string) ?? ''} ${(last_name as string) ?? ''}`.trim() || email;
     const avatar = (image_url as string) ?? '';
 
-    // Check if user already exists
     const existing = await db.execute({
       sql: 'SELECT id FROM users WHERE id = ?',
       args: [id as string],
     });
 
     if (existing.rows.length === 0) {
-      // Create user record
+      const coachCode = await generateUniqueCoachCode();
+
       await db.execute({
         sql: `INSERT INTO users (id, email, name, avatar_url, role) VALUES (?, ?, ?, ?, 'coach')`,
         args: [id as string, email, name, avatar],
       });
 
-      // Generate unique coach code
-      const coachCode = await generateUniqueCoachCode();
-
-      // Create coach profile with code
       await db.execute({
         sql: `INSERT INTO coaches (id, email, name, avatar_url, coach_code) VALUES (?, ?, ?, ?, ?)`,
         args: [id as string, email, name, avatar, coachCode],
       });
+
+      await setClerkMetadata(id as string, { role: 'coach', coachCode });
     }
   }
 

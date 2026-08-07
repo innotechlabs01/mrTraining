@@ -1,7 +1,8 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@clerk/nextjs';
 import { AuthShell } from '@/features/auth/components/AuthShell';
 import { SignInForm } from '@/features/auth/components/SignInForm';
 import { motion } from 'framer-motion';
@@ -14,7 +15,14 @@ const ROLES = [
 
 export default function SignInPage() {
   const router = useRouter();
+  const { isSignedIn, isLoaded } = useAuth();
   const [role, setRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.replace('/coach');
+    }
+  }, [isLoaded, isSignedIn, router]);
 
   const handleSuccess = () => {
     router.push('/coach');
@@ -26,7 +34,7 @@ export default function SignInPage() {
         {!role ? (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-text-secondary text-center mb-2">I am a:</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-col-6 gap-3">
               {ROLES.map((r) => (
                 <motion.button
                   key={r.id}
@@ -44,12 +52,12 @@ export default function SignInPage() {
                 </motion.button>
               ))}
             </div>
-            <button
+            {/* <button
               onClick={() => setRole('athlete')}
               className="mt-2 text-xs text-text-muted hover:text-text-secondary transition-colors"
             >
               Skip & continue as Athlete
-            </button>
+            </button> */}
           </div>
         ) : (
           <SignInForm

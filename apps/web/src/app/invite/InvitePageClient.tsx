@@ -1,0 +1,193 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Copy, Check, Smartphone, Download, ExternalLink } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const EXPO_GO_URL = process.env.NEXT_PUBLIC_EXPO_GO_URL || 'exp://@innotechlabssas/mr-training';
+const APP_SCHEME = process.env.NEXT_PUBLIC_APP_SCHEME || 'mrtraining';
+
+function InviteContent() {
+  const searchParams = useSearchParams();
+  const code = searchParams.get('code') || '';
+  const [copied, setCopied] = useState(false);
+  const [coachName, setCoachName] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!code) {
+      setLoading(false);
+      return;
+    }
+    fetch(`/api/athlete/validate-code?code=${encodeURIComponent(code)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.valid && data?.coach?.name) {
+          setCoachName(data.coach.name);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [code]);
+
+  const expoGoLink = code ? `${EXPO_GO_URL}/--/invite?code=${encodeURIComponent(code)}` : '';
+  const appLink = code ? `${APP_SCHEME}://invite?code=${encodeURIComponent(code)}` : '';
+
+  const handleCopy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const input = document.createElement('input');
+      input.value = text;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleOpenExpoGo = () => {
+    if (expoGoLink) {
+      window.location.href = expoGoLink;
+    }
+  };
+
+  const handleOpenApp = () => {
+    if (appLink) {
+      window.location.href = appLink;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-surface-0 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-brand-primary/10 text-brand-primary font-display font-bold text-sm">
+              MR
+            </div>
+            <span className="font-display text-lg font-semibold text-text-primary tracking-wide">
+              MR Training
+            </span>
+          </div>
+          <h1 className="text-2xl font-display font-bold text-text-primary">
+            Únete a MR Training
+          </h1>
+          {loading ? (
+            <p className="text-sm text-text-secondary mt-2">Cargando...</p>
+          ) : coachName ? (
+            <p className="text-sm text-text-secondary mt-2">
+              Has sido invitado por <strong className="text-text-primary">{coachName}</strong>
+            </p>
+          ) : (
+            <p className="text-sm text-text-secondary mt-2">
+              Has sido invitado a unirte a un equipo
+            </p>
+          )}
+        </div>
+
+        {!code ? (
+          <div className="rounded-2xl border border-white/10 bg-surface-1 p-6 text-center">
+            <p className="text-text-secondary">
+              Link de invitación inválido. Solicita un nuevo código a tu coach.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-brand-primary/20 bg-brand-primary/5 p-6 text-center">
+              <p className="text-xs text-text-secondary uppercase tracking-wider mb-2">Código del equipo</p>
+              <p className="text-4xl font-mono font-bold text-brand-primary tracking-[0.2em]">
+                {code}
+              </p>
+              <button
+                onClick={() => handleCopy(code)}
+                className="mt-4 inline-flex items-center gap-1.5 text-sm text-brand-primary hover:text-brand-primary-hover transition-colors"
+              >
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+                {copied ? 'Copiado' : 'Copiar código'}
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-surface-1 p-6 space-y-4">
+              <h2 className="text-sm font-semibold text-text-primary text-center">Abrir en la app</h2>
+
+              <button
+                onClick={handleOpenExpoGo}
+                className={cn(
+                  'w-full flex items-center justify-center gap-2 h-12 rounded-xl bg-brand-primary text-white font-semibold text-sm',
+                  'hover:bg-brand-primary/90 transition-colors'
+                )}
+              >
+                <Smartphone size={18} />
+                Abrir en Expo Go
+              </button>
+
+              <button
+                onClick={handleOpenApp}
+                className={cn(
+                  'w-full flex items-center justify-center gap-2 h-12 rounded-xl border border-white/10 bg-surface-2 text-text-primary font-semibold text-sm',
+                  'hover:bg-surface-3 transition-colors'
+                )}
+              >
+                <ExternalLink size={18} />
+                Abrir en MR Training
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-surface-1 p-6">
+              <h3 className="text-sm font-semibold text-text-primary mb-4 flex items-center gap-2">
+                <Download size={16} />
+                ¿No tienes la app?
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <a
+                  href="https://apps.apple.com/app/expo-go/id982107779"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 h-11 rounded-xl border border-white/10 bg-surface-2 text-text-primary text-sm font-medium hover:bg-surface-3 transition-colors"
+                >
+                  App Store
+                </a>
+                <a
+                  href="https://play.google.com/store/apps/details?id=host.exp.exponent"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 h-11 rounded-xl border border-white/10 bg-surface-2 text-text-primary text-sm font-medium hover:bg-surface-3 transition-colors"
+                >
+                  Play Store
+                </a>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-surface-1 p-5">
+              <h3 className="text-sm font-semibold text-text-primary mb-3">Cómo unirte</h3>
+              <ol className="space-y-3 text-sm text-text-secondary">
+                <li className="flex items-start gap-3">
+                  <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary text-xs flex items-center justify-center shrink-0">1</span>
+                  <span>Descarga Expo Go desde App Store o Play Store</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary text-xs flex items-center justify-center shrink-0">2</span>
+                  <span>Toca &quot;Abrir en Expo Go&quot; arriba</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary text-xs flex items-center justify-center shrink-0">3</span>
+                  <span>Si no se abre automáticamente, abre Expo Go, carga MR Training y escribe el código</span>
+                </li>
+              </ol>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function InvitePageClient() {
+  return <InviteContent />;
+}

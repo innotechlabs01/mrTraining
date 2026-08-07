@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader2 } from 'lucide-react';
-import { useSignIn } from '@clerk/nextjs';
+import { Mail, KeyRound, ArrowLeft, Loader2, LogOut } from 'lucide-react';
+import { useSignIn, useClerk } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
 import { ErrorState } from './ErrorState';
 import { translateClerkError } from '../clerk-errors';
@@ -17,24 +17,22 @@ interface SignInFormProps {
   role?: string;
 }
 
-type Step = 'email' | 'password';
+type Step = 'email' | 'code';
 
-export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignInFormProps) {
+export function SignInForm({ onSuccess, onBack, role }: SignInFormProps) {
   const searchParams = useSearchParams();
   const { signIn, isLoaded, setActive } = useSignIn();
+  const { signOut } = useClerk();
 
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState(searchParams.get('email') ?? '');
   const plan = searchParams.get('plan');
   const signUpHref = `/sign-up${plan ? `?plan=${plan}` : ''}`;
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   const validateEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
-
-  const redirectUrlComplete = '/coach';
 
   const handleOAuth = async (strategy: 'oauth_google' | 'oauth_apple') => {
     if (!isLoaded || !signIn) return;
@@ -42,7 +40,7 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignIn
       await signIn.authenticateWithRedirect({
         strategy,
         redirectUrl: '/sso-callback',
-        redirectUrlComplete,
+        redirectUrlComplete: '/coach',
       });
     } catch (err: unknown) {
       setError(translateClerkError(err, 'No se pudo iniciar con el proveedor.'));
@@ -60,16 +58,28 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignIn
     setError('');
 
     try {
-      await signIn.create({ identifier: email });
-      setStep('password');
+      const result = await signIn.create({ identifier: email });
+      const emailFactor = result.supportedFirstFactors?.find(
+        (f) => f.strategy === 'email_code',
+      );
+      const emailAddressId = emailFactor?.emailAddressId;
+      if (!emailAddressId) {
+        setError('No se pudo enviar el código. Verifica tu correo.');
+        return;
+      }
+      await signIn.prepareFirstFactor({
+        strategy: 'email_code',
+        emailAddressId,
+      });
+      setStep('code');
     } catch (err: unknown) {
-      setError(translateClerkError(err, 'No se pudo iniciar sesión. Inténtalo de nuevo.'));
+      setError(translateClerkError(err, 'No se pudo enviar el código. Inténtalo de nuevo.'));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handlePasswordSubmit = async () => {
+  const handleCodeSubmit = async () => {
     if (!isLoaded || !signIn || !setActive) return;
 
     setIsLoading(true);
@@ -77,18 +87,47 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignIn
 
     try {
       const result = await signIn.attemptFirstFactor({
-        strategy: 'password',
-        password,
+        strategy: 'email_code',
+        code,
       });
 
-      if (result.status === 'needs_second_factor') {
-        setError('Two-factor authentication is required.');
-      } else if (result.status === 'complete') {
+      if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
         onSuccess?.();
+      } else if (result.status === 'needs_second_factor') {
+        if (result.createdSessionId) {
+          await setActive({ session: result.createdSessionId });
+          onSuccess?.();
+        } else {
+          setError('Se requiere verificación adicional. Contacta al administrador.');
+        }
+      } else {
+        setError('Estado inesperado. Inténtalo de nuevo.');
       }
     } catch (err: unknown) {
-      setError(translateClerkError(err, 'No se pudo iniciar sesión. Inténtalo de nuevo.'));
+      setError(translateClerkError(err, 'Código incorrecto. Inténtalo de nuevo.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (!isLoaded || !signIn) return;
+    setIsLoading(true);
+    setError('');
+    try {
+      const emailFactor = signIn.supportedFirstFactors?.find(
+        (f) => f.strategy === 'email_code',
+      );
+      const emailAddressId = emailFactor?.emailAddressId;
+      if (emailAddressId) {
+        await signIn.prepareFirstFactor({
+          strategy: 'email_code',
+          emailAddressId,
+        });
+      }
+    } catch (err: unknown) {
+      setError(translateClerkError(err, 'No se pudo reenviar el código.'));
     } finally {
       setIsLoading(false);
     }
@@ -97,7 +136,12 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignIn
   const handleBackToEmail = () => {
     setStep('email');
     setError('');
-    setPassword('');
+    setCode('');
+  };
+
+  const handleForceSignOut = async () => {
+    await signOut();
+    window.location.reload();
   };
 
   const stepVariants = {
@@ -116,7 +160,20 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignIn
 
   return (
     <div className="flex flex-col gap-6">
-      {error && <ErrorState message={error} onRetry={() => setError('')} />}
+      {error && (
+        <div className="flex flex-col gap-2">
+          <ErrorState message={error} onRetry={() => setError('')} />
+          {error.includes('sesión activa') && (
+            <button
+              onClick={handleForceSignOut}
+              className="flex items-center justify-center gap-2 h-10 rounded-md border border-red-500/30 bg-red-500/10 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              Cerrar sesión y volver a intentar
+            </button>
+          )}
+        </div>
+      )}
 
       {step === 'email' && (
         <div className="flex flex-col gap-3">
@@ -198,7 +255,7 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignIn
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                'Continue'
+                'Send verification code'
               )}
             </button>
 
@@ -215,7 +272,7 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignIn
           </motion.div>
         ) : (
           <motion.div
-            key="password"
+            key="code"
             initial="initial"
             animate="animate"
             exit="exit"
@@ -233,38 +290,36 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignIn
               <span className="shrink-0 text-brand-primary font-medium">Change</span>
             </button>
 
+            <div className="rounded-lg bg-brand-primary/5 border border-brand-primary/20 p-3">
+              <p className="text-sm text-text-secondary">
+                Se envió un código de verificación a <strong className="text-text-primary">{email}</strong>. Revisa tu correo.
+              </p>
+            </div>
+
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" />
+              <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" />
               <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); setError(''); }}
-                onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
-                placeholder="Password"
-                autoComplete="current-password"
+                type="text"
+                value={code}
+                onChange={(e) => { setCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(''); }}
+                onKeyDown={(e) => e.key === 'Enter' && handleCodeSubmit()}
+                placeholder="Enter 6-digit code"
+                autoComplete="one-time-code"
                 autoFocus
+                maxLength={6}
                 className={cn(
-                  'h-12 w-full rounded-md bg-surface-2 pl-10 pr-10 text-body-sm text-text-primary',
-                  'border border-surface-6 placeholder:text-text-secondary/50',
+                  'h-12 w-full rounded-md bg-surface-2 pl-10 pr-4 text-body-sm text-text-primary tracking-[0.3em] font-mono',
+                  'border border-surface-6 placeholder:text-text-secondary/50 placeholder:tracking-normal placeholder:font-sans',
                   'transition-all duration-200',
                   'focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/30',
                 )}
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary transition-colors hover:text-text-primary"
-                tabIndex={-1}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
             </div>
 
             <button
               type="button"
-              onClick={handlePasswordSubmit}
-              disabled={isLoading || !password}
+              onClick={handleCodeSubmit}
+              disabled={isLoading || code.length < 6}
               className={cn(
                 'flex h-12 w-full items-center justify-center gap-2 rounded-md bg-brand-primary text-body-sm font-semibold text-white',
                 'transition-all duration-200 hover:bg-brand-primary-hover',
@@ -275,16 +330,17 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignIn
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                'Sign In'
+                'Verify'
               )}
             </button>
 
             <button
               type="button"
-              onClick={onForgotPassword}
-              className="text-body-sm text-text-secondary transition-colors duration-200 hover:text-text-primary"
+              onClick={handleResendCode}
+              disabled={isLoading}
+              className="text-body-sm text-text-secondary transition-colors duration-200 hover:text-text-primary disabled:opacity-50"
             >
-              Forgot password?
+              Didn&apos;t receive the code? <span className="text-brand-primary font-medium">Resend</span>
             </button>
           </motion.div>
         )}

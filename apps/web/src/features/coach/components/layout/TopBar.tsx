@@ -3,7 +3,7 @@
 import { Bell, Menu, LogOut, Clock } from 'lucide-react'
 import { useToday } from '../../hooks/useToday'
 import { useMessages } from '../../hooks/useMessages'
-import { useMockAuth } from '@/features/auth/contexts/MockAuthContext'
+import { useAuth } from '@/features/auth/contexts/MockAuthContext'
 import { useCoachPanel } from './CoachPanelContext'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -24,7 +24,7 @@ export function TopBar({ onMenuClick, user }: { onMenuClick: () => void; user: {
   const { currentBlock } = useToday()
   const { unreadCount } = useMessages()
   const { openPanel } = useCoachPanel()
-  const { logout } = useMockAuth()
+  const { logout } = useAuth()
 
   return (
     <header className="fixed top-0 left-0 right-0 h-14 bg-surface-1/85 backdrop-blur-xl border-b border-surface-3 z-20 flex items-center justify-between px-4 lg:px-6">
@@ -79,7 +79,7 @@ export function TopBar({ onMenuClick, user }: { onMenuClick: () => void; user: {
           </div>
           <button
             type="button"
-            onClick={() => { logout(); window.location.href = '/' }}
+            onClick={() => logout()}
             className="p-1.5 rounded-lg text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all"
             aria-label="Cerrar sesion"
           >

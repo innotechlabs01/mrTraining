@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { PanelState, PanelType } from '../../types'
 import { useRequireAuth } from '@/features/auth/contexts/MockAuthContext'
+import { useSessionTimeout } from '@/features/auth/hooks/useSessionTimeout'
 import { CoachProfileProvider } from '@/features/coach/contexts/CoachProfileContext'
 import type { CoachPlan, CoachLevel } from '@/features/coach/contexts/CoachProfileContext'
 import { CoachPanelContext } from './CoachPanelContext'
@@ -14,6 +15,7 @@ export { useCoachPanel } from './CoachPanelContext'
 
 export default function CoachLayout({ children }: { children: React.ReactNode }) {
   const { user } = useRequireAuth()
+  useSessionTimeout()
   const [panel, setPanel] = useState<PanelState>({ type: null, data: {} })
   const [sidebarOpen, setSidebarOpen] = useState(false)
 

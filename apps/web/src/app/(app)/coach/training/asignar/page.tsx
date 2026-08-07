@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { Search, Check, Dumbbell, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAthletes } from '@/features/coach/hooks/useAthletes'
-import { useMockAuth } from '@/features/auth/contexts/MockAuthContext'
+import { useAuth } from '@/features/auth/contexts/MockAuthContext'
 import { workoutApi, type Workout } from '@/features/shared/api/client'
 import type { TrainingMode } from '@/features/coach/types'
 
@@ -65,7 +65,7 @@ const MODALITIES: { label: string; value: TrainingMode }[] = [
 
 export default function CoachAsignarPage() {
   const { athletes } = useAthletes()
-  const { user } = useMockAuth()
+  const { user } = useAuth()
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>([])
   const [assignType, setAssignType] = useState<AssignType>('workout')
   const [selectedContent, setSelectedContent] = useState('')

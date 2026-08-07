@@ -37,7 +37,6 @@ next-env.d.ts
 # React Native / iOS
 apps/apps/mobile/ios/Pods/
 apps/apps/mobile/ios/build/
-apps/apps/mobile/ios/MRTraining.xcworkspace/
 
 # React Native / Android
 apps/apps/mobile/android/.gradle/
@@ -45,5 +44,15 @@ apps/apps/mobile/android/app/build/
 apps/apps/mobile/android/build/
 apps/apps/mobile/android/local.properties
 
-# Mobile package-lock (we use pnpm)
+# Expo
+apps/apps/mobile/.expo/
+apps/apps/mobile/dist/
+
+# Local dev databases
+apps/web/local.db
+
+# IDE / Agent settings
+apps/apps/mobile/.claude/
+
+# Mobile package-lock (we use pnpm for web/backend)
 apps/apps/mobile/package-lock.json

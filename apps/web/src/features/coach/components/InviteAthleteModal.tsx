@@ -22,28 +22,35 @@ export function InviteAthleteModal({ isOpen, onClose }: InviteAthleteModalProps)
       fetch('/api/coach/profile')
         .then(res => res.json())
         .then(data => {
-          setCoachCode(data.coachCode || data.coach_code || '')
+          const coach = data?.coach
+          setCoachCode(coach?.coach_code || coach?.coachCode || '')
         })
         .catch(() => {})
         .finally(() => setLoading(false))
     }
   }, [isOpen, user])
 
-  const deepLink = coachCode
-    ? `mrtraining://invite?code=${coachCode}`
-    : ''
+  const webInviteUrl = process.env.NEXT_PUBLIC_WEB_INVITE_URL || 'https://mr-training.vercel.app/invite'
 
-  const webLink = coachCode
-    ? `https://app.mrtraining.com/invite?code=${coachCode}`
+  const inviteLink = coachCode
+    ? `${webInviteUrl}?code=${coachCode}`
     : ''
 
   const handleCopy = async () => {
+    if (!inviteLink) return
     try {
-      await navigator.clipboard.writeText(deepLink)
+      await navigator.clipboard.writeText(inviteLink)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      // Fallback
+      const input = document.createElement('input')
+      input.value = inviteLink
+      document.body.appendChild(input)
+      input.select()
+      document.execCommand('copy')
+      document.body.removeChild(input)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     }
   }
 
@@ -53,7 +60,7 @@ export function InviteAthleteModal({ isOpen, onClose }: InviteAthleteModalProps)
         await navigator.share({
           title: 'Join my MR Training team',
           text: `Use my code ${coachCode} to join my team on MR Training`,
-          url: webLink,
+          url: inviteLink,
         })
       } catch {}
     }
@@ -105,7 +112,7 @@ export function InviteAthleteModal({ isOpen, onClose }: InviteAthleteModalProps)
                 <p className="text-xs text-white/40 mb-2">Share this link with your athlete</p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 text-xs text-white/70 bg-surface-1 px-3 py-2 rounded-lg overflow-hidden overflow-ellipsis whitespace-nowrap">
-                    {deepLink}
+                    {inviteLink}
                   </code>
                   <button
                     onClick={handleCopy}

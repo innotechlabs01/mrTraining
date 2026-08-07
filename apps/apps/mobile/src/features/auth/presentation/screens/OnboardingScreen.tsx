@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
   nextText: { fontSize: 17, fontWeight: '700', color: '#FFF' },
   backLink: { paddingVertical: 8, marginTop: 4 },
   backText: { fontSize: 15, color: '#98989D', fontWeight: '600' },
-  desc: { fontSize: 15, color: #98989D, marginBottom: 24, lineHeight: 22 },
+  desc: { fontSize: 15, color: '#98989D', marginBottom: 24, lineHeight: 22 },
   choiceCard: { flexDirection: "row", alignItems: "center", gap: 16, padding: 20, borderRadius: 18, borderWidth: 1.5, borderColor: "#1C1C1E", backgroundColor: "#1C1C1E", marginBottom: 12 },
   choiceIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: "#FF8C3D10", justifyContent: "center", alignItems: "center" },
   choiceEmoji: { fontSize: 24 },

@@ -2,51 +2,37 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
+import { useUser, useClerk } from '@clerk/nextjs'
 
-export interface MockUser {
+export interface AuthUser {
   id: string
   name: string
   email: string
   role: string
   initials: string
-  coachPlan?: string
-  coachLevel?: string
-  specialization?: string
-  athletesCount?: number
   coachId?: string
+  coachCode?: string
 }
 
-const PREDEFINED_USERS: MockUser[] = [
-  { id: 'coach-1', name: 'Alex Rivera', email: 'alex@mr-training.com', role: 'Head Coach', initials: 'AR', coachPlan: 'performance', coachLevel: 'expert', specialization: 'Sports Performance', athletesCount: 12 },
-  { id: 'coach-2', name: 'María González', email: 'maria@mr-training.com', role: 'Strength Coach', initials: 'MG', coachPlan: 'strength', coachLevel: 'advanced', specialization: 'Strength & Conditioning', athletesCount: 8 },
-  { id: 'coach-3', name: 'James Chen', email: 'james@mr-training.com', role: 'Performance Coach', initials: 'JC', coachPlan: 'general', coachLevel: 'intermediate', specialization: 'General Fitness', athletesCount: 5 },
-]
-
-interface MockAuthContextValue {
-  user: MockUser | null
+interface AuthContextValue {
+  user: AuthUser | null
   isLoggedIn: boolean
   loading: boolean
-  login: (user: MockUser) => void
-  logout: () => void
-  users: MockUser[]
+  logout: () => Promise<void>
 }
 
-const MockAuthContext = createContext<MockAuthContextValue | null>(null)
+const AuthContext = createContext<AuthContextValue | null>(null)
 
-const STORAGE_KEY = 'mr-training-mock-user'
-
-function clerkUserToMockUser(user: {
-  id: string;
-  firstName: string | null | undefined;
-  lastName: string | null | undefined;
-  emailAddresses: Array<{ emailAddress: string }>;
-  publicMetadata?: Record<string, unknown>;
-  privateMetadata?: Record<string, unknown>;
-}): MockUser | null {
-  const role = (user.publicMetadata?.role as string) || (user.privateMetadata?.role as string);
-  if (!role) return null;
-  const initials = `${(user.firstName?.[0] || '')}${(user.lastName?.[0] || '')}`.toUpperCase();
+function clerkUserToAuthUser(user: {
+  id: string
+  firstName: string | null | undefined
+  lastName: string | null | undefined
+  emailAddresses: Array<{ emailAddress: string }>
+  publicMetadata?: Record<string, unknown>
+  privateMetadata?: Record<string, unknown>
+}): AuthUser {
+  const role = (user.publicMetadata?.role as string) || (user.privateMetadata?.role as string) || 'coach'
+  const initials = `${(user.firstName?.[0] || '')}${(user.lastName?.[0] || '')}`.toUpperCase()
   return {
     id: user.id,
     name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.emailAddresses[0]?.emailAddress || '',
@@ -54,12 +40,15 @@ function clerkUserToMockUser(user: {
     role,
     initials: initials || user.id.slice(0, 2).toUpperCase(),
     coachId: (user.publicMetadata?.coachId as string) || (user.privateMetadata?.coachId as string),
-  };
+    coachCode: (user.publicMetadata?.coachCode as string) || undefined,
+  }
 }
 
-export function MockAuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, user } = useUser()
-  const [mockUser, setMockUser] = useState<MockUser | null>(null)
+  const { signOut } = useClerk()
+  const router = useRouter()
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -67,52 +56,50 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
     setMounted(true)
 
     if (isSignedIn && user) {
-      const clerkUser = clerkUserToMockUser(user)
-      if (clerkUser) {
-        setMockUser(clerkUser)
-        return
-      }
-    }
+      const mapped = clerkUserToAuthUser(user)
+      setAuthUser(mapped)
 
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      try {
-        setMockUser(JSON.parse(stored))
-      } catch { }
+      if (!user.publicMetadata?.role) {
+        fetch('/api/user/sync-metadata', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id }),
+        }).catch(() => {});
+      }
+    } else {
+      setAuthUser(null)
     }
   }, [isLoaded, isSignedIn, user])
 
-  const login = useCallback((u: MockUser) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(u))
-    setMockUser(u)
-  }, [])
+  const logout = useCallback(async () => {
+    setAuthUser(null)
+    await signOut()
+    router.replace('/sign-in')
+  }, [signOut, router])
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY)
-    setMockUser(null)
-  }, [])
+  const isLoggedIn = mounted && !!isSignedIn
 
   return (
-    <MockAuthContext.Provider value={{ user: mockUser, isLoggedIn: !!mockUser && mounted, loading: !mounted, login, logout, users: PREDEFINED_USERS }}>
+    <AuthContext.Provider value={{ user: authUser, isLoggedIn, loading: !mounted, logout }}>
       {children}
-    </MockAuthContext.Provider>
+    </AuthContext.Provider>
   )
 }
 
-export function useMockAuth(): MockAuthContextValue {
-  const ctx = useContext(MockAuthContext)
-  if (!ctx) throw new Error('useMockAuth must be used within MockAuthProvider')
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
   return ctx
 }
 
 export function useRequireAuth() {
-  const auth = useMockAuth()
+  const auth = useAuth()
   const router = useRouter()
 
   useEffect(() => {
     if (auth.loading) return
     if (!auth.isLoggedIn) {
-      router.replace('/coach/login')
+      router.replace('/sign-in')
     }
   }, [auth.isLoggedIn, auth.loading, router])
 

@@ -2,11 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { WelcomeDashboard } from '@/features/auth/components/WelcomeDashboard';
-import { useMockAuth } from '@/features/auth/contexts/MockAuthContext';
+import { useAuth } from '@/features/auth/contexts/MockAuthContext';
 
 export default function WelcomeDashboardPage() {
   const router = useRouter();
-  const { user } = useMockAuth();
+  const { user } = useAuth();
 
   const handleGoToDashboard = () => {
       router.push('/coach/plan');
