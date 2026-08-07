@@ -58,6 +58,10 @@ export interface LandingData {
     title: string;
     subtitle: string;
   };
+  plans: {
+    title: string;
+    subtitle: string;
+  };
   updatedAt: string;
 }
 
@@ -144,6 +148,10 @@ const FALLBACK_DATA: LandingData = {
   blog: {
     title: 'Blog',
     subtitle: 'Técnicas, progresos y lecciones detrás del proceso.',
+  },
+  plans: {
+    title: 'Planes',
+    subtitle: 'Elige el acompañamiento que se ajuste a tu nivel y objetivo.',
   },
   updatedAt: new Date().toISOString(),
 };

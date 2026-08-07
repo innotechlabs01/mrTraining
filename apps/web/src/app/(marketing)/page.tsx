@@ -16,6 +16,12 @@ async function fetchPublicBlogPosts() {
   return res.json() as Promise<Array<{ id: string; slug: string; title: string; excerpt: string; category: string; imageUrl?: string; readTimeMinutes: number; views: number }>>;
 }
 
+async function fetchPublicPlans() {
+  const res = await fetch('/api/marketing/plans');
+  if (!res.ok) return [];
+  return res.json() as Promise<Array<{ id: string; name: string; description?: string; price: number; currency?: string; billingPeriod?: string; features?: string[] }>>;
+}
+
 function Icon({ name, ...rest }: { name: string } & React.SVGProps<SVGSVGElement>) {
   const common = {
     width: 20,
@@ -100,6 +106,8 @@ export default function Page() {
   const [productsHydrated, setProductsHydrated] = useState(false);
   const [blogPosts, setBlogPosts] = useState<Array<{ id: string; slug: string; title: string; excerpt: string; category: string; imageUrl?: string; readTimeMinutes: number; views: number }>>([]);
   const [blogHydrated, setBlogHydrated] = useState(false);
+  const [plans, setPlans] = useState<Array<{ id: string; name: string; description?: string; price: number; currency?: string; billingPeriod?: string; features?: string[] }>>([]);
+  const [plansHydrated, setPlansHydrated] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -121,15 +129,19 @@ export default function Page() {
     fetchPublicBlogPosts()
       .then((b) => { setBlogPosts(b); setBlogHydrated(true); })
       .catch(() => setBlogHydrated(true));
+
+    fetchPublicPlans()
+      .then((p) => { setPlans(p); setPlansHydrated(true); })
+      .catch(() => setPlansHydrated(true));
   }, []);
 
   const navHref = (label: string) => {
     const map: Record<string, string> = {
       Inicio: '#home',
       'Sobre MAO': '#about',
-      'Asesoría Online': '/planes',
-      Planes: '/planes',
-       Testimonios: '#testimonials',
+      'Asesoría Online': '#planes',
+      Planes: '#planes',
+      Testimonios: '#testimonials',
       Tienda: '#tienda',
       Blog: '#blog',
       Contacto: '#contact',
@@ -152,6 +164,7 @@ export default function Page() {
   const brand = data.brand ?? FALLBACK_BRAND;
   const tienda = data.tienda ?? { title: 'Tienda', copy: 'Accesorios y suplementos recomendados.' };
   const blog = data.blog ?? { title: 'Blog', subtitle: 'Artículos, técnicas y progresos.' };
+  const plansSection = data.plans ?? { title: 'Planes', subtitle: 'Elige el acompañamiento que se ajuste a tu nivel y objetivo.' };
 
   return (
     <div className='ig-root'>
@@ -332,6 +345,25 @@ export default function Page() {
 
          .ig-grid { display: grid; gap: 24px; }
 
+         .ig-plan-card {
+           background: var(--surface);
+           border: 1px solid var(--line);
+           border-radius: 16px;
+           padding: 24px;
+           display: flex;
+           flex-direction: column;
+           transition: transform .15s, border-color .15s;
+         }
+         .ig-plan-card:hover { transform: translateY(-2px); border-color: var(--red); }
+         .ig-plan-header { margin-bottom: 16px; }
+         .ig-plan-name { font-family: var(--font-display); font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+         .ig-plan-price { font-family: var(--font-display); font-size: 32px; font-weight: 700; color: var(--red); margin: 0; }
+         .ig-plan-price span { font-size: 14px; color: var(--muted); font-weight: 500; }
+         .ig-plan-desc { font-size: 13px; color: var(--muted); margin: 0 0 16px; line-height: 1.5; }
+         .ig-plan-features { list-style: none; padding: 0; margin: 0 0 20px; flex: 1; }
+         .ig-plan-features li { font-size: 12.5px; color: var(--muted); padding: 6px 0; border-bottom: 1px solid var(--line); }
+         .ig-plan-features li:before { content: '✓'; color: var(--red); margin-right: 8px; }
+
          .ig-contact-grid { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 60px; }
         .ig-contact-info h3 { font-family: var(--font-display); font-weight: 700; font-size: 26px; margin: 0 0 16px; }
         .ig-contact-info .ig-contact-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; color: var(--muted); font-size: 14px; }
@@ -465,6 +497,43 @@ export default function Page() {
           <div className='ig-exp-photo'>
             <img src={brand.aboutPhoto} alt={brand.aboutPhotoAlt} />
           </div>
+        </div>
+      </section>
+
+      <section className="ig-section" id="planes">
+        <div className="ig-container">
+          <h2 className="ig-section-title">{plansSection.title}</h2>
+          <p className="ig-section-subtitle" style={{ textAlign: 'center', maxWidth: '700px', margin: '0 auto 40px' }}>{plansSection.subtitle}</p>
+
+          {!plansHydrated ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-var(--red)" />
+            </div>
+          ) : plans.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'var(--muted)', padding: '40px' }}>Próximamente planes disponibles.</p>
+          ) : (
+            <div className="ig-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px' }}>
+              {plans.map((plan) => (
+                <div key={plan.id} className="ig-card ig-plan-card">
+                  <div className="ig-plan-header">
+                    <h3 className="ig-plan-name">{plan.name}</h3>
+                    <p className="ig-plan-price">${plan.price}<span>/{plan.billingPeriod || 'mes'}</span></p>
+                  </div>
+                  {plan.description && <p className="ig-plan-desc">{plan.description}</p>}
+                  {plan.features && plan.features.length > 0 && (
+                    <ul className="ig-plan-features">
+                      {plan.features.map((f, i) => (
+                        <li key={i}>{f}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <a href={`/planes?id=${plan.id}`} className="ig-btn ig-btn-outline" style={{ width: '100%', marginTop: 'auto' }}>
+                    Elegir plan
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

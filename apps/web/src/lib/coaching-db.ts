@@ -1288,6 +1288,63 @@ export async function getPublicBlogPostBySlug(coachSlug: string, slug: string) {
   }
 }
 
+export async function getAllPublicBlogPosts() {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM blog_posts WHERE is_published = 1 ORDER BY published_at DESC, created_at DESC',
+  )
+  const posts: BlogPost[] = []
+  for (const r of result.rows) {
+    const meta = await db.execute('SELECT * FROM blog_post_meta WHERE post_id = ?', [r.id as string])
+    posts.push({
+      id: r.id as string,
+      slug: r.slug as string,
+      title: r.title as string,
+      excerpt: r.excerpt as string,
+      content: r.content as string,
+      category: r.category as string,
+      tags: r.tags ? JSON.parse(r.tags as string) : [],
+      imageUrl: r.image_url as string,
+      isPublished: r.is_published === 1,
+      publishedAt: r.published_at as string,
+      coachId: r.coach_id as string,
+      createdAt: r.created_at as string,
+      updatedAt: r.updated_at as string,
+      readTimeMinutes: (meta.rows[0]?.read_time_minutes as number) || 5,
+      views: (meta.rows[0]?.views as number) || 0,
+    })
+  }
+  return posts
+}
+
+export async function getAllPublicBlogPostBySlug(slug: string) {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM blog_posts WHERE slug = ? AND is_published = 1',
+    [slug],
+  )
+  if (result.rows.length === 0) return null
+  const r = result.rows[0]
+  const meta = await db.execute('SELECT * FROM blog_post_meta WHERE post_id = ?', [r.id as string])
+  return {
+    id: r.id as string,
+    slug: r.slug as string,
+    title: r.title as string,
+    excerpt: r.excerpt as string,
+    content: r.content as string,
+    category: r.category as string,
+    tags: r.tags ? JSON.parse(r.tags as string) : [],
+    imageUrl: r.image_url as string,
+    isPublished: r.is_published === 1,
+    publishedAt: r.published_at as string,
+    coachId: r.coach_id as string,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
+    readTimeMinutes: (meta.rows[0]?.read_time_minutes as number) || 5,
+    views: (meta.rows[0]?.views as number) || 0,
+  }
+}
+
 // ============== Public Store Products ==============
 
 export async function getPublicProducts(coachId: string) {
@@ -1301,5 +1358,68 @@ export async function getPublicProducts(coachId: string) {
     price: r.price, description: r.description || '', category: r.category || '',
     stock: r.stock, createdAt: r.created_at,
   }))
+}
+
+export async function getAllPublicProducts() {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM products WHERE is_shop = 1 AND stock > 0 ORDER BY name',
+  )
+  return result.rows.map(r => ({
+    id: r.id, name: r.name, brand: r.brand || '', imageUrl: r.image_url || '',
+    price: r.price, description: r.description || '', category: r.category || '',
+    stock: r.stock, createdAt: r.created_at,
+  }))
+}
+
+// ============== Public Plans ==============
+
+export async function getPublicPlans(coachId: string) {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM plans WHERE coach_id = ? AND is_active = 1 ORDER BY price',
+    [coachId],
+  )
+  const plans = []
+  for (const r of result.rows) {
+    const modes = await db.execute('SELECT mode FROM plan_training_modes WHERE plan_id = ?', [r.id])
+    const features = await db.execute('SELECT feature FROM plan_features WHERE plan_id = ? ORDER BY sort_order', [r.id])
+    const plan: Record<string, unknown> = {
+      id: r.id, name: r.name, description: r.description, price: r.price, currency: r.currency, billingPeriod: r.billing_period,
+      trainingMode: modes.rows.map(m => m.mode as string),
+      maxAthletes: r.max_athletes, maxSessionsPerWeek: r.max_sessions_per_week,
+      features: features.rows.map(f => f.feature as string),
+      isActive: r.is_active === 1, athleteCount: r.athlete_count,
+    }
+    if (r.discount_type) {
+      plan.discount = { type: r.discount_type, value: r.discount_value, label: r.discount_label, validFrom: r.discount_valid_from, validUntil: r.discount_valid_until, code: r.discount_code }
+    }
+    plans.push(plan)
+  }
+  return plans
+}
+
+export async function getAllPublicPlans() {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM plans WHERE is_active = 1 ORDER BY price',
+  )
+  const plans = []
+  for (const r of result.rows) {
+    const modes = await db.execute('SELECT mode FROM plan_training_modes WHERE plan_id = ?', [r.id])
+    const features = await db.execute('SELECT feature FROM plan_features WHERE plan_id = ? ORDER BY sort_order', [r.id])
+    const plan: Record<string, unknown> = {
+      id: r.id, name: r.name, description: r.description, price: r.price, currency: r.currency, billingPeriod: r.billing_period,
+      trainingMode: modes.rows.map(m => m.mode as string),
+      maxAthletes: r.max_athletes, maxSessionsPerWeek: r.max_sessions_per_week,
+      features: features.rows.map(f => f.feature as string),
+      isActive: r.is_active === 1, athleteCount: r.athlete_count,
+    }
+    if (r.discount_type) {
+      plan.discount = { type: r.discount_type, value: r.discount_value, label: r.discount_label, validFrom: r.discount_valid_from, validUntil: r.discount_valid_until, code: r.discount_code }
+    }
+    plans.push(plan)
+  }
+  return plans
 }
 
