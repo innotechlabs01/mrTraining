@@ -2,6 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { LandingData } from '@/lib/landing';
+import { Package, Book, Clock, Eye } from 'lucide-react';
+
+async function fetchPublicProducts() {
+  const res = await fetch('/api/marketing/products');
+  if (!res.ok) return [];
+  return res.json() as Promise<Array<{ id: string; name: string; brand?: string; imageUrl?: string; price: number; description?: string; category?: string; stock: number }>>;
+}
+
+async function fetchPublicBlogPosts() {
+  const res = await fetch('/api/marketing/blog');
+  if (!res.ok) return [];
+  return res.json() as Promise<Array<{ id: string; slug: string; title: string; excerpt: string; category: string; imageUrl?: string; readTimeMinutes: number; views: number }>>;
+}
 
 function Icon({ name, ...rest }: { name: string } & React.SVGProps<SVGSVGElement>) {
   const common = {
@@ -83,6 +96,10 @@ export default function Page() {
   const [scrolled, setScrolled] = useState(false);
   const [data, setData] = useState<LandingData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<Array<{ id: string; name: string; brand?: string; imageUrl?: string; price: number; description?: string; category?: string; stock: number }>>([]);
+  const [productsHydrated, setProductsHydrated] = useState(false);
+  const [blogPosts, setBlogPosts] = useState<Array<{ id: string; slug: string; title: string; excerpt: string; category: string; imageUrl?: string; readTimeMinutes: number; views: number }>>([]);
+  const [blogHydrated, setBlogHydrated] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -96,6 +113,14 @@ export default function Page() {
       .then((r) => r.json())
       .then((d: LandingData) => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
+
+    fetchPublicProducts()
+      .then((p) => { setProducts(p); setProductsHydrated(true); })
+      .catch(() => setProductsHydrated(true));
+
+    fetchPublicBlogPosts()
+      .then((b) => { setBlogPosts(b); setBlogHydrated(true); })
+      .catch(() => setBlogHydrated(true));
   }, []);
 
   const navHref = (label: string) => {
@@ -104,7 +129,9 @@ export default function Page() {
       'Sobre MAO': '#about',
       'Asesoría Online': '/planes',
       Planes: '/planes',
-      Testimonios: '#testimonials',
+       Testimonios: '#testimonials',
+      Tienda: '#tienda',
+      Blog: '#blog',
       Contacto: '#contact',
     };
     return map[label] || `#${label.toLowerCase().replace(/\s/g, '-')}`;
@@ -263,9 +290,47 @@ export default function Page() {
 
         .ig-dots { display: flex; justify-content: center; gap: 8px; margin-top: 34px; }
         .ig-dots button { width: 7px; height: 7px; border-radius: 50%; border: none; background: var(--line); cursor: pointer; padding: 0; }
-        .ig-dots button.active { background: var(--red); width: 22px; border-radius: 4px; }
+         .ig-dots button.active { background: var(--red); width: 22px; border-radius: 4px; }
 
-        .ig-contact-grid { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 60px; }
+         .ig-product-card {
+           background: var(--surface);
+           border: 1px solid var(--line);
+           border-radius: 12px;
+           overflow: hidden;
+           transition: transform .15s, border-color .15s;
+         }
+         .ig-product-card:hover { transform: translateY(-2px); border-color: var(--red); }
+         .ig-product-img { width: 100%; height: 140px; object-fit: cover; }
+         .ig-product-body { padding: 14px; }
+         .ig-product-name { font-family: var(--font-display); font-size: 14px; font-weight: 600; margin: 0 0 4px; }
+         .ig-product-brand { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+         .ig-product-category { display: inline-block; font-size: 10px; background: var(--red)/10; color: var(--red); padding: 2px 8px; border-radius: 10px; margin-bottom: 6px; }
+         .ig-product-desc { font-size: 11.5px; color: var(--muted); margin: 4px 0; line-height: 1.4; }
+         .ig-product-price { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--red); margin: 8px 0; }
+         .ig-stock-badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+         .ig-in-stock { background: var(--green)/10; color: var(--green); }
+         .ig-out-of-stock { background: var(--muted)/20; color: var(--muted); }
+
+         .ig-blog-card {
+           background: var(--surface);
+           border: 1px solid var(--line);
+           border-radius: 12px;
+           overflow: hidden;
+           transition: transform .15s, border-color .15s;
+           text-decoration: none; color: inherit; display: flex; flex-direction: column;
+         }
+         .ig-blog-card:hover { transform: translateY(-2px); border-color: var(--red); }
+         .ig-blog-img { width: 100%; height: 140px; object-fit: cover; }
+         .ig-blog-body { padding: 14px; flex: 1; display: flex; flex-direction: column; }
+         .ig-blog-category { font-size: 10px; background: var(--red)/10; color: var(--red); padding: 2px 8px; border-radius: 10px; width: fit; margin-bottom: 8px; }
+         .ig-blog-title { font-family: var(--font-display); font-size: 14px; font-weight: 600; margin: 0 0 6px; }
+         .ig-blog-excerpt { font-size: 12px; color: var(--muted); margin: 0 0 8px; flex: 1; line-height: 1.5; }
+         .ig-blog-meta { display: flex; gap: 12px; font-size: 11px; color: var(--muted); }
+         .ig-blog-meta span { display: inline-flex; align-items: center; gap: 3px; }
+
+         .ig-grid { display: grid; gap: 24px; }
+
+         .ig-contact-grid { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 60px; }
         .ig-contact-info h3 { font-family: var(--font-display); font-weight: 700; font-size: 26px; margin: 0 0 16px; }
         .ig-contact-info .ig-contact-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; color: var(--muted); font-size: 14px; }
         .ig-contact-info .ig-contact-row strong { color: var(--white); font-weight: 600; }
@@ -432,6 +497,83 @@ export default function Page() {
               />
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="ig-section" id="tienda">
+        <div className="ig-container">
+          <h2 className="ig-section-title">{data.tienda.title}</h2>
+          <p className="ig-section-subtitle" style={{ textAlign: 'center', maxWidth: '700px', margin: '0 auto 40px' }}>{data.tienda.copy}</p>
+
+          {!productsHydrated ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-var(--red)" />
+            </div>
+          ) : products.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'var(--muted)', padding: '40px' }}>Próximamente productos en la tienda.</p>
+          ) : (
+            <div className="ig-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '24px' }}>
+              {products.map((product) => (
+                <div key={product.id} className="ig-card ig-product-card">
+                  {product.imageUrl ? (
+                    <img src={product.imageUrl} alt={product.name} className="ig-product-img" />
+                  ) : (
+                    <div className="ig-product-img" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+                      <Package size={24} />
+                    </div>
+                  )}
+                  <div className="ig-product-body">
+                    <h3 className="ig-product-name">{product.name}</h3>
+                    {product.brand && <span className="ig-product-brand">{product.brand}</span>}
+                    {product.category && <span className="ig-product-category">{product.category}</span>}
+                    {product.description && <p className="ig-product-desc">{product.description}</p>}
+                    <div className="ig-product-price">${product.price.toFixed(2)}</div>
+                    <span className={product.stock > 0 ? 'ig-stock-badge ig-in-stock' : 'ig-stock-badge ig-out-of-stock'}>
+                      {product.stock > 0 ? `${product.stock} en stock` : 'Agotado'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="ig-section" id="blog">
+        <div className="ig-container">
+          <h2 className="ig-section-title">{data.blog.title}</h2>
+          <p className="ig-section-subtitle" style={{ textAlign: 'center', maxWidth: '700px', margin: '0 auto 40px' }}>{data.blog.subtitle}</p>
+
+          {!blogHydrated ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-var(--red)" />
+            </div>
+          ) : blogPosts.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'var(--muted)', padding: '40px' }}>Próximamente contenido en el blog.</p>
+          ) : (
+            <div className="ig-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
+              {blogPosts.map((post) => (
+                <a key={post.id} href={`/blog/${post.slug}`} className="ig-card ig-blog-card">
+                  {post.imageUrl ? (
+                    <img src={post.imageUrl} alt={post.title} className="ig-blog-img" />
+                  ) : (
+                    <div className="ig-blog-img" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+                      <Book size={24} />
+                    </div>
+                  )}
+                  <div className="ig-blog-body">
+                    <span className="ig-blog-category">{post.category}</span>
+                    <h3 className="ig-blog-title">{post.title}</h3>
+                    <p className="ig-blog-excerpt">{post.excerpt}</p>
+                    <div className="ig-blog-meta">
+                      <span><Clock size={12} /> {post.readTimeMinutes} min</span>
+                      <span><Eye size={12} /> {post.views} lecturas</span>
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

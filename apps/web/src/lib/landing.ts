@@ -53,12 +53,17 @@ export interface LandingData {
   reasons: LandingSection[];
   trainers: LandingTrainer[];
   testimonials: LandingTestimonial[];
+  tienda: LandingSection;
+  blog: {
+    title: string;
+    subtitle: string;
+  };
   updatedAt: string;
 }
 
 const FALLBACK_DATA: LandingData = {
   version: 1,
-  navLinks: ['Inicio', 'Sobre MAO', 'Asesoría Online', 'Planes', 'Testimonios', 'Contacto'],
+  navLinks: ['Inicio', 'Sobre MAO', 'Asesoría Online', 'Planes', 'Testimonios', 'Tienda', 'Blog', 'Contacto'],
   brand: {
     colors: {
       primary: '#15aaf2',
@@ -132,6 +137,14 @@ const FALLBACK_DATA: LandingData = {
       seed: 'ig-testi-3',
     },
   ],
+  tienda: {
+    title: 'Tienda',
+    copy: 'Accesorios y suplementos que uso y recomiendo en mis entrenamientos.',
+  },
+  blog: {
+    title: 'Blog',
+    subtitle: 'Técnicas, progresos y lecciones detrás del proceso.',
+  },
   updatedAt: new Date().toISOString(),
 };
 

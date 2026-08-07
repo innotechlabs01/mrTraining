@@ -222,6 +222,16 @@ export const coachingApi = {
   updateProduct: <T>(id: string, data: unknown) => api.put<T>(`${COACHING_BASE}/products/${id}`, data),
   deleteProduct: <T>(id: string) => api.delete<T>(`${COACHING_BASE}/products/${id}`),
 
+  // Blog
+  getBlogPosts: <T>() => api.get<T>(`${COACHING_BASE}/blog`),
+  getBlogPost: <T>(slug: string) => api.get<T>(`${COACHING_BASE}/blog/${slug}`),
+  saveBlogPost: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/blog`, data),
+  updateBlogPost: <T>(id: string, data: unknown) => api.put<T>(`${COACHING_BASE}/blog/${id}`, data),
+  deleteBlogPost: <T>(id: string) => api.delete<T>(`${COACHING_BASE}/blog/${id}`),
+
+  // Public Products
+  getPublicProducts: <T>() => api.get<T>(`${COACHING_BASE}/public-products`),
+
   // Sales
   getSales: <T>() => api.get<T>(`${COACHING_BASE}/sales`),
   saveSale: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/sales`, data),

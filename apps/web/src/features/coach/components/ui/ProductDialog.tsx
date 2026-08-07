@@ -23,6 +23,9 @@ export function ProductDialog({ open, initial, onOpenChange, onSave }: ProductDi
   const [received, setReceived] = useState(initial?.received || 0)
   const [stock, setStock] = useState(initial?.stock || 0)
   const [lowStockThreshold, setLowStockThreshold] = useState(initial?.lowStockThreshold || 1)
+  const [description, setDescription] = useState(initial?.description || '')
+  const [category, setCategory] = useState(initial?.category || '')
+  const [isShop, setIsShop] = useState(initial?.isShop || false)
   const [isDragging, setIsDragging] = useState(false)
 
   if (!open) return null
@@ -100,6 +103,9 @@ export function ProductDialog({ open, initial, onOpenChange, onSave }: ProductDi
       gross,
       stock,
       lowStockThreshold,
+      description,
+      category,
+      isShop,
       createdAt,
     })
     onOpenChange(false)
@@ -215,10 +221,49 @@ export function ProductDialog({ open, initial, onOpenChange, onSave }: ProductDi
                 />
               </div>
             </div>
-          </div>
+           </div>
 
-          {/* Right: Pricing + Stock */}
+          {/* Right: Pricing + Stock + Shop */}
           <div className="lg:col-span-2 space-y-4">
+            {/* Description + Category + Shop toggle */}
+            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+              <h4 className="text-sm font-semibold text-white/80 mb-3">Detalles del producto</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-white/40">Descripción</label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Describe el producto, su uso y beneficios..."
+                    rows={3}
+                    className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 focus:border-brand-primary focus:outline-none resize-y"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-white/40">Categoría</label>
+                    <input
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      placeholder="ej. Accesorios, Ropa, Suplementos"
+                      className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 focus:border-brand-primary focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isShop}
+                        onChange={(e) => setIsShop(e.target.checked)}
+                        className="w-4 h-4 rounded border-white/20 bg-white/5 text-brand-primary focus:ring-brand-primary"
+                      />
+                      <span className="text-sm text-white/70">Mostrar en tienda pública</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Pricing Card */}
             <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
               <h4 className="flex items-center gap-2 text-sm font-semibold text-white/80 mb-3">

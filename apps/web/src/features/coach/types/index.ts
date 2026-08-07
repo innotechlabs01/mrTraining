@@ -355,12 +355,33 @@ export interface Product {
   name: string
   brand?: string
   imageUrl?: string
-  price: number // precio de venta (lo que paga el cliente)
-  received: number // precio recibido por el coach (neto por unidad)
-  gross: number // precio bruto (antes de descuento/impuesto)
+  price: number
+  received: number
+  gross: number
   stock: number
   lowStockThreshold: number
+  description?: string
+  category?: string
+  isShop?: boolean
   createdAt: string
+}
+
+export interface BlogPost {
+  id: string
+  slug: string
+  title: string
+  excerpt: string
+  content: string
+  category: string
+  tags: string[]
+  imageUrl: string
+  isPublished: boolean
+  publishedAt: string | null
+  coachId: string
+  createdAt: string
+  updatedAt: string
+  readTimeMinutes: number
+  views: number
 }
 
 export interface Sale {
