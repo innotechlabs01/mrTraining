@@ -1,5 +1,5 @@
 import React from 'react';
-import { Linking, Platform } from 'react-native';
+import { Linking } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View } from 'react-native';
@@ -9,20 +9,15 @@ import { InviteAcceptScreen } from '../features/auth/presentation/screens/Invite
 import { MembershipGate } from '../features/membership/presentation/MembershipGate';
 import { AthleteTabs } from './AthleteTabs';
 
-const API_URL = __DEV__
-  ? 'http://localhost:3000'
-  : 'https://mrtraining.vercel.app';
-
-// Extract token from deep link URL
-// Supports: mrtraining://invite?token=xxx
-//           https://app.mrtraining.com/invite?token=xxx
-function extractTokenFromUrl(url: string): string | null {
+// Extract coach code from deep link URL
+// Supports: mrtraining://invite?code=MR-A3X9
+//           https://app.mrtraining.com/invite?code=MR-A3X9
+function extractCodeFromUrl(url: string): string | null {
   try {
     const urlObj = new URL(url);
-    return urlObj.searchParams.get('token');
+    return urlObj.searchParams.get('code');
   } catch {
-    // Fallback for custom scheme: mrtraining://invite?token=xxx
-    const match = url.match(/[?&]token=([^&]+)/);
+    const match = url.match(/[?&]code=([^&]+)/);
     return match ? match[1] : null;
   }
 }
@@ -45,16 +40,14 @@ const linking = {
     const sub = Linking.addEventListener('url', ({ url }) => listener(url));
     return () => sub.remove();
   },
-  // Custom function to extract params from URL
   getStateFromPath(path: string, config: Record<string, unknown>) {
-    // Parse the path and extract token if present
-    const token = extractTokenFromUrl(path);
-    if (token) {
+    const code = extractCodeFromUrl(path);
+    if (code) {
       return {
         routes: [
           {
             name: 'InviteAccept',
-            params: { token },
+            params: { code },
           },
         ],
       };
@@ -64,8 +57,8 @@ const linking = {
 };
 
 export type RootStackParamList = {
-  Auth: undefined;
-  InviteAccept: { token: string } | undefined;
+  Auth: { code?: string } | undefined;
+  InviteAccept: { code: string } | undefined;
   AthleteTabs: undefined;
 };
 
@@ -111,7 +104,6 @@ function useNavigation() {
 
 function NavigationContent() {
   const navigation = useNavigationContainerRef<RootStackParamList>();
-
   return useNavigation();
 }
 

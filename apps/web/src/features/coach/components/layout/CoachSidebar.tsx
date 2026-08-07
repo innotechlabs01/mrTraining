@@ -87,20 +87,20 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-surface-3">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-surface-3 ring-1 ring-surface-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/images/icon/icon_mr.png"
-                alt="MR Training"
-                className="h-7 w-7 object-contain"
-              />
-            </div>
-            <span className="font-display text-sm font-semibold text-text-primary tracking-wide">
-              Coach OS
-            </span>
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-surface-3">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-surface-3 ring-1 ring-surface-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/icon/icon_mr_rp.png"
+              alt="MR Training"
+              className="h-7 w-7 object-contain"
+            />
           </div>
+          <span className="font-display text-sm font-semibold text-text-primary tracking-wide">
+            Coach OS
+          </span>
+        </div>
         <button onClick={onClose} className="lg:hidden p-1 text-text-muted hover:text-text-secondary">
           <X size={18} />
         </button>
@@ -113,7 +113,7 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
             const isTraining = item.id === 'training'
             const isCommercial = item.id === 'commercial'
             const isOpen = isTraining ? trainingOpen : isCommercial ? commercialOpen : false
-            const setOpen = isTraining ? setTrainingOpen : isCommercial ? setCommercialOpen : () => {}
+            const setOpen = isTraining ? setTrainingOpen : isCommercial ? setCommercialOpen : () => { }
             return (
               <div key={item.id}>
                 <button

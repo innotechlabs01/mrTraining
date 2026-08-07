@@ -94,7 +94,7 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
           <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-gradient-to-br from-brand-primary/20 to-brand-primary/5 ring-1 ring-brand-primary/20 shadow-lg shadow-brand-primary/10">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/images/icon/icon_mr.png"
+              src="/images/icon/icon_mr_rp.png"
               alt="MR Training"
               className="h-7 w-7 object-contain"
             />

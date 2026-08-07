@@ -50,12 +50,51 @@ export async function createCoach(data: {
   email: string;
   name: string;
   avatar_url?: string;
+  coach_code?: string;
 }) {
   const db = getDB();
   await db.execute({
-    sql: `INSERT OR IGNORE INTO coaches (id, email, name, avatar_url) VALUES (?, ?, ?, ?)`,
-    args: [data.id, data.email, data.name, data.avatar_url ?? ''],
+    sql: `INSERT OR IGNORE INTO coaches (id, email, name, avatar_url, coach_code) VALUES (?, ?, ?, ?, ?)`,
+    args: [data.id, data.email, data.name, data.avatar_url ?? '', data.coach_code ?? ''],
   });
+}
+
+export function generateCoachCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `MR-${code}`;
+}
+
+export async function getCoachByCode(code: string) {
+  const db = getDB();
+  const result = await db.execute({
+    sql: 'SELECT * FROM coaches WHERE coach_code = ? AND is_active = 1',
+    args: [code],
+  });
+  return result.rows[0] ?? null;
+}
+
+export async function isCoachCodeUnique(code: string): Promise<boolean> {
+  const db = getDB();
+  const result = await db.execute({
+    sql: 'SELECT COUNT(*) as count FROM coaches WHERE coach_code = ?',
+    args: [code],
+  });
+  const row = result.rows[0] as Record<string, unknown>;
+  return (row?.count as number) === 0;
+}
+
+export async function generateUniqueCoachCode(): Promise<string> {
+  let code = generateCoachCode();
+  let attempts = 0;
+  while (!(await isCoachCodeUnique(code)) && attempts < 10) {
+    code = generateCoachCode();
+    attempts++;
+  }
+  return code;
 }
 
 export async function updateCoach(id: string, data: {

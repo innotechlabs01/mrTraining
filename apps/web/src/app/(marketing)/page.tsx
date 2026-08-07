@@ -378,7 +378,7 @@ export default function Page() {
       <header className={`ig-nav${scrolled ? ' scrolled' : ''}`}>
         <div className='ig-container ig-nav-inner'>
           <div className='ig-logo' style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <img src='/images/icon/icon_mr.png' alt='MR Training' style={{ height: 100, width: 'auto' }} />
+            <img src='/images/icon/icon_mr_rp.png' alt='MR Training' style={{ height: 100, width: 'auto' }} />
           </div>
           <nav className='ig-links'>
             {data.navLinks.map((l) => (

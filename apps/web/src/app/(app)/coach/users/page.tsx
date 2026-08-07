@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Search, Flag, ShieldCheck, ShieldAlert, ShieldX, RefreshCw } from 'lucide-react'
+import { Search, Flag, ShieldCheck, ShieldAlert, ShieldX, RefreshCw, UserPlus } from 'lucide-react'
 import { useAthletes } from '@/features/coach/hooks/useAthletes'
 import { useCoachPanel } from '@/features/coach/components/layout/CoachPanelContext'
 import { coachingApi } from '@/features/shared/api/client'
 import { cn } from '@/lib/utils'
+import { InviteAthleteModal } from '@/features/coach/components/InviteAthleteModal'
 
 type MembershipSummary = {
   id: string
@@ -31,6 +32,7 @@ export default function CoachUsersPage() {
   const [filterFlagged, setFilterFlagged] = useState(false)
   const [memberships, setMemberships] = useState<MembershipSummary[]>([])
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  const [showInviteModal, setShowInviteModal] = useState(false)
 
   useEffect(() => {
     coachingApi.getMemberships<MembershipSummary[]>()
@@ -78,6 +80,13 @@ export default function CoachUsersPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowInviteModal(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-primary text-white text-sm font-semibold hover:bg-brand-primary/90 transition-colors"
+          >
+            <UserPlus size={16} />
+            Invite athlete
+          </button>
           <div className="flex items-center gap-1.5 bg-surface-1 border border-white/5 rounded-lg p-1">
             {[
               { key: null, label: 'Todos' },
@@ -186,6 +195,11 @@ export default function CoachUsersPage() {
           )
         })}
       </div>
+
+      <InviteAthleteModal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+      />
     </div>
   )
 }

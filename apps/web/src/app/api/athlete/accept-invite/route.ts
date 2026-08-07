@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getPendingInviteByToken, acceptPendingInvite, linkCoachAthlete, createAthleteProfile, getUserById, createUser } from '@/lib/coach-isolation-db';
+import {
+  getCoachByCode,
+  linkCoachAthlete,
+  createAthleteProfile,
+  getUserById,
+  createUser,
+  getAthleteProfileById,
+} from '@/lib/coach-isolation-db';
 
 export async function POST(req: Request) {
   try {
@@ -9,23 +16,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { inviteToken } = await req.json();
-    if (!inviteToken) {
-      return NextResponse.json({ error: 'Invite token is required' }, { status: 400 });
+    const { code } = await req.json();
+    if (!code) {
+      return NextResponse.json({ error: 'Coach code is required' }, { status: 400 });
     }
 
-    // Find the pending invite
-    const invite = await getPendingInviteByToken(inviteToken);
-    if (!invite) {
-      return NextResponse.json({ error: 'Invalid or expired invitation' }, { status: 400 });
+    const normalizedCode = code.toUpperCase().trim();
+    const coach = await getCoachByCode(normalizedCode);
+    if (!coach) {
+      return NextResponse.json({ error: 'Invalid or inactive coach code' }, { status: 404 });
     }
 
-    const inviteData = invite as Record<string, unknown>;
-    const coach_id = inviteData.coach_id as string;
-    const email = inviteData.email as string;
+    const coachData = coach as Record<string, unknown>;
+    const coachId = coachData.id as string;
+
+    // Get Clerk user info for email
+    const existingUser = await getUserById(userId);
+    const email = existingUser
+      ? (existingUser as Record<string, unknown>).email as string
+      : userId;
 
     // Create user record if not exists
-    const existingUser = await getUserById(userId);
     if (!existingUser) {
       await createUser({
         id: userId,
@@ -36,7 +47,7 @@ export async function POST(req: Request) {
     }
 
     // Create athlete profile if not exists
-    const existingProfile = await getUserById(userId);
+    const existingProfile = await getAthleteProfileById(userId);
     if (!existingProfile) {
       await createAthleteProfile({
         id: userId,
@@ -46,12 +57,12 @@ export async function POST(req: Request) {
     }
 
     // Link coach and athlete
-    await linkCoachAthlete(coach_id, userId);
+    await linkCoachAthlete(coachId, userId);
 
-    // Mark invitation as accepted
-    await acceptPendingInvite(inviteToken);
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      coachName: coachData.name,
+    });
   } catch (error) {
     console.error('Error accepting invite:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

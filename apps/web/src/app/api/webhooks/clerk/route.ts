@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Webhook } from 'svix';
-import { getDB } from '@/lib/coach-isolation-db';
+import { getDB, generateUniqueCoachCode } from '@/lib/coach-isolation-db';
 
 const webhookSecret = process.env.CLERK_WEBHOOK_SECRET || '';
 
@@ -45,10 +45,13 @@ export async function POST(req: Request) {
         args: [id as string, email, name, avatar],
       });
 
-      // Create coach profile
+      // Generate unique coach code
+      const coachCode = await generateUniqueCoachCode();
+
+      // Create coach profile with code
       await db.execute({
-        sql: `INSERT INTO coaches (id, email, name, avatar_url) VALUES (?, ?, ?, ?)`,
-        args: [id as string, email, name, avatar],
+        sql: `INSERT INTO coaches (id, email, name, avatar_url, coach_code) VALUES (?, ?, ?, ?, ?)`,
+        args: [id as string, email, name, avatar, coachCode],
       });
     }
   }
