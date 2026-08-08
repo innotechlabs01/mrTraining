@@ -4,9 +4,17 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Copy, Check, Smartphone, Download } from 'lucide-react';
 
-const EXPO_OWNER = 'innotechlabssas';
-const EXPO_SLUG = 'mr-training';
-const EXPO_PROJECT_URL = `https://expo.dev/@${EXPO_OWNER}/${EXPO_SLUG}`;
+const EXPO_PROJECT_ID = 'c4e4a8cc-bcf6-43cd-8d13-33bd46e6fea7';
+
+const EXPO_LINK_BASE = (
+  process.env.NEXT_PUBLIC_EXPO_LINK_BASE || `exp://u.expo.dev/${EXPO_PROJECT_ID}`
+).replace(/\/+$/, '');
+
+function buildExpoUrl(code: string) {
+  return code
+    ? `${EXPO_LINK_BASE}/--/invite?code=${encodeURIComponent(code)}`
+    : EXPO_LINK_BASE;
+}
 
 function InviteContent() {
   const searchParams = useSearchParams();
@@ -15,6 +23,7 @@ function InviteContent() {
   const [coachName, setCoachName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [platform, setPlatform] = useState<'ios' | 'android' | 'other'>('other');
+  const [openFailed, setOpenFailed] = useState(false);
 
   useEffect(() => {
     const ua = navigator.userAgent || navigator.vendor || (window as unknown as { opera?: string }).opera || '';
@@ -48,15 +57,30 @@ function InviteContent() {
       ? 'https://apps.apple.com/app/expo-go/id982107779'
       : 'https://play.google.com/store/apps/details?id=host.exp.exponent';
 
-  const nativeOpenUrl = code ? `mrtraining://invite?code=${encodeURIComponent(code)}` : null;
-
-  const expoOpenUrl = code
-    ? `exp://exp.host/@${EXPO_OWNER}/${EXPO_SLUG}/--/invite?code=${encodeURIComponent(code)}`
-    : `exp://exp.host/@${EXPO_OWNER}/${EXPO_SLUG}`;
+  const expoOpenUrl = buildExpoUrl(code);
 
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-    code ? `exp://exp.host/@${EXPO_OWNER}/${EXPO_SLUG}/--/invite?code=${code}` : EXPO_PROJECT_URL
+    expoOpenUrl
   )}`;
+
+  const handleOpenInExpo = () => {
+    setOpenFailed(false);
+
+    const timer = window.setTimeout(() => {
+      if (!document.hidden) {
+        setOpenFailed(true);
+      }
+    }, 1500);
+
+    const clear = () => {
+      if (document.hidden) {
+        window.clearTimeout(timer);
+      }
+    };
+    document.addEventListener('visibilitychange', clear, { once: true });
+
+    window.location.href = expoOpenUrl;
+  };
 
   const handleCopy = async (text: string) => {
     try {
@@ -135,7 +159,8 @@ function InviteContent() {
                   />
                 </div>
                 <p className="text-xs text-text-secondary text-center">
-                  Escanea este código con la cámara de tu celular
+                  Escanea este código con la cámara de tu celular. Es la forma más
+                  fiable de abrir la app.
                 </p>
               </div>
             </div>
@@ -162,22 +187,32 @@ function InviteContent() {
               <h2 className="text-sm font-semibold text-text-primary text-center">Paso 2: Abrir MR Training</h2>
 
               <button
-                 onClick={() => {
-                   if (nativeOpenUrl) {
-                     window.location.href = nativeOpenUrl;
-                   } else {
-                     window.open(expoOpenUrl, '_blank');
-                   }
-                 }}
+                 onClick={handleOpenInExpo}
                  className="w-full flex items-center justify-center gap-2 h-12 rounded-xl border border-white/10 bg-surface-2 text-text-primary font-semibold text-sm hover:bg-surface-3 transition-colors"
                >
                  <Smartphone size={18} />
                  Abrir en Expo Go
                </button>
 
-               <p className="text-xs text-text-secondary text-center">
-                 Si tienes la app nativa instalada, se abrirá directamente. Si no, se abrirá Expo Go.
-               </p>
+               {openFailed ? (
+                 <div className="rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-4 space-y-3">
+                   <p className="text-xs text-text-secondary text-center">
+                     No pudimos abrir Expo Go. Instálala desde la tienda y vuelve a
+                     intentarlo, o escanea el QR de arriba con la cámara.
+                   </p>
+                   <button
+                     onClick={() => handleCopy(expoOpenUrl)}
+                     className="w-full inline-flex items-center justify-center gap-1.5 text-sm text-brand-primary hover:text-brand-primary-hover transition-colors"
+                   >
+                     <Copy size={14} />
+                     Copiar link para Expo Go
+                   </button>
+                 </div>
+               ) : (
+                 <p className="text-xs text-text-secondary text-center">
+                   Necesitas tener Expo Go instalada (Paso 1).
+                 </p>
+               )}
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-surface-1 p-5">
@@ -189,7 +224,7 @@ function InviteContent() {
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary text-xs flex items-center justify-center shrink-0">2</span>
-                  <span>Toca &quot;Abrir en Expo Go&quot; — abrirá la app automáticamente</span>
+                  <span>Escanea el QR con la cámara, o toca &quot;Abrir en Expo Go&quot;</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary text-xs flex items-center justify-center shrink-0">3</span>
