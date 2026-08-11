@@ -14,7 +14,7 @@ describe('Progress Analytics Service', () => {
     expect(trend).toHaveProperty('direction');
     expect(trend).toHaveProperty('magnitude');
     expect(trend).toHaveProperty('confidence');
-    expect(trend.direction).toBe('up' || 'down' || 'stable');
+    expect(['up', 'down', 'stable']).toContain(trend.direction);
     expect(trend.magnitude).toBeGreaterThanOrEqual(0);
     expect(trend.confidence).toBeGreaterThanOrEqual(0);
     expect(trend.confidence).toBeLessThanOrEqual(1);
