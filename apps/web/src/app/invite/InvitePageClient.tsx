@@ -3,18 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Copy, Check, Smartphone, Download } from 'lucide-react';
-
-const EXPO_PROJECT_ID = 'c4e4a8cc-bcf6-43cd-8d13-33bd46e6fea7';
-
-const EXPO_LINK_BASE = (
-  process.env.NEXT_PUBLIC_EXPO_LINK_BASE || `exp://u.expo.dev/${EXPO_PROJECT_ID}`
-).replace(/\/+$/, '');
-
-function buildExpoUrl(code: string) {
-  return code
-    ? `${EXPO_LINK_BASE}/--/invite?code=${encodeURIComponent(code)}`
-    : EXPO_LINK_BASE;
-}
+import { buildExpoUrl } from './expoLink';
 
 function InviteContent() {
   const searchParams = useSearchParams();
@@ -228,7 +217,7 @@ function InviteContent() {
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary text-xs flex items-center justify-center shrink-0">3</span>
-                  <span>Expo Go abrirá MR Training. Acepta la invitación con el código.</span>
+                  <span>Expo Go abrirá MR Training. Si no te lleva automáticamente, pega el código en el campo de la app.</span>
                 </li>
               </ol>
             </div>

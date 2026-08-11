@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, Pressable } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, Pressable, TextInput } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,11 +19,13 @@ export function InviteAcceptScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [coachName, setCoachName] = useState('');
   const [code, setCode] = useState<string | null>(null);
+  const [manualCode, setManualCode] = useState('');
 
   useEffect(() => {
     const routeCode = (route.params as { code?: string })?.code;
     if (routeCode) {
       setCode(routeCode);
+      setManualCode(routeCode);
     }
   }, [route.params]);
 
@@ -65,15 +67,8 @@ export function InviteAcceptScreen() {
     }
   }, [code, isSignedIn, userId, acceptInvite]);
 
-  useEffect(() => {
-    if (!code && status === 'idle') {
-      setStatus('error');
-      setErrorMessage('No invitation code provided');
-    }
-  }, [code, status]);
-
   const handleSignIn = () => {
-    navigation.navigate('Auth', { code: code ?? undefined });
+    navigation.navigate('Auth', { code: (code ?? manualCode) || undefined });
   };
 
   return (
@@ -81,12 +76,40 @@ export function InviteAcceptScreen() {
       <View style={styles.content}>
         <Text style={styles.brand}>MR Training</Text>
 
-        {status === 'idle' && (
+        {status === 'idle' && (code ? (
           <>
             <ActivityIndicator size="large" color="#FF6B00" style={styles.loader} />
             <Text style={styles.title}>Preparing...</Text>
           </>
-        )}
+        ) : (
+          <>
+            <Text style={styles.title}>Conecta con tu coach</Text>
+            <Text style={styles.subtitle}>
+              Ingresa o pega el código que te compartió tu coach
+            </Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ej. MR-A3X9"
+              placeholderTextColor="#6E6E73"
+              value={manualCode}
+              onChangeText={setManualCode}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              testID="invite-code-input"
+            />
+            <Pressable
+              style={({ pressed }) => [
+                styles.button,
+                !manualCode.trim() && styles.buttonDisabled,
+                pressed && styles.buttonPressed,
+              ]}
+              disabled={!manualCode.trim()}
+              onPress={() => acceptInvite(manualCode.trim())}
+            >
+              <Text style={styles.buttonText}>Conectar con mi coach</Text>
+            </Pressable>
+          </>
+        ))}
 
         {status === 'loading' && (
           <>
@@ -153,9 +176,11 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '700', color: '#F5F5F7', textAlign: 'center', marginBottom: 8 },
   subtitle: { fontSize: 16, color: '#98989D', textAlign: 'center', lineHeight: 22 },
   hint: { fontSize: 14, color: '#6E6E73', textAlign: 'center', marginTop: 16, lineHeight: 20 },
-  button: { backgroundColor: '#FF6B00', height: 52, borderRadius: 12, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, marginTop: 24 },
+  button: { backgroundColor: '#FF6B00', height: 52, borderRadius: 12, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, marginTop: 24, width: '100%' },
+  buttonDisabled: { opacity: 0.5 },
   buttonPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
   buttonText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  input: { backgroundColor: '#1C1C1E', height: 52, borderRadius: 12, paddingHorizontal: 16, color: '#F5F5F7', fontSize: 18, fontWeight: '600', letterSpacing: 2, textAlign: 'center', width: '100%', marginTop: 24 },
   successIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#34C759', justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
   successText: { fontSize: 32, color: '#FFF', fontWeight: '700' },
   errorIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#FF3B30', justifyContent: 'center', alignItems: 'center', marginBottom: 24 },

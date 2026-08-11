@@ -15,13 +15,21 @@
       "url": "https://u.expo.dev/c4e4a8cc-bcf6-43cd-8d13-33bd46e6fea7",
       "enabled": true,
       "fallbackToCacheTimeout": 0,
-      "checkAutomatically": "ON_LOAD"
+      "checkAutomatically": "ON_LOAD",
+      "requestHeaders": {
+        "expo-channel-name": "development"
+      }
     },
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#000000"
-    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#000000"
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.innotechlabssas.mrtraining",
@@ -70,7 +78,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [],
     "extra": {
       "eas": {
         "projectId": "c4e4a8cc-bcf6-43cd-8d13-33bd46e6fea7"
