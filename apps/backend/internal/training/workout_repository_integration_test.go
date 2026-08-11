@@ -1,6 +1,6 @@
 //go:build integration
 
-package training
+package training_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mrtraining/backend/infrastructure/postgres"
+	"github.com/mrtraining/backend/internal/training"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,9 +28,16 @@ func TestWorkoutRepository_Integration(t *testing.T) {
 		orgID := uuid.New()
 		athleteID := uuid.New()
 		coachID := uuid.New()
+		exerciseID := uuid.New()
+		seedOrganization(t, pool, orgID)
+		seedUser(t, pool, uuid.New(), orgID)
+		seedAthlete(t, pool, athleteID, orgID)
+		seedUser(t, pool, uuid.New(), orgID)
+		seedCoach(t, pool, coachID, orgID)
+		seedExercise(t, pool, exerciseID)
 
-		w := NewWorkout("Test Workout", "Description", "running", time.Now().AddDate(0, 0, 1), athleteID, orgID, &coachID)
-		w.AddExercise(uuid.New(), "main", 1, "notes", 60, "3-0-1")
+		w := training.NewWorkout("Test Workout", "Description", "running", time.Now().AddDate(0, 0, 1), athleteID, orgID, &coachID)
+		w.AddExercise(exerciseID, "main", 1, "notes", 60, "3-0-1")
 		w.AddSet(0, 1, "normal", intPtr(10), floatPtr(50.0), floatPtr(7.0))
 		w.AddSet(0, 2, "normal", intPtr(10), floatPtr(50.0), floatPtr(7.5))
 
@@ -47,14 +55,17 @@ func TestWorkoutRepository_Integration(t *testing.T) {
 	t.Run("FindByAthlete", func(t *testing.T) {
 		orgID := uuid.New()
 		athleteID := uuid.New()
+		seedOrganization(t, pool, orgID)
+		seedUser(t, pool, uuid.New(), orgID)
+		seedAthlete(t, pool, athleteID, orgID)
 
 		for i := 0; i < 3; i++ {
-			w := NewWorkout("Workout "+string(rune('A'+i)), "Desc", "running", time.Now().AddDate(0, 0, i), athleteID, orgID, nil)
+			w := training.NewWorkout("Workout "+string(rune('A'+i)), "Desc", "running", time.Now().AddDate(0, 0, i), athleteID, orgID, nil)
 			err := repo.Save(ctx, w)
 			require.NoError(t, err)
 		}
 
-		workouts, err := repo.FindByAthlete(ctx, athleteID, DateRangeFilter{
+		workouts, err := repo.FindByAthlete(ctx, athleteID, training.DateRangeFilter{
 			Start: time.Now().AddDate(0, 0, -1),
 			End:   time.Now().AddDate(0, 0, 5),
 		})
@@ -66,8 +77,11 @@ func TestWorkoutRepository_Integration(t *testing.T) {
 		orgID := uuid.New()
 		athleteID := uuid.New()
 		targetDate := time.Now().AddDate(0, 0, 2)
+		seedOrganization(t, pool, orgID)
+		seedUser(t, pool, uuid.New(), orgID)
+		seedAthlete(t, pool, athleteID, orgID)
 
-		w := NewWorkout("Scheduled Workout", "Desc", "running", targetDate, athleteID, orgID, nil)
+		w := training.NewWorkout("Scheduled Workout", "Desc", "running", targetDate, athleteID, orgID, nil)
 		err := repo.Save(ctx, w)
 		require.NoError(t, err)
 
@@ -83,5 +97,47 @@ func getTestDBURL(t *testing.T) string {
 	return url
 }
 
-func intPtr(i int) *int     { return &i }
+func intPtr(i int) *int           { return &i }
 func floatPtr(f float64) *float64 { return &f }
+
+func seedOrganization(t *testing.T, pool *pgxpool.Pool, orgID uuid.UUID) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO organizations (id, name) VALUES ($1, $2)`, orgID, "Test Org")
+	require.NoError(t, err)
+}
+
+func seedUser(t *testing.T, pool *pgxpool.Pool, userID, orgID uuid.UUID) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO users (id, organization_id, clerk_user_id, email)
+		 VALUES ($1, $2, $3, $3)`, userID, orgID, userID.String())
+	require.NoError(t, err)
+}
+
+func seedAthlete(t *testing.T, pool *pgxpool.Pool, athleteID, orgID uuid.UUID) {
+	t.Helper()
+	userID := uuid.New()
+	seedUser(t, pool, userID, orgID)
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO athletes (id, user_id, organization_id)
+		 VALUES ($1, $2, $3)`, athleteID, userID, orgID)
+	require.NoError(t, err)
+}
+
+func seedCoach(t *testing.T, pool *pgxpool.Pool, coachID, orgID uuid.UUID) {
+	t.Helper()
+	userID := uuid.New()
+	seedUser(t, pool, userID, orgID)
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO coaches (id, user_id, organization_id)
+		 VALUES ($1, $2, $3)`, coachID, userID, orgID)
+	require.NoError(t, err)
+}
+
+func seedExercise(t *testing.T, pool *pgxpool.Pool, exerciseID uuid.UUID) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO exercise_library (id, name) VALUES ($1, $2)`, exerciseID, "Test Exercise")
+	require.NoError(t, err)
+}

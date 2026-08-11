@@ -9,9 +9,11 @@ import (
 	"github.com/rs/zerolog"
 )
 
+type contextKey string
+
 const (
 	RequestIDHeader = "X-Request-ID"
-	RequestIDKey    = "request_id"
+	RequestIDKey    contextKey = "request_id"
 )
 
 func RequestIDMiddleware() func(http.Handler) http.Handler {

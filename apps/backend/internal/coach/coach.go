@@ -85,8 +85,35 @@ func (c *Coach) ClearEvents() {
 	c.domainEvents = nil
 }
 
-func (c *Coach) raiseEvent(event DomainEvent) {
-	c.domainEvents = append(c.domainEvents, event)
+func ReconstructCoach(
+	id, userID, orgID uuid.UUID,
+	specializations, certifications []string,
+	certLevel CertificationLevel,
+	bio string, experienceYears int,
+	websiteURL, instagramHandle, youtubeHandle string,
+	athleteCount, maxAthletes int,
+	isVerified bool, status CoachStatus,
+	createdAt, updatedAt time.Time,
+) *Coach {
+	return &Coach{
+		id:              id,
+		userID:          userID,
+		organizationID:  orgID,
+		specializations: specializations,
+		certifications:  certifications,
+		certLevel:       certLevel,
+		bio:             bio,
+		experienceYears: experienceYears,
+		websiteURL:      websiteURL,
+		instagramHandle: instagramHandle,
+		youtubeHandle:   youtubeHandle,
+		athleteCount:    athleteCount,
+		maxAthletes:     maxAthletes,
+		isVerified:      isVerified,
+		status:          status,
+		createdAt:       createdAt,
+		updatedAt:       updatedAt,
+	}
 }
 
 func (c *Coach) ID() uuid.UUID { return c.id }

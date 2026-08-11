@@ -30,22 +30,21 @@ type ExerciseRepository interface {
 }
 
 type ExerciseLibrary struct {
-	id          uuid.UUID
-	organizationID *uuid.UUID
-	name        string
-	slug        string
-	category    string
-	sportType   string
+	id           uuid.UUID
+	name         string
+	slug         string
+	category     string
+	sportType    string
 	muscleGroups []string
-	equipment   []string
-	difficulty  string
-	description string
+	equipment    []string
+	difficulty   string
+	description  string
 	instructions string
-	videoURL    string
+	videoURL     string
 	thumbnailURL string
-	isVerified  bool
-	isCustom    bool
-	createdBy   *uuid.UUID
+	isVerified   bool
+	isCustom     bool
+	createdBy    *uuid.UUID
 }
 
 func (e *ExerciseLibrary) ID() uuid.UUID { return e.id }

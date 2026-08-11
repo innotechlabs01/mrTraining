@@ -105,6 +105,36 @@ func (a *Athlete) raiseEvent(event DomainEvent) {
 	a.domainEvents = append(a.domainEvents, event)
 }
 
+func ReconstructAthlete(
+	id, userID, orgID uuid.UUID,
+	primarySport, experienceLevel string,
+	heightCm, weightKg, bodyFatPct *float64,
+	injuryStatus InjuryStatus, trainingStatus AthleteStatus,
+	goals []string, settings map[string]interface{},
+	coachID *uuid.UUID,
+	createdAt, updatedAt time.Time,
+	version int,
+) *Athlete {
+	return &Athlete{
+		id:               id,
+		userID:           userID,
+		organizationID:   orgID,
+		primarySport:     primarySport,
+		experienceLevel:  experienceLevel,
+		heightCm:         heightCm,
+		weightKg:         weightKg,
+		bodyFatPct:       bodyFatPct,
+		injuryStatus:     injuryStatus,
+		trainingStatus:   trainingStatus,
+		goals:            goals,
+		settings:         settings,
+		coachID:          coachID,
+		createdAt:        createdAt,
+		updatedAt:        updatedAt,
+		version:          version,
+	}
+}
+
 func (a *Athlete) ID() uuid.UUID { return a.id }
 func (a *Athlete) UserID() uuid.UUID { return a.userID }
 func (a *Athlete) OrganizationID() uuid.UUID { return a.organizationID }

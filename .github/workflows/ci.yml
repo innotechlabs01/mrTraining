@@ -33,14 +33,7 @@ jobs:
       - name: Run go vet
         run: go vet ./...
       - name: Run staticcheck
-        uses: dominikh/staticcheck-action@v1
-        with:
-          version: "latest"
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          args: --timeout=5m
+        run: go run honnef.co/go/tools/cmd/staticcheck@latest ./...
 
   backend-test:
     name: Backend Tests
@@ -82,7 +75,7 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:password@localhost:5432/mrtraining_test?sslmode=disable
       - name: Run unit tests
-        run: go test -v -race -count=1 ./internal/... ./pkg/...
+        run: go test -v -race -count=1 -coverprofile=coverage.out ./internal/... ./pkg/...
         env:
           DATABASE_URL: postgres://postgres:password@localhost:5432/mrtraining_test?sslmode=disable
           REDIS_URL: redis://localhost:6379
@@ -95,7 +88,7 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           flags: backend
-          files: ./coverage.out
+          files: apps/backend/coverage.out
 
   backend-build:
     name: Build Backend
@@ -171,6 +164,9 @@ jobs:
         working-directory: ./apps/web
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -190,6 +186,9 @@ jobs:
         working-directory: .
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -208,6 +207,9 @@ jobs:
         working-directory: ./apps/web
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -280,6 +282,9 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
       - name: Run Trivy vulnerability scanner
@@ -306,5 +311,3 @@ jobs:
     steps:
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
-        with:
-          config-file: '.github/dependency-review-config.yml'

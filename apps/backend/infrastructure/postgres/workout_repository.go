@@ -194,7 +194,7 @@ func (r *WorkoutRepository) FindByAthlete(ctx context.Context, athleteID uuid.UU
 	rows, err := r.db.Query(ctx, `
 		SELECT id, organization_id, name, description, sport_type, scheduled_date, status, version, created_at
 		FROM workouts
-		WHERE athlete_id = $1 AND organization_id = $2 AND scheduled_date BETWEEN $3 AND $4
+		WHERE athlete_id = $1 AND scheduled_date BETWEEN $2 AND $3
 		ORDER BY scheduled_date DESC
 		LIMIT 100
 	`, athleteID, dateRange.Start, dateRange.End)

@@ -16,12 +16,11 @@ const (
 )
 
 type ProgramPhase struct {
-	id              uuid.UUID
-	name            string
-	description     string
-	weekStart       int
-	weekEnd         int
-	workoutTemplateIDs []uuid.UUID
+	id          uuid.UUID
+	name        string
+	description string
+	weekStart   int
+	weekEnd     int
 }
 
 type WorkoutProgram struct {

@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -42,12 +44,70 @@ func (r *AthleteRepository) Save(ctx context.Context, a *athlete.Athlete) error 
 }
 
 func (r *AthleteRepository) FindByID(ctx context.Context, id, orgID uuid.UUID) (*athlete.Athlete, error) {
-	// Simplified - would need proper reconstruction
-	return nil, nil
+	row, err := r.scanAthlete(ctx, `
+		SELECT id, user_id, organization_id, primary_sport, experience_level, height_cm, weight_kg, body_fat_pct, injury_status, training_status, goals, settings, coach_id, created_at, updated_at
+		FROM athletes
+		WHERE id = $1 AND organization_id = $2
+	`, id, orgID)
+	if err != nil {
+		return nil, err
+	}
+	return row, nil
 }
 
 func (r *AthleteRepository) FindByUserID(ctx context.Context, userID, orgID uuid.UUID) (*athlete.Athlete, error) {
-	return nil, nil
+	row, err := r.scanAthlete(ctx, `
+		SELECT id, user_id, organization_id, primary_sport, experience_level, height_cm, weight_kg, body_fat_pct, injury_status, training_status, goals, settings, coach_id, created_at, updated_at
+		FROM athletes
+		WHERE user_id = $1 AND organization_id = $2
+	`, userID, orgID)
+	if err != nil {
+		return nil, err
+	}
+	return row, nil
+}
+
+func (r *AthleteRepository) scanAthlete(ctx context.Context, query string, args ...interface{}) (*athlete.Athlete, error) {
+	var (
+		id, userID, orgID   uuid.UUID
+		primarySport        string
+		experienceLevel     string
+		heightCm, weightKg  *float64
+		bodyFatPct          *float64
+		injuryStatus        string
+		trainingStatus      string
+		goalsJSON, settingsJSON []byte
+		coachID             *uuid.UUID
+		createdAt, updatedAt time.Time
+	)
+	err := r.db.QueryRow(ctx, query, args...).Scan(
+		&id, &userID, &orgID, &primarySport, &experienceLevel,
+		&heightCm, &weightKg, &bodyFatPct, &injuryStatus, &trainingStatus,
+		&goalsJSON, &settingsJSON, &coachID, &createdAt, &updatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var goals []string
+	if len(goalsJSON) > 0 {
+		if err := json.Unmarshal(goalsJSON, &goals); err != nil {
+			return nil, err
+		}
+	}
+	var settings map[string]interface{}
+	if len(settingsJSON) > 0 {
+		if err := json.Unmarshal(settingsJSON, &settings); err != nil {
+			return nil, err
+		}
+	}
+
+	return athlete.ReconstructAthlete(
+		id, userID, orgID, primarySport, experienceLevel,
+		heightCm, weightKg, bodyFatPct,
+		athlete.InjuryStatus(injuryStatus), athlete.AthleteStatus(trainingStatus),
+		goals, settings, coachID, createdAt, updatedAt, 1,
+	), nil
 }
 
 func (r *AthleteRepository) FindByCoach(ctx context.Context, coachID, orgID uuid.UUID) ([]*athlete.Athlete, error) {

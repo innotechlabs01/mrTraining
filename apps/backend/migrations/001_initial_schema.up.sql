@@ -21,24 +21,6 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS athletes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL UNIQUE REFERENCES users(id),
-    organization_id UUID NOT NULL REFERENCES organizations(id),
-    primary_sport TEXT,
-    experience_level TEXT,
-    height_cm DECIMAL(5,2),
-    weight_kg DECIMAL(5,2),
-    body_fat_pct DECIMAL(4,2),
-    injury_status TEXT DEFAULT 'healthy',
-    training_status TEXT DEFAULT 'active',
-    goals JSONB DEFAULT '[]',
-    settings JSONB DEFAULT '{}',
-    coach_id UUID REFERENCES coaches(id),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
 CREATE TABLE IF NOT EXISTS coaches (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL UNIQUE REFERENCES users(id),
@@ -55,6 +37,24 @@ CREATE TABLE IF NOT EXISTS coaches (
     max_athletes INT DEFAULT 50,
     is_verified BOOLEAN DEFAULT FALSE,
     status TEXT DEFAULT 'active',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS athletes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE REFERENCES users(id),
+    organization_id UUID NOT NULL REFERENCES organizations(id),
+    primary_sport TEXT,
+    experience_level TEXT,
+    height_cm DECIMAL(5,2),
+    weight_kg DECIMAL(5,2),
+    body_fat_pct DECIMAL(4,2),
+    injury_status TEXT DEFAULT 'healthy',
+    training_status TEXT DEFAULT 'active',
+    goals JSONB DEFAULT '[]',
+    settings JSONB DEFAULT '{}',
+    coach_id UUID REFERENCES coaches(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS workout_programs (
     status TEXT DEFAULT 'draft',
     is_template BOOLEAN DEFAULT FALSE,
     published_at TIMESTAMPTZ,
-    created_at TIMESHAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
