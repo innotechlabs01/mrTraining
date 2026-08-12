@@ -4,13 +4,15 @@ export const EXPO_RUNTIME_VERSION = '1.0.0';
 
 export const EXPO_CHANNEL_NAME = 'development';
 
-export const EXPO_LINK_BASE = (
-  process.env.NEXT_PUBLIC_EXPO_LINK_BASE ||
-  `exp://u.expo.dev/${EXPO_PROJECT_ID}?runtime-version=${EXPO_RUNTIME_VERSION}&channel-name=${EXPO_CHANNEL_NAME}`
-).replace(/\/+$/, '');
-
 export function buildExpoUrl(code: string) {
-  return code
-    ? `${EXPO_LINK_BASE}/--/invite?code=${encodeURIComponent(code)}`
-    : EXPO_LINK_BASE;
+  const base = `exp://u.expo.dev/${EXPO_PROJECT_ID}`;
+  const path = '/--/invite';
+  const params = new URLSearchParams({
+    'runtime-version': EXPO_RUNTIME_VERSION,
+    'channel-name': EXPO_CHANNEL_NAME,
+  });
+  if (code) {
+    params.set('code', code);
+  }
+  return `${base}${path}?${params.toString()}`;
 }
