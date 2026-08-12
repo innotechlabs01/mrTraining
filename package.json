@@ -3,7 +3,9 @@
   "private": true,
   "scripts": {
     "dev": "pnpm --filter @mrtraining/web dev",
+    "dev:mobile": "cd apps/apps/mobile && npm start",
     "build": "pnpm --filter @mrtraining/web build",
+    "build:mobile": "cd apps/apps/mobile && eas build --profile development --platform ios",
     "lint": "pnpm --filter @mrtraining/web lint",
     "test": "node_modules/.bin/jest"
   },

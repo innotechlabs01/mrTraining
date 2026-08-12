@@ -40,7 +40,8 @@
               "mrtraining"
             ]
           }
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -81,7 +82,9 @@
     "extra": {
       "eas": {
         "projectId": "c4e4a8cc-bcf6-43cd-8d13-33bd46e6fea7"
-      }
+      },
+      "clerkPublishableKey": "pk_test_dXByaWdodC1tYXJ0ZW4tNjQuY2xlcmsuYWNjb3VudHMuZGV2JA",
+      "apiBaseUrl": "https://mr-training.vercel.app"
     }
   }
 }

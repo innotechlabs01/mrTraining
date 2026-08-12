@@ -13,6 +13,7 @@ function InviteContent() {
   const [loading, setLoading] = useState(true);
   const [platform, setPlatform] = useState<'ios' | 'android' | 'other'>('other');
   const [openFailed, setOpenFailed] = useState(false);
+  const [expoInstalled, setExpoInstalled] = useState(false);
 
   useEffect(() => {
     const ua = navigator.userAgent || navigator.vendor || (window as unknown as { opera?: string }).opera || '';
@@ -175,9 +176,24 @@ function InviteContent() {
             <div className="rounded-2xl border border-white/10 bg-surface-1 p-6 space-y-4">
               <h2 className="text-sm font-semibold text-text-primary text-center">Paso 2: Abrir MR Training</h2>
 
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={expoInstalled}
+                  onChange={(e) => setExpoInstalled(e.target.checked)}
+                  className="w-5 h-5 rounded border-surface-6 bg-surface-2 text-brand-primary focus:ring-brand-primary/30"
+                />
+                <span className="text-sm text-text-secondary">Ya instalé Expo Go</span>
+              </label>
+
               <button
                  onClick={handleOpenInExpo}
-                 className="w-full flex items-center justify-center gap-2 h-12 rounded-xl border border-white/10 bg-surface-2 text-text-primary font-semibold text-sm hover:bg-surface-3 transition-colors"
+                 disabled={!expoInstalled}
+                 className={`w-full flex items-center justify-center gap-2 h-12 rounded-xl font-semibold text-sm transition-colors ${
+                   expoInstalled
+                     ? 'border border-white/10 bg-surface-2 text-text-primary hover:bg-surface-3'
+                     : 'bg-surface-3 text-text-secondary cursor-not-allowed opacity-50'
+                 }`}
                >
                  <Smartphone size={18} />
                  Abrir en Expo Go
@@ -186,8 +202,8 @@ function InviteContent() {
                {openFailed ? (
                  <div className="rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-4 space-y-3">
                    <p className="text-xs text-text-secondary text-center">
-                     No pudimos abrir Expo Go. Instálala desde la tienda y vuelve a
-                     intentarlo, o escanea el QR de arriba con la cámara.
+                     No se pudo abrir Expo Go. Asegúrate de tenerla instalada y vuelve a
+                     tocar el botón, o escanea el QR de arriba con la cámara.
                    </p>
                    <button
                      onClick={() => handleCopy(expoOpenUrl)}
@@ -199,7 +215,9 @@ function InviteContent() {
                  </div>
                ) : (
                  <p className="text-xs text-text-secondary text-center">
-                   Necesitas tener Expo Go instalada (Paso 1).
+                   {expoInstalled
+                     ? 'Toca el botón para abrir la app'
+                     : 'Primero descargá Expo Go en el Paso 1'}
                  </p>
                )}
             </div>
@@ -209,15 +227,15 @@ function InviteContent() {
               <ol className="space-y-3 text-sm text-text-secondary">
                 <li className="flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary text-xs flex items-center justify-center shrink-0">1</span>
-                  <span>Descarga Expo Go desde tu tienda de apps (si no la tienes)</span>
+                  <span>Toca &quot;Descargar Expo Go&quot; e instálala desde la tienda</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary text-xs flex items-center justify-center shrink-0">2</span>
-                  <span>Escanea el QR con la cámara, o toca &quot;Abrir en Expo Go&quot;</span>
+                  <span>Vuelve a esta página y marcá &quot;Ya instalé Expo Go&quot;</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary text-xs flex items-center justify-center shrink-0">3</span>
-                  <span>Expo Go abrirá MR Training. Si no te lleva automáticamente, pega el código en el campo de la app.</span>
+                  <span>Toca &quot;Abrir en Expo Go&quot; — la app se abrirá con tu código de invite</span>
                 </li>
               </ol>
             </div>

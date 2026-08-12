@@ -3,6 +3,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ClerkProvider } from '@clerk/clerk-expo';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Constants from 'expo-constants';
 import { AppNavigator } from './Navigation';
 
 const queryClient = new QueryClient({
@@ -16,7 +17,7 @@ const queryClient = new QueryClient({
   },
 });
 
-const CLERK_KEY = 'pk_test_dXByaWdodC1tYXJ0ZW4tNjQuY2xlcmsuYWNjb3VudHMuZGV2JA';
+const CLERK_KEY = Constants.expoConfig?.extra?.clerkPublishableKey as string;
 
 export default function App() {
   return (

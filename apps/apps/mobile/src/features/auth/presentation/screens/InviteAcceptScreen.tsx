@@ -3,11 +3,10 @@ import { View, Text, ActivityIndicator, StyleSheet, Pressable, TextInput } from 
 import { useAuth } from '@clerk/clerk-expo';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Constants from 'expo-constants';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 
-const API_URL = __DEV__
-  ? 'http://localhost:3000'
-  : 'https://mrtraining.vercel.app';
+const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl as string;
 
 type InviteAcceptNavigationProp = NativeStackNavigationProp<RootStackParamList, 'InviteAccept'>;
 
@@ -38,7 +37,7 @@ export function InviteAcceptScreen() {
     setStatus('loading');
 
     try {
-      const response = await fetch(`${API_URL}/api/athlete/accept-invite`, {
+      const response = await fetch(`${API_BASE_URL}/api/athlete/accept-invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: coachCode }),
