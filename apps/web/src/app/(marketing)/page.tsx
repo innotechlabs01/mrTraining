@@ -264,6 +264,14 @@ export default function Page() {
           background: linear-gradient(90deg, var(--bg) 8%, rgba(10,10,10,0.55) 42%, rgba(10,10,10,0.15) 75%),
                       linear-gradient(0deg, var(--bg) 0%, transparent 34%);
         }
+        .ig-hero-outline {
+          position: absolute; top: -60px; right: 2%;
+          z-index: 51; user-select: none; pointer-events: none;
+        }
+        .ig-hero-outline img {
+          height: clamp(180px, 28vw, 380px); width: auto;
+          mix-blend-mode: screen; opacity: 1;
+        }
         .ig-hero-inner { position: relative; z-index: 2; padding-bottom: 60px; width: 100%; }
         .ig-hero-inner h1 {
           font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
@@ -562,6 +570,7 @@ export default function Page() {
           .ig-menu-toggle { display: block; }
           .ig-nav .ig-btn-solid { display: none; }
           .ig-hero { min-height: 400px; }
+          .ig-hero-outline { display: none; }
           .ig-hero-inner h1 { font-size: clamp(28px, 8vw, 42px); }
           .ig-section { padding: 56px 0; }
           .ig-section-head { margin-bottom: 32px; }
@@ -610,6 +619,9 @@ export default function Page() {
       <section className='ig-hero' id='home'>
         <div className='ig-hero-photo'>
           <img src={brand.heroPhoto} alt={brand.heroPhotoAlt} />
+        </div>
+        <div className='ig-hero-outline' aria-hidden='true'>
+          <img src='/images/icon/icon_mr_rp_wapp.png' alt='' />
         </div>
         <div className='ig-container ig-hero-inner'>
           <h1>
