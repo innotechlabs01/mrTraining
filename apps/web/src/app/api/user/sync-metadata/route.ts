@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getDB } from '@/lib/coach-isolation-db';
+import { getDB, generateUniqueCoachCode } from '@/lib/coach-isolation-db';
 
 const clerkSecretKey = process.env.CLERK_SECRET_KEY || '';
 
@@ -20,7 +20,15 @@ export async function POST(req: Request) {
     args: [userId],
   });
 
-  const coachCode = coachResult.rows[0]?.coach_code as string | undefined;
+  let coachCode = coachResult.rows[0]?.coach_code as string | undefined;
+
+  if (!coachCode) {
+    coachCode = await generateUniqueCoachCode();
+    await db.execute({
+      sql: 'UPDATE coaches SET coach_code = ?, updated_at = datetime(\'now\') WHERE id = ?',
+      args: [coachCode, userId],
+    });
+  }
 
   const metadata: Record<string, string> = { role: 'coach' };
   if (coachCode) metadata.coachCode = coachCode;
