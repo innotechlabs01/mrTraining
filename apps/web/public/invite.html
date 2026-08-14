@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Abrir MR Training</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #000; 
+      color: #fff; 
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container { text-align: center; max-width: 400px; }
+    h1 { font-size: 24px; margin-bottom: 16px; }
+    p { color: #999; margin-bottom: 24px; }
+    .btn {
+      display: inline-block;
+      background: #FF6B00;
+      color: #fff;
+      padding: 16px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+    .btn:active { opacity: 0.8; }
+    .btn-secondary {
+      background: transparent;
+      border: 2px solid #333;
+      color: #fff;
+    }
+    .steps {
+      background: #111;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 24px;
+      text-align: left;
+    }
+    .steps h3 { margin-bottom: 12px; font-size: 16px; }
+    .steps ol { padding-left: 20px; }
+    .steps li { color: #999; margin-bottom: 8px; }
+    .steps code { 
+      background: #222; 
+      padding: 2px 6px; 
+      border-radius: 4px;
+      color: #FF6B00;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>MR Training</h1>
+    <p>Abre la app en tu celular</p>
+    
+    <div id="mobile-view" style="display: none;">
+      <a id="expo-link" href="#" class="btn">Abrir en Expo Go</a>
+      <p>¿No se abre? Asegúrate de tener Expo Go instalado</p>
+    </div>
+    
+    <div id="desktop-view" style="display: none;">
+      <div class="steps">
+        <h3>Instrucciones:</h3>
+        <ol>
+          <li>Instala <strong>Expo Go</strong> desde App Store o Google Play</li>
+          <li>Abre la app <strong>Expo Go</strong></li>
+          <li>Escanea este QR code con la cámara</li>
+        </ol>
+      </div>
+      <p style="margin-top: 16px;">O abre este link en tu celular:</p>
+      <code id="mobile-url" style="word-break: break-all;"></code>
+    </div>
+  </div>
+
+  <script>
+    // Obtener el código del invite del URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code') || 'demo';
+    
+    // URL del deep link para Expo Go
+    // exp+scheme:// es el formato que Expo Go reconoce
+    const expUrl = `exp+mrtraining://invite?code=${code}`;
+    const localExpUrl = `exp://localhost:8100--invite?code=${code}`;
+    
+    // Detectar si es móvil
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      // Mostrar botón para abrir Expo Go
+      document.getElementById('mobile-view').style.display = 'block';
+      const link = document.getElementById('expo-link');
+      link.href = expUrl;
+      
+      // Intentar abrir automáticamente
+      window.location.href = expUrl;
+    } else {
+      // Mostrar QR code e instrucciones en desktop
+      document.getElementById('desktop-view').style.display = 'block';
+      document.getElementById('mobile-url').textContent = window.location.href;
+    }
+  </script>
+</body>
+</html>
