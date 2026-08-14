@@ -1,12 +1,14 @@
 FROM node:22-alpine
 
+RUN apk add --no-cache python3 make g++
+
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --ignore-scripts && npm rebuild
 
 COPY . .
 
-EXPOSE 8081
+EXPOSE 8099
 
-CMD ["npx", "expo", "start", "--port", "8081", "--host", "0.0.0.0"]
+CMD ["npx", "expo", "start", "--port", "8099", "--host", "lan"]

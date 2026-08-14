@@ -2,7 +2,7 @@ services:
   expo:
     build: .
     ports:
-      - "8081:8081"
+      - "8099:8099"
     environment:
       - EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0
     volumes:
@@ -11,6 +11,8 @@ services:
 
   tunnel:
     image: cloudflare/cloudflared:latest
-    command: tunnel --url http://expo:8081
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
     depends_on:
       - expo
