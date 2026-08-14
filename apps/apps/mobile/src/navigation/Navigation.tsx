@@ -27,6 +27,8 @@ const linking = {
     'mrtraining://',
     'exp://',
     'exp+mrtraining://',
+    'exp://mobile.innotechlabssas.lat',
+    'https://mobile.innotechlabssas.lat',
     'https://app.mrtraining.com',
     'https://mr-training.vercel.app',
   ],

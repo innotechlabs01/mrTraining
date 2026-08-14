@@ -20,6 +20,9 @@ const DEEP_LINK_TEST_URLS = {
   invite: 'mrtraining://invite?code=test-invite-code-123',
   inviteWithoutCode: 'mrtraining://invite',
   
+  // Expo tunnel
+  expoInvite: 'exp://mobile.innotechlabssas.lat?code=test-invite-code-123',
+  
   // HTTPS fallback
   httpsInvite: 'https://app.mrtraining.com/invite?code=test-invite-code-123',
   

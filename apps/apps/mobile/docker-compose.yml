@@ -1,0 +1,16 @@
+services:
+  expo:
+    build: .
+    ports:
+      - "8081:8081"
+    environment:
+      - EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0
+    volumes:
+      - /app/node_modules
+      - .:/app
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --url http://expo:8081
+    depends_on:
+      - expo
