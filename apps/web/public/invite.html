@@ -85,9 +85,8 @@
     const code = urlParams.get('code') || 'demo';
     
     // URL del deep link para Expo Go
-    // exp+scheme:// es el formato que Expo Go reconoce
-    const expUrl = `exp+mrtraining://invite?code=${code}`;
-    const localExpUrl = `exp://localhost:8100--invite?code=${code}`;
+    // mrtraining:// es el scheme configurado en app.json
+    const expUrl = `mrtraining://invite?code=${code}`;
     
     // Detectar si es móvil
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
