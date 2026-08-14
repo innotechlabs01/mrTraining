@@ -7,16 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "scheme": "mrtraining",
-    "plugins": [
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/splash.png",
-          "resizeMode": "contain",
-          "backgroundColor": "#000000"
-        }
-      ]
-    ],
+    "plugins": [],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.innotechlabssas.mrtraining",
