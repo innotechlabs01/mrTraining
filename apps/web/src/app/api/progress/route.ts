@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { calculateProgress, ProgressData } from '@/features/progress/services/progress-calculation';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);

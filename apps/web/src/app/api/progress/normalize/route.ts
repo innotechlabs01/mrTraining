@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizeProgress, ProgressResult } from '@/features/progress/services/normalization';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const body: ProgressResult = await request.json();

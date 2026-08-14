@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { analyzeProgress, ProgressDataPoint } from '@/features/progress/services/analytics';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const body: { data: ProgressDataPoint[] } = await request.json();
