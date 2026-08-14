@@ -2,24 +2,11 @@
   "expo": {
     "name": "MR Training",
     "slug": "mr-training",
-    "owner": "innotechlabssas",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "scheme": "mrtraining",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/c4e4a8cc-bcf6-43cd-8d13-33bd46e6fea7",
-      "enabled": true,
-      "fallbackToCacheTimeout": 0,
-      "checkAutomatically": "ON_LOAD",
-      "requestHeaders": {
-        "expo-channel-name": "development"
-      }
-    },
     "plugins": [
       [
         "expo-splash-screen",
@@ -80,9 +67,6 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "eas": {
-        "projectId": "c4e4a8cc-bcf6-43cd-8d13-33bd46e6fea7"
-      },
       "clerkPublishableKey": "pk_test_dXByaWdodC1tYXJ0ZW4tNjQuY2xlcmsuYWNjb3VudHMuZGV2JA",
       "apiBaseUrl": "https://mr-training.vercel.app"
     }
