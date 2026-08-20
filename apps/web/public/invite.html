@@ -83,20 +83,20 @@
     // Obtener el código del invite del URL
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code') || 'demo';
-    
+
     // URL del deep link para Expo Go
-    // mrtraining:// es el scheme configurado en app.json
-    const expUrl = `mrtraining://invite?code=${code}`;
-    
+    // exp:// es el scheme que Expo Go reconoce para conectarse al dev server
+    const expUrl = `exp://mobile.innotechlabssas.lat?code=${code}`;
+
     // Detectar si es móvil
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
+
     if (isMobile) {
       // Mostrar botón para abrir Expo Go
       document.getElementById('mobile-view').style.display = 'block';
       const link = document.getElementById('expo-link');
       link.href = expUrl;
-      
+
       // Intentar abrir automáticamente
       window.location.href = expUrl;
     } else {
