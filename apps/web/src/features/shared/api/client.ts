@@ -1,5 +1,8 @@
 // All Next.js API routes are same-origin — no host hardcode needed.
-// NEXT_PUBLIC_API_URL (Go at :8080) is deprecated; coaching never uses it.
+// NEXT_PUBLIC_API_URL (Go at :8080) is deprecated and must not be used.
+// Go backend at localhost:8080/api/v1 has been deleted (migrated to Next.js).
+// @deprecated LEGACY_API_BASE is kept only for backwards-compat of the legacy `api` helper.
+// New code must use `nextRequest` / `coachingRequest` (same-origin, no host).
 const LEGACY_API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 interface RequestOptions extends RequestInit {
@@ -48,12 +51,34 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   return response.json();
 }
 
+/** @deprecated Legacy Go helper — hits `${LEGACY_API_BASE}` (same-origin when env is empty). Prefer `nextRequest`. */
 export const api = {
   get: <T>(endpoint: string, options?: RequestOptions) => request<T>(endpoint, { ...options, method: 'GET' }),
   post: <T>(endpoint: string, data: unknown, options?: RequestOptions) => request<T>(endpoint, { ...options, method: 'POST', body: JSON.stringify(data) }),
   put: <T>(endpoint: string, data: unknown, options?: RequestOptions) => request<T>(endpoint, { ...options, method: 'PUT', body: JSON.stringify(data) }),
   patch: <T>(endpoint: string, data: unknown, options?: RequestOptions) => request<T>(endpoint, { ...options, method: 'PATCH', body: JSON.stringify(data) }),
   delete: <T>(endpoint: string, options?: RequestOptions) => request<T>(endpoint, { ...options, method: 'DELETE' }),
+};
+
+// ---- Same-origin Next.js request helper (used by all Next.js routes) ----
+async function nextRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  const { auth = true, headers, ...rest } = options;
+  const headerObj = auth ? await getAuthHeaders(headers) : { 'Content-Type': 'application/json', ...(headers as Record<string, string> || {}) };
+  const response = await fetch(endpoint, { ...rest, headers: headerObj });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+  }
+  if (response.status === 204) return undefined as T;
+  return response.json();
+}
+
+const nextFetch = {
+  get: <T>(endpoint: string, options?: RequestOptions) => nextRequest<T>(endpoint, { ...options, method: 'GET' }),
+  post: <T>(endpoint: string, data: unknown, options?: RequestOptions) => nextRequest<T>(endpoint, { ...options, method: 'POST', body: JSON.stringify(data) }),
+  put: <T>(endpoint: string, data: unknown, options?: RequestOptions) => nextRequest<T>(endpoint, { ...options, method: 'PUT', body: JSON.stringify(data) }),
+  patch: <T>(endpoint: string, data: unknown, options?: RequestOptions) => nextRequest<T>(endpoint, { ...options, method: 'PATCH', body: JSON.stringify(data) }),
+  delete: <T>(endpoint: string, options?: RequestOptions) => nextRequest<T>(endpoint, { ...options, method: 'DELETE' }),
 };
 
 // Workout API
@@ -95,25 +120,54 @@ export interface Workout {
   estimatedDuration?: number;
 }
 
+// Workout API — migrated to same-origin Next.js routes.
+// Go legacy was /workouts, /athletes/:id/workouts etc. (localhost:8080/api/v1).
+// Next.js equivalents: /api/coaching/assigned-workouts + /api/athlete/workouts + /api/athlete/today
 export const workoutApi = {
   create: (data: { name: string; description: string; sportType: string; scheduledDate: string; athleteId: string; programId?: string; exercises: unknown[] }) =>
-    api.post<Workout>('/workouts', data),
+    // Map legacy Go payload (name/description/sportType/scheduledDate/athleteId/exercises)
+    // to Next.js assigned-workouts shape; server accepts Record<string,unknown> so extra fields are safe.
+    // We keep athleteId for FK and add derived fields for the coaching DB table.
+    nextFetch.post<Workout>('/api/coaching/assigned-workouts', {
+      athleteId: data.athleteId,
+      contentName: data.name,
+      contentType: data.programId ? 'program' : 'workout',
+      contentId: data.programId || data.name,
+      modality: data.sportType,
+      startDate: data.scheduledDate,
+      endDate: data.scheduledDate,
+      daysOfWeek: [],
+      status: 'active',
+      progress: 0,
+      // keep original fields for backwards-compat / debugging
+      name: data.name,
+      description: data.description,
+      sportType: data.sportType,
+      scheduledDate: data.scheduledDate,
+      programId: data.programId,
+      exercises: data.exercises,
+    } as unknown),
 
-  getById: (id: string) => api.get<Workout>(`/workouts/${id}`),
+  getById: (id: string) => nextFetch.get<Workout>(`/api/coaching/assigned-workouts/${id}`),
 
   complete: (id: string, data: { rpe: number; notes: string }) =>
-    api.post<Workout>(`/workouts/${id}/complete`, data),
+    // Legacy POST /workouts/:id/complete -> Next.js PUT with status/progress
+    nextFetch.put<Workout>(`/api/coaching/assigned-workouts/${id}`, { status: 'completed', rpe: data.rpe, notes: data.notes } as unknown),
 
   getAthleteWorkouts: (athleteId: string, dateFrom?: string, dateTo?: string) => {
     const params = new URLSearchParams();
     if (dateFrom) params.append('dateFrom', dateFrom);
     if (dateTo) params.append('dateTo', dateTo);
-    return api.get<Workout[]>(`/athletes/${athleteId}/workouts?${params.toString()}`);
+    const qs = params.toString();
+    // Next.js /api/athlete/workouts is auth-derived (no athleteId in path); keep query params for filtering.
+    // athleteId is kept in signature for compat but not used in URL — auth determines athlete.
+    void athleteId;
+    return nextFetch.get<Workout[]>(`/api/athlete/workouts${qs ? `?${qs}` : ''}`);
   },
 
-  getTodayWorkout: (athleteId: string) => api.get<Workout>(`/athletes/${athleteId}/today`),
+  getTodayWorkout: (_athleteId: string) => nextFetch.get<Workout>('/api/athlete/today'),
 
-  getPendingReviews: () => api.get<Workout[]>('/workouts/pending-reviews'),
+  getPendingReviews: () => nextFetch.get<Workout[]>('/api/coaching/assigned-workouts'),
 };
 
 // Coach API
@@ -134,33 +188,19 @@ export interface CoachProfile {
   status: string;
 }
 
+// Coach API — migrated to same-origin Next.js route /api/coach/profile (see src/app/api/coach/profile/route.ts)
 export const coachApi = {
-  getProfile: () => api.get<CoachProfile>('/coach/profile'),
-  updateProfile: (data: Partial<CoachProfile>) => api.put<CoachProfile>('/coach/profile', data),
+  getProfile: () => nextFetch.get<CoachProfile>('/api/coach/profile'),
+  updateProfile: (data: Partial<CoachProfile>) => nextFetch.put<CoachProfile>('/api/coach/profile', data),
 };
 
 // ---- Coaching API (Next.js API routes -> TursoDB) ----
 // Always same-origin: React runs on Vercel, /api/* is on same host. No host hardcode.
 const COACHING_BASE = '/api/coaching'
 
-async function coachingRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  const { auth = true, headers, ...rest } = options;
-  const headerObj = auth ? await getAuthHeaders(headers) : { 'Content-Type': 'application/json', ...(headers as Record<string, string> || {}) };
-  const response = await fetch(endpoint, { ...rest, headers: headerObj });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `HTTP error! status: ${response.status}`);
-  }
-  if (response.status === 204) return undefined as T;
-  return response.json();
-}
-
-const coachingFetch = {
-  get: <T>(endpoint: string, options?: RequestOptions) => coachingRequest<T>(endpoint, { ...options, method: 'GET' }),
-  post: <T>(endpoint: string, data: unknown, options?: RequestOptions) => coachingRequest<T>(endpoint, { ...options, method: 'POST', body: JSON.stringify(data) }),
-  put: <T>(endpoint: string, data: unknown, options?: RequestOptions) => coachingRequest<T>(endpoint, { ...options, method: 'PUT', body: JSON.stringify(data) }),
-  delete: <T>(endpoint: string, options?: RequestOptions) => coachingRequest<T>(endpoint, { ...options, method: 'DELETE' }),
-};
+// Reuse same-origin helper — coachingRequest is an alias to nextRequest
+const coachingRequest = nextRequest
+const coachingFetch = nextFetch
 
 export const coachingApi = {
   // Time Blocks
