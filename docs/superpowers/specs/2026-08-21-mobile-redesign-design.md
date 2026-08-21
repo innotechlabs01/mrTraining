@@ -83,6 +83,21 @@ Unchanged: Clerk auth flow, deep linking (`mrtraining://`, universal links),
 cards; Today shows a membership banner when status is expiring (<7 days) or expired.
 Adaptive side rail for tablets is documented as future work, out of scope.
 
+### 3.4 Entry Screens (Splash · Sign In · Onboarding)
+
+First-impression surfaces — they get dedicated treatment, not just token migration:
+
+- **SplashScreen**: brand moment — MR wordmark in Archivo Black with a Volt accent element,
+  subtle fade/scale animation, dark base. Short (<1.5s) before routing to auth state.
+- **SignInScreen**: full-screen dark hero layout — display typography headline, glass-style
+  input fields (`Input` from the UI kit), single Volt CTA ("Entrar"). Coach-code field kept.
+  Error states use the kit `EmptyState` error pattern inline.
+- **OnboardingScreen**: redesigned as a stepped progress flow — one concept per step,
+  progress bar (kit `ProgressBar`) at top, large display numerals for step count,
+  Volt CTA per step, data preserved on back-navigation.
+
+`WelcomeScreen` and `AuthFlowScreen` keep their routing logic; only visuals migrate to tokens.
+
 ## 4. Shared Component Kit
 
 New: `apps/mobile/src/shared/components/ui/`
@@ -171,7 +186,8 @@ Per-event payments · tablet adaptive rail · Sentry SDK · Nutrition/Recovery f
 ## 10. Delivery Plan (foundation-first, approved)
 
 1. **Phase A — Foundation:** unified tokens.ts, fonts installed, SVG icons, UI kit, rules rewrite.
-2. **Phase B — Restyle:** migrate all existing screens to tokens + kit; swap drawer → GlassDock.
+2. **Phase B — Restyle:** migrate all existing screens to tokens + kit (entry screens per §3.4);
+   swap drawer → GlassDock.
 3. **Phase C — Features:** training flow, event detail/RSVP forms, Polar payment flow.
 4. **Phase D — Audit:** `audit_logs` table + backend recording endpoints.
 
