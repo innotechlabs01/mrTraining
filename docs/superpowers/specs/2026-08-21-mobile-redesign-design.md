@@ -83,20 +83,33 @@ Unchanged: Clerk auth flow, deep linking (`mrtraining://`, universal links),
 cards; Today shows a membership banner when status is expiring (<7 days) or expired.
 Adaptive side rail for tablets is documented as future work, out of scope.
 
-### 3.4 Entry Screens (Splash · Sign In · Onboarding)
+### 3.4 Entry Flow (restructured)
 
-First-impression surfaces — they get dedicated treatment, not just token migration:
+```
+SplashScreen (validates Clerk session)
+├── session active ──→ AthleteTabs
+└── no session ─────→ WelcomeScreen ("I'm new" / "I already train")
+      ├── I'm new ───→ OnboardingScreen → Auth (signup mode)
+      └── I train ───→ Auth (signin mode)
+```
 
-- **SplashScreen**: brand moment — MR wordmark in Archivo Black with a Volt accent element,
-  subtle fade/scale animation, dark base. Short (<1.5s) before routing to auth state.
-- **SignInScreen**: full-screen dark hero layout — display typography headline, glass-style
-  input fields (`Input` from the UI kit), single Volt CTA ("Entrar"). Coach-code field kept.
-  Error states use the kit `EmptyState` error pattern inline.
-- **OnboardingScreen**: redesigned as a stepped progress flow — one concept per step,
-  progress bar (kit `ProgressBar`) at top, large display numerals for step count,
-  Volt CTA per step, data preserved on back-navigation.
+- **SplashScreen**: brand moment (wordmark + Volt accent, subtle animation) while Clerk
+  session resolves — replaces today's decorative 3.8s timer with a functional gate.
+  Signed-in users land directly on Tabs.
+- **WelcomeScreen**: chooser between new-athlete onboarding and returning sign-in.
+  Visual migration to tokens only.
+- **OnboardingScreen**: keeps its 7 steps (sport selector, modality/level, goal, schedule,
+  equipment, summary, routine acceptance). Each step gains a hero image, Next/Back buttons,
+  and a Skip action that jumps straight to the final step. Data validation per step unchanged.
+  **Bug fix included:** collected `OnboardingData` is currently written to a Context nobody
+  consumes — it must be persisted/sent via the existing `/athlete/onboard` endpoint.
+  Step hero images are static bundled assets (one per step); no network fetch.
+- **AuthFlowScreen**: its inline state machine (splash→welcome phases) is dissolved into the
+  navigator — splash and welcome become proper routes driven by Clerk session state.
+- **Auth/SignInScreen**: logic unchanged — email + password + mandatory coach code in both
+  modes, invite-code prefill from deep links. Visual redesign only (glass inputs, single Volt CTA).
 
-`WelcomeScreen` and `AuthFlowScreen` keep their routing logic; only visuals migrate to tokens.
+`InviteAcceptScreen` keeps its role; visuals migrate to tokens.
 
 ## 4. Shared Component Kit
 
