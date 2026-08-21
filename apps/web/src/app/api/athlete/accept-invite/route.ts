@@ -98,6 +98,36 @@ export async function POST(req: Request) {
       );
     }
 
+    // Sync Clerk public_metadata so dashboard shows relation immediately without waiting for webhook
+    const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+    if (clerkSecretKey) {
+      try {
+        const clerkRes = await fetch(`https://api.clerk.com/v1/users/${userId}/metadata`, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${clerkSecretKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            public_metadata: {
+              role: 'athlete',
+              coachCode: normalizedCode,
+              coachId,
+              coachName: coachData.name,
+            },
+          }),
+        });
+        if (!clerkRes.ok) {
+          const errText = await clerkRes.text();
+          console.error(`[accept-invite] Failed to update Clerk metadata for ${userId}:`, errText);
+        }
+      } catch (err) {
+        console.error(`[accept-invite] Error updating Clerk metadata for ${userId}:`, err);
+      }
+    } else {
+      console.warn('[accept-invite] CLERK_SECRET_KEY not set, skipping metadata sync');
+    }
+
     return NextResponse.json({
       success: true,
       coachName: coachData.name,

@@ -81,6 +81,18 @@ async function ensureCoachSync(userId: string, email: string, name: string, avat
 
 async function processAthleteCoachCode(userId: string, email: string, coachCode: string) {
   const db = getDB();
+  const normalizedCode = coachCode.trim().toUpperCase();
+
+  // Find coach by code first — validates code before link checks
+  const coach = await getCoachByCode(normalizedCode);
+  if (!coach) {
+    console.error(`[Webhook] Invalid coach code ${normalizedCode} for athlete ${userId} - no coach found`);
+    return;
+  }
+
+  const coachData = coach as Record<string, unknown>;
+  const coachId = coachData.id as string;
+  const coachName = coachData.name as string;
 
   // Check if already linked to a coach
   const existingLink = await db.execute({
@@ -89,19 +101,11 @@ async function processAthleteCoachCode(userId: string, email: string, coachCode:
   });
 
   if (existingLink.rows.length > 0) {
-    console.log(`[Webhook] Athlete ${userId} already linked to a coach, skipping`);
+    console.log(`[Webhook] Athlete ${userId} already linked to a coach, ensuring metadata is up to date`);
+    // Ensure Clerk metadata reflects athlete role even when link already exists (covers race where user was first created as coach)
+    await setClerkMetadata(userId, { role: 'athlete', coachCode: normalizedCode, coachId, coachName });
     return;
   }
-
-  // Find coach by code
-  const coach = await getCoachByCode(coachCode);
-  if (!coach) {
-    console.log(`[Webhook] Invalid coach code ${coachCode} for athlete ${userId}`);
-    return;
-  }
-
-  const coachData = coach as Record<string, unknown>;
-  const coachId = coachData.id as string;
 
   // Create user record if not exists
   const existingUser = await getUserById(userId);
@@ -154,7 +158,11 @@ async function processAthleteCoachCode(userId: string, email: string, coachCode:
     );
   }
 
-  console.log(`[Webhook] Linked athlete ${userId} to coach ${coachId} via code ${coachCode}`);
+  // Ensure Clerk metadata reflects athlete role — overrides prior coach role if user was initially created as coach
+  // Keep coach record intact but role in Clerk must be athlete to drive correct UI/routing
+  await setClerkMetadata(userId, { role: 'athlete', coachCode: normalizedCode, coachId, coachName });
+
+  console.log(`[Webhook] Linked athlete ${userId} to coach ${coachId} via code ${normalizedCode}`);
 }
 
 export async function POST(req: Request) {
