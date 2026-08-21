@@ -1,0 +1,35 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": [
+          "64Y56WFWGJ.com.innotechlabssas.mrtraining"
+        ],
+        "components": [
+          {
+            "/": "/invite",
+            "comment": "Invite deep link"
+          },
+          {
+            "/": "/auth/*",
+            "comment": "Auth callback"
+          },
+          {
+            "/": "/login",
+            "comment": "Login"
+          },
+          {
+            "/": "/*",
+            "comment": "Catch all"
+          }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": [
+      "64Y56WFWGJ.com.innotechlabssas.mrtraining"
+    ]
+  }
+}

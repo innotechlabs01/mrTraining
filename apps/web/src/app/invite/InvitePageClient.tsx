@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Copy, Check, Smartphone, Download } from 'lucide-react';
-import { buildExpoUrl, buildExpoGoUrl } from './expoLink';
+import { buildExpoUrl, buildExpoGoUrl, buildUniversalLink } from './expoLink';
 
 function InviteContent() {
   const searchParams = useSearchParams();
@@ -48,13 +48,14 @@ function InviteContent() {
       : 'https://play.google.com/store/apps/details?id=host.exp.exponent';
 
   // URLs for different scenarios
-  const appUrl = buildExpoUrl(code);        // mrtraining://invite?code=XXX (installed app)
+  const appUrl = buildExpoUrl(code);        // mrtraining://invite?code=XXX (custom scheme)
+  const universalLinkUrl = buildUniversalLink(code); // https://app.mrtraining.com/invite?code=XXX (Universal Link)
   const expoGoUrl = buildExpoGoUrl(code);   // exp://... (Expo Go for dev)
   const webFallbackUrl = `https://app.mrtraining.com/invite?code=${code}`;
 
-  // QR code opens the installed app via custom scheme
+  // QR code uses Universal Link (works with both installed app and Development Build)
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-    appUrl
+    universalLinkUrl
   )}`;
 
   const handleOpenInApp = () => {
@@ -73,8 +74,13 @@ function InviteContent() {
     };
     document.addEventListener('visibilitychange', clear, { once: true });
 
-    // Try custom scheme first (installed app)
-    window.location.href = appUrl;
+    // iOS: Universal Link opens the app directly (Development Build or App Store)
+    // Android: Custom scheme opens the installed app
+    if (platform === 'ios') {
+      window.location.href = universalLinkUrl;
+    } else {
+      window.location.href = appUrl;
+    }
   };
 
   const handleOpenInExpoGo = () => {
@@ -246,11 +252,18 @@ function InviteContent() {
                      o escanea el QR de arriba con la cámara.
                    </p>
                    <button
-                     onClick={() => handleCopy(appUrl)}
+                     onClick={() => handleCopy(universalLinkUrl)}
                      className="w-full inline-flex items-center justify-center gap-1.5 text-sm text-brand-primary hover:text-brand-primary-hover transition-colors"
                    >
                      <Copy size={14} />
-                     Copiar link de la app
+                     Copiar Universal Link
+                   </button>
+                   <button
+                     onClick={() => handleCopy(appUrl)}
+                     className="w-full inline-flex items-center justify-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors"
+                   >
+                     <Copy size={14} />
+                     Copiar custom scheme
                    </button>
                    <button
                      onClick={() => handleCopy(expoGoUrl)}
