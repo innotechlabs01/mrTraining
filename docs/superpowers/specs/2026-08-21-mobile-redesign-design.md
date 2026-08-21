@@ -172,6 +172,22 @@ Backend endpoints record business actions and failures: payment attempts/outcome
 membership changes, workout completions, RSVP accept/cancel, auth failures.
 Sentry integration explicitly deferred to a later change — do not add the SDK now.
 
+### 5.5 Onboarding Data Visibility for Coach (web)
+
+The `appointments` table already carries denormalized onboarding snapshot columns
+(`athlete_sports`, `athlete_modality`, `athlete_level`, `athlete_goal`, `athlete_frequency`,
+`athlete_duration`, `athlete_equipment`, `athlete_routine_accepted`) but nothing fills them.
+Three fixes, one per layer:
+
+1. **Mobile** — booking a consultation from onboarding sends the collected `OnboardingData`
+   alongside date/time; completing onboarding posts the full dataset to `/athlete/onboard`.
+2. **API (apps/web)** — `/api/athlete/onboard` persists all received fields (not just sport);
+   `/api/athlete/appointments` accepts and stores the onboarding snapshot into the existing
+   `appointments` columns.
+3. **Web coach view** — appointment cards in `/coach/agendamiento` display the athlete's
+   training profile (sports, goal, level, weekly frequency, duration, equipment) so the coach
+   sees who they are meeting and what training to prepare before the call.
+
 ## 6. Error Handling
 
 Every queried screen implements three states via `EmptyState`: loading (volt skeleton),
