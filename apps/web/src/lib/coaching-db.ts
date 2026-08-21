@@ -45,24 +45,33 @@ export async function getAthletes(coachId: string) {
     'SELECT * FROM coach_athletes WHERE coach_id = ? ORDER BY created_at',
     [coachId],
   )
-  return result.rows.map(r => ({
-    id: r.id as string,
-    name: r.name as string,
-    avatarUrl: r.avatar_url as string || '',
-    sport: r.sport as string,
-    email: r.email as string || '',
-    phone: r.phone as string || '',
-    serviceType: r.service_type as string || '',
-    plan: { name: r.plan_name as string || '', price: r.plan_price as number || 0, billingPeriod: r.plan_billing as string || 'mensual' },
-    schedule: { days: r.schedule_days as string || '', time: r.schedule_time as string || '' },
-    startDate: r.start_date as string || '',
-    emergencyContact: r.emergency_contact as string || '',
-    readiness: { sleep: r.sleep as number || 0, hrv: r.hrv as number || 0, recovery: r.recovery as number || 0, score: r.readiness_score as number || 0 },
-    flag: r.flag_type ? { type: r.flag_type as string, severity: r.flag_severity as string, message: r.flag_message as string } : undefined,
-    runningDevice: r.running_device_brand ? { brand: r.running_device_brand as string, model: r.running_device_model as string, synced: Boolean(r.running_device_synced), lastSync: r.running_device_last_sync as string || undefined } : undefined,
-    weightHistory: [] as Array<{ date: string; weight: number; muscleMass: number; bodyFat: number }>,
-    todaySessionIds: [] as string[],
-  }))
+  return result.rows.map(r => {
+    const rawName = (r.name as string) || ''
+    const email = (r.email as string) || ''
+    // Defensive: if DB still has email or user_ id as name, fall back to email local part
+    const name =
+      !rawName || rawName.startsWith('user_') || rawName.includes('@')
+        ? email.split('@')[0] || rawName || 'Athlete'
+        : rawName
+    return {
+      id: r.id as string,
+      name,
+      avatarUrl: r.avatar_url as string || '',
+      sport: r.sport as string,
+      email,
+      phone: r.phone as string || '',
+      serviceType: r.service_type as string || '',
+      plan: { name: r.plan_name as string || '', price: r.plan_price as number || 0, billingPeriod: r.plan_billing as string || 'mensual' },
+      schedule: { days: r.schedule_days as string || '', time: r.schedule_time as string || '' },
+      startDate: r.start_date as string || '',
+      emergencyContact: r.emergency_contact as string || '',
+      readiness: { sleep: r.sleep as number || 0, hrv: r.hrv as number || 0, recovery: r.recovery as number || 0, score: r.readiness_score as number || 0 },
+      flag: r.flag_type ? { type: r.flag_type as string, severity: r.flag_severity as string, message: r.flag_message as string } : undefined,
+      runningDevice: r.running_device_brand ? { brand: r.running_device_brand as string, model: r.running_device_model as string, synced: Boolean(r.running_device_synced), lastSync: r.running_device_last_sync as string || undefined } : undefined,
+      weightHistory: [] as Array<{ date: string; weight: number; muscleMass: number; bodyFat: number }>,
+      todaySessionIds: [] as string[],
+    }
+  })
 }
 
 export async function getAthleteById(coachId: string, athleteId: string) {
@@ -77,12 +86,18 @@ export async function getAthleteById(coachId: string, athleteId: string) {
     'SELECT * FROM athlete_weight_history WHERE athlete_id = ? ORDER BY date',
     [athleteId],
   )
+  const rawName = (r.name as string) || ''
+  const email = (r.email as string) || ''
+  const name =
+    !rawName || rawName.startsWith('user_') || rawName.includes('@')
+      ? email.split('@')[0] || rawName || 'Athlete'
+      : rawName
   return {
     id: r.id as string,
-    name: r.name as string,
+    name,
     avatarUrl: r.avatar_url as string || '',
     sport: r.sport as string,
-    email: r.email as string || '',
+    email,
     phone: r.phone as string || '',
     serviceType: r.service_type as string || '',
     plan: { name: r.plan_name as string || '', price: r.plan_price as number || 0, billingPeriod: r.plan_billing as string || 'mensual' },

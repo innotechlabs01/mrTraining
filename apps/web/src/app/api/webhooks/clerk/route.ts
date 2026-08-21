@@ -79,9 +79,11 @@ async function ensureCoachSync(userId: string, email: string, name: string, avat
   }
 }
 
-async function processAthleteCoachCode(userId: string, email: string, coachCode: string) {
+async function processAthleteCoachCode(userId: string, email: string, name: string, coachCode: string) {
   const db = getDB();
   const normalizedCode = coachCode.trim().toUpperCase();
+  // Normalize display name: ensure we have a real name, fallback to email
+  const displayName = name?.trim() || email;
 
   // Find coach by code first — validates code before link checks
   const coach = await getCoachByCode(normalizedCode);
@@ -110,21 +112,37 @@ async function processAthleteCoachCode(userId: string, email: string, coachCode:
   // Create user record if not exists
   const existingUser = await getUserById(userId);
   if (!existingUser) {
-    await createUser({ id: userId, email, name: email, role: 'athlete' });
+    await createUser({ id: userId, email, name: displayName, role: 'athlete' });
+  } else {
+    const currentName = (existingUser as Record<string, unknown>).name as string;
+    if (displayName !== email && (currentName === email || currentName.includes('@') || !currentName)) {
+      await db.execute({
+        sql: `UPDATE users SET name = ?, updated_at = datetime('now') WHERE id = ?`,
+        args: [displayName, userId],
+      });
+    }
   }
 
   // Create athlete profile if not exists
   const existingProfile = await getAthleteProfileById(userId);
   if (!existingProfile) {
-    await createAthleteProfile({ id: userId, email, name: email });
+    await createAthleteProfile({ id: userId, email, name: displayName });
+  } else {
+    const currentName = (existingProfile as Record<string, unknown>).name as string;
+    if (displayName !== email && (currentName === email || currentName.includes('@') || !currentName)) {
+      await db.execute({
+        sql: `UPDATE athlete_profiles SET name = ?, updated_at = datetime('now') WHERE id = ?`,
+        args: [displayName, userId],
+      });
+    }
   }
 
   // Link coach and athlete (normalized model)
   await linkCoachAthlete(coachId, userId);
 
-  // Create coach_athletes record for dashboard
+  // Create coach_athletes record for dashboard — modality defaults to virtual
   const existingAthlete = await db.execute(
-    'SELECT id FROM coach_athletes WHERE id = ? AND coach_id = ?',
+    'SELECT id, service_type FROM coach_athletes WHERE id = ? AND coach_id = ?',
     [userId, coachId],
   );
 
@@ -132,8 +150,17 @@ async function processAthleteCoachCode(userId: string, email: string, coachCode:
     await db.execute(
       `INSERT INTO coach_athletes (id, name, email, sport, service_type, start_date, coach_id, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, datetime('now'), ?, datetime('now'), datetime('now'))`,
-      [userId, email, email, '', 'linked_via_code', coachId],
+      [userId, displayName, email, '', 'virtual', coachId],
     );
+  } else {
+    const row = existingAthlete.rows[0] as Record<string, unknown>;
+    const st = row.service_type as string;
+    if (!st || st === 'pending' || st === 'linked_via_code' || st === 'self_registered') {
+      await db.execute(
+        `UPDATE coach_athletes SET service_type = ?, name = ?, updated_at = datetime('now') WHERE id = ? AND coach_id = ?`,
+        ['virtual', displayName, userId, coachId],
+      );
+    }
   }
 
   // Create 7-day free trial membership if not exists
@@ -187,16 +214,21 @@ export async function POST(req: Request) {
 
   const { id, email_addresses, first_name, last_name, image_url, unsafe_metadata } = evt.data;
   const email = (email_addresses as Array<{ email_address: string }>)[0]?.email_address ?? '';
-  const name = `${(first_name as string) ?? ''} ${(last_name as string) ?? ''}`.trim() || email;
-  const avatar = (image_url as string) ?? '';
   const metadata = (unsafe_metadata as Record<string, unknown>) ?? {};
+  // Build name from Clerk first/last, with unsafeMetadata fallback (mobile sends firstName/lastName there)
+  const metaFirst = (metadata.firstName as string) ?? (metadata.first_name as string) ?? '';
+  const metaLast = (metadata.lastName as string) ?? (metadata.last_name as string) ?? '';
+  const resolvedFirst = ((first_name as string) ?? metaFirst ?? '').trim();
+  const resolvedLast = ((last_name as string) ?? metaLast ?? '').trim();
+  const name = `${resolvedFirst} ${resolvedLast}`.trim() || email;
+  const avatar = (image_url as string) ?? '';
 
   try {
     if (evt.type === 'user.created') {
       // Check if this is an athlete with a coach code
       const coachCode = metadata.coachCode as string | undefined;
       if (coachCode) {
-        await processAthleteCoachCode(id as string, email, coachCode);
+        await processAthleteCoachCode(id as string, email, name, coachCode);
       } else {
         // Default: create as coach
         await ensureCoachSync(id as string, email, name, avatar);
@@ -214,7 +246,7 @@ export async function POST(req: Request) {
       // Check if this is an athlete with a coach code
       const coachCode = metadata.coachCode as string | undefined;
       if (coachCode) {
-        await processAthleteCoachCode(id as string, email, coachCode);
+        await processAthleteCoachCode(id as string, email, name, coachCode);
       } else {
         // Update coach record
         await db.execute({

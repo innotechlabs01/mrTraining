@@ -25,6 +25,16 @@ const STATUS_BADGE: Record<string, { label: string; className: string; icon: Rea
   cancelled: { label: 'Cancelado', className: 'bg-gray-500/10 text-gray-400 border-gray-500/20', icon: ShieldX },
 }
 
+function getDisplayName(a: { name: string; email?: string }): string {
+  const n = (a.name || '').trim();
+  if (!n || n.startsWith('user_') || n.includes('@')) {
+    const email = (a as { email?: string }).email ?? '';
+    const local = email.split('@')[0]?.trim();
+    return local || n || 'Athlete';
+  }
+  return n;
+}
+
 export default function CoachUsersPage() {
   const { athletes, isLoading } = useAthletes()
   const { openPanel } = useCoachPanel()
@@ -90,7 +100,8 @@ export default function CoachUsersPage() {
   }
 
   const filtered = athletes.filter((a) => {
-    const matchName = a.name.toLowerCase().includes(search.toLowerCase())
+    const dn = getDisplayName(a).toLowerCase()
+    const matchName = dn.includes(search.toLowerCase()) || a.name.toLowerCase().includes(search.toLowerCase())
     const matchSport = a.sport.toLowerCase().includes(search.toLowerCase())
     const textMatch = matchName || matchSport
     if (filterFlagged && !a.flag) return false
@@ -246,10 +257,15 @@ export default function CoachUsersPage() {
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-primary/30 to-brand-primary/10 flex items-center justify-center text-sm font-bold text-brand-primary">
-                    {athlete.name.split(' ').map((n) => n[0]).join('')}
+                    {getDisplayName(athlete)
+                      .split(' ')
+                      .map((n) => n[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-white">{athlete.name}</p>
+                    <p className="text-sm font-semibold text-white">{getDisplayName(athlete)}</p>
                     <p className="text-xs text-white/40">{athlete.sport}</p>
                   </div>
                 </div>

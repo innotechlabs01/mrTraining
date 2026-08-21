@@ -10,7 +10,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { code } = await req.json();
+    const body = await req.json();
+    const { code, firstName, lastName, modality } = body as {
+      code: string;
+      firstName?: string;
+      lastName?: string;
+      modality?: string;
+    };
     if (!code) {
       return NextResponse.json({ error: 'Coach code is required' }, { status: 400 });
     }
@@ -26,18 +32,65 @@ export async function POST(req: Request) {
 
     // Get Clerk user info for email
     const existingUser = await getUserById(userId);
-    const email = existingUser
-      ? (existingUser as Record<string, unknown>).email as string
+    let email = existingUser
+      ? ((existingUser as Record<string, unknown>).email as string)
       : userId;
+
+    // Try Clerk API fallback for email and name when not in DB
+    let clerkFirstName = (firstName as string | undefined)?.trim() ?? '';
+    let clerkLastName = (lastName as string | undefined)?.trim() ?? '';
+    if ((!clerkFirstName || !clerkLastName) && process.env.CLERK_SECRET_KEY) {
+      try {
+        const res = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
+          headers: { Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}` },
+        });
+        if (res.ok) {
+          const clerkUser = (await res.json()) as Record<string, unknown>;
+          if (!email || email === userId) {
+            const addresses = clerkUser.email_addresses as Array<{ email_address: string }> | undefined;
+            email = addresses?.[0]?.email_address ?? email;
+          }
+          if (!clerkFirstName) clerkFirstName = (clerkUser.first_name as string) ?? '';
+          if (!clerkLastName) clerkLastName = (clerkUser.last_name as string) ?? '';
+          const meta = clerkUser.unsafe_metadata as Record<string, unknown> | undefined;
+          if (!clerkFirstName && meta?.firstName) clerkFirstName = String(meta.firstName);
+          if (!clerkLastName && meta?.lastName) clerkLastName = String(meta.lastName);
+        }
+      } catch {
+        // fallback silently — use whatever we have
+      }
+    }
+
+    const fullName =
+      `${(clerkFirstName || '').trim()} ${(clerkLastName || '').trim()}`.trim() || email;
+
+    // Resolve modality -> service_type, default virtual
+    const rawModality = (modality as string | undefined)?.toLowerCase().trim();
+    const resolvedServiceType =
+      rawModality === 'hibrido' || rawModality === 'híbrido' || rawModality === 'hybrid'
+        ? 'hibrido'
+        : rawModality === 'presencial' || rawModality === 'onsite'
+          ? 'presencial'
+          : 'virtual';
 
     // Create user record if not exists
     if (!existingUser) {
       await createUser({
         id: userId,
         email,
-        name: email,
+        name: fullName,
         role: 'athlete',
       });
+    } else {
+      // If existing user had email as name, upgrade to real name when available
+      const currentName = (existingUser as Record<string, unknown>).name as string;
+      if (fullName !== email && (currentName === email || currentName.includes('@'))) {
+        const db = getDB();
+        await db.execute({
+          sql: `UPDATE users SET name = ?, updated_at = datetime('now') WHERE id = ?`,
+          args: [fullName, userId],
+        });
+      }
     }
 
     // Create athlete profile if not exists
@@ -46,8 +99,17 @@ export async function POST(req: Request) {
       await createAthleteProfile({
         id: userId,
         email,
-        name: email,
+        name: fullName,
       });
+    } else {
+      const currentName = (existingProfile as Record<string, unknown>).name as string;
+      if (fullName !== email && (currentName === email || currentName.includes('@'))) {
+        const db = getDB();
+        await db.execute({
+          sql: `UPDATE athlete_profiles SET name = ?, updated_at = datetime('now') WHERE id = ?`,
+          args: [fullName, userId],
+        });
+      }
     }
 
     // Link coach and athlete (normalized model)
@@ -64,8 +126,25 @@ export async function POST(req: Request) {
       await db.execute(
         `INSERT INTO coach_athletes (id, name, email, sport, service_type, start_date, coach_id, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, datetime('now'), ?, datetime('now'), datetime('now'))`,
-        [userId, email, email, '', 'pending', coachId],
+        [userId, fullName, email, '', resolvedServiceType, coachId],
       );
+    } else {
+      // Ensure existing record has a proper name and service_type if it was placeholder
+      const row = existing.rows[0] as Record<string, unknown>;
+      const currentName = row.name as string;
+      const currentServiceType = row.service_type as string;
+      if (
+        (fullName !== email && (currentName === email || currentName.includes('@') || !currentName)) ||
+        !currentServiceType ||
+        currentServiceType === 'pending' ||
+        currentServiceType === 'linked_via_code' ||
+        currentServiceType === 'self_registered'
+      ) {
+        await db.execute(
+          `UPDATE coach_athletes SET name = ?, service_type = ?, updated_at = datetime('now') WHERE id = ? AND coach_id = ?`,
+          [fullName, currentServiceType && currentServiceType !== 'pending' && currentServiceType !== 'linked_via_code' && currentServiceType !== 'self_registered' ? currentServiceType : resolvedServiceType, userId, coachId],
+        );
+      }
     }
 
     // Create 7-day free trial membership if not exists
