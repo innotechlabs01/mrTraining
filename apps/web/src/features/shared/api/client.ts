@@ -1,4 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+// All Next.js API routes are same-origin — no host hardcode needed.
+// NEXT_PUBLIC_API_URL (Go at :8080) is deprecated; coaching never uses it.
+const LEGACY_API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 interface RequestOptions extends RequestInit {
   auth?: boolean;
@@ -12,41 +14,24 @@ interface ClerkWindow {
   };
 }
 
+async function getAuthHeaders(headers?: HeadersInit): Promise<Record<string, string>> {
+  const headerObj: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (headers) Object.entries(headers).forEach(([k, v]) => { headerObj[k] = v as string; });
+  if (typeof window !== 'undefined') {
+    let token: string | null = null;
+    const clerk = (window as unknown as ClerkWindow).Clerk;
+    if (clerk?.session?.getToken) try { token = await clerk.session.getToken(); } catch {}
+    if (!token) token = localStorage.getItem('mr-training-auth-token');
+    if (token) headerObj['Authorization'] = `Bearer ${token}`;
+  }
+  return headerObj;
+}
+
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const { auth = true, headers, ...rest } = options;
+  const headerObj = auth ? await getAuthHeaders(headers) : { 'Content-Type': 'application/json', ...(headers as Record<string, string> || {}) };
 
-  const headerObj: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-
-  if (headers) {
-    Object.entries(headers).forEach(([key, value]) => {
-      headerObj[key] = value;
-    });
-  }
-
-  if (auth) {
-    let token: string | null = null;
-
-    if (typeof window !== 'undefined') {
-      const clerk = (window as unknown as ClerkWindow).Clerk;
-      if (clerk?.session?.getToken) {
-        try {
-          token = await clerk.session.getToken();
-        } catch { }
-      }
-    }
-
-    if (!token && typeof window !== 'undefined') {
-      token = localStorage.getItem('mr-training-auth-token');
-    }
-
-    if (token) {
-      headerObj['Authorization'] = `Bearer ${token}`;
-    }
-  }
-
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  const response = await fetch(`${LEGACY_API_BASE}${endpoint}`, {
     ...rest,
     headers: headerObj,
   });
@@ -155,108 +140,127 @@ export const coachApi = {
 };
 
 // ---- Coaching API (Next.js API routes -> TursoDB) ----
-
+// Always same-origin: React runs on Vercel, /api/* is on same host. No host hardcode.
 const COACHING_BASE = '/api/coaching'
+
+async function coachingRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  const { auth = true, headers, ...rest } = options;
+  const headerObj = auth ? await getAuthHeaders(headers) : { 'Content-Type': 'application/json', ...(headers as Record<string, string> || {}) };
+  const response = await fetch(endpoint, { ...rest, headers: headerObj });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+  }
+  if (response.status === 204) return undefined as T;
+  return response.json();
+}
+
+const coachingFetch = {
+  get: <T>(endpoint: string, options?: RequestOptions) => coachingRequest<T>(endpoint, { ...options, method: 'GET' }),
+  post: <T>(endpoint: string, data: unknown, options?: RequestOptions) => coachingRequest<T>(endpoint, { ...options, method: 'POST', body: JSON.stringify(data) }),
+  put: <T>(endpoint: string, data: unknown, options?: RequestOptions) => coachingRequest<T>(endpoint, { ...options, method: 'PUT', body: JSON.stringify(data) }),
+  delete: <T>(endpoint: string, options?: RequestOptions) => coachingRequest<T>(endpoint, { ...options, method: 'DELETE' }),
+};
 
 export const coachingApi = {
   // Time Blocks
-  getTimeBlocks: <T>() => api.get<T>(`${COACHING_BASE}/time-blocks`),
-  saveTimeBlocks: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/time-blocks`, data),
+  getTimeBlocks: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/time-blocks`),
+  saveTimeBlocks: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/time-blocks`, data),
 
   // Athletes
-  getAthletes: <T>() => api.get<T>(`${COACHING_BASE}/athletes`),
-  getAthleteById: <T>(id: string) => api.get<T>(`${COACHING_BASE}/athletes/${id}`),
-  saveAthlete: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/athletes`, data),
-  updateAthlete: <T>(id: string, data: unknown) => api.put<T>(`${COACHING_BASE}/athletes/${id}`, data),
-  deleteAthlete: <T>(id: string) => api.delete<T>(`${COACHING_BASE}/athletes/${id}`),
+  getAthletes: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/athletes`),
+  getAthleteById: <T>(id: string) => coachingFetch.get<T>(`${COACHING_BASE}/athletes/${id}`),
+  saveAthlete: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/athletes`, data),
+  updateAthlete: <T>(id: string, data: unknown) => coachingFetch.put<T>(`${COACHING_BASE}/athletes/${id}`, data),
+  deleteAthlete: <T>(id: string) => coachingFetch.delete<T>(`${COACHING_BASE}/athletes/${id}`),
 
   // Sessions
-  getSessions: <T>() => api.get<T>(`${COACHING_BASE}/sessions`),
-  saveSession: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/sessions`, data),
-  updateSession: <T>(id: string, data: unknown) => api.put<T>(`${COACHING_BASE}/sessions/${id}`, data),
-  deleteSession: <T>(id: string) => api.delete<T>(`${COACHING_BASE}/sessions/${id}`),
+  getSessions: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/sessions`),
+  saveSession: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/sessions`, data),
+  updateSession: <T>(id: string, data: unknown) => coachingFetch.put<T>(`${COACHING_BASE}/sessions/${id}`, data),
+  deleteSession: <T>(id: string) => coachingFetch.delete<T>(`${COACHING_BASE}/sessions/${id}`),
 
   // Messages
-  getMessageThreads: <T>() => api.get<T>(`${COACHING_BASE}/messages`),
-  sendMessage: <T>(threadId: string, data: unknown) => api.post<T>(`${COACHING_BASE}/messages/${threadId}`, data),
-  createThread: <T>(data: unknown) => api.put<T>(`${COACHING_BASE}/messages`, data),
+  getMessageThreads: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/messages`),
+  sendMessage: <T>(threadId: string, data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/messages/${threadId}`, data),
+  createThread: <T>(data: unknown) => coachingFetch.put<T>(`${COACHING_BASE}/messages`, data),
 
   // Daily Summary
-  getDailySummary: <T>() => api.get<T>(`${COACHING_BASE}/daily-summary`),
+  getDailySummary: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/daily-summary`),
 
   // Events
-  getEvents: <T>() => api.get<T>(`${COACHING_BASE}/events`),
-  saveEvent: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/events`, data),
-  updateEvent: <T>(id: string, data: unknown) => api.put<T>(`${COACHING_BASE}/events/${id}`, data),
-  deleteEvent: <T>(id: string) => api.delete<T>(`${COACHING_BASE}/events/${id}`),
+  getEvents: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/events`),
+  saveEvent: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/events`, data),
+  updateEvent: <T>(id: string, data: unknown) => coachingFetch.put<T>(`${COACHING_BASE}/events/${id}`, data),
+  deleteEvent: <T>(id: string) => coachingFetch.delete<T>(`${COACHING_BASE}/events/${id}`),
 
   // Plans
-  getPlans: <T>() => api.get<T>(`${COACHING_BASE}/plans`),
-  savePlan: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/plans`, data),
-  updatePlan: <T>(id: string, data: unknown) => api.put<T>(`${COACHING_BASE}/plans/${id}`, data),
-  deletePlan: <T>(id: string) => api.delete<T>(`${COACHING_BASE}/plans/${id}`),
+  getPlans: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/plans`),
+  savePlan: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/plans`, data),
+  updatePlan: <T>(id: string, data: unknown) => coachingFetch.put<T>(`${COACHING_BASE}/plans/${id}`, data),
+  deletePlan: <T>(id: string) => coachingFetch.delete<T>(`${COACHING_BASE}/plans/${id}`),
 
   // Tickets
-  getTickets: <T>() => api.get<T>(`${COACHING_BASE}/tickets`),
-  saveTicket: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/tickets`, data),
+  getTickets: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/tickets`),
+  saveTicket: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/tickets`, data),
 
   // Assigned Workouts
-  getAssignedWorkouts: <T>() => api.get<T>(`${COACHING_BASE}/assigned-workouts`),
-  saveAssignedWorkout: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/assigned-workouts`, data),
-  updateAssignedWorkout: <T>(id: string, data: unknown) => api.put<T>(`${COACHING_BASE}/assigned-workouts/${id}`, data),
-  deleteAssignedWorkout: <T>(id: string) => api.delete<T>(`${COACHING_BASE}/assigned-workouts/${id}`),
+  getAssignedWorkouts: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/assigned-workouts`),
+  saveAssignedWorkout: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/assigned-workouts`, data),
+  updateAssignedWorkout: <T>(id: string, data: unknown) => coachingFetch.put<T>(`${COACHING_BASE}/assigned-workouts/${id}`, data),
+  deleteAssignedWorkout: <T>(id: string) => coachingFetch.delete<T>(`${COACHING_BASE}/assigned-workouts/${id}`),
 
   // AI Suggestions
-  getAISuggestions: <T>() => api.get<T>(`${COACHING_BASE}/ai-suggestions`),
-  saveAISuggestion: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/ai-suggestions`, data),
+  getAISuggestions: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/ai-suggestions`),
+  saveAISuggestion: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/ai-suggestions`, data),
 
   // Live Sessions
-  getLiveSessions: <T>() => api.get<T>(`${COACHING_BASE}/live-sessions`),
-  saveLiveSession: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/live-sessions`, data),
-  updateLiveSession: <T>(id: string, data: unknown) => api.put<T>(`${COACHING_BASE}/live-sessions/${id}`, data),
-  deleteLiveSession: <T>(id: string) => api.delete<T>(`${COACHING_BASE}/live-sessions/${id}`),
+  getLiveSessions: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/live-sessions`),
+  saveLiveSession: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/live-sessions`, data),
+  updateLiveSession: <T>(id: string, data: unknown) => coachingFetch.put<T>(`${COACHING_BASE}/live-sessions/${id}`, data),
+  deleteLiveSession: <T>(id: string) => coachingFetch.delete<T>(`${COACHING_BASE}/live-sessions/${id}`),
 
   // Products
-  getProducts: <T>() => api.get<T>(`${COACHING_BASE}/products`),
-  saveProduct: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/products`, data),
-  updateProduct: <T>(id: string, data: unknown) => api.put<T>(`${COACHING_BASE}/products/${id}`, data),
-  deleteProduct: <T>(id: string) => api.delete<T>(`${COACHING_BASE}/products/${id}`),
+  getProducts: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/products`),
+  saveProduct: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/products`, data),
+  updateProduct: <T>(id: string, data: unknown) => coachingFetch.put<T>(`${COACHING_BASE}/products/${id}`, data),
+  deleteProduct: <T>(id: string) => coachingFetch.delete<T>(`${COACHING_BASE}/products/${id}`),
 
   // Blog
-  getBlogPosts: <T>() => api.get<T>(`${COACHING_BASE}/blog`),
-  getBlogPost: <T>(slug: string) => api.get<T>(`${COACHING_BASE}/blog/${slug}`),
-  saveBlogPost: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/blog`, data),
-  updateBlogPost: <T>(id: string, data: unknown) => api.put<T>(`${COACHING_BASE}/blog/${id}`, data),
-  deleteBlogPost: <T>(id: string) => api.delete<T>(`${COACHING_BASE}/blog/${id}`),
+  getBlogPosts: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/blog`),
+  getBlogPost: <T>(slug: string) => coachingFetch.get<T>(`${COACHING_BASE}/blog/${slug}`),
+  saveBlogPost: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/blog`, data),
+  updateBlogPost: <T>(id: string, data: unknown) => coachingFetch.put<T>(`${COACHING_BASE}/blog/${id}`, data),
+  deleteBlogPost: <T>(id: string) => coachingFetch.delete<T>(`${COACHING_BASE}/blog/${id}`),
 
   // Public Products
-  getPublicProducts: <T>() => api.get<T>(`${COACHING_BASE}/public-products`),
+  getPublicProducts: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/public-products`),
 
   // Sales
-  getSales: <T>() => api.get<T>(`${COACHING_BASE}/sales`),
-  saveSale: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/sales`, data),
-  deleteSale: <T>(id: string) => api.delete<T>(`${COACHING_BASE}/sales/${id}`),
+  getSales: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/sales`),
+  saveSale: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/sales`, data),
+  deleteSale: <T>(id: string) => coachingFetch.delete<T>(`${COACHING_BASE}/sales/${id}`),
 
   // Dashboard
-  getDashboard: <T>() => api.get<T>(`${COACHING_BASE}/dashboard`),
+  getDashboard: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/dashboard`),
 
   // Payment Methods
-  getPaymentMethods: <T>() => api.get<T>(`${COACHING_BASE}/payment-methods`),
-  savePaymentMethod: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/payment-methods`, data),
-  updatePaymentMethod: <T>(id: string, data: unknown) => api.put<T>(`${COACHING_BASE}/payment-methods/${id}`, data),
-  deletePaymentMethod: <T>(id: string) => api.delete<T>(`${COACHING_BASE}/payment-methods/${id}`),
+  getPaymentMethods: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/payment-methods`),
+  savePaymentMethod: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/payment-methods`, data),
+  updatePaymentMethod: <T>(id: string, data: unknown) => coachingFetch.put<T>(`${COACHING_BASE}/payment-methods/${id}`, data),
+  deletePaymentMethod: <T>(id: string) => coachingFetch.delete<T>(`${COACHING_BASE}/payment-methods/${id}`),
 
   // Public Page Config
-  getPublicPageConfig: <T>() => api.get<T>(`${COACHING_BASE}/public-page`),
-  updatePublicPageConfig: <T>(data: unknown) => api.put<T>(`${COACHING_BASE}/public-page`, data),
+  getPublicPageConfig: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/public-page`),
+  updatePublicPageConfig: <T>(data: unknown) => coachingFetch.put<T>(`${COACHING_BASE}/public-page`, data),
 
   // Memberships
-  getMemberships: <T>() => api.get<T>(`${COACHING_BASE}/memberships`),
-  getMembership: <T>(athleteId: string) => api.get<T>(`${COACHING_BASE}/membership/${athleteId}`),
-  createMembership: <T>(data: unknown) => api.post<T>(`${COACHING_BASE}/membership`, data),
-  cancelMembership: <T>(id: string) => api.delete<T>(`${COACHING_BASE}/membership/${id}`),
-  getPaymentHistory: <T>(athleteId: string) => api.get<T>(`${COACHING_BASE}/payment-history/${athleteId}`),
+  getMemberships: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/memberships`),
+  getMembership: <T>(athleteId: string) => coachingFetch.get<T>(`${COACHING_BASE}/membership/${athleteId}`),
+  createMembership: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/membership`, data),
+  cancelMembership: <T>(id: string) => coachingFetch.delete<T>(`${COACHING_BASE}/membership/${id}`),
+  getPaymentHistory: <T>(athleteId: string) => coachingFetch.get<T>(`${COACHING_BASE}/payment-history/${athleteId}`),
 
   // Generic get for dynamic paths
-  get: <T>(path: string) => api.get<T>(`${COACHING_BASE}${path}`),
+  get: <T>(path: string) => coachingFetch.get<T>(`${COACHING_BASE}${path}`),
 };
