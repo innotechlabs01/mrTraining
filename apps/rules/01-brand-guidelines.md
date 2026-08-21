@@ -118,7 +118,7 @@ Rules:
 
 The primary logo lockup consists of two components in a fixed spatial relationship:
 
-1. **MR Monogram** — A bold, geometric ligature of the letters "M" and "R" rendered in Electric Orange (#FF6B00). The letterforms share a common vertical stroke, creating a unified mark that suggests connection, integration, and forward momentum. The monogram is constructed on a strict geometric grid with 45-degree angled cuts at the terminals, giving it a sharp, engineered aesthetic.
+1. **MR Monogram** — A bold, geometric ligature of the letters "M" and "R" rendered in Volt (#C8FF00). The letterforms share a common vertical stroke, creating a unified mark that suggests connection, integration, and forward momentum. The monogram is constructed on a strict geometric grid with 45-degree angled cuts at the terminals, giving it a sharp, engineered aesthetic.
 2. **TRAINING Wordmark** — Set in Montserrat Bold, weight 700, uppercase, tracked at +100 (100/1000 em), rendered in Deep Black (#0F0F0F) on light backgrounds or White (#FFFFFF) on dark backgrounds.
 
 The monogram sits to the left of the wordmark with a fixed spatial gap equal to the cap height of the "T" in TRAINING. This relationship is locked and may never be altered.
@@ -136,11 +136,11 @@ The monogram sits to the left of the wordmark with a fixed spatial gap equal to 
 
 | Variant | Monogram Color | Wordmark Color | Background |
 |---|---|---|---|
-| **Full Color (Dark BG)** | Electric Orange (#FF6B00) | White (#FFFFFF) | Deep Black (#0F0F0F) or dark surfaces |
-| **Full Color (Light BG)** | Electric Orange (#FF6B00) | Deep Black (#0F0F0F) | White (#FFFFFF) or light surfaces |
+| **Full Color (Dark BG)** | Volt (#C8FF00) | White (#FFFFFF) | Deep Black (#0F0F0F) or dark surfaces |
+| **Full Color (Light BG)** | Volt (#C8FF00) | Deep Black (#0F0F0F) | White (#FFFFFF) or light surfaces |
 | **Monochrome (Dark BG)** | White (#FFFFFF) | White (#FFFFFF) | Deep Black (#0F0F0F) or dark surfaces |
 | **Monochrome (Light BG)** | Deep Black (#0F0F0F) | Deep Black (#0F0F0F) | White (#FFFFFF) or light surfaces |
-| **Reverse** | White (#FFFFFF) | White (#FFFFFF) | Electric Orange (#FF6B00) or Performance Blue (#0066FF) |
+| **Reverse** | White (#FFFFFF) | White (#FFFFFF) | Volt (#C8FF00) |
 
 The full-color variant is always preferred. Monochrome is a fallback for constrained environments (single-color printing, merchandise engraving, low-contrast display contexts).
 
@@ -320,8 +320,8 @@ Icons must always be rendered in a single flat color. The appropriate color is d
 | Active (dark mode) | `#FFFFFF` (White) | Active navigation, selected items |
 | Default (light mode) | `#4A4A4A` (Steel) | Inactive navigation, toolbar icons |
 | Active (light mode) | `#0F0F0F` (Deep Black) | Active navigation, selected items |
-| Brand accent | `#FF6B00` (Electric Orange) | Primary action icons, active states |
-| Interactive | `#0066FF` (Performance Blue) | Clickable icons, info tooltips |
+| Brand accent | `#C8FF00` (Volt) | Primary action icons, active states |
+| Interactive | `#9CA3AF` (Text Secondary) | Clickable icons, info tooltips — neutral treatment, not an accent color |
 | Success | `#00C853` (Success Green) | Checkmarks, completion indicators |
 | Warning | `#FFB300` (Warning Amber) | Caution indicators |
 | Error | `#FF3D00` (Error Red) | Error indicators, destructive actions |
@@ -401,7 +401,7 @@ Think sports documentary, not sports commercial. Grain and grit are acceptable. 
 ### Color Treatment
 
 - **Desaturated backgrounds** with the subject retaining natural saturation and contrast. The athlete pops; the environment recedes. Achieve this through a combination of lighting and selective color grading.
-- **Electric Orange or Performance Blue color grading** applied as subtle accent overlays (5–10% opacity adjustments in shadows or highlights). Never apply both colors in the same image.
+- **Volt accent color grading** applied as subtle accent overlays (5–10% opacity adjustments in shadows or highlights). Never combine Volt with a second accent hue in the same image — Volt is the only brand accent.
 - **High-contrast black and white** is acceptable for hero images, atmospheric shots, and editorial content. Black and white images should push contrast further than color images — aim for true blacks and clean whites, not mid-gray mush.
 - **Never apply:** Heavy filters, vintage effects, Instagram-style presets, lens flares, excessive vignetting, or any treatment that feels like social media rather than professional sports media.
 
@@ -542,11 +542,10 @@ Data visualizations use a dedicated palette derived from but distinct from the b
 
 | Series | Color | Hex | Usage |
 |---|---|---|---|
-| Primary series | Electric Orange | `#FF6B00` | Main data series, primary metric |
-| Secondary series | Performance Blue | `#0066FF` | Comparison data, secondary metric |
-| Tertiary series | Teal | `#00BFA5` | Third data series, auxiliary metric |
+| Primary series | Volt | `#C8FF00` | Main data series, primary metric |
+| Secondary series | Teal | `#00BFA5` | Comparison data, secondary metric |
+| Tertiary series | Violet | `#7C4DFF` | Third data series, auxiliary metric |
 | Quaternary series | Warning Amber | `#FFB300` | Fourth data series |
-| Quinary series | Violet | `#7C4DFF` | Fifth data series |
 | Positive trend | Success Green | `#00C853` | Upward trends, targets exceeded |
 | Negative trend | Error Red | `#FF3D00` | Downward trends, targets missed |
 | Neutral trend | Steel | `#4A4A4A` | Flat trends, no change |
@@ -561,7 +560,7 @@ Data visualizations use a dedicated palette derived from but distinct from the b
 | Data point dots | Match series color | Match series color | 6px diameter, 1px white stroke |
 | Hover tooltip | `#1C1C1C` background, white text | `#FFFFFF` background, `#0F0F0F` text | 8px padding, 4px border radius, `--shadow-lg` |
 | Legend labels | `#C4C4C4` | `#4A4A4A` | Inter, 12px, Medium |
-| Annotations | `#FF6B00` | `#FF6B00` | Dashed line, 1px, with label at end |
+| Annotations | `#C8FF00` | `#C8FF00` | Dashed line, 1px, with label at end |
 
 ### Chart Types and Specifications
 
@@ -597,7 +596,7 @@ Data visualizations use a dedicated palette derived from but distinct from the b
 
 #### Heatmaps
 - Used for distribution and density data.
-- Color scale: Deep Black (#0F0F0F) → Charcoal (#1C1C1C) → Steel (#4A4A4A) → Electric Orange (#FF6B00) → Performance Blue (#0066FF).
+- Color scale: Deep Black (#0F0F0F) → Charcoal (#1C1C1C) → Steel (#4A4A4A) → Volt (#C8FF00).
 - Cell border: 2px `--color-surface-0` (creates gutters between cells).
 - Cell hover: 1px white border.
 - Include a gradient legend scale.
@@ -625,12 +624,12 @@ Metric cards are the atomic unit of the MR Training dashboard. They display a si
   - Positive (upward): Green arrow (▲) in Success Green + percentage/absolute change.
   - Negative (downward): Red arrow (▼) in Error Red + percentage/absolute change.
   - Neutral (flat): Gray dash (—) in Steel + "No change."
-- **Sparkline:** Optional. Placed in the top-right of the card. A miniature line chart (80px wide, 24px tall) showing the last 7–14 data points. No axes, no gridlines, just the trend line at 1px stroke in `--color-text-tertiary`. The most recent point is Electric Orange.
+- **Sparkline:** Optional. Placed in the top-right of the card. A miniature line chart (80px wide, 24px tall) showing the last 7–14 data points. No axes, no gridlines, just the trend line at 1px stroke in `--color-text-tertiary`. The most recent point is Volt.
 
 ### Progress Indicators
 
-- **Circular progress rings:** 4px stroke, rounded caps. Track color: `--color-surface-5`. Fill: gradient or solid Electric Orange. Center: percentage value in Montserrat Bold, 16px. Minimum diameter: 48px.
-- **Linear progress bars:** 4px height, 4px corner radius (`--radius-sm`). Track: `--color-surface-5`. Fill: Electric Orange by default, Success Green for completed, Warning Amber for approaching limits, Error Red for exceeded thresholds.
+- **Circular progress rings:** 4px stroke, rounded caps. Track color: `--color-surface-5`. Fill: gradient or solid Volt. Center: percentage value in Montserrat Bold, 16px. Minimum diameter: 48px.
+- **Linear progress bars:** 4px height, 4px corner radius (`--radius-sm`). Track: `--color-surface-5`. Fill: Volt by default, Success Green for completed, Warning Amber for approaching limits, Error Red for exceeded thresholds.
 - Always show the numerical value alongside visual progress. Progress is data, not decoration.
 - Animate progress indicators on load: fill animates from 0 to target value over 800ms using the standard easing curve.
 
@@ -704,9 +703,9 @@ Animation durations are standardized into five tiers. Every animation in the pro
 
 ### Loading Animations
 
-- **MR Monogram Spinner:** The primary loading indicator is the MR monogram rotating continuously at 720rpm (one full rotation per ~83ms). The rotation is clockwise and continuous. The monogram is rendered in Electric Orange at 24px height. This spinner replaces the browser-default spinner in all contexts.
+- **MR Monogram Spinner:** The primary loading indicator is the MR monogram rotating continuously at 720rpm (one full rotation per ~83ms). The rotation is clockwise and continuous. The monogram is rendered in Volt at 24px height. This spinner replaces the browser-default spinner in all contexts.
 - **Skeleton Screens:** Pulse animation for placeholder content. Opacity oscillates between 0.3 and 0.7 over a 1.5s cycle using `--ease-standard`. Skeleton shapes mirror the final content layout exactly. Respects `prefers-reduced-motion` — becomes static when motion is reduced.
-- **Determinate Progress:** Linear progress bars animate from 0% to the target value over `--duration-dramatic` (800ms) using `--ease-standard`. The fill color transitions from Electric Orange to Success Green when reaching 100%.
+- **Determinate Progress:** Linear progress bars animate from 0% to the target value over `--duration-dramatic` (800ms) using `--ease-standard`. The fill color transitions from Volt to Success Green when reaching 100%.
 
 ---
 
@@ -726,10 +725,9 @@ All text must meet the following minimum contrast ratios against its background:
 | Body text (normal, <18px) | AA: 4.5:1 | `#FFFFFF` | `#0F0F0F` | 18.9:1 | AAA |
 | Secondary text (captions, metadata) | AA: 4.5:1 | `#C4C4C4` | `#0F0F0F` | 6.2:1 | AA |
 | Tertiary text (placeholders) | AA: 4.5:1 | `#8A8A8A` | `#0F0F0F` | 3.5:1 | **Does not meet AA** — use only for decorative/non-essential text |
-| CTA text on orange | AA: 4.5:1 | `#0F0F0F` | `#FF6B00` | 3.1:1 | Use dark text on orange buttons. White text on orange fails AA. |
-| CTA text on orange (dark text) | AA: 4.5:1 | `#0F0F0F` | `#FF6B00` | 5.3:1 | AA |
-| Link text | AA: 4.5:1 | `#3D8BFF` (lightened blue) | `#0F0F0F` | 5.2:1 | AA |
-| Focus ring (blue) | 2:1 against adjacent | `#0066FF` | `#0F0F0F` | 4.6:1 | **Passes** |
+| CTA text on Volt | AA: 4.5:1 | `#111214` (Base) | `#C8FF00` | ~13:1 | **AA** — always use Base text on Volt. White text on Volt fails AA. |
+| Link text | AA: 4.5:1 | `#9CA3AF` (Text Secondary, underlined) | `#0F0F0F` | ~5:1 | AA |
+| Focus ring | 2:1 against adjacent | `#C8FF00` (Volt) | `#0F0F0F` | >4:1 | **Passes** |
 | Error text on dark | AA: 4.5:1 | `#FF5252` (lightened red) | `#0F0F0F` | 5.1:1 | AA |
 | Success text on dark | AA: 4.5:1 | `#00E676` (lightened green) | `#0F0F0F` | 6.8:1 | AA |
 
@@ -743,8 +741,8 @@ For placeholder text that provides essential information, use `#C4C4C4` (Fog) in
 ### Focus States
 
 - All interactive elements must have a visible, high-contrast focus indicator.
-- **Focus ring specification:** 2px solid Performance Blue (#0066FF) with a 2px offset from the element boundary. Total visual impact: 2px blue ring at 2px distance.
-- **Fallback for Windows High Contrast Mode:** Use a transparent outline with `outline: 2px solid transparent` as the default state and `outline-color: #0066FF` on `:focus-visible`. This ensures the focus ring is visible in WHCM even when custom styles are overridden.
+- **Focus ring specification:** 2px solid Volt (#C8FF00) with a 2px offset from the element boundary. Total visual impact: 2px Volt ring at 2px distance.
+- **Fallback for Windows High Contrast Mode:** Use a transparent outline with `outline: 2px solid transparent` as the default state and `outline-color: #C8FF00` on `:focus-visible`. This ensures the focus ring is visible in WHCM even when custom styles are overridden.
 - Never remove focus outlines with `outline: none` without providing an equivalent, high-visibility alternative.
 - Focus ring must have a minimum 2:1 contrast ratio against all adjacent colors.
 - Keyboard navigation must be supported for all interactive elements in a logical tab order that follows the visual layout.
@@ -789,17 +787,17 @@ For placeholder text that provides essential information, use `#C4C4C4` (Fog) in
 ### Business Cards
 
 - **Size:** 3.5" × 2" (US standard, 89mm × 51mm).
-- **Front:** MR monogram centered on Deep Black (#0F0F0F) background. Monogram in Electric Orange (#FF6B00) at 28mm height. Nothing else. The front of the card is a statement, not an information delivery mechanism.
+- **Front:** MR monogram centered on Deep Black (#0F0F0F) background. Monogram in Volt (#C8FF00) at 28mm height. Nothing else. The front of the card is a statement, not an information delivery mechanism.
 - **Back:** Name in Montserrat SemiBold, 12pt, White. Title in Inter Regular, 10pt, Ash (#8A8A8A). Contact details in Inter Regular, 9pt, Steel (#4A4A4A). Left-aligned with 8mm margin.
 - **Paper:** 16pt (400gsm) uncoated cardstock with soft-touch matte lamination.
-- **Edge finish:** Electric Orange edge painting (premium finish). Standard edge (no color) for bulk orders.
+- **Edge finish:** Volt edge painting (premium finish). Standard edge (no color) for bulk orders.
 - **Logo usage:** Monogram only on front. Full horizontal lockup on documentation and letterhead.
 
 ### Presentations
 
 - **Aspect ratio:** 16:9.
 - **Background:** Deep Black (#0F0F0F) default. White (#FFFFFF) for printable or high-ambient-light presentations.
-- **Title slides:** Montserrat ExtraBold, 36pt, Electric Orange (#FF6B00) or White (#FFFFFF) on Deep Black background. MR Training logo (horizontal lockup) in bottom-right corner at 24px height.
+- **Title slides:** Montserrat ExtraBold, 36pt, Volt (#C8FF00) or White (#FFFFFF) on Deep Black background. MR Training logo (horizontal lockup) in bottom-right corner at 24px height.
 - **Content slides:** Inter Regular, 18pt for body copy. Montserrat SemiBold, 24pt for section headers.
 - **Data slides:** Charts and tables on dark backgrounds using the MR data visualization palette. All charts must include labeled axes, legends, and data sources.
 - **Maximum text per slide:** 30 words. Presentations are visual aids, not scripts. If a slide has more than 30 words of body text, the content belongs in a handout.
@@ -810,20 +808,20 @@ For placeholder text that provides essential information, use `#C4C4C4` (Fog) in
 ### Social Media Templates
 
 #### Profile Imagery
-- **Profile picture:** MR monogram only on Deep Black (#0F0F0F) background. Monogram in Electric Orange. Centered. No wordmark — the wordmark becomes illegible at social media profile sizes.
+- **Profile picture:** MR monogram only on Deep Black (#0F0F0F) background. Monogram in Volt. Centered. No wordmark — the wordmark becomes illegible at social media profile sizes.
 - **Cover/header image:** Athletic photography with 40% dark overlay, headline text in Montserrat Bold, 48pt, White, centered or left-aligned. Logo in bottom-right corner at 24px monogram minimum.
 
 #### Post Templates (Feed Posts)
 - **Instagram (1080 × 1080px):**
   - Background: Deep Black (#0F0F0F) or athletic photography with dark overlay.
-  - Headline: Montserrat ExtraBold, 56pt, Electric Orange or White, max 2 lines, centered.
+  - Headline: Montserrat ExtraBold, 56pt, Volt or White, max 2 lines, centered.
   - Body (if any): Inter Regular, 28pt, White, max 3 lines, centered.
   - Logo: MR monogram in bottom-right corner, 48px height, 40px margin.
   - Hashtag bar: Bottom of image, 80px height, Deep Black background at 70% opacity. Hashtags in Inter Medium, 24pt, White. Maximum 3 hashtags per image.
 
 - **LinkedIn / Twitter (1200 × 628px):**
-  - Background: Athletic photography with 40% dark overlay, or Deep Black with Electric Orange accent bar.
-  - Headline: Montserrat ExtraBold, 48pt, White or Electric Orange, left-aligned.
+  - Background: Athletic photography with 40% dark overlay, or Deep Black with Volt accent bar.
+  - Headline: Montserrat ExtraBold, 48pt, White or Volt, left-aligned.
   - Supporting text: Inter Regular, 24pt, White, 1 line.
   - Logo: Full horizontal lockup in bottom-right corner, 36px monogram height.
 
@@ -831,12 +829,12 @@ For placeholder text that provides essential information, use `#C4C4C4` (Fog) in
   - Background: High-contrast athletic still frame.
   - Text overlay: Montserrat ExtraBold, 72pt, White with 2px Deep Black text shadow (not drop shadow — hard, sharp, minimal shadow for legibility). Maximum 5 words.
   - Logo: MR monogram in bottom-right, 48px height.
-  - Accent: Electric Orange bar (8px height) along the left edge of the thumbnail. This horizontal accent creates a visual signature recognizable even at small thumbnail sizes.
+  - Accent: Volt bar (8px height) along the left edge of the thumbnail. This horizontal accent creates a visual signature recognizable even at small thumbnail sizes.
 
 #### Stories Templates (1080 × 1920px)
-- **Background:** Athletic photography or Deep Black with Electric Orange gradient at bottom.
+- **Background:** Athletic photography or Deep Black with Volt gradient at bottom.
 - **Headline:** Montserrat Bold, 42pt, White, centered, top-third placement.
-- **CTA:** Electric Orange pill button, Montserrat Bold, 28pt, Deep Black text. Centered in bottom third. Text: "Swipe Up" or action-specific.
+- **CTA:** Volt pill button, Montserrat Bold, 28pt, Deep Black text. Centered in bottom third. Text: "Swipe Up" or action-specific.
 - **Logo:** MR monogram centered at top, 36px height, 60px from top edge.
 
 ### Email Templates
@@ -847,8 +845,8 @@ For placeholder text that provides essential information, use `#C4C4C4` (Fog) in
 - **Hero image:** Athletic photography, 600px wide, 300px tall. Text overlay in Montserrat ExtraBold, 32px, White.
 - **Body background:** White (#FFFFFF). Dark backgrounds are not well-supported in all email clients.
 - **Body text:** Inter Regular, 16px, Deep Black (#0F0F0F). Line height: 1.6. Maximum paragraph width: 560px (40px horizontal padding).
-- **CTA button:** Electric Orange (#FF6B00) background. Deep Black (#0F0F0F) text. Montserrat SemiBold, 16px. 12px vertical padding, 24px horizontal padding. 4px border radius (`--radius-sm`). Centered in the email body. 24px margin above and below the button.
-- **Link color:** Performance Blue (#0066FF) for inline links.
+- **CTA button:** Volt (#C8FF00) background. Deep Black (#0F0F0F) text. Montserrat SemiBold, 16px. 12px vertical padding, 24px horizontal padding. 4px border radius (`--radius-sm`). Centered in the email body. 24px margin above and below the button.
+- **Link color:** Text Secondary (#9CA3AF) for inline links, underlined.
 - **Divider:** 1px solid `#E8E8E8` (Cloud), full width, 40px vertical spacing on either side.
 - **Footer:** Inter Regular, 12px, Steel (#4A4A4A) on Snow (#F5F5F5) background. Includes unsubscribe link, physical address, and copyright notice.
 
@@ -856,17 +854,17 @@ For placeholder text that provides essential information, use `#C4C4C4` (Fog) in
 
 - **Shape:** Rounded rectangle with a continuous corner radius (iOS-style superellipse). The corner radius should follow platform conventions.
 - **Background:** Deep Black (#0F0F0F).
-- **Foreground:** MR monogram in Electric Orange (#FF6B00), centered both horizontally and vertically. The monogram should fill approximately 60% of the icon's width.
+- **Foreground:** MR monogram in Volt (#C8FF00), centered both horizontally and vertically. The monogram should fill approximately 60% of the icon's width.
 - **No text:** The wordmark is never used in app icons. The monogram alone serves as the app identity.
 - **No border:** The icon's shape itself is the boundary. No additional stroke or border.
 - **Size deliverables:** 1024×1024px (source), with platform-specific exports at 16×16, 20×20, 29×29, 32×32, 40×40, 48×48, 50×50, 55×55, 57×57, 58×58, 60×60, 64×64, 72×72, 76×76, 80×80, 87×87, 88×88, 100×100, 114×114, 120×120, 128×128, 144×144, 152×152, 167×167, 180×180, 192×192, 256×256, 512×512, 1024×1024.
 
 ### Merchandise
 
-- **Apparel:** MR monogram in Electric Orange on Deep Black or Charcoal garments. The monogram may be screen-printed, embroidered, or heat-transferred. Placement: left chest (primary), center chest (alternative), or full back (athletic jerseys).
-- **Water bottles, shaker cups, gym bags:** MR monogram in Electric Orange. Single-color marking. No gradients (merchandise manufacturing constraints).
+- **Apparel:** MR monogram in Volt on Deep Black or Charcoal garments. The monogram may be screen-printed, embroidered, or heat-transferred. Placement: left chest (primary), center chest (alternative), or full back (athletic jerseys).
+- **Water bottles, shaker cups, gym bags:** MR monogram in Volt. Single-color marking. No gradients (merchandise manufacturing constraints).
 - **Notebooks, clipboards, coaching accessories:** Full logo lockup (horizontal) in monochrome White on Deep Black cover material. Deboss or screen print.
-- **Event banners and signage:** Full logo lockup at the largest size permitted by the banner dimensions, maintaining minimum clear space. Electric Orange monogram on Deep Black background. No other brand elements on the same banner face.
+- **Event banners and signage:** Full logo lockup at the largest size permitted by the banner dimensions, maintaining minimum clear space. Volt monogram on Deep Black background. No other brand elements on the same banner face.
 
 ### Co-Branding
 
