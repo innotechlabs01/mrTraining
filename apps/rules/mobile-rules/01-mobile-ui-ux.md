@@ -117,35 +117,39 @@ export const tokens = {
 ## 8. Theme (Dark + Light)
 
 ```typescript
-// Brand colors from 01-brand-guidelines.md
+// Brand colors from 01-brand-guidelines.md §4 (Volt single-accent system)
+// Canonical source: apps/mobile/src/shared/theme/tokens.ts — dark-first.
+const darkTheme = {
+  background: '#111214',      // Base
+  surface: '#191B1E',         // Surface
+  surfaceRaised: '#202329',   // Surface Raised
+  text: '#F5F5F7',
+  textSecondary: '#9CA3AF',
+  primary: '#C8FF00',         // Volt — one primary CTA per screen
+  primaryPressed: '#A8D900',  // Volt pressed state
+  destructive: '#FF5A5F',
+  success: '#34D399',
+  warning: '#FBBF24',
+  border: '#26292E',
+};
+
+// Light mode keeps the same accent and semantic roles over inverted neutrals;
+// Volt always carries dark text (#111214), never white.
 const lightTheme = {
   background: '#FFFFFF',
   surface: '#F5F5F7',
-  text: '#1D1D1F',
-  textSecondary: '#6E6E73',
-  primary: '#FF6B00',        // Brand orange
-  primaryLight: '#FF8C3D',
-  destructive: '#FF3B30',
-  success: '#34C759',
-  warning: '#FF9500',
+  text: '#111214',
+  textSecondary: '#4B5563',
+  primary: '#C8FF00',
+  primaryPressed: '#A8D900',
+  destructive: '#FF5A5F',
+  success: '#34D399',
+  warning: '#FBBF24',
   border: '#E5E5EA',
-};
-
-const darkTheme = {
-  background: '#000000',
-  surface: '#1C1C1E',
-  text: '#F5F5F7',
-  textSecondary: '#98989D',
-  primary: '#FF8C3D',
-  primaryLight: '#FFA866',
-  destructive: '#FF453A',
-  success: '#30D158',
-  warning: '#FFD60A',
-  border: '#38383A',
 };
 ```
 
-Dark Mode and Light Mode are **mandatory**. Use `useColorScheme()` from React Native.
+Dark Mode and Light Mode are **mandatory**. Use `useColorScheme()` from React Native. The app ships **dark-first**: `tokens.ts` defines the dark palette canonically; light mode derives its neutrals from it.
 
 ---
 

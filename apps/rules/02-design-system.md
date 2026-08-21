@@ -97,16 +97,16 @@ Semantic colors must never appear alone. Every success state includes both the g
 
 #### Color Usage Hierarchy
 
-Colors serve three distinct functions in the interface. The surface hierarchy (levels 0 through 6) establishes spatial depth and containment. Semantic colors (success, warning, error) communicate system state and require icon/text pairing. Brand accents (orange, blue) draw attention to primary actions and interactive elements. This three-layer separation ensures that color is never ambiguous — a blue badge signals information, a blue link signals navigation, and a blue data point signals a secondary data series.
+Colors serve three distinct functions in the interface. The surface hierarchy (levels 0 through 6) establishes spatial depth and containment. Semantic colors (success, warning, error) communicate system state and require icon/text pairing. A single brand accent (Volt) draws attention to the primary action — one per screen. This three-layer separation ensures that color is never ambiguous — a semantic-colored badge signals system state, neutral text signals navigation, and a Volt data point signals the emphasized series.
 
 ### 1.2 Typography
 
-The type system uses Montserrat for display and Inter for body, as specified in the brand guidelines. The design system formalizes this into a constrained scale with explicit font-size, line-height, letter-spacing, and font-weight tokens for every typographic role.
+The type system uses Archivo for display and Inter for body, as specified in the brand guidelines. The design system formalizes this into a constrained scale with explicit font-size, line-height, letter-spacing, and font-weight tokens for every typographic role.
 
 #### Font Family Tokens
 
 ```css
---font-display: 'Montserrat', -apple-system, sans-serif;
+--font-display: 'Archivo', -apple-system, sans-serif;
 --font-body: 'Inter', -apple-system, system-ui, sans-serif;
 --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 ```
@@ -117,16 +117,16 @@ All type is set on a modular scale with a ratio of 1.25 (major third), rounded t
 
 | Token | Family | Weight | Size | Line-Height | Letter-Spacing | Usage |
 |---|---|---|---|---|---|---|
-| `--text-display` | Montserrat | 800 | 48px | 1.1 (53px) | -0.02em | Hero headlines, page titles |
-| `--text-h1` | Montserrat | 700 | 36px | 1.2 (43px) | -0.01em | Section headers |
-| `--text-h2` | Montserrat | 700 | 28px | 1.25 (35px) | -0.01em | Card titles, panel headers |
-| `--text-h3` | Montserrat | 600 | 22px | 1.3 (29px) | 0 | Sub-section headers |
-| `--text-h4` | Montserrat | 600 | 18px | 1.35 (24px) | 0 | Minor headers, label groups |
+| `--text-display` | Archivo | 800 | 48px | 1.1 (53px) | -0.02em | Hero headlines, page titles |
+| `--text-h1` | Archivo | 700 | 36px | 1.2 (43px) | -0.01em | Section headers |
+| `--text-h2` | Archivo | 700 | 28px | 1.25 (35px) | -0.01em | Card titles, panel headers |
+| `--text-h3` | Archivo | 600 | 22px | 1.3 (29px) | 0 | Sub-section headers |
+| `--text-h4` | Archivo | 600 | 18px | 1.35 (24px) | 0 | Minor headers, label groups |
 | `--text-body-lg` | Inter | 400 | 18px | 1.6 (29px) | 0 | Long-form body copy |
 | `--text-body` | Inter | 400 | 16px | 1.6 (26px) | 0 | Standard body copy |
 | `--text-body-sm` | Inter | 400 | 14px | 1.5 (21px) | 0.01em | Secondary body, descriptions |
 | `--text-caption` | Inter | 500 | 12px | 1.4 (17px) | 0.02em | Metadata, timestamps, labels |
-| `--text-overline` | Montserrat | 500 | 11px | 1.4 (15px) | 0.1em | Section labels (uppercase) |
+| `--text-overline` | Archivo | 500 | 11px | 1.4 (15px) | 0.1em | Section labels (uppercase) |
 | `--text-code` | Mono | 400 | 14px | 1.5 (21px) | 0 | Code blocks, data values |
 
 #### Mobile Type Scale
@@ -154,7 +154,7 @@ Mobile sizes use the same scale with one step reduction for display through h3, 
 - Maximum line length for body text: 75 characters. Paragraphs exceeding this width must be constrained with `max-width: 65ch`.
 - Headings form a strict hierarchy. Never skip levels (e.g., h2 to h4 without an h3). Every page has exactly one h1.
 - All-caps is reserved for overlines and the TRAINING wordmark. Never use all-caps for body copy, even for emphasis.
-- Montserrat is never used below 11px. Inter is never used below 12px (mobile) or 14px (desktop) for body copy.
+- Archivo is never used below 11px. Inter is never used below 12px (mobile) or 14px (desktop) for body copy.
 - Text must always be left-aligned. Center alignment is permitted only for short headlines of five words or fewer.
 - Monospace is used exclusively for data values (metrics, times, distances, weights), code, and technical identifiers.
 
@@ -244,11 +244,8 @@ Shadows define elevation in the dark interface. Unlike light-mode shadows which 
              0 0 0 1px rgba(255, 255, 255, 0.1),
              0 2px 0 rgba(255, 255, 255, 0.05);
 
-/* Focus ring glow — Electric Orange */
---shadow-focus-orange: 0 0 0 2px rgba(255, 107, 0, 0.4);
-
-/* Focus ring glow — Performance Blue */
---shadow-focus-blue: 0 0 0 2px rgba(0, 102, 255, 0.4);
+/* Focus ring glow — Volt (single accent) */
+--shadow-focus-volt: 0 0 0 2px rgba(200, 255, 0, 0.4);
 ```
 
 In light mode, shadow tokens invert: dark opacity layers give way to traditional light-mode drop shadows with larger blur radii and lower opacity values.
@@ -423,11 +420,11 @@ Buttons are the primary action mechanism. Three variants express action hierarch
 
 | State | Primary | Secondary | Ghost |
 |---|---|---|---|
-| `default` | `#FF6B00` bg | transparent, gray border | transparent |
-| `hover` | `#E85D00` (10% darker) | `--color-surface-4` bg | `--color-surface-3` bg |
-| `active` | `#CC5200` (20% darker) | `--color-surface-5` bg | `--color-surface-4` bg |
-| `focus` | Same as default + `--shadow-focus-orange` | Same as default + `--shadow-focus-blue` | Same as default + `--shadow-focus-blue` |
-| `disabled` | `--color-surface-5` bg, `--color-text-tertiary` text | `--color-text-tertiary` text, border `--color-surface-4` | `--color-text-tertiary` text |
+| `default` | `#C8FF00` bg | transparent, gray border | transparent |
+| `hover` | `#A8D900` (pressed) | `--color-surface-4` bg | `--color-surface-3` bg |
+| `active` | `#A8D900` (pressed) | `--color-surface-5` bg | `--color-surface-4` bg |
+| `focus` | Same as default + `--shadow-focus-volt` | Same as default + `--shadow-focus-volt` | Same as default + `--shadow-focus-volt` |
+| `disabled` | `--color-surface-raised` bg, `--color-text-secondary` text | `--color-text-secondary` text, border `--color-surface-4` | `--color-text-secondary` text |
 | `loading` | Replaced with 16px spinner, label hidden | Replaced with 16px spinner, label hidden | Replaced with 16px spinner |
 
 **Key rules:**
@@ -475,8 +472,8 @@ Text inputs, textareas, selects, and search fields share a common input shell.
 |---|---|
 | `default` | Gray border (`--color-surface-6`), dark surface background |
 | `hover` | Border brightens to `--color-text-tertiary` (#8A8A8A) |
-| `focus` | Border `--color-brand-secondary`, `--shadow-focus-blue` (2px ring) |
-| `error` | Border `--color-error`, `--shadow-focus-orange` (substituting orange for error red) |
+| `focus` | Border brightens to `--color-text-secondary`, `--shadow-focus-volt` (2px ring) |
+| `error` | Border `--color-error`, 2px error-tinted ring (`rgba(255, 90, 95, 0.4)`) |
 | `disabled` | Background `--color-surface-1`, text `--color-text-tertiary`, no interaction |
 | `read-only` | No border, transparent background, `--color-text-primary` text |
 
@@ -761,7 +758,7 @@ Tabs organize content into mutually exclusive views within a single context.
 | `default` | `--color-text-secondary` text, no indicator |
 | `hover` | `--color-text-primary` text |
 | `active` | `--color-text-primary` text, `--weight-semibold`, indicator (underline or pill bg) |
-| `focus` | `--shadow-focus-blue` on the tab element |
+| `focus` | `--shadow-focus-volt` on the tab element |
 
 #### Scrollable Tabs
 
