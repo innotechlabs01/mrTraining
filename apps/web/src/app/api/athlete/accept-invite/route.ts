@@ -46,7 +46,7 @@ export async function POST(req: Request) {
         });
         if (res.ok) {
           const clerkUser = (await res.json()) as Record<string, unknown>;
-          if (!email || email === userId) {
+          if (!email || email === userId || !email.includes('@')) {
             const addresses = clerkUser.email_addresses as Array<{ email_address: string }> | undefined;
             email = addresses?.[0]?.email_address ?? email;
           }

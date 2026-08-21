@@ -39,6 +39,9 @@ export interface AthleteBrief {
   name: string
   avatarUrl?: string
   sport: string
+  email?: string
+  phone?: string
+  serviceType?: string
   readiness: AthleteReadiness
   flag?: AthleteFlag
   todaySessionIds: string[]

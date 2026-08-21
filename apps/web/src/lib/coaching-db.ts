@@ -45,9 +45,29 @@ export async function getAthletes(coachId: string) {
     'SELECT * FROM coach_athletes WHERE coach_id = ? ORDER BY created_at',
     [coachId],
   )
+  // Collect athlete IDs that have user_* emails so we can backfill from users table
+  const athleteIds = result.rows.map(r => r.id as string)
+  const userEmailMap: Record<string, string> = {}
+  if (athleteIds.length > 0) {
+    const placeholders = athleteIds.map(() => '?').join(',')
+    const userRows = await db.execute(
+      `SELECT id, email FROM users WHERE id IN (${placeholders})`,
+      athleteIds,
+    )
+    for (const ur of userRows.rows) {
+      userEmailMap[ur.id as string] = (ur.email as string) || ''
+    }
+  }
   return result.rows.map(r => {
     const rawName = (r.name as string) || ''
-    const email = (r.email as string) || ''
+    let email = (r.email as string) || ''
+    // Backfill: if email looks like a Clerk user ID, resolve from users table
+    if (email.startsWith('user_') || !email.includes('@')) {
+      const resolved = userEmailMap[r.id as string]
+      if (resolved && resolved.includes('@')) {
+        email = resolved
+      }
+    }
     // Defensive: if DB still has email or user_ id as name, fall back to email local part
     const name =
       !rawName || rawName.startsWith('user_') || rawName.includes('@')
@@ -87,7 +107,15 @@ export async function getAthleteById(coachId: string, athleteId: string) {
     [athleteId],
   )
   const rawName = (r.name as string) || ''
-  const email = (r.email as string) || ''
+  let email = (r.email as string) || ''
+  // Backfill: if email looks like a Clerk user ID, resolve from users table
+  if (email.startsWith('user_') || !email.includes('@')) {
+    const userRows = await db.execute('SELECT email FROM users WHERE id = ?', [athleteId])
+    const resolved = userRows.rows[0]?.email as string | undefined
+    if (resolved && resolved.includes('@')) {
+      email = resolved
+    }
+  }
   const name =
     !rawName || rawName.startsWith('user_') || rawName.includes('@')
       ? email.split('@')[0] || rawName || 'Athlete'

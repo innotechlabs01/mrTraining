@@ -25,9 +25,15 @@ export async function GET() {
 
     // Also fetch modality / service_type from coach_athletes for the athlete
     let modality: string | null = null;
+    let scheduleDays: string | null = null;
+    let scheduleTime: string | null = null;
+    let emergencyContact: string | null = null;
     try {
       const db = getDB();
-      const res = await db.execute('SELECT service_type FROM coach_athletes WHERE id = ? LIMIT 1', [userId]);
+      const res = await db.execute(
+        'SELECT service_type, schedule_days, schedule_time, emergency_contact FROM coach_athletes WHERE id = ? LIMIT 1',
+        [userId],
+      );
       const row = res.rows[0] as Record<string, unknown> | undefined;
       const st = row?.service_type as string | undefined;
       if (st && st !== 'pending' && st !== 'linked_via_code' && st !== 'self_registered') {
@@ -37,13 +43,23 @@ export async function GET() {
       } else {
         modality = 'virtual';
       }
+      scheduleDays = (row?.schedule_days as string) || null;
+      scheduleTime = (row?.schedule_time as string) || null;
+      emergencyContact = (row?.emergency_contact as string) || null;
     } catch {
       modality = 'virtual';
     }
 
-    // Enrich profile with modality for mobile convenience
+    // Enrich profile with modality + schedule + emergency contact for mobile convenience
     const enriched = profile
-      ? { ...(profile as Record<string, unknown>), modality, service_type: modality }
+      ? {
+          ...(profile as Record<string, unknown>),
+          modality,
+          service_type: modality,
+          schedule_days: scheduleDays,
+          schedule_time: scheduleTime,
+          emergency_contact: emergencyContact,
+        }
       : null;
 
     return NextResponse.json({ profile: enriched, coaches, modality });
@@ -64,6 +80,9 @@ export async function PUT(req: Request) {
     const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : undefined;
     const lastName = typeof body.lastName === 'string' ? body.lastName.trim() : undefined;
     const modalityRaw = body.modality;
+    const emergencyContact = typeof body.emergencyContact === 'string' ? body.emergencyContact.trim() : undefined;
+    const scheduleDays = typeof body.scheduleDays === 'string' ? body.scheduleDays.trim() : undefined;
+    const scheduleTime = typeof body.scheduleTime === 'string' ? body.scheduleTime.trim() : undefined;
 
     const db = getDB();
 
@@ -119,18 +138,58 @@ export async function PUT(req: Request) {
       });
     }
 
+    // Handle emergency contact update
+    if (emergencyContact !== undefined) {
+      await db.execute({
+        sql: `UPDATE coach_athletes SET emergency_contact = ?, updated_at = datetime('now') WHERE id = ?`,
+        args: [emergencyContact, userId],
+      });
+    }
+
+    // Handle schedule update
+    if (scheduleDays !== undefined || scheduleTime !== undefined) {
+      // Fetch current values to merge
+      const currentRes = await db.execute(
+        'SELECT schedule_days, schedule_time FROM coach_athletes WHERE id = ? LIMIT 1',
+        [userId],
+      );
+      const currentRow = currentRes.rows[0] as Record<string, unknown> | undefined;
+      const newDays = scheduleDays !== undefined ? scheduleDays : ((currentRow?.schedule_days as string) || '');
+      const newTime = scheduleTime !== undefined ? scheduleTime : ((currentRow?.schedule_time as string) || '');
+      await db.execute({
+        sql: `UPDATE coach_athletes SET schedule_days = ?, schedule_time = ?, updated_at = datetime('now') WHERE id = ?`,
+        args: [newDays, newTime, userId],
+      });
+    }
+
     // Return fresh profile
     const profile = await getAthleteProfileById(userId);
     let modality: string | null = null;
+    let scheduleDays: string | null = null;
+    let scheduleTime: string | null = null;
+    let emergencyContactVal: string | null = null;
     try {
-      const res = await db.execute('SELECT service_type FROM coach_athletes WHERE id = ? LIMIT 1', [userId]);
+      const res = await db.execute(
+        'SELECT service_type, schedule_days, schedule_time, emergency_contact FROM coach_athletes WHERE id = ? LIMIT 1',
+        [userId],
+      );
       const row = res.rows[0] as Record<string, unknown> | undefined;
       modality = (row?.service_type as string) ?? 'virtual';
+      scheduleDays = (row?.schedule_days as string) || null;
+      scheduleTime = (row?.schedule_time as string) || null;
+      emergencyContactVal = (row?.emergency_contact as string) || null;
     } catch {
       modality = 'virtual';
     }
     const enriched = profile
-      ? { ...(profile as Record<string, unknown>), modality, service_type: modality }
+      ? {
+          ...(profile as Record<string, unknown>),
+          modality,
+          service_type: modality,
+          schedule_days: scheduleDays,
+          schedule_time: scheduleTime,
+          emergency_contact: emergencyContactVal,
+        }
       : null;
 
     return NextResponse.json({ success: true, profile: enriched, modality });
