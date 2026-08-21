@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { Webhook } from 'svix';
 import { getDB, generateUniqueCoachCode } from '@/lib/coach-isolation-db';
+import { getCoachByCode, linkCoachAthlete, createAthleteProfile, getUserById, createUser, getAthleteProfileById } from '@/lib/coach-isolation-db';
+import { getAthleteMembership } from '@/lib/coaching-db';
 
 const webhookSecret = process.env.CLERK_WEBHOOK_SECRET || '';
 const clerkSecretKey = process.env.CLERK_SECRET_KEY || '';
@@ -77,6 +79,84 @@ async function ensureCoachSync(userId: string, email: string, name: string, avat
   }
 }
 
+async function processAthleteCoachCode(userId: string, email: string, coachCode: string) {
+  const db = getDB();
+
+  // Check if already linked to a coach
+  const existingLink = await db.execute({
+    sql: 'SELECT id FROM coach_athlete_links WHERE athlete_id = ? AND status = ?',
+    args: [userId, 'active'],
+  });
+
+  if (existingLink.rows.length > 0) {
+    console.log(`[Webhook] Athlete ${userId} already linked to a coach, skipping`);
+    return;
+  }
+
+  // Find coach by code
+  const coach = await getCoachByCode(coachCode);
+  if (!coach) {
+    console.log(`[Webhook] Invalid coach code ${coachCode} for athlete ${userId}`);
+    return;
+  }
+
+  const coachData = coach as Record<string, unknown>;
+  const coachId = coachData.id as string;
+
+  // Create user record if not exists
+  const existingUser = await getUserById(userId);
+  if (!existingUser) {
+    await createUser({ id: userId, email, name: email, role: 'athlete' });
+  }
+
+  // Create athlete profile if not exists
+  const existingProfile = await getAthleteProfileById(userId);
+  if (!existingProfile) {
+    await createAthleteProfile({ id: userId, email, name: email });
+  }
+
+  // Link coach and athlete (normalized model)
+  await linkCoachAthlete(coachId, userId);
+
+  // Create coach_athletes record for dashboard
+  const existingAthlete = await db.execute(
+    'SELECT id FROM coach_athletes WHERE id = ? AND coach_id = ?',
+    [userId, coachId],
+  );
+
+  if (existingAthlete.rows.length === 0) {
+    await db.execute(
+      `INSERT INTO coach_athletes (id, name, email, sport, service_type, start_date, coach_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'), ?, datetime('now'), datetime('now'))`,
+      [userId, email, email, '', 'linked_via_code', coachId],
+    );
+  }
+
+  // Create 7-day free trial membership if not exists
+  const existingMembership = await getAthleteMembership(userId);
+  if (!existingMembership) {
+    const now = new Date();
+    const startDate = now.toISOString().split('T')[0];
+    const periodEnd = new Date(now);
+    periodEnd.setMonth(periodEnd.getMonth() + 1, 0);
+    periodEnd.setHours(23, 59, 59, 999);
+    const periodEndStr = periodEnd.toISOString().split('T')[0];
+    const graceDays = 5;
+    const dueDate = new Date(periodEnd);
+    dueDate.setDate(dueDate.getDate() + graceDays);
+    const dueDateStr = dueDate.toISOString().split('T')[0];
+
+    const membershipId = crypto.randomUUID();
+    await db.execute(
+      `INSERT INTO athlete_memberships (id, athlete_id, coach_id, plan_name, plan_price, billing_period, status, current_period_start, current_period_end, grace_period_days, payment_due_date)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      [membershipId, userId, coachId, 'Free Trial', 0, 'monthly', 'active', startDate, periodEndStr, graceDays, dueDateStr],
+    );
+  }
+
+  console.log(`[Webhook] Linked athlete ${userId} to coach ${coachId} via code ${coachCode}`);
+}
+
 export async function POST(req: Request) {
   if (!webhookSecret) {
     return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
@@ -97,14 +177,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 400 });
   }
 
-  const { id, email_addresses, first_name, last_name, image_url } = evt.data;
+  const { id, email_addresses, first_name, last_name, image_url, unsafe_metadata } = evt.data;
   const email = (email_addresses as Array<{ email_address: string }>)[0]?.email_address ?? '';
   const name = `${(first_name as string) ?? ''} ${(last_name as string) ?? ''}`.trim() || email;
   const avatar = (image_url as string) ?? '';
+  const metadata = (unsafe_metadata as Record<string, unknown>) ?? {};
 
   try {
     if (evt.type === 'user.created') {
-      await ensureCoachSync(id as string, email, name, avatar);
+      // Check if this is an athlete with a coach code
+      const coachCode = metadata.coachCode as string | undefined;
+      if (coachCode) {
+        await processAthleteCoachCode(id as string, email, coachCode);
+      } else {
+        // Default: create as coach
+        await ensureCoachSync(id as string, email, name, avatar);
+      }
     }
 
     if (evt.type === 'user.updated') {
@@ -115,13 +203,18 @@ export async function POST(req: Request) {
         args: [email, name, avatar, id as string],
       });
 
-      await db.execute({
-        sql: `UPDATE coaches SET email = ?, name = ?, avatar_url = ?, updated_at = datetime('now') WHERE id = ?`,
-        args: [email, name, avatar, id as string],
-      });
-
-      // Re-sync coachCode on every update
-      await ensureCoachSync(id as string, email, name, avatar);
+      // Check if this is an athlete with a coach code
+      const coachCode = metadata.coachCode as string | undefined;
+      if (coachCode) {
+        await processAthleteCoachCode(id as string, email, coachCode);
+      } else {
+        // Update coach record
+        await db.execute({
+          sql: `UPDATE coaches SET email = ?, name = ?, avatar_url = ?, updated_at = datetime('now') WHERE id = ?`,
+          args: [email, name, avatar, id as string],
+        });
+        await ensureCoachSync(id as string, email, name, avatar);
+      }
     }
 
     if (evt.type === 'user.deleted') {

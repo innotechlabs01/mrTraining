@@ -1,13 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import {
-  getCoachByCode,
-  linkCoachAthlete,
-  createAthleteProfile,
-  getUserById,
-  createUser,
-  getAthleteProfileById,
-} from '@/lib/coach-isolation-db';
+import { getCoachByCode, linkCoachAthlete, createAthleteProfile, getUserById, createUser, getAthleteProfileById, getDB } from '@/lib/coach-isolation-db';
+import { getAthleteMembership } from '@/lib/coaching-db';
 
 export async function POST(req: Request) {
   try {
@@ -56,8 +50,53 @@ export async function POST(req: Request) {
       });
     }
 
-    // Link coach and athlete
+    // Link coach and athlete (normalized model)
     await linkCoachAthlete(coachId, userId);
+
+    // ALSO create coach_athletes record so coach can see them in dashboard
+    const db = getDB();
+    const existing = await db.execute(
+      'SELECT id FROM coach_athletes WHERE id = ? AND coach_id = ?',
+      [userId, coachId],
+    );
+
+    if (existing.rows.length === 0) {
+      await db.execute(
+        `INSERT INTO coach_athletes (id, name, email, sport, service_type, start_date, coach_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, datetime('now'), ?, datetime('now'), datetime('now'))`,
+        [userId, email, email, '', 'pending', coachId],
+      );
+    }
+
+    // Create 7-day free trial membership if not exists
+    const existingMembership = await getAthleteMembership(userId);
+    if (!existingMembership) {
+      const now = new Date();
+      const startDate = now.toISOString().split('T')[0];
+
+      // Trial ends in 7 days
+      const trialEnd = new Date(now);
+      trialEnd.setDate(trialEnd.getDate() + 7);
+
+      // After trial, billing period ends at end of current month
+      const periodEnd = new Date(now);
+      periodEnd.setMonth(periodEnd.getMonth() + 1, 0); // Last day of current month
+      periodEnd.setHours(23, 59, 59, 999);
+      const periodEndStr = periodEnd.toISOString().split('T')[0];
+
+      // Grace period: 5 days after period end
+      const graceDays = 5;
+      const dueDate = new Date(periodEnd);
+      dueDate.setDate(dueDate.getDate() + graceDays);
+      const dueDateStr = dueDate.toISOString().split('T')[0];
+
+      const membershipId = crypto.randomUUID();
+      await db.execute(
+        `INSERT INTO athlete_memberships (id, athlete_id, coach_id, plan_name, plan_price, billing_period, status, current_period_start, current_period_end, grace_period_days, payment_due_date)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        [membershipId, userId, coachId, 'Free Trial', 0, 'monthly', 'active', startDate, periodEndStr, graceDays, dueDateStr],
+      );
+    }
 
     return NextResponse.json({
       success: true,

@@ -1423,3 +1423,123 @@ export async function getAllPublicPlans() {
   return plans
 }
 
+
+// ============== Athlete-Scoped Queries (for mobile app) ==============
+
+export async function getAthleteByClerkId(clerkUserId: string) {
+  const db = getDB()
+  let result = await db.execute(
+    'SELECT * FROM coach_athletes WHERE id = ? LIMIT 1',
+    [clerkUserId],
+  )
+  if (result.rows.length === 0) {
+    result = await db.execute(
+      `SELECT ca.* FROM coach_athletes ca
+       INNER JOIN users u ON ca.email = u.email
+       WHERE u.id = ? LIMIT 1`,
+      [clerkUserId],
+    )
+  }
+  if (result.rows.length === 0) return null
+  const r = result.rows[0]
+  return {
+    id: r.id as string,
+    name: r.name as string,
+    sport: r.sport as string,
+    email: r.email as string || '',
+    phone: r.phone as string || '',
+    coachId: r.coach_id as string,
+    serviceType: r.service_type as string || '',
+    plan: { name: r.plan_name as string || '', price: r.plan_price as number || 0, billingPeriod: r.plan_billing as string || 'monthly' },
+    schedule: { days: r.schedule_days as string || '', time: r.schedule_time as string || '' },
+    startDate: r.start_date as string || '',
+    readiness: { sleep: r.sleep as number || 0, hrv: r.hrv as number || 0, recovery: r.recovery as number || 0, score: r.readiness_score as number || 0 },
+  }
+}
+
+export async function getAthleteAssignedWorkouts(athleteId: string) {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM assigned_workouts WHERE athlete_id = ? ORDER BY created_at DESC',
+    [athleteId],
+  )
+  return result.rows.map(r => ({
+    id: r.id as string,
+    athleteId: r.athlete_id as string,
+    contentName: r.content_name as string,
+    contentType: r.content_type as string,
+    modality: r.modality as string,
+    startDate: r.start_date as string,
+    endDate: r.end_date as string,
+    daysOfWeek: JSON.parse(r.days_of_week as string || '[]') as number[],
+    status: r.status as string,
+    progress: r.progress as number || 0,
+  }))
+}
+
+export async function getAthleteSessions(athleteId: string) {
+  const db = getDB()
+  const result = await db.execute(
+    `SELECT cs.* FROM coach_sessions cs
+     INNER JOIN session_athletes sa ON cs.id = sa.session_id
+     WHERE sa.athlete_id = ?
+     ORDER BY cs.time`,
+    [athleteId],
+  )
+  return result.rows.map(r => ({
+    id: r.id as string,
+    name: r.name as string,
+    time: r.time as string,
+    endTime: r.end_time as string,
+    location: r.location as string,
+    status: r.status as string,
+  }))
+}
+
+export async function getAthleteAppointments(athleteId: string) {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM appointments WHERE athlete_id = ? ORDER BY date DESC, start_time DESC',
+    [athleteId],
+  )
+  return result.rows.map(r => ({
+    id: r.id as string,
+    coachId: r.coach_id as string,
+    athleteId: r.athlete_id as string,
+    athleteName: r.athlete_name as string,
+    date: r.date as string,
+    startTime: r.start_time as string,
+    endTime: r.end_time as string,
+    status: r.status as string,
+    notes: (r.notes as string) || '',
+  }))
+}
+
+export async function getCoachAvailabilityForAthlete(coachId: string) {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM coach_availability WHERE coach_id = ? ORDER BY day_of_week, start_time',
+    [coachId],
+  )
+  return result.rows.map(r => ({
+    id: r.id as string,
+    dayOfWeek: r.day_of_week as number,
+    startTime: r.start_time as string,
+    endTime: r.end_time as string,
+  }))
+}
+
+export async function createAthleteAppointment(data: {
+  coachId: string; athleteId: string; athleteName: string;
+  date: string; startTime: string; endTime: string;
+  notes?: string;
+}): Promise<string> {
+  const db = getDB()
+  const id = generateId()
+  await db.execute(
+    `INSERT INTO appointments (id, coach_id, athlete_id, athlete_name, date, start_time, end_time, status, notes)
+     VALUES (?,?,?,?,?,?,?,?,?)`,
+    [id, data.coachId, data.athleteId, data.athleteName, data.date, data.startTime, data.endTime, 'scheduled', data.notes || ''],
+  )
+  return id
+}
