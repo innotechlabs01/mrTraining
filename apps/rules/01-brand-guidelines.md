@@ -182,81 +182,45 @@ The logo is a precision instrument. Treat it as such:
 
 ## 4. Color Palette
 
-### Primary Brand Colors
+The interface is dark-first with a single brand accent: **Volt**. Surfaces ascend
+by tonal difference, never by borders alone. Volt is reserved for exactly one
+primary CTA per screen. The former Electric Orange (#FF6B00) / Performance Blue
+(#0066FF) dual-accent system is retired as of the 2026 mobile redesign.
 
-| Name | Hex | RGB | HSL | Usage |
-|---|---|---|---|---|
-| **Electric Orange** | `#FF6B00` | `255, 107, 0` | `25°, 100%, 50%` | Primary brand color. CTAs, active states, logo monogram, key brand moments, progress fills. |
-| **Performance Blue** | `#0066FF` | `0, 102, 255` | `216°, 100%, 50%` | Secondary brand color. Links, interactive elements, focus rings, secondary data series, toggles. |
+### Core Palette (Mobile — canonical, `apps/mobile/src/shared/theme/tokens.ts`)
 
-### Surface Hierarchy (Dark Mode — Default)
-
-| Token | Hex | Luminance | Role |
-|---|---|---|---|
-| `--color-surface-0` | `#0A0B0D` | 3% | App background. Deepest layer. |
-| `--color-surface-1` | `#0F0F0F` | 6% | Primary surface. Main content area. |
-| `--color-surface-2` | `#141416` | 8% | Elevated surface. Sidebar. |
-| `--color-surface-3` | `#1A1A1C` | 10% | Card background. Raised panels. |
-| `--color-surface-4` | `#1C1C1C` | 11% | Hover state on cards. Selected items. |
-| `--color-surface-5` | `#242426` | 14% | Pressed state. Active cards. |
-| `--color-surface-6` | `#2A2A2C` | 16% | Borders. Dividers. Subtle separation. |
-
-### Surface Hierarchy (Light Mode — Secondary)
-
-| Token | Hex | Luminance | Role |
-|---|---|---|---|
-| `--color-surface-0` | `#F5F5F5` | 96% | App background. |
-| `--color-surface-1` | `#FFFFFF` | 100% | Primary surface. Content area. |
-| `--color-surface-2` | `#FAFAFA` | 98% | Elevated surface. |
-| `--color-surface-3` | `#F0F0F0` | 94% | Card background. |
-| `--color-surface-4` | `#E8E8E8` | 91% | Card hover. |
-| `--color-surface-5` | `#E0E0E0` | 88% | Pressed state. |
-| `--color-surface-6` | `#D4D4D4` | 83% | Borders and dividers. |
-
-### Functional Colors
-
-| Name | Hex | RGB | Usage |
-|---|---|---|---|
-| **Success Green** | `#00C853` | `0, 200, 83` | Positive states, success messages, completed actions, upward trends, confirmed payments. |
-| **Error Red** | `#FF3D00` | `255, 61, 0` | Errors, destructive actions, critical alerts, downward trends, failed operations. |
-| **Warning Amber** | `#FFB300` | `255, 179, 0` | Warnings, caution states, in-progress indicators, pending actions, approaching limits. |
-| **Info Blue** | `#0066FF` | `0, 102, 255` | Informational states. Aliased to Performance Blue for semantic clarity. |
-
-### Accent Colors (Extended Palette)
-
-| Name | Hex | Usage |
+| Role | Hex | Usage |
 |---|---|---|
-| **Electric Orange Light** | `#FF8A33` | Hover state for orange elements. Gradient transitions. |
-| **Electric Orange Dark** | `#CC5200` | Pressed state for orange elements. Active state. |
-| **Performance Blue Light** | `#3385FF` | Hover state for blue elements. Links on dark backgrounds. |
-| **Performance Blue Dark** | `#0044CC` | Pressed state for blue elements. |
-| **Teal Accent** | `#00BFA5` | Swimming module accent. Distinct from success green. |
-| **Violet Accent** | `#7C4DFF` | Recovery/wellness module accent. Distinct from performance blue. |
-| **Coral Accent** | `#FF5252` | Competition/high-intensity accent. Used sparingly for urgency. |
-
-Accent colors are module-specific and must never compete with Electric Orange or Performance Blue for visual dominance. They appear only within their designated module contexts.
+| Base | `#111214` | App background, deepest layer |
+| Surface | `#191B1E` | Cards, main content surfaces |
+| Surface Raised | `#202329` | Elevated elements, inputs, chips |
+| Border | `#26292E` | Hairlines, separators |
+| Primary (Volt) | `#C8FF00` | The single accent. One primary CTA per screen. Progress fills, active indicators. |
+| Primary Pressed | `#A8D900` | Pressed state of Volt elements |
+| Text | `#F5F5F7` | Primary text (WCAG AA on all surfaces) |
+| Text Secondary | `#9CA3AF` | Secondary text, captions, placeholders |
+| Success | `#34D399` | Completed actions, positive trends |
+| Warning | `#FBBF24` | Caution states, pending membership |
+| Error | `#FF5A5F` | Errors, destructive actions |
 
 ### Usage Ratios
 
-Every screen, page, and composition must adhere to these color distribution ratios:
-
-| Category | Ratio | Colors |
-|---|---|---|
-| **Neutral surfaces and text** | 60% | Surface hierarchy `#0A0B0D` through `#2A2A2C`, text colors white through Steel |
-| **Brand accents** | 25% | Electric Orange `#FF6B00` and Performance Blue `#0066FF` combined |
-| **Performance Blue** | 10% | Links, interactive elements, focus rings, data series |
-| **Electric Orange** | 5% | CTAs, active states, key brand moments |
-
-At the sub-level of brand accents: Performance Blue should occupy roughly twice the visual area of Electric Orange in any given interface. Orange is the exclamation point; blue is the paragraph. Orange says "act here"; blue says "click here."
+| Category | Ratio |
+|---|---|
+| Neutral surfaces and text (Base → Border, Text roles) | ≥ 90% |
+| Volt accent (CTAs, active states, key brand moments) | ≤ 10% |
 
 ### Color Rules
 
-- Dark mode is the default and primary UI mode. Light mode is a secondary, fully-supported theme. All components must function in both modes with equivalent visual hierarchy.
-- Never use Electric Orange and Performance Blue at equal visual weight in the same composition. One must dominate — and in the interface, that is always Performance Blue. Orange is reserved for the single primary action per screen.
-- Never use functional colors (green, red, amber) without a companion icon. Color is reinforcement, never the sole communication channel.
-- All text must meet WCAG AA contrast ratios against its background (see Accessibility section).
-- Gradient usage: permitted only for hero sections and brand moments. Gradients must transition between adjacent shades on the same hue axis — never cross from orange to blue. Gradient angle: 135 degrees (bottom-left to top-right), matching the forward-momentum direction of the brand.
-- Color is never used as decoration. Every application of color communicates hierarchy, state, or brand.
+- Volt is the ONLY accent. Never introduce a second hue for decoration. Semantic
+  colors (Success/Warning/Error) appear only for state communication.
+- Exactly one Volt CTA per screen. Secondary actions are ghost/outline treatments.
+- Functional colors always pair with an icon or label — color is reinforcement,
+  never the sole communication channel.
+- All text must meet WCAG AA contrast against its background. Body text on Volt
+  must be Base (`#111214`), never white.
+- Gradients: permitted only between adjacent tonal steps of the same neutral ramp.
+  Never gradient into or out of Volt.
 
 ---
 

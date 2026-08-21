@@ -57,36 +57,34 @@ The seven-step surface scale provides discrete elevation states without relying 
 
 Light mode is a secondary theme. The design system is authored dark-first; all light mode tokens are derived through an inversion mapping that preserves the same relative luminance steps. The light surface scale is the dark scale inverted around 50% luminance, ensuring equivalent perceptual contrast between adjacent surfaces in both themes.
 
-**Brand Accents**
+**Brand Accent**
 
 | Token | Hex | Usage |
 |---|---|---|
-| `--color-brand-primary` | `#FF6B00` | Electric Orange. Primary CTAs, active states, brand moments. |
-| `--color-brand-secondary` | `#0066FF` | Performance Blue. Links, interactive elements, data series. |
+| `--color-brand-primary` | `#C8FF00` | Volt. The single accent. One primary CTA per screen, active states, progress fills. |
+| `--color-brand-primary-pressed` | `#A8D900` | Pressed state for Volt elements. |
 
-Never use both accents at equal visual weight. The 80/20 rule governs accent distribution: 80% of a screen's color information should come from neutrals, no more than 20% from accents. When both accents appear in the same view, one must occupy at least 3x the visual area of the other.
-
-Electric Orange is the dominant accent. Performance Blue is used for interaction cues — links, toggles, focus rings, and data visualization. Orange signals action; Blue signals navigation and information.
+Volt is the only brand accent. The 90/10 rule governs distribution: ≥ 90% of a
+screen comes from neutrals, ≤ 10% from Volt. The former Electric Orange /
+Performance Blue dual-accent system is retired (see 01-brand-guidelines.md §4).
 
 **Semantic Colors**
 
 | Token | Hex | Usage |
 |---|---|---|
-| `--color-success` | `#00C853` | Success states, completed actions, positive trends |
-| `--color-warning` | `#FFB300` | Warnings, caution states, in-progress indicators |
-| `--color-error` | `#FF3D00` | Errors, destructive actions, critical alerts |
-| `--color-info` | `#0066FF` | Informational states (aliased to Performance Blue) |
+| `--color-success` | `#34D399` | Success states, completed actions, positive trends |
+| `--color-warning` | `#FBBF24` | Warnings, caution states, in-progress indicators |
+| `--color-error` | `#FF5A5F` | Errors, destructive actions, critical alerts |
 
 Semantic colors must never appear alone. Every success state includes both the green swatch and a check icon. Every error state includes both the red swatch and an alert icon. Every warning includes both amber and a warning icon. Color is reinforcement, never the sole communication channel.
 
-**Text Colors (Dark Mode)**
+**Text Colors (Dark Mode — Default)**
 
-| Token | Hex | Opacity | Role |
-|---|---|---|---|
-| `--color-text-primary` | `#FFFFFF` | 100% | Primary body text, headlines |
-| `--color-text-secondary` | `#C4C4C4` | 77% | Secondary text, metadata, captions |
-| `--color-text-tertiary` | `#8A8A8A` | 54% | Placeholder text, disabled text |
-| `--color-text-inverse` | `#0F0F0F` | — | Text on accent backgrounds |
+| Token | Hex | Role |
+|---|---|---|
+| `--color-text-primary` | `#F5F5F7` | Primary body text, headlines |
+| `--color-text-secondary` | `#9CA3AF` | Secondary text, metadata, captions, placeholders |
+| `--color-text-inverse` | `#111214` | Text on Volt accent backgrounds (always Base, never white) |
 
 **Text Colors (Light Mode)**
 
