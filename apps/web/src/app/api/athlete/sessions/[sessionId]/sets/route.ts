@@ -26,12 +26,35 @@ export async function POST(req: Request, ctx: { params: { sessionId: string } })
       return NextResponse.json({ error: 'exerciseId and setIndex are required' }, { status: 400 });
     }
 
+    // Optional training-intelligence fields (migration 010). Validated before persisting.
+    const numOrNull = (v: unknown): number | null =>
+      v == null || v === '' ? null : Number.isFinite(Number(v)) ? Number(v) : null;
+    const phase: 'warmup' | 'work' | null = body?.phase === 'warmup' ? 'warmup' : body?.phase === 'work' ? 'work' : null;
+    const rir = numOrNull(body?.rir);
+    const rpe = numOrNull(body?.rpe);
+    if (rir != null && (rir < 0 || rir > 10)) {
+      return NextResponse.json({ error: 'rir must be between 0 and 10' }, { status: 400 });
+    }
+    if (rpe != null && (rpe < 1 || rpe > 10)) {
+      return NextResponse.json({ error: 'rpe must be between 1 and 10' }, { status: 400 });
+    }
+    const extra = {
+      phase,
+      rir,
+      rpe,
+      sec: numOrNull(body?.sec),
+      minutes: numOrNull(body?.minutes),
+      speed: numOrNull(body?.speed),
+      skipped: body?.skipped === true || body?.skipped === 1,
+    };
+
     const set = await logWorkoutSet(
       session.id,
       exerciseId,
       setIndex,
       body?.weightKg ?? null,
       body?.reps ?? null,
+      extra,
     );
     return NextResponse.json({ set }, { status: 201 });
   } catch (error) {
