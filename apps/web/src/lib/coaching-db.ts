@@ -1586,3 +1586,157 @@ export async function createAthleteAppointment(data: {
   )
   return id
 }
+
+// ============== Workout Templates & Session Logs ==============
+
+export type WorkoutExercise = {
+  id: string
+  workoutId: string
+  name: string
+  sets: number
+  reps: number
+  weightKg: number | null
+  restSeconds: number | null
+  sortOrder: number
+  notes: string | null
+}
+
+export type WorkoutSession = {
+  id: string
+  workoutId: string
+  athleteId: string
+  startedAt: string
+  completed: number
+  completedAt: string | null
+  currentExerciseIndex: number
+  durationSeconds: number
+}
+
+export type WorkoutSetLog = {
+  id: string
+  sessionId: string
+  exerciseId: string
+  setIndex: number
+  weightKg: number | null
+  reps: number | null
+  completed: number
+  loggedAt: string
+}
+
+function mapWorkoutSession(r: Record<string, unknown>): WorkoutSession {
+  return {
+    id: r.id as string,
+    workoutId: r.workout_id as string,
+    athleteId: r.athlete_id as string,
+    startedAt: r.started_at as string,
+    completed: r.completed as number,
+    completedAt: r.completed_at as string | null,
+    currentExerciseIndex: r.current_exercise_index as number,
+    durationSeconds: r.duration_seconds as number,
+  }
+}
+
+export async function getWorkoutDetail(workoutId: string) {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM assigned_workouts WHERE id = ?',
+    [workoutId],
+  )
+  if (result.rows.length === 0) return null
+  const r = result.rows[0]
+  const workout = {
+    id: r.id as string,
+    athleteId: r.athlete_id as string,
+    athleteName: r.athlete_name as string || '',
+    contentId: r.content_id as string,
+    contentType: r.content_type as string,
+    contentName: r.content_name as string,
+    modality: r.modality as string,
+    startDate: r.start_date as string,
+    endDate: r.end_date as string,
+    daysOfWeek: JSON.parse(r.days_of_week as string || '[]') as number[],
+    status: r.status as string,
+    progress: r.progress as number || 0,
+    coachId: r.coach_id as string,
+  }
+  const exercisesResult = await db.execute(
+    'SELECT * FROM workout_exercises WHERE workout_id = ? ORDER BY sort_order',
+    [workoutId],
+  )
+  const exercises = exercisesResult.rows.map(e => ({
+    id: e.id as string,
+    workoutId: e.workout_id as string,
+    name: e.name as string,
+    sets: e.sets as number,
+    reps: e.reps as number,
+    weightKg: e.weight_kg as number | null,
+    restSeconds: e.rest_seconds as number | null,
+    sortOrder: e.sort_order as number,
+    notes: e.notes as string | null,
+  }))
+  return { workout, exercises }
+}
+
+export async function getActiveWorkoutSession(workoutId: string, athleteId: string): Promise<WorkoutSession | null> {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM workout_session_logs WHERE workout_id = ? AND athlete_id = ? AND completed = 0 ORDER BY started_at DESC LIMIT 1',
+    [workoutId, athleteId],
+  )
+  if (result.rows.length === 0) return null
+  return mapWorkoutSession(result.rows[0])
+}
+
+export async function createWorkoutSession(workoutId: string, athleteId: string): Promise<WorkoutSession> {
+  const db = getDB()
+  const id = generateId()
+  const now = new Date().toISOString()
+  await db.execute(
+    'INSERT INTO workout_session_logs (id, workout_id, athlete_id, started_at, completed, current_exercise_index, duration_seconds) VALUES (?,?,?,?,0,0,0)',
+    [id, workoutId, athleteId, now],
+  )
+  return { id, workoutId, athleteId, startedAt: now, completed: 0, completedAt: null, currentExerciseIndex: 0, durationSeconds: 0 }
+}
+
+export async function getWorkoutSession(sessionId: string): Promise<WorkoutSession | null> {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM workout_session_logs WHERE id = ?',
+    [sessionId],
+  )
+  if (result.rows.length === 0) return null
+  return mapWorkoutSession(result.rows[0])
+}
+
+export async function updateWorkoutSessionProgress(sessionId: string, currentExerciseIndex: number, durationSeconds: number) {
+  const db = getDB()
+  await db.execute(
+    'UPDATE workout_session_logs SET current_exercise_index = ?, duration_seconds = ? WHERE id = ?',
+    [currentExerciseIndex, durationSeconds, sessionId],
+  )
+}
+
+export async function logWorkoutSet(sessionId: string, exerciseId: string, setIndex: number, weightKg: number | null, reps: number | null): Promise<WorkoutSetLog> {
+  const db = getDB()
+  const id = generateId()
+  const now = new Date().toISOString()
+  await db.execute(
+    'INSERT INTO workout_set_logs (id, session_id, exercise_id, set_index, weight_kg, reps, completed, logged_at) VALUES (?,?,?,?,?,?,1,?)',
+    [id, sessionId, exerciseId, setIndex, weightKg, reps, now],
+  )
+  return { id, sessionId, exerciseId, setIndex, weightKg, reps, completed: 1, loggedAt: now }
+}
+
+export async function completeWorkoutSession(sessionId: string) {
+  const db = getDB()
+  const now = new Date().toISOString()
+  const result = await db.execute(
+    'SELECT workout_id FROM workout_session_logs WHERE id = ?',
+    [sessionId],
+  )
+  if (result.rows.length > 0) {
+    const workoutId = result.rows[0].workout_id as string
+    await db.execute('UPDATE assigned_workouts SET progress = 100 WHERE id = ?', [workoutId])
+  }
+  await db.execute('UPDATE workout_session_logs SET completed = 1, completed_at = ? WHERE id = ?', [now, sessionId])
+}
