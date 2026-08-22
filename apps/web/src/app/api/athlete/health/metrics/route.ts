@@ -8,9 +8,11 @@ import {
   type IncomingHealthMetric,
 } from '@/lib/coaching-db';
 
-const VALID_TYPES = ['resting_hr', 'hrv', 'steps', 'vo2max', 'active_calories', 'workout_duration'];
-const VALID_UNITS = ['bpm', 'ms', 'steps', 'ml/kg/min', 'kcal', 'minutes'];
-const VALID_SOURCES = ['healthkit', 'healthconnect', 'garmin'];
+// 'manual_readiness' lets the athlete's self-check-in live beside wearable data
+// without either overwriting the other.
+const VALID_TYPES = ['resting_hr', 'hrv', 'steps', 'vo2max', 'active_calories', 'workout_duration', 'manual_readiness'];
+const VALID_UNITS = ['bpm', 'ms', 'steps', 'ml/kg/min', 'kcal', 'minutes', 'score'];
+const VALID_SOURCES = ['healthkit', 'healthconnect', 'garmin', 'manual'];
 const MAX_BATCH = 500;
 
 function parseMetric(raw: unknown): IncomingHealthMetric | null {
