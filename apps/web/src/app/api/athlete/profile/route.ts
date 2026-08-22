@@ -165,8 +165,8 @@ export async function PUT(req: Request) {
     // Return fresh profile
     const profile = await getAthleteProfileById(userId);
     let modality: string | null = null;
-    let scheduleDays: string | null = null;
-    let scheduleTime: string | null = null;
+    let freshScheduleDays: string | null = null;
+    let freshScheduleTime: string | null = null;
     let emergencyContactVal: string | null = null;
     try {
       const res = await db.execute(
@@ -175,8 +175,8 @@ export async function PUT(req: Request) {
       );
       const row = res.rows[0] as Record<string, unknown> | undefined;
       modality = (row?.service_type as string) ?? 'virtual';
-      scheduleDays = (row?.schedule_days as string) || null;
-      scheduleTime = (row?.schedule_time as string) || null;
+      freshScheduleDays = (row?.schedule_days as string) || null;
+      freshScheduleTime = (row?.schedule_time as string) || null;
       emergencyContactVal = (row?.emergency_contact as string) || null;
     } catch {
       modality = 'virtual';
@@ -186,8 +186,8 @@ export async function PUT(req: Request) {
           ...(profile as Record<string, unknown>),
           modality,
           service_type: modality,
-          schedule_days: scheduleDays,
-          schedule_time: scheduleTime,
+          schedule_days: freshScheduleDays,
+          schedule_time: freshScheduleTime,
           emergency_contact: emergencyContactVal,
         }
       : null;
