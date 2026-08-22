@@ -407,6 +407,114 @@ export async function deleteEvent(coachId: string, eventId: string) {
   await db.execute('DELETE FROM events WHERE id = ? AND coach_id = ?', [eventId, coachId])
 }
 
+export type EventRegistrationStatus = 'accepted' | 'cancelled'
+
+export type EventRegistration = {
+  id: string
+  eventId: string
+  athleteId: string
+  status: EventRegistrationStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export type EventFormResponse = {
+  id: string
+  eventId: string
+  athleteId: string
+  fieldId: string
+  value: string
+  createdAt: string
+}
+
+export async function getEventDetail(eventId: string) {
+  const db = getDB()
+  const result = await db.execute('SELECT * FROM events WHERE id = ?', [eventId])
+  if (result.rows.length === 0) return null
+  const r = result.rows[0]
+  const athletes = await db.execute('SELECT athlete_id FROM event_athletes WHERE event_id = ?', [eventId])
+  const formFieldRows = await db.execute('SELECT * FROM event_form_fields WHERE event_id = ? ORDER BY sort_order', [eventId])
+  const listItemRows = await db.execute('SELECT item FROM event_list_items WHERE event_id = ? ORDER BY sort_order', [eventId])
+
+  const formFields = formFieldRows.rows.map(f => ({ id: f.id as string, label: f.label as string, kind: f.kind as string, options: f.options ? JSON.parse(f.options as string) : undefined, required: f.required === 1 }))
+  const listItems = listItemRows.rows.map(l => l.item as string)
+  let running
+  if (r.running_distance_km || r.running_pace || r.running_meeting_point) {
+    running = { distanceKm: r.running_distance_km as number, pace: r.running_pace as string, meetingPoint: r.running_meeting_point as string }
+  }
+
+  // `event` matches the shape a single event carries in getEvents()
+  const event: Record<string, unknown> = {
+    id: r.id, title: r.title, date: r.date, time: r.time, endTime: r.end_time, type: r.type, modality: r.modality,
+    location: r.location || '', description: r.description || '', status: r.status as string,
+    athleteIds: athletes.rows.map(a => a.athlete_id as string),
+    public: r.is_public === 1,
+  }
+  if (r.format) event.format = r.format as string
+  if (formFields.length > 0) event.formFields = formFields
+  if (listItems.length > 0) event.listItems = listItems
+  if (running) event.running = running
+  return { event, listItems, formFields, running }
+}
+
+function registrationRowToObj(r: Record<string, unknown>): EventRegistration {
+  return {
+    id: r.id as string,
+    eventId: r.event_id as string,
+    athleteId: r.athlete_id as string,
+    status: r.status as EventRegistrationStatus,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
+  }
+}
+
+export async function getEventRegistration(eventId: string, athleteId: string): Promise<EventRegistration | null> {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM event_registrations WHERE event_id = ? AND athlete_id = ?',
+    [eventId, athleteId],
+  )
+  if (result.rows.length === 0) return null
+  return registrationRowToObj(result.rows[0])
+}
+
+export async function getEventFormResponses(eventId: string, athleteId: string): Promise<EventFormResponse[]> {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM event_form_responses WHERE event_id = ? AND athlete_id = ?',
+    [eventId, athleteId],
+  )
+  return result.rows.map(r => ({ id: r.id as string, eventId: r.event_id as string, athleteId: r.athlete_id as string, fieldId: r.field_id as string, value: r.value as string, createdAt: r.created_at as string }))
+}
+
+export async function upsertEventRegistration(eventId: string, athleteId: string, status: EventRegistrationStatus): Promise<EventRegistration> {
+  const db = getDB()
+  const id = generateId()
+  const now = new Date().toISOString()
+  await db.execute(
+    `INSERT INTO event_registrations (id, event_id, athlete_id, status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(event_id, athlete_id) DO UPDATE SET status = ?, updated_at = ?`,
+    [id, eventId, athleteId, status, now, now, status, now],
+  )
+  const result = await db.execute(
+    'SELECT * FROM event_registrations WHERE event_id = ? AND athlete_id = ?',
+    [eventId, athleteId],
+  )
+  return registrationRowToObj(result.rows[0])
+}
+
+export async function replaceEventFormResponses(eventId: string, athleteId: string, responses: Array<{ fieldId: string; value: string }>): Promise<void> {
+  const db = getDB()
+  await db.execute('DELETE FROM event_form_responses WHERE event_id = ? AND athlete_id = ?', [eventId, athleteId])
+  for (const response of responses) {
+    await db.execute(
+      'INSERT INTO event_form_responses (id, event_id, athlete_id, field_id, value, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [generateId(), eventId, athleteId, response.fieldId, response.value, new Date().toISOString()],
+    )
+  }
+}
+
 // ============== Plans ==============
 
 export async function getPlans(coachId: string) {
