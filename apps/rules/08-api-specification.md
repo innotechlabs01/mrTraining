@@ -2,6 +2,8 @@
 
 **Version 1.0 — 2026**
 
+> **Implementation status (authoritative):** endpoints today live as **Next.js Route Handlers** under `apps/web/src/app/api/**` — no `/api/v1` prefix yet, with actor-scoped naming (`api/athlete/...`, `api/coach/...`). The REST conventions in this document (status codes, resource nouns, filtering, pagination, error shape, idempotency) remain binding. Where a section shows `/api/v1/...` paths or Go/Fiber specifics, treat them as the *contract and pattern* to honor inside Route Handlers, not the literal runtime. New paths MUST follow `05-backend-architecture.md §15`.
+
 ---
 
 ## Table of Contents

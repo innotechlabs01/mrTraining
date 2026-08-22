@@ -6,6 +6,7 @@
 
 ## Table of Contents
 
+0. [Authoritative Backend — READ FIRST](#0-authoritative-backend--read-first)
 1. [Architecture Overview](#1-architecture-overview)
 2. [Technology Stack](#2-technology-stack)
 3. [Project Structure](#3-project-structure)
@@ -20,6 +21,25 @@
 12. [Background Jobs](#12-background-jobs)
 13. [Rate Limiting](#13-rate-limiting)
 14. [File Upload](#14-file-upload)
+15. [Endpoint Pattern — Next.js Route Handlers](#15-endpoint-pattern--nextjs-route-handlers-mandatory)
+
+---
+
+## 0. Authoritative Backend — READ FIRST
+
+**The active backend of MR Training lives inside `apps/web` as Next.js 14 App Router Route Handlers (`apps/web/src/app/api/**/route.ts`) on top of Turso/libSQL.** All new endpoints ("paths") MUST be implemented there. This document governs how to build them; sections that describe the Go/Fiber auxiliary service describe a future/inactive component — do NOT implement new endpoints in Go.
+
+| Layer | Technology (REAL, active) |
+|---|---|
+| Backend runtime | Next.js 14 API Routes (App Router), TypeScript strict |
+| Database | Turso / libSQL (SQLite-compatible), accessed via `@libsql/client` |
+| Data access layer | `apps/web/src/lib/coaching-db.ts` (typed helpers + row mappers) |
+| Migrations | Versioned SQL files in `apps/web/migrations/NNN_name.sql`, applied to Turso |
+| Auth | Clerk v6 (`auth()` from `@clerk/nextjs/server` in every route handler) |
+| Payments | Polar.sh (`@polar-sh/sdk`) via `api/polar/*` routes |
+| Auxiliary backend | Go 1.25 (`apps/backend/`) — NOT active in QA; not the target for new endpoints |
+
+Sections below keep the transport-agnostic design principles (validation, error shape, status codes, idempotency, domain separation). Where they name Fiber/pgx/NATS specifics, read them as the *pattern* to respect inside a Route Handler, not as the runtime to install.
 
 ---
 
@@ -95,23 +115,20 @@ This structure means a developer working on the training feature opens one direc
 
 | Component | Technology | Version | Purpose |
 |---|---|---|---|
-| Language | Go | 1.22+ | Primary backend language — performance, type safety, excellent concurrency model |
-| HTTP Framework | Fiber | 2.x | High-performance HTTP framework built on fasthttp. Chosen for throughput, middleware ecosystem, and zero-allocation request handling |
-| Database | PostgreSQL | 16+ | Primary relational database (see §04 Database Design) |
-| Database Driver | pgx | 5.x | Low-level PostgreSQL driver with connection pooling, COPY protocol support, and native UUID handling |
-| Migrations | golang-migrate | 4.x | Database schema migrations with embedded SQL files |
-| Cache/Sessions | Redis | 7.x | Distributed cache for session state, rate limit counters, leaderboards, and read-model caching |
-| Message Broker | NATS | 2.10+ | Event bus for inter-service communication, domain event publishing, and integration events. JetStream for persistent, at-least-once delivery |
-| Inter-Service RPC | gRPC | 1.64+ | Internal service-to-service communication (AI engine, notification service, analytics worker) with protobuf contracts |
-| Object Storage | S3-compatible | — | Media uploads, workout videos, progress photos, document attachments. Any S3-compatible provider (AWS S3, Cloudflare R2, MinIO) |
-| Job Queue | asynq | 0.24+ | Background job processing backed by Redis. Supports retry policies, dead letter queues, scheduled/cron jobs, and task deduplication |
-| Structured Logging | zerolog | 1.x | Zero-allocation structured JSON logging with context propagation |
-| Tracing | OpenTelemetry | 1.x | Distributed tracing across HTTP, gRPC, database queries, and message broker operations |
-| Metrics | Prometheus | — | Application metrics (request rates, latencies, error rates, queue depths) exposed via `/metrics` endpoint |
-| API Documentation | OpenAPI 3.1 | — | API spec generated from code annotations and served via Swagger UI at `/docs` |
-| Dependency Injection | wire (Google) | 0.x | Compile-time dependency injection — no runtime reflection, no service locator |
-| Configuration | viper | 1.x | Environment variables, config files, and remote config (Consul/Vault) with hot reloading |
-| Validation | go-playground/validator | 10.x | Struct tag-based request validation integrated with Fiber's body parser |
+| Backend runtime | Next.js API Routes (App Router) | 14.2 | Primary backend — every new endpoint lives in `apps/web/src/app/api/**/route.ts` |
+| Language (backend) | TypeScript strict | 5.6+ | Explicit types, no `any`, explicit return types on exported handlers |
+| Database | Turso / libSQL | — | SQLite-compatible relational DB (see §04 Database Design for modeling rules) |
+| Database Client | `@libsql/client` | 0.17+ | Parameterized SQL via `db.execute(sql, params)`; no ORM |
+| Migrations | Versioned SQL files | NNN_*.sql | `apps/web/migrations/` applied to Turso; additive-first policy |
+| Auth | Clerk (`@clerk/nextjs`) | v6 | `auth()` per request; actors resolved from session, never from body |
+| Payments | Polar.sh (`@polar-sh/sdk`) | 0.49+ | Checkout + webhook under `api/polar/*` |
+| Cache/Sessions (future) | Redis | 7.x | Reserved for caching/rate limits when needed |
+| Event Bus (future) | NATS + JetStream | 2.10+ | Reserved for async domain events when needed |
+| Auxiliary backend (INACTIVE) | Go 1.25 + Fiber (`apps/backend/`) | — | Future/side service only; NOT the target for new endpoints |
+| Validation | Hand-rolled in handler | — | Validate input before touching the data layer; 400 with field details |
+| Testing | Jest + ts-jest | 30.x | Pure business logic unit-tested outside handlers |
+
+**Rule of thumb: if a path can be expressed as a Next.js Route Handler, it IS a Next.js Route Handler.** Reach for Go only for genuinely out-of-band workloads that Next cannot host, and never for CRUD/analytics endpoints consumed by web or mobile.
 
 ### 2.1 Why Fiber Over Standard Library or gin
 
@@ -1616,7 +1633,75 @@ Profile photos and exercise demonstration thumbnails are always served as the ap
 | Message attachment | JPEG, PNG, WebP, PDF, MP4 | 50 MB |
 | Meal photo | JPEG, PNG, WebP | 10 MB |
 
-The content type is validated at upload URL request time and again by S3's bucket policy (which rejects writes with a content type that doesn't match the expected value). The presigned URL includes a `Content-Type` condition — S3 rejects uploads that don't match. This dual validation prevents type confusion attacks where a client requests a JPEG upload URL and uploads an executable instead.
+## 15. Endpoint Pattern — Next.js Route Handlers (MANDATORY)
+
+Every new API path follows this exact pattern. Existing routes (`api/athlete/*`, `api/coach/*`, `api/polar/*`) are the reference implementations.
+
+### 15.1 File layout
+
+```
+apps/web/src/app/api/
+├── athlete/                     # Athlete-scoped resources (actor = logged-in athlete)
+│   ├── workouts/
+│   │   ├── route.ts             # GET list
+│   │   └── [id]/
+│   │       ├── route.ts         # GET detail
+│   │       └── session/route.ts # POST start/resume session
+│   └── sessions/[sessionId]/
+│       ├── sets/route.ts        # POST log a set
+│       └── complete/route.ts    # POST finish session
+└── coach/                       # Coach-scoped resources (actor = logged-in coach)
+    ├── athletes/route.ts        # GET roster
+    └── athletes/[id]/...        # Per-athlete reads (training summary, 1RM, fatigue...)
+```
+
+- One file per route; export only the HTTP verbs the route supports.
+- Dynamic segments (`[id]`, `[sessionId]`) are read from `ctx.params`.
+- Nesting stays shallow: actor → resource → (dynamic id) → one action level, max.
+
+### 15.2 Handler skeleton
+
+```ts
+import { NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { getAthleteByClerkId } from '@/lib/coaching-db';
+
+export async function GET(_req: Request, ctx: { params: { id: string } }) {
+  try {
+    // 1. AUTH FIRST — always, before any work
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // 2. RESOLVE ACTOR FROM SESSION — never trust IDs from body/query
+    const athlete = await getAthleteByClerkId(userId);
+    if (!athlete) return NextResponse.json({ error: 'Athlete profile not found' }, { status: 404 });
+
+    // 3. OWNERSHIP / TENANT SCOPE — IDOR guard on every nested resource
+    //    e.g. detail.workout.athleteId !== athlete.id -> 404 (never leak existence)
+
+    // 4. VALIDATE INPUT — 400 for invalid JSON / missing fields BEFORE touching DB
+
+    // 5. CALL DATA LAYER — SQL lives in src/lib/coaching-db.ts, not in handlers
+    return NextResponse.json({ /* typed result */ }, { status: 200 });
+  } catch (error) {
+    console.error('Error <action>:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+```
+
+### 15.3 Rules checklist
+
+- **Auth first, always.** `auth()` → `401` before anything else.
+- **Actor from session.** Athletes resolve via `getAthleteByClerkId(userId)`; coaches scope every query by their own `coachId`. Never accept `coachId`/`athleteId` identity from the request body or query string.
+- **Ownership check on every nested resource** (IDOR guard). Out-of-scope returns `404`, never `403` with existence details.
+- **Validate before persisting**: invalid JSON, missing required fields → `400` with a clear message.
+- **Thin handlers**: no SQL and no business logic in route files. Data access lives in `src/lib/coaching-db.ts`; pure business logic lives in `src/features/<feature>/services/` or `src/lib/` and is unit-tested with Jest.
+- **Status codes**: `200` success/read · `201` created · `400` invalid input · `401` unauthenticated · `403` forbidden · `404` missing or out-of-scope · `500` unexpected (with `console.error`).
+- **Responses**: JSON via `NextResponse.json`. Row→camelCase mapping happens once in the data-layer mappers; handlers never leak raw rows.
+- **Naming**: actor-scoped prefixes as established (`api/athlete/...`, `api/coach/...`); kebab-case segments; plural resource nouns.
+- **Migrations are additive first**: `ALTER TABLE ... ADD COLUMN` with defaults; renames/drops require an explicit data plan in the migration file header comment.
+- **Idempotency where it matters**: start-session endpoints return the existing active session instead of duplicating (see `api/athlete/workouts/[id]/session`).
 
 ---
 
