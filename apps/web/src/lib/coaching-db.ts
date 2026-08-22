@@ -938,8 +938,8 @@ export type AthleteMembership = {
   currentPeriodEnd: string
   gracePeriodDays: number
   paymentDueDate: string
-  paddleSubscriptionId: string | null
-  paddlePriceId: string | null
+  polarSubscriptionId: string | null
+  polarProductId: string | null
 }
 
 export type MembershipPayment = {
@@ -950,8 +950,8 @@ export type MembershipPayment = {
   amount: number
   currency: string
   status: string
-  paddleTransactionId: string | null
-  paddleInvoiceUrl: string | null
+  polarOrderId: string | null
+  polarInvoiceUrl: string | null
   periodStart: string
   periodEnd: string
   paidAt: string | null
@@ -971,8 +971,8 @@ function membershipRowToObj(r: Record<string, unknown>): AthleteMembership {
     currentPeriodEnd: r.current_period_end as string,
     gracePeriodDays: r.grace_period_days as number,
     paymentDueDate: r.payment_due_date as string,
-    paddleSubscriptionId: r.paddle_subscription_id as string || null,
-    paddlePriceId: r.paddle_price_id as string || null,
+    polarSubscriptionId: r.polar_subscription_id as string || null,
+    polarProductId: r.polar_product_id as string || null,
   }
 }
 
@@ -1072,8 +1072,8 @@ export async function getPaymentHistory(athleteId: string): Promise<MembershipPa
     amount: r.amount as number,
     currency: r.currency as string,
     status: r.status as string,
-    paddleTransactionId: r.paddle_transaction_id as string || null,
-    paddleInvoiceUrl: r.paddle_invoice_url as string || null,
+    polarOrderId: r.polar_order_id as string || null,
+    polarInvoiceUrl: r.polar_invoice_url as string || null,
     periodStart: r.period_start as string,
     periodEnd: r.period_end as string,
     paidAt: r.paid_at as string || null,
@@ -1087,8 +1087,8 @@ export async function recordPayment(data: {
   amount: number
   currency?: string
   status?: string
-  paddleTransactionId?: string
-  paddleInvoiceUrl?: string
+  polarOrderId?: string
+  polarInvoiceUrl?: string
   periodStart: string
   periodEnd: string
   paidAt?: string
@@ -1096,9 +1096,9 @@ export async function recordPayment(data: {
   const db = getDB()
   const id = generateId()
   await db.execute(
-    `INSERT INTO membership_payments (id, membership_id, athlete_id, coach_id, amount, currency, status, paddle_transaction_id, paddle_invoice_url, period_start, period_end, paid_at)
+    `INSERT INTO membership_payments (id, membership_id, athlete_id, coach_id, amount, currency, status, polar_order_id, polar_invoice_url, period_start, period_end, paid_at)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [id, data.membershipId, data.athleteId, data.coachId, data.amount, data.currency || 'USD', data.status || 'completed', data.paddleTransactionId || null, data.paddleInvoiceUrl || null, data.periodStart, data.periodEnd, data.paidAt || new Date().toISOString()],
+    [id, data.membershipId, data.athleteId, data.coachId, data.amount, data.currency || 'USD', data.status || 'completed', data.polarOrderId || null, data.polarInvoiceUrl || null, data.periodStart, data.periodEnd, data.paidAt || new Date().toISOString()],
   )
   await renewMembership(data.membershipId)
   return id
