@@ -17,6 +17,11 @@ ALTER TABLE athlete_memberships RENAME COLUMN paddle_price_id TO polar_product_i
 ALTER TABLE membership_payments RENAME COLUMN paddle_transaction_id TO polar_order_id;
 ALTER TABLE membership_payments RENAME COLUMN paddle_invoice_url TO polar_invoice_url;
 
+-- Prevent duplicate payment rows for the same Polar order id. Combined with the
+-- idempotency guard in recordPayment(), a duplicate webhook delivery will not
+-- double-insert nor double-extend the membership period.
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_payment_polar_order ON membership_payments(polar_order_id);
+
 -- Guarded fallback when a legacy column does not exist (manual apply):
 --
 --   ALTER TABLE athlete_memberships ADD COLUMN polar_subscription_id TEXT;

@@ -990,6 +990,19 @@ export async function getAthleteMembership(athleteId: string): Promise<AthleteMe
   return membership
 }
 
+export async function getMembershipById(membershipId: string): Promise<AthleteMembership | null> {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM athlete_memberships WHERE id = ? LIMIT 1',
+    [membershipId],
+  )
+  if (result.rows.length === 0) return null
+  const membership = membershipRowToObj(result.rows[0])
+  membership.status = computeMembershipStatus(membership.currentPeriodEnd, membership.gracePeriodDays) as MembershipStatus
+  membership.paymentDueDate = computePaymentDueDate(membership.currentPeriodEnd, membership.gracePeriodDays)
+  return membership
+}
+
 export async function getAthleteMembershipsByCoach(coachId: string): Promise<AthleteMembership[]> {
   const db = getDB()
   const result = await db.execute(
@@ -1094,6 +1107,20 @@ export async function recordPayment(data: {
   paidAt?: string
 }): Promise<string> {
   const db = getDB()
+
+  // Idempotency guard: a duplicate Polar delivery must not double-insert the
+  // payment row nor double-extend the membership period. If a payment already
+  // exists for this Polar order id, acknowledge it as a no-op.
+  if (data.polarOrderId) {
+    const existing = await db.execute(
+      'SELECT id FROM membership_payments WHERE polar_order_id = ? LIMIT 1',
+      [data.polarOrderId],
+    )
+    if (existing.rows.length > 0) {
+      return existing.rows[0].id as string
+    }
+  }
+
   const id = generateId()
   await db.execute(
     `INSERT INTO membership_payments (id, membership_id, athlete_id, coach_id, amount, currency, status, polar_order_id, polar_invoice_url, period_start, period_end, paid_at)

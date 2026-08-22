@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks'
-import { recordPayment, cancelMembership } from '@/lib/coaching-db'
+import { recordPayment, cancelMembership, getMembershipById } from '@/lib/coaching-db'
 
 function toDateString(d: Date | string | null | undefined): string {
   if (!d) return new Date().toISOString()
@@ -14,7 +14,14 @@ function periodEndFor(start: string, billingPeriod: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  // Fail-closed: an empty/absent webhook secret means the HMAC key is empty,
+  // which would let any request pass signature verification. Reject before we
+  // even attempt to read/verify the event.
   const secret = process.env.POLAR_WEBHOOK_SECRET || ''
+  if (!secret) {
+    return NextResponse.json({ error: 'webhook not configured' }, { status: 503 })
+  }
+
   const body = await req.text()
 
   try {
@@ -34,31 +41,53 @@ export async function POST(req: NextRequest) {
       const athleteId = String(meta.athleteId || '')
       const coachId = String(meta.coachId || '')
 
-      if (membershipId && athleteId && coachId) {
-        const paidAt = toDateString(order.createdAt)
-        const periodStart = paidAt.split('T')[0]
-        await recordPayment({
+      const membership = membershipId ? await getMembershipById(membershipId) : null
+      if (!membership) {
+        console.error('Polar order.paid: membership not found for metadata', { membershipId, athleteId, coachId })
+        return NextResponse.json({ received: true })
+      }
+      if (membership.athleteId !== athleteId || membership.coachId !== coachId) {
+        console.error('Polar order.paid: membership ids mismatch, ignoring', {
           membershipId,
           athleteId,
           coachId,
-          amount: (order.totalAmount || 0) / 100,
-          currency: order.currency || 'USD',
-          status: 'completed',
-          polarOrderId: order.id,
-          polarInvoiceUrl: order.invoiceNumber ? `https://polar.sh/invoices/${order.invoiceNumber}` : undefined,
-          periodStart,
-          periodEnd: periodEndFor(periodStart, 'monthly'),
-          paidAt,
+          membershipAthleteId: membership.athleteId,
+          membershipCoachId: membership.coachId,
         })
+        return NextResponse.json({ received: true })
       }
+
+      const paidAt = toDateString(order.createdAt)
+      const periodStart = paidAt.split('T')[0]
+      // Use the membership's own billing_period so the recorded period_end
+      // matches how the membership was created (fall back to 'monthly').
+      const billingPeriod = membership.billingPeriod || 'monthly'
+      await recordPayment({
+        membershipId: membership.id,
+        athleteId: membership.athleteId,
+        coachId: membership.coachId,
+        amount: (order.totalAmount || 0) / 100,
+        currency: order.currency || 'USD',
+        status: 'completed',
+        polarOrderId: order.id,
+        polarInvoiceUrl: order.invoiceNumber ? `https://polar.sh/invoices/${order.invoiceNumber}` : undefined,
+        periodStart,
+        periodEnd: periodEndFor(periodStart, billingPeriod),
+        paidAt,
+      })
     }
 
     if (type === 'subscription.canceled') {
       const meta = event.data.metadata || {}
       const membershipId = String(meta.membershipId || '')
-      if (membershipId) {
-        await cancelMembership(membershipId)
+
+      const membership = membershipId ? await getMembershipById(membershipId) : null
+      if (!membership) {
+        console.error('Polar subscription.canceled: membership not found for metadata', { membershipId })
+        return NextResponse.json({ received: true })
       }
+
+      await cancelMembership(membership.id)
     }
 
     return NextResponse.json({ received: true })
