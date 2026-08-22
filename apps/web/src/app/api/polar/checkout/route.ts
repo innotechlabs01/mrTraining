@@ -25,6 +25,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (!process.env.POLAR_ACCESS_TOKEN) {
+      if (process.env.MOCK_POLAR === 'true') {
+        const mockOrderId = `mock_order_${Date.now()}`;
+        const mockUrl = `https://polar.sh/mock/checkout/${mockOrderId}?membershipId=${membership.id}`;
+        console.log('[polar-checkout] MOCK mode — returning mock checkout', { mockOrderId, membershipId: membership.id });
+        return NextResponse.json({ url: mockUrl, orderId: mockOrderId })
+      }
       return NextResponse.json({ error: 'Polar not configured' }, { status: 500 })
     }
 

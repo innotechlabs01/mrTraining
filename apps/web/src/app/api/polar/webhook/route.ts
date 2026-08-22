@@ -18,7 +18,8 @@ export async function POST(req: NextRequest) {
   // which would let any request pass signature verification. Reject before we
   // even attempt to read/verify the event.
   const secret = process.env.POLAR_WEBHOOK_SECRET || ''
-  if (!secret) {
+  const isMock = process.env.MOCK_POLAR === 'true'
+  if (!secret && !isMock) {
     return NextResponse.json({ error: 'webhook not configured' }, { status: 503 })
   }
 
@@ -30,8 +31,23 @@ export async function POST(req: NextRequest) {
       headers[k] = v
     }
 
-    // Throws WebhookVerificationError if the signature is invalid.
-    const event = validateEvent(body, headers, secret)
+    // In mock mode, accept plain JSON without signature verification
+    let event: any
+    if (isMock && (!secret || secret === 'test_mock_secret_123')) {
+      try {
+        const parsed = JSON.parse(body)
+        if (parsed.type && parsed.data) {
+          event = parsed
+        } else {
+          event = validateEvent(body, headers, secret)
+        }
+      } catch {
+        event = validateEvent(body, headers, secret)
+      }
+    } else {
+      // Throws WebhookVerificationError if the signature is invalid.
+      event = validateEvent(body, headers, secret)
+    }
     const type = event.type
 
     if (type === 'order.paid') {
