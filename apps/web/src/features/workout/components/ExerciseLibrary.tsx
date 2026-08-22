@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ExerciseDetail, MuscleGroup, Equipment, Difficulty, ExerciseCategory } from '../types'
-import { MOCK_EXERCISE_DETAILS, EXERCISE_CATEGORY_LABELS } from '../data/_mocks'
+import { EXERCISE_CATEGORY_LABELS } from '../data/_mocks'
+import { exerciseApi, type ExerciseLibraryEntry } from '@/features/shared/api/client'
 import { MUSCLE_GROUP_LABELS, EQUIPMENT_LABELS } from '../hooks/helpers'
 import { ExerciseCard } from './ExerciseCard'
 import { cn } from '@/lib/utils'
@@ -31,6 +32,26 @@ const ALL_CATEGORIES: ExerciseCategory[] = [
 
 const ALL_DIFFICULTIES: Difficulty[] = ['beginner', 'intermediate', 'advanced']
 
+// Map a DB library row onto the UI's ExerciseDetail shape. Fields the catalog does not
+// carry (tips, mistakes, video) stay empty rather than being invented here.
+function toExerciseDetail(e: ExerciseLibraryEntry): ExerciseDetail {
+  return {
+    id: e.id,
+    name: e.name,
+    description: e.description,
+    muscleGroups: e.muscleGroups as MuscleGroup[],
+    secondaryMuscles: e.secondaryMuscles as MuscleGroup[],
+    equipment: (e.equipment ?? 'bodyweight') as Equipment,
+    difficulty: (e.difficulty ?? 'beginner') as Difficulty,
+    category: (e.category ?? 'compound') as ExerciseCategory,
+    instructions: e.instructions,
+    tips: [],
+    commonMistakes: [],
+    videoUrl: '',
+    createdAt: e.isCustom ? '' : '2026-06-01',
+  } as ExerciseDetail
+}
+
 export function ExerciseLibrary({
   onAddExercise,
   selectedExercises = [],
@@ -43,9 +64,22 @@ export function ExerciseLibrary({
   const [selectedCategory, setSelectedCategory] = useState<ExerciseCategory | null>(null)
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null)
   const [sortBy, setSortBy] = useState<'name' | 'muscle' | 'difficulty'>('name')
+  // Real data from /api/exercises — global library plus this coach's custom exercises.
+  const [exercises, setExercises] = useState<ExerciseDetail[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    exerciseApi.list()
+      .then(({ exercises }) => { if (!cancelled) setExercises(exercises.map(toExerciseDetail)) })
+      .catch(() => { if (!cancelled) setLoadError('No se pudo cargar la biblioteca de ejercicios') })
+      .finally(() => { if (!cancelled) setIsLoading(false) })
+    return () => { cancelled = true }
+  }, [])
 
   const filteredExercises = useMemo(() => {
-    let results = [...MOCK_EXERCISE_DETAILS]
+    let results = [...exercises]
 
     // Search filter
     if (searchQuery) {
@@ -297,13 +331,16 @@ export function ExerciseLibrary({
 
       {/* Results Count */}
       <div className="flex-shrink-0 px-4 py-2 text-sm text-[rgba(255,255,255,0.7)]">
-        {filteredExercises.length} exercise{filteredExercises.length !== 1 ? 's' : ''}
-        {selectedExercises.length > 0 && ` (${selectedExercises.length} selected)`}
+        {loadError
+          ? loadError
+          : isLoading
+            ? 'Cargando ejercicios…'
+            : `${filteredExercises.length} ejercicio${filteredExercises.length !== 1 ? 's' : ''}${selectedExercises.length > 0 ? ` (${selectedExercises.length} seleccionados)` : ''}`}
       </div>
 
       {/* Exercise List */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
-        {filteredExercises.length === 0 ? (
+        {isLoading || loadError ? null : filteredExercises.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
             <Search className="w-12 h-12 text-[rgba(255,255,255,0.4)] mb-3" />
             <p className="text-lg font-medium text-[#FFFFFF]">No exercises found</p>

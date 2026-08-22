@@ -304,3 +304,75 @@ export const coachingApi = {
   // Generic get for dynamic paths
   get: <T>(path: string) => coachingFetch.get<T>(`${COACHING_BASE}${path}`),
 };
+
+// ---- Training intelligence (coach reads + exercise library) ----
+export interface TrainingSummaryResponse {
+  athleteId: string;
+  windowDays: number;
+  sessions: number;
+  avgSessionsPerWeek: number;
+  totalSets: number;
+  totalVolumeKg: number;
+  recentSessions: Array<{ date: string; workoutName: string; exercises: number }>;
+}
+
+export interface OneRmResponse {
+  athleteId: string;
+  exercises: Array<{
+    exerciseKey: string;
+    name: string;
+    best: { est: number; weightKg: number; reps: number; date: string } | null;
+    series: Array<{ t: number; d: string; y: number; weightKg: number; reps: number }>;
+  }>;
+}
+
+export interface FatigueMapResponse {
+  athleteId: string;
+  windowDays: number;
+  muscles: Array<{ muscle: string; level: number; state: 'ready' | 'recovering' | 'fatigued'; strength: number }>;
+  neglectedMuscles: string[];
+}
+
+export interface EffortResponse {
+  athleteId: string;
+  enabled: boolean;
+  windowDays?: number;
+  hardRirThreshold?: number;
+  summary?: { done: number; rated: number; hard: number; avg: number | null; hardPct: number | null };
+  weeks?: Array<{ t: number; rir: number; ratedSets: number; totalSets: number }>;
+  histogram?: Array<{ rir: number; tail: boolean; n: number; pct: number }>;
+}
+
+export const trainingApi = {
+  getTrainingSummary: (athleteId: string, days = 28) =>
+    nextFetch.get<TrainingSummaryResponse>(`/api/coach/athletes/${athleteId}/training-summary?days=${days}`),
+  getOneRm: (athleteId: string) =>
+    nextFetch.get<OneRmResponse>(`/api/coach/athletes/${athleteId}/one-rm`),
+  getFatigueMap: (athleteId: string, days = 7) =>
+    nextFetch.get<FatigueMapResponse>(`/api/coach/athletes/${athleteId}/fatigue-map?days=${days}`),
+  getEffort: (athleteId: string, days = 28) =>
+    nextFetch.get<EffortResponse>(`/api/coach/athletes/${athleteId}/effort?days=${days}`),
+};
+
+export interface ExerciseLibraryEntry {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  mode: 'reps' | 'time' | 'cardio';
+  bodyPart: string | null;
+  muscleGroups: string[];
+  secondaryMuscles: string[];
+  equipment: string | null;
+  difficulty: string | null;
+  category: string | null;
+  instructions: string[];
+  defaultSec: number | null;
+  isCustom: boolean;
+}
+
+export const exerciseApi = {
+  list: () => nextFetch.get<{ exercises: ExerciseLibraryEntry[] }>('/api/exercises'),
+  create: (data: Partial<ExerciseLibraryEntry>) =>
+    nextFetch.post<{ exercise: ExerciseLibraryEntry }>('/api/exercises', data),
+};
