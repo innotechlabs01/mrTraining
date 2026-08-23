@@ -352,6 +352,9 @@ export const trainingApi = {
     nextFetch.get<FatigueMapResponse>(`/api/coach/athletes/${athleteId}/fatigue-map?days=${days}`),
   getEffort: (athleteId: string, days = 28) =>
     nextFetch.get<EffortResponse>(`/api/coach/athletes/${athleteId}/effort?days=${days}`),
+  /** Wearable-derived health signals (HRV/RHR/steps/sleep) for one athlete. */
+  getHealth: (athleteId: string, days = 14) =>
+    nextFetch.get<AthleteHealthResponse>(`/api/coach/athletes/${athleteId}/health?days=${days}`),
 };
 
 export interface ExerciseLibraryEntry {
@@ -376,3 +379,35 @@ export const exerciseApi = {
   create: (data: Partial<ExerciseLibraryEntry>) =>
     nextFetch.post<{ exercise: ExerciseLibraryEntry }>('/api/exercises', data),
 };
+
+export interface HealthSeriesRow {
+  value: number;
+  unit: string;
+  source: string;
+  recordedAt: string;
+}
+
+export interface SleepNightRow {
+  date: string;
+  totalMinutes: number;
+  deepMinutes: number | null;
+  remMinutes: number | null;
+  lightMinutes: number | null;
+  awakeMinutes: number | null;
+  efficiency: number | null;
+  score: number | null;
+  source: string;
+}
+
+export interface AthleteHealthResponse {
+  athleteId: string;
+  windowDays: number;
+  hrv: HealthSeriesRow[];
+  restingHr: HealthSeriesRow[];
+  steps: HealthSeriesRow[];
+  vo2max: HealthSeriesRow[];
+  activeCalories: HealthSeriesRow[];
+  manualReadiness: HealthSeriesRow[];
+  sleepLogs: SleepNightRow[];
+}
+

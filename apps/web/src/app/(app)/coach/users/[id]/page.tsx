@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation'
 import { useAthletes } from '@/features/coach/hooks/useAthletes'
 import { AthleteTrainingPanels } from '@/features/coach/components/insights/AthleteTrainingPanels'
+import { AthleteHealthPanels } from '@/features/coach/components/insights/AthleteHealthPanels'
 import { ArrowLeft, Activity, Clock, Award, MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 
@@ -58,6 +59,8 @@ export default function CoachUserDetailPage() {
       </div>
 
       <AthleteTrainingPanels athleteId={athlete.id} />
+
+      <AthleteHealthPanels athleteId={athlete.id} />
 
       <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 space-y-4">
         <h2 className="text-sm font-semibold text-white/70">Acciones rápidas</h2>
