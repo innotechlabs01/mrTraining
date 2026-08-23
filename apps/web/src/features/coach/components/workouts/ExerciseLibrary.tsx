@@ -298,12 +298,41 @@ function CreateExerciseModal({
                 <label className="block text-xs font-medium text-white/50 mb-1.5">
                   Video URL <span className="text-white/30">(optional)</span>
                 </label>
-                <input
-                  value={form.videoUrl}
-                  onChange={e => setForm(p => ({ ...p, videoUrl: e.target.value }))}
-                  placeholder="https://..."
-                  className="w-full bg-surface-3 border border-white/10 rounded-lg p-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-orange-500/50 transition-colors"
-                />
+                <div className="flex gap-2">
+                  <input
+                    value={form.videoUrl}
+                    onChange={e => setForm(p => ({ ...p, videoUrl: e.target.value }))}
+                    placeholder="https://..."
+                    className="flex-1 bg-surface-3 border border-white/10 rounded-lg p-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-orange-500/50 transition-colors"
+                  />
+                  {exercise && (
+                    <label className="flex items-center px-3 rounded-lg bg-white/5 border border-white/10 text-xs text-white/60 hover:bg-white/10 hover:text-white/80 cursor-pointer transition-colors shrink-0">
+                      Subir archivo
+                      <input
+                        type="file"
+                        accept="video/mp4,video/quicktime,video/webm"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (!file || !exercise?.id) return
+                          try {
+                            const { data } = await fetch(`/api/exercises/${exercise.id}/video`, {
+                              method: 'POST',
+                              body: file,
+                              headers: { 'Content-Type': file.type },
+                            }).then(r => r.json())
+                            if (data?.videoUrl) setForm(p => ({ ...p, videoUrl: data.videoUrl }))
+                          } catch (err) {
+                            console.error('Video upload failed:', err)
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+                {exercise && (
+                  <p className="text-[10px] text-white/30 mt-1">MP4, MOV o WebM · máx 50 MB</p>
+                )}
               </div>
             </div>
 

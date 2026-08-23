@@ -371,6 +371,7 @@ export interface ExerciseLibraryEntry {
   category: string | null;
   instructions: string[];
   defaultSec: number | null;
+  videoUrl: string | null;
   isCustom: boolean;
 }
 
