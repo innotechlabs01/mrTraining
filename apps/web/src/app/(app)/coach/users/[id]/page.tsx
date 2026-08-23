@@ -2,9 +2,10 @@
 
 import { useParams } from 'next/navigation'
 import { useAthletes } from '@/features/coach/hooks/useAthletes'
+import { AthleteResumenPanel } from '@/features/coach/components/insights/AthleteResumenPanel'
 import { AthleteTrainingPanels } from '@/features/coach/components/insights/AthleteTrainingPanels'
 import { AthleteHealthPanels } from '@/features/coach/components/insights/AthleteHealthPanels'
-import { ArrowLeft, Activity, Clock, Award, MessageSquare } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
 export default function CoachUserDetailPage() {
@@ -24,7 +25,7 @@ export default function CoachUserDetailPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-5xl mx-auto space-y-5">
       <Link
         href="/coach/users"
         className="inline-flex items-center gap-1.5 text-xs text-white/40 hover:text-white/60"
@@ -33,6 +34,7 @@ export default function CoachUserDetailPage() {
         Volver a usuarios
       </Link>
 
+      {/* Header */}
       <div className="flex items-center gap-4">
         <div className="w-14 h-14 rounded-full bg-gradient-to-br from-brand-primary/30 to-brand-primary/10 flex items-center justify-center text-lg font-bold text-brand-primary">
           {athlete.name.split(' ').map((n) => n[0]).join('')}
@@ -43,44 +45,14 @@ export default function CoachUserDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-xl border border-white/5 bg-surface-1 p-4 text-center">
-          <p className="text-2xl font-bold text-white font-display">{athlete.readiness.score}%</p>
-          <p className="text-xs text-white/40 mt-1">Readiness</p>
-        </div>
-        <div className="rounded-xl border border-white/5 bg-surface-1 p-4 text-center">
-          <p className="text-2xl font-bold text-white font-display">{athlete.readiness.hrv}</p>
-          <p className="text-xs text-white/40 mt-1">HRV</p>
-        </div>
-        <div className="rounded-xl border border-white/5 bg-surface-1 p-4 text-center">
-          <p className="text-2xl font-bold text-white font-display">{athlete.readiness.sleep}h</p>
-          <p className="text-xs text-white/40 mt-1">Sueño</p>
-        </div>
-      </div>
+      {/* Panel 1: Resumen dinámico (reemplaza el grid hardcodeado) */}
+      <AthleteResumenPanel athleteId={athlete.id} />
 
+      {/* Panel 2-4: Entrenamiento (progresión + fatiga + esfuerzo) */}
       <AthleteTrainingPanels athleteId={athlete.id} />
 
+      {/* Panel 5-6: Salud del reloj (HRV/sueño/zones + videos) */}
       <AthleteHealthPanels athleteId={athlete.id} />
-
-      <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-white/70">Acciones rápidas</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { icon: Activity, label: 'Ver sesiones' },
-            { icon: Award, label: 'Progreso' },
-            { icon: MessageSquare, label: 'Mensaje' },
-            { icon: Clock, label: 'Historial' },
-          ].map((action) => (
-            <button
-              key={action.label}
-              className="flex flex-col items-center gap-2 p-3 rounded-xl border border-white/5 hover:bg-white/[0.03] transition-colors"
-            >
-              <action.icon size={18} className="text-white/40" />
-              <span className="text-xs text-white/40">{action.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }
