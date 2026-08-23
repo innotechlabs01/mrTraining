@@ -105,30 +105,18 @@ export default function CoachAsignarPage() {
       for (const athId of selectedAthletes) {
         const athlete = athletes.find(a => a.id === athId)
         
-        // Convert the workout plan to the API format
+        // Convert the workout plan to the API format. name is required by
+        // workout_exercises; sets/reps stay flat numbers for the training schema.
         const exercises = workoutPlan?.exercises.map((ex, idx) => ({
-          exerciseId: ex.id,
-          section: 'main',
+          name: ex.name,
           sortOrder: idx,
           notes: '',
           restSeconds: ex.rest || 0,
-          tempo: '',
-          sets: ex.sets ? Array.isArray(ex.sets) 
-            ? ex.sets.map((s, si: number) => ({
-              setNumber: si + 1,
-              setType: 'normal',
-              prescribedReps: s.reps || null,
-              prescribedWeight: s.weight || null,
-              prescribedRPE: null,
-            }))
-            : [{
-              setNumber: 1,
-              setType: 'normal',
-              prescribedReps: ex.reps || null,
-              prescribedWeight: ex.weight || null,
-              prescribedRPE: null,
-            }]
-          : [],
+          sets: ex.sets
+            ? (Array.isArray(ex.sets) ? ex.sets.length : ex.sets)
+            : 1,
+          reps: ex.reps || (Array.isArray(ex.sets) ? ex.sets[0]?.prescribedReps ?? 0 : 0),
+          weightKg: ex.weight ?? (Array.isArray(ex.sets) ? ex.sets[0]?.prescribedWeight ?? null : null),
         })) || []
         
         await workoutApi.create({

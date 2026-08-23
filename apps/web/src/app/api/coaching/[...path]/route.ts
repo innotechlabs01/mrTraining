@@ -9,7 +9,7 @@ import {
   getEvents, saveEvent, deleteEvent,
   getPlans, savePlan, deletePlan,
   getTickets, saveTicket,
-  getAssignedWorkouts, saveAssignedWorkout, deleteAssignedWorkout,
+  getAssignedWorkouts, saveAssignedWorkout, deleteAssignedWorkout, saveWorkoutExercises,
   getAISuggestions, saveAISuggestion,
   getLiveSessions, saveLiveSession, deleteLiveSession,
   getProducts, saveProduct, deleteProduct,
@@ -92,8 +92,54 @@ const handlers: Record<string, EntityHandler> = {
   },
   'assigned-workouts': async (coachId, id, method, body) => {
     if (method === 'GET') return getAssignedWorkouts(coachId)
-    if (method === 'POST') { const newId = await saveAssignedWorkout(coachId, body as Record<string, unknown>); return { id: newId } }
-    if (method === 'PUT' && id) { await saveAssignedWorkout(coachId, { ...(body as Record<string, unknown>), id }); return { ok: true } }
+    // Accepts exercise rows in three shapes: enriched (name/sortOrder/weightKg + mode/prog),
+    // legacy builder (exerciseName/order/weight/rest), and the asignar legacy shape
+    // (exerciseId + sets as array of prescribed-set objects).
+    const persistExercises = async (workoutId: string, rawExercises: unknown) => {
+      if (!Array.isArray(rawExercises) || rawExercises.length === 0) return
+      const items = rawExercises.map((raw: any, idx: number) => {
+        // sets may be a count OR an array of prescribed-set objects
+        const setsRaw = raw?.sets
+        const setArray = Array.isArray(setsRaw) ? setsRaw : null
+        const setsCount = setArray
+          ? setArray.length || Number(raw?.setsCount ?? 1)
+          : Number(setsRaw ?? 1)
+        const firstSet = setArray?.[0]
+        const reps = Number(
+          raw?.reps
+            ?? firstSet?.prescribedReps
+            ?? (setArray && setArray.length > 0 ? Math.round(setArray.reduce((a: number, s: any) => a + (Number(s?.prescribedReps) || 0), 0) / setArray.length) : 0)
+            ?? 0,
+        )
+        return {
+          name: String(raw?.name ?? raw?.exerciseName ?? '').trim(),
+          sets: Number.isFinite(setsCount) && setsCount > 0 ? setsCount : 1,
+          reps: Number.isFinite(reps) && reps > 0 ? Math.round(reps) : 0,
+          weightKg: raw?.weightKg ?? raw?.weight ?? firstSet?.prescribedWeight ?? null,
+          restSeconds: raw?.restSeconds ?? raw?.rest ?? null,
+          notes: typeof raw?.notes === 'string' ? raw.notes : null,
+          sortOrder: Number(raw?.sortOrder ?? raw?.order ?? idx),
+          muscleGroups: Array.isArray(raw?.muscleGroups) ? raw.muscleGroups : [],
+          libraryExerciseId: typeof raw?.libraryExerciseId === 'string' ? raw.libraryExerciseId : null,
+        }
+      }).filter(it => it.name)
+      await saveWorkoutExercises(workoutId, items)
+    }
+    if (method === 'POST') {
+      const newId = await saveAssignedWorkout(coachId, body as Record<string, unknown>)
+      await persistExercises(newId, (body as Record<string, unknown>)?.exercises)
+      return { id: newId }
+    }
+    if (method === 'PUT' && id) {
+      await saveAssignedWorkout(coachId, { ...(body as Record<string, unknown>), id })
+      // Only rewrite the exercise list when the payload actually carries one, so a status
+      // update from complete() never wipes a workout's exercises.
+      const b = body as Record<string, unknown>
+      if ('exercises' in b && Array.isArray(b.exercises)) {
+        await persistExercises(id, b.exercises)
+      }
+      return { ok: true }
+    }
     if (method === 'DELETE' && id) { await deleteAssignedWorkout(coachId, id); return { ok: true } }
     return null
   },
