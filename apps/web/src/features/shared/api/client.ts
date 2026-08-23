@@ -411,3 +411,89 @@ export interface AthleteHealthResponse {
   sleepLogs: SleepNightRow[];
 }
 
+
+// ---- Workout templates (builder-saved plans) + past-assignment reuse ----
+export interface WorkoutTemplateSummary {
+  id: string;
+  name: string;
+  description: string;
+  goal: string;
+  estimatedDurationMinutes: number | null;
+  exerciseCount: number;
+  createdAt: string;
+}
+
+export interface TemplateExerciseRow {
+  id?: string;
+  name?: string;
+  exerciseName?: string;
+  sets?: unknown;
+  reps?: number | string;
+  weightKg?: number | null;
+  weight?: number | null;
+  restSeconds?: number | null;
+  rest?: number | null;
+  sortOrder?: number;
+  order?: number;
+  notes?: string | null;
+  muscleGroups?: string[];
+  libraryExerciseId?: string | null;
+}
+
+export interface WorkoutTemplateDetail extends WorkoutTemplateSummary {
+  coachId: string;
+  exercises: Array<TemplateExerciseRow & {
+    id: string;
+    name: string;
+    sets: number;
+    reps: number;
+    sortOrder: number;
+    mode: 'reps' | 'time' | 'cardio';
+    phase: 'work' | 'warmup';
+  }>;
+}
+
+export interface PastAssignmentDetail {
+  id: string;
+  athleteId: string;
+  athleteName: string;
+  contentName: string;
+  status: string;
+  progress: number;
+  startDate: string;
+  exercises: Array<{
+    id: string;
+    name: string;
+    sets: number;
+    reps: number;
+    weightKg: number | null;
+    restSeconds: number | null;
+    sortOrder: number;
+    mode: 'reps' | 'time' | 'cardio';
+    muscleGroups: string[];
+    libraryExerciseId: string | null;
+  }>;
+}
+
+export const templateApi = {
+  list: () => nextFetch.get<{ templates: WorkoutTemplateSummary[] }>('/api/coach/workout-templates'),
+  get: (id: string) => nextFetch.get<{ template: WorkoutTemplateDetail }>(`/api/coach/workout-templates/${id}`),
+  create: (data: { name: string; description?: string; goal?: string; estimatedDurationMinutes?: number | null; exercises?: TemplateExerciseRow[] }) =>
+    nextFetch.post<{ id: string }>('/api/coach/workout-templates', data),
+  remove: (id: string) => nextFetch.delete<{ ok: true }>(`/api/coach/workout-templates/${id}`),
+  /** Full detail of a previously assigned workout, for reassignment flows. */
+  getPastAssignment: (id: string) => nextFetch.get<PastAssignmentDetail>(`/api/coaching/assigned-workouts/${id}`),
+  /** Coach's assignment history (list view, no exercises). */
+  listPastAssignments: () => nextFetch.get<PastAssignmentListItem[]>('/api/coaching/assigned-workouts'),
+};
+
+export interface PastAssignmentListItem {
+  id: string;
+  athleteId: string;
+  athleteName: string;
+  contentId: string;
+  contentType: string;
+  contentName: string;
+  status: string;
+  progress: number;
+}

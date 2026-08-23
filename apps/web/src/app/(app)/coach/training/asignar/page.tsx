@@ -1,57 +1,20 @@
 'use client'
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { useEffect, useState } from 'react'
 import { Search, Check, Dumbbell, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAthletes } from '@/features/coach/hooks/useAthletes'
 import { useAuth } from '@/features/auth/contexts/MockAuthContext'
-import { workoutApi, type Workout } from '@/features/shared/api/client'
+import {
+  workoutApi,
+  templateApi,
+  type WorkoutTemplateSummary,
+  type PastAssignmentListItem,
+  type TemplateExerciseRow,
+} from '@/features/shared/api/client'
 import type { TrainingMode } from '@/features/coach/types'
 
-type WorkoutPlan = {
-  id: string
-  name: string
-  focus?: string
-  estimatedDuration?: number
-  coachNote?: string
-  exercises: Array<{ id: string; name: string; sets: number; reps: number; rest: number; completedSets: number; weight?: number }>
-}
-
 type AssignType = 'workout' | 'program'
-
-const MOCK_TODAY_WORKOUT: WorkoutPlan = {
-  id: 'wo-1', name: 'Morning Strength + HIIT Finisher', focus: 'Full Body', estimatedDuration: 55,
-  coachNote: 'Focus on controlled tempo. No rushing.',
-  exercises: [
-    { id: 'ex-bb-1', name: 'Barbell Back Squat', sets: 4, reps: 8, rest: 90, completedSets: 0, weight: 80 },
-    { id: 'ex-bb-2', name: 'Bench Press', sets: 4, reps: 8, rest: 90, completedSets: 0, weight: 60 },
-    { id: 'ex-bb-3', name: 'Pull-Ups', sets: 3, reps: 10, rest: 60, completedSets: 0 },
-    { id: 'ex-bb-4', name: 'HIIT: Burpees', sets: 3, reps: 15, rest: 30, completedSets: 0 },
-  ],
-}
-
-const MOCK_WORKOUT_MAP: Record<string, WorkoutPlan> = {
-  'wk-1': MOCK_TODAY_WORKOUT,
-  'wk-2': { id: 'wo-2', name: 'Flying 30m Sprints', focus: 'Top Speed', estimatedDuration: 45, coachNote: 'Explode out of blocks', exercises: [{ id: 'ex-fast-1', name: 'Dynamic Warmup', sets: 1, reps: 10, rest: 0, completedSets: 0 }, { id: 'ex-fast-2', name: 'A-Skips', sets: 3, reps: 20, rest: 60, completedSets: 0 }, { id: 'ex-fast-3', name: 'Flying 30m Sprints', sets: 5, reps: 1, rest: 120, completedSets: 0 }, { id: 'ex-fast-4', name: 'Block Starts', sets: 5, reps: 1, rest: 90, completedSets: 0 }] },
-  'wk-3': { id: 'wo-3', name: 'Strength & Conditioning', focus: 'Max Strength', estimatedDuration: 75, exercises: [{ id: 'ex-strength-1', name: 'Back Squat', sets: 5, reps: 5, rest: 180, completedSets: 0, weight: 100 }, { id: 'ex-strength-2', name: 'Bench Press', sets: 4, reps: 8, rest: 120, completedSets: 0, weight: 60 }, { id: 'ex-strength-3', name: 'Deadlift', sets: 3, reps: 3, rest: 180, completedSets: 0, weight: 120 }] },
-};
-
-const MOCK_CONTENT = {
-  workout: [
-    { id: 'wk-1', name: 'Dynamic Warmup Circuit' },
-    { id: 'wk-2', name: 'Flying 30m Sprints' },
-    { id: 'wk-3', name: 'Strength & Conditioning' },
-    { id: 'wk-4', name: 'Hill Repeats' },
-    { id: 'wk-5', name: 'Crossfit WOD #47' },
-  ],
-  program: [
-    { id: 'prog-1', name: 'Velocidad - Fase 2' },
-    { id: 'prog-2', name: 'Base Running - Maratón' },
-    { id: 'prog-3', name: 'Full Body HIIT' },
-    { id: 'prog-4', name: 'Técnica de nado' },
-  ],
-}
 
 const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 const DAY_INDEX = [1, 2, 3, 4, 5, 6, 0]
@@ -63,6 +26,11 @@ const MODALITIES: { label: string; value: TrainingMode }[] = [
   { label: 'Running', value: 'running' },
 ]
 
+/** Selection ids are prefixed so handleAssign knows which source to hydrate. */
+type ContentSource =
+  | { kind: 'template'; id: string; name: string; description: string }
+  | { kind: 'past'; id: string; name: string; athleteName: string }
+
 export default function CoachAsignarPage() {
   const { athletes } = useAthletes()
   const { user } = useAuth()
@@ -73,6 +41,23 @@ export default function CoachAsignarPage() {
   const [selectedDays, setSelectedDays] = useState<number[]>([])
   const [searchAthlete, setSearchAthlete] = useState('')
   const [assigning, setAssigning] = useState(false)
+  const [templates, setTemplates] = useState<WorkoutTemplateSummary[]>([])
+  const [pastAssignments, setPastAssignments] = useState<PastAssignmentListItem[]>([])
+  const [sourcesLoading, setSourcesLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      templateApi.list().catch(() => ({ templates: [] as WorkoutTemplateSummary[] })),
+      templateApi.listPastAssignments().catch(() => [] as PastAssignmentListItem[]),
+    ]).then(([tplRes, pastRes]) => {
+      if (cancelled) return
+      setTemplates(tplRes.templates ?? [])
+      setPastAssignments(Array.isArray(pastRes) ? pastRes : [])
+      setSourcesLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [])
 
   const toggleAthlete = (id: string) => {
     setSelectedAthletes((prev) =>
@@ -90,38 +75,44 @@ export default function CoachAsignarPage() {
     a.name.toLowerCase().includes(searchAthlete.toLowerCase()),
   )
 
-  const contentOptions = assignType === 'workout' ? MOCK_CONTENT.workout : MOCK_CONTENT.program
+  // Real sources only: builder-saved templates + the coach's own assignment history.
+  const workoutSources: ContentSource[] = [
+    ...templates.map(t => ({ kind: 'template' as const, id: t.id, name: t.name, description: t.description })),
+    ...pastAssignments
+      .filter(a => a.contentName)
+      .map(a => ({ kind: 'past' as const, id: a.id, name: a.contentName, athleteName: a.athleteName })),
+  ]
+  const contentOptions = workoutSources
+
+  const resolveExercises = async (sourceId: string): Promise<TemplateExerciseRow[]> => {
+    if (sourceId.startsWith('tpl:')) {
+      const { template } = await templateApi.get(sourceId.slice(4))
+      return template.exercises
+    }
+    if (sourceId.startsWith('past:')) {
+      const detail = await templateApi.getPastAssignment(sourceId.slice(5))
+      return detail.exercises
+    }
+    return []
+  }
+
+  const selectedOption = contentOptions.find(c => `${c.kind}:${c.id}` === selectedContent)
 
   const handleAssign = async () => {
     if (!selectedContent || selectedAthletes.length === 0 || !user) return
     setAssigning(true)
     try {
-      const contentOption = contentOptions.find(c => c.id === selectedContent)
-      const workoutPlan = assignType === 'workout' ? MOCK_WORKOUT_MAP[selectedContent] : undefined
-      
-      // Use the start date from the form or today
+      // Hydrate the exercise list from the real source (template or past assignment).
+      const exercises = await resolveExercises(selectedContent)
+
       const startDate = new Date().toISOString().split('T')[0]
-      
+
       for (const athId of selectedAthletes) {
         const athlete = athletes.find(a => a.id === athId)
-        
-        // Convert the workout plan to the API format. name is required by
-        // workout_exercises; sets/reps stay flat numbers for the training schema.
-        const exercises = workoutPlan?.exercises.map((ex, idx) => ({
-          name: ex.name,
-          sortOrder: idx,
-          notes: '',
-          restSeconds: ex.rest || 0,
-          sets: ex.sets
-            ? (Array.isArray(ex.sets) ? ex.sets.length : ex.sets)
-            : 1,
-          reps: ex.reps || (Array.isArray(ex.sets) ? ex.sets[0]?.prescribedReps ?? 0 : 0),
-          weightKg: ex.weight ?? (Array.isArray(ex.sets) ? ex.sets[0]?.prescribedWeight ?? null : null),
-        })) || []
-        
+
         await workoutApi.create({
-          name: contentOption?.name || 'Workout',
-          description: workoutPlan?.focus || '',
+          name: selectedOption?.name || 'Workout',
+          description: selectedOption?.kind === 'template' ? selectedOption.description : '',
           sportType: athlete?.sport || 'general',
           scheduledDate: startDate,
           athleteId: athId,
@@ -228,9 +219,28 @@ export default function CoachAsignarPage() {
                 className="w-full px-3 py-2 rounded-lg bg-surface-0 border border-white/5 text-xs text-white focus:outline-none focus:border-brand-primary/50"
               >
                 <option value="">Seleccionar {assignType}...</option>
-                {contentOptions.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
+                {sourcesLoading ? (
+                  <option value="" disabled>Cargando…</option>
+                ) : contentOptions.length === 0 ? (
+                  <option value="" disabled>Sin plantillas todavía — guardá una desde el Builder</option>
+                ) : (
+                  <>
+                    {templates.length > 0 && (
+                      <optgroup label="Plantillas del Builder">
+                        {templates.map((t) => (
+                          <option key={t.id} value={`tpl:${t.id}`}>{t.name} ({t.exerciseCount} ej.)</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {pastAssignments.filter(a => a.contentName).length > 0 && (
+                      <optgroup label="Entrenamientos pasados">
+                        {pastAssignments.filter(a => a.contentName).map((a) => (
+                          <option key={a.id} value={`past:${a.id}`}>{a.contentName} — {a.athleteName || 'atleta'}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </>
+                )}
               </select>
             </div>
 

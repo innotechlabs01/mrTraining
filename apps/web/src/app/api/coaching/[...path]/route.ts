@@ -9,7 +9,7 @@ import {
   getEvents, saveEvent, deleteEvent,
   getPlans, savePlan, deletePlan,
   getTickets, saveTicket,
-  getAssignedWorkouts, saveAssignedWorkout, deleteAssignedWorkout, saveWorkoutExercises,
+  getAssignedWorkouts, saveAssignedWorkout, deleteAssignedWorkout, saveWorkoutExercises, getAssignedWorkoutDetail,
   getAISuggestions, saveAISuggestion,
   getLiveSessions, saveLiveSession, deleteLiveSession,
   getProducts, saveProduct, deleteProduct,
@@ -91,35 +91,41 @@ const handlers: Record<string, EntityHandler> = {
     return null
   },
   'assigned-workouts': async (coachId, id, method, body) => {
+    if (method === 'GET' && id) return getAssignedWorkoutDetail(coachId, id)
     if (method === 'GET') return getAssignedWorkouts(coachId)
     // Accepts exercise rows in three shapes: enriched (name/sortOrder/weightKg + mode/prog),
     // legacy builder (exerciseName/order/weight/rest), and the asignar legacy shape
     // (exerciseId + sets as array of prescribed-set objects).
     const persistExercises = async (workoutId: string, rawExercises: unknown) => {
       if (!Array.isArray(rawExercises) || rawExercises.length === 0) return
-      const items = rawExercises.map((raw: any, idx: number) => {
+      const items = (rawExercises as Array<Record<string, unknown>>).map((raw, idx) => {
         // sets may be a count OR an array of prescribed-set objects
         const setsRaw = raw?.sets
-        const setArray = Array.isArray(setsRaw) ? setsRaw : null
+        const setArray = Array.isArray(setsRaw)
+          ? (setsRaw as Array<Record<string, unknown>>)
+          : null
         const setsCount = setArray
           ? setArray.length || Number(raw?.setsCount ?? 1)
           : Number(setsRaw ?? 1)
         const firstSet = setArray?.[0]
+        const avgRepsOfArray = setArray && setArray.length > 0
+          ? Math.round(setArray.reduce((a: number, s) => a + (Number(s?.prescribedReps) || 0), 0) / setArray.length)
+          : 0
         const reps = Number(
           raw?.reps
             ?? firstSet?.prescribedReps
-            ?? (setArray && setArray.length > 0 ? Math.round(setArray.reduce((a: number, s: any) => a + (Number(s?.prescribedReps) || 0), 0) / setArray.length) : 0)
+            ?? avgRepsOfArray
             ?? 0,
         )
         return {
           name: String(raw?.name ?? raw?.exerciseName ?? '').trim(),
           sets: Number.isFinite(setsCount) && setsCount > 0 ? setsCount : 1,
           reps: Number.isFinite(reps) && reps > 0 ? Math.round(reps) : 0,
-          weightKg: raw?.weightKg ?? raw?.weight ?? firstSet?.prescribedWeight ?? null,
-          restSeconds: raw?.restSeconds ?? raw?.rest ?? null,
+          weightKg: (raw?.weightKg as number | undefined) ?? (raw?.weight as number | undefined) ?? (firstSet?.prescribedWeight as number | undefined) ?? null,
+          restSeconds: (raw?.restSeconds as number | undefined) ?? (raw?.rest as number | undefined) ?? null,
           notes: typeof raw?.notes === 'string' ? raw.notes : null,
           sortOrder: Number(raw?.sortOrder ?? raw?.order ?? idx),
-          muscleGroups: Array.isArray(raw?.muscleGroups) ? raw.muscleGroups : [],
+          muscleGroups: Array.isArray(raw?.muscleGroups) ? (raw.muscleGroups as string[]) : [],
           libraryExerciseId: typeof raw?.libraryExerciseId === 'string' ? raw.libraryExerciseId : null,
         }
       }).filter(it => it.name)
