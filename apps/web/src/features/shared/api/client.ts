@@ -343,6 +343,28 @@ export interface EffortResponse {
   histogram?: Array<{ rir: number; tail: boolean; n: number; pct: number }>;
 }
 
+export interface HRZoneRow {
+  zone1: number;
+  zone2: number;
+  zone3: number;
+  zone4: number;
+  zone5: number;
+  totalTime: number;
+  avgBpm: number | null;
+  maxBpm: number | null;
+  estimatedMaxHr: number;
+}
+
+export interface VideoAnalyticsRow {
+  exerciseId: string;
+  exerciseName: string;
+  totalViews: number;
+  completedViews: number;
+  completionRate: number | null;
+  avgPositionPct: number | null;
+  lastViewedAt: string | null;
+}
+
 export const trainingApi = {
   getTrainingSummary: (athleteId: string, days = 28) =>
     nextFetch.get<TrainingSummaryResponse>(`/api/coach/athletes/${athleteId}/training-summary?days=${days}`),
@@ -355,6 +377,18 @@ export const trainingApi = {
   /** Wearable-derived health signals (HRV/RHR/steps/sleep) for one athlete. */
   getHealth: (athleteId: string, days = 14) =>
     nextFetch.get<AthleteHealthResponse>(`/api/coach/athletes/${athleteId}/health?days=${days}`),
+  /** HR zone distribution for a time window (e.g., during a workout). */
+  getHrZones: (athleteId: string, from?: string, to?: string) => {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    return nextFetch.get<{ hrZones: HRZoneRow; sampleCount: number }>(
+      `/api/coach/athletes/${athleteId}/hr-zones?${params.toString()}`
+    );
+  },
+  /** Aggregate video view analytics across all exercises. */
+  getVideoAnalytics: () =>
+    nextFetch.get<{ analytics: VideoAnalyticsRow[] }>('/api/coach/video-analytics'),
 };
 
 export interface ExerciseLibraryEntry {

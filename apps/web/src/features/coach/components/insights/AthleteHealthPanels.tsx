@@ -177,6 +177,99 @@ export function AthleteHealthPanels({ athleteId }: { athleteId: string }) {
           </ul>
         </Panel>
       )}
+
+      <HRZonesPanel athleteId={athleteId} />
+      <VideoEngagementPanel athleteId={athleteId} />
     </div>
+  )
+}
+
+const ZONE_COLORS = ['#22c55e', '#84cc16', '#eab308', '#f97316', '#ef4444'];
+const ZONE_LABELS = ['Zona 1 · Recuperación', 'Zona 2 · Aeróbica', 'Zona 3 · Tempo', 'Zona 4 · Umbral', 'Zona 5 · VO₂max'];
+
+function HRZonesPanel({ athleteId }: { athleteId: string }) {
+  const [zones, setZones] = useState<{ zone1: number; zone2: number; zone3: number; zone4: number; zone5: number; totalTime: number; avgBpm: number | null; maxBpm: number | null } | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    trainingApi.getHrZones(athleteId)
+      .then(data => { if (!cancelled) setZones(data.hrZones) })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [athleteId])
+
+  if (loading) return <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 h-20 animate-pulse" />
+  if (!zones || zones.totalTime === 0) return null
+
+  const total = zones.totalTime
+  const vals = [zones.zone1, zones.zone2, zones.zone3, zones.zone4, zones.zone5]
+  const maxZone = Math.max(...vals)
+
+  return (
+    <Panel title="Zonas de frecuencia cardíaca" icon={HeartPulse}>
+      <div className="space-y-1.5">
+        {vals.map((sec, i) => {
+          const pct = total > 0 ? Math.round((sec / total) * 100) : 0
+          return (
+            <div key={i} className="flex items-center gap-2">
+              <span className="text-[10px] text-white/50 w-20 truncate">{ZONE_LABELS[i]}</span>
+              <div className="flex-1 h-2 rounded bg-white/5 overflow-hidden">
+                <div className="h-full rounded" style={{ width: `${pct}%`, backgroundColor: ZONE_COLORS[i] }} />
+              </div>
+              <span className="text-[10px] text-white/40 w-8 text-right">{pct}%</span>
+            </div>
+          )
+        })}
+      </div>
+      <div className="flex justify-between text-[10px] text-white/30 pt-2 border-t border-white/5 mt-2">
+        <span>{Math.round(total / 60)} min totales</span>
+        {zones.avgBpm && <span>Promedio: {Math.round(zones.avgBpm)} bpm</span>}
+        {zones.maxBpm && <span>Máximo: {zones.maxBpm} bpm</span>}
+      </div>
+    </Panel>
+  )
+}
+
+function VideoEngagementPanel({ athleteId }: { athleteId: string }) {
+  const [analytics, setAnalytics] = useState<Array<{ exerciseName: string; totalViews: number; completedViews: number; completionRate: number | null }>>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    trainingApi.getVideoAnalytics()
+      .then(data => {
+        if (!cancelled) {
+          // Show top exercises by views (filter to those with views).
+          setAnalytics((data.analytics ?? []).filter(a => a.totalViews > 0).slice(0, 5))
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [athleteId])
+
+  if (loading) return <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 h-20 animate-pulse" />
+  if (analytics.length === 0) return null
+
+  return (
+    <Panel title="Videos de ejercicios" icon={Watch}>
+      <ul className="space-y-1.5">
+        {analytics.map(a => (
+          <li key={a.exerciseName} className="flex items-center justify-between text-xs">
+            <span className="text-white/60 truncate pr-2">{a.exerciseName}</span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-white/40">{a.totalViews} vistas</span>
+              {a.completionRate != null && (
+                <span className={`font-display ${a.completionRate >= 80 ? 'text-emerald-400' : a.completionRate >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
+                  {a.completionRate}%
+                </span>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Panel>
   )
 }
