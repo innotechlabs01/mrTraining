@@ -4,8 +4,8 @@
 
 @layer base {
   :root {
-    --color-brand-primary: #FF5C00;
-    --color-brand-secondary: #FF5C00;
+    --color-brand-primary: #15AAF2;
+    --color-brand-secondary: #0066FF;
     --color-success: #00C853;
     --color-error: #FF3D00;
     --color-warning: #FFB300;
@@ -14,23 +14,23 @@
     --font-body: 'Inter', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
 
-    --bg: #131313;
-    --bg-elevated: #1c1b1b;
-    --bg-card: #201f1f;
-    --border: #2a2a2a;
-    --text: #e5e2e1;
-    --text-secondary: #ab897d;
-    --text-muted: #85736b;
+    --bg: #F8FAFC;
+    --bg-elevated: #FFFFFF;
+    --bg-card: #FFFFFF;
+    --border: #E2E8F0;
+    --text: #0F172A;
+    --text-secondary: #475569;
+    --text-muted: #94A3B8;
   }
 
   .dark {
-    --bg: #131313;
-    --bg-elevated: #1c1b1b;
-    --bg-card: #201f1f;
-    --border: #2a2a2a;
-    --text: #e5e2e1;
-    --text-secondary: #ab897d;
-    --text-muted: #85736b;
+    --bg: #0A0B0D;
+    --bg-elevated: #0F0F0F;
+    --bg-card: #141416;
+    --border: #1C1C1C;
+    --text: #FFFFFF;
+    --text-secondary: #9CA3AF;
+    --text-muted: #6B7280;
   }
 
   * {
@@ -50,15 +50,15 @@
   }
 
   ::selection {
-    background-color: rgba(255, 92, 0, 0.3);
+    background-color: rgba(21, 170, 242, 0.3);
     color: var(--text);
   }
 
-  /* Keep brand accent visible in light mode (Apex Orange) */
-  :root:not(.dark) .from-brand-primary { --tw-gradient-from: #FF5C00; }
-  :root:not(.dark) .to-brand-primary-hover { --tw-gradient-to: #E05300; }
-  :root:not(.dark) .bg-brand-primary { background-color: #FF5C00 !important; }
-  :root:not(.dark) .text-brand-primary { color: #FF5C00 !important; }
+  /* Keep brand accent visible in light mode */
+  :root:not(.dark) .from-brand-primary { --tw-gradient-from: #15AAF2; }
+  :root:not(.dark) .to-brand-primary-hover { --tw-gradient-to: #0E93D4; }
+  :root:not(.dark) .bg-brand-primary { background-color: #15AAF2 !important; }
+  :root:not(.dark) .text-brand-primary { color: #15AAF2 !important; }
 
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -74,22 +74,22 @@
 
 @layer components {
   .text-gradient-orange {
-    background: linear-gradient(135deg, #FF5C00, #FF8C66);
+    background: linear-gradient(135deg, #15AAF2, #4FC3F7);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .text-gradient-fire {
-    background: linear-gradient(135deg, #FF5C00, #ffb59a);
+    background: linear-gradient(135deg, #15AAF2, #7FD8FF);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  .ember-text { color: #ffb59a; }
-  .ember-text-light { color: #FFD8BF; }
-  .fire-glow { box-shadow: 0 0 24px rgba(255, 92, 0, 0.45); }
+  .ember-text { color: #7FD8FF; }
+  .ember-text-light { color: #B3E5FF; }
+  .fire-glow { box-shadow: 0 0 24px rgba(21, 170, 242, 0.45); }
 
   .grain {
     position: absolute;
@@ -106,8 +106,8 @@
   }
 
   :root:not(.dark) .glass-card {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.7);
+    border-color: rgba(15, 23, 42, 0.08);
   }
 
   .dark .glass-card {
@@ -135,15 +135,15 @@
   }
 
   .text-glow-fire {
-    text-shadow: 0 0 30px rgba(255, 92, 0, 0.4), 0 0 60px rgba(255, 92, 0, 0.2);
+    text-shadow: 0 0 30px rgba(21, 170, 242, 0.4), 0 0 60px rgba(21, 170, 242, 0.2);
   }
 
   .fire-border-glow {
-    box-shadow: 0 0 12px rgba(255, 92, 0, 0.3), inset 0 0 12px rgba(255, 92, 0, 0.05);
+    box-shadow: 0 0 12px rgba(21, 170, 242, 0.3), inset 0 0 12px rgba(21, 170, 242, 0.05);
   }
 
   .fire-gradient-bg {
-    background: linear-gradient(90deg, rgba(255, 92, 0, 0.15), transparent, rgba(255, 92, 0, 0.15));
+    background: linear-gradient(90deg, rgba(21, 170, 242, 0.15), transparent, rgba(21, 170, 242, 0.15));
   }
 
   .grain-strong {
