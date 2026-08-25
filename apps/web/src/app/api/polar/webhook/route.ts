@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks'
 import { recordPayment, cancelMembership, getMembershipById } from '@/lib/coaching-db'
 
+interface PolarEvent {
+  type: string
+  data: {
+    id: string
+    totalAmount?: number
+    currency?: string
+    createdAt?: Date | string
+    invoiceNumber?: string
+    metadata?: Record<string, unknown>
+  }
+}
+
 function toDateString(d: Date | string | null | undefined): string {
   if (!d) return new Date().toISOString()
   return d instanceof Date ? d.toISOString() : new Date(d).toISOString()
@@ -32,21 +44,21 @@ export async function POST(req: NextRequest) {
     }
 
     // In mock mode, accept plain JSON without signature verification
-    let event: any
+    let event: PolarEvent
     if (isMock && (!secret || secret === 'test_mock_secret_123')) {
       try {
-        const parsed = JSON.parse(body)
+        const parsed = JSON.parse(body) as PolarEvent
         if (parsed.type && parsed.data) {
           event = parsed
         } else {
-          event = validateEvent(body, headers, secret)
+          event = validateEvent(body, headers, secret) as unknown as PolarEvent
         }
       } catch {
-        event = validateEvent(body, headers, secret)
+        event = validateEvent(body, headers, secret) as unknown as PolarEvent
       }
     } else {
       // Throws WebhookVerificationError if the signature is invalid.
-      event = validateEvent(body, headers, secret)
+      event = validateEvent(body, headers, secret) as unknown as PolarEvent
     }
     const type = event.type
 

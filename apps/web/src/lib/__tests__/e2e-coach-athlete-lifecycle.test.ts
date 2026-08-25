@@ -116,10 +116,10 @@ describe('Phase 3 — Athlete session, sets, complete', () => {
 
   beforeAll(async () => {
     const list = await db.getAssignedWorkouts('coach-1');
-    const wo = list.find((w: any) => w.contentName === 'Push Day')!;
+    const wo = list.find(w => w.contentName === 'Push Day')!;
     workoutId = String(wo.id);
     const detail = await db.getAssignedWorkoutDetail('coach-1', workoutId);
-    exIds = Object.fromEntries(detail!.exercises.map((e: any) => [e.name, e.id]));
+    exIds = Object.fromEntries(detail!.exercises.map(e => [e.name, e.id]));
     const session = await db.createWorkoutSession(workoutId, 'athlete-1');
     sessionId = session.id;
   });
@@ -281,7 +281,7 @@ describe('Phase 7 — Ownership boundaries', () => {
 describe('Phase 8 — Assigned workout GET-by-ID returns exercises', () => {
   it('returns exercises through assigned workout detail', async () => {
     const list = await db.getAssignedWorkouts('coach-1');
-    const wo = list.find((w: any) => w.contentName === 'Push Day')!;
+    const wo = list.find(w => w.contentName === 'Push Day')!;
     const detail = await db.getAssignedWorkoutDetail('coach-1', String(wo.id));
     expect(detail).not.toBeNull();
     expect(detail!.exercises).toHaveLength(2);
