@@ -641,16 +641,37 @@ export async function getAssignedWorkouts(coachId: string) {
 export async function saveAssignedWorkout(coachId: string, data: Record<string, unknown>) {
   const db = getDB()
   const id = (data.id as string) || generateId()
+  // Resolve athleteName if not provided
+  let athleteName = (data.athleteName as string | undefined) ?? null
+  if (!athleteName && data.athleteId) {
+    try {
+      const r = await db.execute('SELECT name FROM coach_athletes WHERE id = ? AND coach_id = ? LIMIT 1', [data.athleteId as string, coachId])
+      athleteName = (r.rows[0]?.name as string) ?? null
+    } catch { /* ignore */ }
+  }
+  const params = [
+    data.athleteId ?? null,
+    athleteName,
+    data.contentId ?? null,
+    data.contentType ?? null,
+    data.contentName ?? (data.name as string) ?? null,
+    data.modality ?? (data.sportType as string) ?? null,
+    data.startDate ?? (data.scheduledDate as string) ?? null,
+    data.endDate ?? (data.scheduledDate as string) ?? null,
+    JSON.stringify((data.daysOfWeek as unknown[]) || []),
+    data.status ?? 'active',
+    data.progress ?? 0,
+  ]
   const existing = await db.execute('SELECT id FROM assigned_workouts WHERE id = ? AND coach_id = ?', [id, coachId])
   if (existing.rows.length > 0) {
     await db.execute(
       'UPDATE assigned_workouts SET athlete_id=?, athlete_name=?, content_id=?, content_type=?, content_name=?, modality=?, start_date=?, end_date=?, days_of_week=?, status=?, progress=?, updated_at=datetime(\'now\') WHERE id=? AND coach_id=?',
-      [data.athleteId, data.athleteName, data.contentId, data.contentType, data.contentName, data.modality, data.startDate, data.endDate, JSON.stringify(data.daysOfWeek || []), data.status, data.progress, id, coachId],
+      [...params, id, coachId],
     )
   } else {
     await db.execute(
       'INSERT INTO assigned_workouts (id, athlete_id, athlete_name, content_id, content_type, content_name, modality, start_date, end_date, days_of_week, status, progress, coach_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-      [id, data.athleteId, data.athleteName, data.contentId, data.contentType, data.contentName, data.modality, data.startDate, data.endDate, JSON.stringify(data.daysOfWeek || []), data.status, data.progress, coachId],
+      [id, ...params, coachId],
     )
   }
   return id
