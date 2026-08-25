@@ -3,6 +3,8 @@ import { auth } from '@clerk/nextjs/server';
 import { getEvents } from '@/lib/coaching-db';
 import { getDB } from '@/lib/coach-isolation-db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();

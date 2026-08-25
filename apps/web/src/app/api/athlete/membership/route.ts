@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getAthleteByClerkId, getAthleteMembership, getPaymentHistory } from '@/lib/coaching-db';
 
+export const dynamic = 'force-dynamic';
+
 function computeIsPayable(membership: { status: string; paymentDueDate: string } | null): boolean {
   if (!membership) return false;
   if (membership.status === 'grace_period' || membership.status === 'suspended') return true;

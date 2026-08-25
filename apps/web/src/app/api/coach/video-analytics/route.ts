@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getVideoAnalytics } from '@/lib/coaching-db';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/coach/video-analytics — aggregate view stats for all exercises with videos.
 export async function GET() {
   try {

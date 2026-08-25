@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getAthleteByClerkId, getHealthMetrics, getSleepLogs, listSessionSetLogs, getWorkoutDetail } from '@/lib/coaching-db';
 
+export const dynamic = 'force-dynamic';
+
 interface Alert {
   type: string;
   severity: 'low' | 'medium' | 'high';

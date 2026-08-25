@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getAthleteProfileById, getAthleteCoaches, getDB } from '@/lib/coach-isolation-db';
 
+export const dynamic = 'force-dynamic';
+
 const VALID_MODALITIES = new Set(['virtual', 'hibrido', 'presencial']);
 
 function normalizeModality(input: unknown): string | null {
