@@ -18,6 +18,7 @@ import {
   Search,
   Filter,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 
@@ -92,7 +93,6 @@ export default function SalesPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
   const [search, setSearch] = useState('')
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
   const [sortConfig, setSortConfig] = useState<{ key: keyof Product; direction: 'asc' | 'desc' } | null>(null)
 
@@ -108,10 +108,10 @@ export default function SalesPage() {
       }
       registerSale(saleData)
       adjustStock(p.id, delta)
-      showNotification('success', `Venta registrada: ${p.name} x${delta} → $${saleData.quantity * saleData.unitPrice}`)
+      toast.success(`Venta registrada: ${p.name} x${delta} → $${saleData.quantity * saleData.unitPrice}`)
     } else {
       adjustStock(p.id, delta)
-      showNotification('success', `Stock actualizado: ${p.name} → ${p.stock + delta}`)
+      toast.success(`Stock actualizado: ${p.name} → ${p.stock + delta}`)
     }
   }
 
@@ -146,10 +146,10 @@ export default function SalesPage() {
   const handleSave = (p: Product) => {
     if (editing) {
       updateProduct(editing.id, p)
-      showNotification('success', `Producto "${p.name}" actualizado`)
+      toast.success(`Producto "${p.name}" actualizado`)
     } else {
       addProduct(p)
-      showNotification('success', `Producto "${p.name}" agregado`)
+      toast.success(`Producto "${p.name}" agregado`)
     }
     setEditing(null)
   }
@@ -162,12 +162,7 @@ export default function SalesPage() {
   const handleDelete = (id: string) => {
     const p = products.find((p) => p.id === id)
     removeProduct(id)
-    if (p) showNotification('success', `Producto "${p.name}" eliminado`)
-  }
-
-  const showNotification = (type: 'success' | 'error', message: string) => {
-    setNotification({ type, message })
-    setTimeout(() => setNotification(null), 3000)
+    if (p) toast.success(`Producto "${p.name}" eliminado`)
   }
 
   const handleSort = (key: keyof Product) => {
@@ -189,19 +184,6 @@ export default function SalesPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 space-y-6">
-      {notification && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          className={cn(
-            'fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white',
-            notification.type === 'success' ? 'bg-green-600' : 'bg-red-600',
-          )}
-        >
-          {notification.message}
-        </motion.div>
-      )}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

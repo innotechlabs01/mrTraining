@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Calendar, Clock, User, Target, Dumbbell, CheckCircle2, XCircle, RefreshCw, MapPin, Video, Plus, Trash2, Save } from 'lucide-react'
+import { Calendar, Clock, User, Target, Dumbbell, CheckCircle2, XCircle, RefreshCw, MapPin, Video, Plus, Trash2, Save, CalendarClock } from 'lucide-react'
 import { coachingApi } from '@/features/shared/api/client'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 type Appointment = {
   id: string
@@ -48,6 +49,19 @@ export default function AgendamientoPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
 
+  // Cancel modal state
+  const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelLoading, setCancelLoading] = useState(false)
+
+  // Reschedule modal state
+  const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null)
+  const [resDate, setResDate] = useState<string>('')
+  const [resStart, setResStart] = useState<string>('07:00')
+  const [resEnd, setResEnd] = useState<string>('08:00')
+  const [resNotes, setResNotes] = useState('')
+  const [resLoading, setResLoading] = useState(false)
+
   const fetchAppointments = async () => {
     setLoading(true)
     try {
@@ -58,6 +72,7 @@ export default function AgendamientoPage() {
       setAppointments(json || [])
     } catch {
       setAppointments([])
+      toast.error('Error al cargar citas')
     } finally {
       setLoading(false)
     }
@@ -65,13 +80,76 @@ export default function AgendamientoPage() {
 
   useEffect(() => { fetchAppointments() }, [])
 
-  const handleAction = async (id: string, action: 'completed' | 'cancelled') => {
-    await fetch('/api/coaching/appointments', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status: action }),
-    })
-    fetchAppointments()
+  const handleComplete = async (id: string) => {
+    try {
+      const resp = await fetch(`/api/coaching/appointments/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'completed' }),
+      })
+      if (!resp.ok) throw new Error('failed')
+      toast.success('Cita aprobada')
+      fetchAppointments()
+    } catch {
+      toast.error('Error al aprobar cita')
+    }
+  }
+
+  const handleCancelConfirm = async () => {
+    if (!cancelTarget) return
+    setCancelLoading(true)
+    try {
+      const resp = await fetch(`/api/coaching/appointments/${cancelTarget.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: cancelTarget.id, status: 'cancelled', notes: cancelReason }),
+      })
+      if (!resp.ok) throw new Error('failed')
+      toast.success('Cita cancelada')
+      setCancelTarget(null)
+      setCancelReason('')
+      fetchAppointments()
+    } catch {
+      toast.error('Error al cancelar cita')
+    } finally {
+      setCancelLoading(false)
+    }
+  }
+
+  const handleRescheduleConfirm = async () => {
+    if (!rescheduleTarget) return
+    if (!resDate) {
+      toast.error('Selecciona una fecha')
+      return
+    }
+    if (resStart >= resEnd) {
+      toast.error('La hora de inicio debe ser anterior a la hora de fin')
+      return
+    }
+    setResLoading(true)
+    try {
+      const resp = await fetch(`/api/coaching/appointments/${rescheduleTarget.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: rescheduleTarget.id, status: 'rescheduled', date: resDate, startTime: resStart, endTime: resEnd, notes: resNotes || undefined }),
+      })
+      if (!resp.ok) throw new Error('failed')
+      toast.success('Cita reprogramada')
+      setRescheduleTarget(null)
+      fetchAppointments()
+    } catch {
+      toast.error('Error al reprogramar cita')
+    } finally {
+      setResLoading(false)
+    }
+  }
+
+  const openReschedule = (a: Appointment) => {
+    setRescheduleTarget(a)
+    setResDate(a.date)
+    setResStart(a.startTime)
+    setResEnd(a.endTime)
+    setResNotes('')
   }
 
   const today = new Date()
@@ -187,15 +265,21 @@ export default function AgendamientoPage() {
                   </div>
                 </div>
                 {a.status === 'scheduled' && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
                     <button
-                      onClick={() => handleAction(a.id, 'completed')}
+                      onClick={() => handleComplete(a.id)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/10 text-green-400 text-xs font-medium hover:bg-green-500/20 transition-colors"
                     >
                       <CheckCircle2 size={13} /> Aprobar
                     </button>
                     <button
-                      onClick={() => handleAction(a.id, 'cancelled')}
+                      onClick={() => openReschedule(a)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-medium hover:bg-amber-500/20 transition-colors"
+                    >
+                      <CalendarClock size={13} /> Reprogramar
+                    </button>
+                    <button
+                      onClick={() => { setCancelTarget(a); setCancelReason(a.notes || '') }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 text-xs font-medium hover:bg-red-500/20 transition-colors"
                     >
                       <XCircle size={13} /> Cancelar
@@ -259,6 +343,125 @@ export default function AgendamientoPage() {
         </div>
       )}
 
+      {/* Cancel Modal */}
+      {cancelTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !cancelLoading && setCancelTarget(null)} />
+          <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-surface-2 p-6 shadow-xl">
+            <h3 className="text-sm font-semibold text-white">Cancelar cita</h3>
+            <p className="text-xs text-white/40 mt-1">¿Seguro que deseas cancelar la cita de <span className="text-white/70 font-medium">{cancelTarget.athleteName}</span> el {formatDate(cancelTarget.date)} {cancelTarget.startTime}?</p>
+            <div className="mt-4 space-y-2">
+              <label className="text-[11px] font-medium uppercase tracking-wider text-white/50">Motivo de cancelación</label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Opcional pero recomendado para emergencias..."
+                rows={3}
+                className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-brand-primary/50"
+              />
+            </div>
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setCancelTarget(null)}
+                disabled={cancelLoading}
+                className="px-4 py-2 rounded-lg border border-white/10 text-xs font-medium text-white/60 hover:text-white hover:border-white/20 transition-colors disabled:opacity-40"
+              >
+                Volver
+              </button>
+              <button
+                onClick={handleCancelConfirm}
+                disabled={cancelLoading}
+                className="px-4 py-2 rounded-lg bg-red-500 text-white text-xs font-medium hover:bg-red-600 transition-colors disabled:opacity-40 flex items-center gap-1.5"
+              >
+                {cancelLoading ? 'Cancelando...' : <><XCircle size={14} /> Confirmar cancelación</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {rescheduleTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !resLoading && setRescheduleTarget(null)} />
+          <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-surface-2 p-6 shadow-xl">
+            <h3 className="text-sm font-semibold text-white">Reprogramar cita</h3>
+            <p className="text-xs text-white/40 mt-1">Cita de <span className="text-white/70 font-medium">{rescheduleTarget.athleteName}</span> — selecciona nueva fecha y horario.</p>
+            <div className="mt-4 space-y-4">
+              <div className="space-y-2">
+                <label className="text-[11px] font-medium uppercase tracking-wider text-white/50">Fecha</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {next14Days.map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setResDate(d)}
+                      className={cn(
+                        'px-2 py-2 rounded-lg text-[11px] font-medium border transition-all',
+                        resDate === d ? 'border-brand-primary bg-brand-primary/15 text-brand-primary' : 'border-white/10 text-white/40 hover:border-white/20'
+                      )}
+                    >
+                      {formatDate(d)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-white/50">Inicio</label>
+                  <select
+                    value={resStart}
+                    onChange={(e) => setResStart(e.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-primary/50"
+                  >
+                    {TIME_SLOTS.map((t) => (
+                      <option key={t} value={t} className="bg-surface-2 text-white">{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-white/50">Fin</label>
+                  <select
+                    value={resEnd}
+                    onChange={(e) => setResEnd(e.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-primary/50"
+                  >
+                    {TIME_SLOTS.map((t) => (
+                      <option key={t} value={t} className="bg-surface-2 text-white">{t}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[11px] font-medium uppercase tracking-wider text-white/50">Notas (opcional)</label>
+                <textarea
+                  value={resNotes}
+                  onChange={(e) => setResNotes(e.target.value)}
+                  placeholder="Motivo o notas para la reprogramación..."
+                  rows={2}
+                  className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-brand-primary/50"
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setRescheduleTarget(null)}
+                disabled={resLoading}
+                className="px-4 py-2 rounded-lg border border-white/10 text-xs font-medium text-white/60 hover:text-white hover:border-white/20 transition-colors disabled:opacity-40"
+              >
+                Volver
+              </button>
+              <button
+                onClick={handleRescheduleConfirm}
+                disabled={resLoading}
+                className="px-4 py-2 rounded-lg bg-brand-primary text-white text-xs font-medium hover:bg-brand-primary-hover transition-colors disabled:opacity-40 flex items-center gap-1.5"
+              >
+                {resLoading ? 'Reprogramando...' : <><CalendarClock size={14} /> Confirmar reprogramación</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Coach Availability Setup */}
       <AvailabilityEditor />
     </div>
@@ -285,13 +488,12 @@ type DaySchedule = { dayOfWeek: number; startTime: string; endTime: string }
 function AvailabilityEditor() {
   const [schedules, setSchedules] = useState<DaySchedule[]>([])
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     fetch('/api/coaching/coach-availability')
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setSchedules(data) })
-      .catch(() => {})
+      .catch(() => { toast.error('Error al cargar disponibilidad') })
   }, [])
 
   const addSlot = (dayOfWeek: number) => {
@@ -308,17 +510,17 @@ function AvailabilityEditor() {
 
   const handleSave = async () => {
     setSaving(true)
-    setSaved(false)
     try {
-      await fetch('/api/coaching/coach-availability', {
+      const resp = await fetch('/api/coaching/coach-availability', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(schedules),
       })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-    } catch { /* ignore */ }
-    finally { setSaving(false) }
+      if (!resp.ok) throw new Error('failed')
+      toast.success('Disponibilidad guardada')
+    } catch {
+      toast.error('Error al guardar disponibilidad')
+    } finally { setSaving(false) }
   }
 
   const slotsByDay = (day: number) => schedules.filter((s) => s.dayOfWeek === day)
@@ -335,11 +537,11 @@ function AvailabilityEditor() {
           disabled={saving}
           className={cn(
             'flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all',
-            saved ? 'bg-green-500/20 text-green-400' : 'bg-brand-primary text-white hover:bg-brand-primary-hover',
+            'bg-brand-primary text-white hover:bg-brand-primary-hover disabled:opacity-40',
           )}
         >
-          {saved ? <CheckCircle2 size={14} /> : <Save size={14} />}
-          {saved ? 'Guardado' : saving ? 'Guardando...' : 'Guardar'}
+          {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+          {saving ? 'Guardando...' : 'Guardar'}
         </button>
       </div>
 

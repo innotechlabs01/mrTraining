@@ -227,9 +227,11 @@ const handlers: Record<string, EntityHandler> = {
       const newId = await createAppointment({ ...b, coachId })
       return { id: newId }
     }
-    if (method === 'PUT' && id) {
-      const b = body as { status?: string; notes?: string; date?: string; startTime?: string; endTime?: string }
-      await updateAppointment(id, b)
+    if (method === 'PUT') {
+      const b = body as { id?: string; status?: string; notes?: string; date?: string; startTime?: string; endTime?: string }
+      const targetId = id || b.id
+      if (!targetId) return null
+      await updateAppointment(targetId, b)
       return { ok: true }
     }
     return null
