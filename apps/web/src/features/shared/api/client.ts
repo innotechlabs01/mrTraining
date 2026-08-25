@@ -513,8 +513,10 @@ export interface PastAssignmentDetail {
 export const templateApi = {
   list: () => nextFetch.get<{ templates: WorkoutTemplateSummary[] }>('/api/coach/workout-templates'),
   get: (id: string) => nextFetch.get<{ template: WorkoutTemplateDetail }>(`/api/coach/workout-templates/${id}`),
-  create: (data: { name: string; description?: string; goal?: string; estimatedDurationMinutes?: number | null; exercises?: TemplateExerciseRow[] }) =>
+  create: (data: { name: string; description?: string; goal?: string; estimatedDurationMinutes?: number | null; exercises?: TemplateExerciseRow[]; id?: string }) =>
     nextFetch.post<{ id: string }>('/api/coach/workout-templates', data),
+  update: (id: string, data: { name: string; description?: string; goal?: string; estimatedDurationMinutes?: number | null; exercises?: TemplateExerciseRow[] }) =>
+    nextFetch.put<{ id: string }>(`/api/coach/workout-templates/${id}`, data),
   remove: (id: string) => nextFetch.delete<{ ok: true }>(`/api/coach/workout-templates/${id}`),
   /** Full detail of a previously assigned workout, for reassignment flows. */
   getPastAssignment: (id: string) => nextFetch.get<PastAssignmentDetail>(`/api/coaching/assigned-workouts/${id}`),

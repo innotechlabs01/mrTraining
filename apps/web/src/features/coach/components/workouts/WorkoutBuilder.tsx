@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, X, ChevronUp, ChevronDown, Sparkles,
@@ -15,13 +16,57 @@ import {
   formatDuration,
   generateId,
 } from '@/features/workout'
-import type { WorkoutExercise, Exercise, WorkoutGoal, WorkoutPlan } from '@/features/workout'
+import type { WorkoutExercise, Exercise, WorkoutGoal, WorkoutPlan, MuscleGroup } from '@/features/workout'
+import { templateApi } from '@/features/shared/api/client'
+import type { TemplateExerciseRow } from '@/features/shared/api/client'
 import { InfoTip } from './InfoTip'
 
 const GOALS = Object.entries(GOAL_LABELS).map(([value, label]) => ({
   value: value as WorkoutGoal,
   label,
 }))
+
+function mapRowToWorkoutExercise(row: TemplateExerciseRow, idx: number): WorkoutExercise {
+  const id = typeof row.id === 'string' && row.id ? row.id : generateId('we')
+  const exerciseId = typeof row.libraryExerciseId === 'string' && row.libraryExerciseId ? row.libraryExerciseId : id
+  const exerciseName = String((row.name ?? row.exerciseName ?? '') || `Exercise ${idx + 1}`)
+  const rawSets = row.sets
+  let sets = 3
+  if (Array.isArray(rawSets)) sets = rawSets.length || 1
+  else if (typeof rawSets === 'number' && Number.isFinite(rawSets)) sets = rawSets
+  else if (typeof rawSets === 'string' && rawSets.trim() !== '') {
+    const n = Number(rawSets)
+    if (Number.isFinite(n)) sets = n
+  }
+  const rawReps = row.reps
+  let reps: number | 'AMRAP' | 'failure' = 10
+  if (typeof rawReps === 'string') {
+    if (rawReps === 'AMRAP' || rawReps === 'failure') reps = rawReps
+    else {
+      const n = Number(rawReps)
+      reps = Number.isFinite(n) ? n : 10
+    }
+  } else if (typeof rawReps === 'number' && Number.isFinite(rawReps)) reps = rawReps
+  const weightRaw = (row.weightKg ?? row.weight) as number | null | undefined
+  const restRaw = (row.restSeconds ?? row.rest) as number | null | undefined
+  const orderRaw = (row.sortOrder ?? row.order) as number | null | undefined
+  const weight = typeof weightRaw === 'number' && Number.isFinite(weightRaw) ? weightRaw : undefined
+  const rest = typeof restRaw === 'number' && Number.isFinite(restRaw) ? restRaw : 60
+  const order = typeof orderRaw === 'number' && Number.isFinite(orderRaw) ? orderRaw : idx + 1
+  const mg = Array.isArray(row.muscleGroups) ? (row.muscleGroups as MuscleGroup[]) : []
+  return {
+    id,
+    exerciseId,
+    exerciseName,
+    order,
+    sets,
+    reps,
+    weight,
+    rest,
+    muscleGroups: mg,
+    notes: typeof row.notes === 'string' ? row.notes : undefined,
+  }
+}
 
 function useCalc() {
   return useMemo(() => ({
@@ -329,20 +374,52 @@ export default function WorkoutBuilder() {
     exercises, loading: libLoading, error: libError,
     search, setSearch,
   } = useExerciseLibrary()
-  const { plans: _, loading: plansLoading, error: plansError, createPlan, saveAsTemplate } = useWorkoutPlans()
+  const { plans: _, loading: plansLoading, error: plansError, createPlan, saveAsTemplate, updateTemplate } = useWorkoutPlans()
   const calc = useCalc()
+  const searchParams = useSearchParams()
+  const templateId = searchParams.get('templateId')
 
   const [workoutName, setWorkoutName] = useState('')
+  const [description, setDescription] = useState('')
   const [goal, setGoal] = useState<WorkoutGoal>('strength')
   const [workingExercises, setWorkingExercises] = useState<WorkoutExercise[]>([])
   const [showAiModal, setShowAiModal] = useState(false)
   const [showFreqModal, setShowFreqModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedMessage, setSavedMessage] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
   const [editingExercise, setEditingExercise] = useState<string | null>(null)
+  const [templateLoading, setTemplateLoading] = useState(false)
+  const [templateError, setTemplateError] = useState<string | null>(null)
 
   const duration = useMemo(() => calc.calcDuration(workingExercises), [workingExercises, calc])
   const volume = useMemo(() => calc.calcVolume(workingExercises), [workingExercises, calc])
+
+  // Prefill from templateId if present
+  useEffect(() => {
+    if (!templateId) return
+    let cancelled = false
+    setTemplateLoading(true)
+    setTemplateError(null)
+    templateApi.get(templateId)
+      .then(({ template }) => {
+        if (cancelled) return
+        const mappedExercises = (template.exercises ?? []).map((row, i) => mapRowToWorkoutExercise(row as TemplateExerciseRow, i))
+        mappedExercises.sort((a, b) => a.order - b.order)
+        setWorkoutName(template.name ?? '')
+        setDescription(template.description ?? '')
+        setGoal((template.goal as WorkoutGoal) || 'strength')
+        setWorkingExercises(mappedExercises)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setTemplateError('No se pudo cargar la plantilla. Podés crear el workout desde cero.')
+      })
+      .finally(() => {
+        if (!cancelled) setTemplateLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [templateId])
 
   const addExercise = useCallback((ex: Exercise) => {
     setWorkingExercises(prev => [...prev, {
@@ -391,6 +468,7 @@ export default function WorkoutBuilder() {
 
   const resetBuilder = useCallback(() => {
     setWorkoutName('')
+    setDescription('')
     setGoal('strength')
     setWorkingExercises([])
   }, [])
@@ -398,40 +476,76 @@ export default function WorkoutBuilder() {
   const handleSave = useCallback(async () => {
     if (!workoutName.trim() || workingExercises.length === 0) return
     setSaving(true)
-    await createPlan({
-      name: workoutName.trim(),
-      description: '',
-      goal,
-      exercises: workingExercises,
-      estimatedDuration: duration,
-      tags: [],
-    })
-    setSaving(false)
-    setSavedMessage('Workout saved!')
-    setTimeout(() => setSavedMessage(''), 3000)
-    resetBuilder()
-  }, [workoutName, goal, workingExercises, duration, createPlan, resetBuilder])
+    setErrorMessage('')
+    try {
+      if (templateId) {
+        await updateTemplate(templateId, {
+          name: workoutName.trim(),
+          description,
+          goal,
+          exercises: workingExercises,
+          estimatedDuration: duration,
+          tags: [],
+        })
+        setSavedMessage('Template updated!')
+      } else {
+        await createPlan({
+          name: workoutName.trim(),
+          description,
+          goal,
+          exercises: workingExercises,
+          estimatedDuration: duration,
+          tags: [],
+        })
+        setSavedMessage('Workout saved!')
+      }
+      setTimeout(() => setSavedMessage(''), 3000)
+      if (!templateId) resetBuilder()
+    } catch {
+      setErrorMessage('Error saving workout')
+    } finally {
+      setSaving(false)
+    }
+  }, [workoutName, description, goal, workingExercises, duration, createPlan, updateTemplate, templateId, resetBuilder])
 
   const handleSaveTemplate = useCallback(async (frequency: 'once' | 'daily' | 'weekly' | 'custom') => {
     if (!workoutName.trim() || workingExercises.length === 0) return
     setSaving(true)
-    const plan: WorkoutPlan = {
-      id: '',
-      name: workoutName.trim(),
-      description: '',
-      goal,
-      exercises: workingExercises,
-      estimatedDuration: duration,
-      tags: [],
-      createdAt: '',
+    setErrorMessage('')
+    try {
+      if (templateId) {
+        await updateTemplate(templateId, {
+          name: workoutName.trim(),
+          description,
+          goal,
+          exercises: workingExercises,
+          estimatedDuration: duration,
+          tags: [],
+        })
+        setSavedMessage('Template updated!')
+      } else {
+        const plan: WorkoutPlan = {
+          id: '',
+          name: workoutName.trim(),
+          description,
+          goal,
+          exercises: workingExercises,
+          estimatedDuration: duration,
+          tags: [],
+          createdAt: '',
+        }
+        await saveAsTemplate(plan, frequency)
+        setSavedMessage('Template saved!')
+      }
+      setShowFreqModal(false)
+      setTimeout(() => setSavedMessage(''), 3000)
+      if (!templateId) resetBuilder()
+    } catch {
+      setErrorMessage('Error saving template')
+    } finally {
+      setSaving(false)
     }
-    await saveAsTemplate(plan, frequency)
-    setSaving(false)
-    setShowFreqModal(false)
-    setSavedMessage('Template saved!')
-    setTimeout(() => setSavedMessage(''), 3000)
-    resetBuilder()
-  }, [workoutName, goal, workingExercises, duration, saveAsTemplate, resetBuilder])
+  }, [workoutName, description, goal, workingExercises, duration, saveAsTemplate, updateTemplate, templateId, resetBuilder])
 
   const loading = libLoading || plansLoading
   const error = libError || plansError
@@ -440,6 +554,22 @@ export default function WorkoutBuilder() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
+      {templateLoading && (
+        <div className="mb-4 flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white/60">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Loading template...
+        </div>
+      )}
+      {templateError && (
+        <div className="mb-4 px-4 py-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-sm text-amber-400">
+          {templateError}
+        </div>
+      )}
+      {errorMessage && (
+        <div className="mb-4 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
+          {errorMessage}
+        </div>
+      )}
       {savedMessage && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
@@ -529,7 +659,7 @@ export default function WorkoutBuilder() {
         <div className="flex-1 min-w-0 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-white/70 font-display uppercase tracking-wider">
-              Workout Builder
+              {templateId ? 'Edit Template' : 'Workout Builder'}
             </h2>
             <div className="flex items-center gap-2">
               <button
@@ -567,7 +697,7 @@ export default function WorkoutBuilder() {
                 ) : (
                   <Save className="w-3.5 h-3.5" />
                 )}
-                Save Plan
+                {templateId ? 'Update' : 'Save Plan'}
               </button>
             </div>
           </div>
