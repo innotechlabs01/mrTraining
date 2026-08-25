@@ -1,18 +1,22 @@
 const { fontFamily } = require('tailwindcss/defaultTheme');
 
-// Designated brand color: #15AAF2 (single source of truth for accents).
-const BRAND_SCALE = {
-  50: '#E8F7FF',
-  100: '#C7ECFF',
-  200: '#9FDDFF',
-  300: '#7FD8FF',
-  400: '#4FC3F7',
-  500: '#15AAF2',
-  600: '#0E93D4',
-  700: '#0A7BB3',
-  800: '#086291',
-  900: '#064B6E',
+// Apex Performance palette — Electric Orange centered on #FF5C00
+// primary-container #FF5C00, on-primary #5A1B00, ember #FFB59A
+const ORANGE_SCALE = {
+  50: '#FFF0E6',
+  100: '#FFD8BF',
+  200: '#FFB59A',
+  300: '#FF8C66',
+  400: '#FF7043',
+  500: '#FF5C00',
+  600: '#E05300',
+  700: '#CC4A00',
+  800: '#993700',
+  900: '#5A1B00',
 };
+
+// Keep BRAND_SCALE alias for backwards compat — points to ORANGE_SCALE
+const BRAND_SCALE = ORANGE_SCALE;
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -22,20 +26,19 @@ module.exports = {
     extend: {
       colors: {
         brand: {
-          primary: '#15AAF2',
-          'primary-hover': '#0E93D4',
-          'primary-pressed': '#0A7BB3',
-          'primary-light': '#4FC3F7',
-          ember: '#7FD8FF',
-          'ember-light': '#B3E5FF',
-          secondary: '#15AAF2',
-          'secondary-hover': '#0E93D4',
-          'secondary-pressed': '#0A7BB3',
+          primary: '#FF5C00',
+          'primary-hover': '#E05300',
+          'primary-pressed': '#CC4A00',
+          'primary-light': '#FF8C66',
+          ember: '#ffb59a',
+          'ember-light': '#FFD8BF',
+          secondary: '#FF5C00',
+          'secondary-hover': '#E05300',
+          'secondary-pressed': '#CC4A00',
         },
-        // Single designated brand color. Decorative/brand-ish accent scales are
-        // aliased to the #15AAF2 scale so the whole UI stays on-brand.
+        // Apex — all decorative accent scales alias to Electric Orange #FF5C00
         // (red/green/emerald/amber/yellow are kept for error/success/warning semantics.)
-        orange: BRAND_SCALE,
+        orange: ORANGE_SCALE,
         blue: BRAND_SCALE,
         sky: BRAND_SCALE,
         cyan: BRAND_SCALE,
@@ -52,7 +55,7 @@ module.exports = {
           3: 'var(--border)',
           4: 'var(--border)',
           5: 'var(--border)',
-          6: '#2A2A2C',
+          6: '#2a2a2a',
         },
         'text-primary': 'var(--text)',
         'text-secondary': 'var(--text-secondary)',
@@ -62,21 +65,21 @@ module.exports = {
         warning: '#FFB300',
         coral: { accent: '#FF5252' },
         uiux: {
-          primary: '#15AAF2',
-          'primary-hover': '#0E93D4',
-          'primary-light': '#4FC3F7',
-          secondary: '#0EA5E9',
-          'secondary-light': '#F0F9FF',
+          primary: '#FF5C00',
+          'primary-hover': '#E05300',
+          'primary-light': '#FFB59A',
+          secondary: '#FF5C00',
+          'secondary-light': '#FFF0E6',
           surface: {
-            0: '#FFFFFF',
-            1: '#F8FAFC',
-            2: '#F1F5F9',
-            3: '#E2E8F0',
+            0: '#131313',
+            1: '#1c1b1b',
+            2: '#201f1f',
+            3: '#2a2a2a',
           },
           text: {
-            primary: '#0F172A',
-            secondary: '#475569',
-            tertiary: '#94A3B8',
+            primary: '#e5e2e1',
+            secondary: '#ab897d',
+            tertiary: '#85736b',
           },
         },
       },
@@ -115,8 +118,8 @@ module.exports = {
       },
       keyframes: {
         'glow-pulse': {
-          '0%, 100%': { boxShadow: '0 0 20px rgba(21,170,242,0.3)' },
-          '50%': { boxShadow: '0 0 40px rgba(21,170,242,0.6)' },
+          '0%, 100%': { boxShadow: '0 0 20px rgba(255,92,0,0.3)' },
+          '50%': { boxShadow: '0 0 40px rgba(255,92,0,0.6)' },
         },
         float: {
           '0%, 100%': { transform: 'translateY(0px)' },

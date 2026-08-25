@@ -17,8 +17,8 @@ export default function WorkoutsLayout({ children }: { children: React.ReactNode
 
   return (
     <div className="min-h-screen bg-surface-0">
-      <nav className="sticky top-14 z-30 bg-surface-0 border-b border-white/5">
-        <div className="flex items-center gap-1 px-6 max-w-6xl mx-auto">
+      <nav className="sticky top-14 z-10 bg-surface-1/80 backdrop-blur-xl border-b border-white/[0.06]">
+        <div className="flex items-center gap-1 px-6 max-w-6xl mx-auto overflow-x-auto scrollbar-hide">
           {TABS.map(tab => {
             const active = pathname === tab.href
             return (
@@ -26,7 +26,7 @@ export default function WorkoutsLayout({ children }: { children: React.ReactNode
                 key={tab.href}
                 href={tab.href}
                 className={cn(
-                  'relative px-4 py-3 text-sm font-medium transition-colors',
+                  'relative px-4 py-3 text-sm font-medium transition-colors shrink-0 whitespace-nowrap',
                   active ? 'text-white' : 'text-white/40 hover:text-white/60',
                 )}
               >
