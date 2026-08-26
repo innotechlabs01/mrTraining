@@ -2,6 +2,8 @@
 package handlers
 
 import (
+	"database/sql"
+
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/innotechlabs01/mr-training-api/pkg/response"
@@ -13,6 +15,12 @@ type HealthResponse struct {
 	App     string `json:"app"`
 	Env     string `json:"env"`
 	Version string `json:"version"`
+}
+
+// ReadinessResponse represents the payload returned by the readiness check endpoint.
+type ReadinessResponse struct {
+	Status   string            `json:"status"`
+	Services map[string]string `json:"services,omitempty"`
 }
 
 // HealthCheck handles GET /health and always returns 200 OK.
@@ -29,12 +37,27 @@ func HealthCheck(appName, env string) fiber.Handler {
 }
 
 // ReadinessCheck handles GET /ready and checks service dependencies.
-// Currently returns ok without database connectivity checks (placeholder).
-// TODO: Add database connectivity verification when Turso integration is ready.
-func ReadinessCheck() fiber.Handler {
+// If a database connection is provided, it verifies connectivity.
+// Otherwise, it reports the service as ready without database checks.
+func ReadinessCheck(db *sql.DB) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		return response.Success(c, fiber.Map{
-			"status": "ready",
+		services := make(map[string]string)
+
+		// Check database connectivity
+		if db != nil {
+			if err := db.Ping(); err != nil {
+				services["database"] = "unhealthy: " + err.Error()
+				return response.JSON(c, fiber.StatusServiceUnavailable, ReadinessResponse{
+					Status:   "not_ready",
+					Services: services,
+				})
+			}
+			services["database"] = "healthy"
+		}
+
+		return response.Success(c, ReadinessResponse{
+			Status:   "ready",
+			Services: services,
 		})
 	}
 }

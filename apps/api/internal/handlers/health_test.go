@@ -17,7 +17,7 @@ func setupTestApp() *fiber.App {
 	app.Use(middleware.RequestID())
 
 	app.Get("/health", handlers.HealthCheck("test-api", "test"))
-	app.Get("/ready", handlers.ReadinessCheck())
+	app.Get("/ready", handlers.ReadinessCheck(nil))
 
 	return app
 }
