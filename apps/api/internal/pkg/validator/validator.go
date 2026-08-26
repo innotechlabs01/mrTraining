@@ -87,3 +87,163 @@ func ValidateUpdateAthlete(req *dto.UpdateAthleteRequest) ValidationErrors {
 
 	return errs
 }
+
+// ValidateCreateExercise validates a CreateExerciseRequest.
+func ValidateCreateExercise(req *dto.CreateExerciseRequest) ValidationErrors {
+	var errs ValidationErrors
+
+	if strings.TrimSpace(req.Name) == "" {
+		errs = append(errs, ValidationError{Field: "name", Message: "is required"})
+	} else if len(req.Name) > 200 {
+		errs = append(errs, ValidationError{Field: "name", Message: "must be at most 200 characters"})
+	}
+
+	if req.Mode != "" {
+		switch req.Mode {
+		case "reps", "time", "cardio":
+			// valid
+		default:
+			errs = append(errs, ValidationError{
+				Field:   "mode",
+				Message: "must be one of: reps, time, cardio",
+			})
+		}
+	}
+
+	if req.Difficulty != "" {
+		switch req.Difficulty {
+		case "beginner", "intermediate", "advanced":
+			// valid
+		default:
+			errs = append(errs, ValidationError{
+				Field:   "difficulty",
+				Message: "must be one of: beginner, intermediate, advanced",
+			})
+		}
+	}
+
+	if req.Category != "" {
+		switch req.Category {
+		case "compound", "isolation":
+			// valid
+		default:
+			errs = append(errs, ValidationError{
+				Field:   "category",
+				Message: "must be one of: compound, isolation",
+			})
+		}
+	}
+
+	return errs
+}
+
+// ValidateCreateWorkoutTemplate validates a CreateWorkoutTemplateRequest.
+func ValidateCreateWorkoutTemplate(req *dto.CreateWorkoutTemplateRequest) ValidationErrors {
+	var errs ValidationErrors
+
+	if strings.TrimSpace(req.Name) == "" {
+		errs = append(errs, ValidationError{Field: "name", Message: "is required"})
+	} else if len(req.Name) > 200 {
+		errs = append(errs, ValidationError{Field: "name", Message: "must be at most 200 characters"})
+	}
+
+	for i, ex := range req.Exercises {
+		if strings.TrimSpace(ex.Name) == "" {
+			errs = append(errs, ValidationError{
+				Field:   fmt.Sprintf("exercises[%d].name", i),
+				Message: "is required",
+			})
+		}
+		if ex.Sets < 1 {
+			errs = append(errs, ValidationError{
+				Field:   fmt.Sprintf("exercises[%d].sets", i),
+				Message: "must be at least 1",
+			})
+		}
+		if ex.Reps < 0 {
+			errs = append(errs, ValidationError{
+				Field:   fmt.Sprintf("exercises[%d].reps", i),
+				Message: "must be non-negative",
+			})
+		}
+	}
+
+	return errs
+}
+
+// ValidateAssignWorkout validates an AssignWorkoutRequest.
+func ValidateAssignWorkout(req *dto.AssignWorkoutRequest) ValidationErrors {
+	var errs ValidationErrors
+
+	if strings.TrimSpace(req.AthleteID) == "" {
+		errs = append(errs, ValidationError{Field: "athlete_id", Message: "is required"})
+	}
+
+	if strings.TrimSpace(req.TemplateID) == "" {
+		errs = append(errs, ValidationError{Field: "template_id", Message: "is required"})
+	}
+
+	if strings.TrimSpace(req.StartDate) == "" {
+		errs = append(errs, ValidationError{Field: "start_date", Message: "is required"})
+	}
+
+	if strings.TrimSpace(req.EndDate) == "" {
+		errs = append(errs, ValidationError{Field: "end_date", Message: "is required"})
+	}
+
+	return errs
+}
+
+// ValidateLogWorkoutSet validates a LogWorkoutSetRequest.
+func ValidateLogWorkoutSet(req *dto.LogWorkoutSetRequest) ValidationErrors {
+	var errs ValidationErrors
+
+	if strings.TrimSpace(req.ExerciseID) == "" {
+		errs = append(errs, ValidationError{Field: "exercise_id", Message: "is required"})
+	}
+
+	if req.SetIndex < 1 {
+		errs = append(errs, ValidationError{Field: "set_index", Message: "must be at least 1"})
+	}
+
+	if req.RIR < 0 || req.RIR > 10 {
+		errs = append(errs, ValidationError{Field: "rir", Message: "must be between 0 and 10"})
+	}
+
+	if req.RPE < 0 || req.RPE > 10 {
+		errs = append(errs, ValidationError{Field: "rpe", Message: "must be between 0 and 10"})
+	}
+
+	return errs
+}
+
+// ValidateCreateMembership validates a CreateMembershipRequest.
+func ValidateCreateMembership(req *dto.CreateMembershipRequest) ValidationErrors {
+	var errs ValidationErrors
+
+	if strings.TrimSpace(req.AthleteID) == "" {
+		errs = append(errs, ValidationError{Field: "athlete_id", Message: "is required"})
+	}
+
+	if strings.TrimSpace(req.PlanName) == "" {
+		errs = append(errs, ValidationError{Field: "plan_name", Message: "is required"})
+	}
+
+	if req.PlanPrice < 0 {
+		errs = append(errs, ValidationError{Field: "plan_price", Message: "must be a non-negative number"})
+	}
+
+	if req.BillingPeriod != "" {
+		switch req.BillingPeriod {
+		case "monthly", "yearly":
+			// valid
+		default:
+			errs = append(errs, ValidationError{
+				Field:   "billing_period",
+				Message: "must be one of: monthly, yearly",
+			})
+		}
+	}
+
+	return errs
+}

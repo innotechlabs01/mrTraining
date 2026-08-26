@@ -27,6 +27,11 @@ type Config struct {
 	ClerkPublishableKey string // Clerk publishable key for frontend
 	ClerkJWKSURL        string // Optional: Custom JWKS URL for token verification
 
+	// Firebase (FCM — optional, skip if empty)
+	FirebaseProjectID   string // Firebase project ID for FCM
+	FirebaseClientEmail string // Firebase service account client email
+	FirebasePrivateKey  string // Firebase service account private key (PEM)
+
 	// CORS
 	CORSOrigins string // Allowed CORS origins, comma-separated
 
@@ -52,6 +57,10 @@ func Load() (*Config, error) {
 		ClerkSecretKey:      getEnv("CLERK_SECRET_KEY", ""),
 		ClerkPublishableKey: getEnv("CLERK_PUBLISHABLE_KEY", ""),
 		ClerkJWKSURL:        getEnv("CLERK_JWKS_URL", ""),
+
+		FirebaseProjectID:   getEnv("FIREBASE_PROJECT_ID", ""),
+		FirebaseClientEmail: getEnv("FIREBASE_CLIENT_EMAIL", ""),
+		FirebasePrivateKey:  getEnv("FIREBASE_PRIVATE_KEY", ""),
 
 		CORSOrigins: getEnv("CORS_ORIGINS", "*"),
 
