@@ -130,3 +130,20 @@ func RegisterRunningRoutes(api fiber.Router, handler *handlers.RunningHandler) {
 	api.Post("/running/devices", handler.ConnectDevice)
 	api.Delete("/running/devices/:id", handler.DisconnectDevice)
 }
+
+// RegisterHealthRoutes registers all health-related routes on the given API group.
+// The calling code must have already applied auth middleware to the api group.
+func RegisterHealthRoutes(api fiber.Router, handler *handlers.HealthDataHandler) {
+	// Health metrics
+	api.Get("/health/metrics", handler.GetMetrics)
+	api.Post("/health/metrics", handler.RecordMetric)
+
+	// Sleep logs
+	api.Get("/health/sleep", handler.GetSleepLogs)
+	api.Post("/health/sleep", handler.RecordSleepLog)
+
+	// Wearable devices
+	api.Get("/health/devices", handler.GetDevices)
+	api.Post("/health/devices", handler.RegisterDevice)
+	api.Delete("/health/devices/:id", handler.RemoveDevice)
+}

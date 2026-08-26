@@ -87,6 +87,42 @@ func (m *mockWorkoutRepository) LogWorkoutSet(ctx context.Context, set *training
 	return set, nil
 }
 
+func (m *mockWorkoutRepository) GetAssignedWorkoutDetail(ctx context.Context, id string) (*training.AssignedWorkout, error) {
+	return m.GetAssignedWorkout(ctx, id)
+}
+
+func (m *mockWorkoutRepository) GetWorkoutSession(ctx context.Context, sessionID string) (*training.WorkoutSession, error) {
+	return nil, training.ErrNotFound
+}
+
+func (m *mockWorkoutRepository) CreateWorkoutSession(ctx context.Context, workoutID, athleteID string) (*training.WorkoutSession, error) {
+	return &training.WorkoutSession{ID: "mock-session-id", WorkoutID: workoutID, AthleteID: athleteID}, nil
+}
+
+func (m *mockWorkoutRepository) CompleteSession(ctx context.Context, sessionID string, durationSeconds int) error {
+	return nil
+}
+
+func (m *mockWorkoutRepository) GetPrescription(ctx context.Context, workoutID string) ([]training.WorkoutExercise, error) {
+	return nil, nil
+}
+
+func (m *mockWorkoutRepository) ListAssignedWorkoutsByCoach(ctx context.Context, coachID string) ([]*training.AssignedWorkout, error) {
+	return m.assignments, nil
+}
+
+func (m *mockWorkoutRepository) UpdateAssignedWorkout(ctx context.Context, id string, aw *training.AssignedWorkout) error {
+	return nil
+}
+
+func (m *mockWorkoutRepository) DeleteAssignedWorkout(ctx context.Context, id string) error {
+	return nil
+}
+
+func (m *mockWorkoutRepository) DeleteTemplate(ctx context.Context, id string) error {
+	return nil
+}
+
 // mockProgressRepository is a test double for training.ProgressRepository.
 type mockProgressRepository struct {
 	entries []*training.ProgressEntry

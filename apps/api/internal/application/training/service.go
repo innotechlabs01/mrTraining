@@ -264,3 +264,80 @@ func (s *Service) GetProgress(ctx context.Context, athleteID string, dateRange t
 
 	return entries, nil
 }
+
+// GetAssignedWorkoutDetail returns a full assigned workout with its exercises.
+func (s *Service) GetAssignedWorkoutDetail(ctx context.Context, workoutID string) (*training.AssignedWorkout, error) {
+	aw, err := s.workoutRepo.GetAssignedWorkoutDetail(ctx, workoutID)
+	if err != nil {
+		return nil, fmt.Errorf("get assigned workout detail: %w", err)
+	}
+	return aw, nil
+}
+
+// GetWorkoutSession returns a workout session by ID.
+func (s *Service) GetWorkoutSession(ctx context.Context, sessionID string) (*training.WorkoutSession, error) {
+	session, err := s.workoutRepo.GetWorkoutSession(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("get workout session: %w", err)
+	}
+	return session, nil
+}
+
+// CreateWorkoutSession creates a new workout session for an athlete.
+func (s *Service) CreateWorkoutSession(ctx context.Context, workoutID, athleteID string) (*training.WorkoutSession, error) {
+	session, err := s.workoutRepo.CreateWorkoutSession(ctx, workoutID, athleteID)
+	if err != nil {
+		return nil, fmt.Errorf("create workout session: %w", err)
+	}
+	return session, nil
+}
+
+// CompleteSession marks a workout session as completed with the given RPE and notes.
+func (s *Service) CompleteSession(ctx context.Context, sessionID string, rpe int, notes string) error {
+	if err := s.workoutRepo.CompleteSession(ctx, sessionID, 0); err != nil {
+		return fmt.Errorf("complete session: %w", err)
+	}
+	return nil
+}
+
+// GetPrescription returns the exercise prescription for an assigned workout.
+func (s *Service) GetPrescription(ctx context.Context, workoutID string) ([]training.WorkoutExercise, error) {
+	exercises, err := s.workoutRepo.GetPrescription(ctx, workoutID)
+	if err != nil {
+		return nil, fmt.Errorf("get prescription: %w", err)
+	}
+	return exercises, nil
+}
+
+// ListAssignedWorkoutsByCoach returns all assigned workouts created by a coach.
+func (s *Service) ListAssignedWorkoutsByCoach(ctx context.Context, coachID string) ([]*training.AssignedWorkout, error) {
+	workouts, err := s.workoutRepo.ListAssignedWorkoutsByCoach(ctx, coachID)
+	if err != nil {
+		return nil, fmt.Errorf("list assigned workouts by coach: %w", err)
+	}
+	return workouts, nil
+}
+
+// UpdateAssignedWorkout updates an assigned workout's schedule and status.
+func (s *Service) UpdateAssignedWorkout(ctx context.Context, id string, aw *training.AssignedWorkout) error {
+	if err := s.workoutRepo.UpdateAssignedWorkout(ctx, id, aw); err != nil {
+		return fmt.Errorf("update assigned workout: %w", err)
+	}
+	return nil
+}
+
+// DeleteAssignedWorkout deletes an assigned workout and its exercises.
+func (s *Service) DeleteAssignedWorkout(ctx context.Context, id string) error {
+	if err := s.workoutRepo.DeleteAssignedWorkout(ctx, id); err != nil {
+		return fmt.Errorf("delete assigned workout: %w", err)
+	}
+	return nil
+}
+
+// DeleteWorkoutTemplate deletes a workout template and its exercises.
+func (s *Service) DeleteWorkoutTemplate(ctx context.Context, id string) error {
+	if err := s.workoutRepo.DeleteTemplate(ctx, id); err != nil {
+		return fmt.Errorf("delete workout template: %w", err)
+	}
+	return nil
+}

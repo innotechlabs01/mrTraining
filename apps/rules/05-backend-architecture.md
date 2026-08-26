@@ -27,19 +27,22 @@
 
 ## 0. Authoritative Backend — READ FIRST
 
-**The active backend of MR Training lives inside `apps/web` as Next.js 14 App Router Route Handlers (`apps/web/src/app/api/**/route.ts`) on top of Turso/libSQL.** All new endpoints ("paths") MUST be implemented there. This document governs how to build them; sections that describe the Go/Fiber auxiliary service describe a future/inactive component — do NOT implement new endpoints in Go.
+**MR Training uses a dual-backend strategy during migration:**
 
-| Layer | Technology (REAL, active) |
-|---|---|
-| Backend runtime | Next.js 14 API Routes (App Router), TypeScript strict |
-| Database | Turso / libSQL (SQLite-compatible), accessed via `@libsql/client` |
-| Data access layer | `apps/web/src/lib/coaching-db.ts` (typed helpers + row mappers) |
-| Migrations | Versioned SQL files in `apps/web/migrations/NNN_name.sql`, applied to Turso |
-| Auth | Clerk v6 (`auth()` from `@clerk/nextjs/server` in every route handler) |
-| Payments | Polar.sh (`@polar-sh/sdk`) via `api/polar/*` routes |
-| Auxiliary backend | Go 1.25 (`apps/backend/`) — NOT active in QA; not the target for new endpoints |
+| Layer | Technology | Status |
+|---|-----------|--------|
+| Primary backend (NEW) | Go 1.25 + Fiber (`apps/api/`) — Clean Architecture + DDD | **Active — all new endpoints go here** |
+| Legacy backend | Next.js 14 API Routes (`apps/web/src/app/api/**/route.ts`) | **Migration source — endpoints being ported to Go** |
+| Database | Turso / libSQL (SQLite-compatible) | Shared between both backends |
+| Go data access | `apps/api/internal/infrastructure/*` (typed repositories) | New |
+| Legacy data access | `apps/web/src/lib/db/` (domain modules) | Legacy, being replaced |
+| Migrations | Versioned SQL in `apps/web/migrations/NNN_name.sql` → moving to `apps/api/migrations/` | Shared |
+| Auth | Clerk — JWT via `Authorization: Bearer` header | Both backends |
+| Payments | Polar.sh | Being ported |
 
-Sections below keep the transport-agnostic design principles (validation, error shape, status codes, idempotency, domain separation). Where they name Fiber/pgx/NATS specifics, read them as the *pattern* to respect inside a Route Handler, not as the runtime to install.
+**Rule:** All NEW endpoints MUST be implemented in `apps/api/` (Go + Fiber) following Clean Architecture and DDD. Legacy Next.js routes remain functional during migration — do NOT delete a legacy route until its Go equivalent is tested and the frontend is switched. This document governs BOTH runtimes: Fiber specifics apply to Go, and the *pattern* applies to legacy Route Handlers if a fix is needed there.
+
+**Migration progress:** See `apps/api/` for implemented domains. Check `apps/api/internal/interfaces/http/routes/routes.go` for the current Go route registry.
 
 ---
 
@@ -115,20 +118,23 @@ This structure means a developer working on the training feature opens one direc
 
 | Component | Technology | Version | Purpose |
 |---|---|---|---|
-| Backend runtime | Next.js API Routes (App Router) | 14.2 | Primary backend — every new endpoint lives in `apps/web/src/app/api/**/route.ts` |
-| Language (backend) | TypeScript strict | 5.6+ | Explicit types, no `any`, explicit return types on exported handlers |
-| Database | Turso / libSQL | — | SQLite-compatible relational DB (see §04 Database Design for modeling rules) |
-| Database Client | `@libsql/client` | 0.17+ | Parameterized SQL via `db.execute(sql, params)`; no ORM |
-| Migrations | Versioned SQL files | NNN_*.sql | `apps/web/migrations/` applied to Turso; additive-first policy |
-| Auth | Clerk (`@clerk/nextjs`) | v6 | `auth()` per request; actors resolved from session, never from body |
-| Payments | Polar.sh (`@polar-sh/sdk`) | 0.49+ | Checkout + webhook under `api/polar/*` |
-| Cache/Sessions (future) | Redis | 7.x | Reserved for caching/rate limits when needed |
-| Event Bus (future) | NATS + JetStream | 2.10+ | Reserved for async domain events when needed |
-| Auxiliary backend (INACTIVE) | Go 1.25 + Fiber (`apps/backend/`) | — | Future/side service only; NOT the target for new endpoints |
-| Validation | Hand-rolled in handler | — | Validate input before touching the data layer; 400 with field details |
-| Testing | Jest + ts-jest | 30.x | Pure business logic unit-tested outside handlers |
+| Backend runtime | Go 1.25 + Fiber (`apps/api/`) | — | Primary backend — every new endpoint lives in `apps/api/internal/` |
+| Legacy backend | Next.js API Routes (App Router) | 14.2 | Legacy — endpoints being ported to Go; keep functional during migration |
+| Language (backend) | Go | 1.25+ | Typed, explicit error handling, context.Context |
+| Language (legacy) | TypeScript strict | 5.6+ | Explicit types on remaining legacy handlers |
+| Database | Turso / libSQL | — | SQLite-compatible relational DB (shared between Go and Next.js) |
+| Database Client (Go) | `tursodatabase/libsql-client-go` | 0.0+ | `database/sql` + libsql driver |
+| Database Client (legacy) | `@libsql/client` | 0.17+ | Parameterized SQL via `db.execute(sql, params)`; no ORM |
+| Migrations | Versioned SQL files | NNN_*.sql | `apps/api/migrations/` (new) + `apps/web/migrations/` (legacy) → unified on Turso |
+| Auth | Clerk (`clerk-sdk-go/v2`) | v2 | JWT via `Authorization: Bearer` header in Go |
+| Auth (legacy) | Clerk (`@clerk/nextjs`) | v6 | `auth()` per request in Next.js handlers |
+| Payments | Polar.sh | 0.49+ | Being ported to Go |
+| WebSockets | Fiber + `gofiber/websocket/v2` | — | Realtime in Go (`/ws` endpoint) |
+| Push | Firebase FCM (`firebase.google.com/go/v4`) | — | Push notifications via Go |
+| Validation | `internal/pkg/validator` | — | Validate input before touching data layer; 400 with field details |
+| Testing | Go `testing` + Fiber Test | — | Domain + handler tests in Go |
 
-**Rule of thumb: if a path can be expressed as a Next.js Route Handler, it IS a Next.js Route Handler.** Reach for Go only for genuinely out-of-band workloads that Next cannot host, and never for CRUD/analytics endpoints consumed by web or mobile.
+**Rule of thumb: every new endpoint goes to `apps/api/` (Go).** Fix legacy Next.js routes only if a bug is found there; otherwise port the feature to Go and switch the frontend client to `NEXT_PUBLIC_GO_API_URL`.
 
 ### 2.1 Why Fiber Over Standard Library or gin
 

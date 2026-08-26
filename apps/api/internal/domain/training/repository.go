@@ -48,6 +48,33 @@ type WorkoutRepository interface {
 	// LogWorkoutSet records a completed set within a workout session.
 	// Creates the session if one doesn't exist for the workout/athlete pair.
 	LogWorkoutSet(ctx context.Context, set *WorkoutSet, workoutID, athleteID string) (*WorkoutSet, error)
+
+	// GetAssignedWorkoutDetail retrieves a full assigned workout with its exercises.
+	GetAssignedWorkoutDetail(ctx context.Context, id string) (*AssignedWorkout, error)
+
+	// GetWorkoutSession retrieves a workout session by ID.
+	GetWorkoutSession(ctx context.Context, sessionID string) (*WorkoutSession, error)
+
+	// CreateWorkoutSession creates a new workout session for an athlete.
+	CreateWorkoutSession(ctx context.Context, workoutID, athleteID string) (*WorkoutSession, error)
+
+	// CompleteSession marks a session as completed with the given duration.
+	CompleteSession(ctx context.Context, sessionID string, durationSeconds int) error
+
+	// GetPrescription retrieves the exercise prescription for an assigned workout.
+	GetPrescription(ctx context.Context, workoutID string) ([]WorkoutExercise, error)
+
+	// ListAssignedWorkoutsByCoach retrieves all assigned workouts created by a coach.
+	ListAssignedWorkoutsByCoach(ctx context.Context, coachID string) ([]*AssignedWorkout, error)
+
+	// UpdateAssignedWorkout updates an assigned workout's fields.
+	UpdateAssignedWorkout(ctx context.Context, id string, aw *AssignedWorkout) error
+
+	// DeleteAssignedWorkout deletes an assigned workout and its exercises.
+	DeleteAssignedWorkout(ctx context.Context, id string) error
+
+	// DeleteTemplate deletes a workout template and its exercises.
+	DeleteTemplate(ctx context.Context, id string) error
 }
 
 // ProgressRepository defines the data access interface for progress tracking.

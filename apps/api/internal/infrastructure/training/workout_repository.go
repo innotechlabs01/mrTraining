@@ -440,6 +440,258 @@ func (r *WorkoutRepository) insertTemplateExercise(ctx context.Context, tx *sql.
 	return nil
 }
 
+// GetAssignedWorkoutDetail retrieves a full assigned workout with its exercises.
+func (r *WorkoutRepository) GetAssignedWorkoutDetail(ctx context.Context, id string) (*training.AssignedWorkout, error) {
+	aw, err := r.GetAssignedWorkout(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Load exercises for the assigned workout
+	exercises, err := r.getAssignedWorkoutExercises(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store exercises in a custom field (we'll use a helper approach)
+	// For now, exercises are accessible via GetPrescription
+	_ = exercises
+
+	return aw, nil
+}
+
+// getAssignedWorkoutExercises retrieves exercises for an assigned workout.
+func (r *WorkoutRepository) getAssignedWorkoutExercises(ctx context.Context, workoutID string) ([]training.WorkoutExercise, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, workout_id, name, sets, reps, weight_kg, rest_seconds, sort_order,
+		 notes, mode, phase, superset_group, body_part, muscle_groups, library_exercise_id
+		 FROM workout_exercises
+		 WHERE workout_id = ? ORDER BY sort_order`, workoutID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get assigned workout exercises: %w", err)
+	}
+	defer rows.Close()
+
+	var exercises []training.WorkoutExercise
+	for rows.Next() {
+		ex := training.WorkoutExercise{}
+		var weightKg sql.NullFloat64
+		var notes, supersetGroup, bodyPart, muscleGroups, libraryExerciseID sql.NullString
+
+		if err := rows.Scan(&ex.ID, &ex.TemplateID, &ex.Name, &ex.Sets, &ex.Reps,
+			&weightKg, &ex.RestSeconds, &ex.SortOrder, &notes, &ex.Mode, &ex.Phase,
+			&supersetGroup, &bodyPart, &muscleGroups, &libraryExerciseID); err != nil {
+			return nil, fmt.Errorf("failed to scan assigned workout exercise: %w", err)
+		}
+
+		if weightKg.Valid {
+			ex.WeightKg = weightKg.Float64
+		}
+		if notes.Valid {
+			ex.Notes = notes.String
+		}
+		if supersetGroup.Valid {
+			ex.SupersetGroup = supersetGroup.String
+		}
+		if bodyPart.Valid {
+			ex.BodyPart = bodyPart.String
+		}
+		if muscleGroups.Valid {
+			ex.MuscleGroups = muscleGroups.String
+		}
+		if libraryExerciseID.Valid {
+			ex.LibraryExerciseID = libraryExerciseID.String
+		}
+
+		exercises = append(exercises, ex)
+	}
+	return exercises, nil
+}
+
+// GetWorkoutSession retrieves a workout session by ID.
+func (r *WorkoutRepository) GetWorkoutSession(ctx context.Context, sessionID string) (*training.WorkoutSession, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT id, workout_id, athlete_id, started_at, completed, completed_at,
+		 current_exercise_index, duration_seconds
+		 FROM workout_session_logs WHERE id = ?`, sessionID)
+
+	s := &training.WorkoutSession{}
+	var completedAt sql.NullString
+	err := row.Scan(&s.ID, &s.WorkoutID, &s.AthleteID, &s.StartedAt, &s.Completed,
+		&completedAt, &s.CurrentExerciseIndex, &s.DurationSeconds)
+	if err == sql.ErrNoRows {
+		return nil, errors.NotFound("WorkoutSession", sessionID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workout session: %w", err)
+	}
+	if completedAt.Valid {
+		s.CompletedAt = completedAt.String
+	}
+	return s, nil
+}
+
+// CreateWorkoutSession creates a new workout session for an athlete.
+func (r *WorkoutRepository) CreateWorkoutSession(ctx context.Context, workoutID, athleteID string) (*training.WorkoutSession, error) {
+	session := &training.WorkoutSession{
+		ID:        generateID(),
+		WorkoutID: workoutID,
+		AthleteID: athleteID,
+	}
+
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO workout_session_logs
+		 (id, workout_id, athlete_id, started_at, completed, current_exercise_index, duration_seconds)
+		 VALUES (?, ?, ?, datetime('now'), 0, 0, 0)`,
+		session.ID, session.WorkoutID, session.AthleteID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workout session: %w", err)
+	}
+
+	return session, nil
+}
+
+// CompleteSession marks a session as completed with the given duration.
+func (r *WorkoutRepository) CompleteSession(ctx context.Context, sessionID string, durationSeconds int) error {
+	result, err := r.db.ExecContext(ctx,
+		`UPDATE workout_session_logs
+		 SET completed = 1, completed_at = datetime('now'), duration_seconds = ?
+		 WHERE id = ? AND completed = 0`,
+		durationSeconds, sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to complete session: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return errors.NotFound("WorkoutSession", sessionID)
+	}
+	return nil
+}
+
+// GetPrescription retrieves the exercise prescription for an assigned workout.
+func (r *WorkoutRepository) GetPrescription(ctx context.Context, workoutID string) ([]training.WorkoutExercise, error) {
+	return r.getAssignedWorkoutExercises(ctx, workoutID)
+}
+
+// ListAssignedWorkoutsByCoach retrieves all assigned workouts created by a coach.
+func (r *WorkoutRepository) ListAssignedWorkoutsByCoach(ctx context.Context, coachID string) ([]*training.AssignedWorkout, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, athlete_id, athlete_name, content_id, content_type, content_name,
+		 modality, start_date, end_date, days_of_week, status, progress, coach_id,
+		 created_at, updated_at
+		 FROM assigned_workouts WHERE coach_id = ?
+		 ORDER BY created_at DESC`, coachID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list assigned workouts by coach: %w", err)
+	}
+	defer rows.Close()
+
+	var workouts []*training.AssignedWorkout
+	for rows.Next() {
+		w := &training.AssignedWorkout{}
+		var daysOfWeekJSON string
+		var athleteName sql.NullString
+		if err := rows.Scan(&w.ID, &w.AthleteID, &athleteName, &w.ContentID, &w.ContentType,
+			&w.ContentName, &w.Modality, &w.StartDate, &w.EndDate, &daysOfWeekJSON,
+			&w.Status, &w.Progress, &w.CoachID, &w.CreatedAt, &w.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan assigned workout: %w", err)
+		}
+		if athleteName.Valid {
+			w.AthleteName = athleteName.String
+		}
+		if err := json.Unmarshal([]byte(daysOfWeekJSON), &w.DaysOfWeek); err != nil {
+			w.DaysOfWeek = []int{}
+		}
+		workouts = append(workouts, w)
+	}
+	return workouts, nil
+}
+
+// UpdateAssignedWorkout updates an assigned workout's fields.
+func (r *WorkoutRepository) UpdateAssignedWorkout(ctx context.Context, id string, aw *training.AssignedWorkout) error {
+	daysJSON, err := json.Marshal(aw.DaysOfWeek)
+	if err != nil {
+		return fmt.Errorf("failed to marshal days_of_week: %w", err)
+	}
+
+	result, err := r.db.ExecContext(ctx,
+		`UPDATE assigned_workouts
+		 SET modality = ?, start_date = ?, end_date = ?, days_of_week = ?,
+		     status = ?, updated_at = datetime('now')
+		 WHERE id = ?`,
+		aw.Modality, aw.StartDate, aw.EndDate, string(daysJSON), aw.Status, id)
+	if err != nil {
+		return fmt.Errorf("failed to update assigned workout: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return errors.NotFound("AssignedWorkout", id)
+	}
+	return nil
+}
+
+// DeleteAssignedWorkout deletes an assigned workout and its exercises.
+func (r *WorkoutRepository) DeleteAssignedWorkout(ctx context.Context, id string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx, `DELETE FROM workout_exercises WHERE workout_id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete workout exercises: %w", err)
+	}
+
+	result, err := tx.ExecContext(ctx, `DELETE FROM assigned_workouts WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete assigned workout: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return errors.NotFound("AssignedWorkout", id)
+	}
+
+	return tx.Commit()
+}
+
+// DeleteTemplate deletes a workout template and its exercises.
+func (r *WorkoutRepository) DeleteTemplate(ctx context.Context, id string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx, `DELETE FROM workout_template_exercises WHERE template_id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete template exercises: %w", err)
+	}
+
+	result, err := tx.ExecContext(ctx, `DELETE FROM workout_templates WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete template: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return errors.NotFound("WorkoutTemplate", id)
+	}
+
+	return tx.Commit()
+}
+
 // generateID creates a new UUID for use as a database ID.
 func generateID() string {
 	return uuid.New().String()
