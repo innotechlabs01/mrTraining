@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteNotifications, markNotificationRead } from '@/lib/coaching-db';
+import { getAthleteNotifications, markNotificationRead } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 

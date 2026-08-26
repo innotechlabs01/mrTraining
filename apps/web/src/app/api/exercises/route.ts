@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { listExerciseLibrary, createCustomExercise } from '@/lib/coaching-db';
+import { listExerciseLibrary, createCustomExercise } from '@/lib/db';
 
 // GET /api/exercises — the real exercise library: global rows plus this coach's customs.
 export async function GET() {

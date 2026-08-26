@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteByClerkId, getCoachAvailabilityForAthlete } from '@/lib/coaching-db';
+import { getAthleteByClerkId, getCoachAvailabilityForAthlete } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 

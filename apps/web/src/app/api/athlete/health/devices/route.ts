@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteByClerkId, listHealthDevices, upsertHealthDevice } from '@/lib/coaching-db';
+import { getAthleteByClerkId, listHealthDevices, upsertHealthDevice } from '@/lib/db';
 
 // GET /api/athlete/health/devices — the athlete's connected wearables.
 export async function GET() {

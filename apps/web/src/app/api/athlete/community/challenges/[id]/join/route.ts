@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { joinChallenge } from '@/lib/coaching-db';
+import { joinChallenge } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 

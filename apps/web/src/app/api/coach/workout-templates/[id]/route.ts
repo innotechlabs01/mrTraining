@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getWorkoutTemplate, deleteWorkoutTemplate, saveWorkoutTemplate } from '@/lib/coaching-db';
+import { getWorkoutTemplate, deleteWorkoutTemplate, saveWorkoutTemplate } from '@/lib/db';
 
 // GET /api/coach/workout-templates/[id] — full template with exercises (ownership-checked).
 export async function GET(_req: Request, ctx: { params: { id: string } }) {

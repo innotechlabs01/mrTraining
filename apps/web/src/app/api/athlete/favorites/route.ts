@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteFavorites, addAthleteFavorite, removeAthleteFavorite } from '@/lib/coaching-db';
+import { getAthleteFavorites, addAthleteFavorite, removeAthleteFavorite } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteByClerkId, getAthleteAppointments, createAthleteAppointment } from '@/lib/coaching-db';
+import { getAthleteByClerkId, getAthleteAppointments, createAthleteAppointment } from '@/lib/db';
 
 export async function GET() {
   try {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteByClerkId, upsertSleepLog, getSleepLogs } from '@/lib/coaching-db';
+import { getAthleteByClerkId, upsertSleepLog, getSleepLogs } from '@/lib/db';
 
 const VALID_SOURCES = ['healthkit', 'healthconnect', 'garmin'];
 const MAX_BATCH = 60; // ~2 months of nights

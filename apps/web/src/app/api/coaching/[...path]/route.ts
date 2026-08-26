@@ -22,7 +22,7 @@ import {
   getCoachAvailability, saveCoachAvailability,
   getBlogPosts, saveBlogPost, deleteBlogPost, getBlogPostBySlug, incrementBlogView,
   getPublicProducts,
-} from '@/lib/coaching-db'
+} from '@/lib/db'
 
 function errorResponse(message: string, status: number) {
   return NextResponse.json({ error: message }, { status })

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteByClerkId, deactivateHealthDevice } from '@/lib/coaching-db';
+import { getAthleteByClerkId, deactivateHealthDevice } from '@/lib/db';
 
 // DELETE /api/athlete/health/devices/[id] — disconnect a wearable (ownership-checked).
 export async function DELETE(_req: Request, ctx: { params: { id: string } }) {

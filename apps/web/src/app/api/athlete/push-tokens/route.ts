@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { registerPushToken } from '@/lib/coaching-db';
+import { registerPushToken } from '@/lib/db';
 
 // POST /api/athlete/push-tokens — register a push notification token.
 export async function POST(req: Request) {

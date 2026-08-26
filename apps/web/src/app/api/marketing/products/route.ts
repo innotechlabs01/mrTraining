@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllPublicProducts } from '@/lib/coaching-db';
+import { getAllPublicProducts } from '@/lib/db';
 import type { Product } from '@/features/coach/types';
 
 export async function GET(req: Request) {

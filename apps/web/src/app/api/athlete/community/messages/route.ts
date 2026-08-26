@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getCommunityMessages, createCommunityMessage } from '@/lib/coaching-db';
+import { getCommunityMessages, createCommunityMessage } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 

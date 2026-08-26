@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { listWorkoutTemplates, saveWorkoutTemplate } from '@/lib/coaching-db';
+import { listWorkoutTemplates, saveWorkoutTemplate } from '@/lib/db';
 
 // GET /api/coach/workout-templates — the coach's saved builder plans.
 export async function GET() {

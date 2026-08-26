@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteByClerkId, startVideoView, updateVideoView } from '@/lib/coaching-db';
+import { getAthleteByClerkId, startVideoView, updateVideoView } from '@/lib/db';
 
 // POST /api/athlete/video-views — start or update a video view session.
 // Body: { exerciseId, action: 'start'|'progress'|'complete', viewId?, positionSec?, totalDurationSec? }

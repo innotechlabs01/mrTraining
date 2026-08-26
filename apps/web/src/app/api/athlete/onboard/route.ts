@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteMembership } from '@/lib/coaching-db';
+import { getAthleteMembership } from '@/lib/db';
 import { getUserById, createUser, getAthleteProfileById, createAthleteProfile, getDB } from '@/lib/coach-isolation-db';
 
 export async function POST(req: Request) {

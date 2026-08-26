@@ -7,7 +7,7 @@ import {
   createWorkoutSession,
   listSessionSetLogs,
   getAthleteTrainingHistory,
-} from '@/lib/coaching-db';
+} from '@/lib/db';
 import { bestSetOf, is1RMRecord, best1RM } from '@/lib/training-engine/onerm';
 import type { WorkoutEntry } from '@/lib/training-engine/types';
 

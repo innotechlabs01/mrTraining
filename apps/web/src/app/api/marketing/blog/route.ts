@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getPublicBlogPosts, getPublicBlogPostBySlug, getAllPublicBlogPosts, getAllPublicBlogPostBySlug } from '@/lib/coaching-db';
+import { getPublicBlogPosts, getPublicBlogPostBySlug, getAllPublicBlogPosts, getAllPublicBlogPostBySlug } from '@/lib/db';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);

@@ -9,7 +9,7 @@ import {
   createWorkoutSession,
   logWorkoutSet,
   completeWorkoutSession,
-} from '@/lib/coaching-db';
+} from '@/lib/db';
 import { parseWorkoutCsv, matchToLibrary, inferMode } from '@/lib/training-engine/importers';
 
 // POST /api/athlete/import

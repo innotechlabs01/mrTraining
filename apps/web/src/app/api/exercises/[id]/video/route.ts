@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { put } from '@vercel/blob';
-import { getDB } from '@/lib/coaching-db';
+import { getDB } from '@/lib/db';
 
 const MAX_SIZE = 50 * 1024 * 1024;
 const ALLOWED_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];

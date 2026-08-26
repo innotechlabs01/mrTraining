@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteByClerkId, getEventDetail, upsertEventRegistration, replaceEventFormResponses, EventRegistrationStatus } from '@/lib/coaching-db';
+import { getAthleteByClerkId, getEventDetail, upsertEventRegistration, replaceEventFormResponses, EventRegistrationStatus } from '@/lib/db';
 
 const VALID_STATUSES: EventRegistrationStatus[] = ['accepted', 'cancelled'];
 

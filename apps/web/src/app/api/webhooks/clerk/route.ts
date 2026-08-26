@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { Webhook } from 'svix';
 import { getDB, generateUniqueCoachCode } from '@/lib/coach-isolation-db';
 import { getCoachByCode, linkCoachAthlete, createAthleteProfile, getUserById, createUser, getAthleteProfileById } from '@/lib/coach-isolation-db';
-import { getAthleteMembership } from '@/lib/coaching-db';
+import { getAthleteMembership } from '@/lib/db';
 
 const webhookSecret = process.env.CLERK_WEBHOOK_SECRET || '';
 const clerkSecretKey = process.env.CLERK_SECRET_KEY || '';

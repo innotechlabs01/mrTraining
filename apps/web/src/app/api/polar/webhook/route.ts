@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks'
-import { recordPayment, cancelMembership, getMembershipById } from '@/lib/coaching-db'
+import { recordPayment, cancelMembership, getMembershipById } from '@/lib/db'
 
 interface PolarEvent {
   type: string

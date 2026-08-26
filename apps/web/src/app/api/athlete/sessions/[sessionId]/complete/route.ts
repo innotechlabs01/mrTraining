@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteByClerkId, getWorkoutSession, completeWorkoutSession } from '@/lib/coaching-db';
+import { getAthleteByClerkId, getWorkoutSession, completeWorkoutSession } from '@/lib/db';
 
 export async function POST(_req: Request, ctx: { params: { sessionId: string } }) {
   try {

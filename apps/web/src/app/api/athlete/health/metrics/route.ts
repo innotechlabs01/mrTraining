@@ -6,7 +6,7 @@ import {
   getHealthMetrics,
   markDeviceSynced,
   type IncomingHealthMetric,
-} from '@/lib/coaching-db';
+} from '@/lib/db';
 
 // 'manual_readiness' lets the athlete's self-check-in live beside wearable data
 // without either overwriting the other.

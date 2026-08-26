@@ -5,7 +5,7 @@ import {
   getWorkoutDetail,
   getAthleteTrainingHistory,
   type WorkoutExercise,
-} from '@/lib/coaching-db';
+} from '@/lib/db';
 import { nextPrescription, policyFor } from '@/lib/training-engine/progression';
 import type { ExerciseConfig, ProgressionPolicy } from '@/lib/training-engine/types';
 

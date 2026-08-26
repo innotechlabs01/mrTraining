@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { Polar } from '@polar-sh/sdk'
-import { getAthleteByClerkId, getAthleteMembership } from '@/lib/coaching-db'
+import { getAthleteByClerkId, getAthleteMembership } from '@/lib/db'
 
 function getPolar() {
   return new Polar({ accessToken: process.env.POLAR_ACCESS_TOKEN || '' })

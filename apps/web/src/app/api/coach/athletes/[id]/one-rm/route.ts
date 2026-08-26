@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAthleteTrainingHistory, getAthleteById } from '@/lib/coaching-db';
+import { getAthleteTrainingHistory, getAthleteById } from '@/lib/db';
 import { withAuth } from '@/lib/auth-middleware';
 import { best1RM, e1rmSeries } from '@/lib/training-engine/onerm';
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getProducts, saveSale } from '@/lib/coaching-db';
+import { getProducts, saveSale } from '@/lib/db';
 import { getDB } from '@/lib/coach-isolation-db';
 
 export async function POST(req: NextRequest) {

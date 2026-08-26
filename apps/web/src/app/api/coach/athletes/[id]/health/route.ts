@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getHealthMetrics, getSleepLogs, getAthleteById } from '@/lib/coaching-db';
+import { getHealthMetrics, getSleepLogs, getAthleteById } from '@/lib/db';
 import { withAuth } from '@/lib/auth-middleware';
 
 // GET /api/coach/athletes/[id]/health?days=14

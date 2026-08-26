@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getCoachByCode, linkCoachAthlete, createAthleteProfile, getUserById, createUser, getAthleteProfileById, getDB } from '@/lib/coach-isolation-db';
-import { getAthleteMembership } from '@/lib/coaching-db';
+import { getAthleteMembership } from '@/lib/db';
 
 export async function POST(req: Request) {
   try {
