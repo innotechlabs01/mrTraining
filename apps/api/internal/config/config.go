@@ -25,6 +25,7 @@ type Config struct {
 	// Auth (Clerk)
 	ClerkSecretKey      string // Clerk secret key for backend API calls
 	ClerkPublishableKey string // Clerk publishable key for frontend
+	ClerkJWKSURL        string // Optional: Custom JWKS URL for token verification
 
 	// CORS
 	CORSOrigins string // Allowed CORS origins, comma-separated
@@ -50,6 +51,7 @@ func Load() (*Config, error) {
 
 		ClerkSecretKey:      getEnv("CLERK_SECRET_KEY", ""),
 		ClerkPublishableKey: getEnv("CLERK_PUBLISHABLE_KEY", ""),
+		ClerkJWKSURL:        getEnv("CLERK_JWKS_URL", ""),
 
 		CORSOrigins: getEnv("CORS_ORIGINS", "*"),
 
