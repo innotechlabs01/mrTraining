@@ -1,10 +1,19 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck -- libsql execute args are runtime-safe; InValue type too strict for dynamic query building
-/* eslint-enable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck — libsql InValue type is too strict for Record<string, unknown> dynamic params.
+// TODO(phase-2): Remove after decomposing this file into domain modules with typed repositories.
 import { createClient } from '@libsql/client'
 
 export function getDB() {
-  const url = process.env.TURSO_URL || process.env.DATABASE_URL || 'file:local.db'
+  const url = process.env.TURSO_URL || process.env.DATABASE_URL
+  if (!url) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'DATABASE_URL or TURSO_URL must be set in production. ' +
+        'Check your Vercel environment variables.',
+      )
+    }
+    console.warn('[DB] No DATABASE_URL or TURSO_URL set — falling back to local.db for development')
+    return createClient({ url: 'file:local.db', authToken: '' })
+  }
   const authToken = process.env.TURSO_AUTH_TOKEN || ''
   return createClient({ url, authToken })
 }

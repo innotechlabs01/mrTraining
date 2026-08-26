@@ -1,16 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getDB, generateUniqueCoachCode } from '@/lib/coach-isolation-db';
+import { withAuth } from '@/lib/auth-middleware';
 
 const clerkSecretKey = process.env.CLERK_SECRET_KEY || '';
 
-export async function POST(req: Request) {
+export const POST = withAuth(async (userId) => {
   if (!clerkSecretKey) {
     return NextResponse.json({ error: 'Clerk not configured' }, { status: 500 });
-  }
-
-  const { userId } = await req.json();
-  if (!userId) {
-    return NextResponse.json({ error: 'userId required' }, { status: 400 });
   }
 
   const db = getDB();
@@ -48,4 +44,4 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ ok: true, metadata });
-}
+});

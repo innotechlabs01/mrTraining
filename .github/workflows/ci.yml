@@ -7,152 +7,9 @@ on:
     branches: [main, develop]
 
 env:
-  GO_VERSION: '1.25'
   NODE_VERSION: '20'
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/backend
 
 jobs:
-  # ============================================
-  # BACKEND JOBS
-  # ============================================
-  backend-lint:
-    name: Backend Lint
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./apps/backend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-      - name: Download dependencies
-        run: go mod download
-      - name: Run go vet
-        run: go vet ./...
-      - name: Run staticcheck
-        run: go run honnef.co/go/tools/cmd/staticcheck@latest ./...
-
-  backend-test:
-    name: Backend Tests
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./apps/backend
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: mrtraining_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: password
-        ports: [5432:5432]
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports: [6379:6379]
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-      - name: Download dependencies
-        run: go mod download
-      - name: Run migrations
-        run: go run ./cmd/migrate -action=up
-        env:
-          DATABASE_URL: postgres://postgres:password@localhost:5432/mrtraining_test?sslmode=disable
-      - name: Run unit tests
-        run: go test -v -race -count=1 -coverprofile=coverage.out ./internal/... ./pkg/...
-        env:
-          DATABASE_URL: postgres://postgres:password@localhost:5432/mrtraining_test?sslmode=disable
-          REDIS_URL: redis://localhost:6379
-      - name: Run integration tests
-        run: go test -v -race -count=1 -tags=integration ./internal/...
-        env:
-          DATABASE_URL: postgres://postgres:password@localhost:5432/mrtraining_test?sslmode=disable
-          REDIS_URL: redis://localhost:6379
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          flags: backend
-          files: apps/backend/coverage.out
-
-  backend-build:
-    name: Build Backend
-    runs-on: ubuntu-latest
-    needs: [backend-lint, backend-test]
-    defaults:
-      run:
-        working-directory: ./apps/backend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-      - name: Build binary
-        run: CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o api ./cmd/api
-      - name: Build migrate binary
-        run: CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o migrate ./cmd/migrate
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-binaries
-          path: |
-            apps/backend/api
-            apps/backend/migrate
-          retention-days: 7
-
-  backend-docker:
-    name: Build & Push Docker Image
-    runs-on: ubuntu-latest
-    needs: backend-build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix=
-            type=raw,value=latest,enable={{is_default_branch}}
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: ./apps/backend
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   # ============================================
   # FRONTEND JOBS
   # ============================================
@@ -234,14 +91,10 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [backend-docker, frontend-build]
+    needs: [frontend-build]
     if: github.ref == 'refs/heads/develop'
     environment: staging
     steps:
-      - name: Deploy backend to staging
-        run: |
-          echo "Deploy backend to staging (Fly.io/Render/Railway)"
-          # flyctl deploy --app mr-training-staging --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:develop
       - name: Deploy frontend to staging
         uses: amondnet/vercel-action@v25
         if: env.VERCEL_TOKEN != ''
@@ -257,14 +110,10 @@ jobs:
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [backend-docker, frontend-build]
+    needs: [frontend-build]
     if: github.ref == 'refs/heads/main'
     environment: production
     steps:
-      - name: Deploy backend to production
-        run: |
-          echo "Deploy backend to production (Fly.io/Render/Railway)"
-          # flyctl deploy --app mr-training-prod --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
       - name: Deploy frontend to production
         uses: amondnet/vercel-action@v25
         if: env.VERCEL_TOKEN != ''
