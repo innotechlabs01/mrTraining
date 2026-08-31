@@ -17,9 +17,10 @@ import (
 // Service implements training-related business operations.
 // It depends on repository interfaces, making it testable with mocks.
 type Service struct {
-	exerciseRepo training.ExerciseRepository
-	workoutRepo  training.WorkoutRepository
-	progressRepo training.ProgressRepository
+	exerciseRepo        training.ExerciseRepository
+	workoutRepo         training.WorkoutRepository
+	progressRepo        training.ProgressRepository
+	trainingSessionRepo training.TrainingSessionRepository
 }
 
 // NewService creates a new training application service with the given repositories.
@@ -27,11 +28,13 @@ func NewService(
 	exerciseRepo training.ExerciseRepository,
 	workoutRepo training.WorkoutRepository,
 	progressRepo training.ProgressRepository,
+	trainingSessionRepo training.TrainingSessionRepository,
 ) *Service {
 	return &Service{
-		exerciseRepo: exerciseRepo,
-		workoutRepo:  workoutRepo,
-		progressRepo: progressRepo,
+		exerciseRepo:        exerciseRepo,
+		workoutRepo:         workoutRepo,
+		progressRepo:        progressRepo,
+		trainingSessionRepo: trainingSessionRepo,
 	}
 }
 
@@ -94,6 +97,7 @@ func (s *Service) CreateExercise(ctx context.Context, coachID string, req dto.Cr
 		Difficulty:  req.Difficulty,
 		Category:    req.Category,
 		Instructions: req.Instructions,
+		ImageURL:    req.ImageURL,
 		IsCustom:    isCustom,
 		CoachID:     &coachID,
 	}
@@ -165,6 +169,57 @@ func (s *Service) CreateWorkoutTemplate(ctx context.Context, coachID string, req
 
 	if err := s.workoutRepo.CreateTemplate(ctx, template); err != nil {
 		return nil, fmt.Errorf("create workout template: %w", err)
+	}
+
+	return template, nil
+}
+
+// UpdateWorkoutTemplate updates an existing workout template.
+func (s *Service) UpdateWorkoutTemplate(ctx context.Context, coachID, id string, req dto.CreateWorkoutTemplateRequest) (*training.WorkoutTemplate, error) {
+	if strings.TrimSpace(req.Name) == "" {
+		return nil, errors.BadRequest("template name is required")
+	}
+	existing, err := s.workoutRepo.GetTemplate(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing.CoachID != coachID {
+		return nil, errors.Forbidden("you can only update your own templates")
+	}
+
+	exercises := make([]training.WorkoutExercise, len(req.Exercises))
+	for i, ex := range req.Exercises {
+		exercises[i] = training.WorkoutExercise{
+			ID:                uuid.New().String(),
+			TemplateID:        id,
+			Name:              ex.Name,
+			Sets:              ex.Sets,
+			Reps:              ex.Reps,
+			WeightKg:          ex.WeightKg,
+			RestSeconds:       ex.RestSeconds,
+			SortOrder:         i,
+			Notes:             ex.Notes,
+			Mode:              ex.Mode,
+			Phase:             ex.Phase,
+			SupersetGroup:     ex.SupersetGroup,
+			BodyPart:          ex.BodyPart,
+			MuscleGroups:      ex.MuscleGroups,
+			LibraryExerciseID: ex.LibraryExerciseID,
+		}
+	}
+
+	template := &training.WorkoutTemplate{
+		ID:                      id,
+		CoachID:                 coachID,
+		Name:                    strings.TrimSpace(req.Name),
+		Description:             req.Description,
+		Goal:                    req.Goal,
+		EstimatedDurationMinutes: req.EstimatedDurationMinutes,
+		Exercises:               exercises,
+	}
+
+	if err := s.workoutRepo.UpdateTemplate(ctx, template); err != nil {
+		return nil, fmt.Errorf("update workout template: %w", err)
 	}
 
 	return template, nil
@@ -265,13 +320,13 @@ func (s *Service) GetProgress(ctx context.Context, athleteID string, dateRange t
 	return entries, nil
 }
 
-// GetAssignedWorkoutDetail returns a full assigned workout with its exercises.
-func (s *Service) GetAssignedWorkoutDetail(ctx context.Context, workoutID string) (*training.AssignedWorkout, error) {
-	aw, err := s.workoutRepo.GetAssignedWorkoutDetail(ctx, workoutID)
+// GetAssignedWorkoutDetail returns a full assigned workout carrier with exercises and session.
+func (s *Service) GetAssignedWorkoutDetail(ctx context.Context, workoutID string) (*training.WorkoutDetail, error) {
+	detail, err := s.workoutRepo.GetAssignedWorkoutDetail(ctx, workoutID)
 	if err != nil {
 		return nil, fmt.Errorf("get assigned workout detail: %w", err)
 	}
-	return aw, nil
+	return detail, nil
 }
 
 // GetWorkoutSession returns a workout session by ID.
@@ -292,9 +347,9 @@ func (s *Service) CreateWorkoutSession(ctx context.Context, workoutID, athleteID
 	return session, nil
 }
 
-// CompleteSession marks a workout session as completed with the given RPE and notes.
-func (s *Service) CompleteSession(ctx context.Context, sessionID string, rpe int, notes string) error {
-	if err := s.workoutRepo.CompleteSession(ctx, sessionID, 0); err != nil {
+// CompleteSession marks a workout session as completed with the given duration.
+func (s *Service) CompleteSession(ctx context.Context, sessionID string, durationSeconds int) error {
+	if err := s.workoutRepo.CompleteSession(ctx, sessionID, durationSeconds); err != nil {
 		return fmt.Errorf("complete session: %w", err)
 	}
 	return nil
@@ -340,4 +395,25 @@ func (s *Service) DeleteWorkoutTemplate(ctx context.Context, id string) error {
 		return fmt.Errorf("delete workout template: %w", err)
 	}
 	return nil
+}
+
+// CreateTrainingSession creates a new training session aggregate.
+func (s *Service) CreateTrainingSession(ctx context.Context, coachID, athleteID, title, scheduledAt, status string) (*training.TrainingSession, error) {
+	if coachID == "" || athleteID == "" || title == "" {
+		return nil, errors.BadRequest("coach_id, athlete_id and title are required")
+	}
+	session := training.NewTrainingSession(coachID, athleteID, title, scheduledAt, status)
+	if err := s.trainingSessionRepo.Create(ctx, session); err != nil {
+		return nil, fmt.Errorf("create training session: %w", err)
+	}
+	return session, nil
+}
+
+// ListTrainingSessions returns training sessions for coach or athlete.
+func (s *Service) ListTrainingSessions(ctx context.Context, coachID, athleteID string) ([]*training.TrainingSession, error) {
+	sessions, err := s.trainingSessionRepo.List(ctx, coachID, athleteID)
+	if err != nil {
+		return nil, fmt.Errorf("list training sessions: %w", err)
+	}
+	return sessions, nil
 }

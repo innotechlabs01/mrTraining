@@ -37,7 +37,7 @@ export async function getCoachAppointments(coachId: string): Promise<CoachAppoin
     'SELECT * FROM appointments WHERE coach_id = ? ORDER BY date, start_time',
     [coachId],
   )
-  return result.rows.map(r => ({
+  return result.rows.map((r: { id: string; coach_id: string; athlete_id: string; athlete_name: string; date: string; start_time: string; end_time: string; status: string; athlete_sports: string[]; athlete_modality: string; athlete_level: string; athlete_goal: string; athlete_frequency: number; athlete_duration: number; athlete_equipment: string; athlete_routine_accepted: boolean; notes: string }) => ({
     id: r.id as string,
     coachId: r.coach_id as string,
     athleteId: r.athlete_id as string,

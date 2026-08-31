@@ -26,6 +26,7 @@ type ExerciseEntry struct {
 	Instructions     string  `json:"instructions,omitempty"`
 	DefaultSec       *int    `json:"default_sec,omitempty"`
 	VideoURL         string  `json:"video_url,omitempty"`
+	ImageURL         string  `json:"imageUrl,omitempty"`
 	IsCustom         bool    `json:"is_custom"`
 	CoachID          *string `json:"coach_id,omitempty"`
 	CreatedAt        string  `json:"created_at"`

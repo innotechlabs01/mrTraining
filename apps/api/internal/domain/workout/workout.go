@@ -2,6 +2,17 @@
 // It includes WorkoutTemplate and WorkoutTemplateExercise types that map to the database schema.
 package workout
 
+import "github.com/google/uuid"
+
+// NewWorkoutTemplate creates a new WorkoutTemplate aggregate with generated ID.
+func NewWorkoutTemplate(coachID, name string) *WorkoutTemplate {
+	return &WorkoutTemplate{
+		ID:      uuid.New().String(),
+		CoachID: coachID,
+		Name:    name,
+	}
+}
+
 // WorkoutTemplate represents a coach-designed workout plan that can be
 // assigned to multiple athletes. Templates contain metadata and a list
 // of exercises.

@@ -40,7 +40,17 @@ type WorkoutExercise struct {
 	PerSide           bool    `json:"per_side"`
 	BodyPart          string  `json:"body_part,omitempty"`
 	MuscleGroups      string  `json:"muscle_groups,omitempty"`
+	ImageURL          string  `json:"imageUrl,omitempty"`
 	LibraryExerciseID string  `json:"library_exercise_id,omitempty"`
+}
+
+// WorkoutDetail is the aggregate returned by GET /workouts/:id/detail.
+// It carries the assigned workout plus its exercises (image-joined) and the
+// latest in-progress session marker (nil when none exists).
+type WorkoutDetail struct {
+	Workout   *AssignedWorkout
+	Exercises []WorkoutExercise
+	Session   *WorkoutSession
 }
 
 // AssignedWorkout represents a workout template assigned to a specific athlete.

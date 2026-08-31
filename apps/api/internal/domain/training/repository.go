@@ -33,6 +33,9 @@ type WorkoutRepository interface {
 	// CreateTemplate inserts a new workout template with its exercises.
 	CreateTemplate(ctx context.Context, template *WorkoutTemplate) error
 
+	// UpdateTemplate updates an existing workout template and its exercises.
+	UpdateTemplate(ctx context.Context, template *WorkoutTemplate) error
+
 	// AssignWorkout assigns a workout template to an athlete.
 	// Creates the assigned_workout record and copies exercises from the template.
 	AssignWorkout(ctx context.Context, assigned *AssignedWorkout) error
@@ -50,7 +53,7 @@ type WorkoutRepository interface {
 	LogWorkoutSet(ctx context.Context, set *WorkoutSet, workoutID, athleteID string) (*WorkoutSet, error)
 
 	// GetAssignedWorkoutDetail retrieves a full assigned workout with its exercises.
-	GetAssignedWorkoutDetail(ctx context.Context, id string) (*AssignedWorkout, error)
+	GetAssignedWorkoutDetail(ctx context.Context, id string) (*WorkoutDetail, error)
 
 	// GetWorkoutSession retrieves a workout session by ID.
 	GetWorkoutSession(ctx context.Context, sessionID string) (*WorkoutSession, error)
@@ -83,4 +86,14 @@ type ProgressRepository interface {
 	// GetProgress retrieves progress entries for an athlete within a date range.
 	// Returns an empty slice (not nil) if no progress data exists.
 	GetProgress(ctx context.Context, athleteID string, dateRange ProgressDateRange) ([]*ProgressEntry, error)
+}
+
+// TrainingSessionRepository defines the data access interface for training sessions.
+// Implementations can use any data store (Turso, Postgres, in-memory, etc.).
+type TrainingSessionRepository interface {
+	// Create persists a new training session.
+	Create(ctx context.Context, session *TrainingSession) error
+	// List retrieves training sessions for a coach or athlete with optional filters.
+	// Returns an empty slice (not nil) if no sessions match.
+	List(ctx context.Context, coachID, athleteID string) ([]*TrainingSession, error)
 }

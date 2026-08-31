@@ -1711,4 +1711,43 @@ export async function GET(_req: Request, ctx: { params: { id: string } }) {
 
 ---
 
-**Document version 1.0 — July 2026. This document is living; it is updated when architecture decisions are made, not when code is written. Every decision documented here must be traceable to a PR or ADR.**
+## 16. Consolidated Endpoint Criteria — Migration to Go (2026-09)
+
+This section is the single source of truth for which endpoints live in Go vs Next.js. It consolidates Slice 1 + Slice 2 decisions and blocks new Next.js routes.
+
+### 16.1 Authoritative registry
+
+| Slice | Go route (Fiber, `/api/v1`) | Method | Auth | Legacy Next.js path replaced | Mobile/Web caller updated |
+|---|---|---|---|---|---|
+| 1 | `/athletes/today` | GET | RequireAthlete | `api/athlete/today` | `TodayScreen`, `AthleteTodaySummary`, `ProgressScreen` |
+| 1 | `/athletes/onboard` | GET/POST | RequireAthlete | `api/athlete/onboard` | `SignInScreen`, onboarding flow |
+| 1 | `/invites/accept`, `/invites/validate` | POST | public/auth | `api/invites/*` | `InviteAcceptScreen` |
+| 1 | `/workouts`, `/workouts/:id`, `/workouts/:id/detail`, `/workouts/:id/prescription` | GET | RequireAthlete | `api/athlete/workouts/*` | `WorkoutListScreen`, `WorkoutDetailScreen`, `web workoutService.getById` |
+| 1 | `/workouts/:id/session`, `/workouts/sessions/:id`, `/workouts/sessions/:id/complete`, `/workouts/:id/sets` | POST/GET | RequireAthlete | `api/athlete/workouts/[id]/session` | `WorkoutExecutionScreen` |
+| 1 | `/exercises`, `/exercises/:id` | GET | auth | `api/exercises/*` | `SearchScreen` |
+| 2 | `/favorites` | GET/POST/DELETE | RequireAthlete | `/athlete/favorites` | `FavoritesScreen`, `SearchScreen` |
+| 2 | `/alerts` | GET | RequireAthlete | `/athlete/alerts` | `TodayScreen`, `push.ts` |
+| 2 | `/blog`, `/blog/:id` | GET | RequireAthlete | `/athlete/community` blog alias | `ArticlesScreen` |
+| 2 | `/polar/checkout` | POST | RequireAthlete | `/polar/checkout` | `MembershipScreen`, `PaymentScreen` |
+| 2 | `/import` | POST | RequireAthlete | `/athlete/import` | `ImportHistoryScreen` |
+| 2 | `/video-views` | POST | RequireAthlete | `/athlete/video-views` | `TrackedVideoPlayer` |
+| 2 | `/athlete/community`, `/athlete/community/messages` | GET/POST | RequireAthlete | `api/athlete/community*` | `CommunityScreen`, `DiscussionForumScreen` |
+| 2 | `/athlete/store`, `/athlete/store/purchase` | GET/POST | RequireAthlete | `api/athlete/store*` | `StoreScreen` |
+| 2 | `/athlete/availability`, `/athlete/appointments` | GET/POST | RequireAthlete | `api/athlete/availability` | `CoachScheduleModal` |
+| Web | `/workout-templates/:id` | PUT | RequireCoach | `api/coach/workout-templates/[id]` | `web client workoutTemplates.update` |
+
+All new endpoints follow the Go DDD vertical slice: `internal/domain/<X>/` (entity + Repository interface), `internal/application/<X>/service.go` (injected repo), `internal/infrastructure/<X>/repository.go` (raw `libsql` with `?`), `internal/interfaces/http/{handlers,dto,routes}`, wired in `cmd/api/main.go`. Response envelope is `appresponse.Success` with `dto.ListResponse[T]` for lists (snake_case JSON, `200` only).
+
+### 16.2 Criteria for creating a new endpoint
+
+1. **Go-first**: Every new path goes to `apps/api/` — never to `apps/web/src/app/api/`. Legacy routes stay until the Go equivalent is tested and the mobile/web caller switched (checked via `go build` + `go test` + mobile `tsc`).
+2. **Actor in path only when legacy-compatible**: New top-level resources use `/favorites`, `/alerts`, `/blog` etc. Athlete-scoped legacy compatibles keep `/athlete/*` prefix (community/store/scheduling) to avoid mobile rewrites.
+3. **Middleware**: `middleware.RequireAthlete()` / `RequireCoach()` per route, `middleware.GetUserID(c)` as string.
+4. **Validation**: `internal/pkg/validator` before touching the repo; `400` with field details.
+5. **Idempotency**: Session/create endpoints return existing active record instead of duplicating.
+6. **No 201**: All successes use `200` via `appresponse.Success`.
+7. **Graceful missing tables**: Repos return empty slices (not 500) when `no such table` — checked via `strings.Contains(err.Error(),"no such table")`.
+
+---
+
+**Document version 1.1 — September 2026. Section 16 added after Slice 2. This document is living; it is updated when architecture decisions are made, not when code is written. Every decision documented here must be traceable to a PR or ADR.**

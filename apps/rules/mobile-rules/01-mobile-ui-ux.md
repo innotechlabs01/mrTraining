@@ -89,25 +89,23 @@ Every list, feed, and dashboard section needs an empty state:
 ## 7. Design Tokens
 
 ```typescript
-// shared/theme/tokens.ts
+// shared/theme/tokens.ts — Unified AthletePro system (dark-first)
 export const tokens = {
   spacing: {
-    xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48,
+    xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48, xxxl: 64,
   },
   radius: {
-    sm: 6, md: 12, lg: 16, xl: 24, full: 9999,
+    sm: 8, md: 12, lg: 16, xl: 24, full: 9999,
   },
   typography: {
-    display: { fontSize: 34, lineHeight: 41, weight: '700' },
-    title1:  { fontSize: 28, lineHeight: 34, weight: '700' },
-    title2:  { fontSize: 22, lineHeight: 28, weight: '600' },
-    title3:  { fontSize: 20, lineHeight: 25, weight: '600' },
-    body:    { fontSize: 17, lineHeight: 22, weight: '400' },
-    callout: { fontSize: 16, lineHeight: 21, weight: '400' },
-    subhead: { fontSize: 15, lineHeight: 20, weight: '400' },
-    footnote:{ fontSize: 13, lineHeight: 18, weight: '400' },
-    caption1:{ fontSize: 12, lineHeight: 16, weight: '400' },
-    caption2:{ fontSize: 11, lineHeight: 13, weight: '400' },
+    display: { fontSize: 34, lineHeight: 40, weight: '800', family: 'Inter' },
+    h1:     { fontSize: 30, lineHeight: 36, weight: '800', family: 'Inter' },
+    h2:     { fontSize: 24, lineHeight: 30, weight: '800', family: 'Inter' },
+    h3:     { fontSize: 20, lineHeight: 26, weight: '700', family: 'Inter' },
+    body:   { fontSize: 16, lineHeight: 22, weight: '400', family: 'Inter' },
+    bodySmall: { fontSize: 13, lineHeight: 18, weight: '400', family: 'Inter' },
+    caption:{ fontSize: 11, lineHeight: 15, weight: '500', family: 'Inter' },
+    overline:{ fontSize: 10, lineHeight: 14, weight: '700', family: 'Inter' },
   },
 };
 ```
@@ -117,35 +115,34 @@ export const tokens = {
 ## 8. Theme (Dark + Light)
 
 ```typescript
-// Brand colors from 01-brand-guidelines.md §4 (Volt single-accent system)
-// Canonical source: apps/mobile/src/shared/theme/tokens.ts — dark-first.
+// Unified AthletePro palette (UX Pilot) — dark-first. Canonical source:
+// apps/mobile/src/shared/theme/tokens.ts. Single accent: Electric Green.
 const darkTheme = {
-  background: '#111214',      // Base
-  surface: '#191B1E',         // Surface
-  surfaceRaised: '#202329',   // Surface Raised
-  text: '#F5F5F7',
+  background: '#0B0F0E',      // Base
+  surface: '#151B19',         // Surface
+  surface2: '#1C2320',        // Surface Raised / elevated rows
+  text: '#FFFFFF',
   textSecondary: '#9CA3AF',
-  primary: '#C8FF00',         // Volt — one primary CTA per screen
-  primaryPressed: '#A8D900',  // Volt pressed state
-  destructive: '#FF5A5F',
+  primary: '#16E37A',         // Electric Green — one primary CTA per screen
+  primaryPressed: '#12C66A',  // Pressed state
   success: '#34D399',
   warning: '#FBBF24',
-  border: '#26292E',
+  error: '#FF6B6B',
+  border: '#242B28',          // hairline (white/5 over base)
 };
 
-// Light mode keeps the same accent and semantic roles over inverted neutrals;
-// Volt always carries dark text (#111214), never white.
+// Light mode keeps the same accent and semantic roles over inverted neutrals.
 const lightTheme = {
   background: '#FFFFFF',
   surface: '#F5F5F7',
-  text: '#111214',
+  text: '#0B0F0E',
   textSecondary: '#4B5563',
-  primary: '#C8FF00',
-  primaryPressed: '#A8D900',
-  destructive: '#FF5A5F',
+  primary: '#16E37A',
+  primaryPressed: '#12C66A',
+  error: '#FF6B6B',
   success: '#34D399',
   warning: '#FBBF24',
-  border: '#E5E5EA',
+  border: '#E5E7EB',
 };
 ```
 

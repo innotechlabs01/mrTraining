@@ -1,4 +1,3 @@
-// @ts-nocheck — libsql InValue type is too strict for Record<string, unknown> dynamic params.
 import { getDB } from './db'
 
 // ============== Athlete Notifications (migration 018) ==============

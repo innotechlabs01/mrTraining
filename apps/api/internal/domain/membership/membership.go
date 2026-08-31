@@ -2,7 +2,21 @@
 // It includes Membership, Plan, and Payment types that map to the database schema.
 package membership
 
-import "time"
+import (
+	"github.com/google/uuid"
+	"time"
+)
+
+// NewMembership creates a new Membership aggregate with generated ID.
+func NewMembership(athleteID, coachID, planName string) *Membership {
+	return &Membership{
+		ID:        uuid.New().String(),
+		AthleteID: athleteID,
+		CoachID:   coachID,
+		PlanName:  planName,
+		Status:    "active",
+	}
+}
 
 // Membership represents an athlete's subscription to a coach's training program.
 // Status can be: "active", "trial", "past_due", "cancelled", "expired".

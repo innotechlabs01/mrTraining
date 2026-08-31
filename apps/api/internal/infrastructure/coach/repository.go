@@ -1,5 +1,3 @@
-//go:build ignore
-
 package coach
 
 import (
@@ -8,6 +6,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+
+	coachdomain "github.com/innotechlabs01/mr-training-api/internal/domain/coach"
 )
 
 // Repository implements coach.Repository using database/sql with Turso/libsql.
@@ -21,8 +21,8 @@ func NewRepository(db *sql.DB) *Repository {
 }
 
 // GetDashboard retrieves aggregated dashboard metrics for a coach.
-func (r *Repository) GetDashboard(ctx context.Context, coachID string) (*Dashboard, error) {
-	d := &Dashboard{}
+func (r *Repository) GetDashboard(ctx context.Context, coachID string) (*coachdomain.Dashboard, error) {
+	d := &coachdomain.Dashboard{}
 
 	// Count total athletes
 	err := r.db.QueryRowContext(ctx,
@@ -62,8 +62,8 @@ func (r *Repository) GetDashboard(ctx context.Context, coachID string) (*Dashboa
 }
 
 // GetDailySummary retrieves today's summary for a coach.
-func (r *Repository) GetDailySummary(ctx context.Context, coachID string) (*DailySummary, error) {
-	d := &DailySummary{Date: "date('now')"}
+func (r *Repository) GetDailySummary(ctx context.Context, coachID string) (*coachdomain.DailySummary, error) {
+	d := &coachdomain.DailySummary{Date: "date('now')"}
 
 	// Sessions today
 	err := r.db.QueryRowContext(ctx,
@@ -94,7 +94,7 @@ func (r *Repository) GetDailySummary(ctx context.Context, coachID string) (*Dail
 }
 
 // GetTimeBlocks retrieves all time blocks for a coach.
-func (r *Repository) GetTimeBlocks(ctx context.Context, coachID string) ([]*TimeBlock, error) {
+func (r *Repository) GetTimeBlocks(ctx context.Context, coachID string) ([]*coachdomain.TimeBlock, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, coach_id, title, block_type, start_time, end_time, recurrence, color, created_at, updated_at
 		 FROM coach_time_blocks WHERE coach_id = ?
@@ -104,9 +104,9 @@ func (r *Repository) GetTimeBlocks(ctx context.Context, coachID string) ([]*Time
 	}
 	defer rows.Close()
 
-	var blocks []*TimeBlock
+	var blocks []*coachdomain.TimeBlock
 	for rows.Next() {
-		b := &TimeBlock{}
+		b := &coachdomain.TimeBlock{}
 		var recurrence, color sql.NullString
 		if err := rows.Scan(&b.ID, &b.CoachID, &b.Title, &b.BlockType,
 			&b.StartTime, &b.EndTime, &recurrence, &color, &b.CreatedAt, &b.UpdatedAt); err != nil {
@@ -124,7 +124,7 @@ func (r *Repository) GetTimeBlocks(ctx context.Context, coachID string) ([]*Time
 }
 
 // SaveTimeBlocks replaces all time blocks for a coach (transactional delete + insert).
-func (r *Repository) SaveTimeBlocks(ctx context.Context, coachID string, blocks []*TimeBlock) error {
+func (r *Repository) SaveTimeBlocks(ctx context.Context, coachID string, blocks []*coachdomain.TimeBlock) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -163,7 +163,7 @@ func (r *Repository) SaveTimeBlocks(ctx context.Context, coachID string, blocks 
 }
 
 // GetAppointments retrieves all appointments for a coach.
-func (r *Repository) GetAppointments(ctx context.Context, coachID string) ([]*Appointment, error) {
+func (r *Repository) GetAppointments(ctx context.Context, coachID string) ([]*coachdomain.Appointment, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, coach_id, athlete_id, athlete_name, title, status, start_time, end_time, notes, created_at, updated_at
 		 FROM coach_appointments WHERE coach_id = ?
@@ -173,9 +173,9 @@ func (r *Repository) GetAppointments(ctx context.Context, coachID string) ([]*Ap
 	}
 	defer rows.Close()
 
-	var apts []*Appointment
+	var apts []*coachdomain.Appointment
 	for rows.Next() {
-		a := &Appointment{}
+		a := &coachdomain.Appointment{}
 		var athleteName, notes sql.NullString
 		if err := rows.Scan(&a.ID, &a.CoachID, &a.AthleteID, &athleteName, &a.Title,
 			&a.Status, &a.StartTime, &a.EndTime, &notes, &a.CreatedAt, &a.UpdatedAt); err != nil {
@@ -193,7 +193,7 @@ func (r *Repository) GetAppointments(ctx context.Context, coachID string) ([]*Ap
 }
 
 // CreateAppointment creates a new appointment.
-func (r *Repository) CreateAppointment(ctx context.Context, a *Appointment) error {
+func (r *Repository) CreateAppointment(ctx context.Context, a *coachdomain.Appointment) error {
 	a.ID = uuid.New().String()
 
 	var athleteName, notes sql.NullString
@@ -215,7 +215,7 @@ func (r *Repository) CreateAppointment(ctx context.Context, a *Appointment) erro
 }
 
 // UpdateAppointment updates an appointment's status and notes.
-func (r *Repository) UpdateAppointment(ctx context.Context, id string, a *Appointment) error {
+func (r *Repository) UpdateAppointment(ctx context.Context, id string, a *coachdomain.Appointment) error {
 	var notes sql.NullString
 	if a.Notes != "" {
 		notes = sql.NullString{String: a.Notes, Valid: true}
@@ -238,7 +238,7 @@ func (r *Repository) UpdateAppointment(ctx context.Context, id string, a *Appoin
 }
 
 // GetAvailability retrieves availability slots for a coach.
-func (r *Repository) GetAvailability(ctx context.Context, coachID string) ([]*CoachAvailability, error) {
+func (r *Repository) GetAvailability(ctx context.Context, coachID string) ([]*coachdomain.CoachAvailability, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, coach_id, day_of_week, start_time, end_time, is_active, created_at
 		 FROM coach_availability WHERE coach_id = ?
@@ -248,9 +248,9 @@ func (r *Repository) GetAvailability(ctx context.Context, coachID string) ([]*Co
 	}
 	defer rows.Close()
 
-	var slots []*CoachAvailability
+	var slots []*coachdomain.CoachAvailability
 	for rows.Next() {
-		s := &CoachAvailability{}
+		s := &coachdomain.CoachAvailability{}
 		if err := rows.Scan(&s.ID, &s.CoachID, &s.DayOfWeek, &s.StartTime,
 			&s.EndTime, &s.IsActive, &s.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan availability: %w", err)
@@ -261,7 +261,7 @@ func (r *Repository) GetAvailability(ctx context.Context, coachID string) ([]*Co
 }
 
 // SaveAvailability replaces all availability slots for a coach (transactional delete + insert).
-func (r *Repository) SaveAvailability(ctx context.Context, coachID string, slots []*CoachAvailability) error {
+func (r *Repository) SaveAvailability(ctx context.Context, coachID string, slots []*coachdomain.CoachAvailability) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)

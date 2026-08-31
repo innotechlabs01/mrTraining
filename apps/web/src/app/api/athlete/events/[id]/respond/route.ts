@@ -40,7 +40,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
 
     const answers = body.answers ?? [];
     if (status === 'accepted' && answers.length > 0) {
-      const validFieldIds = new Set<string>((detail.formFields || []).map(f => f.id));
+      const validFieldIds = new Set<string>((detail.formFields || []).map((f: { id: string }) => f.id));
       const invalid = answers.find(a => !validFieldIds.has(a.fieldId));
       if (invalid) {
         return NextResponse.json({ error: `Unknown form field: ${invalid.fieldId}` }, { status: 400 });

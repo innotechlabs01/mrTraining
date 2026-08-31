@@ -1,4 +1,3 @@
-// @ts-nocheck — libsql InValue type is too strict for Record<string, unknown> dynamic params.
 import { getDB, generateId } from './db'
 
 // ============== AI Suggestions ==============
@@ -9,7 +8,7 @@ export async function getAISuggestions(coachId: string) {
     'SELECT * FROM ai_suggestions WHERE coach_id = ? ORDER BY created_at DESC',
     [coachId],
   )
-  return result.rows.map(r => ({
+  return result.rows.map((r: { id: string; type: string; title: string; description: string; reasoning: string; action_label: string; dismissed: number; applied: number }) => ({
     id: r.id, type: r.type, title: r.title, description: r.description,
     reasoning: r.reasoning, actionLabel: r.action_label,
     dismissed: r.dismissed === 1, applied: r.applied === 1,
@@ -30,11 +29,11 @@ export async function saveAISuggestion(coachId: string, data: Record<string, unk
 
 export async function getLiveSessions(coachId: string) {
   const db = getDB()
-  const result = await db.execute(
-    'SELECT * FROM live_sessions WHERE coach_id = ? ORDER BY date, start_time',
+const result = await db.execute(
+    'SELECT * FROM live_sessions WHERE coach_id = ? ORDER BY time DESC',
     [coachId],
   )
-  return result.rows.map(r => ({
+  return result.rows.map((r: { id: string; title: string; description: string; date: string; start_time: string; end_time: string; modality: string; location: string; notes: string; is_public: number; capacity: number; enrolled: number; status: string; link: string; distance_km: number; pace: string }) => ({
     id: r.id, title: r.title, description: r.description || '',
     date: r.date, startTime: r.start_time, endTime: r.end_time,
     modality: r.modality, location: r.location || '', notes: r.notes || '',

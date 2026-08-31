@@ -39,9 +39,11 @@ func (m *mockExerciseRepository) Create(ctx context.Context, exercise *training.
 type mockWorkoutRepository struct {
 	templates    []*training.WorkoutTemplate
 	assignments  []*training.AssignedWorkout
+	detail       *training.WorkoutDetail
 	createErr    error
 	assignErr    error
 	logSetErr    error
+	detailErr    error
 }
 
 func (m *mockWorkoutRepository) ListTemplates(ctx context.Context, coachID string) ([]*training.WorkoutTemplate, error) {
@@ -87,8 +89,19 @@ func (m *mockWorkoutRepository) LogWorkoutSet(ctx context.Context, set *training
 	return set, nil
 }
 
-func (m *mockWorkoutRepository) GetAssignedWorkoutDetail(ctx context.Context, id string) (*training.AssignedWorkout, error) {
-	return m.GetAssignedWorkout(ctx, id)
+func (m *mockWorkoutRepository) GetAssignedWorkoutDetail(ctx context.Context, id string) (*training.WorkoutDetail, error) {
+	if m.detailErr != nil {
+		return nil, m.detailErr
+	}
+	if m.detail != nil {
+		return m.detail, nil
+	}
+	for _, a := range m.assignments {
+		if a.ID == id {
+			return &training.WorkoutDetail{Workout: a}, nil
+		}
+	}
+	return nil, training.ErrNotFound
 }
 
 func (m *mockWorkoutRepository) GetWorkoutSession(ctx context.Context, sessionID string) (*training.WorkoutSession, error) {
@@ -123,6 +136,10 @@ func (m *mockWorkoutRepository) DeleteTemplate(ctx context.Context, id string) e
 	return nil
 }
 
+func (m *mockWorkoutRepository) UpdateTemplate(ctx context.Context, template *training.WorkoutTemplate) error {
+	return m.createErr
+}
+
 // mockProgressRepository is a test double for training.ProgressRepository.
 type mockProgressRepository struct {
 	entries []*training.ProgressEntry
@@ -132,12 +149,26 @@ func (m *mockProgressRepository) GetProgress(ctx context.Context, athleteID stri
 	return m.entries, nil
 }
 
+// mockTrainingSessionRepository is a test double for training.TrainingSessionRepository.
+type mockTrainingSessionRepository struct {
+	sessions []*training.TrainingSession
+}
+
+func (m *mockTrainingSessionRepository) Create(ctx context.Context, session *training.TrainingSession) error {
+	return nil
+}
+
+func (m *mockTrainingSessionRepository) List(ctx context.Context, coachID, athleteID string) ([]*training.TrainingSession, error) {
+	return m.sessions, nil
+}
+
 // Test helper to create a service with mocks.
 func newTestService() (*Service, *mockExerciseRepository, *mockWorkoutRepository, *mockProgressRepository) {
 	exerciseRepo := &mockExerciseRepository{}
 	workoutRepo := &mockWorkoutRepository{}
 	progressRepo := &mockProgressRepository{}
-	return NewService(exerciseRepo, workoutRepo, progressRepo), exerciseRepo, workoutRepo, progressRepo
+	sessionRepo := &mockTrainingSessionRepository{}
+	return NewService(exerciseRepo, workoutRepo, progressRepo, sessionRepo), exerciseRepo, workoutRepo, progressRepo
 }
 
 // TestListExercises verifies that ListExercises returns paginated results.
@@ -408,5 +439,33 @@ func TestGetProgressMissingDates(t *testing.T) {
 	_, err := svc.GetProgress(context.Background(), "athlete-1", training.ProgressDateRange{})
 	if err == nil {
 		t.Fatal("expected error for missing date range")
+	}
+}
+
+// TestGetAssignedWorkoutDetailReturnsEnvelope verifies the detail service returns the
+// {workout, exercises, session} carrier including the joined imageUrl.
+func TestGetAssignedWorkoutDetailReturnsEnvelope(t *testing.T) {
+	svc, _, workoutRepo, _ := newTestService()
+
+	workoutRepo.detail = &training.WorkoutDetail{
+		Workout: &training.AssignedWorkout{ID: "w1", ContentName: "Split", Status: "active", Progress: 0.4},
+		Exercises: []training.WorkoutExercise{
+			{Name: "Bench", WeightKg: 80, ImageURL: "https://img.example/bench.jpg"},
+		},
+		Session: &training.WorkoutSession{ID: "s1", WorkoutID: "w1", CurrentExerciseIndex: 2},
+	}
+
+	detail, err := svc.GetAssignedWorkoutDetail(context.Background(), "w1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if detail.Workout == nil || detail.Workout.ContentName != "Split" {
+		t.Fatalf("expected workout contentName 'Split', got %#v", detail.Workout)
+	}
+	if len(detail.Exercises) != 1 || detail.Exercises[0].ImageURL != "https://img.example/bench.jpg" {
+		t.Fatalf("expected joined imageUrl on exercise, got %#v", detail.Exercises)
+	}
+	if detail.Session == nil || detail.Session.CurrentExerciseIndex != 2 {
+		t.Fatalf("expected resume session marker, got %#v", detail.Session)
 	}
 }

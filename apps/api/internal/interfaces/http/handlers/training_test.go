@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
@@ -235,4 +236,171 @@ func TestAssignWorkoutHandler(t *testing.T) {
 	if resp.StatusCode != http.StatusCreated {
 		t.Errorf("expected status 201, got %d", resp.StatusCode)
 	}
+}
+
+// assertJSONShape asserts the serialized JSON contains each expected camelCase key
+// and contains none of the forbidden snake_case keys.
+func assertJSONShape(t *testing.T, got string, expected []string, forbidden []string) {
+	t.Helper()
+	for _, want := range expected {
+		if !strings.Contains(got, want) {
+			t.Errorf("expected JSON to contain %q; got %s", want, got)
+		}
+	}
+	for _, bad := range forbidden {
+		if strings.Contains(got, bad) {
+			t.Errorf("expected JSON to NOT contain %q; got %s", bad, got)
+		}
+	}
+}
+
+// TestAssignedWorkoutResponseCamelCase verifies the assigned workout DTO emits camelCase keys.
+func TestAssignedWorkoutResponseCamelCase(t *testing.T) {
+	d := dto.AssignedWorkoutResponse{
+		AthleteID:   "a1",
+		ContentID:   "content-1",
+		ContentType: "workout",
+		ContentName: "Push Day",
+		Modality:    "online",
+		StartDate:   "2026-01-01",
+		EndDate:     "2026-01-31",
+		DaysOfWeek:  []int{1, 3, 5},
+		Status:      "active",
+		Progress:    0.5,
+		CoachID:     "c1",
+	}
+	b, err := json.Marshal(d)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	assertJSONShape(t, string(b),
+		[]string{`"contentName":"Push Day"`, `"contentType":"workout"`, `"startDate":"2026-01-01"`,
+			`"endDate":"2026-01-31"`, `"daysOfWeek":[1,3,5]`, `"athleteId":"a1"`, `"contentId":"content-1"`,
+			`"status":"active"`, `"coachId":"c1"`},
+		[]string{"content_name", "content_type", "start_date", "end_date", "days_of_week", "athlete_id", "coach_id"})
+}
+
+// TestWorkoutExerciseResponseCamelCase verifies the prescription DTO emits camelCase keys and imageUrl.
+func TestWorkoutExerciseResponseCamelCase(t *testing.T) {
+	d := dto.WorkoutExerciseResponse{
+		ID:                "ex1",
+		Name:              "Bench",
+		Sets:              3,
+		Reps:              10,
+		WeightKg:          80,
+		RestSeconds:       90,
+		SortOrder:         1,
+		Mode:              "reps",
+		Phase:             "work",
+		BodyPart:          "chest",
+		MuscleGroups:      "pecs",
+		LibraryExerciseID: "lib-1",
+		ImageURL:          "https://img.example/bench.jpg",
+	}
+	b, err := json.Marshal(d)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	assertJSONShape(t, string(b),
+		[]string{`"weightKg":80`, `"restSeconds":90`, `"sortOrder":1`, `"bodyPart":"chest"`,
+			`"muscleGroups":"pecs"`, `"libraryExerciseId":"lib-1"`, `"imageUrl":"https://img.example/bench.jpg"`},
+		[]string{"weight_kg", "rest_seconds", "sort_order", "body_part", "muscle_groups", "library_exercise_id"})
+}
+
+// TestExerciseResponseCamelCase verifies the exercise DTO emits camelCase keys and imageUrl.
+func TestExerciseResponseCamelCase(t *testing.T) {
+	d := dto.ExerciseResponse{
+		ID:            "e1",
+		Name:          "Squat",
+		BodyPart:      "legs",
+		MuscleGroups:  "quads",
+		VideoURL:      "https://videos.example/squat.mp4",
+		ImageURL:      "https://img.example/squat.jpg",
+		CreatedAt:     "2026-01-01T00:00:00Z",
+		UpdatedAt:     "2026-01-02T00:00:00Z",
+	}
+	b, err := json.Marshal(d)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	assertJSONShape(t, string(b),
+		[]string{`"bodyPart":"legs"`, `"muscleGroups":"quads"`, `"videoUrl":"https://videos.example/squat.mp4"`,
+			`"imageUrl":"https://img.example/squat.jpg"`, `"createdAt":"2026-01-01T00:00:00Z"`},
+		[]string{"body_part", "muscle_groups", "video_url", "image_url", "created_at"})
+}
+
+// TestWorkoutSessionResponseCamelCase verifies the workout session DTO emits camelCase keys.
+func TestWorkoutSessionResponseCamelCase(t *testing.T) {
+	d := dto.WorkoutSessionResponse{
+		ID:                   "s1",
+		WorkoutID:            "w1",
+		AthleteID:            "a1",
+		StartedAt:            "2026-01-02T10:00:00Z",
+		Completed:            false,
+		CurrentExerciseIndex: 2,
+		DurationSeconds:      300,
+	}
+	b, err := json.Marshal(d)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	assertJSONShape(t, string(b),
+		[]string{`"workoutId":"w1"`, `"athleteId":"a1"`, `"startedAt":"2026-01-02T10:00:00Z"`,
+			`"currentExerciseIndex":2`, `"durationSeconds":300`},
+		[]string{"workout_id", "athlete_id", "started_at", "current_exercise_index", "duration_seconds"})
+}
+
+// TestToWorkoutDetailResponse verifies the detail mapper returns the {workout, exercises, session} envelope
+// with the joined imageUrl on each exercise.
+func TestToWorkoutDetailResponse(t *testing.T) {
+	d := &training.WorkoutDetail{
+		Workout: &training.AssignedWorkout{
+			ID: "w1", AthleteID: "a1", ContentID: "t1", ContentName: "Split",
+			StartDate: "2026-01-01", Status: "active", Progress: 0.4,
+		},
+		Exercises: []training.WorkoutExercise{
+			{Name: "Bench", Sets: 3, Reps: 10, WeightKg: 80, ImageURL: "https://img.example/bench.jpg"},
+		},
+		Session: &training.WorkoutSession{
+			ID: "s1", WorkoutID: "w1", StartedAt: "2026-01-02T10:00:00Z", CurrentExerciseIndex: 2, DurationSeconds: 300,
+		},
+	}
+
+	resp := toWorkoutDetailResponse(d)
+
+	if resp.Workout == nil || resp.Workout.ContentName != "Split" {
+		t.Fatalf("expected workout contentName 'Split', got %#v", resp.Workout)
+	}
+	if len(resp.Exercises) != 1 {
+		t.Fatalf("expected 1 exercise, got %d", len(resp.Exercises))
+	}
+	if resp.Exercises[0].ImageURL != "https://img.example/bench.jpg" {
+		t.Errorf("expected imageUrl on exercise, got %q", resp.Exercises[0].ImageURL)
+	}
+	if resp.Session == nil || resp.Session.CurrentExerciseIndex != 2 {
+		t.Fatalf("expected resume session marker with index 2, got %#v", resp.Session)
+	}
+
+	// Serialized envelope shape must expose the three top-level keys.
+	b, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	assertJSONShape(t, string(b),
+		[]string{`"workout":`, `"exercises":`, `"session":`, `"contentName":"Split"`}, nil)
+}
+
+// TestToAssignedWorkoutResponse verifies the workout mapper copies fields including camelCase-emitted keys.
+func TestToAssignedWorkoutResponse(t *testing.T) {
+	a := &training.AssignedWorkout{
+		ID: "w1", AthleteID: "a1", ContentID: "t1", ContentType: "workout", ContentName: "Leg Day",
+		Modality: "presencial", StartDate: "2026-01-01", EndDate: "2026-01-31",
+		DaysOfWeek: []int{1, 3}, Status: "active", Progress: 0.2, CoachID: "c1",
+	}
+	resp := toAssignedWorkoutResponse(a)
+	b, _ := json.Marshal(resp)
+	assertJSONShape(t, string(b),
+		[]string{`"contentName":"Leg Day"`, `"modality":"presencial"`, `"startDate":"2026-01-01"`,
+			`"status":"active"`, `"progress":0.2`},
+		[]string{"content_name", "start_date"})
 }

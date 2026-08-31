@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteById } from '@/lib/coaching-db';
+import { getAthleteById } from '@/lib/db';
 
 /**
  * Shared access guard for coach-scoped athlete reads (rules 05 §15):

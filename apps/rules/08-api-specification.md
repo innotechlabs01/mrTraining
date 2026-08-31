@@ -2,7 +2,7 @@
 
 **Version 1.0 — 2026**
 
-> **Implementation status (authoritative):** endpoints today live as **Next.js Route Handlers** under `apps/web/src/app/api/**` — no `/api/v1` prefix yet, with actor-scoped naming (`api/athlete/...`, `api/coach/...`). The REST conventions in this document (status codes, resource nouns, filtering, pagination, error shape, idempotency) remain binding. Where a section shows `/api/v1/...` paths or Go/Fiber specifics, treat them as the *contract and pattern* to honor inside Route Handlers, not the literal runtime. New paths MUST follow `05-backend-architecture.md §15`.
+> **Implementation status (authoritative, 2026-09):** Primary runtime is **Go 1.25 + Fiber at `apps/api` under `/api/v1`** (see `apps/api/internal/interfaces/http/routes/routes.go` and `05-backend-architecture.md §16` for the migrated registry). Legacy Next.js Route Handlers (`apps/web/src/app/api/**`) remain only as fallback until their Go equivalents are cut over. New paths MUST follow `05-backend-architecture.md §15–16`. REST conventions (status codes, resource nouns, filtering, pagination, error shape, idempotency) remain binding in both runtimes.
 
 ---
 
@@ -1476,6 +1476,74 @@ POST /api/v1/media/:mediaId/confirm-upload
 ```
 
 The server verifies the file exists in object storage, processes it (thumbnail generation, video transcoding for adaptive bitrate), and marks the media record as `ready`.
+
+### 4.17 Consolidated New Endpoints — Slice 1 + Slice 2 (Go, `/api/v1`)
+
+This section consolidates the endpoints migrated to Go per `05-backend-architecture.md §16`. All use `appresponse.Success` (`200`), Clerk `Authorization: Bearer`, and `dto.ListResponse[T]` for lists. Mobile callers are now on `goApiClient`; web uses `goFetch` with `nextFetch` fallback.
+
+#### Favorites (athlete)
+```text
+GET    /api/v1/favorites              # RequireAthlete — list athlete favorites
+POST   /api/v1/favorites              # RequireAthlete — { item_type, item_id, item_title, item_meta? }
+DELETE /api/v1/favorites/:id          # RequireAthlete
+```
+Responses: `Favorite { id, item_type, item_id, item_title, item_meta?, created_at }`. Empty table returns `[]`.
+
+#### Alerts (athlete)
+```text
+GET    /api/v1/alerts                 # RequireAthlete — computed alerts
+```
+Response: `Alert { id, type?, severity?, title, message }`. Inferred from auth; no query params.
+
+#### Blog / Marketing
+```text
+GET    /api/v1/blog                   # RequireAthlete — list posts
+GET    /api/v1/blog/:id               # RequireAthlete — single post
+```
+Response: `BlogPost { id, title, content, slug, created_at }`.
+
+#### Polar Checkout (athlete)
+```text
+POST   /api/v1/polar/checkout         # RequireAthlete — { athleteID, membershipID } → { url? }
+```
+
+#### Import (athlete)
+```text
+POST   /api/v1/import                 # RequireAthlete — { athleteID, source, csvData } → { sessionsImported, setsImported, exercisesCreated? }
+```
+
+#### Video Views (athlete)
+```text
+POST   /api/v1/video-views            # RequireAthlete — { exerciseID, athleteID, action, ... }
+GET    /api/v1/video-views?exerciseID=# RequireAthlete — filtered list
+```
+
+#### Community (athlete, legacy-compatible prefix)
+```text
+GET    /api/v1/athlete/community               # RequireAthlete — { forums: ForumTopic[], challenges: Challenge[] }
+GET    /api/v1/athlete/community/messages?forumId=default  # RequireAthlete — Message[]
+POST   /api/v1/athlete/community/messages      # RequireAthlete — { forumId, message }
+```
+
+#### Store (athlete, legacy-compatible prefix)
+```text
+GET    /api/v1/athlete/store                   # RequireAthlete — ListResponse[Product {id,name,price,stock?}]
+POST   /api/v1/athlete/store/purchase          # RequireAthlete — { productId, quantity }
+```
+
+#### Availability / Appointments (athlete, legacy-compatible prefix)
+```text
+GET    /api/v1/athlete/availability            # RequireAthlete — { availability: AvailabilitySlot[] }
+POST   /api/v1/athlete/appointments            # RequireAthlete — { date, startTime, endTime, notes?, coachId? }
+```
+
+#### Web gaps
+```text
+GET    /api/v1/workouts/:id                    # RequireAthlete — alias to GetAssignedWorkoutDetail
+PUT    /api/v1/workout-templates/:id           # RequireCoach — updates template + replaces exercises transactionally
+```
+
+All lists tolerate `no such table` by returning `[]`; mutations return `errors.NotFound` / `errors.BadRequest` mapped to `404`/`400`.
 
 ---
 

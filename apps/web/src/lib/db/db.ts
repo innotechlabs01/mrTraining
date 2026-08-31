@@ -1,6 +1,3 @@
-// @ts-nocheck — libsql InValue type is too strict for Record<string, unknown> dynamic params.
-// TODO(phase-2): Remove after decomposing this file into domain modules with typed repositories.
-import { createClient } from '@libsql/client'
 
 export function getDB() {
   const url = process.env.TURSO_URL || process.env.DATABASE_URL
@@ -16,6 +13,19 @@ export function getDB() {
   }
   const authToken = process.env.TURSO_AUTH_TOKEN || ''
   return createClient({ url, authToken })
+}
+
+/**
+ * Type-safe wrapper around db.execute that accepts unknown[] params.
+ * libsql's InValue type is too strict for Record<string, unknown> dynamic params.
+ * This is the ONLY place the cast happens — all domain modules use safeExecute.
+ */
+export function safeExecute(
+  db: Client,
+  query: string,
+  args?: unknown[],
+): ReturnType<Client['execute']> {
+  return db.execute({ sql: query, args: (args ?? []) as InValue[] })
 }
 
 export function generateId(): string {

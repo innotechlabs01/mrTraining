@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,26 +14,50 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 
-	userdomain "github.com/innotechlabs01/mr-training-api/internal/application/user"
-	trainingapp "github.com/innotechlabs01/mr-training-api/internal/application/training"
-	membershipapp "github.com/innotechlabs01/mr-training-api/internal/application/membership"
+	alertapp "github.com/innotechlabs01/mr-training-api/internal/application/alert"
+	blogapp "github.com/innotechlabs01/mr-training-api/internal/application/blog"
+	coachapp "github.com/innotechlabs01/mr-training-api/internal/application/coach"
+	communityapp "github.com/innotechlabs01/mr-training-api/internal/application/community"
 	eventapp "github.com/innotechlabs01/mr-training-api/internal/application/event"
-	productapp "github.com/innotechlabs01/mr-training-api/internal/application/product"
+	favoriteapp "github.com/innotechlabs01/mr-training-api/internal/application/favorite"
 	healthapp "github.com/innotechlabs01/mr-training-api/internal/application/health"
+	importapp "github.com/innotechlabs01/mr-training-api/internal/application/import"
+	inviteapp "github.com/innotechlabs01/mr-training-api/internal/application/invite"
+	membershipapp "github.com/innotechlabs01/mr-training-api/internal/application/membership"
 	notificationapp "github.com/innotechlabs01/mr-training-api/internal/application/notification"
+	onboardingapp "github.com/innotechlabs01/mr-training-api/internal/application/onboarding"
+	polarapp "github.com/innotechlabs01/mr-training-api/internal/application/polar"
+	productapp "github.com/innotechlabs01/mr-training-api/internal/application/product"
 	runningapp "github.com/innotechlabs01/mr-training-api/internal/application/running"
+	storeapp "github.com/innotechlabs01/mr-training-api/internal/application/store"
+	todayapp "github.com/innotechlabs01/mr-training-api/internal/application/today"
+	trainingapp "github.com/innotechlabs01/mr-training-api/internal/application/training"
+	userdomain "github.com/innotechlabs01/mr-training-api/internal/application/user"
+	videoviewapp "github.com/innotechlabs01/mr-training-api/internal/application/videoview"
 	"github.com/innotechlabs01/mr-training-api/internal/config"
 	"github.com/innotechlabs01/mr-training-api/internal/handlers"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
-	firebaseinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/firebase"
-	userinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/user"
-	traininginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/training"
-	membershipinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/membership"
+	alertinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/alert"
+	bloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/blog"
+	coachinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach"
+	communityinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/community"
 	eventinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/event"
-	productinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/product"
+	favoriteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/favorite"
+	firebaseinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/firebase"
 	healthinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/health"
+	importinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/import"
+	inviteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/invite"
+	membershipinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/membership"
 	notificationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/notification"
+	onboardinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/onboarding"
+	polarinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/polar"
+	productinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/product"
 	runninginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/running"
+	storeinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/store"
+	todayinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/today"
+	traininginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/training"
+	userinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/user"
+	videoviewinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/videoview"
 	ws "github.com/innotechlabs01/mr-training-api/internal/infrastructure/websocket"
 	userhttp "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/routes"
@@ -145,7 +170,8 @@ func main() {
 		trainingExerciseRepo := traininginfrastructure.NewExerciseRepository(db.DB)
 		trainingWorkoutRepo := traininginfrastructure.NewWorkoutRepository(db.DB)
 		trainingProgressRepo := traininginfrastructure.NewProgressRepository(db.DB)
-		trainingService := trainingapp.NewService(trainingExerciseRepo, trainingWorkoutRepo, trainingProgressRepo)
+		trainingSessionRepo := traininginfrastructure.NewTrainingSessionRepository()
+		trainingService := trainingapp.NewService(trainingExerciseRepo, trainingWorkoutRepo, trainingProgressRepo, trainingSessionRepo)
 		trainingHandler := userhttp.NewTrainingHandler(trainingService)
 
 		// Register training routes
@@ -203,6 +229,108 @@ func main() {
 
 		// Register health routes
 		routes.RegisterHealthRoutes(api, healthDataHandler)
+
+		// Wire Today domain
+		todayRepo := todayinfrastructure.NewRepository(db.DB)
+		todayService := todayapp.NewService(todayRepo)
+		todayHandler := userhttp.NewTodayHandler(todayService)
+
+		// Register today routes
+		routes.RegisterTodayRoutes(api, todayHandler)
+
+		// Wire Onboarding domain
+		onboardingRepo := onboardinginfrastructure.NewRepository(db.DB)
+		onboardingService := onboardingapp.NewService(onboardingRepo)
+		onboardingHandler := userhttp.NewOnboardingHandler(onboardingService)
+
+		// Register onboarding routes
+		routes.RegisterOnboardingRoutes(api, onboardingHandler)
+
+		// Wire Invite domain
+		inviteRepo := inviteinfrastructure.NewRepository(db.DB)
+		inviteService := inviteapp.NewService(inviteRepo)
+		inviteHandler := userhttp.NewInviteHandler(inviteService)
+
+		// Register invite routes
+		routes.RegisterInviteRoutes(api, inviteHandler)
+
+		// Wire Favorite domain
+		favoriteRepo := favoriteinfrastructure.NewRepository(db.DB)
+		favoriteService := favoriteapp.NewService(favoriteRepo)
+		favoriteHandler := userhttp.NewFavoriteHandler(favoriteService)
+
+		// Register favorite routes
+		routes.RegisterFavoriteRoutes(api, favoriteHandler)
+
+		// Wire Alert domain
+		alertRepo := alertinfrastructure.NewRepository(db.DB)
+		alertService := alertapp.NewService(alertRepo)
+		alertHandler := userhttp.NewAlertHandler(alertService)
+
+		// Register alert routes
+		routes.RegisterAlertRoutes(api, alertHandler)
+
+		// Wire Blog domain
+		blogRepo := bloginfrastructure.NewRepository(db.DB)
+		blogService := blogapp.NewService(blogRepo)
+		blogHandler := userhttp.NewBlogHandler(blogService)
+
+		// Register blog routes
+		routes.RegisterBlogRoutes(api, blogHandler)
+
+		// Wire Polar domain
+		polarRepo := polarinfrastructure.NewRepository(db.DB)
+		polarService := polarapp.NewService(polarRepo)
+		polarHandler := userhttp.NewPolarHandler(polarService)
+
+		// Register polar routes
+		routes.RegisterPolarRoutes(api, polarHandler)
+
+		// Wire Import domain
+		importRepo := importinfrastructure.NewRepository(db.DB)
+		importService := importapp.NewService(importRepo)
+		importHandler := userhttp.NewImportHandler(importService)
+
+		// Register import routes
+		routes.RegisterImportRoutes(api, importHandler)
+
+		// Wire VideoView domain
+		videoViewRepo := videoviewinfrastructure.NewRepository(db.DB)
+		videoViewService := videoviewapp.NewService(videoViewRepo)
+		videoViewHandler := userhttp.NewVideoViewHandler(videoViewService)
+
+		// Register video view routes
+		routes.RegisterVideoViewRoutes(api, videoViewHandler)
+
+		// Wire Community domain
+		communityRepo := communityinfrastructure.NewRepository(db.DB)
+		communityService := communityapp.NewService(communityRepo)
+		communityHandler := userhttp.NewCommunityHandler(communityService)
+
+		// Register community routes
+		routes.RegisterCommunityRoutes(api, communityHandler)
+
+		// Wire Store domain (athlete-facing)
+		var storeRepoDB *sql.DB
+		if db != nil {
+			storeRepoDB = db.DB
+		}
+		storeRepo := storeinfrastructure.NewRepository(storeRepoDB)
+		storeService := storeapp.NewService(storeRepo)
+		storeHandler := userhttp.NewStoreHandler(storeService)
+
+		// Register store routes
+		routes.RegisterStoreRoutes(api, storeHandler)
+
+		// Wire Athlete Scheduling (availability/appointments)
+		var coachRepoDB *sql.DB
+		if db != nil {
+			coachRepoDB = db.DB
+		}
+		coachRepo := coachinfrastructure.NewRepository(coachRepoDB)
+		coachService := coachapp.NewService(coachRepo)
+		schedulingHandler := userhttp.NewAthleteSchedulingHandler(coachService)
+		routes.RegisterAthleteSchedulingRoutes(api, schedulingHandler)
 	} else {
 		log.Warn("CLERK_SECRET_KEY not set, skipping protected route registration")
 	}

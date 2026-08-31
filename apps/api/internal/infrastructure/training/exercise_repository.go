@@ -34,7 +34,7 @@ func (r *ExerciseRepository) List(ctx context.Context, filter training.ExerciseF
 	// Fetch paginated results
 	query := `SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
-		 default_sec, video_url, is_custom, coach_id, created_at, updated_at
+		 default_sec, video_url, image_url, is_custom, coach_id, created_at, updated_at
 		 FROM exercise_library` + where + ` ORDER BY name LIMIT ? OFFSET ?`
 
 	args = append(args, limit, offset)
@@ -47,11 +47,11 @@ func (r *ExerciseRepository) List(ctx context.Context, filter training.ExerciseF
 	var exercises []*training.ExerciseEntry
 	for rows.Next() {
 		e := &training.ExerciseEntry{}
-		var bodyPart, equipment, difficulty, category, videoURL, coachID sql.NullString
+		var bodyPart, equipment, difficulty, category, videoURL, imageURL, coachID sql.NullString
 		var defaultSec sql.NullInt64
 		if err := rows.Scan(&e.ID, &e.Slug, &e.Name, &e.Description, &e.Mode, &bodyPart,
 			&e.MuscleGroups, &e.SecondaryMuscles, &equipment, &difficulty, &category,
-			&e.Instructions, &defaultSec, &videoURL, &e.IsCustom, &coachID,
+			&e.Instructions, &defaultSec, &videoURL, &imageURL, &e.IsCustom, &coachID,
 			&e.CreatedAt, &e.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan exercise: %w", err)
 		}
@@ -70,6 +70,9 @@ func (r *ExerciseRepository) List(ctx context.Context, filter training.ExerciseF
 		if videoURL.Valid {
 			e.VideoURL = videoURL.String
 		}
+		if imageURL.Valid {
+			e.ImageURL = imageURL.String
+		}
 		if coachID.Valid {
 			e.CoachID = &coachID.String
 		}
@@ -87,15 +90,15 @@ func (r *ExerciseRepository) GetByID(ctx context.Context, id string) (*training.
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
-		 default_sec, video_url, is_custom, coach_id, created_at, updated_at
+		 default_sec, video_url, image_url, is_custom, coach_id, created_at, updated_at
 		 FROM exercise_library WHERE id = ?`, id)
 
 	e := &training.ExerciseEntry{}
-	var bodyPart, equipment, difficulty, category, videoURL, coachID sql.NullString
+	var bodyPart, equipment, difficulty, category, videoURL, imageURL, coachID sql.NullString
 	var defaultSec sql.NullInt64
 	err := row.Scan(&e.ID, &e.Slug, &e.Name, &e.Description, &e.Mode, &bodyPart,
 		&e.MuscleGroups, &e.SecondaryMuscles, &equipment, &difficulty, &category,
-		&e.Instructions, &defaultSec, &videoURL, &e.IsCustom, &coachID,
+		&e.Instructions, &defaultSec, &videoURL, &imageURL, &e.IsCustom, &coachID,
 		&e.CreatedAt, &e.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, errors.NotFound("Exercise", id)
@@ -118,6 +121,9 @@ func (r *ExerciseRepository) GetByID(ctx context.Context, id string) (*training.
 	if videoURL.Valid {
 		e.VideoURL = videoURL.String
 	}
+	if imageURL.Valid {
+		e.ImageURL = imageURL.String
+	}
 	if coachID.Valid {
 		e.CoachID = &coachID.String
 	}
@@ -130,7 +136,7 @@ func (r *ExerciseRepository) GetByID(ctx context.Context, id string) (*training.
 
 // Create inserts a new custom exercise entry for a coach.
 func (r *ExerciseRepository) Create(ctx context.Context, e *training.ExerciseEntry) error {
-	var bodyPart, equipment, difficulty, category, videoURL, coachID sql.NullString
+	var bodyPart, equipment, difficulty, category, videoURL, imageURL, coachID sql.NullString
 	if e.BodyPart != "" {
 		bodyPart = sql.NullString{String: e.BodyPart, Valid: true}
 	}
@@ -146,6 +152,9 @@ func (r *ExerciseRepository) Create(ctx context.Context, e *training.ExerciseEnt
 	if e.VideoURL != "" {
 		videoURL = sql.NullString{String: e.VideoURL, Valid: true}
 	}
+	if e.ImageURL != "" {
+		imageURL = sql.NullString{String: e.ImageURL, Valid: true}
+	}
 	if e.CoachID != nil {
 		coachID = sql.NullString{String: *e.CoachID, Valid: true}
 	}
@@ -158,12 +167,12 @@ func (r *ExerciseRepository) Create(ctx context.Context, e *training.ExerciseEnt
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO exercise_library
 		 (id, slug, name, description, mode, body_part, muscle_groups, secondary_muscles,
-		  equipment, difficulty, category, instructions, default_sec, video_url,
+		  equipment, difficulty, category, instructions, default_sec, video_url, image_url,
 		  is_custom, coach_id, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
 		e.ID, e.Slug, e.Name, e.Description, e.Mode, bodyPart, e.MuscleGroups,
 		e.SecondaryMuscles, equipment, difficulty, category, e.Instructions,
-		defaultSec, videoURL, e.IsCustom, coachID)
+		defaultSec, videoURL, imageURL, e.IsCustom, coachID)
 	if err != nil {
 		return fmt.Errorf("failed to create exercise: %w", err)
 	}

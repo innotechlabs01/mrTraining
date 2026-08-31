@@ -19,11 +19,11 @@ export async function GET() {
     // Get today's sessions
     const sessions = await getAthleteSessions(athlete.id);
     const today = new Date().toISOString().split('T')[0];
-    const todaySessions = sessions.filter(s => s.time?.startsWith(today));
+    const todaySessions = sessions.filter((s: { time: string | undefined }) => s.time?.startsWith(today));
 
     // Get active workouts
     const workouts = await getAthleteAssignedWorkouts(athlete.id);
-    const activeWorkouts = workouts.filter(w => w.status === 'active' || w.status === 'in_progress');
+    const activeWorkouts = workouts.filter((w: { status: string }) => w.status === 'active' || w.status === 'in_progress');
 
     return NextResponse.json({
       athlete: {

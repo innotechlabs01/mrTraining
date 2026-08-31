@@ -113,6 +113,47 @@ func (r *WorkoutRepository) CreateTemplate(ctx context.Context, t *training.Work
 	return tx.Commit()
 }
 
+// UpdateTemplate updates an existing workout template and replaces its exercises.
+func (r *WorkoutRepository) UpdateTemplate(ctx context.Context, t *training.WorkoutTemplate) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var estimatedDuration sql.NullInt64
+	if t.EstimatedDurationMinutes != nil {
+		estimatedDuration = sql.NullInt64{Int64: int64(*t.EstimatedDurationMinutes), Valid: true}
+	}
+
+	result, err := tx.ExecContext(ctx,
+		`UPDATE workout_templates SET name = ?, description = ?, goal = ?, estimated_duration_minutes = ?, updated_at = datetime('now') WHERE id = ?`,
+		t.Name, t.Description, t.Goal, estimatedDuration, t.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update workout template: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return errors.NotFound("WorkoutTemplate", t.ID)
+	}
+
+	_, err = tx.ExecContext(ctx, `DELETE FROM workout_template_exercises WHERE template_id = ?`, t.ID)
+	if err != nil {
+		return fmt.Errorf("failed to delete old template exercises: %w", err)
+	}
+
+	for _, ex := range t.Exercises {
+		if err := r.insertTemplateExercise(ctx, tx, &ex); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
 // AssignWorkout assigns a workout template to an athlete.
 // Creates the assigned_workout record and copies exercises from the template.
 func (r *WorkoutRepository) AssignWorkout(ctx context.Context, a *training.AssignedWorkout) error {
@@ -440,47 +481,80 @@ func (r *WorkoutRepository) insertTemplateExercise(ctx context.Context, tx *sql.
 	return nil
 }
 
-// GetAssignedWorkoutDetail retrieves a full assigned workout with its exercises.
-func (r *WorkoutRepository) GetAssignedWorkoutDetail(ctx context.Context, id string) (*training.AssignedWorkout, error) {
+// GetAssignedWorkoutDetail retrieves a full assigned workout with its exercises and the
+// latest in-progress session marker, returning a {workout, exercises, session} carrier.
+func (r *WorkoutRepository) GetAssignedWorkoutDetail(ctx context.Context, id string) (*training.WorkoutDetail, error) {
 	aw, err := r.GetAssignedWorkout(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// Load exercises for the assigned workout
+	// Load exercises for the assigned workout (image-joined via LEFT JOIN).
 	exercises, err := r.getAssignedWorkoutExercises(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// Store exercises in a custom field (we'll use a helper approach)
-	// For now, exercises are accessible via GetPrescription
-	_ = exercises
+	session, err := r.findLatestSession(ctx, id)
+	if err != nil {
+		return nil, err
+	}
 
-	return aw, nil
+	return &training.WorkoutDetail{
+		Workout:   aw,
+		Exercises: exercises,
+		Session:   session,
+	}, nil
+}
+
+// findLatestSession returns the most recent in-progress session for a workout, or nil if none.
+func (r *WorkoutRepository) findLatestSession(ctx context.Context, workoutID string) (*training.WorkoutSession, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT id, workout_id, athlete_id, started_at, completed, completed_at,
+		 current_exercise_index, duration_seconds
+		 FROM workout_session_logs
+		 WHERE workout_id = ? AND completed = 0
+		 ORDER BY started_at DESC LIMIT 1`, workoutID)
+
+	s := &training.WorkoutSession{}
+	var completedAt sql.NullString
+	err := row.Scan(&s.ID, &s.WorkoutID, &s.AthleteID, &s.StartedAt, &s.Completed,
+		&completedAt, &s.CurrentExerciseIndex, &s.DurationSeconds)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find latest session: %w", err)
+	}
+	if completedAt.Valid {
+		s.CompletedAt = completedAt.String
+	}
+	return s, nil
 }
 
 // getAssignedWorkoutExercises retrieves exercises for an assigned workout.
 func (r *WorkoutRepository) getAssignedWorkoutExercises(ctx context.Context, workoutID string) ([]training.WorkoutExercise, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, workout_id, name, sets, reps, weight_kg, rest_seconds, sort_order,
-		 notes, mode, phase, superset_group, body_part, muscle_groups, library_exercise_id
-		 FROM workout_exercises
-		 WHERE workout_id = ? ORDER BY sort_order`, workoutID)
+		`SELECT we.id, we.workout_id, we.name, we.sets, we.reps, we.weight_kg, we.rest_seconds, we.sort_order,
+		 we.notes, we.mode, we.phase, we.superset_group, we.body_part, we.muscle_groups, we.library_exercise_id,
+		 el.image_url
+		 FROM workout_exercises we
+		 LEFT JOIN exercise_library el ON el.id = we.library_exercise_id
+		 WHERE we.workout_id = ? ORDER BY we.sort_order`, workoutID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get assigned workout exercises: %w", err)
 	}
 	defer rows.Close()
 
-	var exercises []training.WorkoutExercise
+	exercises := make([]training.WorkoutExercise, 0)
 	for rows.Next() {
 		ex := training.WorkoutExercise{}
 		var weightKg sql.NullFloat64
-		var notes, supersetGroup, bodyPart, muscleGroups, libraryExerciseID sql.NullString
+		var notes, supersetGroup, bodyPart, muscleGroups, libraryExerciseID, imageURL sql.NullString
 
 		if err := rows.Scan(&ex.ID, &ex.TemplateID, &ex.Name, &ex.Sets, &ex.Reps,
 			&weightKg, &ex.RestSeconds, &ex.SortOrder, &notes, &ex.Mode, &ex.Phase,
-			&supersetGroup, &bodyPart, &muscleGroups, &libraryExerciseID); err != nil {
+			&supersetGroup, &bodyPart, &muscleGroups, &libraryExerciseID, &imageURL); err != nil {
 			return nil, fmt.Errorf("failed to scan assigned workout exercise: %w", err)
 		}
 
@@ -501,6 +575,9 @@ func (r *WorkoutRepository) getAssignedWorkoutExercises(ctx context.Context, wor
 		}
 		if libraryExerciseID.Valid {
 			ex.LibraryExerciseID = libraryExerciseID.String
+		}
+		if imageURL.Valid {
+			ex.ImageURL = imageURL.String
 		}
 
 		exercises = append(exercises, ex)

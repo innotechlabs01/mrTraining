@@ -148,6 +148,30 @@ func (h *TrainingHandler) GetWorkoutTemplate(c *fiber.Ctx) error {
 	return appresponse.Success(c, toWorkoutTemplateResponse(template))
 }
 
+// UpdateWorkoutTemplate handles PUT /workout-templates/:id.
+func (h *TrainingHandler) UpdateWorkoutTemplate(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	id := c.Params("id")
+	if id == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "template ID is required")
+	}
+	var req dto.CreateWorkoutTemplateRequest
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+	if validationErrs := validator.ValidateCreateWorkoutTemplate(&req); len(validationErrs) > 0 {
+		return h.handleValidationError(c, validationErrs)
+	}
+	template, err := h.service.UpdateWorkoutTemplate(c.Context(), userID, id, req)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	return appresponse.Success(c, toWorkoutTemplateResponse(template))
+}
+
 // CreateWorkoutTemplate handles POST /workout-templates.
 // Creates a new workout template with exercises.
 func (h *TrainingHandler) CreateWorkoutTemplate(c *fiber.Ctx) error {
@@ -222,6 +246,120 @@ func (h *TrainingHandler) GetAssignedWorkouts(c *fiber.Ctx) error {
 		Page:  1,
 		Limit: len(responses),
 	})
+}
+
+// GetAssignedWorkoutDetail handles GET /workouts/:id/detail.
+// Returns a single assigned workout for the authenticated athlete.
+func (h *TrainingHandler) GetAssignedWorkoutDetail(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	id := c.Params("id")
+	if id == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "workout ID is required")
+	}
+
+	detail, err := h.service.GetAssignedWorkoutDetail(c.Context(), id)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, toWorkoutDetailResponse(detail))
+}
+
+// GetWorkoutPrescription handles GET /workouts/:id/prescription.
+// Returns the exercise prescription for an assigned workout.
+func (h *TrainingHandler) GetWorkoutPrescription(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	id := c.Params("id")
+	if id == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "workout ID is required")
+	}
+
+	exercises, err := h.service.GetPrescription(c.Context(), id)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	responses := make([]dto.WorkoutExerciseResponse, len(exercises))
+	for i, ex := range exercises {
+		responses[i] = *toWorkoutExerciseResponse(&ex)
+	}
+
+	return appresponse.Success(c, dto.ListResponse[dto.WorkoutExerciseResponse]{Data: responses})
+}
+
+// CreateWorkoutSession handles POST /workouts/:id/session.
+// Starts a new workout session for the authenticated athlete.
+func (h *TrainingHandler) CreateWorkoutSession(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	id := c.Params("id")
+	if id == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "workout ID is required")
+	}
+
+	session, err := h.service.CreateWorkoutSession(c.Context(), id, userID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, toWorkoutSessionResponse(session))
+}
+
+// GetWorkoutSession handles GET /workouts/sessions/:id.
+// Returns a single workout session for the authenticated athlete.
+func (h *TrainingHandler) GetWorkoutSession(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	sessionID := c.Params("id")
+	if sessionID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "session ID is required")
+	}
+
+	session, err := h.service.GetWorkoutSession(c.Context(), sessionID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, toWorkoutSessionResponse(session))
+}
+
+// CompleteSession handles POST /workouts/sessions/:id/complete.
+// Marks a workout session as completed for the authenticated athlete.
+func (h *TrainingHandler) CompleteSession(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	sessionID := c.Params("id")
+	if sessionID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "session ID is required")
+	}
+
+	var req dto.CompleteSessionRequest
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if err := h.service.CompleteSession(c.Context(), sessionID, req.DurationSeconds); err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, fiber.Map{"ok": true})
 }
 
 // LogWorkoutSet handles POST /workouts/:id/sets.
@@ -329,6 +467,7 @@ func toExerciseResponse(e *trainingdomain.ExerciseEntry) *dto.ExerciseResponse {
 		Instructions:     e.Instructions,
 		DefaultSec:       e.DefaultSec,
 		VideoURL:         e.VideoURL,
+		ImageURL:         e.ImageURL,
 		IsCustom:         e.IsCustom,
 		CoachID:          e.CoachID,
 		CreatedAt:        e.CreatedAt,
@@ -393,6 +532,57 @@ func toAssignedWorkoutResponse(a *trainingdomain.AssignedWorkout) *dto.AssignedW
 	}
 }
 
+// toWorkoutExerciseResponse converts a domain WorkoutExercise entity to a DTO response.
+func toWorkoutExerciseResponse(ex *trainingdomain.WorkoutExercise) *dto.WorkoutExerciseResponse {
+	return &dto.WorkoutExerciseResponse{
+		ID:                ex.ID,
+		TemplateID:        ex.TemplateID,
+		Name:              ex.Name,
+		Sets:              ex.Sets,
+		Reps:              ex.Reps,
+		WeightKg:          ex.WeightKg,
+		RestSeconds:       ex.RestSeconds,
+		SortOrder:         ex.SortOrder,
+		Notes:             ex.Notes,
+		Mode:              ex.Mode,
+		Phase:             ex.Phase,
+		SupersetGroup:     ex.SupersetGroup,
+		BodyPart:          ex.BodyPart,
+		MuscleGroups:      ex.MuscleGroups,
+		ImageURL:          ex.ImageURL,
+		LibraryExerciseID: ex.LibraryExerciseID,
+	}
+}
+
+// toWorkoutDetailResponse converts a domain WorkoutDetail into the {workout, exercises, session}
+// envelope, mapping each exercise with its joined imageUrl.
+func toWorkoutDetailResponse(d *trainingdomain.WorkoutDetail) *dto.WorkoutDetailResponse {
+	resp := &dto.WorkoutDetailResponse{Workout: toAssignedWorkoutResponse(d.Workout)}
+	resp.Exercises = make([]dto.WorkoutExerciseResponse, len(d.Exercises))
+	for i, ex := range d.Exercises {
+		e := toWorkoutExerciseResponse(&ex)
+		resp.Exercises[i] = *e
+	}
+	if d.Session != nil {
+		resp.Session = toWorkoutSessionResponse(d.Session)
+	}
+	return resp
+}
+
+// toWorkoutSessionResponse converts a domain WorkoutSession entity to a DTO response.
+func toWorkoutSessionResponse(s *trainingdomain.WorkoutSession) *dto.WorkoutSessionResponse {
+	return &dto.WorkoutSessionResponse{
+		ID:                   s.ID,
+		WorkoutID:            s.WorkoutID,
+		AthleteID:            s.AthleteID,
+		StartedAt:            s.StartedAt,
+		Completed:            s.Completed,
+		CompletedAt:          s.CompletedAt,
+		CurrentExerciseIndex: s.CurrentExerciseIndex,
+		DurationSeconds:      s.DurationSeconds,
+	}
+}
+
 // toWorkoutSetResponse converts a domain WorkoutSet entity to a DTO response.
 func toWorkoutSetResponse(s *trainingdomain.WorkoutSet) *dto.WorkoutSetResponse {
 	return &dto.WorkoutSetResponse{
@@ -425,5 +615,61 @@ func toProgressResponse(p *trainingdomain.ProgressEntry) *dto.ProgressResponse {
 		AverageWeight:     p.AverageWeight,
 		TotalVolume:       p.TotalVolume,
 		CompletionRate:    p.CompletionRate,
+	}
+}
+
+// ListTrainingSessions handles GET /training/sessions
+func (h *TrainingHandler) ListTrainingSessions(c *fiber.Ctx) error {
+	coachID := c.Query("coach_id")
+	athleteID := c.Query("athlete_id")
+	sessions, err := h.service.ListTrainingSessions(c.Context(), coachID, athleteID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	responses := make([]dto.TrainingSessionResponse, len(sessions))
+	for i, s := range sessions {
+		responses[i] = *toTrainingSessionResponse(s)
+	}
+	return appresponse.Success(c, dto.ListResponse[dto.TrainingSessionResponse]{
+		Data: responses,
+	})
+}
+
+// CreateTrainingSession handles POST /training/sessions
+func (h *TrainingHandler) CreateTrainingSession(c *fiber.Ctx) error {
+	var req struct {
+		CoachID     string `json:"coach_id"`
+		AthleteID   string `json:"athlete_id"`
+		Title       string `json:"title"`
+		ScheduledAt string `json:"scheduled_at"`
+		Status      string `json:"status"`
+		EndAt       string `json:"end_at,omitempty"`
+		Location    string `json:"location,omitempty"`
+		Notes       string `json:"notes,omitempty"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+	if req.CoachID == "" || req.AthleteID == "" || req.Title == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "coach_id, athlete_id and title are required")
+	}
+	session, err := h.service.CreateTrainingSession(c.Context(), req.CoachID, req.AthleteID, req.Title, req.ScheduledAt, req.Status)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	return appresponse.Success(c, toTrainingSessionResponse(session))
+}
+
+func toTrainingSessionResponse(s *trainingdomain.TrainingSession) *dto.TrainingSessionResponse {
+	return &dto.TrainingSessionResponse{
+		ID:          s.ID,
+		CoachID:     s.CoachID,
+		AthleteID:   s.AthleteID,
+		Title:       s.Title,
+		ScheduledAt: s.ScheduledAt,
+		EndAt:       s.EndAt,
+		Location:    s.Location,
+		Status:      s.Status,
+		Notes:       s.Notes,
 	}
 }
