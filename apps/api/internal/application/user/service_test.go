@@ -17,8 +17,9 @@ type mockRepository struct {
 	updateFn             func(ctx context.Context, user *userdomain.User) error
 	getCoachFn           func(ctx context.Context, userID string) (*userdomain.Coach, error)
 	getAthleteProfileFn  func(ctx context.Context, userID string) (*userdomain.AthleteProfile, error)
-	listCoachesFn        func(ctx context.Context) ([]*userdomain.Coach, error)
-	listAthletesByCoachFn func(ctx context.Context, coachID string) ([]*userdomain.AthleteProfile, error)
+	listCoachesFn         func(ctx context.Context) ([]*userdomain.Coach, error)
+	listAthletesByCoachFn  func(ctx context.Context, coachID string) ([]*userdomain.AthleteProfile, error)
+	updateAthleteProfileFn func(ctx context.Context, userID string, profile *userdomain.AthleteProfile) error
 }
 
 func (m *mockRepository) GetByID(ctx context.Context, id string) (*userdomain.User, error) {
@@ -51,6 +52,10 @@ func (m *mockRepository) ListCoaches(ctx context.Context) ([]*userdomain.Coach, 
 
 func (m *mockRepository) ListAthletesByCoach(ctx context.Context, coachID string) ([]*userdomain.AthleteProfile, error) {
 	return m.listAthletesByCoachFn(ctx, coachID)
+}
+
+func (m *mockRepository) UpdateAthleteProfile(ctx context.Context, userID string, profile *userdomain.AthleteProfile) error {
+	return m.updateAthleteProfileFn(ctx, userID, profile)
 }
 
 func TestGetCurrentUser_Coach(t *testing.T) {
@@ -188,6 +193,49 @@ func TestUpdateProfile_UserNotFound(t *testing.T) {
 	err := svc.UpdateProfile(context.Background(), "nonexistent", dto.UpdateProfileRequest{Name: "X"})
 	if err == nil {
 		t.Fatal("expected error for nonexistent user")
+	}
+}
+
+func TestUpdateAthleteProfile_Success(t *testing.T) {
+	var received *userdomain.AthleteProfile
+	mock := &mockRepository{
+		getAthleteProfileFn: func(ctx context.Context, userID string) (*userdomain.AthleteProfile, error) {
+			return &userdomain.AthleteProfile{
+				ID:    userID,
+				Email: "athlete@example.com",
+				Name:  "Tom Athlete",
+			}, nil
+		},
+		updateAthleteProfileFn: func(ctx context.Context, userID string, profile *userdomain.AthleteProfile) error {
+			received = profile
+			return nil
+		},
+	}
+
+	svc := NewService(mock)
+	err := svc.UpdateAthleteProfile(context.Background(), "user-1", dto.UpdateAthleteRequest{
+		EmergencyContact: "Mom",
+		Modality:         "virtual",
+		ScheduleDays:     "mon,wed,fri",
+		ScheduleTime:     "08:00",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if received == nil {
+		t.Fatal("expected repo to receive athlete profile, got nil")
+	}
+	if received.Modality != "virtual" {
+		t.Errorf("expected modality 'virtual', got '%s'", received.Modality)
+	}
+	if received.ScheduleDays != "mon,wed,fri" {
+		t.Errorf("expected schedule_days 'mon,wed,fri', got '%s'", received.ScheduleDays)
+	}
+	if received.ScheduleTime != "08:00" {
+		t.Errorf("expected schedule_time '08:00', got '%s'", received.ScheduleTime)
+	}
+	if received.EmergencyContact != "Mom" {
+		t.Errorf("expected emergency_contact 'Mom', got '%s'", received.EmergencyContact)
 	}
 }
 

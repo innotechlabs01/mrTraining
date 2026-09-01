@@ -46,6 +46,9 @@ type AthleteProfile struct {
 	WeightKg         float64 `json:"weight_kg"`
 	EmergencyContact string  `json:"emergency_contact,omitempty"`
 	EmergencyPhone   string  `json:"emergency_phone,omitempty"`
+	Modality         string  `json:"modality,omitempty"`
+	ScheduleDays     string  `json:"schedule_days,omitempty"`
+	ScheduleTime     string  `json:"schedule_time,omitempty"`
 	IsActive         bool    `json:"is_active"`
 	CreatedAt        string  `json:"created_at"`
 	UpdatedAt        string  `json:"updated_at"`

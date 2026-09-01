@@ -103,9 +103,14 @@ func (s *Service) UpdateAthleteProfile(ctx context.Context, userID string, req d
 	ap.WeightKg = req.WeightKg
 	ap.EmergencyContact = req.EmergencyContact
 	ap.EmergencyPhone = req.EmergencyPhone
+	ap.Modality = req.Modality
+	ap.ScheduleDays = req.ScheduleDays
+	ap.ScheduleTime = req.ScheduleTime
 
-	// TODO: Add athlete profile update to the repository interface and infrastructure layer.
-	return errors.Internal("athlete profile update not yet implemented")
+	if err := s.repo.UpdateAthleteProfile(ctx, userID, ap); err != nil {
+		return fmt.Errorf("update athlete profile: %w", err)
+	}
+	return nil
 }
 
 // ListCoaches returns all active coaches. Pagination is applied in-memory

@@ -37,6 +37,12 @@ type UpdateAthleteRequest struct {
 	EmergencyContact string `json:"emergency_contact"`
 	// EmergencyPhone is the phone number of the emergency contact.
 	EmergencyPhone string `json:"emergency_phone"`
+	// Modality is the training mode: "virtual", "hibrido" or "presencial".
+	Modality string `json:"modality"`
+	// ScheduleDays is the comma-separated training days (e.g. "mon,wed,fri").
+	ScheduleDays string `json:"schedule_days"`
+	// ScheduleTime is the training time in HH:MM format.
+	ScheduleTime string `json:"schedule_time"`
 }
 
 // UserResponse represents a user in API responses.
@@ -80,6 +86,9 @@ type AthleteProfileResponse struct {
 	WeightKg         float64 `json:"weight_kg"`
 	EmergencyContact string  `json:"emergency_contact,omitempty"`
 	EmergencyPhone   string  `json:"emergency_phone,omitempty"`
+	Modality         string  `json:"modality,omitempty"`
+	ScheduleDays     string  `json:"schedule_days,omitempty"`
+	ScheduleTime     string  `json:"schedule_time,omitempty"`
 	IsActive         bool    `json:"is_active"`
 	CreatedAt        string  `json:"created_at"`
 	UpdatedAt        string  `json:"updated_at"`

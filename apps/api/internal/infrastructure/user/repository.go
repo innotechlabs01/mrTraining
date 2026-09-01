@@ -127,14 +127,16 @@ func (r *Repository) GetCoach(ctx context.Context, userID string) (*user.Coach, 
 func (r *Repository) GetAthleteProfile(ctx context.Context, userID string) (*user.AthleteProfile, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, email, name, avatar_url, sport, experience_level, height_cm, weight_kg,
-		 emergency_contact, emergency_phone, is_active, created_at, updated_at
+		 emergency_contact, emergency_phone, modality, schedule_days, schedule_time,
+		 is_active, created_at, updated_at
 		 FROM athlete_profiles WHERE id = ?`, userID)
 
 	ap := &user.AthleteProfile{}
 	var avatarURL, sport, experienceLevel, emergencyContact, emergencyPhone sql.NullString
+	var modality, scheduleDays, scheduleTime sql.NullString
 	err := row.Scan(&ap.ID, &ap.Email, &ap.Name, &avatarURL, &sport, &experienceLevel,
-		&ap.HeightCm, &ap.WeightKg, &emergencyContact, &emergencyPhone, &ap.IsActive,
-		&ap.CreatedAt, &ap.UpdatedAt)
+		&ap.HeightCm, &ap.WeightKg, &emergencyContact, &emergencyPhone, &modality,
+		&scheduleDays, &scheduleTime, &ap.IsActive, &ap.CreatedAt, &ap.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, errors.NotFound("AthleteProfile", userID)
 	}
@@ -156,7 +158,39 @@ func (r *Repository) GetAthleteProfile(ctx context.Context, userID string) (*use
 	if emergencyPhone.Valid {
 		ap.EmergencyPhone = emergencyPhone.String
 	}
+	if modality.Valid {
+		ap.Modality = modality.String
+	}
+	if scheduleDays.Valid {
+		ap.ScheduleDays = scheduleDays.String
+	}
+	if scheduleTime.Valid {
+		ap.ScheduleTime = scheduleTime.String
+	}
 	return ap, nil
+}
+
+// UpdateAthleteProfile updates the athlete's extended profile fields.
+func (r *Repository) UpdateAthleteProfile(ctx context.Context, userID string, ap *user.AthleteProfile) error {
+	result, err := r.db.ExecContext(ctx,
+		`UPDATE athlete_profiles SET email = ?, name = ?, avatar_url = ?, sport = ?,
+		 experience_level = ?, height_cm = ?, weight_kg = ?, emergency_contact = ?,
+		 emergency_phone = ?, modality = ?, schedule_days = ?, schedule_time = ?,
+		 updated_at = datetime('now') WHERE id = ?`,
+		ap.Email, ap.Name, nullString(ap.AvatarURL), ap.Sport, ap.ExperienceLevel,
+		ap.HeightCm, ap.WeightKg, nullString(ap.EmergencyContact), nullString(ap.EmergencyPhone),
+		ap.Modality, ap.ScheduleDays, ap.ScheduleTime, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update athlete profile: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return errors.NotFound("AthleteProfile", userID)
+	}
+	return nil
 }
 
 // ListCoaches retrieves all active coaches.

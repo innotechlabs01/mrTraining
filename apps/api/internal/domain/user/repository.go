@@ -36,4 +36,8 @@ type Repository interface {
 	// ListAthletesByCoach retrieves all athletes linked to a specific coach.
 	// Returns an empty slice (not nil) if no athletes are linked.
 	ListAthletesByCoach(ctx context.Context, coachID string) ([]*AthleteProfile, error)
+
+	// UpdateAthleteProfile updates the athlete's extended profile fields.
+	// Returns ErrNotFound if the profile does not exist.
+	UpdateAthleteProfile(ctx context.Context, userID string, profile *AthleteProfile) error
 }

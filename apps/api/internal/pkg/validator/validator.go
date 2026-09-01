@@ -4,10 +4,14 @@ package validator
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 )
+
+// timePattern matches a 24-hour HH:MM time.
+var timePattern = regexp.MustCompile(`^([01]?[0-9]|2[0-3]):[0-5][0-9]$`)
 
 // ValidationError represents a single field validation failure.
 type ValidationError struct {
@@ -83,6 +87,29 @@ func ValidateUpdateAthlete(req *dto.UpdateAthleteRequest) ValidationErrors {
 
 	if req.WeightKg != 0 && (req.WeightKg < 20 || req.WeightKg > 300) {
 		errs = append(errs, ValidationError{Field: "weight_kg", Message: "must be between 20 and 300"})
+	}
+
+	if req.Modality != "" {
+		switch strings.ToLower(req.Modality) {
+		case "virtual", "hibrido", "presencial":
+			// valid
+		default:
+			errs = append(errs, ValidationError{
+				Field:   "modality",
+				Message: "must be one of: virtual, hibrido, presencial",
+			})
+		}
+	}
+
+	if req.ScheduleTime != "" && !timePattern.MatchString(req.ScheduleTime) {
+		errs = append(errs, ValidationError{
+			Field:   "schedule_time",
+			Message: "must be a valid HH:MM time",
+		})
+	}
+
+	if req.ScheduleDays != "" && len(req.ScheduleDays) > 100 {
+		errs = append(errs, ValidationError{Field: "schedule_days", Message: "must be at most 100 characters"})
 	}
 
 	return errs
