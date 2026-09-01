@@ -73,7 +73,7 @@ export async function getVideoAnalytics(coachId: string): Promise<VideoAnalytics
     exerciseName: r.exercise_name as string,
     totalViews: r.total_views as number,
     completedViews: r.completed_views as number,
-    completionRate: r.total_views > 0 ? Math.round((r.completed_views as number) / (r.total_views as number) * 100) : null,
+    completionRate: (r.total_views as number) > 0 ? Math.round((r.completed_views as number) / (r.total_views as number) * 100) : null,
     avgPositionPct: (r.avg_position_pct as number) ?? null,
     lastViewedAt: (r.last_viewed_at as string) || null,
   }))

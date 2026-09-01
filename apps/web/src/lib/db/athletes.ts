@@ -1,4 +1,5 @@
-import { getDB, generateId } from './db'
+import { getDB, generateId, safeExecute } from './db'
+import type { Row } from '@libsql/client'
 
 // ============== Athletes ==============
 
@@ -9,7 +10,7 @@ export async function getAthletes(coachId: string) {
     [coachId],
   )
   // Collect athlete IDs that have user_* emails so we can backfill from users table
-  const athleteIds = result.rows.map((r: { id: string }) => r.id as string)
+  const athleteIds = result.rows.map((r: Row) => r.id as string)
   const userEmailMap: Record<string, string> = {}
   if (athleteIds.length > 0) {
     const placeholders = athleteIds.map(() => '?').join(',')
@@ -21,7 +22,7 @@ export async function getAthletes(coachId: string) {
       userEmailMap[ur.id as string] = (ur.email as string) || ''
     }
   }
-  return result.rows.map((r: any) => {
+  return result.rows.map((r: Row) => {
     const rawName = (r.name as string) || ''
     let email = (r.email as string) || ''
     // Backfill: if email looks like a Clerk user ID, resolve from users table
@@ -98,7 +99,7 @@ export async function getAthleteById(coachId: string, athleteId: string) {
     readiness: { sleep: r.sleep as number || 0, hrv: r.hrv as number || 0, recovery: r.recovery as number || 0, score: r.readiness_score as number || 0 },
     flag: r.flag_type ? { type: r.flag_type as string, severity: r.flag_severity as string, message: r.flag_message as string } : undefined,
     runningDevice: r.running_device_brand ? { brand: r.running_device_brand as string, model: r.running_device_model as string, synced: Boolean(r.running_device_synced), lastSync: r.running_device_last_sync as string || undefined } : undefined,
-    weightHistory: weightRows.rows.map(w => ({ date: w.date as string, weight: w.weight as number, muscleMass: w.muscle_mass as number, bodyFat: w.body_fat as number })),
+    weightHistory: weightRows.rows.map((w: Row) => ({ date: w.date as string, weight: w.weight as number, muscleMass: w.muscle_mass as number, bodyFat: w.body_fat as number })),
     todaySessionIds: [] as string[],
   }
 }
@@ -113,7 +114,8 @@ export async function saveAthlete(coachId: string, data: Record<string, unknown>
     const readiness = data.readiness as Record<string, unknown> | undefined
     const flag = data.flag as Record<string, unknown> | undefined
     const runningDevice = data.runningDevice as Record<string, unknown> | undefined
-    await db.execute(
+    await safeExecute(
+      db,
       `UPDATE coach_athletes SET name=?, sport=?, email=?, phone=?, service_type=?, plan_name=?, plan_price=?, plan_billing=?, schedule_days=?, schedule_time=?, start_date=?, emergency_contact=?, sleep=?, hrv=?, recovery=?, readiness_score=?, flag_type=?, flag_severity=?, flag_message=?, running_device_brand=?, running_device_model=?, running_device_synced=?, running_device_last_sync=?, updated_at=datetime('now') WHERE id=? AND coach_id=?`,
       [data.name, data.sport, data.email, data.phone, data.serviceType, plan?.name, plan?.price, plan?.billingPeriod, schedule?.days, schedule?.time, data.startDate, data.emergencyContact, readiness?.sleep, readiness?.hrv, readiness?.recovery, readiness?.score, flag?.type || '', flag?.severity || '', flag?.message || '', runningDevice?.brand || '', runningDevice?.model || '', runningDevice?.synced ? 1 : 0, runningDevice?.lastSync || '', id, coachId],
     )
@@ -123,7 +125,8 @@ export async function saveAthlete(coachId: string, data: Record<string, unknown>
     const readiness = data.readiness as Record<string, unknown> | undefined
     const flag = data.flag as Record<string, unknown> | undefined
     const runningDevice = data.runningDevice as Record<string, unknown> | undefined
-    await db.execute(
+    await safeExecute(
+      db,
       `INSERT INTO coach_athletes (id, name, sport, email, phone, service_type, plan_name, plan_price, plan_billing, schedule_days, schedule_time, start_date, emergency_contact, sleep, hrv, recovery, readiness_score, flag_type, flag_severity, flag_message, running_device_brand, running_device_model, running_device_synced, running_device_last_sync, coach_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [id, data.name, data.sport, data.email, data.phone, data.serviceType, plan?.name, plan?.price, plan?.billingPeriod, schedule?.days, schedule?.time, data.startDate, data.emergencyContact, readiness?.sleep, readiness?.hrv, readiness?.recovery, readiness?.score, flag?.type || '', flag?.severity || '', flag?.message || '', runningDevice?.brand || '', runningDevice?.model || '', runningDevice?.synced ? 1 : 0, runningDevice?.lastSync || '', coachId],
     )
@@ -131,7 +134,8 @@ export async function saveAthlete(coachId: string, data: Record<string, unknown>
   if (data.weightHistory && Array.isArray(data.weightHistory)) {
     await db.execute('DELETE FROM athlete_weight_history WHERE athlete_id = ?', [id])
     for (const w of data.weightHistory as Array<Record<string, unknown>>) {
-      await db.execute(
+      await safeExecute(
+        db,
         'INSERT INTO athlete_weight_history (id, athlete_id, date, weight, muscle_mass, body_fat) VALUES (?,?,?,?,?,?)',
         [generateId(), id, w.date, w.weight, w.muscleMass || 0, w.bodyFat || 0],
       )
@@ -184,7 +188,7 @@ export async function getAthleteAssignedWorkouts(athleteId: string) {
     'SELECT * FROM assigned_workouts WHERE athlete_id = ? ORDER BY created_at DESC',
     [athleteId],
   )
-  return result.rows.map(r => ({
+  return result.rows.map((r: Row) => ({
     id: r.id as string,
     athleteId: r.athlete_id as string,
     contentName: r.content_name as string,
@@ -207,7 +211,7 @@ export async function getAthleteSessions(athleteId: string) {
      ORDER BY cs.time`,
     [athleteId],
   )
-  return result.rows.map(r => ({
+  return result.rows.map((r: Row) => ({
     id: r.id as string,
     name: r.name as string,
     time: r.time as string,
@@ -223,7 +227,7 @@ export async function getAthleteAppointments(athleteId: string) {
     'SELECT * FROM appointments WHERE athlete_id = ? ORDER BY date DESC, start_time DESC',
     [athleteId],
   )
-  return result.rows.map(r => ({
+  return result.rows.map((r: Row) => ({
     id: r.id as string,
     coachId: r.coach_id as string,
     athleteId: r.athlete_id as string,
@@ -242,7 +246,7 @@ export async function getCoachAvailabilityForAthlete(coachId: string) {
     'SELECT * FROM coach_availability WHERE coach_id = ? ORDER BY day_of_week, start_time',
     [coachId],
   )
-  return result.rows.map(r => ({
+  return result.rows.map((r: Row) => ({
     id: r.id as string,
     dayOfWeek: r.day_of_week as number,
     startTime: r.start_time as string,

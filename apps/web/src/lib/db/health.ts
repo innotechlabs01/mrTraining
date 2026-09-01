@@ -1,4 +1,4 @@
-import { getDB, generateId } from './db'
+import { getDB, generateId, safeExecute } from './db'
 
 // ============== Athlete Health Metrics (wearables, migration 013) ==============
 
@@ -117,7 +117,8 @@ export async function getHealthMetrics(
     where += ' AND metric_type = ?'
     params.push(opts.metricType)
   }
-  const result = await db.execute(
+  const result = await safeExecute(
+    db,
     `SELECT metric_type, value, unit, source, recorded_at FROM athlete_health_metrics ${where} ORDER BY recorded_at DESC`,
     params,
   )

@@ -1,4 +1,4 @@
-import { getDB, generateId } from './db'
+import { getDB, generateId, safeExecute } from './db'
 
 // ============== Support Tickets ==============
 
@@ -25,21 +25,24 @@ export async function saveTicket(coachId: string, data: Record<string, unknown>)
   const id = (data.id as string) || generateId()
   const existing = await db.execute('SELECT id FROM support_tickets WHERE id = ? AND coach_id = ?', [id, coachId])
   if (existing.rows.length > 0) {
-    await db.execute(
+    await safeExecute(
+      db,
       'UPDATE support_tickets SET subject=?, category=?, priority=?, status=?, resolved_at=? WHERE id=? AND coach_id=?',
       [data.subject, data.category, data.priority, data.status, data.resolvedAt || null, id, coachId],
     )
   } else {
     const maxNum = await db.execute('SELECT COALESCE(MAX(ticket_number),0)+1 as next FROM support_tickets WHERE coach_id=?', [coachId])
     const number = (maxNum.rows[0]?.next as number) || 1
-    await db.execute(
+    await safeExecute(
+      db,
       'INSERT INTO support_tickets (id, ticket_number, subject, category, priority, status, coach_id, created_at) VALUES (?,?,?,?,?,?,?,datetime(\'now\'))',
       [id, number, data.subject, data.category, data.priority, data.status, coachId],
     )
   }
   await db.execute('DELETE FROM ticket_messages WHERE ticket_id = ?', [id])
   for (const m of (data.messages as Array<Record<string, unknown>>) || []) {
-    await db.execute(
+    await safeExecute(
+      db,
       'INSERT INTO ticket_messages (id, ticket_id, author, body, image_url, created_at) VALUES (?,?,?,?,?,?)',
       [m.id || generateId(), id, m.author, m.body, m.imageUrl || '', m.createdAt || new Date().toISOString()],
     )

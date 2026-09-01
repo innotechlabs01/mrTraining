@@ -1,4 +1,4 @@
-import { getDB, generateId } from './db'
+import { getDB, generateId, safeExecute } from './db'
 
 // ============== Events ==============
 
@@ -38,12 +38,14 @@ export async function saveEvent(coachId: string, data: Record<string, unknown>) 
   const existing = await db.execute('SELECT id FROM events WHERE id = ? AND coach_id = ?', [id, coachId])
   const running = data.running as Record<string, unknown> | undefined
   if (existing.rows.length > 0) {
-    await db.execute(
+    await safeExecute(
+      db,
       'UPDATE events SET title=?, date=?, time=?, end_time=?, type=?, modality=?, location=?, description=?, status=?, format=?, is_public=?, running_distance_km=?, running_pace=?, running_meeting_point=?, updated_at=datetime(\'now\') WHERE id=? AND coach_id=?',
       [data.title, data.date, data.time, data.endTime, data.type, data.modality, data.location || '', data.description || '', data.status, data.format || null, data.public ? 1 : 0, running?.distanceKm || null, running?.pace || null, running?.meetingPoint || null, id, coachId],
     )
   } else {
-    await db.execute(
+    await safeExecute(
+      db,
       'INSERT INTO events (id, title, date, time, end_time, type, modality, location, description, status, format, is_public, running_distance_km, running_pace, running_meeting_point, coach_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       [id, data.title, data.date, data.time, data.endTime, data.type, data.modality, data.location || '', data.description || '', data.status, data.format || null, data.public ? 1 : 0, running?.distanceKm || null, running?.pace || null, running?.meetingPoint || null, coachId],
     )
@@ -54,7 +56,8 @@ export async function saveEvent(coachId: string, data: Record<string, unknown>) 
   }
   await db.execute('DELETE FROM event_form_fields WHERE event_id = ?', [id])
   for (const f of (data.formFields as Array<Record<string, unknown>>) || []) {
-    await db.execute(
+    await safeExecute(
+      db,
       'INSERT INTO event_form_fields (id, event_id, label, kind, options, required, sort_order) VALUES (?,?,?,?,?,?,?)',
       [f.id || generateId(), id, f.label, f.kind, f.options ? JSON.stringify(f.options) : null, f.required ? 1 : 0, f.sort_order || 0],
     )

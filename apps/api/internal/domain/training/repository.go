@@ -86,6 +86,9 @@ type ProgressRepository interface {
 	// GetProgress retrieves progress entries for an athlete within a date range.
 	// Returns an empty slice (not nil) if no progress data exists.
 	GetProgress(ctx context.Context, athleteID string, dateRange ProgressDateRange) ([]*ProgressEntry, error)
+	// GetProgressSummary retrieves aggregated progress metrics for an athlete
+	// within a date range, including a consecutive-day completion streak.
+	GetProgressSummary(ctx context.Context, athleteID string, dateRange ProgressDateRange) (*ProgressSummary, error)
 }
 
 // TrainingSessionRepository defines the data access interface for training sessions.

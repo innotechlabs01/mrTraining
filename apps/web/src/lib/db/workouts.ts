@@ -1,4 +1,4 @@
-import { getDB, generateId } from './db'
+import { getDB, generateId, safeExecute } from './db'
 
 // ============== Assigned Workouts ==============
 
@@ -43,12 +43,14 @@ export async function saveAssignedWorkout(coachId: string, data: Record<string, 
   ]
   const existing = await db.execute('SELECT id FROM assigned_workouts WHERE id = ? AND coach_id = ?', [id, coachId])
   if (existing.rows.length > 0) {
-    await db.execute(
+    await safeExecute(
+      db,
       'UPDATE assigned_workouts SET athlete_id=?, athlete_name=?, content_id=?, content_type=?, content_name=?, modality=?, start_date=?, end_date=?, days_of_week=?, status=?, progress=?, updated_at=datetime(\'now\') WHERE id=? AND coach_id=?',
       [...params, id, coachId],
     )
   } else {
-    await db.execute(
+    await safeExecute(
+      db,
       'INSERT INTO assigned_workouts (id, athlete_id, athlete_name, content_id, content_type, content_name, modality, start_date, end_date, days_of_week, status, progress, coach_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
       [id, ...params, coachId],
     )
@@ -190,7 +192,7 @@ export async function getWorkoutDetail(workoutId: string) {
     sec: (e.sec as number) ?? null,
     minutes: (e.minutes as number) ?? null,
     speed: (e.speed as number) ?? null,
-    perSide: e.per_side === 1 || e.per_side === true,
+    perSide: Number(e.per_side) === 1,
     bodyPart: (e.body_part as string) || null,
     muscleGroups: String(e.muscle_groups || '').split(',').map(s => s.trim()).filter(Boolean),
     libraryExerciseId: (e.library_exercise_id as string) || null,

@@ -143,10 +143,22 @@ func (m *mockWorkoutRepository) UpdateTemplate(ctx context.Context, template *tr
 // mockProgressRepository is a test double for training.ProgressRepository.
 type mockProgressRepository struct {
 	entries []*training.ProgressEntry
+	summary *training.ProgressSummary
+	err     error
 }
 
 func (m *mockProgressRepository) GetProgress(ctx context.Context, athleteID string, dateRange training.ProgressDateRange) ([]*training.ProgressEntry, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
 	return m.entries, nil
+}
+
+func (m *mockProgressRepository) GetProgressSummary(ctx context.Context, athleteID string, dateRange training.ProgressDateRange) (*training.ProgressSummary, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.summary, nil
 }
 
 // mockTrainingSessionRepository is a test double for training.TrainingSessionRepository.
@@ -437,6 +449,45 @@ func TestGetProgressMissingDates(t *testing.T) {
 	svc, _, _, _ := newTestService()
 
 	_, err := svc.GetProgress(context.Background(), "athlete-1", training.ProgressDateRange{})
+	if err == nil {
+		t.Fatal("expected error for missing date range")
+	}
+}
+
+// TestGetProgressSummary verifies that GetProgressSummary returns the summary from the repo.
+func TestGetProgressSummary(t *testing.T) {
+	svc, _, _, progressRepo := newTestService()
+
+	progressRepo.summary = &training.ProgressSummary{
+		AthleteID:         "athlete-1",
+		StartDate:         "2026-01-01",
+		EndDate:           "2026-01-31",
+		WorkoutsCompleted: 3,
+		TotalVolume:       4500,
+		AvgCompletionRate: 66.6,
+		Streak:            2,
+	}
+
+	summary, err := svc.GetProgressSummary(context.Background(), "athlete-1", training.ProgressDateRange{
+		StartDate: "2026-01-01",
+		EndDate:   "2026-01-31",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if summary.Streak != 2 {
+		t.Errorf("expected streak 2, got %d", summary.Streak)
+	}
+	if summary.TotalVolume != 4500 {
+		t.Errorf("expected total volume 4500, got %f", summary.TotalVolume)
+	}
+}
+
+// TestGetProgressSummaryMissingDates verifies that GetProgressSummary rejects missing dates.
+func TestGetProgressSummaryMissingDates(t *testing.T) {
+	svc, _, _, _ := newTestService()
+
+	_, err := svc.GetProgressSummary(context.Background(), "athlete-1", training.ProgressDateRange{})
 	if err == nil {
 		t.Fatal("expected error for missing date range")
 	}

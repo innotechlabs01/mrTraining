@@ -320,6 +320,20 @@ func (s *Service) GetProgress(ctx context.Context, athleteID string, dateRange t
 	return entries, nil
 }
 
+// GetProgressSummary returns aggregated progress metrics for an athlete within a date range.
+func (s *Service) GetProgressSummary(ctx context.Context, athleteID string, dateRange training.ProgressDateRange) (*training.ProgressSummary, error) {
+	if dateRange.StartDate == "" || dateRange.EndDate == "" {
+		return nil, errors.BadRequest("start_date and end_date are required")
+	}
+
+	summary, err := s.progressRepo.GetProgressSummary(ctx, athleteID, dateRange)
+	if err != nil {
+		return nil, fmt.Errorf("get progress summary: %w", err)
+	}
+
+	return summary, nil
+}
+
 // GetAssignedWorkoutDetail returns a full assigned workout carrier with exercises and session.
 func (s *Service) GetAssignedWorkoutDetail(ctx context.Context, workoutID string) (*training.WorkoutDetail, error) {
 	detail, err := s.workoutRepo.GetAssignedWorkoutDetail(ctx, workoutID)

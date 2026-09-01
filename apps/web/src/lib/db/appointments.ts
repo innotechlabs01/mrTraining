@@ -1,4 +1,5 @@
-import { getDB, generateId } from './db'
+import { getDB, generateId, safeExecute } from './db'
+import type { Row } from '@libsql/client'
 
 // ============== Appointments & Availability ==============
 
@@ -36,7 +37,7 @@ export async function getCoachAppointments(coachId: string): Promise<CoachAppoin
     'SELECT * FROM appointments WHERE coach_id = ? ORDER BY date, start_time',
     [coachId],
   )
-  return result.rows.map((r: { id: string; coach_id: string; athlete_id: string; athlete_name: string; date: string; start_time: string; end_time: string; status: string; athlete_sports: string[]; athlete_modality: string; athlete_level: string; athlete_goal: string; athlete_frequency: number; athlete_duration: number; athlete_equipment: string; athlete_routine_accepted: boolean; notes: string }) => ({
+  return result.rows.map((r: Row) => ({
     id: r.id as string,
     coachId: r.coach_id as string,
     athleteId: r.athlete_id as string,
@@ -117,7 +118,7 @@ export async function updateAppointment(id: string, data: { status?: string; not
   if (data.endTime) { sets.push('end_time = ?'); vals.push(data.endTime); }
   sets.push("updated_at = datetime('now')")
   vals.push(id)
-  await db.execute(`UPDATE appointments SET ${sets.join(', ')} WHERE id = ?`, vals)
+  await safeExecute(db, `UPDATE appointments SET ${sets.join(', ')} WHERE id = ?`, vals)
 
   if (data.status === 'completed') {
     const appt = await db.execute('SELECT athlete_id FROM appointments WHERE id = ?', [id])
@@ -133,7 +134,7 @@ export async function getCoachAvailability(coachId: string): Promise<CoachAvaila
     'SELECT * FROM coach_availability WHERE coach_id = ? ORDER BY day_of_week, start_time',
     [coachId],
   )
-  return result.rows.map((r: { id: string; coach_id: string; day_of_week: number; start_time: string; end_time: string }) => ({
+  return result.rows.map((r: Row) => ({
     id: r.id as string, coachId: r.coach_id as string,
     dayOfWeek: r.day_of_week as number, startTime: r.start_time as string, endTime: r.end_time as string,
   }))

@@ -1,4 +1,4 @@
-import { getDB, generateId, mapRow } from './db'
+import { getDB, generateId, mapRow, safeExecute } from './db'
 
 // ============== Time Blocks ==============
 
@@ -45,12 +45,14 @@ export async function savePublicPageConfig(coachId: string, data: Record<string,
   const id = generateId()
   const existing = await db.execute('SELECT id FROM public_page_config WHERE coach_id = ?', [coachId])
   if (existing.rows.length > 0) {
-    await db.execute(
+    await safeExecute(
+      db,
       'UPDATE public_page_config SET brand_name=?, tagline=?, welcome_message=?, footer_text=?, updated_at=datetime(\'now\') WHERE coach_id=?',
       [data.brandName, data.tagline || '', data.welcomeMessage || '', data.footerText, coachId],
     )
   } else {
-    await db.execute(
+    await safeExecute(
+      db,
       'INSERT INTO public_page_config (id, coach_id, brand_name, tagline, welcome_message, footer_text) VALUES (?,?,?,?,?,?)',
       [id, coachId, data.brandName, data.tagline || '', data.welcomeMessage || '', data.footerText],
     )

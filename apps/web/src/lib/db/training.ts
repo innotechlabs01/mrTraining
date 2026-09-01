@@ -338,7 +338,7 @@ export async function getAssignedWorkoutDetail(coachId: string, workoutId: strin
       sec: (e.sec as number) ?? null,
       minutes: (e.minutes as number) ?? null,
       speed: (e.speed as number) ?? null,
-      perSide: e.per_side === 1 || e.per_side === true,
+      perSide: Number(e.per_side) === 1,
       bodyPart: (e.body_part as string) || null,
       muscleGroups: String(e.muscle_groups || '').split(',').map(s => s.trim()).filter(Boolean),
       libraryExerciseId: (e.library_exercise_id as string) || null,

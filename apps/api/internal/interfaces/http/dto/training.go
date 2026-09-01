@@ -209,6 +209,17 @@ type ProgressResponse struct {
 	CompletionRate   float64 `json:"completionRate"`
 }
 
+// ProgressSummaryResponse represents aggregated progress metrics for a date range.
+type ProgressSummaryResponse struct {
+	AthleteID         string  `json:"athleteId"`
+	StartDate         string  `json:"startDate"`
+	EndDate           string  `json:"endDate"`
+	WorkoutsCompleted int     `json:"workoutsCompleted"`
+	TotalVolume       float64 `json:"totalVolume"`
+	AvgCompletionRate float64 `json:"avgCompletionRate"`
+	Streak            int     `json:"streak"`
+}
+
 // TrainingSessionResponse represents a training session in API responses.
 type TrainingSessionResponse struct {
 	ID          string `json:"id"`

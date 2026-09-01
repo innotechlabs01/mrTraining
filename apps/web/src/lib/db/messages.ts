@@ -1,4 +1,4 @@
-import { getDB, generateId } from './db'
+import { getDB, generateId, safeExecute } from './db'
 
 // ============== Messages ==============
 
@@ -30,7 +30,8 @@ export async function getMessageThreads(coachId: string) {
 export async function saveMessage(coachId: string, threadId: string, data: Record<string, unknown>) {
   const db = getDB()
   const msgId = generateId()
-  await db.execute(
+  await safeExecute(
+    db,
     'INSERT INTO messages (id, thread_id, sender_id, sender_name, content, msg_type, timestamp) VALUES (?,?,?,?,?,?,datetime(\'now\'))',
     [msgId, threadId, data.senderId, data.senderName, data.content, data.type || 'text'],
   )
@@ -43,7 +44,8 @@ export async function createThread(coachId: string, data: Record<string, unknown
   const threadId = generateId()
   await db.execute('INSERT INTO message_threads (id, coach_id) VALUES (?,?)', [threadId, coachId])
   for (const p of (data.participants as Array<Record<string, unknown>>) || []) {
-    await db.execute(
+    await safeExecute(
+      db,
       'INSERT INTO thread_participants (thread_id, athlete_id, name, avatar_url) VALUES (?,?,?,?)',
       [threadId, p.id, p.name, p.avatarUrl || ''],
     )

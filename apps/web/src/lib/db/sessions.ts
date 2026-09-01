@@ -1,4 +1,4 @@
-import { getDB, generateId } from './db'
+import { getDB, generateId, safeExecute } from './db'
 
 // ============== Sessions ==============
 
@@ -33,12 +33,14 @@ export async function saveSession(coachId: string, data: Record<string, unknown>
   const id = (data.id as string) || generateId()
   const existing = await db.execute('SELECT id FROM coach_sessions WHERE id = ? AND coach_id = ?', [id, coachId])
   if (existing.rows.length > 0) {
-    await db.execute(
+    await safeExecute(
+      db,
       'UPDATE coach_sessions SET name=?, time=?, end_time=?, location=?, status=?, updated_at=datetime(\'now\') WHERE id=? AND coach_id=?',
       [data.name, data.time, data.endTime, data.location, data.status, id, coachId],
     )
   } else {
-    await db.execute(
+    await safeExecute(
+      db,
       'INSERT INTO coach_sessions (id, name, time, end_time, location, status, coach_id) VALUES (?,?,?,?,?,?,?)',
       [id, data.name, data.time, data.endTime, data.location, data.status, coachId],
     )
@@ -49,14 +51,16 @@ export async function saveSession(coachId: string, data: Record<string, unknown>
   }
   await db.execute('DELETE FROM session_exercises WHERE session_id = ?', [id])
   for (const e of (data.exercises as Array<Record<string, unknown>>) || []) {
-    await db.execute(
+    await safeExecute(
+      db,
       'INSERT INTO session_exercises (id, session_id, name, sets, reps, rest, weight, notes, sort_order) VALUES (?,?,?,?,?,?,?,?,?)',
       [e.id || generateId(), id, e.name, e.sets, e.reps, e.rest, e.weight, e.notes || '', e.sort_order || 0],
     )
   }
   await db.execute('DELETE FROM session_ai_adjustments WHERE session_id = ?', [id])
   for (const a of (data.aiAdjustments as Array<Record<string, unknown>>) || []) {
-    await db.execute(
+    await safeExecute(
+      db,
       'INSERT INTO session_ai_adjustments (id, session_id, type, title, description, reasoning, action_label, applied, dismissed) VALUES (?,?,?,?,?,?,?,?,?)',
       [a.id || generateId(), id, a.type, a.title, a.description, a.reasoning, a.actionLabel, a.applied ? 1 : 0, a.dismissed ? 1 : 0],
     )

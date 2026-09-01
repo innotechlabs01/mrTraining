@@ -1,4 +1,4 @@
-import { getDB, generateId } from './db'
+import { getDB, generateId, safeExecute } from './db'
 
 // ============== Payment Methods ==============
 
@@ -20,12 +20,14 @@ export async function savePaymentMethod(coachId: string, data: Record<string, un
   const id = (data.id as string) || generateId()
   const existing = await db.execute('SELECT id FROM payment_methods WHERE id = ? AND coach_id = ?', [id, coachId])
   if (existing.rows.length > 0) {
-    await db.execute(
+    await safeExecute(
+      db,
       'UPDATE payment_methods SET bank=?, holder=?, account_type=?, account_number=?, clabe=?, notes=?, updated_at=datetime(\'now\') WHERE id=? AND coach_id=?',
       [data.bank, data.holder, data.accountType, data.accountNumber, data.clabe, data.notes || '', id, coachId],
     )
   } else {
-    await db.execute(
+    await safeExecute(
+      db,
       'INSERT INTO payment_methods (id, coach_id, bank, holder, account_type, account_number, clabe, notes) VALUES (?,?,?,?,?,?,?,?)',
       [id, coachId, data.bank, data.holder, data.accountType, data.accountNumber, data.clabe, data.notes || ''],
     )

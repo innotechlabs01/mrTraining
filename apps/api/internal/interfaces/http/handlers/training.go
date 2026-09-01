@@ -433,6 +433,34 @@ func (h *TrainingHandler) GetProgress(c *fiber.Ctx) error {
 	})
 }
 
+// GetProgressSummary handles GET /progress/summary.
+// Returns aggregated progress metrics for the authenticated athlete.
+func (h *TrainingHandler) GetProgressSummary(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	if startDate == "" || endDate == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "start_date and end_date are required")
+	}
+
+	dateRange := trainingdomain.ProgressDateRange{
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+
+	summary, err := h.service.GetProgressSummary(c.Context(), userID, dateRange)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, toProgressSummaryResponse(summary))
+}
+
 // handleValidationError converts validation errors into a 422 response.
 func (h *TrainingHandler) handleValidationError(c *fiber.Ctx, validationErrs validator.ValidationErrors) error {
 	var messages []string
@@ -615,6 +643,19 @@ func toProgressResponse(p *trainingdomain.ProgressEntry) *dto.ProgressResponse {
 		AverageWeight:     p.AverageWeight,
 		TotalVolume:       p.TotalVolume,
 		CompletionRate:    p.CompletionRate,
+	}
+}
+
+// toProgressSummaryResponse converts a domain ProgressSummary entity to a DTO response.
+func toProgressSummaryResponse(s *trainingdomain.ProgressSummary) *dto.ProgressSummaryResponse {
+	return &dto.ProgressSummaryResponse{
+		AthleteID:         s.AthleteID,
+		StartDate:         s.StartDate,
+		EndDate:           s.EndDate,
+		WorkoutsCompleted: s.WorkoutsCompleted,
+		TotalVolume:       s.TotalVolume,
+		AvgCompletionRate: s.AvgCompletionRate,
+		Streak:            s.Streak,
 	}
 }
 

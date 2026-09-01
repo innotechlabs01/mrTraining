@@ -1,4 +1,4 @@
-import { getDB, generateId } from './db'
+import { getDB, generateId, safeExecute } from './db'
 
 // ============== Blog Posts ==============
 
@@ -81,17 +81,20 @@ export async function saveBlogPost(coachId: string, data: Record<string, unknown
   const tags = JSON.stringify(data.tags || [])
   const existing = await db.execute('SELECT id FROM blog_posts WHERE id = ? AND coach_id = ?', [id, coachId])
   if (existing.rows.length > 0) {
-    await db.execute(
+    await safeExecute(
+      db,
       'UPDATE blog_posts SET slug=?, title=?, excerpt=?, content=?, category=?, tags=?, image_url=?, is_published=?, published_at=?, updated_at=datetime(\'now\') WHERE id=? AND coach_id=?',
       [data.slug, data.title, data.excerpt, data.content, data.category, tags, data.imageUrl, data.isPublished ? 1 : 0, data.publishedAt || null, id, coachId],
     )
   } else {
-    await db.execute(
+    await safeExecute(
+      db,
       'INSERT INTO blog_posts (id, slug, title, excerpt, content, category, tags, image_url, is_published, published_at, coach_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
       [id, data.slug, data.title, data.excerpt, data.content, data.category, tags, data.imageUrl, data.isPublished ? 1 : 0, data.publishedAt || null, coachId],
     )
   }
-  await db.execute(
+  await safeExecute(
+    db,
     'INSERT OR REPLACE INTO blog_post_meta (post_id, read_time_minutes, views) VALUES (?, ?, ?)',
     [id, data.readTimeMinutes || 5, data.views || 0],
   )

@@ -58,6 +58,7 @@ func RegisterTrainingRoutes(api fiber.Router, handler *handlers.TrainingHandler)
 
 	// Progress
 	api.Get("/progress", middleware.RequireAthlete(), handler.GetProgress)
+	api.Get("/progress/summary", middleware.RequireAthlete(), handler.GetProgressSummary)
 
 // Training Sessions
 	api.Get("/training/sessions", handler.ListTrainingSessions)

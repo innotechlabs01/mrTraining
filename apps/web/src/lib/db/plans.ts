@@ -1,4 +1,4 @@
-import { getDB, generateId } from './db'
+import { getDB, generateId, safeExecute } from './db'
 
 // ============== Plans ==============
 
@@ -33,12 +33,14 @@ export async function savePlan(coachId: string, data: Record<string, unknown>) {
   const discount = data.discount as Record<string, unknown> | undefined
   const existing = await db.execute('SELECT id FROM plans WHERE id = ? AND coach_id = ?', [id, coachId])
   if (existing.rows.length > 0) {
-    await db.execute(
+    await safeExecute(
+      db,
       'UPDATE plans SET name=?, description=?, price=?, currency=?, billing_period=?, max_athletes=?, max_sessions_per_week=?, is_active=?, athlete_count=?, discount_type=?, discount_value=?, discount_label=?, discount_valid_from=?, discount_valid_until=?, discount_code=?, updated_at=datetime(\'now\') WHERE id=? AND coach_id=?',
       [data.name, data.description, data.price, data.currency, data.billingPeriod, data.maxAthletes, data.maxSessionsPerWeek, data.isActive ? 1 : 0, data.athleteCount || 0, discount?.type || null, discount?.value || null, discount?.label || null, discount?.validFrom || null, discount?.validUntil || null, discount?.code || null, id, coachId],
     )
   } else {
-    await db.execute(
+    await safeExecute(
+      db,
       'INSERT INTO plans (id, name, description, price, currency, billing_period, max_athletes, max_sessions_per_week, is_active, athlete_count, discount_type, discount_value, discount_label, discount_valid_from, discount_valid_until, discount_code, coach_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       [id, data.name, data.description, data.price, data.currency, data.billingPeriod, data.maxAthletes, data.maxSessionsPerWeek, data.isActive ? 1 : 0, data.athleteCount || 0, discount?.type || null, discount?.value || null, discount?.label || null, discount?.validFrom || null, discount?.validUntil || null, discount?.code || null, coachId],
     )

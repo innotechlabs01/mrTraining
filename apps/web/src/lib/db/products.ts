@@ -1,4 +1,4 @@
-import { getDB, generateId } from './db'
+import { getDB, generateId, safeExecute } from './db'
 
 // ============== Products ==============
 
@@ -20,12 +20,14 @@ export async function saveProduct(coachId: string, data: Record<string, unknown>
   const id = (data.id as string) || generateId()
   const existing = await db.execute('SELECT id FROM products WHERE id = ? AND coach_id = ?', [id, coachId])
   if (existing.rows.length > 0) {
-    await db.execute(
+    await safeExecute(
+      db,
       'UPDATE products SET name=?, brand=?, image_url=?, price=?, received=?, gross=?, stock=?, low_stock_threshold=?, description=?, category=?, is_shop=?, updated_at=datetime(\'now\') WHERE id=? AND coach_id=?',
       [data.name, data.brand || '', data.imageUrl || '', data.price, data.received, data.gross, data.stock || 0, data.lowStockThreshold || 5, data.description || '', data.category || '', data.isShop ? 1 : 0, id, coachId],
     )
   } else {
-    await db.execute(
+    await safeExecute(
+      db,
       'INSERT INTO products (id, name, brand, image_url, price, received, gross, stock, low_stock_threshold, description, category, is_shop, coach_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
       [id, data.name, data.brand || '', data.imageUrl || '', data.price, data.received, data.gross, data.stock || 0, data.lowStockThreshold || 5, data.description || '', data.category || '', data.isShop ? 1 : 0, coachId],
     )
@@ -56,14 +58,15 @@ export async function getSales(coachId: string) {
 export async function saveSale(coachId: string, data: Record<string, unknown>) {
   const db = getDB()
   const id = (data.id as string) || generateId()
-  await db.execute(
+  await safeExecute(
+    db,
     'INSERT INTO sales (id, product_id, product_name, brand, quantity, unit_price, unit_received, total, date, coach_id) VALUES (?,?,?,?,?,?,?,?,?,?)',
     [id, data.productId, data.productName, data.brand || '', data.quantity, data.unitPrice, data.unitReceived, data.total, data.date, coachId],
   )
   const product = await db.execute('SELECT stock FROM products WHERE id = ?', [data.productId as string])
   if (product.rows.length > 0) {
     const newStock = Math.max(0, (product.rows[0].stock as number) - (data.quantity as number))
-    await db.execute('UPDATE products SET stock = ? WHERE id = ?', [newStock, data.productId])
+    await safeExecute(db, 'UPDATE products SET stock = ? WHERE id = ?', [newStock, data.productId])
   }
   return id
 }
