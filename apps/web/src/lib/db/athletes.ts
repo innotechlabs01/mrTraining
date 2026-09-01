@@ -9,7 +9,7 @@ export async function getAthletes(coachId: string) {
     [coachId],
   )
   // Collect athlete IDs that have user_* emails so we can backfill from users table
-  const athleteIds = result.rows.map(r => r.id as string)
+  const athleteIds = result.rows.map((r: { id: string }) => r.id as string)
   const userEmailMap: Record<string, string> = {}
   if (athleteIds.length > 0) {
     const placeholders = athleteIds.map(() => '?').join(',')
