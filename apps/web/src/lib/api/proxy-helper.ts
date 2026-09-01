@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 
-const GO_API_BASE = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:8080';
+const GO_API_BASE = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:3001';
 
 /**
  * Proxy a Next.js API request to the Go backend with Clerk JWT forwarding.

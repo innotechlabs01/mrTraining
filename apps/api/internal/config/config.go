@@ -48,7 +48,7 @@ func Load() (*Config, error) {
 
 	cfg := &Config{
 		AppEnv:  getEnv("APP_ENV", "development"),
-		AppPort: getEnv("APP_PORT", "8080"),
+		AppPort: getEnv("APP_PORT", "3001"),
 		AppName: getEnv("APP_NAME", "mr-training-api"),
 
 		DatabaseURL:    getEnv("DATABASE_URL", getEnv("TURSO_URL", "")),

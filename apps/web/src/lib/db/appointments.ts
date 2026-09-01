@@ -1,4 +1,3 @@
-// @ts-nocheck — libsql InValue type is too strict for Record<string, unknown> dynamic params.
 import { getDB, generateId } from './db'
 
 // ============== Appointments & Availability ==============
@@ -53,7 +52,7 @@ export async function getCoachAppointments(coachId: string): Promise<CoachAppoin
     athleteFrequency: (r.athlete_frequency as number) || 0,
     athleteDuration: (r.athlete_duration as number) || 0,
     athleteEquipment: (r.athlete_equipment as string) || '',
-    athleteRoutineAccepted: (r.athlete_routine_accepted as number) === 1,
+    athleteRoutineAccepted: Number(r.athlete_routine_accepted) === 1,
     notes: (r.notes as string) || '',
   }))
 }
@@ -77,7 +76,7 @@ export async function getAthleteAppointment(athleteId: string): Promise<CoachApp
     athleteFrequency: (r.athlete_frequency as number) || 0,
     athleteDuration: (r.athlete_duration as number) || 0,
     athleteEquipment: (r.athlete_equipment as string) || '',
-    athleteRoutineAccepted: (r.athlete_routine_accepted as number) === 1,
+    athleteRoutineAccepted: Number(r.athlete_routine_accepted) === 1,
     notes: (r.notes as string) || '',
   }
 }
@@ -134,7 +133,7 @@ export async function getCoachAvailability(coachId: string): Promise<CoachAvaila
     'SELECT * FROM coach_availability WHERE coach_id = ? ORDER BY day_of_week, start_time',
     [coachId],
   )
-  return result.rows.map(r => ({
+  return result.rows.map((r: { id: string; coach_id: string; day_of_week: number; start_time: string; end_time: string }) => ({
     id: r.id as string, coachId: r.coach_id as string,
     dayOfWeek: r.day_of_week as number, startTime: r.start_time as string, endTime: r.end_time as string,
   }))

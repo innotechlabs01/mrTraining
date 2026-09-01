@@ -1,7 +1,6 @@
 /**
  * Go API Client — primary source for business logic endpoints.
  *
- * This client calls the Go backend at NEXT_PUBLIC_GO_API_URL (default: http://localhost:8080).
  * The Go API uses the same Clerk Bearer token for authentication.
  *
  * Routes handled by Go API (/api/v1/*):
@@ -19,7 +18,7 @@
  *   - Running: /running/sessions, /running/stats, /running/devices
  */
 
-const GO_API_BASE = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:8080'
+const GO_API_BASE = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:3001'
 
 interface GoRequestOptions extends RequestInit {
   auth?: boolean;
