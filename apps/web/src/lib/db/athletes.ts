@@ -21,7 +21,7 @@ export async function getAthletes(coachId: string) {
       userEmailMap[ur.id as string] = (ur.email as string) || ''
     }
   }
-  return result.rows.map(r => {
+  return result.rows.map((r: { name: string; email: string }) => {
     const rawName = (r.name as string) || ''
     let email = (r.email as string) || ''
     // Backfill: if email looks like a Clerk user ID, resolve from users table
