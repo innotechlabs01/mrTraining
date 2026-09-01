@@ -46,7 +46,7 @@ export async function getCoachAppointments(coachId: string): Promise<CoachAppoin
     startTime: r.start_time as string,
     endTime: r.end_time as string,
     status: r.status as CoachAppointment['status'],
-    athleteSports: JSON.parse((r.athlete_sports as string) || '[]'),
+    athleteSports: JSON.parse((r.athlete_sports as unknown as string) || '[]'),
     athleteModality: (r.athlete_modality as string) || '',
     athleteLevel: (r.athlete_level as string) || '',
     athleteGoal: (r.athlete_goal as string) || '',

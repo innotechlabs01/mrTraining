@@ -12,6 +12,7 @@ require (
 
 require (
 	firebase.google.com/go/v4 v4.21.0
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/clerk/clerk-sdk-go/v2 v2.7.0
 	github.com/gofiber/websocket/v2 v2.2.1
 	google.golang.org/api v0.293.0
@@ -28,7 +29,6 @@ require (
 	cloud.google.com/go/longrunning v1.0.0 // indirect
 	cloud.google.com/go/monitoring v1.29.0 // indirect
 	cloud.google.com/go/storage v1.62.1 // indirect
-	github.com/DATA-DOG/go-sqlmock v1.5.2 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.33.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.56.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.56.0 // indirect
