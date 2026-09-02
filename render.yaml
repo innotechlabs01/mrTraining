@@ -1,0 +1,31 @@
+# Render Blueprint — Go API Web Service
+# CI/CD: GitHub Action .github/workflows/deploy-api.yml dispara el deploy hook.
+# autoDeploy: false — solo deploy cuando el workflow lo invoca.
+services:
+  - type: web
+    name: mr-training-api
+    runtime: docker
+    repo: https://github.com/innotechlabs01/mrTraining
+    branch: main
+    rootDir: apps/api
+    dockerfilePath: ./Dockerfile
+    autoDeploy: false
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_PORT
+        value: "8080"
+      - key: CORS_ORIGINS
+        value: https://mr-training.vercel.app
+      - key: LOG_LEVEL
+        value: info
+      # Secrets — valores se cargan en el dashboard de Render (sync: false).
+      - key: TURSO_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
