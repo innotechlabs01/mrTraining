@@ -27,7 +27,7 @@
 import { goClient, goFetch } from '@/lib/api/go-client'
 
 // Go API base URL (same as go-client.ts, used for health checks)
-const GO_API_BASE = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:3001'
+const GO_API_BASE = process.env.NEXT_PUBLIC_GO_API_URL || ''
 
 // Legacy API base (kept for backwards-compat only)
 // @deprecated LEGACY_API_BASE is kept only for backwards-compat of the legacy `api` helper.

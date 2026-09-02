@@ -18,7 +18,7 @@
  *   - Running: /running/sessions, /running/stats, /running/devices
  */
 
-const GO_API_BASE = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:3001'
+const GO_API_BASE = process.env.NEXT_PUBLIC_GO_API_URL || ''
 
 interface GoRequestOptions extends RequestInit {
   auth?: boolean;
