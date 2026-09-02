@@ -36,6 +36,7 @@ export async function POST(req: Request) {
       difficulty: body?.difficulty ?? undefined,
       category: body?.category ?? undefined,
       instructions: Array.isArray(body?.instructions) ? body.instructions : [],
+      videoUrl: typeof body?.videoUrl === 'string' ? body.videoUrl : undefined,
     });
     return NextResponse.json({ exercise: created }, { status: 201 });
   } catch (error) {

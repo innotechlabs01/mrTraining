@@ -84,39 +84,39 @@ export default function CoachAsignarPage() {
   ]
   const contentOptions = workoutSources
 
-  const resolveExercises = async (sourceId: string): Promise<TemplateExerciseRow[]> => {
-    if (sourceId.startsWith('tpl:')) {
-      const { template } = await templateApi.get(sourceId.slice(4))
-      return template.exercises
-    }
-    if (sourceId.startsWith('past:')) {
-      const detail = await templateApi.getPastAssignment(sourceId.slice(5))
-      return detail.exercises
-    }
-    return []
-  }
-
   const selectedOption = contentOptions.find(c => `${c.kind}:${c.id}` === selectedContent)
 
   const handleAssign = async () => {
     if (!selectedContent || selectedAthletes.length === 0 || !user) return
     setAssigning(true)
     try {
-      // Hydrate the exercise list from the real source (template or past assignment).
-      const exercises = await resolveExercises(selectedContent)
-
       const startDate = new Date().toISOString().split('T')[0]
+      const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
       for (const athId of selectedAthletes) {
         const athlete = athletes.find(a => a.id === athId)
+
+        // Go's AssignWorkout expects { templateId, modality, startDate, endDate, daysOfWeek }
+        // and copies the template's exercises (including libraryExerciseId → video). Only
+        // builder-saved templates carry a templateId.
+        const isTemplate = selectedOption?.kind === 'template'
+        if (!isTemplate) {
+          alert('Solo se pueden asignar plantillas del Builder')
+          setAssigning(false)
+          return
+        }
 
         await workoutApi.create({
           name: selectedOption?.name || 'Workout',
           description: selectedOption?.kind === 'template' ? selectedOption.description : '',
           sportType: athlete?.sport || 'general',
+          templateId: selectedOption?.id,
           scheduledDate: startDate,
+          startDate,
+          endDate,
+          modality,
+          daysOfWeek: selectedDays,
           athleteId: athId,
-          exercises,
         })
       }
       alert(`Asignado a ${selectedAthletes.length} atleta${selectedAthletes.length > 1 ? 's' : ''}`)

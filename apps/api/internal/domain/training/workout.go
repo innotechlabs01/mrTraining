@@ -41,6 +41,8 @@ type WorkoutExercise struct {
 	BodyPart          string  `json:"body_part,omitempty"`
 	MuscleGroups      string  `json:"muscle_groups,omitempty"`
 	ImageURL          string  `json:"imageUrl,omitempty"`
+	VideoURL          string  `json:"videoUrl,omitempty"`
+	GPSRoute          string  `json:"gpsRoute,omitempty"` // encoded polyline for running routes
 	LibraryExerciseID string  `json:"library_exercise_id,omitempty"`
 }
 

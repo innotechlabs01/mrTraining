@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ListChecks, FileText, UserPlus } from 'lucide-react'
+import { ListChecks, UserPlus } from 'lucide-react'
 
 const CARDS = [
   {
@@ -12,16 +12,9 @@ const CARDS = [
     color: 'bg-brand-primary/10 text-brand-primary',
   },
   {
-    icon: FileText,
-    label: 'Programas',
-    desc: 'Planes de entrenamiento semanales y mensuales',
-    href: '/coach/training/programs',
-    color: 'bg-purple-500/10 text-purple-400',
-  },
-  {
     icon: UserPlus,
     label: 'Asignar',
-    desc: 'Asigna workouts o programas a atletas específicos',
+    desc: 'Asigna workouts a atletas específicos',
     href: '/coach/training/asignar',
     color: 'bg-blue-500/10 text-blue-400',
   },
@@ -32,9 +25,9 @@ export default function CoachTrainingPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-xl font-display font-bold text-white">Training</h1>
-        <p className="text-sm text-white/40 mt-1">Gestiona workouts, programas y asignaciones</p>
+        <p className="text-sm text-white/40 mt-1">Gestiona workouts y asignaciones</p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {CARDS.map((card) => (
           <Link
             key={card.href}

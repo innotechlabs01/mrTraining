@@ -578,6 +578,8 @@ func toWorkoutExerciseResponse(ex *trainingdomain.WorkoutExercise) *dto.WorkoutE
 		BodyPart:          ex.BodyPart,
 		MuscleGroups:      ex.MuscleGroups,
 		ImageURL:          ex.ImageURL,
+		VideoURL:          ex.VideoURL,
+		GPSRoute:          ex.GPSRoute,
 		LibraryExerciseID: ex.LibraryExerciseID,
 	}
 }

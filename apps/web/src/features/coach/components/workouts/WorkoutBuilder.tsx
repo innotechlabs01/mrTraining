@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, X, ChevronUp, ChevronDown, Sparkles,
-  Save, FileText, Loader2, AlertTriangle, Dumbbell,
+  Save, FileText, Loader2, AlertTriangle, Dumbbell, MapPinned,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -20,6 +20,7 @@ import type { WorkoutExercise, Exercise, WorkoutGoal, WorkoutPlan, MuscleGroup }
 import { templateApi } from '@/features/shared/api/client'
 import type { TemplateExerciseRow } from '@/features/shared/api/client'
 import { InfoTip } from './InfoTip'
+import { RouteMapEditor } from './RouteMapEditor'
 
 const GOALS = Object.entries(GOAL_LABELS).map(([value, label]) => ({
   value: value as WorkoutGoal,
@@ -389,6 +390,7 @@ export default function WorkoutBuilder() {
   const [savedMessage, setSavedMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [editingExercise, setEditingExercise] = useState<string | null>(null)
+  const [routeExerciseId, setRouteExerciseId] = useState<string | null>(null)
   const [templateLoading, setTemplateLoading] = useState(false)
   const [templateError, setTemplateError] = useState<string | null>(null)
 
@@ -827,6 +829,7 @@ export default function WorkoutBuilder() {
                       </div>
 
                       {editingExercise === we.id ? (
+                        <>
                         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5 flex-wrap">
                           <div className="flex items-center gap-1.5">
                             <InfoTip text="Sets: número de series del ejercicio (veces que repites la carga). Ej. 4 = haz el ejercicio 4 veces." />
@@ -894,6 +897,29 @@ export default function WorkoutBuilder() {
                             Done
                           </button>
                         </div>
+
+                        <div className="mt-3 pt-3 border-t border-white/5">
+                          <button
+                            type="button"
+                            onClick={() => setRouteExerciseId(routeExerciseId === we.id ? null : we.id)}
+                            className={cn(
+                              'flex items-center gap-1.5 text-xs font-medium transition-colors',
+                              routeExerciseId === we.id ? 'text-brand-primary' : 'text-white/50 hover:text-white/70',
+                            )}
+                          >
+                            <MapPinned className="w-3.5 h-3.5" />
+                            {we.gpsRoute ? 'Editar ruta de running' : 'Agregar ruta de running'}
+                          </button>
+                          {routeExerciseId === we.id && (
+                            <div className="mt-2">
+                              <RouteMapEditor
+                                value={we.gpsRoute ?? ''}
+                                onChange={(encoded) => updateExerciseField(we.id, 'gpsRoute', encoded)}
+                              />
+                            </div>
+                          )}
+                        </div>
+                        </>
                       ) : (
                         <div
                           onClick={() => setEditingExercise(we.id)}

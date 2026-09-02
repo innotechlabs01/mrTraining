@@ -47,7 +47,7 @@ function toExerciseDetail(e: ExerciseLibraryEntry): ExerciseDetail {
     instructions: e.instructions,
     tips: [],
     commonMistakes: [],
-    videoUrl: '',
+    videoUrl: e.videoUrl ?? '',
     createdAt: e.isCustom ? '' : '2026-06-01',
   } as ExerciseDetail
 }

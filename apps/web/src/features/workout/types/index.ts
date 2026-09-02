@@ -56,6 +56,8 @@ export interface WorkoutExercise {
   rest: number
   notes?: string
   muscleGroups: MuscleGroup[]
+  /** Running route as an encoded GPS polyline (lat,lng pairs). */
+  gpsRoute?: string
 }
 
 export interface WorkoutPlan {

@@ -20,6 +20,8 @@ type CreateExerciseRequest struct {
 	Instructions string `json:"instructions"`
 	// ImageURL is a URL to an image for the exercise.
 	ImageURL string `json:"imageUrl,omitempty"`
+	// VideoURL is a URL to a video demonstrating the exercise (typically Vercel Blob).
+	VideoURL string `json:"videoUrl,omitempty"`
 }
 
 // ExerciseResponse represents an exercise in API responses.
@@ -75,6 +77,8 @@ type WorkoutExerciseResponse struct {
 	BodyPart          string  `json:"bodyPart,omitempty"`
 	MuscleGroups      string  `json:"muscleGroups,omitempty"`
 	ImageURL          string  `json:"imageUrl,omitempty"`
+	VideoURL          string  `json:"videoUrl,omitempty"`
+	GPSRoute          string  `json:"gpsRoute,omitempty"`
 	LibraryExerciseID string  `json:"libraryExerciseId,omitempty"`
 }
 
@@ -106,6 +110,7 @@ type CreateWorkoutExerciseRequest struct {
 	BodyPart          string  `json:"bodyPart"`
 	MuscleGroups      string  `json:"muscleGroups"`
 	LibraryExerciseID string  `json:"libraryExerciseId"`
+	GPSRoute          string  `json:"gpsRoute"`
 }
 
 // AssignWorkoutRequest is the payload for assigning a workout to an athlete.

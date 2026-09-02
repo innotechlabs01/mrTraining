@@ -185,14 +185,14 @@ func (r *WorkoutRepository) AssignWorkout(ctx context.Context, a *training.Assig
 		`INSERT INTO workout_exercises
 		 (id, workout_id, name, sets, reps, weight_kg, rest_seconds, sort_order, notes,
 		  mode, phase, superset_group, reps_min, reps_max, prog, inc, sec, minutes, speed,
-		  per_side, body_part, muscle_groups, library_exercise_id)
+		  per_side, body_part, muscle_groups, library_exercise_id, gps_route)
 		 SELECT
 		  hex(randomblob(16)) AS id,
 		  ? AS workout_id,
 		  wte.name, wte.sets, wte.reps, wte.weight_kg, wte.rest_seconds, wte.sort_order, wte.notes,
 		  wte.mode, wte.phase, wte.superset_group, wte.reps_min, wte.reps_max, wte.prog, wte.inc,
 		  wte.sec, wte.minutes, wte.speed, wte.per_side, wte.body_part, wte.muscle_groups,
-		  wte.library_exercise_id
+		  wte.library_exercise_id, wte.gps_route
 		 FROM workout_template_exercises wte
 		 WHERE wte.template_id = ?`,
 		a.ID, a.ContentID)
@@ -358,7 +358,7 @@ func (r *WorkoutRepository) getTemplateExercises(ctx context.Context, templateID
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, template_id, name, sets, reps, weight_kg, rest_seconds, sort_order,
 		 notes, mode, phase, superset_group, reps_min, reps_max, prog, inc, sec,
-		 minutes, speed, per_side, body_part, muscle_groups, library_exercise_id
+		 minutes, speed, per_side, body_part, muscle_groups, library_exercise_id, gps_route
 		 FROM workout_template_exercises
 		 WHERE template_id = ? ORDER BY sort_order`, templateID)
 	if err != nil {
@@ -372,13 +372,13 @@ func (r *WorkoutRepository) getTemplateExercises(ctx context.Context, templateID
 		var weightKg, increment, speed sql.NullFloat64
 		var repsMin, repsMax, durationSec sql.NullInt64
 		var durationMinutes sql.NullFloat64
-		var notes, supersetGroup, prog, bodyPart, muscleGroups, libraryExerciseID sql.NullString
+		var notes, supersetGroup, prog, bodyPart, muscleGroups, libraryExerciseID, gpsRoute sql.NullString
 		var perSide int
 
 		if err := rows.Scan(&ex.ID, &ex.TemplateID, &ex.Name, &ex.Sets, &ex.Reps,
 			&weightKg, &ex.RestSeconds, &ex.SortOrder, &notes, &ex.Mode, &ex.Phase,
 			&supersetGroup, &repsMin, &repsMax, &prog, &increment, &durationSec,
-			&durationMinutes, &speed, &perSide, &bodyPart, &muscleGroups, &libraryExerciseID); err != nil {
+			&durationMinutes, &speed, &perSide, &bodyPart, &muscleGroups, &libraryExerciseID, &gpsRoute); err != nil {
 			return nil, fmt.Errorf("failed to scan template exercise: %w", err)
 		}
 
@@ -424,6 +424,9 @@ func (r *WorkoutRepository) getTemplateExercises(ctx context.Context, templateID
 		if libraryExerciseID.Valid {
 			ex.LibraryExerciseID = libraryExerciseID.String
 		}
+		if gpsRoute.Valid {
+			ex.GPSRoute = gpsRoute.String
+		}
 
 		exercises = append(exercises, ex)
 	}
@@ -468,13 +471,13 @@ func (r *WorkoutRepository) insertTemplateExercise(ctx context.Context, tx *sql.
 		`INSERT INTO workout_template_exercises
 		 (id, template_id, name, sets, reps, weight_kg, rest_seconds, sort_order,
 		  notes, mode, phase, superset_group, reps_min, reps_max, prog, inc, sec,
-		  minutes, speed, per_side, body_part, muscle_groups, library_exercise_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		  minutes, speed, per_side, body_part, muscle_groups, library_exercise_id, gps_route)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		ex.ID, ex.TemplateID, ex.Name, ex.Sets, ex.Reps, weightKg, ex.RestSeconds,
 		ex.SortOrder, nullStr(ex.Notes), ex.Mode, ex.Phase, nullStr(ex.SupersetGroup),
 		repsMin, repsMax, nullStr(ex.Progression), increment, durationSec,
 		durationMinutes, speed, perSide, nullStr(ex.BodyPart),
-		nullStr(ex.MuscleGroups), nullStr(ex.LibraryExerciseID))
+		nullStr(ex.MuscleGroups), nullStr(ex.LibraryExerciseID), nullStr(ex.GPSRoute))
 	if err != nil {
 		return fmt.Errorf("failed to insert template exercise: %w", err)
 	}
@@ -537,7 +540,7 @@ func (r *WorkoutRepository) getAssignedWorkoutExercises(ctx context.Context, wor
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT we.id, we.workout_id, we.name, we.sets, we.reps, we.weight_kg, we.rest_seconds, we.sort_order,
 		 we.notes, we.mode, we.phase, we.superset_group, we.body_part, we.muscle_groups, we.library_exercise_id,
-		 el.image_url
+		 el.image_url, el.video_url, we.gps_route
 		 FROM workout_exercises we
 		 LEFT JOIN exercise_library el ON el.id = we.library_exercise_id
 		 WHERE we.workout_id = ? ORDER BY we.sort_order`, workoutID)
@@ -550,11 +553,11 @@ func (r *WorkoutRepository) getAssignedWorkoutExercises(ctx context.Context, wor
 	for rows.Next() {
 		ex := training.WorkoutExercise{}
 		var weightKg sql.NullFloat64
-		var notes, supersetGroup, bodyPart, muscleGroups, libraryExerciseID, imageURL sql.NullString
+		var notes, supersetGroup, bodyPart, muscleGroups, libraryExerciseID, imageURL, videoURL, gpsRoute sql.NullString
 
 		if err := rows.Scan(&ex.ID, &ex.TemplateID, &ex.Name, &ex.Sets, &ex.Reps,
 			&weightKg, &ex.RestSeconds, &ex.SortOrder, &notes, &ex.Mode, &ex.Phase,
-			&supersetGroup, &bodyPart, &muscleGroups, &libraryExerciseID, &imageURL); err != nil {
+			&supersetGroup, &bodyPart, &muscleGroups, &libraryExerciseID, &imageURL, &videoURL, &gpsRoute); err != nil {
 			return nil, fmt.Errorf("failed to scan assigned workout exercise: %w", err)
 		}
 
@@ -578,6 +581,12 @@ func (r *WorkoutRepository) getAssignedWorkoutExercises(ctx context.Context, wor
 		}
 		if imageURL.Valid {
 			ex.ImageURL = imageURL.String
+		}
+		if videoURL.Valid {
+			ex.VideoURL = videoURL.String
+		}
+		if gpsRoute.Valid {
+			ex.GPSRoute = gpsRoute.String
 		}
 
 		exercises = append(exercises, ex)

@@ -8,11 +8,11 @@ import (
 )
 
 // assignedWorkoutExerciseCols mirrors the SELECT column order returned by
-// getAssignedWorkoutExercises including the LEFT JOINed image_url.
+// getAssignedWorkoutExercises including the LEFT JOINed image_url/video_url and gps_route.
 var assignedWorkoutExerciseCols = []string{
 	"id", "workout_id", "name", "sets", "reps", "weight_kg", "rest_seconds", "sort_order",
 	"notes", "mode", "phase", "superset_group", "body_part", "muscle_groups",
-	"library_exercise_id", "image_url",
+	"library_exercise_id", "image_url", "video_url", "gps_route",
 }
 
 // TestGetPrescriptionLeftJoinImageURL verifies the prescription query LEFT JOINs
@@ -29,7 +29,7 @@ func TestGetPrescriptionLeftJoinImageURL(t *testing.T) {
 		mock.ExpectQuery("FROM workout_exercises").WithArgs("w1").WillReturnRows(
 			sqlmock.NewRows(assignedWorkoutExerciseCols).AddRow(
 				"ex1", "w1", "Bench", 3, 10, 80.0, 90, 1, nil, "reps", "work", nil, nil, nil, "lib-1",
-				"https://img.example/bench.jpg"))
+				"https://img.example/bench.jpg", "https://cdn.example/bench.mp4", "_gx{pF_gsaVdW`CvyK"))
 
 		exs, err := repo.GetPrescription(context.Background(), "w1")
 		if err != nil {
@@ -49,7 +49,7 @@ func TestGetPrescriptionLeftJoinImageURL(t *testing.T) {
 	t.Run("null image_url yields empty ImageURL", func(t *testing.T) {
 		mock.ExpectQuery("FROM workout_exercises").WithArgs("w1").WillReturnRows(
 			sqlmock.NewRows(assignedWorkoutExerciseCols).AddRow(
-				"ex1", "w1", "Squat", 4, 8, 100.0, 120, 1, nil, "reps", "work", nil, nil, nil, "lib-2", nil))
+				"ex1", "w1", "Squat", 4, 8, 100.0, 120, 1, nil, "reps", "work", nil, nil, nil, "lib-2", nil, nil, nil))
 
 		exs, err := repo.GetPrescription(context.Background(), "w1")
 		if err != nil {
@@ -79,7 +79,7 @@ func workoutRow() *sqlmock.Rows {
 func exerciseRows() *sqlmock.Rows {
 	return sqlmock.NewRows(assignedWorkoutExerciseCols).AddRow(
 		"ex1", "w1", "Bench", 3, 10, 80.0, 90, 1, nil, "reps", "work", nil, nil, nil, "lib-1",
-		"https://img.example/bench.jpg")
+		"https://img.example/bench.jpg", "https://cdn.example/bench.mp4", "_gx{pF_gsaVdW`CvyK")
 }
 
 func sessionCols() []string {

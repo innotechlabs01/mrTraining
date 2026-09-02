@@ -153,18 +153,19 @@ export interface Workout {
 // Go endpoints: /api/v1/workouts, /api/v1/workouts/assign, /api/v1/workouts/:id/sets
 // Next.js fallback: /api/coaching/assigned-workouts, /api/athlete/workouts, /api/athlete/today
 export const workoutApi = {
-  create: (data: { name: string; description: string; sportType: string; scheduledDate: string; athleteId: string; programId?: string; exercises: unknown[] }) =>
-    // Go API: POST /api/v1/workouts/assign
+  create: (data: { name: string; description: string; sportType: string; scheduledDate: string; athleteId: string; programId?: string; exercises?: unknown[]; templateId?: string; modality?: string; startDate?: string; endDate?: string; daysOfWeek?: number[] }) =>
+    // Go API: POST /api/v1/workouts/assign (assigns a template; copies its exercises)
     goFetch<Workout>('/api/v1/workouts/assign', {
       method: 'POST',
       body: JSON.stringify({
         name: data.name,
         description: data.description,
-        sportType: data.sportType,
-        scheduledDate: data.scheduledDate,
         athleteId: data.athleteId,
-        programId: data.programId,
-        exercises: data.exercises,
+        templateId: data.templateId,
+        modality: data.modality,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        daysOfWeek: data.daysOfWeek,
       }),
     }),
 
@@ -576,6 +577,14 @@ export const exerciseApi = {
     }).catch(() =>
       nextFetch.post<{ exercise: ExerciseLibraryEntry }>('/api/exercises', data)
     ),
+
+  update: (id: string, data: Partial<ExerciseLibraryEntry>) =>
+    // Next.js: PUT /api/exercises/:id (not in Go API yet).
+    nextFetch.put<{ exercise: ExerciseLibraryEntry }>(`/api/exercises/${id}`, data),
+
+  remove: (id: string) =>
+    // Next.js: DELETE /api/exercises/:id (not in Go API yet).
+    nextFetch.delete<{ ok: true }>(`/api/exercises/${id}`),
 };
 
 export interface HealthSeriesRow {
@@ -636,6 +645,8 @@ export interface TemplateExerciseRow {
   notes?: string | null;
   muscleGroups?: string[];
   libraryExerciseId?: string | null;
+  /** Running route as an encoded GPS polyline (lat,lng pairs). */
+  gpsRoute?: string | null;
 }
 
 export interface WorkoutTemplateDetail extends WorkoutTemplateSummary {

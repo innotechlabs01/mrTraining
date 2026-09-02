@@ -98,6 +98,7 @@ func (s *Service) CreateExercise(ctx context.Context, coachID string, req dto.Cr
 		Category:    req.Category,
 		Instructions: req.Instructions,
 		ImageURL:    req.ImageURL,
+		VideoURL:    req.VideoURL,
 		IsCustom:    isCustom,
 		CoachID:     &coachID,
 	}
@@ -154,6 +155,7 @@ func (s *Service) CreateWorkoutTemplate(ctx context.Context, coachID string, req
 			BodyPart:          ex.BodyPart,
 			MuscleGroups:      ex.MuscleGroups,
 			LibraryExerciseID: ex.LibraryExerciseID,
+			GPSRoute:          ex.GPSRoute,
 		}
 	}
 
@@ -205,6 +207,7 @@ func (s *Service) UpdateWorkoutTemplate(ctx context.Context, coachID, id string,
 			BodyPart:          ex.BodyPart,
 			MuscleGroups:      ex.MuscleGroups,
 			LibraryExerciseID: ex.LibraryExerciseID,
+			GPSRoute:          ex.GPSRoute,
 		}
 	}
 

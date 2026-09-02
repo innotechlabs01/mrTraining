@@ -20,6 +20,8 @@ function toExercisesPayload(exercises: WorkoutExercise[]) {
     restSeconds: e.rest ?? null,
     sortOrder: e.order,
     muscleGroups: e.muscleGroups ?? [],
+    libraryExerciseId: e.exerciseId ?? null,
+    gpsRoute: e.gpsRoute ?? null,
   }))
 }
 
@@ -53,6 +55,7 @@ function mapTemplateExerciseRowToWorkoutExercise(row: TemplateExerciseRow, idx: 
   const rest = typeof restRaw === 'number' && Number.isFinite(restRaw) ? restRaw : 60
   const order = typeof orderRaw === 'number' && Number.isFinite(orderRaw) ? orderRaw : idx + 1
   const mg = Array.isArray(row.muscleGroups) ? (row.muscleGroups as MuscleGroup[]) : []
+  const gpsRoute = typeof row.gpsRoute === 'string' && row.gpsRoute ? row.gpsRoute : undefined
 
   return {
     id,
@@ -64,6 +67,7 @@ function mapTemplateExerciseRowToWorkoutExercise(row: TemplateExerciseRow, idx: 
     weight,
     rest,
     muscleGroups: mg,
+    gpsRoute,
     notes: typeof row.notes === 'string' ? row.notes : undefined,
   }
 }

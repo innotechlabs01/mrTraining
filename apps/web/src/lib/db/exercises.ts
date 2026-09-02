@@ -52,6 +52,78 @@ export async function listExerciseLibrary(coachId?: string): Promise<ExerciseLib
   return rows.rows.map(mapExerciseLibraryItem)
 }
 
+export type UpdateExerciseInput = {
+  name?: string
+  description?: string
+  mode?: 'reps' | 'time' | 'cardio'
+  bodyPart?: string
+  muscleGroups?: string[]
+  equipment?: string
+  difficulty?: string
+  category?: string
+  instructions?: string[]
+  defaultSec?: number
+  videoUrl?: string | null
+  imageUrl?: string | null
+}
+
+/** Update an existing library exercise. Returns the updated row or null if not found. */
+export async function updateExerciseLibrary(
+  id: string,
+  data: UpdateExerciseInput,
+): Promise<ExerciseLibraryItem | null> {
+  const db = getDB()
+  const existing = await db.execute('SELECT * FROM exercise_library WHERE id = ?', [id])
+  if (existing.rows.length === 0) return null
+
+  const truncate = (v: string | undefined) => (v === undefined ? undefined : v.trim())
+  const name = truncate(data.name)
+  if (name === undefined || name === '') return existing.rows[0] ? mapExerciseLibraryItem(existing.rows[0]) : null
+
+  await db.execute(
+    `UPDATE exercise_library SET
+       name = COALESCE(?, name),
+       description = COALESCE(?, description),
+       mode = COALESCE(?, mode),
+       body_part = COALESCE(?, body_part),
+       muscle_groups = COALESCE(?, muscle_groups),
+       equipment = COALESCE(?, equipment),
+       difficulty = COALESCE(?, difficulty),
+       category = COALESCE(?, category),
+       instructions = COALESCE(?, instructions),
+       default_sec = COALESCE(?, default_sec),
+       video_url = ?,
+       image_url = ?,
+       updated_at = datetime('now')
+     WHERE id = ?`,
+    [
+      data.name !== undefined ? data.name.trim() : null,
+      data.description !== undefined ? data.description.trim() : null,
+      data.mode ?? null,
+      data.bodyPart ?? null,
+      data.muscleGroups !== undefined ? data.muscleGroups.join(',') : null,
+      data.equipment ?? null,
+      data.difficulty ?? null,
+      data.category ?? null,
+      data.instructions !== undefined ? data.instructions.join('\n') : null,
+      data.defaultSec ?? null,
+      data.videoUrl ?? null,
+      data.imageUrl ?? null,
+      id,
+    ],
+  )
+
+  const updated = await db.execute('SELECT * FROM exercise_library WHERE id = ?', [id])
+  return mapExerciseLibraryItem(updated.rows[0])
+}
+
+/** Delete an existing library exercise. Returns true when a row was deleted. */
+export async function deleteExerciseLibrary(id: string): Promise<boolean> {
+  const db = getDB()
+  const result = await db.execute('DELETE FROM exercise_library WHERE id = ?', [id])
+  return result.rowsAffected > 0
+}
+
 export async function getExerciseBySlug(slug: string): Promise<ExerciseLibraryItem | null> {
   const db = getDB()
   const result = await db.execute('SELECT * FROM exercise_library WHERE slug = ? LIMIT 1', [slug])
@@ -82,6 +154,7 @@ export async function createCustomExercise(coachId: string, data: {
   name: string; description?: string; mode?: 'reps' | 'time' | 'cardio';
   bodyPart?: string; muscleGroups?: string[]; equipment?: string;
   difficulty?: string; category?: string; instructions?: string[]; defaultSec?: number;
+  videoUrl?: string;
 }): Promise<ExerciseLibraryItem> {
   const db = getDB()
   const id = generateId()
@@ -90,13 +163,14 @@ export async function createCustomExercise(coachId: string, data: {
   await db.execute(
     `INSERT INTO exercise_library
        (id, slug, name, description, mode, body_part, muscle_groups, secondary_muscles,
-        equipment, difficulty, category, instructions, default_sec, is_custom, coach_id)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)`,
+        equipment, difficulty, category, instructions, default_sec, is_custom, coach_id, video_url)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)`,
     [
       id, slug, data.name.trim(), data.description ?? '', data.mode ?? 'reps',
       data.bodyPart ?? null, (data.muscleGroups ?? []).join(','), '',
       data.equipment ?? null, data.difficulty ?? null, data.category ?? null,
       (data.instructions ?? []).join('\n'), data.defaultSec ?? null, coachId,
+      data.videoUrl ?? null,
     ],
   )
   const created = await db.execute('SELECT * FROM exercise_library WHERE id = ?', [id])

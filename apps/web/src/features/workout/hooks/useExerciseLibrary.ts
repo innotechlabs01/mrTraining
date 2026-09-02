@@ -2,8 +2,37 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { Exercise, MuscleGroup, Equipment, Difficulty } from '../types'
-import { MOCK_EXERCISES } from '../data/_mocks'
-import { generateId } from './helpers'
+import { exerciseApi, type ExerciseLibraryEntry } from '@/features/shared/api/client'
+
+// Map a DB/API library row onto the UI Exercise shape.
+function toExercise(e: ExerciseLibraryEntry): Exercise {
+  return {
+    id: e.id,
+    name: e.name,
+    description: e.description,
+    muscleGroups: (Array.isArray(e.muscleGroups) ? e.muscleGroups : []) as MuscleGroup[],
+    equipment: (e.equipment ?? 'bodyweight') as Equipment,
+    difficulty: (e.difficulty ?? 'beginner') as Difficulty,
+    instructions: Array.isArray(e.instructions) ? e.instructions : [],
+    videoUrl: e.videoUrl ?? undefined,
+    createdAt: '',
+  }
+}
+
+// Map UI Exercise back to a partial library entry for create/update.
+function fromExercise(e: Partial<Exercise>): Partial<ExerciseLibraryEntry> {
+  return {
+    name: e.name,
+    description: e.description,
+    mode: 'reps',
+    muscleGroups: e.muscleGroups,
+    equipment: e.equipment,
+    difficulty: e.difficulty,
+    category: 'compound',
+    instructions: e.instructions,
+    videoUrl: e.videoUrl,
+  }
+}
 
 export function useExerciseLibrary() {
   const [exercises, setExercises] = useState<Exercise[]>([])
@@ -16,12 +45,19 @@ export function useExerciseLibrary() {
   useEffect(() => {
     let mounted = true
     setLoading(true)
-    const timer = setTimeout(() => {
-      if (!mounted) return
-      setExercises(MOCK_EXERCISES)
-      setLoading(false)
-    }, 500)
-    return () => { mounted = false; clearTimeout(timer) }
+    exerciseApi
+      .list()
+      .then(({ exercises: list }) => {
+        if (!mounted) return
+        setExercises(list.map(toExercise))
+        setError(null)
+      })
+      .catch(() => {
+        if (!mounted) return
+        setError('No se pudo cargar la biblioteca de ejercicios')
+      })
+      .finally(() => { if (!mounted) return; setLoading(false) })
+    return () => { mounted = false }
   }, [])
 
   const filtered = exercises.filter(ex => {
@@ -31,28 +67,48 @@ export function useExerciseLibrary() {
     return true
   })
 
-  const createExercise = useCallback(async (data: Omit<Exercise, 'id' | 'createdAt'>) => {
+  const refresh = useCallback(async () => {
     setLoading(true)
-    await new Promise(r => setTimeout(r, 300))
-    const exercise: Exercise = { ...data, id: generateId('ex'), createdAt: new Date().toISOString().split('T')[0] }
-    setExercises(prev => [exercise, ...prev])
-    setLoading(false)
-    return exercise
+    try {
+      const { exercises: list } = await exerciseApi.list()
+      setExercises(list.map(toExercise))
+      setError(null)
+    } catch {
+      setError('No se pudo cargar la biblioteca de ejercicios')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const createExercise = useCallback(async (data: Omit<Exercise, 'id' | 'createdAt'>) => {
+    try {
+      const { exercise } = await exerciseApi.create(fromExercise(data))
+      const created = toExercise(exercise)
+      setExercises(prev => [created, ...prev])
+      return created
+    } catch {
+      throw new Error('No se pudo crear el ejercicio')
+    }
   }, [])
 
   const updateExercise = useCallback(async (id: string, data: Partial<Exercise>) => {
-    setLoading(true)
-    await new Promise(r => setTimeout(r, 300))
-    setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, ...data } : ex))
-    setLoading(false)
+    try {
+      const { exercise } = await exerciseApi.update(id, fromExercise(data))
+      const updated = toExercise(exercise)
+      setExercises(prev => prev.map(ex => ex.id === id ? updated : ex))
+    } catch {
+      throw new Error('No se pudo actualizar el ejercicio')
+    }
   }, [])
 
   const deleteExercise = useCallback(async (id: string) => {
-    setLoading(true)
-    await new Promise(r => setTimeout(r, 200))
-    setExercises(prev => prev.filter(ex => ex.id !== id))
-    setLoading(false)
+    try {
+      await exerciseApi.remove(id)
+      setExercises(prev => prev.filter(ex => ex.id !== id))
+    } catch {
+      throw new Error('No se pudo eliminar el ejercicio')
+    }
   }, [])
 
-  return { exercises: filtered, allExercises: exercises, loading, error, search, setSearch, filterMuscle, setFilterMuscle, filterEquipment, setFilterEquipment, createExercise, updateExercise, deleteExercise }
+  return { exercises: filtered, allExercises: exercises, loading, error, search, setSearch, filterMuscle, setFilterMuscle, filterEquipment, setFilterEquipment, createExercise, updateExercise, deleteExercise, refresh }
 }
