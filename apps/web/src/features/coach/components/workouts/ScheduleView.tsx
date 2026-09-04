@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Calendar, ChevronLeft, ChevronRight, Clock, Users, Check, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { api } from '@/features/shared/api/client'
 
 type Appointment = {
   id: string; athleteId: string; athleteName: string; date: string; startTime: string; endTime: string
@@ -97,7 +98,7 @@ export default function ScheduleView() {
   }, [])
 
   const fetchAppointments = useCallback(async () => {
-    try { const r = await fetch('/api/coaching/appointments'); const j = await r.json(); setAppointments(normalizeAppointments(j)) } catch { /* keep */ }
+    try { const j = await api.get('/api/coaching/appointments'); setAppointments(normalizeAppointments(j)) } catch { /* keep */ }
   }, [normalizeAppointments])
 
   useEffect(() => {
@@ -105,9 +106,8 @@ export default function ScheduleView() {
     async function load() {
       setLoading(true); setError(null)
       try {
-        const [aRes, vRes] = await Promise.all([fetch('/api/coaching/appointments'), fetch('/api/coaching/coach-availability')])
+        const [aJson, vJson] = await Promise.all([api.get('/api/coaching/appointments'), api.get('/api/coaching/coach-availability')])
         if (cancelled) return
-        const aJson = await aRes.json().catch(() => []); const vJson = await vRes.json().catch(() => [])
         setAppointments(normalizeAppointments(aJson)); setAvailability(normalizeAvailability(vJson))
       } catch (e) { if (!cancelled) setError(e instanceof Error ? e.message : 'Error al cargar la agenda') }
       finally { if (!cancelled) setLoading(false) }
@@ -118,7 +118,7 @@ export default function ScheduleView() {
   const handleAction = useCallback(async (id: string, status: 'completed' | 'cancelled') => {
     setActionLoading(id)
     try {
-      await fetch('/api/coaching/appointments', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) })
+      await api.put('/api/coaching/appointments', { id, status })
       await fetchAppointments(); setSuccessMsg(status === 'completed' ? 'Cita aprobada' : 'Cita cancelada'); setTimeout(() => setSuccessMsg(null), 2500)
     } catch { setSuccessMsg('Error al actualizar la cita'); setTimeout(() => setSuccessMsg(null), 2500) }
     finally { setActionLoading(null) }

@@ -103,6 +103,7 @@ func (h *TrainingHandler) CreateExercise(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
+	middleware.InvalidateCache("exercises")
 	return appresponse.Success(c, toExerciseResponse(exercise))
 }
 
@@ -169,6 +170,7 @@ func (h *TrainingHandler) UpdateWorkoutTemplate(c *fiber.Ctx) error {
 	if err != nil {
 		return h.handleError(c, err)
 	}
+	middleware.InvalidateCache("workout-templates")
 	return appresponse.Success(c, toWorkoutTemplateResponse(template))
 }
 
@@ -194,6 +196,7 @@ func (h *TrainingHandler) CreateWorkoutTemplate(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
+	middleware.InvalidateCache("workout-templates")
 	return appresponse.Success(c, toWorkoutTemplateResponse(template))
 }
 
@@ -527,15 +530,15 @@ func toWorkoutTemplateResponse(t *trainingdomain.WorkoutTemplate) *dto.WorkoutTe
 	}
 
 	return &dto.WorkoutTemplateResponse{
-		ID:                      t.ID,
-		CoachID:                 t.CoachID,
-		Name:                    t.Name,
-		Description:             t.Description,
-		Goal:                    t.Goal,
+		ID:                       t.ID,
+		CoachID:                  t.CoachID,
+		Name:                     t.Name,
+		Description:              t.Description,
+		Goal:                     t.Goal,
 		EstimatedDurationMinutes: t.EstimatedDurationMinutes,
-		CreatedAt:               t.CreatedAt,
-		UpdatedAt:               t.UpdatedAt,
-		Exercises:               exercises,
+		CreatedAt:                t.CreatedAt,
+		UpdatedAt:                t.UpdatedAt,
+		Exercises:                exercises,
 	}
 }
 

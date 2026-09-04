@@ -8,6 +8,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useExerciseLibrary, MUSCLE_GROUP_LABELS, EQUIPMENT_LABELS } from '@/features/workout'
 import type { Exercise, MuscleGroup, Equipment, Difficulty } from '@/features/workout'
+import { exerciseApi } from '@/features/shared/api/client'
 
 const DIFFICULTY_STYLES: Record<Difficulty, string> = {
   beginner: 'text-green-400 bg-green-400/10 border-green-400/20',
@@ -316,12 +317,7 @@ function CreateExerciseModal({
                         if (!file) return
                         try {
                           // Opción A: id-agnostic upload — works for BOTH create and edit.
-                          const r = await fetch('/api/exercises/upload', {
-                            method: 'POST',
-                            body: file,
-                            headers: { 'Content-Type': file.type },
-                          })
-                          const data = await r.json().catch(() => null)
+                          const data = await exerciseApi.uploadVideo(file)
                           if (data?.videoUrl) setForm(p => ({ ...p, videoUrl: data.videoUrl }))
                           else alert(data?.error || 'No se pudo subir el video')
                         } catch (err) {

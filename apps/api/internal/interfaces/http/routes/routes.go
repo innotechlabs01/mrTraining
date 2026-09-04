@@ -2,6 +2,8 @@
 package routes
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
@@ -33,24 +35,24 @@ func RegisterUserRoutes(api fiber.Router, handler *handlers.UserHandler) {
 // The calling code must have already applied auth middleware to the api group.
 func RegisterTrainingRoutes(api fiber.Router, handler *handlers.TrainingHandler) {
 	// Exercises
-	api.Get("/exercises", handler.ListExercises)
-	api.Get("/exercises/:id", handler.GetExercise)
+	api.Get("/exercises", middleware.Cache(24*time.Hour, "exercises"), handler.ListExercises)
+	api.Get("/exercises/:id", middleware.Cache(24*time.Hour, "exercises"), handler.GetExercise)
 	api.Post("/exercises", middleware.RequireCoach(), handler.CreateExercise)
 
-  // Workout templates (coach only)
-  api.Get("/workout-templates", middleware.RequireCoach(), handler.ListWorkoutTemplates)
-  api.Get("/workout-templates/:id", handler.GetWorkoutTemplate)
-  api.Put("/workout-templates/:id", middleware.RequireCoach(), handler.UpdateWorkoutTemplate)
-  api.Post("/workout-templates", middleware.RequireCoach(), handler.CreateWorkoutTemplate)
+	// Workout templates (coach only)
+	api.Get("/workout-templates", middleware.RequireCoach(), middleware.Cache(24*time.Hour, "workout-templates"), handler.ListWorkoutTemplates)
+	api.Get("/workout-templates/:id", middleware.Cache(24*time.Hour, "workout-templates"), handler.GetWorkoutTemplate)
+	api.Put("/workout-templates/:id", middleware.RequireCoach(), handler.UpdateWorkoutTemplate)
+	api.Post("/workout-templates", middleware.RequireCoach(), handler.CreateWorkoutTemplate)
 
-  // Workouts (assignment and tracking)
-  api.Post("/workouts/assign", middleware.RequireCoach(), handler.AssignWorkout)
-  api.Get("/workouts", middleware.RequireAthlete(), handler.GetAssignedWorkouts)
-  api.Get("/workouts/:id", middleware.RequireAthlete(), handler.GetAssignedWorkoutDetail)
-  api.Get("/workouts/:id/detail", middleware.RequireAthlete(), handler.GetAssignedWorkoutDetail)
-  api.Get("/workouts/:id/prescription", middleware.RequireAthlete(), handler.GetWorkoutPrescription)
-  api.Post("/workouts/:id/session", middleware.RequireAthlete(), handler.CreateWorkoutSession)
-  api.Post("/workouts/:id/sets", middleware.RequireAthlete(), handler.LogWorkoutSet)
+	// Workouts (assignment and tracking)
+	api.Post("/workouts/assign", middleware.RequireCoach(), handler.AssignWorkout)
+	api.Get("/workouts", middleware.RequireAthlete(), handler.GetAssignedWorkouts)
+	api.Get("/workouts/:id", middleware.RequireAthlete(), handler.GetAssignedWorkoutDetail)
+	api.Get("/workouts/:id/detail", middleware.RequireAthlete(), handler.GetAssignedWorkoutDetail)
+	api.Get("/workouts/:id/prescription", middleware.RequireAthlete(), handler.GetWorkoutPrescription)
+	api.Post("/workouts/:id/session", middleware.RequireAthlete(), handler.CreateWorkoutSession)
+	api.Post("/workouts/:id/sets", middleware.RequireAthlete(), handler.LogWorkoutSet)
 
 	// Workout sessions (execution)
 	api.Get("/workouts/sessions/:id", middleware.RequireAthlete(), handler.GetWorkoutSession)
@@ -60,7 +62,7 @@ func RegisterTrainingRoutes(api fiber.Router, handler *handlers.TrainingHandler)
 	api.Get("/progress", middleware.RequireAthlete(), handler.GetProgress)
 	api.Get("/progress/summary", middleware.RequireAthlete(), handler.GetProgressSummary)
 
-// Training Sessions
+	// Training Sessions
 	api.Get("/training/sessions", handler.ListTrainingSessions)
 	api.Post("/training/sessions", middleware.RequireCoach(), handler.CreateTrainingSession)
 }
@@ -90,8 +92,8 @@ func RegisterMembershipRoutes(api fiber.Router, handler *handlers.MembershipHand
 // RegisterEventRoutes registers all event-related routes on the given API group.
 func RegisterEventRoutes(api fiber.Router, handler *handlers.EventHandler) {
 	// Events (coach)
-	api.Get("/events", handler.ListEvents)
-	api.Get("/events/:id", handler.GetEvent)
+	api.Get("/events", middleware.Cache(5*time.Minute, "events"), handler.ListEvents)
+	api.Get("/events/:id", middleware.Cache(5*time.Minute, "events"), handler.GetEvent)
 	api.Post("/events", middleware.RequireCoach(), handler.CreateEvent)
 	api.Put("/events/:id", middleware.RequireCoach(), handler.UpdateEvent)
 	api.Delete("/events/:id", middleware.RequireCoach(), handler.DeleteEvent)
@@ -107,8 +109,8 @@ func RegisterEventRoutes(api fiber.Router, handler *handlers.EventHandler) {
 // RegisterProductRoutes registers all product-related routes on the given API group.
 func RegisterProductRoutes(api fiber.Router, handler *handlers.ProductHandler) {
 	// Products (coach)
-	api.Get("/products", handler.ListProducts)
-	api.Get("/products/:id", handler.GetProduct)
+	api.Get("/products", middleware.Cache(time.Hour, "products"), handler.ListProducts)
+	api.Get("/products/:id", middleware.Cache(time.Hour, "products"), handler.GetProduct)
 	api.Post("/products", middleware.RequireCoach(), handler.CreateProduct)
 	api.Put("/products/:id", middleware.RequireCoach(), handler.UpdateProduct)
 	api.Delete("/products/:id", middleware.RequireCoach(), handler.DeleteProduct)
@@ -209,8 +211,8 @@ func RegisterAlertRoutes(api fiber.Router, handler *handlers.AlertHandler) {
 // RegisterBlogRoutes registers blog/marketing routes on the given API group.
 // The calling code must have already applied auth middleware to the api group.
 func RegisterBlogRoutes(api fiber.Router, handler *handlers.BlogHandler) {
-	api.Get("/blog", middleware.RequireAthlete(), handler.ListArticles)
-	api.Get("/blog/:id", middleware.RequireAthlete(), handler.GetArticle)
+	api.Get("/blog", middleware.RequireAthlete(), middleware.Cache(time.Hour, "blog"), handler.ListArticles)
+	api.Get("/blog/:id", middleware.RequireAthlete(), middleware.Cache(time.Hour, "blog"), handler.GetArticle)
 }
 
 // RegisterPolarRoutes registers Polar payment routes on the given API group.

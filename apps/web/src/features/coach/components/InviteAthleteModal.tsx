@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Copy, Check, Share2 } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
+import { coachApi } from '@/features/shared/api/client'
 
 interface InviteAthleteModalProps {
   isOpen: boolean
@@ -19,14 +20,9 @@ export function InviteAthleteModal({ isOpen, onClose }: InviteAthleteModalProps)
   useEffect(() => {
     if (isOpen && user) {
       setLoading(true)
-      fetch('/api/coach/profile')
-        .then(res => res.json())
-        .then(data => {
-          const coach = data?.coach
-          setCoachCode(coach?.coach_code || coach?.coachCode || '')
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false))
+      coachApi.getProfile().then((profile) => {
+        setCoachCode((profile as any)?.coach_code || (profile as any)?.coachCode || '')
+      }).catch(() => {}).finally(() => setLoading(false))
     }
   }, [isOpen, user])
 

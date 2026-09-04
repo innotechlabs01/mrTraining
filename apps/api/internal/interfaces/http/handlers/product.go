@@ -88,6 +88,7 @@ func (h *ProductHandler) CreateProduct(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
+	middleware.InvalidateCache("products")
 	return appresponse.Success(c, toProductResponse(product))
 }
 
@@ -114,6 +115,7 @@ func (h *ProductHandler) UpdateProduct(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
+	middleware.InvalidateCache("products")
 	return appresponse.Success(c, toProductResponse(product))
 }
 
@@ -129,6 +131,7 @@ func (h *ProductHandler) DeleteProduct(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
+	middleware.InvalidateCache("products")
 	return appresponse.Success(c, fiber.Map{"message": "product deleted"})
 }
 

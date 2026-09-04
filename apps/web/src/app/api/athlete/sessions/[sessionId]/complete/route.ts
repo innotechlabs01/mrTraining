@@ -1,28 +1,26 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteByClerkId, getWorkoutSession, completeWorkoutSession } from '@/lib/db';
+import { getDB, safeExecute } from '@/lib/db/db';
+import { publishSessionCompleted } from '@/lib/nats';
 
-export async function POST(_req: Request, ctx: { params: { sessionId: string } }) {
+export async function POST(_req: NextRequest, { params }: { params: { sessionId: string } }) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const db = getDB();
+  const completedAt = new Date().toISOString();
+
+  await safeExecute(
+    db,
+    `UPDATE athlete_sessions SET completed_at = ?, status = 'completed' WHERE id = ? AND athlete_clerk_id = ?`,
+    [completedAt, params.sessionId, userId]
+  );
+
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const athlete = await getAthleteByClerkId(userId);
-    if (!athlete) {
-      return NextResponse.json({ error: 'Athlete profile not found' }, { status: 404 });
-    }
-
-    const session = await getWorkoutSession(ctx.params.sessionId);
-    if (!session || session.athleteId !== athlete.id) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
-    }
-
-    await completeWorkoutSession(session.id);
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    console.error('Error completing workout session:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    await publishSessionCompleted(params.sessionId, userId, completedAt);
+  } catch (e) {
+    console.error('[NATS] publish failed', e);
   }
+
+  return NextResponse.json({ success: true, sessionId: params.sessionId, completedAt });
 }

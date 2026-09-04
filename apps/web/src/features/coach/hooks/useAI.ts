@@ -1,31 +1,37 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { AiSuggestion } from '../types'
 import { coachingApi } from '@/features/shared/api/client'
 
 export function useAI() {
-  const [suggestions, setSuggestions] = useState<AiSuggestion[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
-  const loadSuggestions = () => {
-    setIsLoading(true)
-    coachingApi.getAISuggestions<AiSuggestion[]>()
-      .then(data => setSuggestions(data))
-      .catch(() => setError('Failed to load AI suggestions'))
-      .finally(() => setIsLoading(false))
-  }
+  const { data: suggestions = [], isLoading, error: queryError, refetch } = useQuery({
+    queryKey: ['ai-suggestions'],
+    queryFn: () => coachingApi.getAISuggestions<AiSuggestion[]>(),
+    staleTime: 60_000,
+  })
 
-  useEffect(() => {
-    loadSuggestions()
-  }, [])
+  const error = queryError instanceof Error ? queryError.message : queryError ? String(queryError) : null
+
+  const refresh = () => refetch()
+
+  const addMutation = useMutation({
+    mutationFn: (suggestion: AiSuggestion) =>
+      coachingApi.saveAISuggestion<{ id: string }>(suggestion),
+    onSuccess: (res, variables) => {
+      queryClient.setQueryData<AiSuggestion[]>(['ai-suggestions'], (prev = []) => [
+        ...prev,
+        { ...variables, id: res.id },
+      ])
+      queryClient.invalidateQueries({ queryKey: ['ai-suggestions'] })
+    },
+  })
 
   const addSuggestion = async (suggestion: AiSuggestion) => {
-    return coachingApi.saveAISuggestion<{ id: string }>(suggestion).then(res => {
-      setSuggestions(prev => [...prev, { ...suggestion, id: res.id }])
-      return res.id
-    })
+    const res = await addMutation.mutateAsync(suggestion)
+    return res.id
   }
 
   return {
@@ -33,6 +39,6 @@ export function useAI() {
     isLoading,
     error,
     addSuggestion,
-    refresh: loadSuggestions,
+    refresh,
   }
 }

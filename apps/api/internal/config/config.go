@@ -19,7 +19,7 @@ type Config struct {
 	AppName string // Application name for logging and identification
 
 	// Database
-	DatabaseURL   string // Turso/LibSQL connection URL
+	DatabaseURL    string // Turso/LibSQL connection URL
 	TursoAuthToken string // Turso authentication token
 
 	// Auth (Clerk)
@@ -34,6 +34,9 @@ type Config struct {
 
 	// CORS
 	CORSOrigins string // Allowed CORS origins, comma-separated
+
+	// Cache (Redis — optional, disabled when empty)
+	RedisURL string // Redis connection URL; empty disables response caching
 
 	// Logging
 	LogLevel string // Log level: debug, info, warn, error
@@ -63,6 +66,8 @@ func Load() (*Config, error) {
 		FirebasePrivateKey:  getEnv("FIREBASE_PRIVATE_KEY", ""),
 
 		CORSOrigins: getEnv("CORS_ORIGINS", "*"),
+
+		RedisURL: getEnv("REDIS_URL", ""),
 
 		LogLevel: getEnv("LOG_LEVEL", "info"),
 	}

@@ -91,6 +91,7 @@ func (h *EventHandler) CreateEvent(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
+	middleware.InvalidateCache("events")
 	return appresponse.Success(c, toEventResponse(event))
 }
 
@@ -117,6 +118,7 @@ func (h *EventHandler) UpdateEvent(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
+	middleware.InvalidateCache("events")
 	return appresponse.Success(c, toEventResponse(event))
 }
 
@@ -132,6 +134,7 @@ func (h *EventHandler) DeleteEvent(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
+	middleware.InvalidateCache("events")
 	return appresponse.Success(c, fiber.Map{"message": "event deleted"})
 }
 
@@ -230,7 +233,7 @@ func toEventResponse(e *eventdomain.Event) *dto.EventResponse {
 		Status:              e.Status,
 		Format:              e.Format,
 		IsPublic:            e.IsPublic,
-		RunningDistanceKm:    e.RunningDistanceKm,
+		RunningDistanceKm:   e.RunningDistanceKm,
 		RunningPace:         e.RunningPace,
 		RunningMeetingPoint: e.RunningMeetingPoint,
 		AthleteIDs:          e.AthleteIDs,

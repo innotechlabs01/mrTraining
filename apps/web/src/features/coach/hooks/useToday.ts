@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import type { TimeBlock, TimeBlockId } from '../types'
 import { coachingApi } from '@/features/shared/api/client'
 
@@ -34,22 +34,16 @@ function getBlockStatus(block: TimeBlock): 'upcoming' | 'current' | 'past' {
 }
 
 export function useToday() {
-  const [blocks, setBlocks] = useState<TimeBlock[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: rawBlocks = [], isLoading, error: queryError } = useQuery({
+    queryKey: ['today', 'time-blocks'],
+    queryFn: () => coachingApi.getTimeBlocks<TimeBlock[]>(),
+    staleTime: 30_000,
+  })
 
-  useEffect(() => {
-    coachingApi.getTimeBlocks<TimeBlock[]>()
-      .then(data => setBlocks(data.map((b: TimeBlock) => ({ ...b, status: getBlockStatus(b) }))))
-      .catch(() => setError('Failed to load time blocks'))
-      .finally(() => setIsLoading(false))
-  }, [])
+  const error = queryError instanceof Error ? queryError.message : queryError ? String(queryError) : null
 
-  const currentBlock = useMemo(
-    () => blocks.find((b) => b.status === 'current') ?? blocks[0] ?? null,
-    [blocks],
-  )
-
+  const blocks = rawBlocks.map((b: TimeBlock) => ({ ...b, status: getBlockStatus(b) }))
+  const currentBlock = blocks.find((b) => b.status === 'current') ?? blocks[0] ?? null
   const currentBlockId = (currentBlock?.id ?? null) as TimeBlockId | null
 
   return {

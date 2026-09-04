@@ -36,11 +36,12 @@ import (
 	videoviewapp "github.com/innotechlabs01/mr-training-api/internal/application/videoview"
 	"github.com/innotechlabs01/mr-training-api/internal/config"
 	"github.com/innotechlabs01/mr-training-api/internal/handlers"
-	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	alertinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/alert"
 	bloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/blog"
+	cacheinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/cache"
 	coachinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach"
 	communityinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/community"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	eventinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/event"
 	favoriteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/favorite"
 	firebaseinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/firebase"
@@ -105,6 +106,22 @@ func main() {
 	hub := ws.NewHub()
 	go hub.Run()
 	log.Info("websocket hub initialized")
+
+	// Initialize optional Redis response cache. Fail-open: if Redis is
+	// unavailable or unconfigured, the cache stays a transparent no-op.
+	if cfg.RedisURL != "" {
+		redisCache, cacheErr := cacheinfrastructure.NewRedis(cfg.RedisURL)
+		if cacheErr != nil {
+			log.Warn("redis cache disabled, continuing without cache", zap.Error(cacheErr))
+			middleware.SetCache(nil)
+		} else {
+			middleware.SetCache(redisCache)
+			log.Info("redis response cache enabled")
+		}
+	} else {
+		middleware.SetCache(nil)
+		log.Warn("REDIS_URL not set, response caching disabled")
+	}
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{

@@ -585,6 +585,20 @@ export const exerciseApi = {
   remove: (id: string) =>
     // Next.js: DELETE /api/exercises/:id (not in Go API yet).
     nextFetch.delete<{ ok: true }>(`/api/exercises/${id}`),
+
+  uploadVideo: async (file: File) => {
+    // Video upload uses multipart/form-data; use native fetch with auth header
+    const token = typeof window !== 'undefined' ? localStorage.getItem('mr-training-auth-token') : null
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch('/api/exercises/upload', {
+      method: 'POST',
+      body: form,
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (!res.ok) throw new Error('Upload failed')
+    return res.json()
+  },
 };
 
 export interface HealthSeriesRow {

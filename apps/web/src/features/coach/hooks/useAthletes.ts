@@ -1,20 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import type { AthleteBrief } from '../types'
 import { coachingApi } from '@/features/shared/api/client'
 
 export function useAthletes() {
-  const [athletes, setAthletes] = useState<AthleteBrief[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: athletes = [], isLoading, error: queryError } = useQuery({
+    queryKey: ['athletes'],
+    queryFn: () => coachingApi.getAthletes<AthleteBrief[]>(),
+    staleTime: 5 * 60_000,
+  })
 
-  useEffect(() => {
-    coachingApi.getAthletes<AthleteBrief[]>()
-      .then(data => setAthletes(data))
-      .catch(() => setError('Failed to load athletes'))
-      .finally(() => setIsLoading(false))
-  }, [])
+  const error = queryError instanceof Error ? queryError.message : queryError ? String(queryError) : null
 
   const athletesWithFlags = athletes.filter(a => a.flag)
   const flaggedAthletes = athletesWithFlags

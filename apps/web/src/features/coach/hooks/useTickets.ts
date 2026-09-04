@@ -1,31 +1,36 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { SupportTicket } from '../types'
 import { coachingApi } from '@/features/shared/api/client'
 
 export function useTickets() {
-  const [tickets, setTickets] = useState<SupportTicket[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
-  const loadTickets = () => {
-    setIsLoading(true)
-    coachingApi.getTickets<SupportTicket[]>()
-      .then(data => setTickets(data))
-      .catch(() => setError('Failed to load tickets'))
-      .finally(() => setIsLoading(false))
-  }
+  const { data: tickets = [], isLoading, error: queryError, refetch } = useQuery({
+    queryKey: ['tickets'],
+    queryFn: () => coachingApi.getTickets<SupportTicket[]>(),
+    staleTime: 60_000,
+  })
 
-  useEffect(() => {
-    loadTickets()
-  }, [])
+  const error = queryError instanceof Error ? queryError.message : queryError ? String(queryError) : null
+
+  const refresh = () => refetch()
+
+  const addTicketMutation = useMutation({
+    mutationFn: (ticket: SupportTicket) => coachingApi.saveTicket<{ id: string }>(ticket),
+    onSuccess: (_, variables) => {
+      queryClient.setQueryData<SupportTicket[]>(['tickets'], (prev = []) => [
+        ...prev,
+        { ...variables, id: _.id },
+      ])
+      queryClient.invalidateQueries({ queryKey: ['tickets'] })
+    },
+  })
 
   const addTicket = async (ticket: SupportTicket) => {
-    return coachingApi.saveTicket<{ id: string }>(ticket).then(res => {
-      setTickets(prev => [...prev, { ...ticket, id: res.id }])
-      return res.id
-    })
+    const res = await addTicketMutation.mutateAsync(ticket)
+    return res.id
   }
 
   return {
@@ -33,6 +38,6 @@ export function useTickets() {
     isLoading,
     error,
     addTicket,
-    refresh: loadTickets,
+    refresh,
   }
 }

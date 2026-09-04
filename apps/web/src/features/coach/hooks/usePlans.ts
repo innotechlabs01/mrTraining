@@ -1,43 +1,57 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Plan } from '../types'
 import { coachingApi } from '@/features/shared/api/client'
 
 export function usePlans() {
-  const [plans, setPlans] = useState<Plan[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
-  const loadPlans = () => {
-    setIsLoading(true)
-    coachingApi.getPlans<Plan[]>()
-      .then(data => setPlans(data))
-      .catch(() => setError('Failed to load plans'))
-      .finally(() => setIsLoading(false))
-  }
+  const { data: plans = [], isLoading, error: queryError, refetch } = useQuery({
+    queryKey: ['plans'],
+    queryFn: () => coachingApi.getPlans<Plan[]>(),
+    staleTime: 5 * 60_000,
+  })
 
-  useEffect(() => {
-    loadPlans()
-  }, [])
+  const error = queryError instanceof Error ? queryError.message : queryError ? String(queryError) : null
+  const refresh = () => refetch()
 
-  const addPlan = async (plan: Plan) => {
-    return coachingApi.savePlan<{ id: string }>(plan).then(res => {
-      setPlans(prev => [...prev, { ...plan, id: res.id }])
-      return res.id
-    })
-  }
+  const addPlanMutation = useMutation({
+    mutationFn: (plan: Plan) => coachingApi.savePlan<{ id: string }>(plan),
+    onSuccess: (res, variables) => {
+      queryClient.setQueryData<Plan[]>(['plans'], (prev = []) => [
+        ...prev,
+        { ...variables, id: res.id },
+      ])
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['plans'] }),
+  })
 
+  const updatePlanMutation = useMutation({
+    mutationFn: ({ id, plan }: { id: string; plan: Plan }) =>
+      coachingApi.updatePlan<{ ok: boolean }>(id, plan),
+    onSuccess: (_, { id, plan }) => {
+      queryClient.setQueryData<Plan[]>(['plans'], (prev = []) =>
+        prev.map((p) => (p.id === id ? { ...plan, id } : p)),
+      )
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['plans'] }),
+  })
+
+  const deletePlanMutation = useMutation({
+    mutationFn: (id: string) => coachingApi.deletePlan<{ ok: boolean }>(id),
+    onSuccess: (_, id) => {
+      queryClient.setQueryData<Plan[]>(['plans'], (prev = []) => prev.filter((p) => p.id !== id))
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['plans'] }),
+  })
+
+  const addPlan = async (plan: Plan) => (await addPlanMutation.mutateAsync(plan)).id
   const updatePlan = async (id: string, plan: Plan) => {
-    return coachingApi.updatePlan<{ ok: boolean }>(id, plan).then(() => {
-      setPlans(prev => prev.map(p => p.id === id ? { ...plan, id } : p))
-    })
+    await updatePlanMutation.mutateAsync({ id, plan })
   }
-
   const deletePlan = async (id: string) => {
-    return coachingApi.deletePlan<{ ok: boolean }>(id).then(() => {
-      setPlans(prev => prev.filter(p => p.id !== id))
-    })
+    await deletePlanMutation.mutateAsync(id)
   }
 
   return {
@@ -47,6 +61,6 @@ export function usePlans() {
     addPlan,
     updatePlan,
     deletePlan,
-    refresh: loadPlans,
+    refresh,
   }
 }
