@@ -36,6 +36,3 @@ next-env.d.ts
 
 # Local dev databases
 apps/web/local.db
-
-# Mobile app lives in its own repo: innotechlabs01/mr-training-mobile
-apps/mobile/

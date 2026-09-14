@@ -1,0 +1,20 @@
+services:
+  expo:
+    build: .
+    ports:
+      - "8099:8099"
+    environment:
+      - REACT_NATIVE_PACKAGER_HOSTNAME=mobile.innotechlabssas.lat
+      - EXPO_PACKAGER_PROXY_URL=https://mobile.innotechlabssas.lat
+    volumes:
+      - /app/node_modules
+      - .:/app
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    network_mode: host
+    depends_on:
+      - expo

@@ -1,0 +1,120 @@
+{
+  "expo": {
+    "name": "MR Training",
+    "slug": "mr-training",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "mrtraining",
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#000000"
+        }
+      ],
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-font",
+      [
+        "react-native-health-connect",
+        {
+          "permissions": [
+            "android.permission.health.READ_HEART_RATE",
+            "android.permission.health.READ_HEART_RATE_VARIABILITY",
+            "android.permission.health.READ_RESTING_HEART_RATE",
+            "android.permission.health.READ_SLEEP",
+            "android.permission.health.READ_STEPS"
+          ]
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.innotechlabssas.mrtraining",
+      "associatedDomains": [
+        "applinks:mobile.innotechlabssas.lat"
+      ],
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "MR Training usa tu ubicación para mostrarte tu posición en tiempo real durante las rutas de running.",
+        "NSCameraUsageDescription": "MR Training usa la cámara para guiar tu técnica de ejercicio con inteligencia artificial en tiempo real.",
+        "NSMicrophoneUsageDescription": "MR Training usa el micrófono para grabar tus intentos de desafío con audio.",
+        "NSHealthShareUsageDescription": "MR Training lee tus datos de salud (HRV, sue\u00f1o, pulso) para medir tu recuperaci\u00f3n y optimizar tu entrenamiento.",
+        "NSHealthUpdateUsageDescription": "MR Training guarda tus entrenamientos en Apple Health.",
+        "UIBackgroundModes": [
+          "processing",
+          "fetch"
+        ]
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundColor": "#000000"
+      },
+      "package": "com.innotechlabssas.mrtraining",
+      "intentFilters": [
+        {
+          "action": "android.intent.action.VIEW",
+          "category": [
+            "android.intent.category.DEFAULT",
+            "android.intent.category.BROWSABLE"
+          ],
+          "data": {
+            "scheme": "mrtraining",
+            "host": "*"
+          }
+        },
+        {
+          "action": "android.intent.action.VIEW",
+          "category": [
+            "android.intent.category.DEFAULT",
+            "android.intent.category.BROWSABLE"
+          ],
+          "data": {
+            "scheme": "https",
+            "host": "app.mrtraining.com",
+            "pathPrefix": "/invite"
+          }
+        }
+      ],
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_HEART_RATE_VARIABILITY",
+        "android.permission.health.READ_RESTING_HEART_RATE",
+        "android.permission.health.READ_SLEEP",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "clerkPublishableKey": "pk_test_dXByaWdodC1tYXJ0ZW4tNjQuY2xlcmsuYWNjb3VudHMuZGV2JA",
+      "apiBaseUrl": "https://mr-training.vercel.app",
+      "goApiUrl": "http://localhost:3001",
+      "eas": {
+        "projectId": "c4e4a8cc-bcf6-43cd-8d13-33bd46e6fea7"
+      }
+    },
+    "owner": "innotechlabssas",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c4e4a8cc-bcf6-43cd-8d13-33bd46e6fea7"
+    }
+  }
+}
