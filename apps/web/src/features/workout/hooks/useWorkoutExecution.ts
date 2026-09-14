@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Workout, ScheduledWorkout, WorkoutHistoryEntry, WorkoutAnalytics } from '../types'
-import { MOCK_WORKOUTS, MOCK_SCHEDULED_WORKOUTS, MOCK_HISTORY, MOCK_ANALYTICS } from '../data/_mocks'
-import { generateId } from './helpers'
+
+const API_BASE = '/api/coaching'
 
 export function useWorkoutExecution() {
   const [currentWorkout, setCurrentWorkout] = useState<Workout | null>(null)
@@ -49,7 +49,7 @@ export function useWorkoutExecution() {
     const duration = Math.round((completedAt.getTime() - startTime.getTime()) / 60000)
 
     const historyEntry: WorkoutHistoryEntry = {
-      id: generateId('wh'),
+      id: `wh-${Date.now()}`,
       workoutId: currentWorkout.id,
       workoutName: currentWorkout.name,
       date: completedAt.toISOString().split('T')[0],
@@ -107,12 +107,24 @@ export function useScheduledWorkouts() {
 
   useEffect(() => {
     let mounted = true
-    const timer = setTimeout(() => {
-      if (!mounted) return
-      setScheduledWorkouts(MOCK_SCHEDULED_WORKOUTS)
-      setLoading(false)
-    }, 400)
-    return () => { mounted = false; clearTimeout(timer) }
+    async function load() {
+      try {
+        const res = await fetch(`${API_BASE}/scheduled-workouts`)
+        if (!res.ok) throw new Error('Failed to load scheduled workouts')
+        const data = await res.json()
+        if (mounted) {
+          setScheduledWorkouts(data)
+          setLoading(false)
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(err instanceof Error ? err.message : 'Unknown error')
+          setLoading(false)
+        }
+      }
+    }
+    load()
+    return () => { mounted = false }
   }, [])
 
   // Get today's scheduled workouts
@@ -128,9 +140,15 @@ export function useScheduledWorkouts() {
   })
 
   const scheduleWorkout = useCallback(async (workout: Workout, athleteId: string, athleteName: string, date: string, time?: string) => {
-    await new Promise(r => setTimeout(r, 300))
+    const res = await fetch(`${API_BASE}/assigned-workouts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workout, athleteId, athleteName, scheduledDate: date, scheduledTime: time }),
+    })
+    if (!res.ok) throw new Error('Failed to schedule workout')
+    const result = await res.json()
     const scheduled: ScheduledWorkout = {
-      id: generateId('sw'),
+      id: result.id,
       workout,
       athleteId,
       athleteName,
@@ -144,7 +162,12 @@ export function useScheduledWorkouts() {
   }, [])
 
   const updateScheduledStatus = useCallback(async (id: string, status: ScheduledWorkout['status']) => {
-    await new Promise(r => setTimeout(r, 200))
+    const res = await fetch(`${API_BASE}/assigned-workouts/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    })
+    if (!res.ok) throw new Error('Failed to update status')
     setScheduledWorkouts(prev => prev.map(sw =>
       sw.id === id ? { ...sw, status } : sw
     ))
@@ -168,12 +191,24 @@ export function useWorkoutHistory() {
 
   useEffect(() => {
     let mounted = true
-    const timer = setTimeout(() => {
-      if (!mounted) return
-      setHistory(MOCK_HISTORY)
-      setLoading(false)
-    }, 400)
-    return () => { mounted = false; clearTimeout(timer) }
+    async function load() {
+      try {
+        const res = await fetch(`${API_BASE}/workout-history`)
+        if (!res.ok) throw new Error('Failed to load workout history')
+        const data = await res.json()
+        if (mounted) {
+          setHistory(data)
+          setLoading(false)
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(err instanceof Error ? err.message : 'Unknown error')
+          setLoading(false)
+        }
+      }
+    }
+    load()
+    return () => { mounted = false }
   }, [])
 
   const addHistoryEntry = useCallback((entry: WorkoutHistoryEntry) => {
@@ -200,12 +235,24 @@ export function useWorkoutAnalytics() {
 
   useEffect(() => {
     let mounted = true
-    const timer = setTimeout(() => {
-      if (!mounted) return
-      setAnalytics(MOCK_ANALYTICS)
-      setLoading(false)
-    }, 500)
-    return () => { mounted = false; clearTimeout(timer) }
+    async function load() {
+      try {
+        const res = await fetch(`${API_BASE}/workout-analytics`)
+        if (!res.ok) throw new Error('Failed to load workout analytics')
+        const data = await res.json()
+        if (mounted) {
+          setAnalytics(data)
+          setLoading(false)
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(err instanceof Error ? err.message : 'Unknown error')
+          setLoading(false)
+        }
+      }
+    }
+    load()
+    return () => { mounted = false }
   }, [])
 
   return {

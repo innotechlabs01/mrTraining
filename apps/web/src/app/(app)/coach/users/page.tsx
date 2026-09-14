@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Search, Flag, ShieldCheck, ShieldAlert, ShieldX, RefreshCw, UserPlus, Copy, Check, Smartphone, Share2, QrCode } from 'lucide-react'
 import { useAthletes } from '@/features/coach/hooks/useAthletes'
@@ -36,6 +37,7 @@ function getDisplayName(a: { name: string; email?: string }): string {
 }
 
 export default function CoachUsersPage() {
+  const router = useRouter()
   const { athletes, isLoading } = useAthletes()
   const { openPanel } = useCoachPanel()
   const [search, setSearch] = useState('')
@@ -90,13 +92,8 @@ export default function CoachUsersPage() {
   const getMembership = (athleteId: string) =>
     memberships.find(m => m.athleteId === athleteId)
 
-  const handleCardClick = async (athleteId: string) => {
-    try {
-      const detail = await coachingApi.getAthleteById<Record<string, unknown>>(athleteId)
-      if (detail) openPanel('athlete', detail)
-    } catch {
-      openPanel('athlete', { id: athleteId } as Record<string, unknown>)
-    }
+  const handleCardClick = (athleteId: string) => {
+    router.push(`/coach/users/${athleteId}`)
   }
 
   const filtered = athletes.filter((a) => {

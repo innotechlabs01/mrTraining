@@ -24,20 +24,32 @@ type Message struct {
 type Hub struct {
 	// clients maps userID to the most recent Client connection for that user.
 	clients    map[string]*Client
+	// topics maps a topic name (e.g. "challenge:<id>") to its subscribed clients.
+	topics     map[string]map[*Client]bool
 	mu         sync.RWMutex
 	register   chan *Client
 	unregister chan *Client
 	broadcast  chan *Message
+	subscribe  chan subscription
 	done       chan struct{}
+}
+
+// subscription is a request to attach/detach a client to/from a topic.
+type subscription struct {
+	topic  string
+	client *Client
+	add    bool
 }
 
 // NewHub creates a new Hub ready to be started with Run().
 func NewHub() *Hub {
 	return &Hub{
 		clients:    make(map[string]*Client),
+		topics:     make(map[string]map[*Client]bool),
 		register:   make(chan *Client, 64),
 		unregister: make(chan *Client, 64),
 		broadcast:  make(chan *Message, 256),
+		subscribe:  make(chan subscription, 64),
 		done:       make(chan struct{}),
 	}
 }
@@ -77,6 +89,30 @@ func (h *Hub) Run() {
 					log.Info("client unregistered",
 						zap.String("user_id", client.UserID),
 						zap.Int("total_clients", len(h.clients)))
+				}
+			}
+			// Remove the client from every topic it subscribed to.
+			for topic, members := range h.topics {
+				if members[client] {
+					delete(members, client)
+					if len(members) == 0 {
+						delete(h.topics, topic)
+					}
+				}
+			}
+			h.mu.Unlock()
+
+		case sub := <-h.subscribe:
+			h.mu.Lock()
+			if sub.add {
+				if h.topics[sub.topic] == nil {
+					h.topics[sub.topic] = make(map[*Client]bool)
+				}
+				h.topics[sub.topic][sub.client] = true
+			} else if members, ok := h.topics[sub.topic]; ok {
+				delete(members, sub.client)
+				if len(members) == 0 {
+					delete(h.topics, sub.topic)
 				}
 			}
 			h.mu.Unlock()
@@ -153,6 +189,49 @@ func (h *Hub) Broadcast(msg Message) {
 	select {
 	case h.broadcast <- &msg:
 	case <-h.done:
+	}
+}
+
+// Subscribe attaches a client to a topic (e.g. "challenge:<id>").
+func (h *Hub) Subscribe(client *Client, topic string) {
+	select {
+	case h.subscribe <- subscription{topic: topic, client: client, add: true}:
+	case <-h.done:
+	}
+}
+
+// Unsubscribe detaches a client from a topic.
+func (h *Hub) Unsubscribe(client *Client, topic string) {
+	select {
+	case h.subscribe <- subscription{topic: topic, client: client, add: false}:
+	case <-h.done:
+	}
+}
+
+// BroadcastToTopic sends a message to every client subscribed to a topic.
+func (h *Hub) BroadcastToTopic(topic string, msg Message) {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		logger.L().Error("failed to marshal topic message", zap.Error(err))
+		return
+	}
+
+	h.mu.RLock()
+	members := h.topics[topic]
+	clients := make([]*Client, 0, len(members))
+	for c := range members {
+		clients = append(clients, c)
+	}
+	h.mu.RUnlock()
+
+	for _, client := range clients {
+		select {
+		case client.Send <- data:
+		default:
+			logger.L().Warn("dropped topic message, client buffer full",
+				zap.String("topic", topic),
+				zap.String("user_id", client.UserID))
+		}
 	}
 }
 

@@ -17,9 +17,15 @@ import (
 	alertapp "github.com/innotechlabs01/mr-training-api/internal/application/alert"
 	blogapp "github.com/innotechlabs01/mr-training-api/internal/application/blog"
 	coachapp "github.com/innotechlabs01/mr-training-api/internal/application/coach"
+	coachfeedapp "github.com/innotechlabs01/mr-training-api/internal/application/coachfeed"
 	communityapp "github.com/innotechlabs01/mr-training-api/internal/application/community"
 	eventapp "github.com/innotechlabs01/mr-training-api/internal/application/event"
 	favoriteapp "github.com/innotechlabs01/mr-training-api/internal/application/favorite"
+	formmetricsapp "github.com/innotechlabs01/mr-training-api/internal/application/formmetrics"
+	gamificationapp "github.com/innotechlabs01/mr-training-api/internal/application/gamification"
+	challengeapp "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
+	routineapp "github.com/innotechlabs01/mr-training-api/internal/application/routine"
+	leaderboardapp "github.com/innotechlabs01/mr-training-api/internal/application/leaderboard"
 	healthapp "github.com/innotechlabs01/mr-training-api/internal/application/health"
 	importapp "github.com/innotechlabs01/mr-training-api/internal/application/import"
 	inviteapp "github.com/innotechlabs01/mr-training-api/internal/application/invite"
@@ -33,6 +39,7 @@ import (
 	todayapp "github.com/innotechlabs01/mr-training-api/internal/application/today"
 	trainingapp "github.com/innotechlabs01/mr-training-api/internal/application/training"
 	userdomain "github.com/innotechlabs01/mr-training-api/internal/application/user"
+	vaapp "github.com/innotechlabs01/mr-training-api/internal/application/videoanalytics"
 	videoviewapp "github.com/innotechlabs01/mr-training-api/internal/application/videoview"
 	"github.com/innotechlabs01/mr-training-api/internal/config"
 	"github.com/innotechlabs01/mr-training-api/internal/handlers"
@@ -40,11 +47,17 @@ import (
 	bloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/blog"
 	cacheinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/cache"
 	coachinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach"
+	coachfeedinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coachfeed"
 	communityinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/community"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	eventinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/event"
 	favoriteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/favorite"
+	formmetricsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formmetrics"
 	firebaseinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/firebase"
+	challengeinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/challenge"
+	routineinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/routine"
+	gamificationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/gamification"
+	leaderboardinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/leaderboard"
 	healthinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/health"
 	importinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/import"
 	inviteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/invite"
@@ -59,6 +72,7 @@ import (
 	traininginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/training"
 	userinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/user"
 	videoviewinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/videoview"
+	vainfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/videoanalytics"
 	ws "github.com/innotechlabs01/mr-training-api/internal/infrastructure/websocket"
 	userhttp "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/routes"
@@ -149,7 +163,8 @@ func main() {
 	app.Use(middleware.CORS(cfg.CORSOrigins))
 	app.Use(middleware.RateLimit(100, 60))
 	app.Use(middleware.Timeout(30))
-	app.Use(middleware.BodyLimit(10))
+	// 100MB to accommodate video uploads (challenge attempt recordings).
+	app.Use(middleware.BodyLimit(100))
 
 	// Health check routes (no auth required)
 	app.Get("/health", handlers.HealthCheck(cfg.AppName, cfg.AppEnv))
@@ -159,13 +174,20 @@ func main() {
 		app.Get("/ready", handlers.ReadinessCheck(nil))
 	}
 
+	// Static serving for uploaded media (challenge attempt videos).
+	app.Static("/uploads", "./uploads")
+
 	// WebSocket route (Clerk auth via query param)
 	if cfg.ClerkSecretKey != "" {
 		app.Get("/ws",
 			middleware.WSAuth(cfg.ClerkSecretKey),
 			userhttp.HandleWebSocket(hub),
 		)
-		log.Info("websocket endpoint registered", zap.String("path", "/ws"))
+		app.Get("/challenges/:id/leaderboard/ws",
+			middleware.WSAuth(cfg.ClerkSecretKey),
+			userhttp.HandleChallengeLeaderboardWebSocket(hub),
+		)
+		log.Info("websocket endpoints registered", zap.String("path", "/ws, /challenges/:id/leaderboard/ws"))
 	} else {
 		log.Warn("CLERK_SECRET_KEY not set, skipping websocket endpoint")
 	}
@@ -319,6 +341,22 @@ func main() {
 		// Register video view routes
 		routes.RegisterVideoViewRoutes(api, videoViewHandler)
 
+		// Wire Gamification domain
+		gamificationRepo := gamificationinfrastructure.NewRepository(db.DB)
+		gamificationService := gamificationapp.NewService(gamificationRepo)
+		gamificationHandler := userhttp.NewGamificationHandler(gamificationService)
+
+		// Register gamification routes
+		routes.RegisterGamificationRoutes(api, gamificationHandler)
+
+		// Wire Leaderboard domain
+		leaderboardRepo := leaderboardinfrastructure.NewRepository(db.DB)
+		leaderboardService := leaderboardapp.NewService(leaderboardRepo)
+		leaderboardHandler := userhttp.NewLeaderboardHandler(leaderboardService)
+
+		// Register leaderboard routes
+		routes.RegisterLeaderboardRoutes(api, leaderboardHandler)
+
 		// Wire Community domain
 		communityRepo := communityinfrastructure.NewRepository(db.DB)
 		communityService := communityapp.NewService(communityRepo)
@@ -326,6 +364,56 @@ func main() {
 
 		// Register community routes
 		routes.RegisterCommunityRoutes(api, communityHandler)
+
+		// Wire Video Analytics domain
+		vaRepo := vainfra.NewRepository(db.DB)
+		vaService := vaapp.NewService(vaRepo)
+		vaHandler := userhttp.NewVideoAnalyticsHandler(vaService)
+
+		// Register video analytics routes
+		routes.RegisterVideoAnalyticsRoutes(api, vaHandler)
+
+		// Wire Coach Feed domain
+		coachfeedRepo := coachfeedinfrastructure.NewRepository(db.DB)
+		coachfeedService := coachfeedapp.NewService(coachfeedRepo)
+		coachfeedHandler := userhttp.NewCoachFeedHandler(coachfeedService)
+
+		// Register coach feed routes
+		routes.RegisterCoachFeedRoutes(api, coachfeedHandler)
+
+		// Wire Form Metrics domain
+		formmetricsRepo := formmetricsinfrastructure.NewRepository(db.DB)
+		formmetricsService := formmetricsapp.NewService(formmetricsRepo)
+		formmetricsHandler := userhttp.NewFormMetricsHandler(formmetricsService)
+
+		// Register form metrics routes
+		routes.RegisterFormMetricsRoutes(api, formmetricsHandler)
+
+		// Register notification preferences routes (using existing notification handler)
+		routes.RegisterNotificationPreferencesRoutes(api, notifHandler)
+
+		// Wire Routine domain
+		routineRepo := routineinfrastructure.NewRepository(db.DB)
+		routineService := routineapp.NewService(routineRepo)
+		routineHandler := userhttp.NewRoutineHandler(routineService)
+		routes.RegisterRoutineRoutes(api, routineHandler)
+
+		// Wire Challenge domain
+		challengeRepo := challengeinfrastructure.NewRepository(db.DB)
+		challengeService := challengeapp.NewService(challengeRepo)
+		challengeHandler := userhttp.NewChallengeHandler(challengeService, hub)
+		routes.RegisterChallengeRoutes(api, challengeHandler)
+
+		// Background job: auto-expire challenges past their end date.
+		go func() {
+			ticker := time.NewTicker(1 * time.Hour)
+			defer ticker.Stop()
+			for range ticker.C {
+				if err := challengeService.ExpireChallenges(); err != nil {
+					log.Error("failed to expire challenges", zap.Error(err))
+				}
+			}
+		}()
 
 		// Wire Store domain (athlete-facing)
 		var storeRepoDB *sql.DB

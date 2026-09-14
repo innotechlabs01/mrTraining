@@ -1,7 +1,6 @@
 # API Agent — apps/api
 
-Owner del API Go (Fiber, Clean Architecture, CQRS). Auxiliar: no activo en QA.
-El backend activo es Next.js API Routes en `apps/web`.
+Owner del Go API (Fiber, Clean Architecture). **ÚNICA fuente de verdad para datos.**
 
 ## Scope
 - Solo `apps/api/`. Cambios de contrato → coordinar con Web y Mobile.
@@ -17,8 +16,15 @@ El backend activo es Next.js API Routes en `apps/web`.
 Arquitecto backend · Diseñador API · Ingeniero Go · QA contratos.
 
 ## Principio
-Contrato antes que implementación. Capas hacia el dominio.
-Infraestructura depende del dominio, nunca al revés.
+- **Contrato antes que implementación.** Capas hacia el dominio.
+- **Infraestructura depende del dominio**, nunca al revés.
+- **API-first**: Todo el flujo de datos pasa por aquí.
+
+## Flujo de datos
+```
+Mobile/Web → Go API → Database
+Go API → Database → Mobile/Web
+```
 
 ## Verificar
 ```bash

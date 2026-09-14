@@ -67,12 +67,46 @@ Recibes una tarea
 |---|---|
 | Frontend | Next.js 14 (App Router) + React 18 + TypeScript strict + Tailwind CSS 3 |
 | Auth | Clerk v6 (`@clerk/nextjs`) |
-| Backend | Next.js API Routes (principal) + Go 1.25 (auxiliar, no activo en QA) |
+| Backend | **Go 1.25 API (FIBER) — FUENTE DE VERDAD** |
 | Database | Turso/LibSQL (principal) |
 | Cache | Redis 7 |
 | Event Bus | NATS 2.10 con JetStream |
 | Mobile | React Native CLI + TypeScript strict + React Navigation + React Query |
 | Monorepo | pnpm workspaces |
+
+---
+
+## REGLA DE ORO — API-FIRST
+
+**TODA la comunicación entre apps DEBE ir a través del Go API (`apps/api`).**
+
+| App | Role | Regla |
+|---|---|---|
+| **Go API** (`apps/api`) | **Backend principal** | ÚNICA fuente de verdad para datos |
+| **Web** (`apps/web`) | Frontend coach | Lee/escribe SOLO vía Go API |
+| **Mobile** (`apps/mobile`) | Frontend athlete | Lee/escribe SOLO vía Go API |
+
+### Flujo correcto
+```
+Mobile/Web → Go API → Database
+Go API → Database → Mobile/Web
+```
+
+### Flujo INCORRECTO (NUNCA hacer esto)
+```
+Mobile → Next.js API Routes → Database  ❌
+Web → Next.js API Routes → Database  ❌
+Mobile → Next.js API Routes → Web  ❌
+```
+
+### Excepciones permitidas
+- Next.js API Routes solo sirven para: webhooks de Clerk, server-side rendering data, y archivos estáticos
+- Si necesitás datos en Next.js, consumí el Go API desde el server component
+
+### Coordinación de contratos
+1. **Cambios de contrato** → coordinar entre API, Web, y Mobile
+2. **Nuevos endpoints** → agregar en Go API primero, luego actualizar clientes
+3. **Migraciones DB** → Go API es el dueño del schema
 
 ---
 

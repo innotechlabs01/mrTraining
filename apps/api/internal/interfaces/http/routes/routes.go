@@ -211,8 +211,15 @@ func RegisterAlertRoutes(api fiber.Router, handler *handlers.AlertHandler) {
 // RegisterBlogRoutes registers blog/marketing routes on the given API group.
 // The calling code must have already applied auth middleware to the api group.
 func RegisterBlogRoutes(api fiber.Router, handler *handlers.BlogHandler) {
+	// Athlete-facing (published articles only, newest-first)
 	api.Get("/blog", middleware.RequireAthlete(), middleware.Cache(time.Hour, "blog"), handler.ListArticles)
 	api.Get("/blog/:id", middleware.RequireAthlete(), middleware.Cache(time.Hour, "blog"), handler.GetArticle)
+
+	// Coach CRUD
+	api.Get("/coach/blog", middleware.RequireCoach(), handler.ListCoachArticles)
+	api.Post("/blog", middleware.RequireCoach(), handler.CreateArticle)
+	api.Put("/blog/:id", middleware.RequireCoach(), handler.UpdateArticle)
+	api.Delete("/blog/:id", middleware.RequireCoach(), handler.DeleteArticle)
 }
 
 // RegisterPolarRoutes registers Polar payment routes on the given API group.
@@ -252,4 +259,117 @@ func RegisterStoreRoutes(api fiber.Router, handler *handlers.StoreHandler) {
 func RegisterAthleteSchedulingRoutes(api fiber.Router, handler *handlers.AthleteSchedulingHandler) {
 	api.Get("/athlete/availability", middleware.RequireAthlete(), handler.GetAvailability)
 	api.Post("/athlete/appointments", middleware.RequireAthlete(), handler.CreateAppointment)
+}
+
+// RegisterGamificationRoutes registers gamification-related routes on the given API group.
+// The calling code must have already applied auth middleware to the api group.
+func RegisterGamificationRoutes(api fiber.Router, handler *handlers.GamificationHandler) {
+	// Streaks
+	api.Get("/gamification/streak", middleware.RequireAthlete(), handler.GetStreak)
+	api.Post("/gamification/streak/log", middleware.RequireAthlete(), handler.LogStreak)
+
+	// Badges
+	api.Get("/gamification/badges", middleware.RequireAthlete(), handler.ListBadges)
+	api.Post("/gamification/badges/check", middleware.RequireAthlete(), handler.CheckBadges)
+
+	// Personal Records
+	api.Get("/gamification/prs", middleware.RequireAthlete(), handler.ListPRs)
+	api.Post("/gamification/prs", middleware.RequireAthlete(), handler.RecordPR)
+}
+
+// RegisterLeaderboardRoutes registers leaderboard-related routes on the given API group.
+// The calling code must have already applied auth middleware to the api group.
+func RegisterLeaderboardRoutes(api fiber.Router, handler *handlers.LeaderboardHandler) {
+	leaderboard := api.Group("/leaderboard")
+	leaderboard.Get("/group/:groupId", handler.GetGroupLeaderboard)
+	leaderboard.Get("/weekly", handler.GetWeeklyLeaderboard)
+	leaderboard.Get("/history", handler.GetUserHistory)
+}
+
+// RegisterVideoAnalyticsRoutes registers video analytics endpoints on the given API group.
+// The calling code must have already applied auth middleware to the api group.
+func RegisterVideoAnalyticsRoutes(api fiber.Router, handler *handlers.VideoAnalyticsHandler) {
+	va := api.Group("/video-analytics")
+	va.Post("/track", handler.TrackSession)
+	va.Get("/summary", handler.GetSummary)
+	va.Get("/per-exercise", handler.GetPerExercise)
+	va.Get("/sessions", handler.GetSessions)
+}
+
+// RegisterCoachFeedRoutes registers coach feed endpoints on the given API group.
+// The calling code must have already applied auth middleware to the api group.
+func RegisterCoachFeedRoutes(api fiber.Router, handler *handlers.CoachFeedHandler) {
+	feed := api.Group("/coach/feed")
+	feed.Get("", handler.ListPosts)
+	feed.Post("", handler.CreatePost)
+	feed.Get("/:postId", handler.GetPost)
+	feed.Delete("/:postId", handler.DeletePost)
+	feed.Post("/:postId/react", handler.AddReaction)
+	feed.Delete("/:postId/react", handler.RemoveReaction)
+	feed.Post("/:postId/comment", handler.AddComment)
+	feed.Get("/:postId/comments", handler.ListComments)
+}
+
+// RegisterFormMetricsRoutes registers form metrics endpoints on the given API group.
+// The calling code must have already applied auth middleware to the api group.
+func RegisterFormMetricsRoutes(api fiber.Router, handler *handlers.FormMetricsHandler) {
+	fm := api.Group("/form-metrics")
+	fm.Post("/sync", middleware.RequireAthlete(), handler.SyncMetrics)
+	fm.Get("", middleware.RequireAthlete(), handler.GetByAthlete)
+	fm.Get("/athlete/:id", handler.GetAthleteMetrics)
+}
+
+// RegisterNotificationPreferencesRoutes registers notification preferences endpoints on the given API group.
+// The calling code must have already applied auth middleware to the api group.
+func RegisterNotificationPreferencesRoutes(api fiber.Router, handler *handlers.NotificationHandler) {
+	api.Get("/athlete/notification-preferences", middleware.RequireAthlete(), handler.GetPreferences)
+	api.Put("/athlete/notification-preferences", middleware.RequireAthlete(), handler.UpdatePreferences)
+}
+
+// RegisterRoutineRoutes registers routine endpoints on the given API group.
+// The calling code must have already applied auth middleware to the api group.
+func RegisterRoutineRoutes(api fiber.Router, handler *handlers.RoutineHandler) {
+	api.Get("/athlete/routines", middleware.RequireAthlete(), handler.ListRoutines)
+	api.Get("/athlete/routines/:id", middleware.RequireAthlete(), handler.GetRoutine)
+	api.Post("/athlete/routines", middleware.RequireAthlete(), handler.CreateRoutine)
+	api.Put("/athlete/routines/:id", middleware.RequireAthlete(), handler.UpdateRoutine)
+	api.Delete("/athlete/routines/:id", middleware.RequireAthlete(), handler.DeleteRoutine)
+}
+
+// RegisterChallengeRoutes registers challenge endpoints on the given API group.
+// The calling code must have already applied auth middleware to the api group.
+func RegisterChallengeRoutes(api fiber.Router, handler *handlers.ChallengeHandler) {
+	// --- Coach endpoints ---
+	// Challenge CRUD
+	api.Post("/challenges", middleware.RequireCoach(), handler.CreateChallenge)
+	api.Get("/coach/challenges", middleware.RequireCoach(), handler.ListCoachChallenges)
+	api.Get("/coach/challenges/draft", middleware.RequireCoach(), handler.ListDraftChallenges)
+	api.Get("/coach/challenges/active", middleware.RequireCoach(), handler.ListActiveChallengesByCoach)
+	api.Get("/challenges/:id", handler.GetChallenge)
+	api.Put("/challenges/:id", middleware.RequireCoach(), handler.UpdateChallenge)
+	api.Delete("/challenges/:id", middleware.RequireCoach(), handler.DeleteChallenge)
+	api.Post("/challenges/:id/activate", middleware.RequireCoach(), handler.ActivateChallenge)
+
+	// Coach analytics
+	api.Get("/challenges/:id/stats", middleware.RequireCoach(), handler.GetChallengeStats)
+	api.Get("/coach/athletes/:id/challenge-analytics", middleware.RequireCoach(), handler.GetAthleteChallengeAnalytics)
+
+	// --- Athlete endpoints ---
+	api.Get("/athlete/challenges", middleware.RequireAthlete(), handler.ListAthleteChallenges)
+	api.Get("/athlete/challenges/active", middleware.RequireAthlete(), handler.GetActiveChallenge)
+	api.Get("/athlete/challenges/progress/:exerciseType", middleware.RequireAthlete(), handler.GetAthleteProgress)
+	api.Post("/athlete/challenges/:id/join", middleware.RequireAthlete(), handler.JoinChallenge)
+	api.Post("/athlete/challenges/:id/attempts", middleware.RequireAthlete(), handler.CreateAttempt)
+	api.Post("/athlete/challenges/attempts/:id/submit", middleware.RequireAthlete(), handler.SubmitAttempt)
+	api.Post("/athlete/challenges/attempts/:id/video", middleware.RequireAthlete(), handler.UploadAttemptVideo)
+	api.Get("/athlete/challenges/:id/attempts", middleware.RequireAthlete(), handler.ListAthleteAttempts)
+
+	// --- Leaderboard (shared) ---
+	api.Get("/challenges/:id/leaderboard", handler.GetLeaderboard)
+
+	// --- Legacy compatibility ---
+	api.Get("/athlete/community/challenges/weekly", middleware.RequireAthlete(), handler.GetActiveChallenge)
+	api.Get("/athlete/community/challenges", middleware.RequireAthlete(), handler.ListAthleteChallenges)
+	api.Get("/athlete/community/challenges/:id", middleware.RequireAthlete(), handler.GetChallenge)
+	api.Post("/athlete/community/challenges/:id/join", middleware.RequireAthlete(), handler.JoinChallenge)
 }

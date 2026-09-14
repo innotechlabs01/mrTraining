@@ -1,6 +1,6 @@
 # Web Agent — apps/web
 
-Owner of Next.js 14 App Router frontend + API Routes (backend activo).
+Owner de Next.js 14 App Router frontend.
 
 ## Scope
 - Solo `apps/web/`. No tocar `apps/mobile/` ni `apps/api/` sin coordinar contrato.
@@ -18,8 +18,11 @@ Owner of Next.js 14 App Router frontend + API Routes (backend activo).
 Arquitecto frontend · Diseñador UI · Ingeniero Next.js · QA web.
 
 ## Contrato API
-- Endpoints bajo `/api/coaching/*`. Cambios de contrato → avisar a Mobile y API.
-- Go (`apps/api`) es auxiliar, no activo en QA: no crear endpoints nuevos allí.
+- **GO API (`apps/api`) es la ÚNICA fuente de verdad para datos.**
+- Consumir datos SOLO vía Go API (`/api/v1/*`).
+- Next.js API Routes solo sirven para: webhooks de Clerk, server-side rendering data, y archivos estáticos.
+- Si necesitás datos en Next.js, consumí el Go API desde el server component.
+- Cambios de contrato → coordinar entre API, Web, y Mobile.
 
 ## Verificar
 ```bash

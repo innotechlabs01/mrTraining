@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	blogapp "github.com/innotechlabs01/mr-training-api/internal/application/blog"
+	"github.com/innotechlabs01/mr-training-api/internal/domain/blog"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
@@ -33,18 +34,7 @@ func (h *BlogHandler) ListArticles(c *fiber.Ctx) error {
 
 	responses := make([]dto.ArticleResponse, len(articles))
 	for i, a := range articles {
-		responses[i] = dto.ArticleResponse{
-			ID:          a.ID,
-			Title:       a.Title,
-			Slug:        a.Slug,
-			Excerpt:     a.Excerpt,
-			Content:     a.Content,
-			AuthorID:    a.AuthorID,
-			PublishedAt: a.PublishedAt,
-			Tags:        a.Tags,
-			CreatedAt:   a.CreatedAt,
-			UpdatedAt:   a.UpdatedAt,
-		}
+		responses[i] = toArticleResponse(a)
 	}
 
 	return appresponse.Success(c, dto.ListResponse[dto.ArticleResponse]{
@@ -67,18 +57,122 @@ func (h *BlogHandler) GetArticle(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
-	return appresponse.Success(c, dto.ArticleResponse{
-		ID:          article.ID,
-		Title:       article.Title,
-		Slug:        article.Slug,
-		Excerpt:     article.Excerpt,
-		Content:     article.Content,
-		AuthorID:    article.AuthorID,
-		PublishedAt: article.PublishedAt,
-		Tags:        article.Tags,
-		CreatedAt:   article.CreatedAt,
-		UpdatedAt:   article.UpdatedAt,
-	})
+	return appresponse.Success(c, toArticleResponse(article))
+}
+
+// ListCoachArticles handles GET /coach/blog (drafts included).
+func (h *BlogHandler) ListCoachArticles(c *fiber.Ctx) error {
+	coachID := c.Locals("userID").(string)
+	articles, err := h.service.ListByCoach(c.Context(), coachID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	responses := make([]dto.ArticleResponse, len(articles))
+	for i, a := range articles {
+		responses[i] = toArticleResponse(a)
+	}
+	return appresponse.Success(c, responses)
+}
+
+// CreateArticle handles POST /blog.
+func (h *BlogHandler) CreateArticle(c *fiber.Ctx) error {
+	coachID := c.Locals("userID").(string)
+
+	var req dto.ArticleRequest
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	article := &blog.Article{
+		Title:           req.Title,
+		Slug:            req.Slug,
+		Excerpt:         req.Excerpt,
+		Content:         req.Content,
+		Category:        req.Category,
+		ImageURL:        req.ImageURL,
+		IsPublished:     req.IsPublished,
+		PublishedAt:     req.PublishedAt,
+		Tags:            req.Tags,
+		ReadTimeMinutes: req.ReadTimeMinutes,
+		AuthorID:        coachID,
+	}
+
+	if err := h.service.CreateArticle(c.Context(), article); err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, toArticleResponse(article))
+}
+
+// UpdateArticle handles PUT /blog/:id.
+func (h *BlogHandler) UpdateArticle(c *fiber.Ctx) error {
+	coachID := c.Locals("userID").(string)
+	id := c.Params("id")
+	if id == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "article ID is required")
+	}
+
+	var req dto.ArticleRequest
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	article := &blog.Article{
+		ID:              id,
+		Title:           req.Title,
+		Slug:            req.Slug,
+		Excerpt:         req.Excerpt,
+		Content:         req.Content,
+		Category:        req.Category,
+		ImageURL:        req.ImageURL,
+		IsPublished:     req.IsPublished,
+		PublishedAt:     req.PublishedAt,
+		Tags:            req.Tags,
+		ReadTimeMinutes: req.ReadTimeMinutes,
+		AuthorID:        coachID,
+	}
+
+	if err := h.service.UpdateArticle(c.Context(), article); err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, toArticleResponse(article))
+}
+
+// DeleteArticle handles DELETE /blog/:id.
+func (h *BlogHandler) DeleteArticle(c *fiber.Ctx) error {
+	coachID := c.Locals("userID").(string)
+	id := c.Params("id")
+	if id == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "article ID is required")
+	}
+
+	if err := h.service.DeleteArticle(c.Context(), id, coachID); err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, fiber.Map{"ok": true})
+}
+
+func toArticleResponse(a *blog.Article) dto.ArticleResponse {
+	return dto.ArticleResponse{
+		ID:              a.ID,
+		Title:           a.Title,
+		Slug:            a.Slug,
+		Excerpt:         a.Excerpt,
+		Content:         a.Content,
+		AuthorID:        a.AuthorID,
+		Category:        a.Category,
+		ImageURL:        a.ImageURL,
+		IsPublished:     a.IsPublished,
+		PublishedAt:     a.PublishedAt,
+		Tags:            a.Tags,
+		ReadTimeMinutes: a.ReadTimeMinutes,
+		Views:           a.Views,
+		CreatedAt:       a.CreatedAt,
+		UpdatedAt:       a.UpdatedAt,
+	}
 }
 
 // handleError maps application errors to appropriate HTTP responses.

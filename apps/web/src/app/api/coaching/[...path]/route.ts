@@ -22,6 +22,11 @@ import {
   getCoachAvailability, saveCoachAvailability,
   getBlogPosts, saveBlogPost, deleteBlogPost, getBlogPostBySlug, incrementBlogView,
   getPublicProducts,
+  getRecoveryEntry, toggleRecoveryStretch, updateRecoveryHydration, updateRecoverySleep, updateRecoverySubjectiveScore, dismissRecoveryRecommendation,
+  getLiveWorkoutPlan,
+  getScheduleEvents, createScheduleEvent, updateScheduleEventStatus, deleteScheduleEvent,
+  getScheduledWorkouts, getWorkoutHistory, getWorkoutAnalytics,
+  getAthleteDetail,
 } from '@/lib/db'
 
 function errorResponse(message: string, status: number) {
@@ -202,6 +207,44 @@ const handlers: Record<string, EntityHandler> = {
     if (method === 'PUT') { await savePublicPageConfig(coachId, body as Record<string, unknown>); return { ok: true } }
     return null
   },
+  recovery: async (coachId, id, method, body) => {
+    // GET /recovery — get today's recovery entry for the athlete
+    if (method === 'GET') {
+      const athleteId = id || coachId // coach can view their own or an athlete's
+      return getRecoveryEntry(athleteId)
+    }
+    // POST /recovery/stretch — toggle stretch
+    if (method === 'POST' && id === 'stretch') {
+      const { stretchId, completed } = body as { stretchId: string; completed: boolean }
+      await toggleRecoveryStretch(stretchId, completed)
+      return { ok: true }
+    }
+    // POST /recovery/hydration — update hydration
+    if (method === 'POST' && id === 'hydration') {
+      const { entryId, current } = body as { entryId: string; current: number }
+      await updateRecoveryHydration(entryId, current)
+      return { ok: true }
+    }
+    // POST /recovery/sleep — update sleep
+    if (method === 'POST' && id === 'sleep') {
+      const { entryId, ...sleepData } = body as { entryId: string; hours?: number; quality?: string; bedtime?: string; wakeTime?: string }
+      await updateRecoverySleep(entryId, sleepData)
+      return { ok: true }
+    }
+    // POST /recovery/subjective — update subjective score
+    if (method === 'POST' && id === 'subjective') {
+      const { entryId, score } = body as { entryId: string; score: number }
+      await updateRecoverySubjectiveScore(entryId, score)
+      return { ok: true }
+    }
+    // POST /recovery/dismiss — dismiss AI recommendation
+    if (method === 'POST' && id === 'dismiss') {
+      const { recId } = body as { recId: string }
+      await dismissRecoveryRecommendation(recId)
+      return { ok: true }
+    }
+    return null
+  },
   membership: async (coachId, id, method, body) => {
     if (method === 'GET' && id) return getAthleteMembership(id)
     if (method === 'GET' && !id) return { error: 'athleteId required' }
@@ -242,6 +285,45 @@ const handlers: Record<string, EntityHandler> = {
       await saveCoachAvailability(coachId, body as Array<{ dayOfWeek: number; startTime: string; endTime: string }>)
       return { ok: true }
     }
+    return null
+  },
+  'live-workout': async (coachId, _id, method, _body) => {
+    if (method === 'GET') {
+      return getLiveWorkoutPlan(coachId)
+    }
+    return null
+  },
+  schedule: async (coachId, id, method, body) => {
+    if (method === 'GET') return getScheduleEvents(coachId)
+    if (method === 'POST') {
+      const event = await createScheduleEvent(coachId, body as Parameters<typeof createScheduleEvent>[1])
+      return event
+    }
+    if (method === 'PUT' && id) {
+      const { status } = body as { status: string }
+      await updateScheduleEventStatus(id, status)
+      return { ok: true }
+    }
+    if (method === 'DELETE' && id) {
+      await deleteScheduleEvent(id)
+      return { ok: true }
+    }
+    return null
+  },
+  'scheduled-workouts': async (coachId, _id, method, _body) => {
+    if (method === 'GET') return getScheduledWorkouts(coachId)
+    return null
+  },
+  'workout-history': async (coachId, _id, method, _body) => {
+    if (method === 'GET') return getWorkoutHistory(coachId)
+    return null
+  },
+  'workout-analytics': async (coachId, _id, method, _body) => {
+    if (method === 'GET') return getWorkoutAnalytics(coachId)
+    return null
+  },
+  'athlete-details': async (_coachId, id, method, _body) => {
+    if (method === 'GET' && id) return getAthleteDetail(id)
     return null
   },
 }

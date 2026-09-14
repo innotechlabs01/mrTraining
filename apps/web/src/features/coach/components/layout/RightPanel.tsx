@@ -1,12 +1,29 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { X, Mail, Phone, CalendarDays, Smartphone, Bluetooth, AlertTriangle, TrendingUp, TrendingDown, Users } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useCoachPanel } from './CoachPanelContext'
 import { TimeBlockPanel } from '@/features/coach/components/timeline/TimeBlockPanel'
-import { MOCK_ATHLETE_DETAILS } from '@/features/coach/data/_mocks'
-import type { AthleteDetailData } from '@/features/coach/data/_mocks'
+
+interface AthleteDetailData {
+  id: string
+  name: string
+  email: string
+  phone: string
+  sport: string
+  serviceType: string
+  plan: { name: string; price: number; billingPeriod: string }
+  schedule: { days: string; time: string }
+  startDate: string
+  emergencyContact: string
+  weightHistory: { date: string; weight: number; muscleMass: number; bodyFat: number }[]
+  runningDevice?: { brand: string; model: string; synced: boolean; lastSync?: string }
+  readiness: { sleep: number; hrv: number; recovery: number; score: number }
+  flag?: { type: string; severity: string; message: string }
+}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -28,7 +45,10 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
 }
 
 function PanelContent() {
+  const router = useRouter()
   const { panel } = useCoachPanel()
+  const [athleteDetails, setAthleteDetails] = useState<Record<string, AthleteDetailData>>({})
+  const [loadingDetails, setLoadingDetails] = useState(false)
 
   if (!panel.type) return null
 
@@ -36,7 +56,22 @@ function PanelContent() {
     case 'athlete': {
       const data = panel.data as Record<string, unknown>
       const id = data.id as string | undefined
-      const base = (id ? MOCK_ATHLETE_DETAILS[id] : undefined) as AthleteDetailData | undefined
+
+      // Fetch athlete details from API if not cached
+      useEffect(() => {
+        if (id && !athleteDetails[id] && panel.type === 'athlete') {
+          setLoadingDetails(true)
+          fetch(`/api/coaching/athlete-details/${id}`)
+            .then(res => res.json())
+            .then(details => {
+              setAthleteDetails(prev => ({ ...prev, [id]: details }))
+              setLoadingDetails(false)
+            })
+            .catch(() => setLoadingDetails(false))
+        }
+      }, [id, panel.type])
+
+      const base = id ? athleteDetails[id] : undefined
       const d = { ...base, ...data } as AthleteDetailData
       const weightHistory = d.weightHistory ?? []
       const latest = weightHistory[weightHistory.length - 1]
@@ -213,6 +248,16 @@ function PanelContent() {
               Nota Rápida
             </button>
           </div>
+
+          {id && (
+            <button
+              type="button"
+              onClick={() => router.push(`/coach/users/${id}`)}
+              className="w-full px-3 py-2 rounded-lg bg-white/5 text-white/60 text-xs font-semibold hover:bg-white/10 hover:text-white/80 border border-white/10 transition-colors"
+            >
+              Ver perfil completo
+            </button>
+          )}
         </div>
       )
     }

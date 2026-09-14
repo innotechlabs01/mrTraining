@@ -171,6 +171,43 @@ func (h *NotificationHandler) MarkAllRead(c *fiber.Ctx) error {
 	})
 }
 
+// GetPreferences handles GET /athlete/notification-preferences.
+// Returns notification preferences for the authenticated athlete.
+func (h *NotificationHandler) GetPreferences(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	prefs, err := h.service.GetPreferences(c.Context(), userID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, prefs)
+}
+
+// UpdatePreferences handles PUT /athlete/notification-preferences.
+// Updates notification preferences for the authenticated athlete.
+func (h *NotificationHandler) UpdatePreferences(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	var prefs domain.NotificationPreference
+	if err := c.BodyParser(&prefs); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	prefs.UserID = userID
+	if err := h.service.UpdatePreferences(c.Context(), &prefs); err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, fiber.Map{"success": true})
+}
+
 // toNotificationResponse converts a domain Notification entity to a DTO response.
 func toNotificationResponse(n *domain.Notification) dto.NotificationResponse {
 	return dto.NotificationResponse{

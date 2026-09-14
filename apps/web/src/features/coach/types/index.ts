@@ -399,3 +399,42 @@ export interface Sale {
   date: string // YYYY-MM-DD
   createdAt: string
 }
+
+export type ChallengeStatus = 'draft' | 'active' | 'completed' | 'expired'
+export type ScoringType = 'form_score' | 'total_volume' | 'consistency'
+export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced'
+
+export interface Challenge {
+  id: string
+  coachId: string
+  title: string
+  description?: string
+  exerciseType: string
+  videoUrl?: string
+  durationMinutes: number
+  calories: number
+  targetSets?: number
+  targetReps?: number
+  scoringType: ScoringType
+  difficultyLevel: DifficultyLevel
+  maxAttempts: number
+  status: ChallengeStatus
+  startDate?: string
+  endDate?: string
+  expiresAt?: string
+  daysLeft?: number
+  isUrgent?: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ChallengeLeaderboardEntry {
+  rank: number
+  athleteId: string
+  athleteName: string
+  avatarUrl?: string
+  score: number
+  attempts: number
+  bestScore: number
+  trend: string
+}

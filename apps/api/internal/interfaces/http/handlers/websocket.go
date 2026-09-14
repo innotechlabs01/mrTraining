@@ -39,3 +39,30 @@ func HandleWebSocket(hub *websocket.Hub) fiber.Handler {
 		client.ReadPump()
 	})
 }
+
+// HandleChallengeLeaderboardWebSocket returns a Fiber handler that upgrades
+// the connection and subscribes it to a challenge leaderboard topic
+// ("challenge:<id>"). When attempts are submitted, the hub broadcasts the
+// updated leaderboard to all subscribers of that challenge.
+func HandleChallengeLeaderboardWebSocket(hub *websocket.Hub) fiber.Handler {
+	return fiberws.New(func(conn *fiberws.Conn) {
+		userID, ok := conn.Locals(string(middleware.UserIDKey)).(string)
+		if !ok || userID == "" {
+			conn.Close()
+			return
+		}
+
+		challengeID := conn.Params("id")
+		if challengeID == "" {
+			conn.Close()
+			return
+		}
+
+		client := websocket.NewClient(hub, userID, conn)
+		hub.Register(client)
+		hub.Subscribe(client, "challenge:"+challengeID)
+
+		go client.WritePump()
+		client.ReadPump()
+	})
+}
