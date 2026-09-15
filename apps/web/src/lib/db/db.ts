@@ -2,6 +2,47 @@
 import { createClient } from '@libsql/client'
 import type { Client, InValue } from '@libsql/client'
 
+const MAX_RETRIES = 3
+const BASE_DELAY_MS = 200
+
+function isRetryable(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const code = (err as { code?: string }).code
+  return code === 'SQLITE_UNKNOWN' || code === 'ECONNRESET' || code === 'ETIMEDOUT'
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise(r => setTimeout(r, ms))
+}
+
+function wrapWithRetry(client: Client): Client {
+  const originalExecute = client.execute.bind(client)
+  const wrapped = async (
+    stmtOrSql: unknown,
+    args?: unknown,
+  ) => {
+    let lastErr: unknown
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        if (args !== undefined) {
+          return await originalExecute(stmtOrSql as string, args as InValue[])
+        }
+        return await originalExecute(stmtOrSql as Parameters<Client['execute']>[0])
+      } catch (err) {
+        lastErr = err
+        if (attempt < MAX_RETRIES && isRetryable(err)) {
+          await delay(BASE_DELAY_MS * Math.pow(2, attempt))
+        } else {
+          throw err
+        }
+      }
+    }
+    throw lastErr
+  }
+  client.execute = wrapped as Client['execute']
+  return client
+}
+
 export function getDB() {
   const url = process.env.TURSO_URL || process.env.DATABASE_URL
   if (!url) {
@@ -12,10 +53,10 @@ export function getDB() {
       )
     }
     console.warn('[DB] No DATABASE_URL or TURSO_URL set — falling back to local.db for development')
-    return createClient({ url: 'file:local.db', authToken: '' })
+    return wrapWithRetry(createClient({ url: 'file:local.db', authToken: '' }))
   }
   const authToken = process.env.TURSO_AUTH_TOKEN || ''
-  return createClient({ url, authToken })
+  return wrapWithRetry(createClient({ url, authToken }))
 }
 
 /**
