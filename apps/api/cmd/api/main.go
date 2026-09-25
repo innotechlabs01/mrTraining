@@ -41,13 +41,16 @@ import (
 	userdomain "github.com/innotechlabs01/mr-training-api/internal/application/user"
 	vaapp "github.com/innotechlabs01/mr-training-api/internal/application/videoanalytics"
 	videoviewapp "github.com/innotechlabs01/mr-training-api/internal/application/videoview"
+	messageapp "github.com/innotechlabs01/mr-training-api/internal/application/message"
 	"github.com/innotechlabs01/mr-training-api/internal/config"
-	"github.com/innotechlabs01/mr-training-api/internal/handlers"
+	messagehandlers "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
+	handlerpkg "github.com/innotechlabs01/mr-training-api/internal/handlers"
 	alertinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/alert"
 	bloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/blog"
 	cacheinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/cache"
 	coachinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach"
 	coachfeedinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coachfeed"
+	messageinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/message"
 	communityinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/community"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	eventinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/event"
@@ -139,12 +142,14 @@ func main() {
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
-		AppName:      cfg.AppName,
-		ErrorHandler: customErrorHandler(),
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  120 * time.Second,
-		BodyLimit:    10 * 1024 * 1024, // 10MB
+		AppName:         cfg.AppName,
+		ErrorHandler:    customErrorHandler(),
+		ReadTimeout:     15 * time.Second,
+		WriteTimeout:    30 * time.Second,
+		IdleTimeout:     120 * time.Second,
+		BodyLimit:       10 * 1024 * 1024, // 10MB
+		ReadBufferSize:  64 * 1024,        // 64KB: Clerk JWT + cookies del proxy Next superan el default 4KB de fasthttp → evitaba 431
+		WriteBufferSize: 64 * 1024,
 	})
 
 	// Global middleware — order matters.
@@ -167,11 +172,11 @@ func main() {
 	app.Use(middleware.BodyLimit(100))
 
 	// Health check routes (no auth required)
-	app.Get("/health", handlers.HealthCheck(cfg.AppName, cfg.AppEnv))
+	app.Get("/health", handlerpkg.HealthCheck(cfg.AppName, cfg.AppEnv))
 	if db != nil {
-		app.Get("/ready", handlers.ReadinessCheck(db.DB))
+		app.Get("/ready", handlerpkg.ReadinessCheck(db.DB))
 	} else {
-		app.Get("/ready", handlers.ReadinessCheck(nil))
+		app.Get("/ready", handlerpkg.ReadinessCheck(nil))
 	}
 
 	// Static serving for uploaded media (challenge attempt videos).
@@ -209,7 +214,7 @@ func main() {
 		trainingExerciseRepo := traininginfrastructure.NewExerciseRepository(db.DB)
 		trainingWorkoutRepo := traininginfrastructure.NewWorkoutRepository(db.DB)
 		trainingProgressRepo := traininginfrastructure.NewProgressRepository(db.DB)
-		trainingSessionRepo := traininginfrastructure.NewTrainingSessionRepository()
+		trainingSessionRepo := traininginfrastructure.NewSessionRepository(db.DB)
 		trainingService := trainingapp.NewService(trainingExerciseRepo, trainingWorkoutRepo, trainingProgressRepo, trainingSessionRepo)
 		trainingHandler := userhttp.NewTrainingHandler(trainingService)
 
@@ -424,10 +429,22 @@ func main() {
 		storeService := storeapp.NewService(storeRepo)
 		storeHandler := userhttp.NewStoreHandler(storeService)
 
-		// Register store routes
-		routes.RegisterStoreRoutes(api, storeHandler)
+// Register store routes
+	routes.RegisterStoreRoutes(api, storeHandler)
 
-		// Wire Athlete Scheduling (availability/appointments)
+	// Wire Message domain
+	var messageRepoDB *sql.DB
+	if db != nil {
+		messageRepoDB = db.DB
+	}
+	messageRepo := messageinfrastructure.NewRepository(messageRepoDB)
+	messageService := messageapp.NewService(messageRepo)
+	messageHandler := messagehandlers.NewMessageHandler(messageService)
+
+	// Register message routes
+	routes.RegisterMessageRoutes(api, messageHandler, cfg.ClerkSecretKey)
+
+	// Wire Athlete Scheduling (availability/appointments)
 		var coachRepoDB *sql.DB
 		if db != nil {
 			coachRepoDB = db.DB

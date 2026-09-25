@@ -24,17 +24,14 @@ type ChallengeResponse struct {
 	ParticipantsCount int    `json:"participantsCount"`
 }
 
-// MessageResponse represents a community message in API responses.
-type MessageResponse struct {
+// CommunityMessageResponse represents a community message in API responses.
+type CommunityMessageResponse struct {
 	ID        string `json:"id"`
 	UserID    string `json:"userId"`
 	UserName  string `json:"userName"`
 	Message   string `json:"message"`
 	CreatedAt string `json:"createdAt"`
 }
-
-// CommunityMessageResponse is an alias for MessageResponse for clarity.
-type CommunityMessageResponse = MessageResponse
 
 // CreateMessageRequest is the payload for POST /athlete/community/messages.
 type CreateMessageRequest struct {

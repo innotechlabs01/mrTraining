@@ -6,6 +6,8 @@ import { QueryProvider } from '@/features/shared/providers/QueryProvider';
 import { Toaster } from 'sonner';
 import './globals.css';
 
+export const dynamic = 'force-dynamic';
+
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-body',

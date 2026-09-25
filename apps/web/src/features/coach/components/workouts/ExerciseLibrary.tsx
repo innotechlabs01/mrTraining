@@ -310,11 +310,20 @@ function CreateExerciseModal({
                     Subir archivo
                     <input
                       type="file"
-                      accept="video/mp4,video/quicktime,video/webm"
+                      accept="video/mp4,.mp4"
                       className="hidden"
                       onChange={async (e) => {
                         const file = e.target.files?.[0]
+                        e.target.value = ''
                         if (!file) return
+                        if (!file.type.includes('video/mp4') && !file.name.toLowerCase().endsWith('.mp4')) {
+                          alert('Solo se permiten videos MP4')
+                          return
+                        }
+                        if (file.size > 50 * 1024 * 1024) {
+                          alert('El video supera el máximo de 50 MB')
+                          return
+                        }
                         try {
                           // Opción A: id-agnostic upload — works for BOTH create and edit.
                           const data = await exerciseApi.uploadVideo(file)
@@ -328,7 +337,7 @@ function CreateExerciseModal({
                     />
                   </label>
                 </div>
-                <p className="text-[10px] text-white/30 mt-1">MP4, MOV o WebM · máx 50 MB</p>
+                <p className="text-[10px] text-white/30 mt-1">Solo MP4 · máx 50 MB</p>
               </div>
             </div>
 

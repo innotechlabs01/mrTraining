@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useClerk } from '@clerk/nextjs';
 
 // Clerk v6 internally calls React.useActionState (a React 19 API) inside its
 // KeylessCreatorOrReader, but this project runs on React 18.3 where it does not
@@ -33,6 +34,23 @@ if (typeof R.useActionState !== 'function') {
 
 import { ClerkProvider } from '@clerk/nextjs';
 
+/**
+ * Silently refreshes the Clerk session token when the browser tab gains focus.
+ * Prevents stale-token 401s after the tab sits idle.
+ */
+function TokenRefreshOnFocus() {
+  const { session } = useClerk();
+  useEffect(() => {
+    if (!session) return;
+    const onFocus = () => {
+      session.getToken({ skipCache: true }).catch(() => {});
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [session]);
+  return null;
+}
+
 export function ClerkProviderClient({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider
@@ -49,6 +67,7 @@ export function ClerkProviderClient({ children }: { children: React.ReactNode })
         },
       }}
     >
+      <TokenRefreshOnFocus />
       {children}
     </ClerkProvider>
   );

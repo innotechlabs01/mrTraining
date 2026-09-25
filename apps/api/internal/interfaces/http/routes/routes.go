@@ -38,6 +38,8 @@ func RegisterTrainingRoutes(api fiber.Router, handler *handlers.TrainingHandler)
 	api.Get("/exercises", middleware.Cache(24*time.Hour, "exercises"), handler.ListExercises)
 	api.Get("/exercises/:id", middleware.Cache(24*time.Hour, "exercises"), handler.GetExercise)
 	api.Post("/exercises", middleware.RequireCoach(), handler.CreateExercise)
+	api.Put("/exercises/:id", middleware.RequireCoach(), handler.UpdateExercise)
+	api.Delete("/exercises/:id", middleware.RequireCoach(), handler.DeleteExercise)
 
 	// Workout templates (coach only)
 	api.Get("/workout-templates", middleware.RequireCoach(), middleware.Cache(24*time.Hour, "workout-templates"), handler.ListWorkoutTemplates)
@@ -63,7 +65,7 @@ func RegisterTrainingRoutes(api fiber.Router, handler *handlers.TrainingHandler)
 	api.Get("/progress/summary", middleware.RequireAthlete(), handler.GetProgressSummary)
 
 	// Training Sessions
-	api.Get("/training/sessions", handler.ListTrainingSessions)
+	api.Get("/athletes/sessions", middleware.RequireAthlete(), handler.GetUpcomingSessions)
 	api.Post("/training/sessions", middleware.RequireCoach(), handler.CreateTrainingSession)
 }
 
@@ -104,6 +106,10 @@ func RegisterEventRoutes(api fiber.Router, handler *handlers.EventHandler) {
 
 	// Athlete's registered events
 	api.Get("/athletes/events", middleware.RequireAthlete(), handler.GetMyRegistrations)
+
+	// Athlete event detail + respond (mobile)
+	api.Get("/athletes/events/:id", middleware.RequireAthlete(), handler.GetAthleteEvent)
+	api.Post("/athletes/events/:id/respond", middleware.RequireAthlete(), handler.RespondToEvent)
 }
 
 // RegisterProductRoutes registers all product-related routes on the given API group.
@@ -118,6 +124,7 @@ func RegisterProductRoutes(api fiber.Router, handler *handlers.ProductHandler) {
 	// Sales (coach)
 	api.Get("/coaches/sales", middleware.RequireCoach(), handler.GetSales)
 	api.Post("/coaches/sales", middleware.RequireCoach(), handler.RecordSale)
+	api.Delete("/coaches/sales/:id", middleware.RequireCoach(), handler.DeleteSale)
 }
 
 // RegisterNotificationRoutes registers all notification-related routes on the given API group.
@@ -246,6 +253,16 @@ func RegisterCommunityRoutes(api fiber.Router, handler *handlers.CommunityHandle
 	api.Get("/athlete/community", middleware.RequireAthlete(), handler.GetCommunity)
 	api.Get("/athlete/community/messages", middleware.RequireAthlete(), handler.ListMessages)
 	api.Post("/athlete/community/messages", middleware.RequireAthlete(), handler.CreateMessage)
+}
+
+// RegisterMessageRoutes registers messaging routes on the given API group.
+func RegisterMessageRoutes(api fiber.Router, handler *handlers.MessageHandler, clerkSecretKey string) {
+	authMw := middleware.RequireAuth(clerkSecretKey)
+	api.Get("/messages", authMw, handler.ListThreads)
+	api.Get("/messages/:id", authMw, handler.GetThread)
+	api.Post("/messages", authMw, handler.CreateThread)
+	api.Post("/messages/:id/messages", authMw, handler.AddMessage)
+	api.Patch("/messages/:id/read", authMw, handler.MarkRead)
 }
 
 // RegisterStoreRoutes registers athlete store routes on the given API group.

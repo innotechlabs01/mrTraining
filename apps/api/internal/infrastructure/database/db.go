@@ -5,6 +5,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "github.com/tursodatabase/libsql-client-go/libsql"
@@ -33,7 +34,7 @@ func Connect(url, authToken string) (*DB, error) {
 
 	// Build DSN with auth token for remote connections
 	dsn := url
-	if authToken != "" && len(url) > 8 && url[:8] == "libsql:" {
+	if authToken != "" && strings.HasPrefix(url, "libsql://") {
 		dsn = url + "?authToken=" + authToken
 	}
 

@@ -124,6 +124,14 @@ func (s *Service) GetSales(ctx context.Context, coachID string) ([]*productdomai
 	return sales, nil
 }
 
+// DeleteSale removes a sale by ID.
+func (s *Service) DeleteSale(ctx context.Context, saleID string) error {
+	if err := s.repo.DeleteSale(ctx, saleID); err != nil {
+		return err
+	}
+	return nil
+}
+
 // RecordSale records a new sale and decrements product stock.
 func (s *Service) RecordSale(ctx context.Context, coachID string, req dto.RecordSaleRequest) (*productdomain.Sale, error) {
 	// Verify product exists and belongs to the coach

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -221,7 +221,11 @@ export function ChallengeDetailScreen() {
                   label="Ver video demo"
                   variant="outline"
                   onPress={() => {
-                    Alert.alert('Proximamente', 'El reproductor de video se habilitara pronto.');
+                    const url = challenge?.video_url;
+                    if (!url) return;
+                    Linking.openURL(url).catch(() =>
+                      Alert.alert('Error', 'No se pudo abrir el video.'),
+                    );
                   }}
                 />
               </View>

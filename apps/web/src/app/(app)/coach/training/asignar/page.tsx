@@ -10,7 +10,6 @@ import {
   templateApi,
   type WorkoutTemplateSummary,
   type PastAssignmentListItem,
-  type TemplateExerciseRow,
 } from '@/features/shared/api/client'
 import type { TrainingMode } from '@/features/coach/types'
 
@@ -228,7 +227,7 @@ export default function CoachAsignarPage() {
                     {templates.length > 0 && (
                       <optgroup label="Plantillas del Builder">
                         {templates.map((t) => (
-                          <option key={t.id} value={`tpl:${t.id}`}>{t.name} ({t.exerciseCount} ej.)</option>
+                          <option key={t.id} value={`template:${t.id}`}>{t.name} ({t.exerciseCount} ej.)</option>
                         ))}
                       </optgroup>
                     )}

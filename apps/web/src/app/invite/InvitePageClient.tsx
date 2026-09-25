@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+
+export const dynamic = 'force-dynamic';
 import { useSearchParams } from 'next/navigation';
 import { Copy, Check, Smartphone, Download } from 'lucide-react';
 import { buildExpoUrl, buildExpoGoUrl, buildUniversalLink } from './expoLink';

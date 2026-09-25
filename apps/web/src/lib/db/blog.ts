@@ -1,236 +1,211 @@
 import { getDB, generateId, safeExecute } from './db'
 
-// ============== Blog Posts ==============
-
-export type BlogPost = {
+export interface BlogPost {
   id: string
+  coachId: string
   slug: string
   title: string
-  excerpt: string
   content: string
-  category: string
-  tags: string[]
-  imageUrl: string
-  isPublished: boolean
+  excerpt: string | null
+  coverImageUrl: string | null
+  published: boolean
   publishedAt: string | null
-  coachId: string
   createdAt: string
   updatedAt: string
-  readTimeMinutes: number
-  views: number
 }
 
-export async function getBlogPosts(coachId: string, publishedOnly = false) {
+export async function listBlogPosts(coachId: string, options?: { publishedOnly?: boolean; limit?: number; offset?: number }): Promise<BlogPost[]> {
   const db = getDB()
-  const query = publishedOnly
-    ? 'SELECT * FROM blog_posts WHERE coach_id = ? AND is_published = 1 ORDER BY published_at DESC, created_at DESC'
-    : 'SELECT * FROM blog_posts WHERE coach_id = ? ORDER BY created_at DESC'
-  const result = await db.execute(query, [coachId])
-  const posts: BlogPost[] = []
-  for (const r of result.rows) {
-    const meta = await db.execute('SELECT * FROM blog_post_meta WHERE post_id = ?', [r.id as string])
-    posts.push({
-      id: r.id as string,
-      slug: r.slug as string,
-      title: r.title as string,
-      excerpt: r.excerpt as string,
-      content: r.content as string,
-      category: r.category as string,
-      tags: r.tags ? JSON.parse(r.tags as string) : [],
-      imageUrl: r.image_url as string,
-      isPublished: r.is_published === 1,
-      publishedAt: r.published_at as string,
-      coachId: r.coach_id as string,
-      createdAt: r.created_at as string,
-      updatedAt: r.updated_at as string,
-      readTimeMinutes: (meta.rows[0]?.read_time_minutes as number) || 5,
-      views: (meta.rows[0]?.views as number) || 0,
-    })
+  let query = 'SELECT * FROM blog_posts WHERE coach_id = ?'
+  const params: (string | number)[] = [coachId]
+
+  if (options?.publishedOnly) {
+    query += ' AND published = 1'
   }
-  return posts
-}
+  query += ' ORDER BY created_at DESC'
+  if (options?.limit) {
+    query += ' LIMIT ?'
+    params.push(options.limit)
+  }
+  if (options?.offset) {
+    query += ' OFFSET ?'
+    params.push(options.offset)
+  }
 
-export async function getBlogPostBySlug(coachId: string, slug: string) {
-  const db = getDB()
-  const result = await db.execute('SELECT * FROM blog_posts WHERE coach_id = ? AND slug = ?', [coachId, slug])
-  if (result.rows.length === 0) return null
-  const r = result.rows[0]
-  const meta = await db.execute('SELECT * FROM blog_post_meta WHERE post_id = ?', [r.id as string])
-  return {
+  const result = await db.execute(query, params)
+  return result.rows.map((r) => ({
     id: r.id as string,
+    coachId: r.coach_id as string,
     slug: r.slug as string,
     title: r.title as string,
-    excerpt: r.excerpt as string,
     content: r.content as string,
-    category: r.category as string,
-    tags: r.tags ? JSON.parse(r.tags as string) : [],
-    imageUrl: r.image_url as string,
-    isPublished: r.is_published === 1,
-    publishedAt: r.published_at as string,
-    coachId: r.coach_id as string,
+    excerpt: r.excerpt as string | null,
+    coverImageUrl: r.cover_image_url as string | null,
+    published: Boolean(r.published),
+    publishedAt: r.published_at as string | null,
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
-    readTimeMinutes: (meta.rows[0]?.read_time_minutes as number) || 5,
-    views: (meta.rows[0]?.views as number) || 0,
-  } as BlogPost
+  }))
 }
 
-export async function saveBlogPost(coachId: string, data: Record<string, unknown>) {
+export async function getBlogPostBySlug(slug: string): Promise<BlogPost | null> {
   const db = getDB()
-  const id = (data.id as string) || generateId()
-  const tags = JSON.stringify(data.tags || [])
-  const existing = await db.execute('SELECT id FROM blog_posts WHERE id = ? AND coach_id = ?', [id, coachId])
-  if (existing.rows.length > 0) {
-    await safeExecute(
-      db,
-      'UPDATE blog_posts SET slug=?, title=?, excerpt=?, content=?, category=?, tags=?, image_url=?, is_published=?, published_at=?, updated_at=datetime(\'now\') WHERE id=? AND coach_id=?',
-      [data.slug, data.title, data.excerpt, data.content, data.category, tags, data.imageUrl, data.isPublished ? 1 : 0, data.publishedAt || null, id, coachId],
-    )
-  } else {
-    await safeExecute(
-      db,
-      'INSERT INTO blog_posts (id, slug, title, excerpt, content, category, tags, image_url, is_published, published_at, coach_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-      [id, data.slug, data.title, data.excerpt, data.content, data.category, tags, data.imageUrl, data.isPublished ? 1 : 0, data.publishedAt || null, coachId],
-    )
+  const result = await db.execute('SELECT * FROM blog_posts WHERE slug = ?', [slug])
+  if (result.rows.length === 0) return null
+  const r = result.rows[0]
+  return {
+    id: r.id as string,
+    coachId: r.coach_id as string,
+    slug: r.slug as string,
+    title: r.title as string,
+    content: r.content as string,
+    excerpt: r.excerpt as string | null,
+    coverImageUrl: r.cover_image_url as string | null,
+    published: Boolean(r.published),
+    publishedAt: r.published_at as string | null,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
   }
+}
+
+export async function getBlogPostById(id: string): Promise<BlogPost | null> {
+  const db = getDB()
+  const result = await db.execute('SELECT * FROM blog_posts WHERE id = ?', [id])
+  if (result.rows.length === 0) return null
+  const r = result.rows[0]
+  return {
+    id: r.id as string,
+    coachId: r.coach_id as string,
+    slug: r.slug as string,
+    title: r.title as string,
+    content: r.content as string,
+    excerpt: r.excerpt as string | null,
+    coverImageUrl: r.cover_image_url as string | null,
+    published: Boolean(r.published),
+    publishedAt: r.published_at as string | null,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
+  }
+}
+
+export async function createBlogPost(data: Omit<BlogPost, 'id' | 'createdAt' | 'updatedAt'>): Promise<BlogPost> {
+  const db = getDB()
+  const now = new Date().toISOString()
+  const post: BlogPost = {
+    ...data,
+    id: generateId(),
+    createdAt: now,
+    updatedAt: now,
+  }
+  await db.execute(
+    `INSERT INTO blog_posts (id, coach_id, slug, title, content, excerpt, cover_image_url, published, published_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [post.id, post.coachId, post.slug, post.title, post.content, post.excerpt, post.coverImageUrl, post.published ? 1 : 0, post.publishedAt, post.createdAt, post.updatedAt]
+  )
+  return post
+}
+
+export async function updateBlogPost(id: string, data: Partial<Omit<BlogPost, 'id' | 'coachId' | 'createdAt' | 'updatedAt'>>): Promise<BlogPost | null> {
+  const db = getDB()
+  const now = new Date().toISOString()
+  const updates: string[] = []
+  const params: unknown[] = []
+
+  if (data.slug !== undefined) { updates.push('slug = ?'); params.push(data.slug) }
+  if (data.title !== undefined) { updates.push('title = ?'); params.push(data.title) }
+  if (data.content !== undefined) { updates.push('content = ?'); params.push(data.content) }
+  if (data.excerpt !== undefined) { updates.push('excerpt = ?'); params.push(data.excerpt) }
+  if (data.coverImageUrl !== undefined) { updates.push('cover_image_url = ?'); params.push(data.coverImageUrl) }
+  if (data.published !== undefined) { updates.push('published = ?'); params.push(data.published ? 1 : 0) }
+  if (data.publishedAt !== undefined) { updates.push('published_at = ?'); params.push(data.publishedAt) }
+
+  if (updates.length === 0) return getBlogPostById(id)
+
+  updates.push('updated_at = ?')
+  params.push(now)
+  params.push(id)
+
   await safeExecute(
     db,
-    'INSERT OR REPLACE INTO blog_post_meta (post_id, read_time_minutes, views) VALUES (?, ?, ?)',
-    [id, data.readTimeMinutes || 5, data.views || 0],
+    `UPDATE blog_posts SET ${updates.join(', ')} WHERE id = ?`,
+    params
   )
-  return id
+  return getBlogPostById(id)
 }
 
-export async function deleteBlogPost(coachId: string, postId: string) {
+export async function deleteBlogPost(id: string): Promise<void> {
   const db = getDB()
-  await db.execute('DELETE FROM blog_posts WHERE id = ? AND coach_id = ?', [postId, coachId])
+  await db.execute('DELETE FROM blog_posts WHERE id = ?', [id])
 }
 
-export async function incrementBlogView(coachId: string, slug: string) {
-  const db = getDB()
-  const result = await db.execute('SELECT id FROM blog_posts WHERE slug = ? AND coach_id = ? AND is_published = 1', [slug, coachId])
-  if (result.rows.length === 0) return
-  const postId = result.rows[0].id as string
-  await db.execute(
-    'INSERT OR IGNORE INTO blog_post_meta (post_id, read_time_minutes, views) VALUES (?, 5, 0)',
-    [postId],
-  )
-  await db.execute('UPDATE blog_post_meta SET views = views + 1 WHERE post_id = ?', [postId])
+// ============== Public Blog Functions (Marketing) ==============
+
+export interface PublicBlogPost {
+  id: string
+  coachId: string
+  slug: string
+  title: string
+  content: string
+  excerpt: string | null
+  coverImageUrl: string | null
+  published: boolean
+  publishedAt: string | null
+  createdAt: string
+  updatedAt: string
+  coachName?: string
+  coachAvatarUrl?: string
 }
 
-export async function getPublicBlogPosts(coachSlug: string) {
-  const coachId = coachSlug === 'default' ? 'default' : coachSlug
+export async function getAllPublicBlogPosts(): Promise<PublicBlogPost[]> {
   const db = getDB()
   const result = await db.execute(
-    'SELECT * FROM blog_posts WHERE coach_id = ? AND is_published = 1 ORDER BY published_at DESC, created_at DESC',
-    [coachId],
+    `SELECT bp.*, u.name as coach_name, u.avatar_url as coach_avatar_url
+     FROM blog_posts bp
+     INNER JOIN users u ON bp.coach_id = u.id
+     WHERE bp.published = 1
+     ORDER BY bp.published_at DESC`
   )
-  const posts: BlogPost[] = []
-  for (const r of result.rows) {
-    const meta = await db.execute('SELECT * FROM blog_post_meta WHERE post_id = ?', [r.id as string])
-    posts.push({
-      id: r.id as string,
-      slug: r.slug as string,
-      title: r.title as string,
-      excerpt: r.excerpt as string,
-      content: r.content as string,
-      category: r.category as string,
-      tags: r.tags ? JSON.parse(r.tags as string) : [],
-      imageUrl: r.image_url as string,
-      isPublished: r.is_published === 1,
-      publishedAt: r.published_at as string,
-      coachId: r.coach_id as string,
-      createdAt: r.created_at as string,
-      updatedAt: r.updated_at as string,
-      readTimeMinutes: (meta.rows[0]?.read_time_minutes as number) || 5,
-      views: (meta.rows[0]?.views as number) || 0,
-    })
-  }
-  return posts
+  return result.rows.map((r) => ({
+    id: r.id as string,
+    coachId: r.coach_id as string,
+    slug: r.slug as string,
+    title: r.title as string,
+    content: r.content as string,
+    excerpt: r.excerpt as string | null,
+    coverImageUrl: r.cover_image_url as string | null,
+    published: Boolean(r.published),
+    publishedAt: r.published_at as string | null,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
+    coachName: r.coach_name as string | undefined,
+    coachAvatarUrl: r.coach_avatar_url as string | undefined,
+  }))
 }
 
-export async function getPublicBlogPostBySlug(coachSlug: string, slug: string) {
-  const coachId = coachSlug === 'default' ? 'default' : coachSlug
+export async function getAllPublicBlogPostBySlug(slug: string): Promise<PublicBlogPost | null> {
   const db = getDB()
   const result = await db.execute(
-    'SELECT * FROM blog_posts WHERE coach_id = ? AND slug = ? AND is_published = 1',
-    [coachId, slug],
+    `SELECT bp.*, u.name as coach_name, u.avatar_url as coach_avatar_url
+     FROM blog_posts bp
+     INNER JOIN users u ON bp.coach_id = u.id
+     WHERE bp.slug = ? AND bp.published = 1`,
+    [slug]
   )
   if (result.rows.length === 0) return null
   const r = result.rows[0]
-  const meta = await db.execute('SELECT * FROM blog_post_meta WHERE post_id = ?', [r.id as string])
   return {
     id: r.id as string,
+    coachId: r.coach_id as string,
     slug: r.slug as string,
     title: r.title as string,
-    excerpt: r.excerpt as string,
     content: r.content as string,
-    category: r.category as string,
-    tags: r.tags ? JSON.parse(r.tags as string) : [],
-    imageUrl: r.image_url as string,
-    isPublished: r.is_published === 1,
-    publishedAt: r.published_at as string,
-    coachId: r.coach_id as string,
+    excerpt: r.excerpt as string | null,
+    coverImageUrl: r.cover_image_url as string | null,
+    published: Boolean(r.published),
+    publishedAt: r.published_at as string | null,
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
-    readTimeMinutes: (meta.rows[0]?.read_time_minutes as number) || 5,
-    views: (meta.rows[0]?.views as number) || 0,
-  }
-}
-
-export async function getAllPublicBlogPosts() {
-  const db = getDB()
-  const result = await db.execute(
-    'SELECT * FROM blog_posts WHERE is_published = 1 ORDER BY published_at DESC, created_at DESC',
-  )
-  const posts: BlogPost[] = []
-  for (const r of result.rows) {
-    const meta = await db.execute('SELECT * FROM blog_post_meta WHERE post_id = ?', [r.id as string])
-    posts.push({
-      id: r.id as string,
-      slug: r.slug as string,
-      title: r.title as string,
-      excerpt: r.excerpt as string,
-      content: r.content as string,
-      category: r.category as string,
-      tags: r.tags ? JSON.parse(r.tags as string) : [],
-      imageUrl: r.image_url as string,
-      isPublished: r.is_published === 1,
-      publishedAt: r.published_at as string,
-      coachId: r.coach_id as string,
-      createdAt: r.created_at as string,
-      updatedAt: r.updated_at as string,
-      readTimeMinutes: (meta.rows[0]?.read_time_minutes as number) || 5,
-      views: (meta.rows[0]?.views as number) || 0,
-    })
-  }
-  return posts
-}
-
-export async function getAllPublicBlogPostBySlug(slug: string) {
-  const db = getDB()
-  const result = await db.execute(
-    'SELECT * FROM blog_posts WHERE slug = ? AND is_published = 1',
-    [slug],
-  )
-  if (result.rows.length === 0) return null
-  const r = result.rows[0]
-  const meta = await db.execute('SELECT * FROM blog_post_meta WHERE post_id = ?', [r.id as string])
-  return {
-    id: r.id as string,
-    slug: r.slug as string,
-    title: r.title as string,
-    excerpt: r.excerpt as string,
-    content: r.content as string,
-    category: r.category as string,
-    tags: r.tags ? JSON.parse(r.tags as string) : [],
-    imageUrl: r.image_url as string,
-    isPublished: r.is_published === 1,
-    publishedAt: r.published_at as string,
-    coachId: r.coach_id as string,
-    createdAt: r.created_at as string,
-    updatedAt: r.updated_at as string,
-    readTimeMinutes: (meta.rows[0]?.read_time_minutes as number) || 5,
-    views: (meta.rows[0]?.views as number) || 0,
+    coachName: r.coach_name as string | undefined,
+    coachAvatarUrl: r.coach_avatar_url as string | undefined,
   }
 }

@@ -274,3 +274,54 @@ func ValidateCreateMembership(req *dto.CreateMembershipRequest) ValidationErrors
 
 	return errs
 }
+
+// ValidateUpdateExercise validates an UpdateExerciseRequest.
+func ValidateUpdateExercise(req *dto.UpdateExerciseRequest) ValidationErrors {
+	var errs ValidationErrors
+
+	if req.Name != nil {
+		if strings.TrimSpace(*req.Name) == "" {
+			errs = append(errs, ValidationError{Field: "name", Message: "is required"})
+		} else if len(*req.Name) > 200 {
+			errs = append(errs, ValidationError{Field: "name", Message: "must be at most 200 characters"})
+		}
+	}
+
+	if req.Mode != nil {
+		switch *req.Mode {
+		case "reps", "time", "cardio":
+			// valid
+		default:
+			errs = append(errs, ValidationError{
+				Field:   "mode",
+				Message: "must be one of: reps, time, cardio",
+			})
+		}
+	}
+
+	if req.Difficulty != nil {
+		switch *req.Difficulty {
+		case "beginner", "intermediate", "advanced":
+			// valid
+		default:
+			errs = append(errs, ValidationError{
+				Field:   "difficulty",
+				Message: "must be one of: beginner, intermediate, advanced",
+			})
+		}
+	}
+
+	if req.Category != nil {
+		switch *req.Category {
+		case "compound", "isolation":
+			// valid
+		default:
+			errs = append(errs, ValidationError{
+				Field:   "category",
+				Message: "must be one of: compound, isolation",
+			})
+		}
+	}
+
+	return errs
+}

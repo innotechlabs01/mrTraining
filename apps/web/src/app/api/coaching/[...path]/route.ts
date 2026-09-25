@@ -9,7 +9,7 @@ import {
   getEvents, saveEvent, deleteEvent,
   getPlans, savePlan, deletePlan,
   getTickets, saveTicket,
-  getAssignedWorkouts, saveAssignedWorkout, deleteAssignedWorkout, saveWorkoutExercises, getAssignedWorkoutDetail,
+  getAssignedWorkouts, saveAssignedWorkout, deleteAssignedWorkout, saveAssignedWorkoutExercises, getAssignedWorkoutDetail,
   getAISuggestions, saveAISuggestion,
   getLiveSessions, saveLiveSession, deleteLiveSession,
   getProducts, saveProduct, deleteProduct,
@@ -20,7 +20,7 @@ import {
   getAthleteMembership, createMembership, cancelMembership, getPaymentHistory, getAthleteMembershipsByCoach,
   getCoachAppointments, createAppointment, updateAppointment, getAthleteAppointment,
   getCoachAvailability, saveCoachAvailability,
-  getBlogPosts, saveBlogPost, deleteBlogPost, getBlogPostBySlug, incrementBlogView,
+  
   getPublicProducts,
   getRecoveryEntry, toggleRecoveryStretch, updateRecoveryHydration, updateRecoverySleep, updateRecoverySubjectiveScore, dismissRecoveryRecommendation,
   getLiveWorkoutPlan,
@@ -134,7 +134,7 @@ const handlers: Record<string, EntityHandler> = {
           libraryExerciseId: typeof raw?.libraryExerciseId === 'string' ? raw.libraryExerciseId : null,
         }
       }).filter(it => it.name)
-      await saveWorkoutExercises(workoutId, items)
+      await saveAssignedWorkoutExercises(workoutId, items)
     }
     if (method === 'POST') {
       const newId = await saveAssignedWorkout(coachId, body as Record<string, unknown>)
@@ -171,14 +171,6 @@ const handlers: Record<string, EntityHandler> = {
     if (method === 'POST') { const newId = await saveProduct(coachId, body as Record<string, unknown>); return { id: newId } }
     if (method === 'PUT' && id) { await saveProduct(coachId, { ...(body as Record<string, unknown>), id }); return { ok: true } }
     if (method === 'DELETE' && id) { await deleteProduct(coachId, id); return { ok: true } }
-    return null
-  },
-  blog: async (coachId, id, method, body) => {
-    if (method === 'GET' && !id) return getBlogPosts(coachId)
-    if (method === 'GET' && id) return getBlogPostBySlug(coachId, id)
-    if (method === 'POST') { const newId = await saveBlogPost(coachId, body as Record<string, unknown>); return { id: newId } }
-    if (method === 'PUT' && id) { await saveBlogPost(coachId, { ...(body as Record<string, unknown>), id }); return { ok: true } }
-    if (method === 'DELETE' && id) { await deleteBlogPost(coachId, id); return { ok: true } }
     return null
   },
   'public-products': async (coachId, _id, method, _body) => {
@@ -275,14 +267,6 @@ const handlers: Record<string, EntityHandler> = {
       const targetId = id || b.id
       if (!targetId) return null
       await updateAppointment(targetId, b)
-      return { ok: true }
-    }
-    return null
-  },
-  'coach-availability': async (coachId, _id, method, body) => {
-    if (method === 'GET') return getCoachAvailability(coachId)
-    if (method === 'POST') {
-      await saveCoachAvailability(coachId, body as Array<{ dayOfWeek: number; startTime: string; endTime: string }>)
       return { ok: true }
     }
     return null

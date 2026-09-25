@@ -1,104 +1,114 @@
-// Package message provides the application service layer for the message domain.
 package message
 
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	"github.com/innotechlabs01/mr-training-api/internal/domain/message"
+	domain "github.com/innotechlabs01/mr-training-api/internal/domain/message"
+	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 )
 
-// Service implements message-related business operations.
+// Service provides messaging business logic.
 type Service struct {
-	repo message.Repository
+	repo domain.Repository
 }
 
-// NewService creates a new message application service.
-func NewService(repo message.Repository) *Service {
+func NewService(repo domain.Repository) *Service {
 	return &Service{repo: repo}
 }
 
-// GetThreads returns all message threads for a user.
-func (s *Service) GetThreads(ctx context.Context, userID string) ([]*message.MessageThread, error) {
+func (s *Service) ListThreads(ctx context.Context, userID string) ([]*domain.MessageThread, error) {
 	threads, err := s.repo.GetThreads(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("get threads: %w", err)
+		return nil, fmt.Errorf("list threads: %w", err)
 	}
 	return threads, nil
 }
 
-// GetThread returns a single thread with its messages.
-func (s *Service) GetThread(ctx context.Context, threadID, userID string) (*message.MessageThread, []*message.Message, error) {
+func (s *Service) GetThread(ctx context.Context, threadID, userID string) (*domain.MessageThread, error) {
 	thread, err := s.repo.GetThread(ctx, threadID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("get thread: %w", err)
+		return nil, err
 	}
-
-	// Verify user is part of this thread
+	// verify participant
 	if thread.CoachID != userID && thread.AthleteID != userID {
-		return nil, nil, fmt.Errorf("access denied")
+		return nil, errors.Forbidden("you are not a participant of this thread")
 	}
+	return thread, nil
+}
 
-	messages, err := s.repo.GetMessages(ctx, threadID)
+func (s *Service) CreateThread(ctx context.Context, coachID string, req dto.CreateThreadRequest) (*domain.MessageThread, error) {
+	// fetch athlete name maybe; for now just use ID
+	thread := &domain.MessageThread{
+		ID:          "",
+		CoachID:     coachID,
+		AthleteID:   req.AthleteID,
+		Subject:     req.Subject,
+		LastMessage: req.Content,
+		LastSentAt:  "",
+		UnreadCount: 1,
+	}
+	if err := s.repo.CreateThread(ctx, thread); err != nil {
+		return nil, fmt.Errorf("create thread: %w", err)
+	}
+	// send first message
+	msg := &domain.Message{
+		ThreadID:   thread.ID,
+		SenderID:   coachID,
+		SenderRole: "coach",
+		Content:    req.Content,
+		IsRead:     false,
+	}
+	if err := s.repo.SendMessage(ctx, msg); err != nil {
+		return nil, fmt.Errorf("send first message: %w", err)
+	}
+	return thread, nil
+}
+
+func (s *Service) GetThreadWithMessages(ctx context.Context, threadID, userID string) (*domain.MessageThread, []*domain.Message, error) {
+	thread, err := s.GetThread(ctx, threadID, userID)
+	if err != nil {
+		return nil, nil, err
+	}
+	msgs, err := s.repo.GetMessages(ctx, thread.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("get messages: %w", err)
 	}
-
-	return thread, messages, nil
+	return thread, msgs, nil
 }
 
-// CreateThread creates a new message thread.
-func (s *Service) CreateThread(ctx context.Context, thread *message.MessageThread) error {
-	if strings.TrimSpace(thread.CoachID) == "" {
-		return fmt.Errorf("coach_id is required")
-	}
-	if strings.TrimSpace(thread.AthleteID) == "" {
-		return fmt.Errorf("athlete_id is required")
-	}
-
-	if err := s.repo.CreateThread(ctx, thread); err != nil {
-		return fmt.Errorf("create thread: %w", err)
-	}
-	return nil
-}
-
-// SendMessage sends a message in a thread.
-func (s *Service) SendMessage(ctx context.Context, threadID, senderID, senderRole, content string) (*message.Message, error) {
-	if strings.TrimSpace(content) == "" {
-		return nil, fmt.Errorf("message content is required")
-	}
-	if strings.TrimSpace(senderID) == "" {
-		return nil, fmt.Errorf("sender_id is required")
-	}
-
-	// Verify thread exists and user is part of it
+func (s *Service) SendMessage(ctx context.Context, userID, role, threadID, content string) (*domain.Message, error) {
+	// verify participant
 	thread, err := s.repo.GetThread(ctx, threadID)
 	if err != nil {
-		return nil, fmt.Errorf("get thread: %w", err)
+		return nil, err
 	}
-	if thread.CoachID != senderID && thread.AthleteID != senderID {
-		return nil, fmt.Errorf("access denied")
+	if thread.CoachID != userID && thread.AthleteID != userID {
+		return nil, errors.Forbidden("not a participant")
 	}
-
-	msg := &message.Message{
+	msg := &domain.Message{
+		ID:         "",
 		ThreadID:   threadID,
-		SenderID:   senderID,
-		SenderRole: senderRole,
+		SenderID:   userID,
+		SenderRole: role,
 		Content:    content,
+		IsRead:     false,
 	}
-
 	if err := s.repo.SendMessage(ctx, msg); err != nil {
 		return nil, fmt.Errorf("send message: %w", err)
 	}
-
 	return msg, nil
 }
 
-// MarkRead marks all messages in a thread as read for a user.
-func (s *Service) MarkRead(ctx context.Context, threadID, userID string) error {
-	if err := s.repo.MarkThreadRead(ctx, threadID, userID); err != nil {
-		return fmt.Errorf("mark read: %w", err)
+func (s *Service) MarkThreadRead(ctx context.Context, threadID, userID string) error {
+	// verify participant
+	thread, err := s.repo.GetThread(ctx, threadID)
+	if err != nil {
+		return err
 	}
-	return nil
+	if thread.CoachID != userID && thread.AthleteID != userID {
+		return errors.Forbidden("not a participant")
+	}
+	return s.repo.MarkThreadRead(ctx, threadID, userID)
 }

@@ -134,11 +134,11 @@ export function AthleteHealthPanels({ athleteId }: { athleteId: string }) {
           <MetricHero rows={health.restingHr} unit="bpm" label="Pulso reposo" />
           <MetricHero rows={health.manualReadiness} unit="/100" label="Auto-reporte" />
         </div>
-        {sources.length > 0 && (
-          <p className="text-xs text-white/30 pt-2 border-t border-white/5">
-            Fuente: {sources.map(s => SOURCE_LABEL[s] ?? s).join(', ')}
-          </p>
-        )}
+{sources.length > 0 && (
+            <p className="text-xs text-white/30 pt-2 border-t border-white/5">
+              Fuente: {[...sources].filter((s): s is string => typeof s === 'string').map(s => SOURCE_LABEL[s] ?? s).join(', ')}
+            </p>
+          )}
       </Panel>
 
       {health.sleepLogs.length > 0 && (

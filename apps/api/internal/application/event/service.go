@@ -5,12 +5,13 @@ package event
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 
 	eventdomain "github.com/innotechlabs01/mr-training-api/internal/domain/event"
-	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 )
 
@@ -61,6 +62,9 @@ func (s *Service) CreateEvent(ctx context.Context, coachID string, req dto.Creat
 		CoachID:     coachID,
 		AthleteIDs:  req.AthleteIDs,
 		ListItems:   req.ListItems,
+		RunningDistanceKm:    req.RunningDistanceKm,
+		RunningPace:          req.RunningPace,
+		RunningMeetingPoint:  req.RunningMeetingPoint,
 	}
 
 	if event.Status == "" {
@@ -147,6 +151,15 @@ func (s *Service) UpdateEvent(ctx context.Context, id string, req dto.UpdateEven
 	}
 	if req.Format != "" {
 		existing.Format = req.Format
+	}
+	if req.RunningPace != "" {
+		existing.RunningPace = req.RunningPace
+	}
+	if req.RunningMeetingPoint != "" {
+		existing.RunningMeetingPoint = req.RunningMeetingPoint
+	}
+	if req.RunningDistanceKm != nil {
+		existing.RunningDistanceKm = req.RunningDistanceKm
 	}
 
 	// Only update IsPublic if explicitly provided (always true/false, so check via pointer)
@@ -247,6 +260,97 @@ func (s *Service) GetMyRegistrations(ctx context.Context, athleteID string) ([]*
 	return events, nil
 }
 
+// AthleteEventDetail bundles an event with the authenticated athlete's
+// registration and form responses, used by the mobile event detail screen.
+type AthleteEventDetail struct {
+	Event        *eventdomain.Event
+	Registration *eventdomain.EventRegistration // nil if not registered
+	Responses    []eventdomain.EventFormResponse
+}
+
+// GetAthleteEventDetail returns an event plus the athlete's registration and responses.
+// Returns NotFound if the event does not exist.
+func (s *Service) GetAthleteEventDetail(ctx context.Context, eventID, athleteID string) (*AthleteEventDetail, error) {
+	event, err := s.repo.GetByID(ctx, eventID)
+	if err != nil {
+		return nil, err
+	}
+
+	registration, err := s.repo.GetRegistration(ctx, eventID, athleteID)
+	if err != nil {
+		var appErr *apperrors.AppError
+		if !errors.As(err, &appErr) || appErr.Status != 404 {
+			return nil, fmt.Errorf("get registration: %w", err)
+		}
+		registration = nil
+	}
+
+	responses, err := s.repo.GetFormResponses(ctx, eventID, athleteID)
+	if err != nil {
+		return nil, fmt.Errorf("get form responses: %w", err)
+	}
+
+	return &AthleteEventDetail{
+		Event:        event,
+		Registration: registration,
+		Responses:    responses,
+	}, nil
+}
+
+// AnswerInput is a single form response submitted by an athlete.
+type AnswerInput struct {
+	FieldID string `json:"field_id"`
+	Value   string `json:"value"`
+}
+
+// RespondToEvent registers/cancels an athlete for an event and, on acceptance,
+// saves the submitted form responses. Returns the resulting registration.
+func (s *Service) RespondToEvent(ctx context.Context, eventID, athleteID, status string, answers []AnswerInput) (*eventdomain.EventRegistration, error) {
+	if status != "accepted" && status != "cancelled" {
+		return nil, apperrors.BadRequest("status must be 'accepted' or 'cancelled'")
+	}
+
+	if _, err := s.repo.GetByID(ctx, eventID); err != nil {
+		return nil, err
+	}
+
+	reg := &eventdomain.EventRegistration{
+		ID:        uuid.New().String(),
+		EventID:   eventID,
+		AthleteID: athleteID,
+		Status:    status,
+	}
+	if err := s.repo.UpsertRegistration(ctx, reg); err != nil {
+		return nil, fmt.Errorf("respond to event: %w", err)
+	}
+
+	if status == "accepted" {
+		responses := make([]eventdomain.EventFormResponse, 0, len(answers))
+		for _, a := range answers {
+			if a.FieldID == "" {
+				continue
+			}
+			responses = append(responses, eventdomain.EventFormResponse{
+				EventID:   eventID,
+				AthleteID: athleteID,
+				FieldID:   a.FieldID,
+				Value:     a.Value,
+			})
+		}
+		if len(responses) > 0 {
+			if err := s.repo.SaveFormResponses(ctx, eventID, athleteID, responses); err != nil {
+				return nil, fmt.Errorf("save form responses: %w", err)
+			}
+		}
+	}
+
+	// Re-read so the returned registration has DB timestamps.
+	if saved, err := s.repo.GetRegistration(ctx, eventID, athleteID); err == nil {
+		return saved, nil
+	}
+	return reg, nil
+}
+
 // ownershipCheck verifies the coach owns the event. Returns NotFound if not found,
 // Forbidden if not the owner.
 func ownershipCheck(ctx context.Context, repo eventdomain.Repository, eventID, coachID string) error {
@@ -255,7 +359,7 @@ func ownershipCheck(ctx context.Context, repo eventdomain.Repository, eventID, c
 		return err
 	}
 	if event.CoachID != coachID {
-		return errors.Forbidden("you do not own this event")
+		return apperrors.Forbidden("you do not own this event")
 	}
 	return nil
 }

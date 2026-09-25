@@ -9,7 +9,7 @@ import {
 
 // Mock apiClient
 jest.mock('../../../../infrastructure/api/client', () => ({
-  apiClient: {
+  smartClient: {
     post: jest.fn().mockResolvedValue({}),
   },
 }));

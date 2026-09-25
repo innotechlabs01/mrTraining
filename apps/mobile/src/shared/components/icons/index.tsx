@@ -146,6 +146,24 @@ export function ChevronRightIcon({ size = S, color = DefaultColor }: IconProps) 
   );
 }
 
+export function ChevronDownIcon({ size = S, color = DefaultColor }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function NewspaperIcon({ size = S, color = DefaultColor }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 5h13v14H4z" stroke={color} strokeWidth={2} strokeLinejoin="round" />
+      <Path d="M17 8h3v8a1.5 1.5 0 0 1-3 0V8z" stroke={color} strokeWidth={2} strokeLinejoin="round" />
+      <Path d="M7 9h7M7 13h7M7 17h5" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function ChevronLeftIcon({ size = S, color = DefaultColor }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

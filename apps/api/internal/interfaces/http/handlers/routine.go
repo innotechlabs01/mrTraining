@@ -19,7 +19,7 @@ func NewRoutineHandler(service *app.Service) *RoutineHandler {
 
 // ListRoutines returns all routines for the athlete.
 func (h *RoutineHandler) ListRoutines(c *fiber.Ctx) error {
-	athleteID := c.Locals("userID").(string)
+	athleteID := c.Locals("user_id").(string)
 
 	routines, err := h.service.ListRoutines(athleteID)
 	if err != nil {
@@ -51,7 +51,7 @@ func (h *RoutineHandler) GetRoutine(c *fiber.Ctx) error {
 
 // CreateRoutine creates a new routine.
 func (h *RoutineHandler) CreateRoutine(c *fiber.Ctx) error {
-	athleteID := c.Locals("userID").(string)
+	athleteID := c.Locals("user_id").(string)
 
 	var routine domain.Routine
 	if err := c.BodyParser(&routine); err != nil {
@@ -74,7 +74,7 @@ func (h *RoutineHandler) CreateRoutine(c *fiber.Ctx) error {
 
 // UpdateRoutine updates an existing routine.
 func (h *RoutineHandler) UpdateRoutine(c *fiber.Ctx) error {
-	athleteID := c.Locals("userID").(string)
+	athleteID := c.Locals("user_id").(string)
 	id := c.Params("id")
 
 	var routine domain.Routine
@@ -99,7 +99,7 @@ func (h *RoutineHandler) UpdateRoutine(c *fiber.Ctx) error {
 
 // DeleteRoutine deletes a routine.
 func (h *RoutineHandler) DeleteRoutine(c *fiber.Ctx) error {
-	athleteID := c.Locals("userID").(string)
+	athleteID := c.Locals("user_id").(string)
 	id := c.Params("id")
 
 	if err := h.service.DeleteRoutine(id, athleteID); err != nil {

@@ -34,4 +34,8 @@ type Repository interface {
 
 	// CreateSale inserts a new sale record and decrements product stock.
 	CreateSale(ctx context.Context, sale *Sale) error
+
+	// DeleteSale removes a sale record by ID.
+	// Returns ErrNotFound if the sale does not exist.
+	DeleteSale(ctx context.Context, saleID string) error
 }

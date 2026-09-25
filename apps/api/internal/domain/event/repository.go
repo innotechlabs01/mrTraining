@@ -42,4 +42,10 @@ type Repository interface {
 
 	// SetListItems replaces the list items for an event.
 	SetListItems(ctx context.Context, eventID string, items []string) error
+
+	// GetFormResponses retrieves an athlete's form responses for an event.
+	GetFormResponses(ctx context.Context, eventID, athleteID string) ([]EventFormResponse, error)
+
+	// SaveFormResponses replaces an athlete's form responses for an event.
+	SaveFormResponses(ctx context.Context, eventID, athleteID string, responses []EventFormResponse) error
 }

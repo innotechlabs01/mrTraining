@@ -6,11 +6,13 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"go.uber.org/zap"
 
 	trainingapp "github.com/innotechlabs01/mr-training-api/internal/application/training"
 	trainingdomain "github.com/innotechlabs01/mr-training-api/internal/domain/training"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
+	"github.com/innotechlabs01/mr-training-api/internal/logger"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	"github.com/innotechlabs01/mr-training-api/internal/pkg/validator"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
@@ -79,6 +81,58 @@ func (h *TrainingHandler) GetExercise(c *fiber.Ctx) error {
 	}
 
 	return appresponse.Success(c, toExerciseResponse(exercise))
+}
+
+// UpdateExercise handles PUT /exercises/:id.
+// Updates an existing custom exercise (coach only).
+func (h *TrainingHandler) UpdateExercise(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	id := c.Params("id")
+	if id == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "exercise ID is required")
+	}
+
+	var req dto.UpdateExerciseRequest
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if validationErrs := validator.ValidateUpdateExercise(&req); len(validationErrs) > 0 {
+		return h.handleValidationError(c, validationErrs)
+	}
+
+	exercise, err := h.service.UpdateExercise(c.Context(), userID, c.Params("id"), req)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	middleware.InvalidateCache("exercises")
+	return appresponse.Success(c, toExerciseResponse(exercise))
+}
+
+// DeleteExercise handles DELETE /exercises/:id.
+// Deletes a custom exercise (coach only).
+func (h *TrainingHandler) DeleteExercise(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	id := c.Params("id")
+	if id == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "exercise ID is required")
+	}
+
+	if err := h.service.DeleteExercise(c.Context(), userID, id); err != nil {
+		return h.handleError(c, err)
+	}
+
+	middleware.InvalidateCache("exercises")
+	return appresponse.Success(c, fiber.Map{"ok": true})
 }
 
 // CreateExercise handles POST /exercises.
@@ -478,6 +532,11 @@ func (h *TrainingHandler) handleError(c *fiber.Ctx, err error) error {
 	if appErr, ok := err.(*errors.AppError); ok {
 		return appresponse.Error(c, appErr.Status, appErr.Message)
 	}
+	logger.L().Error("handler error",
+		zap.String("method", c.Method()),
+		zap.String("path", c.Path()),
+		zap.Error(err),
+	)
 	return appresponse.Error(c, fiber.StatusInternalServerError, "internal server error")
 }
 
@@ -664,11 +723,18 @@ func toProgressSummaryResponse(s *trainingdomain.ProgressSummary) *dto.ProgressS
 	}
 }
 
-// ListTrainingSessions handles GET /training/sessions
-func (h *TrainingHandler) ListTrainingSessions(c *fiber.Ctx) error {
-	coachID := c.Query("coach_id")
-	athleteID := c.Query("athlete_id")
-	sessions, err := h.service.ListTrainingSessions(c.Context(), coachID, athleteID)
+// GetUpcomingSessions handles GET /athletes/sessions.
+// Returns the authenticated athlete's future coach sessions.
+func (h *TrainingHandler) GetUpcomingSessions(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	from := c.Query("from")
+
+	sessions, err := h.service.ListByAthlete(c.Context(), userID, from, limit)
 	if err != nil {
 		return h.handleError(c, err)
 	}

@@ -22,6 +22,8 @@ type mockRepository struct {
 	setAthletesFn               func(ctx context.Context, eventID string, athleteIDs []string) error
 	setFormFieldsFn             func(ctx context.Context, eventID string, fields []eventdomain.EventFormField) error
 	setListItemsFn              func(ctx context.Context, eventID string, items []string) error
+	getFormResponsesFn          func(ctx context.Context, eventID, athleteID string) ([]eventdomain.EventFormResponse, error)
+	saveFormResponsesFn         func(ctx context.Context, eventID, athleteID string, responses []eventdomain.EventFormResponse) error
 }
 
 func (m *mockRepository) ListByCoach(ctx context.Context, coachID string) ([]*eventdomain.Event, error) {
@@ -66,6 +68,20 @@ func (m *mockRepository) SetFormFields(ctx context.Context, eventID string, fiel
 
 func (m *mockRepository) SetListItems(ctx context.Context, eventID string, items []string) error {
 	return m.setListItemsFn(ctx, eventID, items)
+}
+
+func (m *mockRepository) GetFormResponses(ctx context.Context, eventID, athleteID string) ([]eventdomain.EventFormResponse, error) {
+	if m.getFormResponsesFn != nil {
+		return m.getFormResponsesFn(ctx, eventID, athleteID)
+	}
+	return []eventdomain.EventFormResponse{}, nil
+}
+
+func (m *mockRepository) SaveFormResponses(ctx context.Context, eventID, athleteID string, responses []eventdomain.EventFormResponse) error {
+	if m.saveFormResponsesFn != nil {
+		return m.saveFormResponsesFn(ctx, eventID, athleteID, responses)
+	}
+	return nil
 }
 
 func TestListEvents_Success(t *testing.T) {

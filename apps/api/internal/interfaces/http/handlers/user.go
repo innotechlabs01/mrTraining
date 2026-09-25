@@ -6,11 +6,13 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"go.uber.org/zap"
 
 	userapp "github.com/innotechlabs01/mr-training-api/internal/application/user"
 	userdomain "github.com/innotechlabs01/mr-training-api/internal/domain/user"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
+	"github.com/innotechlabs01/mr-training-api/internal/logger"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	"github.com/innotechlabs01/mr-training-api/internal/pkg/validator"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
@@ -127,6 +129,11 @@ func (h *UserHandler) GetAthletesByCoach(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "coach ID is required")
 	}
 
+	// Resolve "me" to the authenticated user's ID
+	if coachID == "me" {
+		coachID = middleware.GetUserID(c)
+	}
+
 	athletes, err := h.service.GetAthletesByCoach(c.Context(), coachID)
 	if err != nil {
 		return h.handleError(c, err)
@@ -207,6 +214,11 @@ func (h *UserHandler) handleError(c *fiber.Ctx, err error) error {
 	if appErr, ok := err.(*errors.AppError); ok {
 		return appresponse.Error(c, appErr.Status, appErr.Message)
 	}
+	logger.L().Error("handler error",
+		zap.String("method", c.Method()),
+		zap.String("path", c.Path()),
+		zap.Error(err),
+	)
 	return appresponse.Error(c, fiber.StatusInternalServerError, "internal server error")
 }
 

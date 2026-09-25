@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import type { BlogPost } from '@/features/coach/types'
 import { X, Type, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import RichTextEditor from '@/components/editor/RichTextEditor'
 
 interface BlogEditorDialogProps {
   open: boolean
@@ -143,25 +144,24 @@ export function BlogEditorDialog({ open, initial, onOpenChange, onSave }: BlogEd
             {/* Excerpt */}
             <div>
               <label className="block text-xs font-medium text-white/40 mb-1">Extracto</label>
-              <textarea
+              <RichTextEditor
                 value={excerpt}
-                onChange={(e) => setExcerpt(e.target.value)}
+                onChange={(html) => setExcerpt(html)}
                 placeholder="Resumen breve del artículo..."
-                rows={3}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 focus:border-brand-primary focus:outline-none resize-y"
+                disabled={false}
+                label="Extracto del artículo"
               />
             </div>
 
             {/* Content */}
             <div>
               <label className="block text-xs font-medium text-white/40 mb-1">Contenido *</label>
-              <textarea
-                required
+              <RichTextEditor
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={(html) => setContent(html)}
                 placeholder="Escribe el contenido completo del artículo..."
-                rows={12}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 focus:border-brand-primary focus:outline-none resize-y font-mono"
+                disabled={false}
+                label="Contenido del artículo"
               />
             </div>
 

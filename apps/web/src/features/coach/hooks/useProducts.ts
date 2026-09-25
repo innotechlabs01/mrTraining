@@ -11,7 +11,7 @@ export function useProducts() {
 
   const loadProducts = useCallback(() => {
     setIsLoading(true)
-    coachingApi.getProducts<Product[]>()
+    coachingApi.getProducts()
       .then(data => setProducts(data))
       .catch(() => {})
       .finally(() => { setIsLoading(false); setHydrated(true) })
@@ -22,7 +22,7 @@ export function useProducts() {
   }, [loadProducts])
 
   const addProduct = useCallback(async (data: Omit<Product, 'id' | 'createdAt'>) => {
-    const res = await coachingApi.saveProduct<{ id: string }>(data)
+    const res = await coachingApi.saveProduct(data)
     setProducts(prev => [
       { ...data, id: res.id, createdAt: new Date().toISOString() },
       ...prev,

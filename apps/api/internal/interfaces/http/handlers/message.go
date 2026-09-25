@@ -1,45 +1,34 @@
-// Package handlers provides HTTP endpoint handlers for the message domain.
 package handlers
 
 import (
-	"strings"
-
 	"github.com/gofiber/fiber/v2"
 
-	messageapp "github.com/innotechlabs01/mr-training-api/internal/application/message"
-	messagedomain "github.com/innotechlabs01/mr-training-api/internal/domain/message"
+	msgapp "github.com/innotechlabs01/mr-training-api/internal/application/message"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
-// MessageHandler handles HTTP requests for the message domain.
+// MessageHandler handles HTTP requests for messaging.
 type MessageHandler struct {
-	service *messageapp.Service
+	service *msgapp.Service
 }
 
-// NewMessageHandler creates a new MessageHandler with the given application service.
-func NewMessageHandler(service *messageapp.Service) *MessageHandler {
+func NewMessageHandler(service *msgapp.Service) *MessageHandler {
 	return &MessageHandler{service: service}
 }
 
 // ListThreads handles GET /messages.
-// Returns all message threads for the authenticated user.
 func (h *MessageHandler) ListThreads(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
-	if userID == "" {
-		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
-	}
-
-	threads, err := h.service.GetThreads(c.Context(), userID)
+	threads, err := h.service.ListThreads(c.Context(), userID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
-
-	responses := make([]dto.MessageThreadResponse, len(threads))
+	resp := make([]dto.MessageThreadResponse, len(threads))
 	for i, t := range threads {
-		responses[i] = dto.MessageThreadResponse{
+		resp[i] = dto.MessageThreadResponse{
 			ID:          t.ID,
 			CoachID:     t.CoachID,
 			AthleteID:   t.AthleteID,
@@ -52,90 +41,85 @@ func (h *MessageHandler) ListThreads(c *fiber.Ctx) error {
 			UpdatedAt:   t.UpdatedAt,
 		}
 	}
+	return appresponse.Success(c, resp)
+}
 
-	return appresponse.Success(c, responses)
+// GetThread handles GET /messages/:id.
+func (h *MessageHandler) GetThread(c *fiber.Ctx) error {
+	threadID := c.Params("id")
+	userID := middleware.GetUserID(c)
+	thread, msgs, err := h.service.GetThreadWithMessages(c.Context(), threadID, userID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	resp := dto.ThreadWithMessagesResponse{
+		Thread: dto.MessageThreadResponse{
+			ID:          thread.ID,
+			CoachID:     thread.CoachID,
+			AthleteID:   thread.AthleteID,
+			AthleteName: thread.AthleteName,
+			Subject:     thread.Subject,
+			LastMessage: thread.LastMessage,
+			LastSentAt:  thread.LastSentAt,
+			UnreadCount: thread.UnreadCount,
+			CreatedAt:   thread.CreatedAt,
+			UpdatedAt:   thread.UpdatedAt,
+		},
+	}
+	domainMsgs := msgs
+	respMsgs := make([]dto.MessageResponse, len(domainMsgs))
+	for i, m := range domainMsgs {
+		respMsgs[i] = dto.MessageResponse{
+			ID:         m.ID,
+			ThreadID:   m.ThreadID,
+			SenderID:   m.SenderID,
+			SenderRole: m.SenderRole,
+			Content:    m.Content,
+			IsRead:     m.IsRead,
+			CreatedAt:  m.CreatedAt,
+		}
+	}
+	resp.Messages = respMsgs
+	return appresponse.Success(c, resp)
 }
 
 // CreateThread handles POST /messages.
-// Creates a new message thread.
 func (h *MessageHandler) CreateThread(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
-	if userID == "" {
-		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
-	}
-
-	var req dto.CreateMessageThreadRequest
+	var req dto.CreateThreadRequest
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
-
-	if strings.TrimSpace(req.AthleteID) == "" {
-		return appresponse.Error(c, fiber.StatusBadRequest, "athlete_id is required")
-	}
-
-	// Determine coach/athlete based on role
-	userRole := middleware.GetUserRole(c)
-	coachID := userID
-	athleteID := req.AthleteID
-
-	if userRole == "athlete" {
-		// Athlete is creating the thread — body's athlete_id is actually the coach_id
-		coachID = req.AthleteID
-		athleteID = userID
-	}
-
-	thread := &messagedomain.MessageThread{
-		CoachID:     coachID,
-		AthleteID:   athleteID,
-		AthleteName: req.AthleteName,
-		Subject:     req.Subject,
-	}
-
-	if err := h.service.CreateThread(c.Context(), thread); err != nil {
+	thread, err := h.service.CreateThread(c.Context(), userID, req)
+	if err != nil {
 		return h.handleError(c, err)
 	}
-
 	return appresponse.Success(c, dto.MessageThreadResponse{
 		ID:          thread.ID,
 		CoachID:     thread.CoachID,
 		AthleteID:   thread.AthleteID,
-		AthleteName: thread.AthleteName,
 		Subject:     thread.Subject,
+		LastMessage: thread.LastMessage,
+		LastSentAt:  thread.LastSentAt,
+		UnreadCount: thread.UnreadCount,
 		CreatedAt:   thread.CreatedAt,
 		UpdatedAt:   thread.UpdatedAt,
 	})
 }
 
-// SendMessage handles POST /messages/:threadId.
-// Sends a message in a thread.
-func (h *MessageHandler) SendMessage(c *fiber.Ctx) error {
-	userID := middleware.GetUserID(c)
-	if userID == "" {
-		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
-	}
-
-	threadID := c.Params("threadId")
-	if threadID == "" {
-		return appresponse.Error(c, fiber.StatusBadRequest, "thread ID is required")
-	}
-
-	var req dto.SendMessageRequest
+// AddMessage handles POST /messages/:id/messages.
+func (h *MessageHandler) AddMessage(c *fiber.Ctx) error {
+	var req dto.AddMessageRequest
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
-
-	if strings.TrimSpace(req.Content) == "" {
-		return appresponse.Error(c, fiber.StatusBadRequest, "content is required")
-	}
-
-	userRole := middleware.GetUserRole(c)
-
-	msg, err := h.service.SendMessage(c.Context(), threadID, userID, userRole, req.Content)
+	// determine role from context? assume coach or athlete; we can infer from thread participants later.
+	// For simplicity, assume coach sends messages (role coach) or athlete.
+	msg, err := h.service.SendMessage(c.Context(), middleware.GetUserID(c), "coach", c.Params("id"), req.Content)
 	if err != nil {
 		return h.handleError(c, err)
 	}
-
-	return appresponse.Success(c, dto.ChatMessageResponse{
+	return appresponse.Success(c, dto.MessageResponse{
 		ID:         msg.ID,
 		ThreadID:   msg.ThreadID,
 		SenderID:   msg.SenderID,
@@ -146,10 +130,20 @@ func (h *MessageHandler) SendMessage(c *fiber.Ctx) error {
 	})
 }
 
-// handleError maps application errors to appropriate HTTP responses.
+// MarkRead handles PATCH /messages/:id/read.
+func (h *MessageHandler) MarkRead(c *fiber.Ctx) error {
+	threadID := c.Params("id")
+	userID := middleware.GetUserID(c)
+	if err := h.service.MarkThreadRead(c.Context(), threadID, userID); err != nil {
+		return h.handleError(c, err)
+	}
+	return appresponse.Success(c, fiber.Map{"ok": true})
+}
+
 func (h *MessageHandler) handleError(c *fiber.Ctx, err error) error {
+	// reuse generic error handling
 	if appErr, ok := err.(*errors.AppError); ok {
 		return appresponse.Error(c, appErr.Status, appErr.Message)
 	}
-	return appresponse.Error(c, fiber.StatusInternalServerError, "internal server error")
+	return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
 }

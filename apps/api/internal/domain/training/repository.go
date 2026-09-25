@@ -16,6 +16,12 @@ type ExerciseRepository interface {
 	// Create inserts a new custom exercise entry for a coach.
 	// Returns an error if the slug is already taken or on database failure.
 	Create(ctx context.Context, exercise *ExerciseEntry) error
+
+	// Update updates an existing custom exercise entry.
+	Update(ctx context.Context, exercise *ExerciseEntry) error
+
+	// Delete removes an exercise entry by ID.
+	Delete(ctx context.Context, id string) error
 }
 
 // WorkoutRepository defines the data access interface for workouts.
@@ -96,7 +102,8 @@ type ProgressRepository interface {
 type TrainingSessionRepository interface {
 	// Create persists a new training session.
 	Create(ctx context.Context, session *TrainingSession) error
-	// List retrieves training sessions for a coach or athlete with optional filters.
+	// ListByAthlete retrieves sessions for an athlete whose time is on or after `from`
+	// (RFC3339/ISO8601), ordered by time ascending and capped at `limit`.
 	// Returns an empty slice (not nil) if no sessions match.
-	List(ctx context.Context, coachID, athleteID string) ([]*TrainingSession, error)
+	ListByAthlete(ctx context.Context, athleteID, from string, limit int) ([]*TrainingSession, error)
 }

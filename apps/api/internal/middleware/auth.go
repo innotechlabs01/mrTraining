@@ -3,10 +3,14 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/clerk/clerk-sdk-go/v2/jwt"
+	"github.com/clerk/clerk-sdk-go/v2/user"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -23,6 +27,56 @@ const (
 	// SessionClaimsKey is the context key for the full Clerk session claims.
 	SessionClaimsKey contextKey = "session_claims"
 )
+
+// roleCache caches Clerk user roles to avoid API calls on every request.
+var (
+	roleCacheMu sync.RWMutex
+	roleCache   = make(map[string]roleCacheEntry)
+)
+
+type roleCacheEntry struct {
+	role      string
+	expiresAt time.Time
+}
+
+const roleCacheTTL = 5 * time.Minute
+
+func getCachedRole(userID string) (string, bool) {
+	roleCacheMu.RLock()
+	defer roleCacheMu.RUnlock()
+	entry, ok := roleCache[userID]
+	if !ok || time.Now().After(entry.expiresAt) {
+		return "", false
+	}
+	return entry.role, true
+}
+
+func setCachedRole(userID, role string) {
+	roleCacheMu.Lock()
+	defer roleCacheMu.Unlock()
+	roleCache[userID] = roleCacheEntry{
+		role:      role,
+		expiresAt: time.Now().Add(roleCacheTTL),
+	}
+}
+
+// fetchUserRole fetches the user's role from Clerk Backend API.
+func fetchUserRole(userID string) string {
+	u, err := user.Get(context.Background(), userID)
+	if err != nil {
+		return "athlete"
+	}
+	if u.PublicMetadata != nil {
+		var metadata map[string]interface{}
+		if err := json.Unmarshal(u.PublicMetadata, &metadata); err == nil {
+			if role, ok := metadata["role"].(string); ok && role != "" {
+				setCachedRole(userID, role)
+				return role
+			}
+		}
+	}
+	return "athlete"
+}
 
 // RequireAuth returns Fiber middleware that validates Clerk JWT tokens.
 // It extracts the Bearer token from the Authorization header, verifies it
@@ -67,19 +121,28 @@ func RequireAuth(clerkSecretKey string) fiber.Handler {
 			return fiber.NewError(fiber.StatusUnauthorized, "token missing subject claim")
 		}
 
-		// Extract role: prefer organization role, fall back to custom metadata
+		// Extract role: prefer organization role, fall back to custom claims, then Clerk API
 		role := "athlete" // default role
 		if claims.ActiveOrganizationRole != "" {
 			// Clerk org roles are prefixed with "org:", strip it for app use
 			role = strings.TrimPrefix(claims.ActiveOrganizationRole, "org:")
 		} else if claims.Custom != nil {
-			// Check custom claims for a role (set via Clerk public metadata)
+			// Check custom claims for a role (set via Clerk public metadata in JWT)
 			if customMap, ok := claims.Custom.(map[string]interface{}); ok {
 				if metadata, ok := customMap["publicMetadata"].(map[string]interface{}); ok {
 					if r, ok := metadata["role"].(string); ok && r != "" {
 						role = r
 					}
 				}
+			}
+		}
+
+		// If role is still default, try cache then Clerk API
+		if role == "athlete" {
+			if cached, ok := getCachedRole(userID); ok {
+				role = cached
+			} else {
+				role = fetchUserRole(userID)
 			}
 		}
 

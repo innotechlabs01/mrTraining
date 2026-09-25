@@ -22,6 +22,9 @@ import { SearchScreen } from '../features/search/presentation/screens/SearchScre
 import { SettingsScreen } from '../features/settings/presentation/screens/SettingsScreen';
 import { NotificationSettingsScreen } from '../features/settings/presentation/screens/NotificationSettingsScreen';
 import { PasswordSettingsScreen } from '../features/settings/presentation/screens/PasswordSettingsScreen';
+import { PersonalDataScreen } from '../features/auth/presentation/screens/PersonalDataScreen';
+import { TrainingPreferencesScreen } from '../features/auth/presentation/screens/TrainingPreferencesScreen';
+import { EmergencyContactScreen } from '../features/auth/presentation/screens/EmergencyContactScreen';
 import { FavoritesScreen } from '../features/favorites/presentation/screens/FavoritesScreen';
 import { HelpScreen } from '../features/help/presentation/screens/HelpScreen';
 import { NotificationsScreen } from '../features/notifications/presentation/screens/NotificationsScreen';
@@ -114,6 +117,9 @@ export type RootStackParamList = {
   Settings: undefined;
   NotificationSettings: undefined;
   PasswordSettings: undefined;
+  PersonalData: undefined;
+  TrainingPreferences: undefined;
+  EmergencyContact: undefined;
   Favorites: undefined;
   Help: undefined;
   Notifications: undefined;
@@ -207,6 +213,9 @@ function RootNavigator() {
           <Stack.Screen name="Settings" component={SettingsScreen} />
           <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
           <Stack.Screen name="PasswordSettings" component={PasswordSettingsScreen} />
+          <Stack.Screen name="PersonalData" component={PersonalDataScreen} />
+          <Stack.Screen name="TrainingPreferences" component={TrainingPreferencesScreen} />
+          <Stack.Screen name="EmergencyContact" component={EmergencyContactScreen} />
           <Stack.Screen name="Favorites" component={FavoritesScreen} />
           <Stack.Screen name="Help" component={HelpScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />

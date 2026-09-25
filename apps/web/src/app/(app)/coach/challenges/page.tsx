@@ -30,6 +30,7 @@ type FormState = {
   title: string
   description: string
   exerciseType: string
+  videoUrl: string
   scoringType: ScoringType
   difficultyLevel: DifficultyLevel
   maxAttempts: number
@@ -40,6 +41,7 @@ const EMPTY_FORM: FormState = {
   title: '',
   description: '',
   exerciseType: 'sentadilla',
+  videoUrl: '',
   scoringType: 'form_score',
   difficultyLevel: 'intermediate',
   maxAttempts: 2,
@@ -51,6 +53,7 @@ function challengeToForm(ch: Challenge): FormState {
     title: ch.title,
     description: ch.description ?? '',
     exerciseType: ch.exerciseType,
+    videoUrl: ch.videoUrl ?? '',
     scoringType: ch.scoringType,
     difficultyLevel: ch.difficultyLevel,
     maxAttempts: ch.maxAttempts,
@@ -94,6 +97,7 @@ export default function CoachChallengesPage() {
           title: form.title,
           description: form.description,
           exerciseType: form.exerciseType,
+          videoUrl: form.videoUrl || undefined,
           scoringType: form.scoringType,
           difficultyLevel: form.difficultyLevel,
           maxAttempts: form.maxAttempts,
@@ -104,6 +108,7 @@ export default function CoachChallengesPage() {
           title: form.title,
           description: form.description,
           exerciseType: form.exerciseType,
+          videoUrl: form.videoUrl || undefined,
           scoringType: form.scoringType,
           difficultyLevel: form.difficultyLevel,
           maxAttempts: form.maxAttempts,
@@ -245,6 +250,16 @@ export default function CoachChallengesPage() {
                   rows={3}
                   className="w-full mt-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm text-white focus:border-brand-primary focus:outline-none"
                 />
+              </div>
+              <div>
+                <label className="text-xs text-white/40">Video demo (link)</label>
+                <input
+                  value={form.videoUrl}
+                  onChange={(e) => setForm({ ...form, videoUrl: e.target.value })}
+                  placeholder="https://youtube.com/..." 
+                  className="w-full mt-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm text-white focus:border-brand-primary focus:outline-none"
+                />
+                <p className="text-[10px] text-white/30 mt-1">Los atletas ven este video al hacer el desafío.</p>
               </div>
               <div>
                 <label className="text-xs text-white/40">Ejercicio</label>

@@ -1,182 +1,135 @@
-//go:build ignore
-
 package message
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
+
+	domain "github.com/innotechlabs01/mr-training-api/internal/domain/message"
+	"github.com/innotechlabs01/mr-training-api/internal/errors"
 )
 
-// Repository implements message.Repository using database/sql with Turso/libsql.
-type Repository struct {
+type repository struct {
 	db *sql.DB
 }
 
-// NewRepository creates a new message repository with the given database connection.
-func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+// NewRepository creates a new message repository.
+func NewRepository(db *sql.DB) domain.Repository {
+	return &repository{db: db}
 }
 
-// GetThreads retrieves all message threads for a user.
-func (r *Repository) GetThreads(ctx context.Context, userID string) ([]*MessageThread, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, coach_id, athlete_id, athlete_name, subject, last_message, last_sent_at, unread_count, created_at, updated_at
-		 FROM message_threads
-		 WHERE coach_id = ? OR athlete_id = ?
-		 ORDER BY updated_at DESC`, userID, userID)
+func (r *repository) GetThreads(ctx context.Context, userID string) ([]*domain.MessageThread, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, coach_id, athlete_id, athlete_name, subject, last_message, last_sent_at, unread_count, created_at, updated_at
+		FROM message_threads
+		WHERE coach_id = ? OR athlete_id = ?
+		ORDER BY last_sent_at DESC
+	`, userID, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get message threads: %w", err)
+		return nil, fmt.Errorf("failed to query threads: %w", err)
 	}
 	defer rows.Close()
 
-	var threads []*MessageThread
+	var threads []*domain.MessageThread
 	for rows.Next() {
-		t := &MessageThread{}
-		var athleteName, subject, lastMessage, lastSentAt sql.NullString
-		if err := rows.Scan(&t.ID, &t.CoachID, &t.AthleteID, &athleteName, &subject,
-			&lastMessage, &lastSentAt, &t.UnreadCount, &t.CreatedAt, &t.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("failed to scan message thread: %w", err)
-		}
-		if athleteName.Valid {
-			t.AthleteName = athleteName.String
-		}
-		if subject.Valid {
-			t.Subject = subject.String
-		}
-		if lastMessage.Valid {
-			t.LastMessage = lastMessage.String
-		}
-		if lastSentAt.Valid {
-			t.LastSentAt = lastSentAt.String
+		t := &domain.MessageThread{}
+		if err := rows.Scan(&t.ID, &t.CoachID, &t.AthleteID, &t.AthleteName, &t.Subject, &t.LastMessage, &t.LastSentAt, &t.UnreadCount, &t.CreatedAt, &t.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan thread: %w", err)
 		}
 		threads = append(threads, t)
 	}
 	return threads, nil
 }
 
-// GetThread retrieves a single thread by ID.
-func (r *Repository) GetThread(ctx context.Context, threadID string) (*MessageThread, error) {
-	t := &MessageThread{}
-	var athleteName, subject, lastMessage, lastSentAt sql.NullString
-	err := r.db.QueryRowContext(ctx,
-		`SELECT id, coach_id, athlete_id, athlete_name, subject, last_message, last_sent_at, unread_count, created_at, updated_at
-		 FROM message_threads WHERE id = ?`, threadID).Scan(
-		&t.ID, &t.CoachID, &t.AthleteID, &athleteName, &subject,
-		&lastMessage, &lastSentAt, &t.UnreadCount, &t.CreatedAt, &t.UpdatedAt)
+func (r *repository) GetThread(ctx context.Context, threadID string) (*domain.MessageThread, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT id, coach_id, athlete_id, athlete_name, subject, last_message, last_sent_at, unread_count, created_at, updated_at
+		FROM message_threads WHERE id = ?
+	`, threadID)
+	t := &domain.MessageThread{}
+	err := row.Scan(&t.ID, &t.CoachID, &t.AthleteID, &t.AthleteName, &t.Subject, &t.LastMessage, &t.LastSentAt, &t.UnreadCount, &t.CreatedAt, &t.UpdatedAt)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("thread not found")
+		return nil, errors.NotFound("MessageThread", threadID)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get message thread: %w", err)
-	}
-	if athleteName.Valid {
-		t.AthleteName = athleteName.String
-	}
-	if subject.Valid {
-		t.Subject = subject.String
-	}
-	if lastMessage.Valid {
-		t.LastMessage = lastMessage.String
-	}
-	if lastSentAt.Valid {
-		t.LastSentAt = lastSentAt.String
+		return nil, fmt.Errorf("failed to get thread: %w", err)
 	}
 	return t, nil
 }
 
-// CreateThread creates a new message thread.
-func (r *Repository) CreateThread(ctx context.Context, t *MessageThread) error {
-	t.ID = uuid.New().String()
-
-	var athleteName, subject sql.NullString
-	if t.AthleteName != "" {
-		athleteName = sql.NullString{String: t.AthleteName, Valid: true}
+func (r *repository) CreateThread(ctx context.Context, thread *domain.MessageThread) error {
+	if thread.ID == "" {
+		thread.ID = uuid.New().String()
 	}
-	if t.Subject != "" {
-		subject = sql.NullString{String: t.Subject, Valid: true}
-	}
-
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO message_threads (id, coach_id, athlete_id, athlete_name, subject)
-		 VALUES (?, ?, ?, ?, ?)`,
-		t.ID, t.CoachID, t.AthleteID, athleteName, subject)
+	now := time.Now().UTC().Format(time.RFC3339)
+	thread.CreatedAt = now
+	thread.UpdatedAt = now
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO message_threads (id, coach_id, athlete_id, athlete_name, subject, last_message, last_sent_at, unread_count, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, thread.ID, thread.CoachID, thread.AthleteID, thread.AthleteName, thread.Subject, thread.LastMessage, thread.LastSentAt, thread.UnreadCount, thread.CreatedAt, thread.UpdatedAt)
 	if err != nil {
-		return fmt.Errorf("failed to create message thread: %w", err)
+		return fmt.Errorf("failed to create thread: %w", err)
 	}
 	return nil
 }
 
-// GetMessages retrieves all messages in a thread.
-func (r *Repository) GetMessages(ctx context.Context, threadID string) ([]*Message, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, thread_id, sender_id, sender_role, content, is_read, created_at
-		 FROM messages WHERE thread_id = ?
-		 ORDER BY created_at ASC`, threadID)
+func (r *repository) GetMessages(ctx context.Context, threadID string) ([]*domain.Message, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, thread_id, sender_id, sender_role, content, is_read, created_at
+		FROM messages WHERE thread_id = ? ORDER BY created_at ASC
+	`, threadID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get messages: %w", err)
+		return nil, fmt.Errorf("failed to query messages: %w", err)
 	}
 	defer rows.Close()
 
-	var messages []*Message
+	var msgs []*domain.Message
 	for rows.Next() {
-		m := &Message{}
-		if err := rows.Scan(&m.ID, &m.ThreadID, &m.SenderID, &m.SenderRole,
-			&m.Content, &m.IsRead, &m.CreatedAt); err != nil {
+		m := &domain.Message{}
+		if err := rows.Scan(&m.ID, &m.ThreadID, &m.SenderID, &m.SenderRole, &m.Content, &m.IsRead, &m.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan message: %w", err)
 		}
-		messages = append(messages, m)
+		msgs = append(msgs, m)
 	}
-	return messages, nil
+	return msgs, nil
 }
 
-// SendMessage adds a message to a thread and updates the thread's last message.
-func (r *Repository) SendMessage(ctx context.Context, m *Message) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+func (r *repository) SendMessage(ctx context.Context, msg *domain.Message) error {
+	if msg.ID == "" {
+		msg.ID = uuid.New().String()
 	}
-	defer tx.Rollback()
-
-	m.ID = uuid.New().String()
-
-	_, err = tx.ExecContext(ctx,
-		`INSERT INTO messages (id, thread_id, sender_id, sender_role, content, is_read)
-		 VALUES (?, ?, ?, ?, ?, 0)`,
-		m.ID, m.ThreadID, m.SenderID, m.SenderRole, m.Content)
+	now := time.Now().UTC().Format(time.RFC3339)
+	msg.CreatedAt = now
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO messages (id, thread_id, sender_id, sender_role, content, is_read, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, msg.ID, msg.ThreadID, msg.SenderID, msg.SenderRole, msg.Content, msg.IsRead, msg.CreatedAt)
 	if err != nil {
-		return fmt.Errorf("failed to send message: %w", err)
+		return fmt.Errorf("failed to insert message: %w", err)
 	}
-
-	// Update thread's last message
-	_, err = tx.ExecContext(ctx,
-		`UPDATE message_threads
-		 SET last_message = ?, last_sent_at = datetime('now'), updated_at = datetime('now')
-		 WHERE id = ?`, m.Content, m.ThreadID)
-	if err != nil {
-		return fmt.Errorf("failed to update thread: %w", err)
-	}
-
-	return tx.Commit()
+	// Update thread's last_message and last_sent_at, increment unread for recipient
+	_, err = r.db.ExecContext(ctx, `
+		UPDATE message_threads
+		SET last_message = ?, last_sent_at = ?, updated_at = ?,
+			unread_count = unread_count + 1
+		WHERE id = ?
+	`, msg.Content, msg.CreatedAt, time.Now().UTC().Format(time.RFC3339), msg.ThreadID)
+	return err
 }
 
-// MarkThreadRead marks all messages in a thread as read for a user.
-func (r *Repository) MarkThreadRead(ctx context.Context, threadID, userID string) error {
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE messages SET is_read = 1
-		 WHERE thread_id = ? AND sender_id != ?`, threadID, userID)
+func (r *repository) MarkThreadRead(ctx context.Context, threadID, userID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE messages SET is_read = true WHERE thread_id = ? AND sender_id != ?
+	`, threadID, userID)
 	if err != nil {
-		return fmt.Errorf("failed to mark thread read: %w", err)
+		return fmt.Errorf("failed to mark messages read: %w", err)
 	}
-
-	// Reset unread count
-	_, err = r.db.ExecContext(ctx,
-		`UPDATE message_threads SET unread_count = 0 WHERE id = ?`, threadID)
-	if err != nil {
-		return fmt.Errorf("failed to reset unread count: %w", err)
-	}
-
-	return nil
+	_, err = r.db.ExecContext(ctx, `
+		UPDATE message_threads SET unread_count = 0 WHERE id = ?
+	`, threadID)
+	return err
 }

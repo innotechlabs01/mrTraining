@@ -165,6 +165,18 @@ func (r *Repository) CreateSale(ctx context.Context, sale *productdomain.Sale) e
 	return nil
 }
 
+// DeleteSale removes a sale record by ID.
+func (r *Repository) DeleteSale(ctx context.Context, saleID string) error {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM sales WHERE id = ?`, saleID)
+	if err != nil {
+		return fmt.Errorf("failed to delete sale: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return errors.NotFound("Sale", saleID)
+	}
+	return nil
+}
+
 // --- Private helpers ---
 
 type scannable interface {

@@ -83,9 +83,9 @@ func (h *CommunityHandler) ListMessages(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
-	responses := make([]dto.MessageResponse, len(messages))
+	responses := make([]dto.CommunityMessageResponse, len(messages))
 	for i, m := range messages {
-		responses[i] = dto.MessageResponse{
+		responses[i] = dto.CommunityMessageResponse{
 			ID:        m.ID,
 			UserID:    m.UserID,
 			UserName:  m.UserName,
@@ -94,7 +94,7 @@ func (h *CommunityHandler) ListMessages(c *fiber.Ctx) error {
 		}
 	}
 
-	return appresponse.Success(c, dto.ListResponse[dto.MessageResponse]{
+	return appresponse.Success(c, dto.ListResponse[dto.CommunityMessageResponse]{
 		Data:  responses,
 		Total: len(responses),
 		Page:  1,
@@ -126,7 +126,7 @@ func (h *CommunityHandler) CreateMessage(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
-	return appresponse.Success(c, dto.MessageResponse{
+	return appresponse.Success(c, dto.CommunityMessageResponse{
 		ID:        msg.ID,
 		UserID:    msg.UserID,
 		UserName:  msg.UserName,

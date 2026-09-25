@@ -51,7 +51,7 @@ func (r *Repository) GetTodayData(ctx context.Context, athleteID string) (*today
 	wrows, err := r.db.QueryContext(ctx,
 		`SELECT id, content_name, modality, status, progress FROM assigned_workouts
 		 WHERE athlete_id = ? AND status IN ('active','in_progress') ORDER BY start_date DESC LIMIT 5`, athleteID)
-	var workouts []today.ActiveWorkout
+	workouts := make([]today.ActiveWorkout, 0)
 	if err == nil {
 		defer wrows.Close()
 		for wrows.Next() {
@@ -62,11 +62,14 @@ func (r *Repository) GetTodayData(ctx context.Context, athleteID string) (*today
 		}
 	}
 
-	// Today sessions (second query, proper)
-	var sessions []today.Session
+	// Today sessions via session_athletes link (coach_sessions has no athlete_id).
+	sessions := make([]today.Session, 0)
 	srows, err := r.db.QueryContext(ctx,
-		`SELECT id, name, time, end_time, location, status FROM coach_sessions
-		 WHERE athlete_id = ? AND date(start_time) = date('now') ORDER BY start_time`, athleteID)
+		`SELECT cs.id, cs.name, cs.time, cs.end_time, cs.location, cs.status
+		 FROM coach_sessions cs
+		 JOIN session_athletes sa ON sa.session_id = cs.id
+		 WHERE sa.athlete_id = ? AND date(cs.time) = date('now')
+		 ORDER BY cs.time`, athleteID)
 	if err == nil {
 		defer srows.Close()
 		for srows.Next() {

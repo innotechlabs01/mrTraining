@@ -268,3 +268,128 @@ export async function createAthleteAppointment(data: {
   )
   return id
 }
+
+// ============== Coach Appointments (for coach dashboard) ==============
+
+export interface CoachAppointment {
+  id: string
+  coachId: string
+  athleteId: string
+  athleteName: string
+  date: string
+  startTime: string
+  endTime: string
+  status: string
+  notes: string
+}
+
+export async function getCoachAppointments(coachId: string): Promise<CoachAppointment[]> {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM appointments WHERE coach_id = ? ORDER BY date DESC, start_time DESC',
+    [coachId]
+  )
+  return result.rows.map((r: Row) => ({
+    id: r.id as string,
+    coachId: r.coach_id as string,
+    athleteId: r.athlete_id as string,
+    athleteName: r.athlete_name as string,
+    date: r.date as string,
+    startTime: r.start_time as string,
+    endTime: r.end_time as string,
+    status: r.status as string,
+    notes: (r.notes as string) || '',
+  }))
+}
+
+export async function getAthleteAppointment(id: string): Promise<CoachAppointment | null> {
+  const db = getDB()
+  const result = await db.execute('SELECT * FROM appointments WHERE id = ?', [id])
+  if (result.rows.length === 0) return null
+  const r = result.rows[0]
+  return {
+    id: r.id as string,
+    coachId: r.coach_id as string,
+    athleteId: r.athlete_id as string,
+    athleteName: r.athlete_name as string,
+    date: r.date as string,
+    startTime: r.start_time as string,
+    endTime: r.end_time as string,
+    status: r.status as string,
+    notes: (r.notes as string) || '',
+  }
+}
+
+export async function createAppointment(data: {
+  coachId: string; athleteId: string; athleteName: string;
+  date: string; startTime: string; endTime: string;
+  notes?: string;
+}): Promise<string> {
+  const db = getDB()
+  const id = generateId()
+  await db.execute(
+    `INSERT INTO appointments (id, coach_id, athlete_id, athlete_name, date, start_time, end_time, status, notes)
+     VALUES (?,?,?,?,?,?,?,?,?)`,
+    [id, data.coachId, data.athleteId, data.athleteName, data.date, data.startTime, data.endTime, 'scheduled', data.notes || ''],
+  )
+  return id
+}
+
+export async function updateAppointment(id: string, data: Partial<{ status: string; notes?: string; date?: string; startTime?: string; endTime?: string }>): Promise<void> {
+  const db = getDB()
+  const updates: string[] = []
+  const params: unknown[] = []
+
+  if (data.status !== undefined) { updates.push('status = ?'); params.push(data.status) }
+  if (data.notes !== undefined) { updates.push('notes = ?'); params.push(data.notes) }
+  if (data.date !== undefined) { updates.push('date = ?'); params.push(data.date) }
+  if (data.startTime !== undefined) { updates.push('start_time = ?'); params.push(data.startTime) }
+  if (data.endTime !== undefined) { updates.push('end_time = ?'); params.push(data.endTime) }
+
+  if (updates.length === 0) return
+
+  params.push(id)
+  await safeExecute(
+    db,
+    `UPDATE appointments SET ${updates.join(', ')} WHERE id = ?`,
+    params
+  )
+}
+
+// ============== Coach Availability ==============
+
+export interface CoachAvailabilitySlot {
+  id: string
+  coachId: string
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+}
+
+export async function getCoachAvailability(coachId: string): Promise<CoachAvailabilitySlot[]> {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM coach_availability WHERE coach_id = ? ORDER BY day_of_week, start_time',
+    [coachId]
+  )
+  return result.rows.map((r: Row) => ({
+    id: r.id as string,
+    coachId: r.coach_id as string,
+    dayOfWeek: r.day_of_week as number,
+    startTime: r.start_time as string,
+    endTime: r.end_time as string,
+  }))
+}
+
+export async function saveCoachAvailability(coachId: string, slots: Array<{ dayOfWeek: number; startTime: string; endTime: string }>): Promise<void> {
+  const db = getDB()
+  await db.execute('DELETE FROM coach_availability WHERE coach_id = ?', [coachId])
+  for (const slot of slots) {
+    await safeExecute(
+      db,
+      `INSERT INTO coach_availability (id, coach_id, day_of_week, start_time, end_time)
+       VALUES (?, ?, ?, ?, ?)`,
+      [generateId(), coachId, slot.dayOfWeek, slot.startTime, slot.endTime]
+    )
+  }
+}

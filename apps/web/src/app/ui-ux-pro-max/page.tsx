@@ -9,6 +9,8 @@ import { FaqSection } from '@/components/ui-ux-pro-max/faq';
 import { CtaSection } from '@/components/ui-ux-pro-max/cta';
 import { FooterSection } from '@/components/ui-ux-pro-max/footer';
 
+export const dynamic = 'force-dynamic';
+
 export default function UiUxProMaxPage() {
   return (
     <>

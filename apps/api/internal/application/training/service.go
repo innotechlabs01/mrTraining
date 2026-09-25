@@ -114,6 +114,78 @@ func (s *Service) CreateExercise(ctx context.Context, coachID string, req dto.Cr
 	return exercise, nil
 }
 
+// UpdateExercise updates an existing custom exercise. Only the owning coach can update.
+func (s *Service) UpdateExercise(ctx context.Context, coachID, id string, req dto.UpdateExerciseRequest) (*training.ExerciseEntry, error) {
+	existing, err := s.exerciseRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing.CoachID == nil || *existing.CoachID != coachID {
+		return nil, errors.Forbidden("you can only update your own custom exercises")
+	}
+
+	if req.Name != nil {
+		existing.Name = strings.TrimSpace(*req.Name)
+	}
+	if req.Description != nil {
+		existing.Description = *req.Description
+	}
+	if req.Mode != nil {
+		existing.Mode = *req.Mode
+	}
+	if req.BodyPart != nil {
+		existing.BodyPart = *req.BodyPart
+	}
+	if req.Equipment != nil {
+		existing.Equipment = *req.Equipment
+	}
+	if req.Difficulty != nil {
+		existing.Difficulty = *req.Difficulty
+	}
+	if req.Category != nil {
+		existing.Category = *req.Category
+	}
+	if req.Instructions != nil {
+		existing.Instructions = *req.Instructions
+	}
+	if req.ImageURL != nil {
+		existing.ImageURL = *req.ImageURL
+	}
+	if req.VideoURL != nil {
+		existing.VideoURL = *req.VideoURL
+	}
+	if req.DefaultSec != nil {
+		existing.DefaultSec = req.DefaultSec
+	}
+	if req.MuscleGroups != nil {
+		existing.MuscleGroups = *req.MuscleGroups
+	}
+	if req.SecondaryMuscles != nil {
+		existing.SecondaryMuscles = *req.SecondaryMuscles
+	}
+	if req.BodyPart != nil {
+		existing.BodyPart = *req.BodyPart
+	}
+
+	if err := s.exerciseRepo.Update(ctx, existing); err != nil {
+		return nil, fmt.Errorf("update exercise: %w", err)
+	}
+
+	return existing, nil
+}
+
+// DeleteExercise deletes a custom exercise. Only the owning coach can delete.
+func (s *Service) DeleteExercise(ctx context.Context, coachID, id string) error {
+	existing, err := s.exerciseRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if existing.CoachID == nil || *existing.CoachID != coachID {
+		return errors.Forbidden("you can only delete your own custom exercises")
+	}
+	return s.exerciseRepo.Delete(ctx, id)
+}
+
 // ListWorkoutTemplates returns all workout templates for a coach.
 func (s *Service) ListWorkoutTemplates(ctx context.Context, coachID string) ([]*training.WorkoutTemplate, error) {
 	templates, err := s.workoutRepo.ListTemplates(ctx, coachID)
@@ -426,11 +498,11 @@ func (s *Service) CreateTrainingSession(ctx context.Context, coachID, athleteID,
 	return session, nil
 }
 
-// ListTrainingSessions returns training sessions for coach or athlete.
-func (s *Service) ListTrainingSessions(ctx context.Context, coachID, athleteID string) ([]*training.TrainingSession, error) {
-	sessions, err := s.trainingSessionRepo.List(ctx, coachID, athleteID)
+// ListByAthlete returns an athlete's upcoming sessions (at or after `from`).
+func (s *Service) ListByAthlete(ctx context.Context, athleteID, from string, limit int) ([]*training.TrainingSession, error) {
+	sessions, err := s.trainingSessionRepo.ListByAthlete(ctx, athleteID, from, limit)
 	if err != nil {
-		return nil, fmt.Errorf("list training sessions: %w", err)
+		return nil, fmt.Errorf("list athlete training sessions: %w", err)
 	}
 	return sessions, nil
 }

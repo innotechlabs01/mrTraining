@@ -27,7 +27,7 @@ func NewChallengeHandler(service *app.Service, hub *websocket.Hub) *ChallengeHan
 
 // CreateChallenge handles POST /challenges.
 func (h *ChallengeHandler) CreateChallenge(c *fiber.Ctx) error {
-	coachID := c.Locals("userID").(string)
+	coachID := c.Locals("user_id").(string)
 
 	var ch domain.Challenge
 	if err := c.BodyParser(&ch); err != nil {
@@ -50,7 +50,7 @@ func (h *ChallengeHandler) CreateChallenge(c *fiber.Ctx) error {
 
 // ListCoachChallenges handles GET /coach/challenges.
 func (h *ChallengeHandler) ListCoachChallenges(c *fiber.Ctx) error {
-	coachID := c.Locals("userID").(string)
+	coachID := c.Locals("user_id").(string)
 	challenges, err := h.service.ListByCoach(coachID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -62,7 +62,7 @@ func (h *ChallengeHandler) ListCoachChallenges(c *fiber.Ctx) error {
 
 // ListDraftChallenges handles GET /coach/challenges/draft.
 func (h *ChallengeHandler) ListDraftChallenges(c *fiber.Ctx) error {
-	coachID := c.Locals("userID").(string)
+	coachID := c.Locals("user_id").(string)
 	challenges, err := h.service.ListDraftByCoach(coachID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -74,7 +74,7 @@ func (h *ChallengeHandler) ListDraftChallenges(c *fiber.Ctx) error {
 
 // ListActiveChallengesByCoach handles GET /coach/challenges/active.
 func (h *ChallengeHandler) ListActiveChallengesByCoach(c *fiber.Ctx) error {
-	coachID := c.Locals("userID").(string)
+	coachID := c.Locals("user_id").(string)
 	challenges, err := h.service.ListActiveByCoach(coachID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -151,7 +151,7 @@ func (h *ChallengeHandler) ActivateChallenge(c *fiber.Ctx) error {
 
 // ListAthleteChallenges handles GET /athlete/challenges.
 func (h *ChallengeHandler) ListAthleteChallenges(c *fiber.Ctx) error {
-	athleteID := c.Locals("userID").(string)
+	athleteID := c.Locals("user_id").(string)
 	challenges, err := h.service.ListActiveForAthlete(athleteID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -163,7 +163,7 @@ func (h *ChallengeHandler) ListAthleteChallenges(c *fiber.Ctx) error {
 
 // GetActiveChallenge handles GET /athlete/challenges/active.
 func (h *ChallengeHandler) GetActiveChallenge(c *fiber.Ctx) error {
-	athleteID := c.Locals("userID").(string)
+	athleteID := c.Locals("user_id").(string)
 	challenge, err := h.service.GetActiveForAthlete(athleteID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -175,7 +175,7 @@ func (h *ChallengeHandler) GetActiveChallenge(c *fiber.Ctx) error {
 
 // JoinChallenge handles POST /athlete/challenges/:id/join.
 func (h *ChallengeHandler) JoinChallenge(c *fiber.Ctx) error {
-	athleteID := c.Locals("userID").(string)
+	athleteID := c.Locals("user_id").(string)
 	challengeID := c.Params("id")
 
 	var body struct {
@@ -200,7 +200,7 @@ func (h *ChallengeHandler) JoinChallenge(c *fiber.Ctx) error {
 
 // CreateAttempt handles POST /athlete/challenges/:id/attempts.
 func (h *ChallengeHandler) CreateAttempt(c *fiber.Ctx) error {
-	athleteID := c.Locals("userID").(string)
+	athleteID := c.Locals("user_id").(string)
 	challengeID := c.Params("id")
 
 	attempt, err := h.service.JoinChallenge(challengeID, athleteID, false, false)
@@ -245,7 +245,7 @@ func (h *ChallengeHandler) SubmitAttempt(c *fiber.Ctx) error {
 
 // ListAthleteAttempts handles GET /athlete/challenges/:id/attempts.
 func (h *ChallengeHandler) ListAthleteAttempts(c *fiber.Ctx) error {
-	athleteID := c.Locals("userID").(string)
+	athleteID := c.Locals("user_id").(string)
 	attempts, err := h.service.ListAthleteAttempts(athleteID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -335,7 +335,7 @@ func (h *ChallengeHandler) GetAthleteChallengeAnalytics(c *fiber.Ctx) error {
 
 // GetAthleteProgress handles GET /athlete/challenges/progress/:exerciseType.
 func (h *ChallengeHandler) GetAthleteProgress(c *fiber.Ctx) error {
-	athleteID := c.Locals("userID").(string)
+	athleteID := c.Locals("user_id").(string)
 	exerciseType := c.Params("exerciseType")
 	progress, err := h.service.GetAthleteProgress(athleteID, exerciseType)
 	if err != nil {

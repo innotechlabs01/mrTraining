@@ -104,7 +104,7 @@
     "extra": {
       "clerkPublishableKey": "pk_test_dXByaWdodC1tYXJ0ZW4tNjQuY2xlcmsuYWNjb3VudHMuZGV2JA",
       "apiBaseUrl": "https://mr-training.vercel.app",
-      "goApiUrl": "http://localhost:3001",
+      "goApiUrl": "http://192.168.58.104:3001",
       "eas": {
         "projectId": "c4e4a8cc-bcf6-43cd-8d13-33bd46e6fea7"
       }

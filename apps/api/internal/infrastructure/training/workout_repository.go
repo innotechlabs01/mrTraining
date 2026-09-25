@@ -216,10 +216,10 @@ func (r *WorkoutRepository) ListAssignedWorkouts(ctx context.Context, athleteID 
 	}
 	defer rows.Close()
 
-	var workouts []*training.AssignedWorkout
+	workouts := make([]*training.AssignedWorkout, 0)
 	for rows.Next() {
 		w := &training.AssignedWorkout{}
-		var daysOfWeekJSON string
+		var daysOfWeekJSON sql.NullString
 		var athleteName sql.NullString
 		if err := rows.Scan(&w.ID, &w.AthleteID, &athleteName, &w.ContentID, &w.ContentType,
 			&w.ContentName, &w.Modality, &w.StartDate, &w.EndDate, &daysOfWeekJSON,
@@ -229,7 +229,11 @@ func (r *WorkoutRepository) ListAssignedWorkouts(ctx context.Context, athleteID 
 		if athleteName.Valid {
 			w.AthleteName = athleteName.String
 		}
-		if err := json.Unmarshal([]byte(daysOfWeekJSON), &w.DaysOfWeek); err != nil {
+		if daysOfWeekJSON.Valid && daysOfWeekJSON.String != "" {
+			if err := json.Unmarshal([]byte(daysOfWeekJSON.String), &w.DaysOfWeek); err != nil {
+				w.DaysOfWeek = []int{}
+			}
+		} else {
 			w.DaysOfWeek = []int{}
 		}
 		workouts = append(workouts, w)
@@ -246,7 +250,7 @@ func (r *WorkoutRepository) GetAssignedWorkout(ctx context.Context, id string) (
 		 FROM assigned_workouts WHERE id = ?`, id)
 
 	w := &training.AssignedWorkout{}
-	var daysOfWeekJSON string
+	var daysOfWeekJSON sql.NullString
 	var athleteName sql.NullString
 	err := row.Scan(&w.ID, &w.AthleteID, &athleteName, &w.ContentID, &w.ContentType,
 		&w.ContentName, &w.Modality, &w.StartDate, &w.EndDate, &daysOfWeekJSON,
@@ -260,7 +264,11 @@ func (r *WorkoutRepository) GetAssignedWorkout(ctx context.Context, id string) (
 	if athleteName.Valid {
 		w.AthleteName = athleteName.String
 	}
-	if err := json.Unmarshal([]byte(daysOfWeekJSON), &w.DaysOfWeek); err != nil {
+	if daysOfWeekJSON.Valid && daysOfWeekJSON.String != "" {
+		if err := json.Unmarshal([]byte(daysOfWeekJSON.String), &w.DaysOfWeek); err != nil {
+			w.DaysOfWeek = []int{}
+		}
+	} else {
 		w.DaysOfWeek = []int{}
 	}
 	return w, nil
@@ -366,7 +374,7 @@ func (r *WorkoutRepository) getTemplateExercises(ctx context.Context, templateID
 	}
 	defer rows.Close()
 
-	var exercises []training.WorkoutExercise
+	exercises := make([]training.WorkoutExercise, 0)
 	for rows.Next() {
 		ex := training.WorkoutExercise{}
 		var weightKg, increment, speed sql.NullFloat64
@@ -675,10 +683,10 @@ func (r *WorkoutRepository) ListAssignedWorkoutsByCoach(ctx context.Context, coa
 	}
 	defer rows.Close()
 
-	var workouts []*training.AssignedWorkout
+	workouts := make([]*training.AssignedWorkout, 0)
 	for rows.Next() {
 		w := &training.AssignedWorkout{}
-		var daysOfWeekJSON string
+		var daysOfWeekJSON sql.NullString
 		var athleteName sql.NullString
 		if err := rows.Scan(&w.ID, &w.AthleteID, &athleteName, &w.ContentID, &w.ContentType,
 			&w.ContentName, &w.Modality, &w.StartDate, &w.EndDate, &daysOfWeekJSON,
@@ -688,7 +696,11 @@ func (r *WorkoutRepository) ListAssignedWorkoutsByCoach(ctx context.Context, coa
 		if athleteName.Valid {
 			w.AthleteName = athleteName.String
 		}
-		if err := json.Unmarshal([]byte(daysOfWeekJSON), &w.DaysOfWeek); err != nil {
+		if daysOfWeekJSON.Valid && daysOfWeekJSON.String != "" {
+			if err := json.Unmarshal([]byte(daysOfWeekJSON.String), &w.DaysOfWeek); err != nil {
+				w.DaysOfWeek = []int{}
+			}
+		} else {
 			w.DaysOfWeek = []int{}
 		}
 		workouts = append(workouts, w)

@@ -44,7 +44,7 @@ func (r *ExerciseRepository) List(ctx context.Context, filter training.ExerciseF
 	}
 	defer rows.Close()
 
-	var exercises []*training.ExerciseEntry
+	exercises := make([]*training.ExerciseEntry, 0)
 	for rows.Next() {
 		e := &training.ExerciseEntry{}
 		var bodyPart, equipment, difficulty, category, videoURL, imageURL, coachID sql.NullString
@@ -175,6 +175,64 @@ func (r *ExerciseRepository) Create(ctx context.Context, e *training.ExerciseEnt
 		defaultSec, videoURL, imageURL, e.IsCustom, coachID)
 	if err != nil {
 		return fmt.Errorf("failed to create exercise: %w", err)
+	}
+	return nil
+}
+
+// Update updates an existing custom exercise entry.
+func (r *ExerciseRepository) Update(ctx context.Context, e *training.ExerciseEntry) error {
+	var bodyPart, equipment, difficulty, category, videoURL, imageURL, coachID sql.NullString
+	if e.BodyPart != "" {
+		bodyPart = sql.NullString{String: e.BodyPart, Valid: true}
+	}
+	if e.Equipment != "" {
+		equipment = sql.NullString{String: e.Equipment, Valid: true}
+	}
+	if e.Difficulty != "" {
+		difficulty = sql.NullString{String: e.Difficulty, Valid: true}
+	}
+	if e.Category != "" {
+		category = sql.NullString{String: e.Category, Valid: true}
+	}
+	if e.VideoURL != "" {
+		videoURL = sql.NullString{String: e.VideoURL, Valid: true}
+	}
+	if e.ImageURL != "" {
+		imageURL = sql.NullString{String: e.ImageURL, Valid: true}
+	}
+	if e.CoachID != nil {
+		coachID = sql.NullString{String: *e.CoachID, Valid: true}
+	}
+
+	var defaultSec sql.NullInt64
+	if e.DefaultSec != nil {
+		defaultSec = sql.NullInt64{Int64: int64(*e.DefaultSec), Valid: true}
+	}
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE exercise_library
+		 SET slug = ?, name = ?, description = ?, mode = ?, body_part = ?, muscle_groups = ?,
+		     secondary_muscles = ?, equipment = ?, difficulty = ?, category = ?, instructions = ?,
+		     default_sec = ?, video_url = ?, image_url = ?, is_custom = ?, coach_id = ?,
+		     updated_at = datetime('now')
+		 WHERE id = ?`,
+		e.Slug, e.Name, e.Description, e.Mode, bodyPart, e.MuscleGroups,
+		e.SecondaryMuscles, equipment, difficulty, category, e.Instructions,
+		defaultSec, videoURL, imageURL, e.IsCustom, coachID, e.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update exercise: %w", err)
+	}
+	return nil
+}
+
+// Delete removes an exercise entry by ID.
+func (r *ExerciseRepository) Delete(ctx context.Context, id string) error {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM exercise_library WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete exercise: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return errors.NotFound("Exercise", id)
 	}
 	return nil
 }

@@ -271,6 +271,46 @@ func (r *Repository) SetListItems(ctx context.Context, eventID string, items []s
 	return nil
 }
 
+// GetFormResponses retrieves an athlete's form responses for an event.
+func (r *Repository) GetFormResponses(ctx context.Context, eventID, athleteID string) ([]eventdomain.EventFormResponse, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, event_id, athlete_id, field_id, value
+		 FROM event_form_responses WHERE event_id = ? AND athlete_id = ?`,
+		eventID, athleteID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query form responses: %w", err)
+	}
+	defer rows.Close()
+
+	var responses []eventdomain.EventFormResponse
+	for rows.Next() {
+		var resp eventdomain.EventFormResponse
+		if err := rows.Scan(&resp.ID, &resp.EventID, &resp.AthleteID, &resp.FieldID, &resp.Value); err != nil {
+			return nil, fmt.Errorf("failed to scan form response: %w", err)
+		}
+		responses = append(responses, resp)
+	}
+	return responses, nil
+}
+
+// SaveFormResponses replaces an athlete's form responses for an event.
+func (r *Repository) SaveFormResponses(ctx context.Context, eventID, athleteID string, responses []eventdomain.EventFormResponse) error {
+	if _, err := r.db.ExecContext(ctx,
+		`DELETE FROM event_form_responses WHERE event_id = ? AND athlete_id = ?`,
+		eventID, athleteID); err != nil {
+		return fmt.Errorf("failed to delete form responses: %w", err)
+	}
+	for _, resp := range responses {
+		if _, err := r.db.ExecContext(ctx,
+			`INSERT INTO event_form_responses (id, event_id, athlete_id, field_id, value, created_at)
+			 VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+			uuid.New().String(), eventID, athleteID, resp.FieldID, resp.Value); err != nil {
+			return fmt.Errorf("failed to insert form response: %w", err)
+		}
+	}
+	return nil
+}
+
 // --- Private helpers ---
 
 func (r *Repository) getAthleteIDs(ctx context.Context, eventID string) ([]string, error) {

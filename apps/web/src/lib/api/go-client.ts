@@ -49,38 +49,65 @@ async function getAuthToken(): Promise<string | null> {
 
 /**
  * Make a request to the Go API backend.
+ * Retries once on 401 with a fresh Clerk token (silent token refresh).
  * @param path - The API path (e.g., '/api/v1/users/me')
  * @param options - Request options including auth flag
  * @returns The parsed JSON response
  */
 export async function goFetch<T>(path: string, options: GoRequestOptions = {}): Promise<T> {
   const { auth = true, headers: customHeaders, ...rest } = options;
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(customHeaders as Record<string, string>),
-  };
 
-  if (auth) {
-    const token = await getAuthToken();
+  const doFetch = async (token: string | null) => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(customHeaders as Record<string, string>),
+    };
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
+    return fetch(`${GO_API_BASE}${path}`, { ...rest, headers });
+  };
+
+  if (auth) {
+    // First attempt with current token
+    const token = await getAuthToken();
+    const response = await doFetch(token);
+
+    if (response.status === 401 && auth) {
+      // Token expired — force Clerk to refresh and retry once
+      const freshToken = await getAuthToken();
+      if (freshToken && freshToken !== token) {
+        const retryResponse = await doFetch(freshToken);
+        if (!retryResponse.ok) {
+          const error = await retryResponse.json().catch(() => ({ error: 'Unknown error' }));
+          throw new Error(error.error || `Go API error: ${retryResponse.status}`);
+        }
+        if (retryResponse.status === 204) return undefined as T;
+        return retryResponse.json();
+      }
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' } as any));
+      const errorMessage = typeof errorData.error === 'string'
+        ? errorData.error
+        : errorData.message
+        || errorData.detail
+        || JSON.stringify(errorData)
+        || `Go API error: ${response.status}`;
+      throw new Error(errorMessage);
+    }
+    if (response.status === 204) return undefined as T;
+    return response.json();
   }
 
-  const response = await fetch(`${GO_API_BASE}${path}`, {
-    ...rest,
-    headers,
-  });
-
+  // No auth required
+  const response = await doFetch(null);
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Unknown error' }));
     throw new Error(error.error || `Go API error: ${response.status}`);
   }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
+  if (response.status === 204) return undefined as T;
   return response.json();
 }
 

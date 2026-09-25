@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+
+export const dynamic = 'force-dynamic';
 import { LandingData, FALLBACK_BRAND } from '@/lib/landing';
 import { Package, Book, Clock, Eye } from 'lucide-react';
 

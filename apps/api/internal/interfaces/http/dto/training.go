@@ -24,6 +24,24 @@ type CreateExerciseRequest struct {
 	VideoURL string `json:"videoUrl,omitempty"`
 }
 
+// UpdateExerciseRequest is the payload for updating an existing custom exercise.
+// All fields are optional; only provided fields will be updated.
+type UpdateExerciseRequest struct {
+	Name            *string `json:"name,omitempty"`
+	Description     *string `json:"description,omitempty"`
+	Mode            *string `json:"mode,omitempty"`
+	BodyPart        *string `json:"bodyPart,omitempty"`
+	Equipment       *string `json:"equipment,omitempty"`
+	Difficulty      *string `json:"difficulty,omitempty"`
+	Category        *string `json:"category,omitempty"`
+	Instructions    *string `json:"instructions,omitempty"`
+	ImageURL        *string `json:"imageUrl,omitempty"`
+	VideoURL        *string `json:"videoUrl,omitempty"`
+	DefaultSec      *int    `json:"defaultSec,omitempty"`
+	MuscleGroups    *string `json:"muscleGroups,omitempty"`
+	SecondaryMuscles *string `json:"secondaryMuscles,omitempty"`
+}
+
 // ExerciseResponse represents an exercise in API responses.
 type ExerciseResponse struct {
 	ID               string  `json:"id"`

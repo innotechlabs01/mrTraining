@@ -240,3 +240,15 @@ func toSaleResponse(s *productdomain.Sale) *dto.SaleResponse {
 		CreatedAt:    s.CreatedAt,
 	}
 }
+
+// DeleteSale handles DELETE /coaches/sales/:id.
+func (h *ProductHandler) DeleteSale(c *fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "sale ID is required")
+	}
+	if err := h.service.DeleteSale(c.Context(), id); err != nil {
+		return h.handleError(c, err)
+	}
+	return appresponse.Success(c, fiber.Map{"ok": true})
+}

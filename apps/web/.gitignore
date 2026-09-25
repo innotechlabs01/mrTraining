@@ -5,3 +5,4 @@
 
 # local video uploads (dev only)
 public/uploads/
+.env*.local

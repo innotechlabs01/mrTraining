@@ -9,7 +9,7 @@ export function useEvents() {
 
   const { data: events = [], isLoading, error: queryError, refetch } = useQuery({
     queryKey: ['events'],
-    queryFn: () => coachingApi.getEvents<CoachEvent[]>(),
+    queryFn: () => coachingApi.getEvents(),
     staleTime: 30_000,
   })
 
@@ -17,7 +17,7 @@ export function useEvents() {
   const refresh = () => refetch()
 
   const addEventMutation = useMutation({
-    mutationFn: (event: CoachEvent) => coachingApi.saveEvent<{ id: string }>(event),
+    mutationFn: (event: CoachEvent) => coachingApi.saveEvent(event),
     onSuccess: (res, variables) => {
       queryClient.setQueryData<CoachEvent[]>(['events'], (prev = []) => [
         ...prev,
@@ -29,7 +29,7 @@ export function useEvents() {
 
   const updateEventMutation = useMutation({
     mutationFn: ({ id, event }: { id: string; event: CoachEvent }) =>
-      coachingApi.updateEvent<{ ok: boolean }>(id, event),
+      coachingApi.updateEvent(id, event),
     onSuccess: (_, { id, event }) => {
       queryClient.setQueryData<CoachEvent[]>(['events'], (prev = []) =>
         prev.map((e) => (e.id === id ? { ...event, id } : e)),
@@ -39,7 +39,7 @@ export function useEvents() {
   })
 
   const deleteEventMutation = useMutation({
-    mutationFn: (id: string) => coachingApi.deleteEvent<{ ok: boolean }>(id),
+    mutationFn: (id: string) => coachingApi.deleteEvent(id),
     onSuccess: (_, id) => {
       queryClient.setQueryData<CoachEvent[]>(['events'], (prev = []) =>
         prev.filter((e) => e.id !== id),

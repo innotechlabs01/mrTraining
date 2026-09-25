@@ -1,66 +1,85 @@
-/**
- * Schedule DB functions — Turso/LibSQL
- *
- * Maps to the appointments table (schedule_events concept).
- */
-import { getDB, generateId, mapRow, safeExecute } from './db'
+import { getDB, generateId, safeExecute } from './db'
+import type { Row } from '@libsql/client'
 
-/** Get all schedule events for a coach. */
-export async function getScheduleEvents(coachId: string) {
-  const db = getDB()
-  const result = await db.execute(
-    `SELECT * FROM appointments WHERE coach_id = ? ORDER BY date, start_time`,
-    [coachId],
-  )
-  return result.rows.map(mapRow(result.columns)).map((row: Record<string, unknown>) => ({
-    id: row.id,
-    workoutId: row.workoutId || '',
-    workoutName: row.notes || 'Session',
-    athleteIds: row.athleteId ? [row.athleteId] : [],
-    athleteNames: row.athleteName ? [row.athleteName] : [],
-    date: row.date,
-    startTime: row.startTime,
-    endTime: row.endTime,
-    status: row.status,
-    coachNotes: row.notes || '',
-    createdAt: row.createdAt || row.date,
-  }))
-}
-
-/** Create a new schedule event. */
-export async function createScheduleEvent(coachId: string, data: {
-  workoutId: string
-  workoutName: string
-  athleteIds: string[]
-  athleteNames: string[]
+export interface ScheduleEvent {
+  id: string
+  coachId: string
+  title: string
+  description: string | null
   date: string
   startTime: string
   endTime: string
-  coachNotes?: string
-}) {
+  type: string
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export async function getScheduleEvents(coachId: string): Promise<ScheduleEvent[]> {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM schedule_events WHERE coach_id = ? ORDER BY date, start_time',
+    [coachId]
+  )
+  return result.rows.map((r: Row) => ({
+    id: r.id as string,
+    coachId: r.coach_id as string,
+    title: r.title as string,
+    description: r.description as string | null,
+    date: r.date as string,
+    startTime: r.start_time as string,
+    endTime: r.end_time as string,
+    type: r.type as string,
+    status: r.status as string,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
+  }))
+}
+
+export async function createScheduleEvent(coachId: string, data: {
+  title: string
+  description?: string
+  date: string
+  startTime: string
+  endTime: string
+  type: string
+}): Promise<ScheduleEvent> {
   const db = getDB()
   const id = generateId()
+  const now = new Date().toISOString()
+
   await safeExecute(
     db,
-    `INSERT INTO appointments (id, coach_id, athlete_id, athlete_name, date, start_time, end_time, status, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?)`,
-    [id, coachId, data.athleteIds[0] || '', data.athleteNames[0] || '', data.date, data.startTime, data.endTime, data.coachNotes || ''],
+    `INSERT INTO schedule_events (id, coach_id, title, description, date, start_time, end_time, type, status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, coachId, data.title, data.description || null, data.date, data.startTime, data.endTime, data.type, 'scheduled', now, now]
   )
-  return { id, ...data, status: 'draft' }
+
+  return {
+    id,
+    coachId,
+    title: data.title,
+    description: data.description || null,
+    date: data.date,
+    startTime: data.startTime,
+    endTime: data.endTime,
+    type: data.type,
+    status: 'scheduled',
+    createdAt: now,
+    updatedAt: now,
+  }
 }
 
-/** Update schedule event status. */
-export async function updateScheduleEventStatus(id: string, status: string) {
+export async function updateScheduleEventStatus(id: string, status: string): Promise<void> {
   const db = getDB()
   await safeExecute(
     db,
-    'UPDATE appointments SET status = ? WHERE id = ?',
-    [status, id],
+    'UPDATE schedule_events SET status = ?, updated_at = ? WHERE id = ?',
+    [status, new Date().toISOString(), id]
   )
 }
 
-/** Delete a schedule event. */
-export async function deleteScheduleEvent(id: string) {
+export async function deleteScheduleEvent(id: string): Promise<void> {
   const db = getDB()
-  await safeExecute(db, 'DELETE FROM appointments WHERE id = ?', [id])
+  await db.execute('DELETE FROM schedule_events WHERE id = ?', [id])
 }

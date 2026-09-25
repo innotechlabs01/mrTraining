@@ -62,7 +62,7 @@ func (h *BlogHandler) GetArticle(c *fiber.Ctx) error {
 
 // ListCoachArticles handles GET /coach/blog (drafts included).
 func (h *BlogHandler) ListCoachArticles(c *fiber.Ctx) error {
-	coachID := c.Locals("userID").(string)
+	coachID := c.Locals("user_id").(string)
 	articles, err := h.service.ListByCoach(c.Context(), coachID)
 	if err != nil {
 		return h.handleError(c, err)
@@ -77,7 +77,7 @@ func (h *BlogHandler) ListCoachArticles(c *fiber.Ctx) error {
 
 // CreateArticle handles POST /blog.
 func (h *BlogHandler) CreateArticle(c *fiber.Ctx) error {
-	coachID := c.Locals("userID").(string)
+	coachID := c.Locals("user_id").(string)
 
 	var req dto.ArticleRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -107,7 +107,7 @@ func (h *BlogHandler) CreateArticle(c *fiber.Ctx) error {
 
 // UpdateArticle handles PUT /blog/:id.
 func (h *BlogHandler) UpdateArticle(c *fiber.Ctx) error {
-	coachID := c.Locals("userID").(string)
+	coachID := c.Locals("user_id").(string)
 	id := c.Params("id")
 	if id == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "article ID is required")
@@ -142,7 +142,7 @@ func (h *BlogHandler) UpdateArticle(c *fiber.Ctx) error {
 
 // DeleteArticle handles DELETE /blog/:id.
 func (h *BlogHandler) DeleteArticle(c *fiber.Ctx) error {
-	coachID := c.Locals("userID").(string)
+	coachID := c.Locals("user_id").(string)
 	id := c.Params("id")
 	if id == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "article ID is required")

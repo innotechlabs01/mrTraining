@@ -62,16 +62,23 @@ export function TrackedVideoPlayer({ videoUrl, exerciseId, athleteId }: Props) {
 
   const handlePlay = useCallback(async () => {
     if (!videoRef.current) return;
+    setStatus('loading');
     try {
-      // Start view tracking session.
-      const res = await recordView({ exerciseID: exerciseId, athleteID: athleteId, action: 'start' }).catch(() => null);
+      // Start view tracking and playback in parallel — analytics never blocks video.
+      const playPromise = videoRef.current.playAsync();
+      const viewPromise = recordView({ exerciseID: exerciseId, athleteID: athleteId, action: 'start' })
+        .catch(() => null);
+
+      const [, res] = await Promise.all([playPromise, viewPromise]);
       viewIdRef.current = res?.viewId ?? null;
       reportedMarks.current.clear();
-      await videoRef.current.playAsync();
       setPlaying(true);
+      setStatus('playing');
     } catch {
       // Fallback: play without tracking.
       await videoRef.current?.playAsync().catch(() => {});
+      setPlaying(true);
+      setStatus('playing');
     }
   }, [exerciseId, athleteId]);
 
@@ -92,6 +99,11 @@ export function TrackedVideoPlayer({ videoUrl, exerciseId, athleteId }: Props) {
     }
   }, [track]);
 
+  const handleRetry = useCallback(() => {
+    setStatus('idle');
+    setPlaying(false);
+  }, []);
+
   return (
     <View style={styles.container}>
       <Video
@@ -100,10 +112,25 @@ export function TrackedVideoPlayer({ videoUrl, exerciseId, athleteId }: Props) {
         style={styles.video}
         resizeMode={ResizeMode.CONTAIN}
         onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+        onLoad={() => setStatus((prev) => (prev === 'loading' ? 'idle' : prev))}
+        onError={() => setStatus('error')}
         shouldPlay={false}
         useNativeControls
       />
-      {!playing && (
+      {status === 'error' && (
+        <View style={styles.playOverlay}>
+          <Text style={styles.errorText}>No se pudo cargar el video</Text>
+          <Pressable style={styles.retryButton} onPress={handleRetry}>
+            <Text style={styles.retryText}>Reintentar</Text>
+          </Pressable>
+        </View>
+      )}
+      {status === 'loading' && (
+        <View style={styles.playOverlay}>
+          <Text style={styles.playLabel}>Cargando...</Text>
+        </View>
+      )}
+      {!playing && status !== 'loading' && status !== 'error' && (
         <Pressable style={styles.playOverlay} onPress={handlePlay}>
           <View style={styles.playButton}>
             <PlayIcon size={28} color="#fff" />
@@ -130,4 +157,12 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   playLabel: { ...typography.body, color: '#fff', marginTop: spacing.sm },
+  errorText: { ...typography.body, color: '#fff', marginBottom: spacing.sm, textAlign: 'center' },
+  retryButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+  },
+  retryText: { ...typography.body, color: '#fff', fontWeight: '600' },
 });

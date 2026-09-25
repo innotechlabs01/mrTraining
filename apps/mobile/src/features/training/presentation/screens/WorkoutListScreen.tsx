@@ -139,7 +139,13 @@ export function WorkoutListScreen() {
             const ModalityIcon = MODALITY_ICONS[item.modality?.toLowerCase()] ?? DumbbellIcon;
             const progressPct = Math.round((item.progress ?? 0) * 100);
             return (
-              <View key={item.id} style={styles.card}>
+              <Pressable
+                key={item.id}
+                style={({ pressed }) => [styles.card, pressed && { opacity: 0.7 }]}
+                onPress={() =>
+                  navigation.navigate('WorkoutDetail', { workoutId: item.id })
+                }
+              >
                 <View style={styles.cardLeft}>
                   <Text style={styles.cardTitle} numberOfLines={1}>
                     {item.contentName}
@@ -162,7 +168,7 @@ export function WorkoutListScreen() {
                     <StarIcon size={10} color={colors.primary} />
                   </View>
                 </View>
-              </View>
+              </Pressable>
             );
           })
         )}

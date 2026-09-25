@@ -35,6 +35,14 @@ func (m *mockExerciseRepository) Create(ctx context.Context, exercise *training.
 	return m.createErr
 }
 
+func (m *mockExerciseRepository) Update(ctx context.Context, exercise *training.ExerciseEntry) error {
+	return nil
+}
+
+func (m *mockExerciseRepository) Delete(ctx context.Context, id string) error {
+	return nil
+}
+
 // mockWorkoutRepository is a test double for training.WorkoutRepository.
 type mockWorkoutRepository struct {
 	templates    []*training.WorkoutTemplate
@@ -170,7 +178,7 @@ func (m *mockTrainingSessionRepository) Create(ctx context.Context, session *tra
 	return nil
 }
 
-func (m *mockTrainingSessionRepository) List(ctx context.Context, coachID, athleteID string) ([]*training.TrainingSession, error) {
+func (m *mockTrainingSessionRepository) ListByAthlete(ctx context.Context, athleteID, from string, limit int) ([]*training.TrainingSession, error) {
 	return m.sessions, nil
 }
 

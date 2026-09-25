@@ -10,6 +10,7 @@ import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { TrackedVideoPlayer } from '../components/TrackedVideoPlayer';
 import { RunningRouteView } from '../components/RunningRouteView';
+import { extractSessionId } from '../../application/sessionStart';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 
 type Exercise = {
@@ -104,7 +105,8 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
   const startSessionMutation = useMutation({
     mutationFn: async () => {
       const { data } = await apiClient.post(`/athlete/workouts/${workoutId}/session`);
-      return data.session as { id: string };
+      const sessionId = extractSessionId(data);
+      return { id: sessionId };
     },
     onSuccess: (session) => {
       navigation.navigate('WorkoutExecution', { sessionId: session.id, workoutId });

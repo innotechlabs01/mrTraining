@@ -205,6 +205,95 @@ func (h *EventHandler) GetMyRegistrations(c *fiber.Ctx) error {
 	})
 }
 
+// GetAthleteEvent handles GET /athletes/events/:id.
+// Returns the event detail the mobile screen needs: the event, its list/form
+// data, running info, and the authenticated athlete's registration + responses.
+func (h *EventHandler) GetAthleteEvent(c *fiber.Ctx) error {
+	eventID := c.Params("id")
+	athleteID := middleware.GetUserID(c)
+
+	detail, err := h.service.GetAthleteEventDetail(c.Context(), eventID, athleteID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	e := detail.Event
+	resp := fiber.Map{
+		"event": fiber.Map{
+			"id":          e.ID,
+			"title":       e.Title,
+			"date":        e.Date,
+			"time":        e.Time,
+			"end_time":    e.EndTime,
+			"type":        e.Type,
+			"modality":    e.Modality,
+			"location":    e.Location,
+			"description": e.Description,
+			"status":      e.Status,
+		},
+		"list_items": e.ListItems,
+		"running":    nil,
+	}
+
+	if e.RunningDistanceKm != nil || e.RunningPace != "" || e.RunningMeetingPoint != "" {
+		resp["running"] = fiber.Map{
+			"distance_km":   e.RunningDistanceKm,
+			"pace":          e.RunningPace,
+			"meeting_point": e.RunningMeetingPoint,
+		}
+	}
+
+	formFields := make([]fiber.Map, 0, len(e.FormFields))
+	for _, f := range e.FormFields {
+		formFields = append(formFields, fiber.Map{
+			"id":       f.ID,
+			"label":    f.Label,
+			"kind":     f.Kind,
+			"options":  f.Options,
+			"required": f.Required,
+		})
+	}
+	resp["form_fields"] = formFields
+
+	if detail.Registration != nil {
+		resp["registration"] = toRegistrationResponse(detail.Registration)
+	}
+
+	responses := make([]fiber.Map, 0, len(detail.Responses))
+	for _, r := range detail.Responses {
+		responses = append(responses, fiber.Map{
+			"id":       r.ID,
+			"field_id": r.FieldID,
+			"value":    r.Value,
+		})
+	}
+	resp["responses"] = responses
+
+	return appresponse.Success(c, resp)
+}
+
+// RespondToEvent handles POST /athletes/events/:id/respond.
+// Accepts {status, answers} and returns the resulting registration.
+func (h *EventHandler) RespondToEvent(c *fiber.Ctx) error {
+	eventID := c.Params("id")
+	athleteID := middleware.GetUserID(c)
+
+	var body struct {
+		Status  string                 `json:"status"`
+		Answers []eventapp.AnswerInput `json:"answers"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	reg, err := h.service.RespondToEvent(c.Context(), eventID, athleteID, body.Status, body.Answers)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, fiber.Map{"registration": toRegistrationResponse(reg)})
+}
+
 // handleValidationError converts validation errors into a 422 response.
 func (h *EventHandler) handleValidationError(c *fiber.Ctx, validationErrs []string) error {
 	return appresponse.Error(c, fiber.StatusUnprocessableEntity, strings.Join(validationErrs, "; "))

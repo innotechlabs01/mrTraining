@@ -30,25 +30,34 @@ type CreateEventRequest struct {
 	FormFields []CreateFormFieldRequest `json:"form_fields,omitempty"`
 	// ListItems defines checklist items for the event.
 	ListItems []string `json:"list_items,omitempty"`
+	// RunningDistanceKm is the distance for running-format events.
+	RunningDistanceKm *float64 `json:"running_distance_km,omitempty"`
+	// RunningPace is the target pace for running-format events.
+	RunningPace string `json:"running_pace,omitempty"`
+	// RunningMeetingPoint is the meeting point for running-format events.
+	RunningMeetingPoint string `json:"running_meeting_point,omitempty"`
 }
 
 // UpdateEventRequest is the payload for updating an event.
 // Empty/zero values are ignored (partial update).
 type UpdateEventRequest struct {
-	Title       string                  `json:"title,omitempty"`
-	Date        string                  `json:"date,omitempty"`
-	Time        string                  `json:"time,omitempty"`
-	EndTime     string                  `json:"end_time,omitempty"`
-	Type        string                  `json:"type,omitempty"`
-	Modality    string                  `json:"modality,omitempty"`
-	Location    string                  `json:"location,omitempty"`
-	Description string                  `json:"description,omitempty"`
-	Status      string                  `json:"status,omitempty"`
-	Format      string                  `json:"format,omitempty"`
-	IsPublic    bool                    `json:"is_public"`
-	AthleteIDs  []string                `json:"athlete_ids,omitempty"`
-	FormFields  []CreateFormFieldRequest `json:"form_fields,omitempty"`
-	ListItems   []string                `json:"list_items,omitempty"`
+	Title               string                  `json:"title,omitempty"`
+	Date                string                  `json:"date,omitempty"`
+	Time                string                  `json:"time,omitempty"`
+	EndTime             string                  `json:"end_time,omitempty"`
+	Type                string                  `json:"type,omitempty"`
+	Modality            string                  `json:"modality,omitempty"`
+	Location            string                  `json:"location,omitempty"`
+	Description         string                  `json:"description,omitempty"`
+	Status              string                  `json:"status,omitempty"`
+	Format              string                  `json:"format,omitempty"`
+	IsPublic            bool                    `json:"is_public"`
+	AthleteIDs          []string                `json:"athlete_ids,omitempty"`
+	FormFields          []CreateFormFieldRequest `json:"form_fields,omitempty"`
+	ListItems           []string                `json:"list_items,omitempty"`
+	RunningDistanceKm   *float64                `json:"running_distance_km,omitempty"`
+	RunningPace         string                  `json:"running_pace,omitempty"`
+	RunningMeetingPoint string                  `json:"running_meeting_point,omitempty"`
 }
 
 // CreateFormFieldRequest defines a custom form field for an event.

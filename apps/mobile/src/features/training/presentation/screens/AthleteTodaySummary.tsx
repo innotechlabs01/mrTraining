@@ -1,20 +1,21 @@
 /**
- * Athlete Today Summary — personalized dashboard for the athlete's landing screen.
+ * Athlete Today Summary — readiness hero for the athlete's landing screen.
  *
- * Shows real data from their wearable + training history:
+ * Shows real data from wearable + training history:
  *   - Real readiness (from health metrics, not mock)
  *   - PRs from their training history
- *   - Video assignment status
  *   - Recommendation based on fatigue + recovery
+ *   - Activity rings + streak pill
  */
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, spacing, radius, typography } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { Badge } from '../../../../shared/components/ui/Badge';
 import { InfoIcon } from '../../../../shared/components/icons';
+import { ActivityRings } from '../../../../shared/components/fitness/ActivityRings';
+import { StreakBadge } from '../../../../shared/components/gamification/StreakBadge';
 
 type HealthMetric = { metricType: string; value: number; unit: string; source: string; recordedAt: string };
 type SleepLog = { date: string; totalMinutes: number; deepMinutes?: number; remMinutes?: number };
@@ -25,8 +26,14 @@ type HealthData = {
   manualReadiness: HealthMetric[];
 };
 
-type TrainingData = {
-  recentSessions: Array<{ date: string; workoutName: string }>;
+type Props = {
+  athleteId: string;
+  /** Activity rings: move / exercise / recovery, each 0-1. */
+  move: number;
+  exercise: number;
+  recovery: number;
+  streak?: number;
+  streakInactive?: boolean;
 };
 
 function latestVsBaseline(rows: HealthMetric[]): { latest: number; deltaPct: number | null } | null {
@@ -58,20 +65,18 @@ function DeltaBadge({ delta }: { delta: number | null }) {
 }
 
 /**
- * Personalized today summary for the athlete. Fetches real health + training data
- * and shows readiness, trends, and a recommendation.
+ * Readiness hero for Today. Fetches real health + training data and renders
+ * a scoreboard: big numeral, activity rings, mini trends, coach recommendation.
  */
-export function AthleteTodaySummary({ athleteId }: { athleteId: string }) {
+export function AthleteTodaySummary({ athleteId, move, exercise, recovery, streak, streakInactive = false }: Props) {
   const [health, setHealth] = useState<HealthData | null>(null);
-  const [training, setTraining] = useState<TrainingData | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
       apiClient.get('/athlete/health/metrics?days=8').then(r => r.data).catch(() => null),
       apiClient.get('/athlete/health/sleep?days=8').then(r => r.data).catch(() => null),
-      apiClient.get('/athlete/today').then(r => r.data).catch(() => null),
-    ]).then(([metricsRes, sleepRes, todayRes]) => {
+    ]).then(([metricsRes, sleepRes]) => {
       if (cancelled) return;
       const allMetrics: HealthMetric[] = metricsRes?.metrics ?? [];
       setHealth({
@@ -80,26 +85,45 @@ export function AthleteTodaySummary({ athleteId }: { athleteId: string }) {
         sleepLogs: sleepRes?.sleepLogs ?? [],
         manualReadiness: allMetrics.filter(m => m.metricType === 'manual_readiness'),
       });
-      setTraining({
-        recentSessions: todayRes?.todaySessions ?? [],
-      });
     });
     return () => { cancelled = true; };
   }, [athleteId]);
 
-  if (!health) return null;
+  // Fallback skeleton while health data loads — the hero must never disappear.
+  if (!health) {
+    return (
+      <Card style={styles.container}>
+        <View style={styles.topRow}>
+          <Text style={styles.overline}>Readiness · Tu estado</Text>
+          {typeof streak === 'number' && <StreakBadge count={streak} inactive={streakInactive} />}
+        </View>
+        <View style={styles.heroRow}>
+          <View style={styles.scoreCol}>
+            <View style={styles.scoreRow}>
+              <Text style={styles.score}>—</Text>
+              <Text style={styles.scoreUnit}>/100</Text>
+              <Badge text="Cargando" tone="neutral" />
+            </View>
+            <Text style={styles.scoreHint}>Recuperación de hoy</Text>
+          </View>
+          <ActivityRings move={move} exercise={exercise} recovery={recovery} size={120} />
+        </View>
+      </Card>
+    );
+  }
 
   const hrvStat = latestVsBaseline(health.hrv);
   const rhrStat = latestVsBaseline(health.restingHr);
-  const lastNight = health.sleepLogs.sort((a, b) => b.date.localeCompare(a.date))[0];
+  const lastNight = [...health.sleepLogs].sort((a, b) => b.date.localeCompare(a.date))[0];
   const sleepHrs = lastNight ? (lastNight.totalMinutes / 60).toFixed(1) : null;
 
-  // Compute readiness from real data
+  // Compute readiness from real data (sleep + HRV baseline)
   let readinessScore: number | null = null;
   if (hrvStat && lastNight) {
     const sleepScore = Math.min(100, (lastNight.totalMinutes / 480) * 100);
-    const hrvScore = Math.min(100, (hrvStat.latest / Math.max(hrvStat.latest / (1 + (hrvStat.deltaPct ?? 0) / 100), 1)) * 50);
-    readinessScore = Math.round(0.5 * sleepScore + 0.5 * hrvScore);
+    // Baseline 50 + 2.5pts per HRV % vs 7-day baseline, clamped 0-100.
+    const hrvScore = Math.min(100, Math.max(0, 50 + (hrvStat.deltaPct ?? 0) * 2.5));
+    readinessScore = Math.round(0.55 * sleepScore + 0.45 * hrvScore);
   }
 
   // Recommendation
@@ -116,24 +140,37 @@ export function AthleteTodaySummary({ athleteId }: { athleteId: string }) {
     recommendation = 'Dormiste menos de 7 horas — cuidado con la carga';
   }
 
+  const readinessTone = readinessScore == null ? 'neutral' as const
+    : readinessScore >= 80 ? 'success' as const
+    : readinessScore >= 60 ? 'warning' as const
+    : 'error' as const;
+  const readinessLabel = readinessScore == null ? '—'
+    : readinessScore >= 80 ? 'Listo'
+    : readinessScore >= 60 ? 'Moderado'
+    : 'Descansar';
+
   return (
     <Card style={styles.container}>
-      {/* Readiness */}
-      {readinessScore != null && (
-        <View style={styles.readinessRow}>
-          <View style={[styles.scoreDot, { backgroundColor: readinessScore >= 80 ? colors.success : readinessScore >= 60 ? colors.warning : colors.error }]} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.readinessLabel}>Tu readiness hoy</Text>
-            <Text style={styles.readinessValue}>{readinessScore}/100</Text>
-          </View>
-          <Badge
-            text={readinessScore >= 80 ? 'Listo' : readinessScore >= 60 ? 'Moderado' : 'Descansar'}
-            tone={readinessScore >= 80 ? 'success' : readinessScore >= 60 ? 'warning' : 'error'}
-          />
-        </View>
-      )}
+      {/* Top row: overline + streak */}
+      <View style={styles.topRow}>
+        <Text style={styles.overline}>Readiness · Tu estado</Text>
+        {typeof streak === 'number' && <StreakBadge count={streak} inactive={streakInactive} />}
+      </View>
 
-      {/* Trends */}
+      {/* Scoreboard: big numeral + rings */}
+      <View style={styles.heroRow}>
+        <View style={styles.scoreCol}>
+          <View style={styles.scoreRow}>
+            <Text style={styles.score}>{readinessScore ?? '—'}</Text>
+            <Text style={styles.scoreUnit}>/100</Text>
+            <Badge text={readinessLabel} tone={readinessTone} />
+          </View>
+          <Text style={styles.scoreHint}>Recuperación de hoy</Text>
+        </View>
+        <ActivityRings move={move} exercise={exercise} recovery={recovery} size={120} />
+      </View>
+
+      {/* Mini trends */}
       <View style={styles.trendsRow}>
         {hrvStat && (
           <View style={styles.trendItem}>
@@ -156,7 +193,9 @@ export function AthleteTodaySummary({ athleteId }: { athleteId: string }) {
         {sleepHrs && (
           <View style={styles.trendItem}>
             <Text style={styles.trendLabel}>Sueño</Text>
-            <Text style={styles.trendValue}>{sleepHrs}h</Text>
+            <View style={styles.trendValueRow}>
+              <Text style={styles.trendValue}>{sleepHrs}h</Text>
+            </View>
           </View>
         )}
       </View>
@@ -173,11 +212,15 @@ export function AthleteTodaySummary({ athleteId }: { athleteId: string }) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.md, gap: spacing.md, marginBottom: spacing.md },
-  readinessRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  scoreDot: { width: 10, height: 10, borderRadius: 5 },
-  readinessLabel: { ...typography.caption, color: colors.textSecondary },
-  readinessValue: { ...typography.bodyStrong, color: colors.text, fontSize: 18 },
+  container: { padding: spacing.lg, gap: spacing.md },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  overline: { ...typography.overline, color: colors.textSecondary },
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
+  scoreCol: { flex: 1, gap: spacing.xs },
+  scoreRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: spacing.xs },
+  score: { ...typography.metricXL, color: colors.text },
+  scoreUnit: { ...typography.bodySmall, color: colors.textSecondary },
+  scoreHint: { ...typography.caption, color: colors.textSecondary },
   trendsRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.xs },
   trendItem: { flex: 1 },
   trendLabel: { ...typography.caption, color: colors.textSecondary, fontSize: 10, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
@@ -186,12 +229,11 @@ const styles = StyleSheet.create({
   delta: { fontSize: 11, fontWeight: '600' },
   recommendation: {
     backgroundColor: `${colors.primary}14`,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     padding: spacing.sm,
-    marginTop: spacing.md,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.sm,
   },
-  recommendationText: { ...typography.caption, color: colors.primary, lineHeight: 18 },
+  recommendationText: { ...typography.caption, color: colors.primary, lineHeight: 18, flex: 1 },
 });

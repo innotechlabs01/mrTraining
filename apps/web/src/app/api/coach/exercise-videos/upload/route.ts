@@ -54,9 +54,9 @@ export async function POST(req: NextRequest) {
       exerciseId,
       coachId: userId,
       title,
-      description: description || undefined,
+      description: description || null,
       videoUrl: blob.url,
-      durationSec: undefined,
+      durationSec: null,
       fileSizeBytes: file.size,
     })
 

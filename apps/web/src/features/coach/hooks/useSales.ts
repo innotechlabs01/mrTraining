@@ -11,7 +11,7 @@ export function useSales() {
 
   const loadSales = useCallback(() => {
     setIsLoading(true)
-    coachingApi.getSales<Sale[]>()
+    coachingApi.getSales()
       .then(data => setSales(data))
       .catch(() => {})
       .finally(() => { setIsLoading(false); setHydrated(true) })
@@ -32,7 +32,7 @@ export function useSales() {
     const total = data.quantity * data.unitPrice
     const createdAt = new Date().toISOString()
     const date = createdAt.split('T')[0]
-    const res = await coachingApi.saveSale<{ id: string }>({ ...data, total, date, createdAt })
+    const res = await coachingApi.saveSale({ ...data, total, date })
     setSales(prev => [
       { ...data, id: res.id, total, date, createdAt },
       ...prev,
