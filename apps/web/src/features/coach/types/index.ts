@@ -404,13 +404,29 @@ export type ChallengeStatus = 'draft' | 'active' | 'completed' | 'expired'
 export type ScoringType = 'form_score' | 'total_volume' | 'consistency'
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced'
 
+export interface ChallengeExercise {
+  id: string
+  challengeId: string
+  exerciseType: string
+  title?: string
+  description?: string
+  videoUrl?: string
+  orderIndex: number
+  targetSets?: number
+  targetReps?: number
+  targetWeightKg?: number
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Challenge {
   id: string
   coachId: string
   title: string
   description?: string
-  exerciseType: string
+  exerciseType: string // legacy single exercise (deprecated, use Exercises)
   videoUrl?: string
+  exercises?: ChallengeExercise[] // new: multiple exercises
   durationMinutes: number
   calories: number
   targetSets?: number

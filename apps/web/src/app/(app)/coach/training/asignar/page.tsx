@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Search, Check, Dumbbell, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAthletes } from '@/features/coach/hooks/useAthletes'
-import { useAuth } from '@/features/auth/contexts/MockAuthContext'
+import { useUser } from '@clerk/nextjs'
 import {
   workoutApi,
   templateApi,
@@ -15,7 +15,7 @@ import type { TrainingMode } from '@/features/coach/types'
 
 type AssignType = 'workout' | 'program'
 
-const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+const DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const DAY_INDEX = [1, 2, 3, 4, 5, 6, 0]
 
 const MODALITIES: { label: string; value: TrainingMode }[] = [
@@ -32,7 +32,7 @@ type ContentSource =
 
 export default function CoachAsignarPage() {
   const { athletes } = useAthletes()
-  const { user } = useAuth()
+  const { user } = useUser()
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>([])
   const [assignType, setAssignType] = useState<AssignType>('workout')
   const [selectedContent, setSelectedContent] = useState('')

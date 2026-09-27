@@ -2,29 +2,46 @@ package challenge
 
 import "time"
 
-// Challenge represents a coach-created video challenge.
-type Challenge struct {
-	ID              string    `json:"id"`
-	CoachID         string    `json:"coach_id"`
-	Title           string    `json:"title"`
-	Description     string    `json:"description,omitempty"`
-	ExerciseType    string    `json:"exercise_type"`
-	VideoURL        string    `json:"video_url,omitempty"`
-	DurationMinutes int       `json:"duration_minutes"`
-	Calories        int       `json:"calories"`
-	TargetSets      int       `json:"target_sets,omitempty"`
-	TargetReps      int       `json:"target_reps,omitempty"`
-	ScoringType     string    `json:"scoring_type"`     // form_score | total_volume | consistency
-	DifficultyLevel string    `json:"difficulty_level"` // beginner | intermediate | advanced
-	MaxAttempts     int       `json:"max_attempts"`
-	Status          string    `json:"status"` // draft | active | completed | expired
-	StartDate       string    `json:"start_date,omitempty"`
-	EndDate         string    `json:"end_date,omitempty"`
-	ExpiresAt       string    `json:"expires_at,omitempty"`
-	DaysLeft        int       `json:"days_left"`  // calculated
-	IsUrgent        bool      `json:"is_urgent"`  // last day
+// ChallengeExercise represents a single exercise within a challenge.
+type ChallengeExercise struct {
+	ID              string  `json:"id"`
+	ChallengeID     string  `json:"challenge_id"`
+	ExerciseType    string  `json:"exercise_type"`    // sentadilla, deadlift, bench, etc.
+	Title           string  `json:"title,omitempty"`  // optional display name
+	Description     string  `json:"description,omitempty"`
+	VideoURL        string  `json:"video_url,omitempty"`
+	OrderIndex      int     `json:"order_index"`
+	TargetSets      int     `json:"target_sets,omitempty"`
+	TargetReps      int     `json:"target_reps,omitempty"`
+	TargetWeightKg  float64 `json:"target_weight_kg,omitempty"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+// Challenge represents a coach-created video challenge.
+type Challenge struct {
+	ID              string             `json:"id"`
+	CoachID         string             `json:"coach_id"`
+	Title           string             `json:"title"`
+	Description     string             `json:"description,omitempty"`
+	ExerciseType    string             `json:"exercise_type"` // legacy single exercise (deprecated, use Exercises)
+	VideoURL        string             `json:"video_url,omitempty"`
+	Exercises       []ChallengeExercise `json:"exercises,omitempty"` // new: multiple exercises
+	DurationMinutes int                `json:"duration_minutes"`
+	Calories        int                `json:"calories"`
+	TargetSets      int                `json:"target_sets,omitempty"`
+	TargetReps      int                `json:"target_reps,omitempty"`
+	ScoringType     string             `json:"scoring_type"`     // form_score | total_volume | consistency
+	DifficultyLevel string             `json:"difficulty_level"` // beginner | intermediate | advanced
+	MaxAttempts     int                `json:"max_attempts"`
+	Status          string             `json:"status"` // draft | active | completed | expired
+	StartDate       string             `json:"start_date,omitempty"`
+	EndDate         string             `json:"end_date,omitempty"`
+	ExpiresAt       string             `json:"expires_at,omitempty"`
+	DaysLeft        int                `json:"days_left"`  // calculated
+	IsUrgent        bool               `json:"is_urgent"`  // last day
+	CreatedAt       time.Time          `json:"created_at"`
+	UpdatedAt       time.Time          `json:"updated_at"`
 }
 
 // ChallengeAttempt represents an athlete's attempt at a challenge.
@@ -97,6 +114,13 @@ type Repository interface {
 	Update(ch *Challenge) error
 	Delete(id string) error
 	HasAttempts(challengeID string) (bool, error)
+
+	// Challenge Exercises
+	GetExercisesByChallenge(challengeID string) ([]*ChallengeExercise, error)
+	CreateExercise(ex *ChallengeExercise) error
+	UpdateExercise(ex *ChallengeExercise) error
+	DeleteExercise(id string) error
+	DeleteExercisesByChallenge(challengeID string) error
 
 	// Attempts
 	CreateAttempt(a *ChallengeAttempt) error

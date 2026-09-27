@@ -1,10 +1,24 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { Challenge, ChallengeLeaderboardEntry } from '../types'
+import type { Challenge, ChallengeLeaderboardEntry, ChallengeExercise } from '../types'
 import { goClient } from '@/lib/api/go-client'
 
-// Go API response shapes (snake_case).
+type GoChallengeExercise = {
+  id: string
+  challenge_id: string
+  exercise_type: string
+  title?: string
+  description?: string
+  video_url?: string
+  order_index: number
+  target_sets?: number
+  target_reps?: number
+  target_weight_kg?: number
+  created_at: string
+  updated_at: string
+}
+
 type GoChallenge = {
   id: string
   coach_id: string
@@ -12,6 +26,7 @@ type GoChallenge = {
   description?: string
   exercise_type: string
   video_url?: string
+  exercises?: GoChallengeExercise[]
   duration_minutes: number
   calories: number
   target_sets?: number
@@ -48,6 +63,7 @@ function mapChallenge(c: GoChallenge): Challenge {
     description: c.description,
     exerciseType: c.exercise_type,
     videoUrl: c.video_url,
+    exercises: c.exercises?.map(mapExercise),
     durationMinutes: c.duration_minutes,
     calories: c.calories,
     targetSets: c.target_sets,
@@ -63,6 +79,23 @@ function mapChallenge(c: GoChallenge): Challenge {
     isUrgent: c.is_urgent,
     createdAt: c.created_at,
     updatedAt: c.updated_at,
+  }
+}
+
+function mapExercise(e: GoChallengeExercise): ChallengeExercise {
+  return {
+    id: e.id,
+    challengeId: e.challenge_id,
+    exerciseType: e.exercise_type,
+    title: e.title,
+    description: e.description,
+    videoUrl: e.video_url,
+    orderIndex: e.order_index,
+    targetSets: e.target_sets,
+    targetReps: e.target_reps,
+    targetWeightKg: e.target_weight_kg,
+    createdAt: e.created_at,
+    updatedAt: e.updated_at,
   }
 }
 
@@ -96,6 +129,7 @@ export function useChallenges() {
     description?: string
     exerciseType: string
     videoUrl?: string
+    exercises?: Partial<Pick<ChallengeExercise, 'exerciseType' | 'title' | 'description' | 'videoUrl' | 'targetSets' | 'targetReps' | 'targetWeightKg'>>[]
     durationMinutes: number
     calories: number
     targetSets?: number
@@ -110,6 +144,7 @@ export function useChallenges() {
       description: input.description,
       exercise_type: input.exerciseType,
       video_url: input.videoUrl,
+      exercises: input.exercises,
       duration_minutes: input.durationMinutes,
       calories: input.calories,
       target_sets: input.targetSets,
@@ -130,6 +165,7 @@ export function useChallenges() {
         description: patch.description,
         exercise_type: patch.exerciseType,
         video_url: patch.videoUrl,
+        exercises: patch.exercises,
         duration_minutes: patch.durationMinutes,
         calories: patch.calories,
         target_sets: patch.targetSets,

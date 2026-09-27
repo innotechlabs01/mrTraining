@@ -21,7 +21,21 @@ func NewService(repo domain.Repository) *Service {
 
 // GetChallenge returns a challenge by ID.
 func (s *Service) GetChallenge(id string) (*domain.Challenge, error) {
-	return s.repo.GetByID(id)
+	ch, err := s.repo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+	// Load exercises
+	exercises, err := s.repo.GetExercisesByChallenge(id)
+	if err != nil {
+		return nil, err
+	}
+	// Convert []*ChallengeExercise to []ChallengeExercise
+	ch.Exercises = make([]domain.ChallengeExercise, len(exercises))
+	for i, ex := range exercises {
+		ch.Exercises[i] = *ex
+	}
+	return ch, nil
 }
 
 // ListByCoach returns all challenges created by a coach.
@@ -54,8 +68,8 @@ func (s *Service) CreateChallenge(ch *domain.Challenge) error {
 	if ch.Title == "" {
 		return errors.New("title is required")
 	}
-	if ch.ExerciseType == "" {
-		return errors.New("exercise_type is required")
+	if ch.ExerciseType == "" && len(ch.Exercises) == 0 {
+		return errors.New("exercise_type or exercises is required")
 	}
 	if ch.EndDate == "" {
 		return errors.New("end_date is required")
@@ -69,7 +83,22 @@ func (s *Service) CreateChallenge(ch *domain.Challenge) error {
 	}
 	ch.EndDate = end.Format("2006-01-02")
 	ch.ExpiresAt = end.Format("2006-01-02") + "T23:59:59Z"
-	return s.repo.Create(ch)
+
+	// Create challenge first
+	if err := s.repo.Create(ch); err != nil {
+		return err
+	}
+
+	// Create exercises if provided
+	for i := range ch.Exercises {
+		ch.Exercises[i].ChallengeID = ch.ID
+		ch.Exercises[i].OrderIndex = i
+		if err := s.repo.CreateExercise(&ch.Exercises[i]); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // UpdateChallenge updates an existing challenge.
@@ -81,7 +110,27 @@ func (s *Service) UpdateChallenge(ch *domain.Challenge) error {
 	if !canEdit {
 		return errors.New(reason)
 	}
-	return s.repo.Update(ch)
+
+	// Update challenge
+	if err := s.repo.Update(ch); err != nil {
+		return err
+	}
+
+	// Update exercises: delete existing and create new ones
+	if len(ch.Exercises) > 0 {
+		if err := s.repo.DeleteExercisesByChallenge(ch.ID); err != nil {
+			return err
+		}
+		for i := range ch.Exercises {
+			ch.Exercises[i].ChallengeID = ch.ID
+			ch.Exercises[i].OrderIndex = i
+			if err := s.repo.CreateExercise(&ch.Exercises[i]); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // DeleteChallenge deletes a challenge.

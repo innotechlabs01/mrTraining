@@ -2,8 +2,9 @@
 
 import React, { useMemo } from 'react'
 import { CKEditor } from '@ckeditor/ckeditor5-react'
-import { ClassicEditor, EventInfo } from 'ckeditor5'
+import ClassicEditor from '@ckeditor/ckeditor5-build-classic'
 import DOMPurify from 'dompurify'
+import 'ckeditor5/ckeditor5.css'
 
 interface RichTextEditorProps {
   value?: string
@@ -35,7 +36,7 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const editorData = useMemo(() => value ?? '', [value])
 
-  const onEditorChange = (event: EventInfo<string, unknown>, editor: ClassicEditor) => {
+  const onEditorChange = (event: any, editor: ClassicEditor) => {
     const data = DOMPurify.sanitize(editor.getData() ?? '')
     onChange?.(data)
   }
@@ -50,10 +51,10 @@ export function RichTextEditor({
 
       @ts-ignore
       <CKEditor
-        editor={ClassicEditor}
+        editor={ClassicEditor as any}
         config={{ toolbar: toolbarConfig }}
         data={editorData}
-        onChange={onEditorChange}
+        onChange={onEditorChange as any}
         disabled={disabled}
       />
 

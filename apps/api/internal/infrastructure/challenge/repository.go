@@ -553,3 +553,86 @@ func calcDaysLeft(endDate string) int {
 	}
 	return days
 }
+
+// --- Challenge Exercises ---
+
+func (r *repository) GetExercisesByChallenge(challengeID string) ([]*domain.ChallengeExercise, error) {
+	query := `
+		SELECT id, challenge_id, exercise_type, title, description, video_url,
+		       order_index, target_sets, target_reps, target_weight_kg,
+		       created_at, updated_at
+		FROM challenge_exercises WHERE challenge_id = ?
+		ORDER BY order_index ASC
+	`
+	rows, err := r.db.Query(query, challengeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var exercises []*domain.ChallengeExercise
+	for rows.Next() {
+		ex := &domain.ChallengeExercise{}
+		err := rows.Scan(
+			&ex.ID, &ex.ChallengeID, &ex.ExerciseType, &ex.Title,
+			&ex.Description, &ex.VideoURL, &ex.OrderIndex,
+			&ex.TargetSets, &ex.TargetReps, &ex.TargetWeightKg,
+			&ex.CreatedAt, &ex.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		exercises = append(exercises, ex)
+	}
+	return exercises, nil
+}
+
+func (r *repository) CreateExercise(ex *domain.ChallengeExercise) error {
+	now := time.Now().UTC()
+	query := `
+		INSERT INTO challenge_exercises (id, challenge_id, exercise_type, title, description,
+		    video_url, order_index, target_sets, target_reps, target_weight_kg,
+		    created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	if ex.ID == "" {
+		ex.ID = "ce-" + now.Format("20060102150405")
+	}
+	ex.CreatedAt = now
+	ex.UpdatedAt = now
+
+	_, err := r.db.Exec(query,
+		ex.ID, ex.ChallengeID, ex.ExerciseType, nullStr(ex.Title),
+		nullStr(ex.Description), nullStr(ex.VideoURL), ex.OrderIndex,
+		ex.TargetSets, ex.TargetReps, ex.TargetWeightKg,
+		ex.CreatedAt, ex.UpdatedAt,
+	)
+	return err
+}
+
+func (r *repository) UpdateExercise(ex *domain.ChallengeExercise) error {
+	query := `
+		UPDATE challenge_exercises
+		SET exercise_type = ?, title = ?, description = ?, video_url = ?,
+		    order_index = ?, target_sets = ?, target_reps = ?, target_weight_kg = ?,
+		    updated_at = ?
+		WHERE id = ?
+	`
+	ex.UpdatedAt = time.Now().UTC()
+	_, err := r.db.Exec(query,
+		ex.ExerciseType, nullStr(ex.Title), nullStr(ex.Description), nullStr(ex.VideoURL),
+		ex.OrderIndex, ex.TargetSets, ex.TargetReps, ex.TargetWeightKg,
+		ex.UpdatedAt, ex.ID,
+	)
+	return err
+}
+
+func (r *repository) DeleteExercise(id string) error {
+	_, err := r.db.Exec(`DELETE FROM challenge_exercises WHERE id = ?`, id)
+	return err
+}
+
+func (r *repository) DeleteExercisesByChallenge(challengeID string) error {
+	_, err := r.db.Exec(`DELETE FROM challenge_exercises WHERE challenge_id = ?`, challengeID)
+	return err
+}

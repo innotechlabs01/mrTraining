@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import type { PanelState, PanelType } from '../../types'
-import { useRequireAuth } from '@/features/auth/contexts/MockAuthContext'
+import { useUser } from '@clerk/nextjs'
 import { useSessionTimeout } from '@/features/auth/hooks/useSessionTimeout'
 import { CoachProfileProvider } from '@/features/coach/contexts/CoachProfileContext'
 import type { CoachPlan, CoachLevel } from '@/features/coach/contexts/CoachProfileContext'
@@ -14,7 +14,7 @@ import { RightPanel } from './RightPanel'
 export { useCoachPanel } from './CoachPanelContext'
 
 export default function CoachLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useRequireAuth()
+  const { user } = useUser()
   useSessionTimeout()
   const [panel, setPanel] = useState<PanelState>({ type: null, data: {} })
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -34,10 +34,13 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
 
   const coachProfile = useMemo(() => {
     if (!user) return null
+    const name = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
+    const initials = `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase()
     const u = user as unknown as Record<string, unknown>
     return {
       id: (u.id as string) ?? '',
-      name: (u.name as string) ?? '',
+      name,
+      initials,
       specialization: (u.specialization as string) ?? '',
       plan: (u.coachPlan as CoachPlan) ?? 'general',
       level: (u.coachLevel as CoachLevel) ?? 'intermediate',
@@ -53,7 +56,7 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
       <CoachProfileProvider initialProfile={coachProfile}>
         <div className="relative min-h-screen bg-surface-0">
           <CoachSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-          <TopBar onMenuClick={() => setSidebarOpen(true)} user={user} />
+          <TopBar onMenuClick={() => setSidebarOpen(true)} user={coachProfile} />
           <main className="pt-14 min-h-screen lg:ml-60">{children}</main>
           <RightPanel />
         </div>

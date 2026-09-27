@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Pencil, Trash2, Play, Trophy, Flame, Clock, BarChart3 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Play, Trophy, Flame, Clock, BarChart3, Video, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Challenge, ScoringType, DifficultyLevel, ChallengeLeaderboardEntry } from '@/features/coach/types'
+import type { Challenge, ScoringType, DifficultyLevel, ChallengeLeaderboardEntry, ChallengeExercise } from '@/features/coach/types'
 import { useChallenges, getChallengeLeaderboard, getChallengeStats, subscribeChallengeLeaderboard, type ChallengeStats } from '@/features/coach/hooks/useChallenges'
 
 const STATUS_META: Record<Challenge['status'], { label: string; color: string }> = {
@@ -26,11 +26,15 @@ const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
   advanced: 'Avanzado',
 }
 
+// Form-specific exercise type (subset of ChallengeExercise for input)
+type FormExercise = Pick<ChallengeExercise, 'exerciseType' | 'title' | 'description' | 'videoUrl' | 'targetSets' | 'targetReps' | 'targetWeightKg'>
+
 type FormState = {
   title: string
   description: string
   exerciseType: string
   videoUrl: string
+  exercises: FormExercise[]
   scoringType: ScoringType
   difficultyLevel: DifficultyLevel
   maxAttempts: number
@@ -42,6 +46,7 @@ const EMPTY_FORM: FormState = {
   description: '',
   exerciseType: 'sentadilla',
   videoUrl: '',
+  exercises: [{ exerciseType: 'sentadilla' }],
   scoringType: 'form_score',
   difficultyLevel: 'intermediate',
   maxAttempts: 2,
@@ -54,6 +59,15 @@ function challengeToForm(ch: Challenge): FormState {
     description: ch.description ?? '',
     exerciseType: ch.exerciseType,
     videoUrl: ch.videoUrl ?? '',
+    exercises: ch.exercises?.map(e => ({
+      exerciseType: e.exerciseType,
+      title: e.title ?? '',
+      description: e.description ?? '',
+      videoUrl: e.videoUrl ?? '',
+      targetSets: e.targetSets,
+      targetReps: e.targetReps,
+      targetWeightKg: e.targetWeightKg,
+    })) ?? [{ exerciseType: ch.exerciseType }],
     scoringType: ch.scoringType,
     difficultyLevel: ch.difficultyLevel,
     maxAttempts: ch.maxAttempts,
@@ -92,12 +106,23 @@ export default function CoachChallengesPage() {
     if (!form.title || !form.endDate) return
     setSaving(true)
     try {
+      // Convert FormExercise[] to ChallengeExercise[] for API
+      const apiExercises = form.exercises.map((ex, idx) => ({
+        ...ex,
+        id: '',
+        challengeId: '',
+        orderIndex: idx,
+        createdAt: '',
+        updatedAt: '',
+      }))
+
       if (editing) {
         await updateChallenge(editing.id, {
           title: form.title,
           description: form.description,
           exerciseType: form.exerciseType,
           videoUrl: form.videoUrl || undefined,
+          exercises: apiExercises,
           scoringType: form.scoringType,
           difficultyLevel: form.difficultyLevel,
           maxAttempts: form.maxAttempts,
@@ -109,6 +134,7 @@ export default function CoachChallengesPage() {
           description: form.description,
           exerciseType: form.exerciseType,
           videoUrl: form.videoUrl || undefined,
+          exercises: form.exercises,
           scoringType: form.scoringType,
           difficultyLevel: form.difficultyLevel,
           maxAttempts: form.maxAttempts,
@@ -168,7 +194,12 @@ export default function CoachChallengesPage() {
                       {STATUS_META[ch.status].label}
                     </span>
                   </div>
-                  <p className="text-xs text-white/40 mt-0.5 truncate">{ch.exerciseType} · {SCORING_LABELS[ch.scoringType]} · {DIFFICULTY_LABELS[ch.difficultyLevel]}</p>
+                  <p className="text-xs text-white/40 mt-0.5 truncate">
+                    {ch.exercises && ch.exercises.length > 0
+                      ? ch.exercises.map(e => e.exerciseType).join(', ')
+                      : ch.exerciseType}
+                    · {SCORING_LABELS[ch.scoringType]} · {DIFFICULTY_LABELS[ch.difficultyLevel]}
+                  </p>
                   <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-white/30">
                     <span className="flex items-center gap-1"><Clock size={12} /> {ch.endDate ?? '—'}</span>
                     <span>Intentos: {ch.maxAttempts}</span>
@@ -230,10 +261,10 @@ export default function CoachChallengesPage() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-surface-1 p-6 space-y-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-surface-1 p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-white">{editing ? 'Editar desafío' : 'Nuevo desafío'}</h3>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
                 <label className="text-xs text-white/40">Título</label>
                 <input
@@ -251,24 +282,238 @@ export default function CoachChallengesPage() {
                   className="w-full mt-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm text-white focus:border-brand-primary focus:outline-none"
                 />
               </div>
+
+              {/* Challenge Demo Video */}
               <div>
-                <label className="text-xs text-white/40">Video demo (link)</label>
-                <input
-                  value={form.videoUrl}
-                  onChange={(e) => setForm({ ...form, videoUrl: e.target.value })}
-                  placeholder="https://youtube.com/..." 
-                  className="w-full mt-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm text-white focus:border-brand-primary focus:outline-none"
-                />
-                <p className="text-[10px] text-white/30 mt-1">Los atletas ven este video al hacer el desafío.</p>
+                <label className="text-xs text-white/40">Video demo del desafío</label>
+                <div className="mt-1 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      accept="video/mp4,video/quicktime,video/webm"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        if (file.size > 50 * 1024 * 1024) {
+                          alert('Archivo muy grande (máx 50 MB)')
+                          return
+                        }
+                        const formData = new FormData()
+                        formData.append('file', file)
+                        formData.append('title', form.title || 'Demo')
+                        if (editing) formData.append('challengeId', editing.id)
+                        try {
+                          const res = await fetch('/api/coach/challenge-videos/upload', {
+                            method: 'POST',
+                            body: formData,
+                          })
+                          const data = await res.json()
+                          if (data.videoUrl) {
+                            setForm({ ...form, videoUrl: data.videoUrl })
+                          } else {
+                            alert(data.error || 'Error subiendo video')
+                          }
+                        } catch {
+                          alert('Error subiendo video')
+                        }
+                        // reset input
+                        e.target.value = ''
+                      }}
+                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm text-white focus:border-brand-primary focus:outline-none"
+                    />
+                    {form.videoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, videoUrl: '' })}
+                        className="px-3 py-2 rounded-lg bg-red-500/20 text-red-400 text-xs hover:bg-red-500/30"
+                      >
+                        Quitar
+                      </button>
+                    )}
+                  </div>
+                  {form.videoUrl && (
+                    <video
+                      src={form.videoUrl}
+                      className="w-full max-h-48 rounded-lg"
+                      controls
+                      muted
+                    />
+                  )}
+                  <p className="text-[10px] text-white/30">MP4, MOV, WebM · máx 50 MB</p>
+                </div>
               </div>
+
+              {/* Exercises */}
               <div>
-                <label className="text-xs text-white/40">Ejercicio</label>
-                <input
-                  value={form.exerciseType}
-                  onChange={(e) => setForm({ ...form, exerciseType: e.target.value })}
-                  className="w-full mt-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm text-white focus:border-brand-primary focus:outline-none"
-                />
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs text-white/40">Ejercicios (opcional, múltiples)</label>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, exercises: [...form.exercises, { exerciseType: '' }] })}
+                    className="px-2 py-1 text-xs rounded bg-brand-primary/20 text-brand-primary hover:bg-brand-primary/30"
+                  >
+                    + Agregar ejercicio
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {form.exercises.map((ex, idx) => (
+                    <div key={idx} className="rounded-lg border border-white/10 p-3 bg-white/5 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-white/40">Ejercicio {idx + 1}</span>
+                        {form.exercises.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setForm({ ...form, exercises: form.exercises.filter((_, i) => i !== idx) })}
+                            className="text-red-400 hover:text-red-300 text-xs"
+                          >
+                            Eliminar
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] text-white/30">Tipo</label>
+                          <input
+                            value={ex.exerciseType}
+                            onChange={(e) => {
+                              const newExercises = [...form.exercises]
+                              newExercises[idx] = { ...newExercises[idx], exerciseType: e.target.value }
+                              setForm({ ...form, exercises: newExercises })
+                            }}
+                            placeholder="sentadilla"
+                            className="w-full mt-1 px-2 py-1.5 rounded border border-white/10 bg-white/5 text-xs text-white focus:border-brand-primary focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-white/30">Título (opcional)</label>
+                          <input
+                            value={ex.title ?? ''}
+                            onChange={(e) => {
+                              const newExercises = [...form.exercises]
+                              newExercises[idx] = { ...newExercises[idx], title: e.target.value || undefined }
+                              setForm({ ...form, exercises: newExercises })
+                            }}
+                            placeholder="Sentadilla con pausa"
+                            className="w-full mt-1 px-2 py-1.5 rounded border border-white/10 bg-white/5 text-xs text-white focus:border-brand-primary focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-white/30">Descripción / Cues (opcional)</label>
+                        <textarea
+                          value={ex.description ?? ''}
+                          onChange={(e) => {
+                            const newExercises = [...form.exercises]
+                            newExercises[idx] = { ...newExercises[idx], description: e.target.value || undefined }
+                            setForm({ ...form, exercises: newExercises })
+                          }}
+                          rows={2}
+                          placeholder="Mantén el core activado, baja controlado..."
+                          className="w-full mt-1 px-2 py-1.5 rounded border border-white/10 bg-white/5 text-xs text-white focus:border-brand-primary focus:outline-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          accept="video/mp4,video/quicktime,video/webm"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            if (file.size > 50 * 1024 * 1024) {
+                              alert('Archivo muy grande (máx 50 MB)')
+                              return
+                            }
+                            const formData = new FormData()
+                            formData.append('file', file)
+                            formData.append('title', ex.title || ex.exerciseType || 'Ejercicio')
+                            if (editing) formData.append('challengeId', editing.id)
+                            try {
+                              const res = await fetch('/api/coach/challenge-videos/upload', {
+                                method: 'POST',
+                                body: formData,
+                              })
+                              const data = await res.json()
+                              if (data.videoUrl) {
+                                const newExercises = [...form.exercises]
+                                newExercises[idx] = { ...newExercises[idx], videoUrl: data.videoUrl }
+                                setForm({ ...form, exercises: newExercises })
+                              } else {
+                                alert(data.error || 'Error subiendo video')
+                              }
+                            } catch {
+                              alert('Error subiendo video')
+                            }
+                            e.target.value = ''
+                          }}
+                          className="flex-1 px-2 py-1.5 rounded border border-white/10 bg-white/5 text-[10px] text-white focus:border-brand-primary focus:outline-none"
+                        />
+                        {ex.videoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newExercises = [...form.exercises]
+                              newExercises[idx] = { ...newExercises[idx], videoUrl: undefined }
+                              setForm({ ...form, exercises: newExercises })
+                            }}
+                            className="px-2 py-1.5 rounded bg-red-500/20 text-red-400 text-[10px] hover:bg-red-500/30"
+                          >
+                            Quitar video
+                          </button>
+                        )}
+                      </div>
+                      {ex.videoUrl && (
+                        <video src={ex.videoUrl} className="w-full max-h-32 rounded" controls muted />
+                      )}
+                      <div className="grid grid-cols-3 gap-2 pt-1">
+                        <div>
+                          <label className="text-[10px] text-white/30">Series</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={ex.targetSets ?? ''}
+                            onChange={(e) => {
+                              const newExercises = [...form.exercises]
+                              newExercises[idx] = { ...newExercises[idx], targetSets: Number(e.target.value) || undefined }
+                              setForm({ ...form, exercises: newExercises })
+                            }}
+                            className="w-full mt-1 px-2 py-1.5 rounded border border-white/10 bg-white/5 text-xs text-white focus:border-brand-primary focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-white/30">Reps</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={ex.targetReps ?? ''}
+                            onChange={(e) => {
+                              const newExercises = [...form.exercises]
+                              newExercises[idx] = { ...newExercises[idx], targetReps: Number(e.target.value) || undefined }
+                              setForm({ ...form, exercises: newExercises })
+                            }}
+                            className="w-full mt-1 px-2 py-1.5 rounded border border-white/10 bg-white/5 text-xs text-white focus:border-brand-primary focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-white/30">Peso (kg, opcional)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            step={0.5}
+                            value={ex.targetWeightKg ?? ''}
+                            onChange={(e) => {
+                              const newExercises = [...form.exercises]
+                              newExercises[idx] = { ...newExercises[idx], targetWeightKg: Number(e.target.value) || undefined }
+                              setForm({ ...form, exercises: newExercises })
+                            }}
+                            className="w-full mt-1 px-2 py-1.5 rounded border border-white/10 bg-white/5 text-xs text-white focus:border-brand-primary focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-white/40">Puntuación</label>
