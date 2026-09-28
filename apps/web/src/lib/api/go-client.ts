@@ -88,7 +88,7 @@ export async function goFetch<T>(path: string, options: GoRequestOptions = {}): 
     }
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' } as any));
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
       const errorMessage = typeof errorData.error === 'string'
         ? errorData.error
         : errorData.message

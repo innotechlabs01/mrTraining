@@ -241,24 +241,27 @@ export interface CoachProfile {
   status: string;
 }
 
-// Coach API — Go backend (primary) with Next.js fallback.
+// Go API response for /api/v1/users/me
+interface CurrentUserResponse {
+  user: unknown;
+  coach?: CoachProfile;
+  athlete_profile?: unknown;
+}
+
+// Coach API — Go backend (PRIMARY — no Next.js fallback per architecture)
 // Go endpoints: /api/v1/users/me, /api/v1/coaches/me
-// Next.js fallback: /api/coach/profile
 export const coachApi = {
   getProfile: () =>
-    // Go API: GET /api/v1/users/me (returns user with coach profile)
-    goFetch<CoachProfile>('/api/v1/users/me').catch(() =>
-      nextFetch.get<CoachProfile>('/api/coach/profile')
-    ),
+    // Go API: GET /api/v1/users/me (returns { user, coach?, athlete_profile? })
+    goFetch<CurrentUserResponse>('/api/v1/users/me')
+      .then((res) => res.coach),
 
   updateProfile: (data: Partial<CoachProfile>) =>
     // Go API: PUT /api/v1/coaches/me
     goFetch<CoachProfile>('/api/v1/coaches/me', {
       method: 'PUT',
       body: JSON.stringify(data),
-    }).catch(() =>
-      nextFetch.put<CoachProfile>('/api/coach/profile', data)
-    ),
+    }),
 };
 
 // ---- Event contract mappers (Go API ↔ CoachEvent) ----
@@ -379,9 +382,13 @@ export const coachingApi = {
   // Athletes — Go API (primary) with Next.js fallback
   getAthletes: <T>() =>
     // Go API: GET /api/v1/coaches/:id/athletes (auth-derived coach ID)
-    goFetch<T>('/api/v1/coaches/me/athletes').catch(() =>
-      coachingFetch.get<T>(`${COACHING_BASE}/athletes`)
-    ),
+    // Response format: { data: T[], total: number, page: number, limit: number }
+    // T is the element type (e.g., AthleteBrief), not the array type
+    goFetch<{ data: T[]; total: number; page: number; limit: number }>('/api/v1/coaches/me/athletes')
+      .then((res) => (Array.isArray(res) ? res : res.data))
+      .catch(() =>
+        coachingFetch.get<T[]>(`${COACHING_BASE}/athletes`)
+      ) as Promise<T[]>,
   getAthleteById: <T>(id: string) =>
     // Next.js: /api/coaching/athletes/:id (detailed athlete view)
     coachingFetch.get<T>(`${COACHING_BASE}/athletes/${id}`),
@@ -1119,9 +1126,13 @@ export interface PastAssignmentDetail {
 export const templateApi = {
   list: () =>
     // Go API: GET /api/v1/workout-templates
-    goFetch<{ templates: WorkoutTemplateSummary[] }>('/api/v1/workout-templates').catch(() =>
-      nextFetch.get<{ templates: WorkoutTemplateSummary[] }>('/api/coach/workout-templates')
-    ),
+    // Response format: { templates: WorkoutTemplateSummary[] }
+    goFetch<{ templates: WorkoutTemplateSummary[] }>('/api/v1/workout-templates')
+      .then((res) => res.templates)
+      .catch(() =>
+        nextFetch.get<{ templates: WorkoutTemplateSummary[] }>('/api/coach/workout-templates')
+          .then((res) => res.templates)
+      ),
 
   get: (id: string) =>
     // Go API: GET /api/v1/workout-templates/:id

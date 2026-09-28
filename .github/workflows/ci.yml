@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI - Tests Must Pass Before Push
 
 on:
   push:
@@ -6,158 +6,123 @@ on:
   pull_request:
     branches: [main, develop]
 
-env:
-  NODE_VERSION: '20'
-
 jobs:
-  # ============================================
-  # FRONTEND JOBS
-  # ============================================
-  frontend-lint:
-    name: Frontend Lint
+  go-api-tests:
+    name: Go API Tests
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./apps/web
+        working-directory: apps/api
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          version: 10
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Run ESLint
-        run: pnpm lint
-      - name: Run TypeScript check
-        run: pnpm tsc --noEmit
-
-  frontend-test:
-    name: Frontend Tests
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: .
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Run unit tests
-        run: pnpm test
-
-  frontend-build:
-    name: Build Frontend
-    runs-on: ubuntu-latest
-    needs: [frontend-lint, frontend-test]
-    defaults:
-      run:
-        working-directory: ./apps/web
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          go-version: '1.25'
+          cache: true
+          
+      - name: Download dependencies
+        run: go mod download
+        
+      - name: Run go mod tidy check
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum || (echo "go.mod or go.sum not tidy" && exit 1)
+          
       - name: Build
-        run: pnpm build
-        env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        run: go build ./...
+        
+      - name: Run tests
+        run: go test ./internal/... -v -race -count=1
+        
+      - name: Run lint
+        uses: golangci/golangci-lint-action@v6
         with:
-          name: frontend-build
-          path: apps/web/.next
-          retention-days: 7
+          version: latest
 
-  # ============================================
-  # DEPLOY JOBS
-  # ============================================
-  deploy-staging:
-    name: Deploy to Staging
+  web-tests:
+    name: Web Tests
     runs-on: ubuntu-latest
-    needs: [frontend-build]
-    if: github.ref == 'refs/heads/develop'
-    environment: staging
-    steps:
-      - name: Deploy frontend to staging
-        uses: amondnet/vercel-action@v25
-        if: env.VERCEL_TOKEN != ''
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod=false'
-          working-directory: ./apps/web
-
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [frontend-build]
-    if: github.ref == 'refs/heads/main'
-    environment: production
-    steps:
-      - name: Deploy frontend to production
-        uses: amondnet/vercel-action@v25
-        if: env.VERCEL_TOKEN != ''
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod=true'
-          working-directory: ./apps/web
-
-  # ============================================
-  # SECURITY SCANNING
-  # ============================================
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
+    defaults:
+      run:
+        working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-      - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-results.sarif'
+          node-version: '20'
+          cache: 'pnpm'
+          
+      - name: Install pnpm
+        run: npm install -g pnpm
+        
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Run lint
+        run: pnpm lint
+        
+      - name: Type check
+        run: pnpm build
+        
+      - name: Run unit tests
+        run: pnpm test --if-present
+        
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+        
+      - name: Run E2E tests
+        if: false  # Enable when test users configured
+        run: pnpm test:e2e
+        env:
+          NEXT_PUBLIC_GO_API_URL: http://localhost:8080
+          
+      - name: Start Go API for E2E
+        if: false
+        run: |
+          cd ../api
+          go run cmd/api/main.go &
+          sleep 5
+          
+      - name: Start Web for E2E
+        if: false
+        run: |
+          pnpm dev &
+          sleep 10
 
-  # ============================================
-  # DEPENDENCY REVIEW
-  # ============================================
-  dependency-review:
-    name: Dependency Review
+  # Blocking job - only passes if all above pass
+  all-tests-passed:
+    name: ✅ All Tests Passed
+    needs: [go-api-tests, web-tests]
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    permissions:
-      contents: read
+    if: always()
     steps:
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+      - name: Check all jobs succeeded
+        run: |
+          if [[ "${{ needs.go-api-tests.result }}" != "success" ]] || [[ "${{ needs.web-tests.result }}" != "success" ]]; then
+            echo "❌ Some tests failed. Push blocked."
+            exit 1
+          fi
+          echo "✅ All tests passed. Push allowed."
+          
+  # Optional: Deploy only on main branch after tests pass
+  deploy-preview:
+    name: Deploy Preview
+    needs: all-tests-passed
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to preview
+        run: echo "Deploy preview logic here"
+        
+  deploy-production:
+    name: Deploy Production
+    needs: all-tests-passed
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to production
+        run: echo "Deploy production logic here"

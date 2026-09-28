@@ -98,7 +98,7 @@ export function useWorkoutPlans() {
   const refresh = useCallback(async () => {
     try {
       setLoading(true)
-      const { templates: remote } = await templateApi.list()
+      const remote = await templateApi.list()
       const mapped: WorkoutTemplate[] = remote.map(t => ({
         id: t.id,
         name: t.name,

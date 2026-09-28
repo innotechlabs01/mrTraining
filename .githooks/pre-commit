@@ -1,0 +1,46 @@
+#!/bin/bash
+# Pre-commit hook: Run quick tests before allowing commit
+# Install: cp .githooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# 1. Go API quick checks
+echo "📦 Checking Go API..."
+cd apps/api
+go mod tidy
+if ! git diff --exit-code go.mod go.sum; then
+    echo "❌ go.mod/go.sum not tidy. Run 'go mod tidy'"
+    exit 1
+fi
+
+if ! go build ./... 2>/dev/null; then
+    echo "❌ Go build failed"
+    exit 1
+fi
+
+# Quick test (short)
+if ! go test ./internal/application/... -short 2>/dev/null; then
+    echo "❌ Go tests failed"
+    exit 1
+fi
+cd ../..
+
+# 2. Web quick checks
+echo "🌐 Checking Web..."
+cd apps/web
+if ! pnpm lint 2>/dev/null | grep -q "error"; then
+    echo "❌ Lint errors found"
+    exit 1
+fi
+
+# Quick type check
+if ! pnpm build 2>&1 | grep -q "Failed to compile"; then
+    echo "❌ TypeScript build failed"
+    exit 1
+fi
+cd ../..
+
+echo "✅ All pre-commit checks passed!"
+exit 0

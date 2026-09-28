@@ -39,7 +39,6 @@ const NAV_ITEMS: NavItemConfig[] = [
     icon: Dumbbell,
     children: [
       { id: 'training-workouts', label: 'Workouts', href: '/coach/workouts/exercises' },
-      { id: 'training-programs', label: 'Programas', href: '/coach/training/programs' },
       { id: 'training-asignar', label: 'Asignar', href: '/coach/training/asignar' },
     ],
   },

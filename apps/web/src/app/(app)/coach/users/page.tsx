@@ -99,7 +99,7 @@ export default function CoachUsersPage() {
   const filtered = athletes.filter((a) => {
     const dn = getDisplayName(a).toLowerCase()
     const matchName = dn.includes(search.toLowerCase()) || a.name.toLowerCase().includes(search.toLowerCase())
-    const matchSport = a.sport.toLowerCase().includes(search.toLowerCase())
+    const matchSport = a.sport?.toLowerCase().includes(search.toLowerCase()) ?? false
     const textMatch = matchName || matchSport
     if (filterFlagged && !a.flag) return false
     if (statusFilter) {
@@ -266,14 +266,19 @@ export default function CoachUsersPage() {
                     <p className="text-xs text-white/40">{athlete.sport}</p>
                   </div>
                 </div>
-                <div className={cn(
-                  'px-2 py-0.5 rounded-md text-[10px] font-semibold',
-                  athlete.readiness.score >= 80 ? 'bg-green-500/10 text-green-400' :
-                  athlete.readiness.score >= 60 ? 'bg-amber-500/10 text-amber-400' :
-                  'bg-red-500/10 text-red-400',
-                )}>
-                  {athlete.readiness.score}%
-                </div>
+                {(() => {
+                  const s = athlete.readiness?.score ?? 100
+                  return (
+                    <div className={cn(
+                      'px-2 py-0.5 rounded-md text-[10px] font-semibold',
+                      s >= 80 ? 'bg-green-500/10 text-green-400' :
+                      s >= 60 ? 'bg-amber-500/10 text-amber-400' :
+                      'bg-red-500/10 text-red-400',
+                    )}>
+                      {s}%
+                    </div>
+                  )
+                })()}
               </div>
 
               {membership && (

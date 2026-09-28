@@ -7,7 +7,7 @@ import { coachingApi } from '@/features/shared/api/client'
 export function useAthletes() {
   const { data: athletes = [], isLoading, error: queryError } = useQuery({
     queryKey: ['athletes'],
-    queryFn: () => coachingApi.getAthletes<AthleteBrief[]>(),
+    queryFn: () => coachingApi.getAthletes<AthleteBrief>(),
     staleTime: 5 * 60_000,
   })
 
@@ -16,9 +16,9 @@ export function useAthletes() {
   const athletesWithFlags = athletes.filter(a => a.flag)
   const flaggedAthletes = athletesWithFlags
   const athletesNeedingAttention = athletes.filter(
-    (a) => a.readiness.score < 60 || a.flag?.severity === 'high',
+    (a) => (a.readiness?.score ?? 100) < 60 || a.flag?.severity === 'high',
   )
-  const readinessMap = Object.fromEntries(athletes.map(a => [a.id, a.readiness]))
+  const readinessMap = Object.fromEntries(athletes.map(a => [a.id, a.readiness ?? { score: 100, sleep: 0, hrv: 0, recovery: 0 }]))
   const getAthleteById = (id: string) => athletes.find((a) => a.id === id)
 
   return {

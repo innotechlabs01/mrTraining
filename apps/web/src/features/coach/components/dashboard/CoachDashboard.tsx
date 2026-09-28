@@ -24,7 +24,6 @@ import {
   Package,
   BarChart3,
   Dumbbell,
-  ListChecks,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEvents } from '../../hooks/useEvents'
@@ -379,7 +378,6 @@ export default function CoachDashboard() {
           { label: 'Today', href: '/coach/today', icon: Clock, color: 'text-brand-primary bg-brand-primary/10' },
           { label: 'Athletes', href: '/coach/users', icon: Users, color: 'text-blue-400 bg-blue-500/10' },
           { label: 'Workouts', href: '/coach/workouts', icon: Dumbbell, color: 'text-emerald-400 bg-emerald-500/10' },
-          { label: 'Programs', href: '/coach/training/programs', icon: ListChecks, color: 'text-purple-400 bg-purple-500/10' },
         ].map((a, i) => (
           <motion.a
             key={a.label}

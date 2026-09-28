@@ -47,11 +47,11 @@ export default function CoachAsignarPage() {
   useEffect(() => {
     let cancelled = false
     Promise.all([
-      templateApi.list().catch(() => ({ templates: [] as WorkoutTemplateSummary[] })),
+      templateApi.list().catch(() => [] as WorkoutTemplateSummary[]),
       templateApi.listPastAssignments().catch(() => [] as PastAssignmentListItem[]),
     ]).then(([tplRes, pastRes]) => {
       if (cancelled) return
-      setTemplates(tplRes.templates ?? [])
+      setTemplates(tplRes)
       setPastAssignments(Array.isArray(pastRes) ? pastRes : [])
       setSourcesLoading(false)
     })

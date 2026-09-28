@@ -1,9 +1,9 @@
-// Package logger provides structured JSON logging using uber/zap.
-// It initializes a global logger based on the LOG_LEVEL environment variable
-// and provides accessors for both the base logger and its sugar variant.
+// Package logger provides structured logging using uber/zap.
+// Supports both human-readable console output (development) and JSON (production).
 package logger
 
 import (
+	"os"
 	"sync"
 
 	"go.uber.org/zap"
@@ -12,19 +12,31 @@ import (
 
 var (
 	globalLogger *zap.Logger
-	globalSugar *zap.SugaredLogger
-	once        sync.Once
+	globalSugar  *zap.SugaredLogger
+	once         sync.Once
 )
 
-// Init initializes the global structured logger with the specified log level.
-// It should be called once at application startup before any logging occurs.
+// Init initializes the global logger with the specified log level.
+// In development (GO_ENV=development or empty), uses human-readable console output.
+// In production, uses structured JSON.
 // Supported levels: debug, info, warn, error.
 func Init(level string) {
 	once.Do(func() {
-		cfg := zap.NewProductionConfig()
-		cfg.EncoderConfig.TimeKey = "ts"
-		cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+		isDev := os.Getenv("GO_ENV") == "development" || os.Getenv("GO_ENV") == ""
+
+		var cfg zap.Config
+		if isDev {
+			cfg = zap.NewDevelopmentConfig()
+			cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+			cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+			cfg.EncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+			cfg.DisableStacktrace = true
+		} else {
+			cfg = zap.NewProductionConfig()
+			cfg.EncoderConfig.TimeKey = "ts"
+			cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+			cfg.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+		}
 
 		switch level {
 		case "debug":
