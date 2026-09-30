@@ -27,15 +27,27 @@ func (r *repository) GetByID(id string) (*domain.Challenge, error) {
 		FROM challenges WHERE id = ?
 	`
 	ch := &domain.Challenge{}
+	var description, videoURL, startDate, endDate, expiresAt, createdAtStr, updatedAtStr sql.NullString
 	err := r.db.QueryRow(query, id).Scan(
-		&ch.ID, &ch.CoachID, &ch.Title, &ch.Description,
-		&ch.ExerciseType, &ch.VideoURL, &ch.DurationMinutes, &ch.Calories,
+		&ch.ID, &ch.CoachID, &ch.Title, &description,
+		&ch.ExerciseType, &videoURL, &ch.DurationMinutes, &ch.Calories,
 		&ch.TargetSets, &ch.TargetReps, &ch.ScoringType, &ch.DifficultyLevel,
-		&ch.MaxAttempts, &ch.Status, &ch.StartDate, &ch.EndDate, &ch.ExpiresAt,
-		&ch.CreatedAt, &ch.UpdatedAt,
+		&ch.MaxAttempts, &ch.Status, &startDate, &endDate, &expiresAt,
+		&createdAtStr, &updatedAtStr,
 	)
 	if err != nil {
 		return nil, err
+	}
+	ch.Description = description.String
+	ch.VideoURL = videoURL.String
+	ch.StartDate = startDate.String
+	ch.EndDate = endDate.String
+	ch.ExpiresAt = expiresAt.String
+	if createdAtStr.Valid {
+		ch.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr.String)
+	}
+	if updatedAtStr.Valid {
+		ch.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAtStr.String)
 	}
 	ch.DaysLeft = calcDaysLeft(ch.EndDate)
 	ch.IsUrgent = ch.DaysLeft <= 1 && ch.DaysLeft > 0
@@ -469,15 +481,27 @@ func (r *repository) listQuery(query string, args ...interface{}) ([]*domain.Cha
 	var challenges []*domain.Challenge
 	for rows.Next() {
 		ch := &domain.Challenge{}
+		var description, videoURL, startDate, endDate, expiresAt, createdAtStr, updatedAtStr sql.NullString
 		err := rows.Scan(
-			&ch.ID, &ch.CoachID, &ch.Title, &ch.Description,
-			&ch.ExerciseType, &ch.VideoURL, &ch.DurationMinutes, &ch.Calories,
+			&ch.ID, &ch.CoachID, &ch.Title, &description,
+			&ch.ExerciseType, &videoURL, &ch.DurationMinutes, &ch.Calories,
 			&ch.TargetSets, &ch.TargetReps, &ch.ScoringType, &ch.DifficultyLevel,
-			&ch.MaxAttempts, &ch.Status, &ch.StartDate, &ch.EndDate, &ch.ExpiresAt,
-			&ch.CreatedAt, &ch.UpdatedAt,
+			&ch.MaxAttempts, &ch.Status, &startDate, &endDate, &expiresAt,
+			&createdAtStr, &updatedAtStr,
 		)
 		if err != nil {
 			return nil, err
+		}
+		ch.Description = description.String
+		ch.VideoURL = videoURL.String
+		ch.StartDate = startDate.String
+		ch.EndDate = endDate.String
+		ch.ExpiresAt = expiresAt.String
+		if createdAtStr.Valid {
+			ch.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr.String)
+		}
+		if updatedAtStr.Valid {
+			ch.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAtStr.String)
 		}
 		ch.DaysLeft = calcDaysLeft(ch.EndDate)
 		ch.IsUrgent = ch.DaysLeft <= 1 && ch.DaysLeft > 0
@@ -543,11 +567,15 @@ func calcDaysLeft(endDate string) int {
 	if endDate == "" {
 		return 0
 	}
+	// Parse as local date (no timezone) and compare date-only
 	end, err := time.Parse("2006-01-02", endDate[:10])
 	if err != nil {
 		return 0
 	}
-	days := int(time.Until(end).Hours() / 24)
+	// Use date-only comparison: truncate both to midnight UTC
+	now := time.Now().UTC().Truncate(24 * time.Hour)
+	endUTC := end.Truncate(24 * time.Hour)
+	days := int(endUTC.Sub(now).Hours() / 24)
 	if days < 0 {
 		return 0
 	}

@@ -32,17 +32,19 @@ interface ClerkWindow {
   };
 }
 
-async function getAuthToken(): Promise<string | null> {
+async function getAuthToken(skipCache = false): Promise<string | null> {
   if (typeof window !== 'undefined') {
     const clerk = (window as unknown as ClerkWindow).Clerk;
     if (clerk?.session?.getToken) {
       try {
-        return await clerk.session.getToken();
+        // Clerk getToken accepts optional { skipCache?: boolean, template?: string }
+        const getTokenFn = clerk.session.getToken as (options?: { skipCache?: boolean }) => Promise<string | null>;
+        return await getTokenFn(skipCache ? { skipCache: true } : undefined);
       } catch {
         return null;
       }
     }
-    return localStorage.getItem('mr-training-auth-token');
+    return null;
   }
   return null;
 }
@@ -75,7 +77,7 @@ export async function goFetch<T>(path: string, options: GoRequestOptions = {}): 
 
     if (response.status === 401 && auth) {
       // Token expired — force Clerk to refresh and retry once
-      const freshToken = await getAuthToken();
+      const freshToken = await getAuthToken(true);
       if (freshToken && freshToken !== token) {
         const retryResponse = await doFetch(freshToken);
         if (!retryResponse.ok) {

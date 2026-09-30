@@ -155,9 +155,12 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*member
 // GetPaymentHistory retrieves payment records for an athlete, ordered by most recent.
 func (r *Repository) GetPaymentHistory(ctx context.Context, athleteID string) ([]*membership.Payment, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, membership_id, amount, currency, status, polar_order_id,
-		 period_start, period_end, paid_at, created_at
-		 FROM membership_payments WHERE athlete_id = ? ORDER BY created_at DESC LIMIT 24`, athleteID)
+		`SELECT mp.id, mp.membership_id, mp.amount, mp.currency, mp.status, mp.polar_order_id,
+		 mp.period_start, mp.period_end, mp.paid_at, mp.created_at
+		 FROM membership_payments mp
+		 JOIN athlete_memberships am ON mp.membership_id = am.id
+		 WHERE am.athlete_id = ?
+		 ORDER BY mp.created_at DESC LIMIT 24`, athleteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get payment history: %w", err)
 	}

@@ -12,6 +12,8 @@ import (
 	"github.com/clerk/clerk-sdk-go/v2/jwt"
 	"github.com/clerk/clerk-sdk-go/v2/user"
 	"github.com/gofiber/fiber/v2"
+	"go.uber.org/zap"
+	"github.com/innotechlabs01/mr-training-api/internal/logger"
 )
 
 // contextKey type for context values to avoid collisions.
@@ -112,6 +114,8 @@ func RequireAuth(clerkSecretKey string) fiber.Handler {
 			Token: token,
 		})
 		if err != nil {
+			log := logger.L()
+			log.Error("JWT verification failed", zap.Error(err), zap.String("token_preview", token[:min(20, len(token))]+"..."))
 			return fiber.NewError(fiber.StatusUnauthorized, "invalid or expired token")
 		}
 
@@ -182,4 +186,11 @@ func GetUserRole(c *fiber.Ctx) string {
 func GetSessionClaims(c *fiber.Ctx) *clerk.SessionClaims {
 	claims, _ := c.Locals(string(SessionClaimsKey)).(*clerk.SessionClaims)
 	return claims
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

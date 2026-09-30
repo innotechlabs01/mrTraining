@@ -50,7 +50,7 @@ export default function CoachUsersPage() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    coachingApi.getMemberships<MembershipSummary[]>()
+    coachingApi.getCoachMemberships<MembershipSummary>()
       .then(data => setMemberships(data || []))
       .catch(() => {})
   }, [])

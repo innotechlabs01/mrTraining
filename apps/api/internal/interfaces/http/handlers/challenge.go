@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/innotechlabs01/mr-training-api/internal/logger"
+	"go.uber.org/zap"
 
 	app "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/challenge"
@@ -53,6 +55,10 @@ func (h *ChallengeHandler) ListCoachChallenges(c *fiber.Ctx) error {
 	coachID := c.Locals("user_id").(string)
 	challenges, err := h.service.ListByCoach(coachID)
 	if err != nil {
+		logger.L().Error("failed to list challenges",
+			zap.String("coach_id", coachID),
+			zap.Error(err),
+		)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to list challenges",
 		})
@@ -65,6 +71,10 @@ func (h *ChallengeHandler) ListDraftChallenges(c *fiber.Ctx) error {
 	coachID := c.Locals("user_id").(string)
 	challenges, err := h.service.ListDraftByCoach(coachID)
 	if err != nil {
+		logger.L().Error("failed to list draft challenges",
+			zap.String("coach_id", coachID),
+			zap.Error(err),
+		)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to list draft challenges",
 		})
@@ -77,6 +87,10 @@ func (h *ChallengeHandler) ListActiveChallengesByCoach(c *fiber.Ctx) error {
 	coachID := c.Locals("user_id").(string)
 	challenges, err := h.service.ListActiveByCoach(coachID)
 	if err != nil {
+		logger.L().Error("failed to list active challenges",
+			zap.String("coach_id", coachID),
+			zap.Error(err),
+		)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to list active challenges",
 		})
@@ -154,6 +168,10 @@ func (h *ChallengeHandler) ListAthleteChallenges(c *fiber.Ctx) error {
 	athleteID := c.Locals("user_id").(string)
 	challenges, err := h.service.ListActiveForAthlete(athleteID)
 	if err != nil {
+		logger.L().Error("failed to list athlete challenges",
+			zap.String("athlete_id", athleteID),
+			zap.Error(err),
+		)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to list challenges",
 		})
@@ -166,6 +184,10 @@ func (h *ChallengeHandler) GetActiveChallenge(c *fiber.Ctx) error {
 	athleteID := c.Locals("user_id").(string)
 	challenge, err := h.service.GetActiveForAthlete(athleteID)
 	if err != nil {
+		logger.L().Error("failed to get active challenge",
+			zap.String("athlete_id", athleteID),
+			zap.Error(err),
+		)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to get active challenge",
 		})

@@ -51,7 +51,7 @@ export default function CoachAsignarPage() {
       templateApi.listPastAssignments().catch(() => [] as PastAssignmentListItem[]),
     ]).then(([tplRes, pastRes]) => {
       if (cancelled) return
-      setTemplates(tplRes)
+      setTemplates(Array.isArray(tplRes) ? tplRes : [])
       setPastAssignments(Array.isArray(pastRes) ? pastRes : [])
       setSourcesLoading(false)
     })
@@ -76,7 +76,7 @@ export default function CoachAsignarPage() {
 
   // Real sources only: builder-saved templates + the coach's own assignment history.
   const workoutSources: ContentSource[] = [
-    ...templates.map(t => ({ kind: 'template' as const, id: t.id, name: t.name, description: t.description })),
+    ...(templates || []).map(t => ({ kind: 'template' as const, id: t.id, name: t.name, description: t.description })),
     ...pastAssignments
       .filter(a => a.contentName)
       .map(a => ({ kind: 'past' as const, id: a.id, name: a.contentName, athleteName: a.athleteName })),

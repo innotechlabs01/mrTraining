@@ -79,7 +79,10 @@ export function TopBar({ onMenuClick, user }: { onMenuClick: () => void; user: {
           </div>
           <button
             type="button"
-            onClick={() => signOut()}
+            onClick={async () => {
+              await signOut();
+              window.location.href = '/';
+            }}
             className="p-1.5 rounded-lg text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all"
             aria-label="Cerrar sesion"
           >

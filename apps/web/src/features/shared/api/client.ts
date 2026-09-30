@@ -207,7 +207,7 @@ export const workoutApi = {
     if (dateTo) params.append('dateTo', dateTo);
     const qs = params.toString();
     void athleteId; // Go API uses auth-derived athlete
-    return goFetch<Workout[]>(`/api/v1/workouts${qs ? `?${qs}` : ''}`).catch(() =>
+    return goFetch<{ data: Workout[] }>(`/api/v1/workouts${qs ? `?${qs}` : ''}`).then(r => r.data).catch(() =>
       nextFetch.get<Workout[]>(`/api/athlete/workouts${qs ? `?${qs}` : ''}`)
     );
   },
@@ -218,7 +218,7 @@ export const workoutApi = {
 
   getPendingReviews: () =>
     // Go API: GET /api/v1/workouts (coach view)
-    goFetch<Workout[]>('/api/v1/workouts').catch(() =>
+    goFetch<{ data: Workout[] }>('/api/v1/workouts').then(r => r.data).catch(() =>
       nextFetch.get<Workout[]>('/api/coaching/assigned-workouts')
     ),
 };
@@ -475,7 +475,7 @@ export const coachingApi = {
   // Products — Go API (primary)
   getProducts: () =>
     // Go API: GET /api/v1/products
-    goFetch<Product[]>('/api/v1/products'),
+    goFetch<{ data: Product[] }>('/api/v1/products').then(res => res.data),
   saveProduct: (data: Omit<Product, 'id' | 'createdAt'>) =>
     // Go API: POST /api/v1/products
     goFetch<{ id: string }>('/api/v1/products', { method: 'POST', body: JSON.stringify(data) }),
@@ -492,7 +492,7 @@ export const coachingApi = {
   // Sales — Go API (primary)
   getSales: () =>
     // Go API: GET /api/v1/coaches/sales
-    goFetch<Sale[]>('/api/v1/coaches/sales'),
+    goFetch<{ data: Sale[] }>('/api/v1/coaches/sales').then(res => res.data),
   saveSale: (data: Omit<Sale, 'id' | 'createdAt'>) =>
     // Go API: POST /api/v1/coaches/sales
     goFetch<{ id: string }>('/api/v1/coaches/sales', { method: 'POST', body: JSON.stringify(data) }),
@@ -515,9 +515,14 @@ export const coachingApi = {
 
   // Memberships — Go API (primary) with Next.js fallback
   getMemberships: <T>() =>
-    // Go API: GET /api/v1/memberships
+    // Go API: GET /api/v1/memberships (athlete's own membership)
     goFetch<T>('/api/v1/memberships').catch(() =>
       coachingFetch.get<T>(`${COACHING_BASE}/memberships`)
+    ),
+  getCoachMemberships: <T>() =>
+    // Go API: GET /api/v1/coaches/memberships (all athletes' memberships for coach)
+    goFetch<{ data: T[] }>('/api/v1/coaches/memberships').then(r => r.data).catch(() =>
+      coachingFetch.get<T[]>(`${COACHING_BASE}/memberships`)
     ),
   getMembership: <T>(athleteId: string) =>
     // Go API: GET /api/v1/memberships (auth-derived)
@@ -910,7 +915,7 @@ export const deviceApi = {
 export const notificationApi = {
   list: () =>
     // Go API: GET /api/v1/notifications
-    goFetch<Notification[]>(`/api/v1/notifications`),
+    goFetch<{ data: Notification[] }>(`/api/v1/notifications`).then(r => r.data),
 
   markRead: (id: string) =>
     // Go API: PATCH /api/v1/notifications/:id/read
@@ -928,7 +933,7 @@ export const communityApi = {
 
   getMessages: (forumId: string) =>
     // Go API: GET /api/v1/athlete/community/messages?forumId=...
-    goFetch<CommunityMessage[]>(`/api/v1/athlete/community/messages?forumId=${forumId}`),
+    goFetch<{ data: CommunityMessage[] }>(`/api/v1/athlete/community/messages?forumId=${forumId}`).then(r => r.data),
 
   createMessage: (data: { forumId: string; message: string }) =>
     // Go API: POST /api/v1/athlete/community/messages

@@ -552,11 +552,12 @@ export default function CoachChallengesPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-white/40">Fecha fin (YYYY-MM-DD)</label>
+                  <label className="text-xs text-white/40">Fecha fin</label>
                   <input
+                    type="date"
                     value={form.endDate}
                     onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                    placeholder="2026-09-15"
+                    min={new Date().toISOString().split('T')[0]}
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm text-white focus:border-brand-primary focus:outline-none"
                   />
                 </div>

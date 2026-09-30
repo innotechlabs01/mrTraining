@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import type { Product } from '@/features/coach/types'
 import Image from 'next/image'
@@ -27,6 +27,36 @@ export function ProductDialog({ open, initial, onOpenChange, onSave }: ProductDi
   const [category, setCategory] = useState(initial?.category || '')
   const [isShop, setIsShop] = useState(initial?.isShop || false)
   const [isDragging, setIsDragging] = useState(false)
+
+  // Sync state when initial changes (e.g., editing different products)
+  useEffect(() => {
+    if (initial) {
+      setName(initial.name || '')
+      setBrand(initial.brand || '')
+      setImageUrl(initial.imageUrl || '')
+      setImagePreview(initial.imageUrl || null)
+      setPrice(initial.price || 0)
+      setReceived(initial.received || 0)
+      setStock(initial.stock || 0)
+      setLowStockThreshold(initial.lowStockThreshold || 1)
+      setDescription(initial.description || '')
+      setCategory(initial.category || '')
+      setIsShop(initial.isShop || false)
+    } else {
+      // Reset for new product
+      setName('')
+      setBrand('')
+      setImageUrl('')
+      setImagePreview(null)
+      setPrice(0)
+      setReceived(0)
+      setStock(0)
+      setLowStockThreshold(1)
+      setDescription('')
+      setCategory('')
+      setIsShop(false)
+    }
+  }, [initial])
 
   if (!open) return null
 

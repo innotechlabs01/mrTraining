@@ -30,7 +30,7 @@ func NewService(repo domain.Repository) *Service {
 func (s *Service) GetMembership(ctx context.Context, athleteID string) (*domain.Membership, error) {
 	m, err := s.repo.GetByAthleteID(ctx, athleteID)
 	if err != nil {
-		return nil, fmt.Errorf("get membership: %w", err)
+		return nil, err
 	}
 
 	m.RecalculateStatus()
@@ -86,7 +86,7 @@ func (s *Service) CreateMembership(ctx context.Context, req CreateRequest) (*dom
 	}
 
 	if err := s.repo.Create(ctx, m); err != nil {
-		return nil, fmt.Errorf("create membership: %w", err)
+		return nil, err
 	}
 
 	return m, nil
@@ -99,7 +99,7 @@ func (s *Service) CancelMembership(ctx context.Context, id string) error {
 	}
 
 	if err := s.repo.Cancel(ctx, id); err != nil {
-		return fmt.Errorf("cancel membership: %w", err)
+		return err
 	}
 
 	return nil
@@ -113,7 +113,7 @@ func (s *Service) RenewMembership(ctx context.Context, id string) error {
 
 	m, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("get membership for renewal: %w", err)
+		return err
 	}
 
 	newPeriodStart := m.CurrentPeriodEnd
@@ -126,7 +126,7 @@ func (s *Service) RenewMembership(ctx context.Context, id string) error {
 	m.Status = "active"
 
 	if err := s.repo.Update(ctx, m); err != nil {
-		return fmt.Errorf("renew membership: %w", err)
+		return err
 	}
 
 	return nil
@@ -136,7 +136,7 @@ func (s *Service) RenewMembership(ctx context.Context, id string) error {
 func (s *Service) GetPaymentHistory(ctx context.Context, athleteID string) ([]*domain.Payment, error) {
 	payments, err := s.repo.GetPaymentHistory(ctx, athleteID)
 	if err != nil {
-		return nil, fmt.Errorf("get payment history: %w", err)
+		return nil, err
 	}
 
 	return payments, nil
@@ -146,7 +146,7 @@ func (s *Service) GetPaymentHistory(ctx context.Context, athleteID string) ([]*d
 func (s *Service) ListMembershipsByCoach(ctx context.Context, coachID string) ([]*domain.Membership, error) {
 	memberships, err := s.repo.ListByCoach(ctx, coachID)
 	if err != nil {
-		return nil, fmt.Errorf("list memberships by coach: %w", err)
+		return nil, err
 	}
 
 	// Recalculate status for each membership

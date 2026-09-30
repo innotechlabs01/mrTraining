@@ -36,7 +36,8 @@ async function forwardToGoApi(path: string, options: RequestInit = {}) {
     return NextResponse.json({ success: true });
   }
 
-  return response.json();
+  const data = await response.json();
+  return NextResponse.json(data);
 }
 
 export async function GET() {

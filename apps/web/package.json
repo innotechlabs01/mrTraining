@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@ckeditor/ckeditor5-build-classic": "^44.3.0",
-    "@ckeditor/ckeditor5-editor-classic": "^48.5.1",
+    "@ckeditor/ckeditor5-editor-classic": "^44.3.0",
     "@ckeditor/ckeditor5-react": "^11.2.0",
     "@clerk/nextjs": "^6.38.3",
     "@libsql/client": "^0.17.4",
@@ -23,7 +23,7 @@
     "@tanstack/react-query": "^5.102.8",
     "@types/leaflet": "^1.9.22",
     "@vercel/blob": "^2.8.0",
-    "ckeditor5": "^48.5.1",
+    "ckeditor5": "^44.3.0",
     "clsx": "^2.1.1",
     "dompurify": "^3.4.15",
     "framer-motion": "^11.11.0",
