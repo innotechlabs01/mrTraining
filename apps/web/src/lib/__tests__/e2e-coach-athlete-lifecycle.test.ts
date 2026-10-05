@@ -28,6 +28,27 @@ beforeAll(() => {
   execSync(`sqlite3 "${DB_PATH}" < "${MIG_DIR}/011_exercise_library.sql"`);
   execSync(`sqlite3 "${DB_PATH}" < "${MIG_DIR}/013_health_metrics.sql"`);
   execSync(`sqlite3 "${DB_PATH}" < "${MIG_DIR}/014_workout_templates.sql"`);
+  execSync(`sqlite3 "${DB_PATH}" < "${MIG_DIR}/024_assigned_workout_exercises.sql"`);
+  // Add missing columns to workout_exercises for saveWorkoutExercises
+  const alterCols = [
+    "mode TEXT NOT NULL DEFAULT 'reps'",
+    "phase TEXT NOT NULL DEFAULT 'work'",
+    "superset_group TEXT",
+    "reps_min INTEGER",
+    "reps_max INTEGER",
+    "prog TEXT",
+    "inc REAL",
+    "sec INTEGER",
+    "minutes REAL",
+    "speed REAL",
+    "per_side INTEGER NOT NULL DEFAULT 0",
+    "body_part TEXT",
+    "muscle_groups TEXT NOT NULL DEFAULT ''",
+    "library_exercise_id TEXT"
+  ];
+  for (const col of alterCols) {
+    try { execSync(`sqlite3 "${DB_PATH}" "ALTER TABLE workout_exercises ADD COLUMN ${col}"`); } catch {}
+  }
   execSync(`sqlite3 "${DB_PATH}" "INSERT INTO coach_athletes (id,name,sport,email,coach_id) VALUES ('athlete-1','Test Athlete','gym','t@t.com','coach-1')"`);
   execSync(`sqlite3 "${DB_PATH}" "INSERT INTO coach_athletes (id,name,sport,email,coach_id) VALUES ('athlete-2','Athlete 2','running','t2@t.com','coach-2')"`);
   process.env.TURSO_URL = `file:${DB_PATH}`;

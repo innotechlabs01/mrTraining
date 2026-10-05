@@ -193,8 +193,20 @@ export async function getAssignedWorkoutDetail(coachId: string, workoutId: strin
     restSeconds: ex.rest_seconds as number | null,
     notes: ex.notes as string | null,
     sortOrder: ex.sort_order as number,
-    muscleGroups: ex.muscle_groups ? JSON.parse(ex.muscle_groups as string) : [],
+    muscleGroups: ex.muscle_groups ? (ex.muscle_groups as string).split(',').filter(Boolean) : [],
     libraryExerciseId: ex.library_exercise_id as string | null,
+    prog: ex.prog as string | null,
+    mode: ex.mode as string | null,
+    phase: ex.phase as string | null,
+    supersetGroup: ex.superset_group as string | null,
+    repsMin: ex.reps_min as number | null,
+    repsMax: ex.reps_max as number | null,
+    inc: ex.inc as number | null,
+    sec: ex.sec as number | null,
+    minutes: ex.minutes as number | null,
+    speed: ex.speed as number | null,
+    perSide: ex.per_side as number | null,
+    bodyPart: ex.body_part as string | null,
   }))
 
   return {
@@ -231,22 +243,22 @@ export async function saveAssignedWorkout(coachId: string, data: Record<string, 
     await safeExecute(
       db,
       `UPDATE assigned_workouts SET
-        content_name=?, content_type=?, modality=?, start_date=?, end_date=?, days_of_week=?, status=?, progress=?, updated_at=?
+        content_name=?, content_type=?, content_id=?, modality=?, start_date=?, end_date=?, days_of_week=?, status=?, progress=?, updated_at=?
        WHERE id=?`,
       [
-        data.contentName, data.contentType, data.modality, data.startDate, data.endDate || null,
+        data.contentName, data.contentType, data.contentId || null, data.modality, data.startDate, data.endDate || null,
         JSON.stringify(data.daysOfWeek || []), data.status, data.progress || 0, now, workoutId
       ]
     )
   } else {
     await safeExecute(
       db,
-      `INSERT INTO assigned_workouts (id, athlete_id, content_name, content_type, modality, start_date, end_date, days_of_week, status, progress, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO assigned_workouts (id, athlete_id, athlete_name, content_id, content_name, content_type, modality, start_date, end_date, days_of_week, status, progress, coach_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        workoutId, athleteId, data.contentName, data.contentType, data.modality,
+        workoutId, athleteId, data.athleteName || '', data.contentId || '', data.contentName, data.contentType, data.modality,
         data.startDate, data.endDate || null, JSON.stringify(data.daysOfWeek || []),
-        data.status, data.progress || 0, now, now
+        data.status, data.progress || 0, coachId, now, now
       ]
     )
   }

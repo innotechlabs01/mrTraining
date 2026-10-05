@@ -143,11 +143,17 @@ export async function findExercisesByNames(names: string[]): Promise<Map<string,
     )
     if (result.rows.length > 0) {
       const item = mapExerciseLibraryItem(result.rows[0])
-      // Keyed by the lower-cased requested name so callers can resolve their input.
       out.set(name, item)
     }
   }
   return out
+}
+
+/** Check if a workout_id belongs to an assigned workout. */
+async function isAssignedWorkout(workoutId: string): Promise<boolean> {
+  const db = getDB()
+  const result = await db.execute('SELECT 1 FROM assigned_workouts WHERE id = ? LIMIT 1', [workoutId])
+  return result.rows.length > 0
 }
 
 export async function createCustomExercise(coachId: string, data: {
@@ -192,15 +198,21 @@ export async function saveWorkoutExercises(workoutId: string, items: Array<{
   libraryExerciseId?: string | null;
 }>): Promise<Array<{ id: string; name: string }>> {
   const db = getDB()
+  const isAssigned = await isAssignedWorkout(workoutId)
+  
   await db.execute('DELETE FROM workout_exercises WHERE workout_id = ?', [workoutId])
+  if (isAssigned) {
+    await db.execute('DELETE FROM assigned_workout_exercises WHERE workout_id = ?', [workoutId])
+  }
+  
   const created: Array<{ id: string; name: string }> = []
   for (const it of items) {
     const id = generateId()
     await db.execute(
       `INSERT INTO workout_exercises
          (id, workout_id, name, sets, reps, weight_kg, rest_seconds, sort_order, notes,
-          mode, phase, superset_group, reps_min, reps_max, prog, inc, sec, minutes, speed,
-          per_side, body_part, muscle_groups, library_exercise_id)
+           mode, phase, superset_group, reps_min, reps_max, prog, inc, sec, minutes, speed,
+           per_side, body_part, muscle_groups, library_exercise_id)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         id, workoutId, it.name, it.sets, it.reps,
@@ -212,6 +224,19 @@ export async function saveWorkoutExercises(workoutId: string, items: Array<{
         it.libraryExerciseId ?? null,
       ],
     )
+    if (isAssigned) {
+      await db.execute(
+        `INSERT INTO assigned_workout_exercises
+           (id, workout_id, name, sets, reps, weight_kg, rest_seconds, notes, sort_order, muscle_groups, library_exercise_id,
+            mode, phase, superset_group, reps_min, reps_max, prog, inc, sec, minutes, speed, per_side, body_part)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [id, workoutId, it.name, it.sets, it.reps, it.weightKg ?? null, it.restSeconds ?? null, it.notes ?? null, it.sortOrder, (it.muscleGroups ?? []).join(','), it.libraryExerciseId ?? null,
+         it.mode ?? 'reps', it.phase ?? 'work', it.supersetGroup ?? null,
+         it.repsMin ?? null, it.repsMax ?? null, it.prog ?? null, it.inc ?? null,
+         it.sec ?? null, it.minutes ?? null, it.speed ?? null,
+         it.perSide ? 1 : 0, it.bodyPart ?? null]
+      )
+    }
     created.push({ id, name: it.name })
   }
   return created

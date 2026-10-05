@@ -9,6 +9,7 @@ export interface WorkoutTemplate {
   goal: string
   estimatedDurationMinutes: number | null
   exercises: TemplateExercise[]
+  exerciseCount: number
   createdAt: string
   updatedAt: string
 }
@@ -23,6 +24,18 @@ export interface TemplateExercise {
   sortOrder: number
   muscleGroups: string[]
   libraryExerciseId: string | null
+  mode?: string
+  phase?: string
+  supersetGroup?: string | null
+  repsMin?: number | null
+  repsMax?: number | null
+  prog?: string | null
+  inc?: number | null
+  sec?: number | null
+  minutes?: number | null
+  speed?: number | null
+  perSide?: number
+  bodyPart?: string | null
 }
 
 export async function listWorkoutTemplates(coachId: string): Promise<WorkoutTemplate[]> {
@@ -49,6 +62,18 @@ export async function listWorkoutTemplates(coachId: string): Promise<WorkoutTemp
       sortOrder: ex.sort_order as number,
       muscleGroups: ex.muscle_groups ? JSON.parse(ex.muscle_groups as string) : [],
       libraryExerciseId: ex.library_exercise_id as string | null,
+      mode: ex.mode as string,
+      phase: ex.phase as string,
+      supersetGroup: ex.superset_group as string | null,
+      repsMin: ex.reps_min as number | null,
+      repsMax: ex.reps_max as number | null,
+      prog: ex.prog as string | null,
+      inc: ex.inc as number | null,
+      sec: ex.sec as number | null,
+      minutes: ex.minutes as number | null,
+      speed: ex.speed as number | null,
+      perSide: ex.per_side as number,
+      bodyPart: ex.body_part as string | null,
     }))
 
     templates.push({
@@ -59,11 +84,64 @@ export async function listWorkoutTemplates(coachId: string): Promise<WorkoutTemp
       goal: r.goal as string,
       estimatedDurationMinutes: r.estimated_duration_minutes as number | null,
       exercises,
+      exerciseCount: exercises.length,
       createdAt: r.created_at as string,
       updatedAt: r.updated_at as string,
     })
   }
   return templates
+}
+
+export async function getWorkoutTemplate(coachId: string, templateId: string): Promise<WorkoutTemplate | null> {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM workout_templates WHERE id = ? AND coach_id = ?',
+    [templateId, coachId]
+  )
+
+  if (result.rows.length === 0) return null
+
+  const r = result.rows[0]
+  const exercisesResult = await db.execute(
+    'SELECT * FROM workout_template_exercises WHERE template_id = ? ORDER BY sort_order',
+    [templateId]
+  )
+  const exercises: TemplateExercise[] = exercisesResult.rows.map((ex: Row) => ({
+    name: ex.name as string,
+    sets: ex.sets as number,
+    reps: ex.reps as number,
+    weightKg: ex.weight_kg as number | null,
+    restSeconds: ex.rest_seconds as number | null,
+    notes: ex.notes as string | null,
+    sortOrder: ex.sort_order as number,
+    muscleGroups: ex.muscle_groups ? JSON.parse(ex.muscle_groups as string) : [],
+    libraryExerciseId: ex.library_exercise_id as string | null,
+    mode: ex.mode as string,
+    phase: ex.phase as string,
+    supersetGroup: ex.superset_group as string | null,
+    repsMin: ex.reps_min as number | null,
+    repsMax: ex.reps_max as number | null,
+    prog: ex.prog as string | null,
+    inc: ex.inc as number | null,
+    sec: ex.sec as number | null,
+    minutes: ex.minutes as number | null,
+    speed: ex.speed as number | null,
+    perSide: ex.per_side as number,
+    bodyPart: ex.body_part as string | null,
+  }))
+
+  return {
+    id: r.id as string,
+    coachId: r.coach_id as string,
+    name: r.name as string,
+    description: r.description as string,
+    goal: r.goal as string,
+    estimatedDurationMinutes: r.estimated_duration_minutes as number | null,
+    exercises,
+    exerciseCount: exercises.length,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
+  }
 }
 
 export async function saveWorkoutTemplate(coachId: string, data: {
@@ -100,11 +178,44 @@ export async function saveWorkoutTemplate(coachId: string, data: {
   for (const ex of data.exercises) {
     await safeExecute(
       db,
-      `INSERT INTO workout_template_exercises (id, template_id, name, sets, reps, weight_kg, rest_seconds, notes, sort_order, muscle_groups, library_exercise_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [generateId(), templateId, ex.name, ex.sets, ex.reps, ex.weightKg, ex.restSeconds, ex.notes, ex.sortOrder, JSON.stringify(ex.muscleGroups), ex.libraryExerciseId]
+      `INSERT INTO workout_template_exercises (id, template_id, name, sets, reps, weight_kg, rest_seconds, notes, sort_order, muscle_groups, library_exercise_id, mode, phase, superset_group, reps_min, reps_max, prog, inc, sec, minutes, speed, per_side, body_part)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        generateId(), 
+        templateId, 
+        ex.name, 
+        ex.sets ?? 0, 
+        ex.reps ?? 0, 
+        ex.weightKg ?? null, 
+        ex.restSeconds ?? null, 
+        ex.notes ?? null, 
+        ex.sortOrder ?? 0,
+        JSON.stringify(ex.muscleGroups ?? []), 
+        ex.libraryExerciseId ?? null,
+        ex.mode ?? 'reps', 
+        ex.phase ?? 'work', 
+        ex.supersetGroup ?? null,
+        ex.repsMin ?? null, 
+        ex.repsMax ?? null, 
+        ex.prog ?? null, 
+        ex.inc ?? null,
+        ex.sec ?? null, 
+        ex.minutes ?? null, 
+        ex.speed ?? null, 
+        ex.perSide ?? 0, 
+        ex.bodyPart ?? null
+      ]
     )
   }
 
   return templateId
+}
+
+export async function deleteWorkoutTemplate(coachId: string, templateId: string): Promise<boolean> {
+  const db = getDB()
+  const result = await db.execute(
+    'DELETE FROM workout_templates WHERE id = ? AND coach_id = ?',
+    [templateId, coachId]
+  )
+  return result.rowsAffected > 0
 }
