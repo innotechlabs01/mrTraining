@@ -40,9 +40,9 @@ export async function getScheduledWorkouts(athleteId: string) {
 export async function getWorkoutHistory(athleteId: string) {
   const db = getDB()
   const result = await db.execute(
-    `SELECT * FROM workout_sessions
+    `SELECT * FROM workout_session_logs
      WHERE athlete_id = ?
-     ORDER BY date DESC
+     ORDER BY started_at DESC
      LIMIT 50`,
     [athleteId],
   )
@@ -303,4 +303,216 @@ export async function deleteAssignedWorkout(coachId: string, workoutId: string):
   }
   await db.execute('DELETE FROM assigned_workout_exercises WHERE workout_id = ?', [workoutId])
   await db.execute('DELETE FROM assigned_workouts WHERE id = ?', [workoutId])
+}
+
+/** Create a new workout session for an athlete. */
+export async function createWorkoutSession(workoutId: string, athleteId: string) {
+  const db = getDB()
+  const id = generateId()
+  const now = new Date().toISOString()
+  await safeExecute(
+    db,
+    `INSERT INTO workout_session_logs (id, workout_id, athlete_id, started_at, completed, completed_at, current_exercise_index, duration_seconds)
+     VALUES (?, ?, ?, ?, 0, NULL, 0, 0)`,
+    [id, workoutId, athleteId, now],
+  )
+  return { id, workoutId, athleteId, startedAt: now, completed: false, currentExerciseIndex: 0, durationSeconds: 0 }
+}
+
+/** Complete a workout session and mark progress 100. */
+export async function completeWorkoutSession(sessionId: string) {
+  const db = getDB()
+  const now = new Date().toISOString()
+  await safeExecute(
+    db,
+    `UPDATE workout_session_logs SET completed = 1, completed_at = ? WHERE id = ?`,
+    [now, sessionId],
+  )
+  // Mark progress 100% when session is completed
+  const session = await db.execute('SELECT workout_id FROM workout_session_logs WHERE id = ?', [sessionId])
+  if (session.rows.length > 0) {
+    const workoutId = session.rows[0].workout_id as string
+    await safeExecute(db, `UPDATE assigned_workouts SET progress = 100 WHERE id = ?`, [workoutId])
+  }
+}
+
+/** Get workout detail with progress. */
+export async function getWorkoutDetail(workoutId: string) {
+  const db = getDB()
+  const result = await db.execute('SELECT * FROM assigned_workouts WHERE id = ?', [workoutId])
+  if (result.rows.length === 0) return null
+  const w = result.rows[0]
+  return {
+    id: w.id,
+    workout: {
+      id: w.id,
+      name: w.content_name,
+      progress: w.progress,
+    },
+  }
+}
+
+/** Log a workout set with enriched data. */
+export async function logWorkoutSet(
+  sessionId: string,
+  exerciseId: string,
+  setIndex: number,
+  weightKg: number,
+  reps: number,
+  options: {
+    phase?: 'work' | 'warmup'
+    rir?: number | null
+    rpe?: number | null
+    sec?: number | null
+    minutes?: number | null
+    speed?: number | null
+    skipped?: boolean
+  } = {}
+) {
+  const db = getDB()
+  const id = generateId()
+  const now = new Date().toISOString()
+  await safeExecute(
+    db,
+    `INSERT INTO workout_set_logs (id, session_id, exercise_id, set_index, weight_kg, reps, completed, logged_at, phase, rir, rpe, sec, skipped)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, sessionId, exerciseId, setIndex, weightKg, reps, 1, now,
+     options.phase || 'work', options.rir ?? null, options.rpe ?? null, options.sec ?? null, options.skipped ? 1 : 0],
+  )
+  return { id, sessionId, exerciseId, setIndex, weightKg, reps, ...options, loggedAt: now }
+}
+
+/** List all set logs for a session. */
+export async function listSessionSetLogs(sessionId: string) {
+  const db = getDB()
+  const result = await db.execute(
+    'SELECT * FROM workout_set_logs WHERE session_id = ? ORDER BY exercise_id, set_index, logged_at',
+    [sessionId],
+  )
+  return result.rows.map((r) => ({
+    id: r.id,
+    sessionId: r.session_id,
+    exerciseId: r.exercise_id,
+    setIndex: r.set_index,
+    weightKg: r.weight_kg,
+    reps: r.reps,
+    completed: r.completed,
+    loggedAt: r.logged_at,
+    phase: r.phase,
+    rir: r.rir,
+    rpe: r.rpe,
+    sec: r.sec,
+    skipped: Boolean(r.skipped),
+  }))
+}
+
+/** Get training history for an athlete (for engine). */
+export async function getAthleteTrainingHistory(athleteId: string) {
+  const db = getDB()
+  // Get all completed sessions for this athlete
+  const sessions = await db.execute(
+    `SELECT * FROM workout_session_logs WHERE athlete_id = ? AND completed = 1 ORDER BY started_at`,
+    [athleteId],
+  )
+  const history = []
+  const exerciseMeta: Record<string, { name: string; mode: string }> = {}
+  for (const s of sessions.rows) {
+    const startedAt: string = (s.started_at as string) || new Date().toISOString()
+    const logs = await db.execute('SELECT * FROM workout_set_logs WHERE session_id = ? ORDER BY exercise_id, set_index', [s.id])
+    
+    // Group logs by exercise_id
+    const logsByExercise = new Map<string, typeof logs.rows>()
+    for (const l of logs.rows) {
+      const exId = l.exercise_id as string | null
+      if (!exId) continue
+      if (!logsByExercise.has(exId)) {
+        logsByExercise.set(exId, [])
+      }
+      logsByExercise.get(exId)!.push(l)
+    }
+    
+    const entries = []
+    for (const [exerciseId, exerciseLogs] of logsByExercise) {
+      // Get exercise name from assigned_workout_exercises
+      const exResult = await db.execute('SELECT name, muscle_groups, mode, phase, prog FROM assigned_workout_exercises WHERE id = ?', [exerciseId])
+      let name = exerciseId
+      let muscleGroups: string[] = []
+      let mode = 'reps'
+      let phase = 'work'
+      let prog = 'linear'
+      if (exResult.rows.length > 0) {
+        const ex = exResult.rows[0]
+        name = ex.name as string
+        const mg = ex.muscle_groups as string | null
+        muscleGroups = mg ? mg.split(',').filter(Boolean) : []
+        mode = (ex.mode as string) || 'reps'
+        phase = (ex.phase as string) || 'work'
+        prog = (ex.prog as string) || 'linear'
+      }
+      
+      // Build slug for exerciseMeta
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      exerciseMeta[slug] = { name, mode }
+      
+      // Get prescription weight from first work set
+      const workSets = exerciseLogs.filter(l => l.phase === 'work' && !l.skipped)
+      const firstWorkSet = workSets[0]
+      const weightKg = firstWorkSet?.weight_kg ?? null
+      
+      entries.push({
+        id: slug,
+        target: {
+          id: exerciseId,
+          mode: mode as 'reps' | 'time' | 'cardio',
+          phase: phase as 'work' | 'warmup',
+          sets: exerciseLogs.filter(l => !l.skipped).length,
+          reps: firstWorkSet?.reps ?? null,
+          weightKg,
+          prog: prog as 'linear' | 'double' | 'greyskull' | 'time' | 'off',
+          muscleGroups,
+        },
+        sets: exerciseLogs.map(l => ({
+          completed: Boolean(l.completed),
+          skipped: Boolean(l.skipped),
+          phase: (l.phase as 'work' | 'warmup') || 'work',
+          weightKg: l.weight_kg,
+          reps: l.reps,
+          sec: l.sec,
+          minutes: l.minutes,
+          speed: l.speed,
+          rir: l.rir,
+          rpe: l.rpe,
+        })),
+      })
+    }
+    
+    history.push({
+      date: startedAt.split('T')[0],
+      startedAt: new Date(startedAt).getTime(),
+      entries,
+    })
+  }
+  
+  return { history, exerciseMeta }
+}
+
+/** Get active workout session for an athlete and workout. */
+export async function getActiveWorkoutSession(workoutId: string, athleteId: string) {
+  const db = getDB()
+  const result = await db.execute(
+    `SELECT * FROM workout_session_logs WHERE workout_id = ? AND athlete_id = ? AND completed = 0 ORDER BY started_at DESC LIMIT 1`,
+    [workoutId, athleteId],
+  )
+  if (result.rows.length === 0) return null
+  const s = result.rows[0]
+  return {
+    id: s.id,
+    workoutId: s.workout_id,
+    athleteId: s.athlete_id,
+    startedAt: s.started_at,
+    completed: Boolean(s.completed),
+    completedAt: s.completed_at,
+    currentExerciseIndex: s.current_exercise_index,
+    durationSeconds: s.duration_seconds,
+  }
 }

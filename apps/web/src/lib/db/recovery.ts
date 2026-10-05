@@ -197,7 +197,7 @@ export async function getHealthMetrics(
 ) {
   const db = getDB()
   const conditions: string[] = ['athlete_id = ?']
-  const params: unknown[] = [athleteId]
+  const params: Array<string | number | null> = [athleteId]
   if (filters?.metricType) { conditions.push('metric_type = ?'); params.push(filters.metricType) }
   // Note: daysBack filter removed to support test fixtures with historical dates
   const result = await db.execute(

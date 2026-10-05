@@ -2,8 +2,8 @@ const EXPO_HOST = process.env.EXPO_HOST || 'mobile.innotechlabssas.lat';
 const APP_SCHEME = 'mrtraining';
 
 /**
- * Build the URL to open the invite in the app.
- * Priority: Universal Links (HTTPS) > custom scheme (installed app) > exp:// (Expo Go) > web fallback
+ * Build the Expo Go URL for development/testing.
+ * Returns exp:// scheme URL that Expo Go can open directly.
  */
 export function buildExpoUrl(code: string): string {
   const params = new URLSearchParams();
@@ -11,9 +11,7 @@ export function buildExpoUrl(code: string): string {
     params.set('code', code);
   }
   const query = params.toString();
-
-  // Custom scheme works for installed app (App Store / Play Store builds)
-  return `${APP_SCHEME}://invite${query ? `?${query}` : ''}`;
+  return `exp://${EXPO_HOST}${query ? `?${query}` : ''}`;
 }
 
 /**
