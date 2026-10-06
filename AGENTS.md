@@ -43,6 +43,93 @@ Cuando trabajes en `apps/mobile/`, React Native, o cualquier feature mobile, act
 
 ---
 
+## GLOBAL MOBILE UI VALIDATION RULE
+
+**Scope: Only applies when working in `apps/mobile/` (React Native app).**
+
+For every mobile task that changes UI, navigation, interaction, state, or user flow **inside `apps/mobile/`**, the task is NOT complete until the real application has been tested on a running Android emulator/device or iOS simulator/device using the available mobile MCP (Maestro).
+
+### Mandatory workflow
+
+1. Read and understand the task requirements.
+2. Implement the change.
+3. Build the mobile application.
+4. Launch/install the application on the available mobile target.
+5. Use the mobile MCP to interact with the REAL rendered UI.
+6. Validate:
+
+   * screen rendering
+   * navigation
+   * buttons and touch interactions
+   * text inputs
+   * forms
+   * lists/scrolling
+   * loading states
+   * success states
+   * error states
+   * empty states when applicable
+   * keyboard behavior when applicable
+   * back navigation
+   * permissions when applicable
+7. Take screenshots when visual validation is relevant.
+8. Compare the actual result against the task requirements and expected UX.
+9. If anything fails, is visually incorrect, inaccessible, broken, or inconsistent:
+
+   * diagnose the root cause
+   * fix the implementation
+   * rebuild/reload the application
+   * repeat the real-device/emulator validation
+10. Continue until the affected flow passes.
+
+### Strict completion rule
+
+NEVER mark a mobile task as completed because:
+
+* the code compiles
+* TypeScript/Dart checks pass
+* unit tests pass
+* static analysis passes
+* the implementation looks correct from the source code
+* the UI was only inspected from screenshots provided by the user
+
+Those checks are necessary but NOT sufficient.
+
+The actual running mobile application MUST be validated.
+
+### MCP requirement
+
+Prefer the configured mobile MCP/ Maestro tools for UI interaction and validation.
+
+If the mobile MCP is unavailable:
+
+1. Do NOT falsely claim that the UI was validated.
+2. Report that real mobile validation could not be performed.
+3. Continue with code-level validation if possible.
+4. Mark the task as BLOCKED rather than COMPLETE.
+
+### Final response requirement
+
+Before declaring completion, report:
+
+* Build result
+* Mobile target tested
+* Screens/flows tested
+* UI interactions tested
+* E2E result
+* Any remaining issues
+
+Use one of these final statuses:
+
+PASS — implementation and real mobile UI validation passed.
+
+PASS WITH LIMITATIONS — implementation passed but a clearly documented validation limitation remains.
+
+BLOCKED — real mobile UI validation could not be performed.
+
+NEVER report PASS when the real mobile UI was not actually tested.
+
+---
+
 ## WORKFLOW OBLIGATORIO
 
 ```
