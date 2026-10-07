@@ -22,7 +22,6 @@ export function AuthShell({ children, title, subtitle, className, maxWidth = 'md
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 overflow-hidden">
       <div className="fixed inset-0 bg-gradient-to-b from-surface-1 via-surface-0 to-surface-0" />
-      <div className="fixed inset-0 opacity-[0.03] bg-[radial-gradient(ellipse_at_top,_#FF6B00,_transparent_70%)]" />
 
       <div className="relative z-10 flex flex-col items-center w-full">
         <motion.div

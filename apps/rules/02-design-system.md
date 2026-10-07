@@ -101,12 +101,12 @@ Colors serve three distinct functions in the interface. The surface hierarchy (l
 
 ### 1.2 Typography
 
-The type system uses Archivo for display and Inter for body, as specified in the brand guidelines. The design system formalizes this into a constrained scale with explicit font-size, line-height, letter-spacing, and font-weight tokens for every typographic role.
+The type system uses Montserrat for display and Inter for body, as specified in the brand guidelines. The design system formalizes this into a constrained scale with explicit font-size, line-height, letter-spacing, and font-weight tokens for every typographic role.
 
 #### Font Family Tokens
 
 ```css
---font-display: 'Archivo', -apple-system, sans-serif;
+--font-display: 'Montserrat', -apple-system, sans-serif;
 --font-body: 'Inter', -apple-system, system-ui, sans-serif;
 --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 ```
@@ -117,16 +117,16 @@ All type is set on a modular scale with a ratio of 1.25 (major third), rounded t
 
 | Token | Family | Weight | Size | Line-Height | Letter-Spacing | Usage |
 |---|---|---|---|---|---|---|
-| `--text-display` | Archivo | 800 | 48px | 1.1 (53px) | -0.02em | Hero headlines, page titles |
-| `--text-h1` | Archivo | 700 | 36px | 1.2 (43px) | -0.01em | Section headers |
-| `--text-h2` | Archivo | 700 | 28px | 1.25 (35px) | -0.01em | Card titles, panel headers |
-| `--text-h3` | Archivo | 600 | 22px | 1.3 (29px) | 0 | Sub-section headers |
-| `--text-h4` | Archivo | 600 | 18px | 1.35 (24px) | 0 | Minor headers, label groups |
+| `--text-display` | Montserrat | 800 | 48px | 1.1 (53px) | -0.02em | Hero headlines, page titles |
+| `--text-h1` | Montserrat | 700 | 36px | 1.2 (43px) | -0.01em | Section headers |
+| `--text-h2` | Montserrat | 700 | 28px | 1.25 (35px) | -0.01em | Card titles, panel headers |
+| `--text-h3` | Montserrat | 600 | 22px | 1.3 (29px) | 0 | Sub-section headers |
+| `--text-h4` | Montserrat | 600 | 18px | 1.35 (24px) | 0 | Minor headers, label groups |
 | `--text-body-lg` | Inter | 400 | 18px | 1.6 (29px) | 0 | Long-form body copy |
 | `--text-body` | Inter | 400 | 16px | 1.6 (26px) | 0 | Standard body copy |
 | `--text-body-sm` | Inter | 400 | 14px | 1.5 (21px) | 0.01em | Secondary body, descriptions |
 | `--text-caption` | Inter | 500 | 12px | 1.4 (17px) | 0.02em | Metadata, timestamps, labels |
-| `--text-overline` | Archivo | 500 | 11px | 1.4 (15px) | 0.1em | Section labels (uppercase) |
+| `--text-overline` | Montserrat | 500 | 11px | 1.4 (15px) | 0.1em | Section labels (uppercase) |
 | `--text-code` | Mono | 400 | 14px | 1.5 (21px) | 0 | Code blocks, data values |
 
 #### Mobile Type Scale
@@ -154,7 +154,7 @@ Mobile sizes use the same scale with one step reduction for display through h3, 
 - Maximum line length for body text: 75 characters. Paragraphs exceeding this width must be constrained with `max-width: 65ch`.
 - Headings form a strict hierarchy. Never skip levels (e.g., h2 to h4 without an h3). Every page has exactly one h1.
 - All-caps is reserved for overlines and the TRAINING wordmark. Never use all-caps for body copy, even for emphasis.
-- Archivo is never used below 11px. Inter is never used below 12px (mobile) or 14px (desktop) for body copy.
+- Montserrat is never used below 11px. Inter is never used below 12px (mobile) or 14px (desktop) for body copy.
 - Text must always be left-aligned. Center alignment is permitted only for short headlines of five words or fewer.
 - Monospace is used exclusively for data values (metrics, times, distances, weights), code, and technical identifiers.
 
