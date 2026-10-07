@@ -5,7 +5,14 @@ import Constants from 'expo-constants';
 // Backend authority: Go API (apps/api) is the SINGLE source of truth.
 // All business logic goes through Go API (/api/v1/*).
 // Next.js only for webhooks/SSR when needed.
-const GO_API_URL: string = Constants.expoConfig?.extra?.goApiUrl ?? 'http://localhost:8080';
+// Priority: EXPO_PUBLIC_GO_API_URL (per-environment, set in eas.json env /
+// .env) > app.json extra.goApiUrl (dev LAN default) > localhost. Production
+// builds MUST define EXPO_PUBLIC_GO_API_URL — the LAN IP in app.json is only
+// reachable on the developer's network.
+const GO_API_URL: string =
+  process.env.EXPO_PUBLIC_GO_API_URL ??
+  Constants.expoConfig?.extra?.goApiUrl ??
+  'http://localhost:8080';
 const NEXT_API_URL: string = Constants.expoConfig?.extra?.apiBaseUrl ?? '';
 
 // Path mapping: mobile paths → Go API paths
@@ -59,7 +66,9 @@ function toGoApiPath(path: string): string | null {
  */
 const apiClient: AxiosInstance = axios.create({
   baseURL: `${GO_API_URL}/api/v1`,
-  timeout: 15000,
+  // Fail fast: 8s (was 15s) so users get an error/retry prompt quickly on bad
+  // networks instead of a frozen screen. React Query handles the retries.
+  timeout: 8000,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -69,7 +78,7 @@ const apiClient: AxiosInstance = axios.create({
  */
 const nextClient: AxiosInstance = axios.create({
   baseURL: `${NEXT_API_URL}/api`,
-  timeout: 15000,
+  timeout: 8000,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -114,7 +123,7 @@ const setupAuthInterceptor = (client: AxiosInstance) => {
  */
 function createSmartInstance(): AxiosInstance {
   const instance = axios.create({
-    timeout: 15000,
+    timeout: 8000,
     headers: { 'Content-Type': 'application/json' },
   });
 

@@ -6,6 +6,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -38,6 +39,11 @@ type Config struct {
 	// Cache (Redis — optional, disabled when empty)
 	RedisURL string // Redis connection URL; empty disables response caching
 
+	// Traffic / proxy
+	TrustedProxies     []string // IPs/CIDRs allowed to set X-Forwarded-For (empty = ignore forwarded headers)
+	RateLimitMax       int      // Max requests per window, per client IP
+	RateLimitWindowSec int      // Rate limit window in seconds
+
 	// Logging
 	LogLevel string // Log level: debug, info, warn, error
 }
@@ -68,6 +74,10 @@ func Load() (*Config, error) {
 		CORSOrigins: getEnv("CORS_ORIGINS", "*"),
 
 		RedisURL: getEnv("REDIS_URL", ""),
+
+		TrustedProxies:     splitCSV(getEnv("TRUSTED_PROXIES", "")),
+		RateLimitMax:       getEnvInt("RATE_LIMIT_MAX", 100),
+		RateLimitWindowSec: getEnvInt("RATE_LIMIT_WINDOW", 60),
 
 		LogLevel: getEnv("LOG_LEVEL", "info"),
 	}
@@ -107,6 +117,12 @@ func (c *Config) validate() error {
 		if len(missing) > 0 {
 			return fmt.Errorf("missing required env vars for production: %s", strings.Join(missing, ", "))
 		}
+
+		// CORS must be an explicit allowlist in production. A wildcard would let
+		// any website call this API from a visitor's browser.
+		if c.CORSOrigins == "*" {
+			return fmt.Errorf("invalid env var for production: CORS_ORIGINS must be an explicit comma-separated origin allowlist (got '*')")
+		}
 	}
 
 	return nil
@@ -118,4 +134,30 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// getEnvInt returns the positive integer value of an environment variable,
+// or fallback when the variable is unset, unparsable, or non-positive.
+func getEnvInt(key string, fallback int) int {
+	if value, exists := os.LookupEnv(key); exists {
+		if n, err := strconv.Atoi(value); err == nil && n > 0 {
+			return n
+		}
+	}
+	return fallback
+}
+
+// splitCSV splits a comma-separated list into trimmed, non-empty entries.
+func splitCSV(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
 }

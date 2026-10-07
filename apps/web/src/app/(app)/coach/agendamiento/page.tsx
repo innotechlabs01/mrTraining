@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Calendar, Clock, User, Dumbbell, CheckCircle2, XCircle, RefreshCw, MapPin, Video, Plus, Trash2, Save, CalendarClock } from 'lucide-react'
-import { coachingApi } from '@/features/shared/api/client'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -44,8 +44,6 @@ const STATUS_LABEL: Record<string, string> = {
 
 
 export default function AgendamientoPage() {
-  const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
 
@@ -62,23 +60,25 @@ export default function AgendamientoPage() {
   const [resNotes, setResNotes] = useState('')
   const [resLoading, setResLoading] = useState(false)
 
-  const fetchAppointments = async () => {
-    setLoading(true)
-    try {
-      const data = await coachingApi.getMemberships<Appointment[]>()  // reuse generic get
-      // Use the actual appointments endpoint
-      const resp = await fetch('/api/coaching/appointments')
-      const json = await resp.json()
-      setAppointments(json || [])
-    } catch {
-      setAppointments([])
-      toast.error('Error al cargar citas')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { fetchAppointments() }, [])
+  // TanStack Query: dedup + 30s freshness — revisits render instantly.
+  // (The legacy implementation also issued a stray memberships request on
+  // every load; that round-trip is gone.)
+  const { data: appointments = [], isLoading: loading, refetch: fetchAppointments } = useQuery<Appointment[]>({
+    queryKey: ['coaching', 'appointments'],
+    queryFn: async () => {
+      try {
+        const resp = await fetch('/api/coaching/appointments')
+        if (!resp.ok) throw new Error('failed')
+        const json = await resp.json()
+        return (json || []) as Appointment[]
+      } catch {
+        toast.error('Error al cargar citas')
+        return []
+      }
+    },
+    staleTime: 30_000,
+    retry: false, // queryFn already handles the error (toast) — no retry double-toast
+  })
 
   const handleComplete = async (id: string) => {
     try {
@@ -178,7 +178,7 @@ export default function AgendamientoPage() {
           </p>
         </div>
         <button
-          onClick={fetchAppointments}
+          onClick={() => fetchAppointments()}
           className="p-2 rounded-lg border border-white/10 text-white/40 hover:text-white/70 transition-colors"
         >
           <RefreshCw size={16} />

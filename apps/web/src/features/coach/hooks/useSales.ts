@@ -1,25 +1,27 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Sale } from '../types'
 import { coachingApi } from '@/features/shared/api/client'
 
+/**
+ * Sales via TanStack Query — reads are cached/hydratable (the coach dashboard
+ * is prefetched server-side), mutations patch the cache with setQueryData.
+ */
 export function useSales() {
-  const [sales, setSales] = useState<Sale[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [hydrated, setHydrated] = useState(false)
+  const queryClient = useQueryClient()
+  const KEY = ['coach-sales'] as const
+
+  const { data: sales = [], isLoading, refetch } = useQuery({
+    queryKey: KEY,
+    queryFn: () => coachingApi.getSales(),
+    staleTime: 60_000,
+  })
 
   const loadSales = useCallback(() => {
-    setIsLoading(true)
-    coachingApi.getSales()
-      .then(data => setSales(data))
-      .catch(() => {})
-      .finally(() => { setIsLoading(false); setHydrated(true) })
-  }, [])
-
-  useEffect(() => {
-    loadSales()
-  }, [loadSales])
+    void refetch()
+  }, [refetch])
 
   const registerSale = useCallback(async (data: {
     productId: string
@@ -33,11 +35,11 @@ export function useSales() {
     const createdAt = new Date().toISOString()
     const date = createdAt.split('T')[0]
     const res = await coachingApi.saveSale({ ...data, total, date })
-    setSales(prev => [
+    queryClient.setQueryData<Sale[]>(KEY, (prev = []) => [
       { ...data, id: res.id, total, date, createdAt },
       ...prev,
     ])
-  }, [])
+  }, [queryClient])
 
   const getSalesForDay = useCallback((date: string) => {
     return sales.filter((s) => s.date === date)
@@ -66,8 +68,8 @@ export function useSales() {
 
   const removeSale = useCallback(async (id: string) => {
     await coachingApi.deleteSale(id)
-    setSales(prev => prev.filter(s => s.id !== id))
-  }, [])
+    queryClient.setQueryData<Sale[]>(KEY, (prev = []) => prev.filter(s => s.id !== id))
+  }, [queryClient])
 
-  return { sales, isLoading, hydrated, registerSale, getSalesForDay, getAggregatedToday, removeSale, refresh: loadSales }
+  return { sales, isLoading, hydrated: !isLoading, registerSale, getSalesForDay, getAggregatedToday, removeSale, refresh: loadSales }
 }

@@ -30,7 +30,7 @@ Arquitecto mobile · Diseñador fitness UI · Ingeniero RN · QA device (iOS/And
 
 ## Tokens canónicos
 - `src/shared/theme/tokens.ts` es la única fuente. Dark-first, un solo acento.
-- ✅ Resuelta: el acento canónico es Volt `#C8FF00` (code y tokens ya en Volt; rules §8 actualizadas).
+- ✅ Resuelta: el acento canónico es MR Blue `#15AAF2` (unificado con web; tokens y rules actualizados 2026 — Volt `#C8FF00` retirado).
 
 ## Reglas fitness pro
 - Sin emojis como iconos (usar `shared/components/icons/` SVG).

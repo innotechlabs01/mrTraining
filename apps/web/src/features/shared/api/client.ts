@@ -69,7 +69,7 @@ async function getAuthHeaders(headers?: HeadersInit): Promise<Record<string, str
     let token: string | null = null;
     const clerk = (window as unknown as ClerkWindow).Clerk;
     if (clerk?.session?.getToken) try { token = await clerk.session.getToken(); } catch {}
-    if (!token) token = localStorage.getItem('mr-training-auth-token');
+    // Security: JWTs are never read from localStorage (XSS risk). Clerk session only.
     if (token) headerObj['Authorization'] = `Bearer ${token}`;
   }
   return headerObj;
@@ -298,7 +298,9 @@ type GoEvent = {
   updated_at: string;
 };
 
-function mapGoEvent(g: GoEvent): CoachEvent {
+// Exported for server-side prefetch (see src/app/(app)/coach/page.tsx) — the
+// RSC must apply the exact same mapping so hydrated data matches client shape.
+export function mapGoEvent(g: GoEvent): CoachEvent {
   const hasRunning =
     g.running_distance_km != null || !!g.running_pace || !!g.running_meeting_point;
   return {
@@ -877,14 +879,13 @@ export interface ExerciseLibraryEntry {
     goFetch<{ ok: boolean }>(`/api/v1/exercises/${id}`, { method: 'DELETE' }),
 
   uploadVideo: async (file: File) => {
-    // Video upload uses multipart/form-data; use native fetch with auth header
-    const token = typeof window !== 'undefined' ? localStorage.getItem('mr-training-auth-token') : null
+    // Video upload uses multipart/form-data; auth relies on the Clerk session
+    // cookie (the route verifies it via auth()) — no token in localStorage.
     const form = new FormData()
     form.append('file', file)
     const res = await fetch('/api/exercises/upload', {
       method: 'POST',
       body: form,
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     })
     if (!res.ok) throw new Error('Upload failed')
     return res.json()

@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     // Subtle active tab highlight
     borderRadius: radius.md,
   },
-  // Volt feedback reserved for press only; focused tab uses tonal elevation
+  // Accent feedback reserved for press only; focused tab uses tonal elevation
   tabPressed: { opacity: 0.7, backgroundColor: colors.primaryFaint },
   tabFocused: {
     backgroundColor: colors.surfaceRaised,

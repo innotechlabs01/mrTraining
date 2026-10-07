@@ -1,7 +1,7 @@
 /**
  * MR Training Design System — mobile tokens.
- * Unified AthletePro / Volt-style single-accent system.
- * Dark-first. Accent: Volt (#C8FF00). Inter throughout.
+ * Unified AthletePro-style single-accent system.
+ * Dark-first. Accent: MR Blue (#15AAF2) — unified with web (rules/01, update 2026).
  * Canonical source: apps/mobile/src/shared/theme/tokens.ts — dark-first.
  * Style reference: uxpilot-export AthletePro (UX Pilot) — 13 screens.
  */
@@ -13,10 +13,10 @@ export const colors = {
   surface: '#151B19', // Cards, lists, main content surfaces
   surfaceRaised: '#1C2320', // Elevated rows, inputs, chips, surface2
   border: '#242B28', // Hairlines, separators (white/5 over base)
-  primary: '#C8FF00', // Volt — the single accent
-  primaryPressed: '#A8D900', // Pressed state of Volt
-  primarySoft: '#C8FF001A', // Volt @0.10 — selected tints, chips (hex8)
-  primaryFaint: '#C8FF000F', // Volt @0.06 — subtle pressed/active feedback (hex8)
+  primary: '#15AAF2', // MR Blue — the single accent (same as web brand-primary)
+  primaryPressed: '#0E93D4', // Pressed state of MR Blue (web primary-hover)
+  primarySoft: '#15AAF21A', // MR Blue @0.10 — selected tints, chips (hex8)
+  primaryFaint: '#15AAF20F', // MR Blue @0.06 — subtle pressed/active feedback (hex8)
   overlay: '#00000099', // Black @0.6 — scrims over media and modals (hex8)
   secondary: '#3B9EFF', // Data-viz / macro secondary (carbs), sparingly
   text: '#FFFFFF', // Primary text (WCAG AA on all surfaces)
@@ -30,8 +30,8 @@ export const colors = {
   skeletonHighlight: '#2A3330', // shimmer sweep (≈8% lighter than base)
   // Light-on-dark semantics (dark-first system)
   background: '#0B0F0E', // alias for base — root canvas
-  onPrimary: '#0B0F0E', // text/icon on primary accent
-  onPrimaryVariant: '#68D391', // muted accent text
+  onPrimary: '#0B0F0E', // text/icon on primary accent (dark text — AA on blue)
+  onPrimaryVariant: '#FFFFFF33', // soft container/dim content on an accent surface
   onSurface: '#FFFFFF', // text on cards/surfaces
   onSurfaceVariant: '#9CA3AF', // secondary text on surfaces
   outline: '#242B28', // borders/separators
@@ -102,7 +102,7 @@ export const radius = {
 export const shadows = {
   sm: { shadowColor: '#000000', shadowOpacity: 0.15, shadowRadius: 8, elevation: 2 },
   md: { shadowColor: '#000000', shadowOpacity: 0.25, shadowRadius: 16, elevation: 6 },
-  glow: { shadowColor: '#C8FF00', shadowOpacity: 0.3, shadowRadius: 20, elevation: 8 },
+  glow: { shadowColor: '#15AAF2', shadowOpacity: 0.3, shadowRadius: 20, elevation: 8 },
 } as const;
 
 export const layout = {

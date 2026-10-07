@@ -116,15 +116,15 @@ export const tokens = {
 
 ```typescript
 // Unified AthletePro palette (UX Pilot) — dark-first. Canonical source:
-// apps/mobile/src/shared/theme/tokens.ts. Single accent: Volt #C8FF00.
+// apps/mobile/src/shared/theme/tokens.ts. Single accent: Blue #15AAF2.
 const darkTheme = {
   background: '#0B0F0E',      // Base
   surface: '#151B19',         // Surface
   surface2: '#1C2320',        // Surface Raised / elevated rows
   text: '#FFFFFF',
   textSecondary: '#9CA3AF',
-  primary: '#C8FF00',         // Volt — one primary CTA per screen
-  primaryPressed: '#A8D900',  // Pressed state
+  primary: '#15AAF2',         // Blue — one primary CTA per screen
+  primaryPressed: '#0E93D4',  // Pressed state
   success: '#34D399',
   warning: '#FBBF24',
   error: '#FF6B6B',
@@ -137,8 +137,8 @@ const lightTheme = {
   surface: '#F5F5F7',
   text: '#0B0F0E',
   textSecondary: '#4B5563',
-  primary: '#C8FF00',
-  primaryPressed: '#A8D900',
+  primary: '#15AAF2',
+  primaryPressed: '#0E93D4',
   error: '#FF6B6B',
   success: '#34D399',
   warning: '#FBBF24',

@@ -9,7 +9,7 @@ type Props = {
   size?: number;
 };
 
-const MOVE_COLOR = '#C8FF00';
+const MOVE_COLOR = '#15AAF2';
 const EXERCISE_COLOR = '#34D399';
 const RECOVERY_COLOR = '#3B9EFF';
 

@@ -127,7 +127,7 @@ export function RouteMapEditor({ value, onChange, height = '260px' }: RouteMapEd
           {points.length > 0 && (
             <Polyline
               positions={points as LatLngExpression[]}
-              pathOptions={{ color: '#C8FF00', weight: 4, opacity: 0.9 }}
+              pathOptions={{ color: '#15AAF2', weight: 4, opacity: 0.9 }}
             />
           )}
           {points.map((p, i) => (

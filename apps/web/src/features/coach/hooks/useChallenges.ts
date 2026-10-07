@@ -234,7 +234,8 @@ async function getClerkToken(): Promise<string | null> {
       return null
     }
   }
-  return localStorage.getItem('mr-training-auth-token')
+  // Security: no localStorage fallback — tokens live in the Clerk session only.
+  return null
 }
 
 /**

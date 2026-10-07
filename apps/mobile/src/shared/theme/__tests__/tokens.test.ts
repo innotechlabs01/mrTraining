@@ -6,16 +6,16 @@ describe('tokens', () => {
     expect(colors.surface).toBe('#151B19');
     expect(colors.surfaceRaised).toBe('#1C2320');
     expect(colors.border).toBe('#242B28');
-    expect(colors.primary).toBe('#C8FF00');
-    expect(colors.primaryPressed).toBe('#A8D900');
+    expect(colors.primary).toBe('#15AAF2');
+    expect(colors.primaryPressed).toBe('#0E93D4');
     expect(colors.secondary).toBe('#3B9EFF');
     expect(colors.text).toBe('#FFFFFF');
     expect(colors.textSecondary).toBe('#9CA3AF');
     expect(colors.success).toBe('#34D399');
     expect(colors.warning).toBe('#FBBF24');
     expect(colors.error).toBe('#FF6B6B');
-    expect(colors.primarySoft).toBe('#C8FF001A');
-    expect(colors.primaryFaint).toBe('#C8FF000F');
+    expect(colors.primarySoft).toBe('#15AAF21A');
+    expect(colors.primaryFaint).toBe('#15AAF20F');
     expect(colors.overlay).toBe('#00000099');
   });
 

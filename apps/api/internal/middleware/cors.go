@@ -16,17 +16,19 @@ func CORS(allowedOrigins string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		origin := c.Get("Origin")
 
+		// Cached/proxied responses vary per Origin — always advertise it.
+		c.Set("Vary", "Origin")
+
 		// In development with wildcard, allow all origins
 		if allowedOrigins == "*" {
 			c.Set("Access-Control-Allow-Origin", "*")
 		} else if isOriginAllowed(origin, origins) {
 			c.Set("Access-Control-Allow-Origin", origin)
 			c.Set("Access-Control-Allow-Credentials", "true")
-		} else if len(origins) > 0 {
-			// Set the first allowed origin as fallback
-			c.Set("Access-Control-Allow-Origin", origins[0])
-			c.Set("Access-Control-Allow-Credentials", "true")
 		}
+		// Note: unknown origins get NO Allow-Origin header (fail closed).
+		// The previous behaviour echoed origins[0], which was misleading and
+		// leaked the first allowlisted origin to disallowed callers.
 
 		c.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		c.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID, X-Organization-ID")

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/compress"
 	"go.uber.org/zap"
 
 	alertapp "github.com/innotechlabs01/mr-training-api/internal/application/alert"
@@ -127,19 +128,20 @@ func main() {
 	log.Info("websocket hub initialized")
 
 	// Initialize optional Redis response cache. Fail-open: if Redis is
-	// unavailable or unconfigured, the cache stays a transparent no-op.
+	// unavailable or unconfigured, fall back to a process-local LRU cache so
+	// hot read paths still skip the database (TTL capped at 10 minutes).
 	if cfg.RedisURL != "" {
 		redisCache, cacheErr := cacheinfrastructure.NewRedis(cfg.RedisURL)
 		if cacheErr != nil {
-			log.Warn("redis cache disabled, continuing without cache", zap.Error(cacheErr))
-			middleware.SetCache(nil)
+			log.Warn("redis cache disabled, falling back to in-memory cache", zap.Error(cacheErr))
+			middleware.SetCache(cacheinfrastructure.NewMemory(1024))
 		} else {
 			middleware.SetCache(redisCache)
 			log.Info("redis response cache enabled")
 		}
 	} else {
-		middleware.SetCache(nil)
-		log.Warn("REDIS_URL not set, response caching disabled")
+		middleware.SetCache(cacheinfrastructure.NewMemory(1024))
+		log.Warn("REDIS_URL not set, using in-memory response cache (LRU, max TTL 10m)")
 	}
 
 	// Create Fiber app
@@ -152,23 +154,33 @@ func main() {
 		BodyLimit:       10 * 1024 * 1024, // 10MB
 		ReadBufferSize:  64 * 1024,        // 64KB: Clerk JWT + cookies del proxy Next superan el default 4KB de fasthttp → evitaba 431
 		WriteBufferSize: 64 * 1024,
+		// Trust X-Forwarded-For only from explicitly configured proxies so
+		// c.IP() (used by the rate limiter) resolves to the real client IP
+		// instead of collapsing every user behind a proxy into one bucket.
+		EnableTrustedProxyCheck: len(cfg.TrustedProxies) > 0,
+		TrustedProxies:          cfg.TrustedProxies,
 	})
 
 	// Global middleware — order matters.
 	// 1. Recover: catch panics first so all downstream middleware is protected.
 	// 2. SecurityHeaders: set hardening headers before any response is sent.
 	// 3. RequestID: assign a tracing ID early for logging and error correlation.
-	// 4. Logger: log every request/response cycle.
-	// 5. CORS: handle cross-origin requests before rate limiting or auth.
-	// 6. RateLimit: throttle by IP to prevent abuse.
-	// 7. Timeout: enforce a maximum handler duration.
-	// 8. BodyLimit: reject oversized request bodies.
+	// 4. ServerTiming: measure total handling time (Server-Timing header).
+	// 5. Logger: log every request/response cycle.
+	// 6. CORS: handle cross-origin requests before rate limiting or auth.
+	// 7. Compress: gzip/brotli JSON payloads on /api responses (scoped so
+	//    static media under /uploads is never re-compressed).
+	// 8. RateLimit: throttle by IP to prevent abuse.
+	// 9. Timeout: enforce a maximum handler duration.
+	// 10. BodyLimit: reject oversized request bodies.
 	app.Use(middleware.Recover())
 	app.Use(middleware.SecurityHeaders())
 	app.Use(middleware.RequestID())
+	app.Use(middleware.ServerTiming())
 	app.Use(middleware.Logger())
 	app.Use(middleware.CORS(cfg.CORSOrigins))
-	app.Use(middleware.RateLimit(100, 60))
+	app.Use("/api", compress.New(compress.Config{Level: compress.LevelBestSpeed}))
+	app.Use(middleware.RateLimit(cfg.RateLimitMax, cfg.RateLimitWindowSec))
 	app.Use(middleware.Timeout(30))
 	// 100MB to accommodate video uploads (challenge attempt recordings).
 	app.Use(middleware.BodyLimit(100))

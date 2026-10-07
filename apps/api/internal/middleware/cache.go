@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -74,6 +75,12 @@ func cacheMiddleware(ttl time.Duration, prefix string) fiber.Handler {
 			if entry, ok := decode(raw); ok {
 				c.Set("X-Cache", "HIT")
 				c.Response().Header.SetContentType(entry.ContentType)
+				// Conditional GET: 304 when the client already has this body.
+				setConditionalHeaders(c, entry.Body)
+				if isNotModified(c) {
+					c.Response().ResetBody()
+					return c.SendStatus(fiber.StatusNotModified)
+				}
 				c.Response().SetBody(entry.Body)
 				return c.Status(entry.Status).Send(entry.Body)
 			}
@@ -104,9 +111,43 @@ func cacheMiddleware(ttl time.Duration, prefix string) fiber.Handler {
 			}
 		}
 
+		// HTTP conditional GET: ETag + must-revalidate so repeat loads transfer
+		// only a 304 instead of the full payload (safe: always revalidates, so
+		// writes are never served stale from the browser).
+		setConditionalHeaders(c, entry.Body)
+		if isNotModified(c) {
+			c.Response().ResetBody()
+			return c.SendStatus(fiber.StatusNotModified)
+		}
+
 		c.Set("X-Cache", "MISS")
 		return nil
 	}
+}
+
+// setConditionalHeaders advertises a weak ETag derived from the response body
+// and the revalidation policy for cached reads.
+func setConditionalHeaders(c *fiber.Ctx, body []byte) {
+	sum := sha256.Sum256(body)
+	c.Set("ETag", `W/"`+hex.EncodeToString(sum[:8])+`"`)
+	c.Set("Cache-Control", "private, no-cache")
+}
+
+// isNotModified reports whether the request's If-None-Match matches the ETag
+// currently set on the RESPONSE (GetRespHeader — c.Get reads request headers).
+func isNotModified(c *fiber.Ctx) bool {
+	want := c.Get("If-None-Match")
+	if want == "" {
+		return false
+	}
+	got := c.GetRespHeader("ETag")
+	for _, v := range strings.Split(want, ",") {
+		v = strings.TrimSpace(v)
+		if v == "*" || v == got {
+			return true
+		}
+	}
+	return false
 }
 
 // buildKey builds a stable, length-bounded cache key from the route prefix and

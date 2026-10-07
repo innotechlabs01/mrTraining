@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, keepPreviousData } from '@tanstack/react-query';
 import { persistQueryClient } from '@tanstack/react-query-persist-client';
 import { ClerkProvider, useClerk, useUser } from '@clerk/clerk-expo';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -30,6 +30,9 @@ const queryClient = new QueryClient({
       retry: 2,
       staleTime: 5 * 60 * 1000,
       gcTime: 1000 * 60 * 30,
+      // Instant tab/screen transitions: keep showing the previous page's data
+      // while the next query resolves (no spinner flash on navigation).
+      placeholderData: keepPreviousData,
     },
     mutations: { retry: 1 },
   },

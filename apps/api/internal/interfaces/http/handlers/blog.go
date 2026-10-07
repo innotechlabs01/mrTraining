@@ -9,6 +9,7 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/domain/blog"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
+	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
@@ -102,6 +103,7 @@ func (h *BlogHandler) CreateArticle(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
+	middleware.InvalidateCache("blog")
 	return appresponse.Success(c, toArticleResponse(article))
 }
 
@@ -137,6 +139,7 @@ func (h *BlogHandler) UpdateArticle(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
+	middleware.InvalidateCache("blog")
 	return appresponse.Success(c, toArticleResponse(article))
 }
 
@@ -152,6 +155,7 @@ func (h *BlogHandler) DeleteArticle(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
+	middleware.InvalidateCache("blog")
 	return appresponse.Success(c, fiber.Map{"ok": true})
 }
 

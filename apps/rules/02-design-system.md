@@ -61,11 +61,11 @@ Light mode is a secondary theme. The design system is authored dark-first; all l
 
 | Token | Hex | Usage |
 |---|---|---|
-| `--color-brand-primary` | `#C8FF00` | Volt. The single accent. One primary CTA per screen, active states, progress fills. |
-| `--color-brand-primary-pressed` | `#A8D900` | Pressed state for Volt elements. |
+| `--color-brand-primary` | `#15AAF2` | Blue. The single accent. One primary CTA per screen, active states, progress fills. |
+| `--color-brand-primary-pressed` | `#0E93D4` | Pressed state for Blue elements. |
 
-Volt is the only brand accent. The 90/10 rule governs distribution: ≥ 90% of a
-screen comes from neutrals, ≤ 10% from Volt. The former Electric Orange /
+Blue is the only brand accent. The 90/10 rule governs distribution: ≥ 90% of a
+screen comes from neutrals, ≤ 10% from Blue. The former Electric Orange /
 Performance Blue dual-accent system is retired (see 01-brand-guidelines.md §4).
 
 **Semantic Colors**
@@ -84,7 +84,7 @@ Semantic colors must never appear alone. Every success state includes both the g
 |---|---|---|
 | `--color-text-primary` | `#F5F5F7` | Primary body text, headlines |
 | `--color-text-secondary` | `#9CA3AF` | Secondary text, metadata, captions, placeholders |
-| `--color-text-inverse` | `#111214` | Text on Volt accent backgrounds (always Base, never white) |
+| `--color-text-inverse` | `#111214` | Text on Blue accent backgrounds (always Base, never white) |
 
 **Text Colors (Light Mode)**
 
@@ -97,7 +97,7 @@ Semantic colors must never appear alone. Every success state includes both the g
 
 #### Color Usage Hierarchy
 
-Colors serve three distinct functions in the interface. The surface hierarchy (levels 0 through 6) establishes spatial depth and containment. Semantic colors (success, warning, error) communicate system state and require icon/text pairing. A single brand accent (Volt) draws attention to the primary action — one per screen. This three-layer separation ensures that color is never ambiguous — a semantic-colored badge signals system state, neutral text signals navigation, and a Volt data point signals the emphasized series.
+Colors serve three distinct functions in the interface. The surface hierarchy (levels 0 through 6) establishes spatial depth and containment. Semantic colors (success, warning, error) communicate system state and require icon/text pairing. A single brand accent (Blue) draws attention to the primary action — one per screen. This three-layer separation ensures that color is never ambiguous — a semantic-colored badge signals system state, neutral text signals navigation, and a Blue data point signals the emphasized series.
 
 ### 1.2 Typography
 
@@ -244,7 +244,7 @@ Shadows define elevation in the dark interface. Unlike light-mode shadows which 
              0 0 0 1px rgba(255, 255, 255, 0.1),
              0 2px 0 rgba(255, 255, 255, 0.05);
 
-/* Focus ring glow — Volt (single accent) */
+/* Focus ring glow — Blue (single accent) */
 --shadow-focus-volt: 0 0 0 2px rgba(200, 255, 0, 0.4);
 ```
 
@@ -420,9 +420,9 @@ Buttons are the primary action mechanism. Three variants express action hierarch
 
 | State | Primary | Secondary | Ghost |
 |---|---|---|---|
-| `default` | `#C8FF00` bg | transparent, gray border | transparent |
-| `hover` | `#A8D900` (pressed) | `--color-surface-4` bg | `--color-surface-3` bg |
-| `active` | `#A8D900` (pressed) | `--color-surface-5` bg | `--color-surface-4` bg |
+| `default` | `#15AAF2` bg | transparent, gray border | transparent |
+| `hover` | `#0E93D4` (pressed) | `--color-surface-4` bg | `--color-surface-3` bg |
+| `active` | `#0E93D4` (pressed) | `--color-surface-5` bg | `--color-surface-4` bg |
 | `focus` | Same as default + `--shadow-focus-volt` | Same as default + `--shadow-focus-volt` | Same as default + `--shadow-focus-volt` |
 | `disabled` | `--color-surface-raised` bg, `--color-text-secondary` text | `--color-text-secondary` text, border `--color-surface-4` | `--color-text-secondary` text |
 | `loading` | Replaced with 16px spinner, label hidden | Replaced with 16px spinner, label hidden | Replaced with 16px spinner |

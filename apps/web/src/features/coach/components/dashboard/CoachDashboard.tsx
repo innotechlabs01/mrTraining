@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
@@ -187,22 +188,23 @@ function formatCurrency(n: number) {
 }
 
 export default function CoachDashboard() {
-  const now = useNow()
+  // Minute granularity: greeting/date/filters only change per minute. The
+  // wall clock itself lives in <LiveClock/> so the whole dashboard tree does
+  // not re-render every second (was the main source of jank on this screen).
+  const now = useNow(60_000)
   const { events, isLoading: eventsLoading } = useEvents()
   const { products, isLoading: productsLoading } = useProducts()
   const { sales, getAggregatedToday, isLoading: salesLoading } = useSales()
   const { athletes, isLoading: athletesLoading } = useAthletes()
 
-  const [dashboard, setDashboard] = useState<{ metrics: DashboardMetrics; extra: Record<string, unknown>; revenueHistory: RevenuePoint[] } | null>(null)
-  const [dashboardLoading, setDashboardLoading] = useState(true)
-  const [msgIndex, setMsgIndex] = useState(0)
-
-  useEffect(() => {
-    coachingApi.getDashboard<{ metrics: DashboardMetrics; extra: Record<string, unknown>; revenueHistory: RevenuePoint[] } | null>()
-      .then(data => setDashboard(data))
-      .catch(() => { })
-      .finally(() => setDashboardLoading(false))
-  }, [])
+  const { data: dashboard = null, isLoading: dashboardLoading } = useQuery<{ metrics: DashboardMetrics; extra: Record<string, unknown>; revenueHistory: RevenuePoint[] } | null>({
+    // Prefetched server-side in (app)/coach/page.tsx — hydrated here so the
+    // metrics render with the first HTML instead of after hydration.
+    queryKey: ['coach-dashboard'],
+    queryFn: () => coachingApi.getDashboard<{ metrics: DashboardMetrics; extra: Record<string, unknown>; revenueHistory: RevenuePoint[] } | null>(),
+    staleTime: 30_000,
+    retry: 1,
+  })
 
   const m = dashboard?.metrics ?? null
   const extra = dashboard?.extra ?? null
@@ -250,11 +252,6 @@ export default function CoachDashboard() {
     'Tu constancia es la diferencia entre prometer y transformar.',
   ]
 
-  useEffect(() => {
-    const id = setInterval(() => setMsgIndex((i) => (i + 1) % motivationalMessages.length), 6000)
-    return () => clearInterval(id)
-  }, [motivationalMessages.length])
-
   const revenuePct = m ? Math.min(100, Math.round((m.monthlyRevenue / ((extra?.revenueGoal as number) || 1)) * 100)) : 0
   const athletePct = m ? Math.min(100, Math.round((m.newAthletesThisMonth / ((extra?.newAthletesGoal as number) || 1)) * 100)) : 0
 
@@ -294,7 +291,6 @@ export default function CoachDashboard() {
 
   const maxRevenue = Math.max(1, ...revenueHistory.map((r) => r.amount))
 
-  const clock = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
   const dateLabel = now.toLocaleDateString('es-MX', {
     weekday: 'long',
     day: 'numeric',
@@ -335,13 +331,13 @@ export default function CoachDashboard() {
             </div>
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-widest text-brand-primary/80">
-                {clock} · {dateLabel}
+                <LiveClock /> · {dateLabel}
               </p>
               <h1 className="mt-1.5 text-2xl font-bold font-display text-white sm:text-3xl">
                 {greeting(now)}, Coach
               </h1>
               <div className="mt-2 h-6 overflow-hidden">
-                <AnimatedMessage index={msgIndex} messages={motivationalMessages} />
+                <AnimatedMessage messages={motivationalMessages} />
               </div>
             </div>
           </div>
@@ -793,7 +789,31 @@ export default function CoachDashboard() {
   )
 }
 
-function AnimatedMessage({ index, messages }: { index: number; messages: readonly string[] }) {
+/**
+ * Isolated wall clock. Ticks on its own so only this leaf re-renders — the
+ * dashboard tree stays untouched between minute changes.
+ */
+function LiveClock() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 15_000)
+    return () => clearInterval(id)
+  }, [])
+  return <>{now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</>
+}
+
+/**
+ * Rotating motivational message. Owns its 6s rotation interval so the parent
+ * dashboard does not re-render on every message swap.
+ */
+function AnimatedMessage({ messages }: { messages: readonly string[] }) {
+  const [index, setIndex] = useState(0)
+  useEffect(() => {
+    if (messages.length <= 1) return
+    const id = setInterval(() => setIndex((i) => (i + 1) % messages.length), 6000)
+    return () => clearInterval(id)
+  }, [messages.length])
+
   return (
     <div className="relative">
       {messages.map((msg, i) => (
