@@ -3,18 +3,20 @@ import { View, Text, StyleSheet, Pressable, Linking, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, radius, typography } from '../../../../shared/theme/tokens';
+import { colors, spacing, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { SegmentedFilter } from '../../../../shared/components/ui/SegmentedFilter';
 import { ListCard } from '../../../../shared/components/ui/ListCard';
 import { Card } from '../../../../shared/components/ui/Card';
 import {
-  HelpIcon,
   ChatIcon,
   TargetIcon,
   ChevronRightIcon,
 } from '../../../../shared/components/icons';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.helpScreen;
 
 type HelpTab = 'faq' | 'contact';
 
@@ -31,34 +33,34 @@ type FAQItem = {
 };
 
 const CONTACT_ROWS: ContactRow[] = [
-  { icon: <ChatIcon size={20} />, label: 'Atención al cliente', url: 'mailto:support@mr-training.com' },
-  { icon: <TargetIcon size={20} />, label: 'Sitio web', url: 'https://mr-training.com' },
+  { icon: <ChatIcon size={20} />, label: t.supportLabel, url: 'mailto:support@mr-training.com' },
+  { icon: <TargetIcon size={20} />, label: t.websiteLabel, url: 'https://mr-training.com' },
 ];
 
 const FAQ_DATA: FAQItem[] = [
   {
     id: '1',
-    question: '¿Cómo restablezco mi contraseña?',
+    question: t.faqPassword,
     answer:
-      'Andá a Configuración > Contraseña y seguí las instrucciones. Se envía un enlace de restablecimiento a tu correo registrado.',
+      t.faqPasswordAnswer,
   },
   {
     id: '2',
-    question: '¿Cómo contacto a mi entrenador?',
+    question: t.faqCoach,
     answer:
-      'Usá la función de mensajería dentro de tu plan de entrenamiento. Andá a la pestaña de Entrenador y enviá un mensaje directamente.',
+      t.faqCoachAnswer,
   },
   {
     id: '3',
-    question: '¿Puedo cambiar mi horario de entrenamiento?',
+    question: t.faqSchedule,
     answer:
-      'Sí. Andá a Perfil > Horario de entrenamiento para elegir los días y el horario que prefieras.',
+      t.faqScheduleAnswer,
   },
   {
     id: '4',
-    question: '¿Cómo cancelo mi membresía?',
+    question: t.faqCancel,
     answer:
-      'Abre tu Perfil y toca Membresía para gestionar tu plan. Puedes cancelar antes del próximo ciclo de facturación.',
+      t.faqCancelAnswer,
   },
 ];
 
@@ -75,27 +77,27 @@ export function HelpScreen() {
 
   const handleContactPress = async (row: ContactRow) => {
     if (!row.url) {
-      Alert.alert(row.label, 'Próximamente');
+      Alert.alert(row.label, t.comingSoon);
       return;
     }
     try {
       const canOpen = await Linking.canOpenURL(row.url);
       if (canOpen) await Linking.openURL(row.url);
-      else Alert.alert(row.label, 'No se pudo abrir este enlace.');
+      else Alert.alert(row.label, t.openFailed);
     } catch {
-      Alert.alert(row.label, 'Algo salió mal. Intenta de nuevo.');
+      Alert.alert(row.label, t.genericError);
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScreenHeader title="Ayuda" onBack={() => navigation.goBack()} />
+      <ScreenHeader title={t.title} onBack={() => navigation.goBack()} />
 
       <View style={styles.tabRow}>
         <SegmentedFilter
           options={[
-            { key: 'faq', label: 'Preguntas' },
-            { key: 'contact', label: 'Contacto' },
+            { key: 'faq', label: t.tabFaq },
+            { key: 'contact', label: t.tabContact },
           ]}
           value={tab}
           onChange={(key) => setTab(key as HelpTab)}

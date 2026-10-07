@@ -14,6 +14,9 @@ import { Video, ResizeMode } from 'expo-av';
 import { colors, spacing, typography } from '../../../../shared/theme/tokens';
 import { recordView } from '../../../videoViews/videoViewService';
 import { PlayIcon } from '../../../../shared/components/icons';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.trackedVideoPlayer;
 
 type Props = {
   videoUrl: string;
@@ -82,23 +85,6 @@ export function TrackedVideoPlayer({ videoUrl, exerciseId, athleteId }: Props) {
     }
   }, [exerciseId, athleteId]);
 
-  const handlePause = useCallback(async () => {
-    if (!videoRef.current) return;
-    await videoRef.current.pauseAsync();
-    setPlaying(false);
-    // Report final position on pause.
-    if (viewIdRef.current) {
-      const s = await videoRef.current.getStatusAsync().catch(() => null);
-      if (s?.isLoaded) {
-        track('progress', {
-          viewId: viewIdRef.current,
-          positionSec: (s.positionMillis ?? 0) / 1000,
-          totalDurationSec: (s.durationMillis ?? 0) / 1000,
-        });
-      }
-    }
-  }, [track]);
-
   const handleRetry = useCallback(() => {
     setStatus('idle');
     setPlaying(false);
@@ -119,15 +105,15 @@ export function TrackedVideoPlayer({ videoUrl, exerciseId, athleteId }: Props) {
       />
       {status === 'error' && (
         <View style={styles.playOverlay}>
-          <Text style={styles.errorText}>No se pudo cargar el video</Text>
+          <Text style={styles.errorText}>{t.loadError}</Text>
           <Pressable style={styles.retryButton} onPress={handleRetry}>
-            <Text style={styles.retryText}>Reintentar</Text>
+            <Text style={styles.retryText}>{texts.common.retry}</Text>
           </Pressable>
         </View>
       )}
       {status === 'loading' && (
         <View style={styles.playOverlay}>
-          <Text style={styles.playLabel}>Cargando...</Text>
+          <Text style={styles.playLabel}>{texts.common.loading}</Text>
         </View>
       )}
       {!playing && status !== 'loading' && status !== 'error' && (
@@ -135,7 +121,7 @@ export function TrackedVideoPlayer({ videoUrl, exerciseId, athleteId }: Props) {
           <View style={styles.playButton}>
             <PlayIcon size={28} color="#fff" />
           </View>
-          <Text style={styles.playLabel}>Ver demo</Text>
+          <Text style={styles.playLabel}>{texts.screens.workoutExecution.viewDemo}</Text>
         </Pressable>
       )}
     </View>

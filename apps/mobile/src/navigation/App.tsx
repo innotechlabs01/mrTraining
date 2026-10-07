@@ -1,11 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { persistQueryClient } from '@tanstack/react-query-persist-client';
-import type { PersistedClient } from '@tanstack/react-query-persist-client';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ClerkProvider, useClerk } from '@clerk/clerk-expo';
+import { ClerkProvider, useClerk, useUser } from '@clerk/clerk-expo';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
@@ -15,7 +13,16 @@ import { setClerkInstance } from '../infrastructure/auth/clerk';
 import { useAppFonts } from '../shared/theme/fonts';
 import { registerBackgroundSync } from '../infrastructure/health/background-sync';
 import { registerForPushNotifications } from '../infrastructure/notifications/push';
+import {
+  createMMKVPersister,
+  rqCacheKey,
+  shouldDehydrateQuery,
+  RQ_CACHE_MAX_AGE,
+} from '../infrastructure/storage/queryCachePersister';
 import Toast, { toastConfig } from '../shared/components/ui/Toast';
+import { OfflineBanner } from '../shared/components/ui/OfflineBanner';
+import i18n from '../i18n';
+import { I18nextProvider } from 'react-i18next';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,22 +35,42 @@ const queryClient = new QueryClient({
   },
 });
 
-persistQueryClient({
-  queryClient,
-  persister: {
-    persistClient: async (client) => {
-      await AsyncStorage.setItem('react-query-cache', JSON.stringify(client));
-    },
-    restoreClient: async () => {
-      const cache = await AsyncStorage.getItem('react-query-cache');
-      return cache ? (JSON.parse(cache) as PersistedClient) : undefined;
-    },
-    removeClient: async () => {
-      await AsyncStorage.removeItem('react-query-cache');
-    },
-  },
-  maxAge: 1000 * 60 * 60 * 24,
-});
+/**
+ * Persists the query cache to MMKV under a per-user key (`rq-cache-<userId>`,
+ * `rq-cache-anon` pre-auth). On sign-out or account switch, the previous
+ * user's in-memory AND persisted cache are dropped, so one athlete never
+ * sees another's data. The Profile screen's sign-out goes through Clerk;
+ * this component reacts to the user becoming null — no per-screen wiring.
+ */
+function QueryCachePersistor() {
+  const { user } = useUser();
+  const prevUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const userId = user?.id ?? null;
+
+    const prevUserId = prevUserIdRef.current;
+    if (prevUserId && prevUserId !== userId) {
+      // Sign-out or account switch: purge the previous user's cache.
+      queryClient.clear();
+      createMMKVPersister(rqCacheKey(prevUserId)).removeClient();
+    }
+    prevUserIdRef.current = userId;
+
+    const [unsubscribe, restorePromise] = persistQueryClient({
+      queryClient,
+      persister: createMMKVPersister(rqCacheKey(userId)),
+      maxAge: RQ_CACHE_MAX_AGE,
+      dehydrateOptions: { shouldDehydrateQuery },
+    });
+    // Errors during restore are handled internally (cache is discarded).
+    void restorePromise;
+
+    return () => unsubscribe();
+  }, [user?.id]);
+
+  return null;
+}
 
 // Hold the native splash until FontGate hides it after fonts resolve.
 // Runs at module scope so it executes before the first render, even if the
@@ -114,17 +141,21 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <FontGate>
-        <ClerkProvider publishableKey={CLERK_KEY} tokenCache={tokenCache}>
-          <QueryClientProvider client={queryClient}>
-            <SafeAreaProvider>
-              <ClerkInstanceSetter />
-              <AppStateRefresh />
-              <BackgroundSyncRegistrar />
-              <AppNavigator />
-              <Toast config={toastConfig} position="top" visibilityTime={3000} topOffset={56} />
-            </SafeAreaProvider>
-          </QueryClientProvider>
-        </ClerkProvider>
+        <I18nextProvider i18n={i18n}>
+          <ClerkProvider publishableKey={CLERK_KEY} tokenCache={tokenCache}>
+            <QueryClientProvider client={queryClient}>
+              <SafeAreaProvider>
+                <ClerkInstanceSetter />
+                <QueryCachePersistor />
+                <AppStateRefresh />
+                <BackgroundSyncRegistrar />
+                <AppNavigator />
+                <OfflineBanner />
+                <Toast config={toastConfig} position="top" visibilityTime={3000} topOffset={56} />
+              </SafeAreaProvider>
+            </QueryClientProvider>
+          </ClerkProvider>
+        </I18nextProvider>
       </FontGate>
     </GestureHandlerRootView>
   );

@@ -6,7 +6,7 @@ import { poseFromFrame } from '../../infrastructure/camera/poseFrameSource';
 import { readThermalState } from '../../infrastructure/device/thermal';
 import type { PoseRuntime } from '../../infrastructure/pose/PoseRuntime';
 import { RepEngine } from '../../application/RepEngine';
-import { FormEngine } from '../../application/FormEngine';
+import { FormEngine, qualityForScore } from '../../application/FormEngine';
 import { FatigueEngine } from '../../application/FatigueEngine';
 import { CoachingEngine } from '../../application/CoachingEngine';
 import { BatteryManager } from '../../application/BatteryManager';
@@ -17,6 +17,8 @@ import type { Pose, LandmarkFrame } from '../../domain/Landmark';
 import type { RepQuality, CameraPositionStatus } from '../../domain/RepTypes';
 import { speak } from '../voice';
 import { useSessionSummary, persistSessionSummary, type SessionRep } from './useSessionSummary';
+import { summaryToFormMetrics } from '../../application/sessionFormMetrics';
+import { useFormSessionStore } from '../../../training/application/formSessionStore';
 
 export interface DebugInfo {
   fps: number;
@@ -59,6 +61,7 @@ export function useAiWorkout(
   exerciseId: string,
   target: number,
   runtime: PoseRuntime,
+  options?: { executionExerciseId?: string },
 ): AiWorkoutState & {
   onFrame: (frame: unknown, nowMs: number) => void;
   startCountdown: () => void;
@@ -214,13 +217,23 @@ export function useAiWorkout(
     setDebug((d) => ({ ...d, velocity: metrics.velocityDegPerSec, failure: level.proximity, phase: eng.rep.getState(), reps: repCount }));
   }, [eng, runtime, def, session, repCount]);
 
+  const executionExerciseId = options?.executionExerciseId;
   useEffect(() => {
     if (session.completed) {
       setIsCounting(false);
       void persistSessionSummary(session.summary);
       setDebug((d) => ({ ...d, reps: session.summary.completed }));
+      // Hand the aggregate verdict to workout execution (consumed once, there).
+      if (session.summary.completed > 0) {
+        useFormSessionStore.getState().setResult({
+          exerciseId: executionExerciseId ?? exerciseId,
+          score: session.summary.avgForm,
+          quality: qualityForScore(session.summary.avgForm),
+          metrics: summaryToFormMetrics(session.summary),
+        });
+      }
     }
-  }, [session.completed, session.summary]);
+  }, [session.completed, session.summary, exerciseId, executionExerciseId]);
 
   return { status, hint, repCount, target, quality, isCounting, debug, onFrame, startCountdown, stop, sessionCompleted: session.completed, summary: session.summary };
 }

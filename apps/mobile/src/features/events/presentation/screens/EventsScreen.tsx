@@ -14,6 +14,9 @@ import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { DayStrip, type CalendarDay } from '../../../../shared/components/ui/DayStrip';
 import type { AthleteTabParamList } from '../../../../navigation/AthleteTabs';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.eventsScreen;
 
 type EventItem = {
   id: string;
@@ -163,14 +166,14 @@ export function EventsScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        <ScreenHeader title="Eventos" subtitle={formatHeaderDate(selectedKey)} />
+        <ScreenHeader title={t.headerTitle} subtitle={formatHeaderDate(selectedKey)} />
 
         <DayStrip days={days} selectedKey={selectedKey} onSelect={setSelectedKey} onEndReached={extendWindow} />
 
         {showLoading ? (
-          <EmptyState variant="loading" message="Cargando eventos..." />
+          <EmptyState variant="loading" message={t.loading} />
         ) : selectedEvents.length === 0 ? (
-          <EmptyState variant="empty" message="No hay eventos este día" />
+          <EmptyState variant="empty" message={t.emptyDay} />
         ) : (
           <View style={styles.list}>
             {selectedEvents.map((ev) => (
@@ -188,7 +191,7 @@ export function EventsScreen() {
                   <View style={styles.cardTopRow}>
                     <View style={[styles.typeDot, { backgroundColor: colors.primary }]} />
                     <Text style={styles.typeText} numberOfLines={1}>
-                      {(ev.type ?? 'Evento').toUpperCase()}
+                      {((ev.type ?? t.fallbackTitle)).toUpperCase()}
                     </Text>
                     {!!ev.status && <Badge text={ev.status} tone={toneForEventStatus(ev.status)} />}
                   </View>

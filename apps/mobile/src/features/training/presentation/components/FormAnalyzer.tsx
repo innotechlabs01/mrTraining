@@ -9,6 +9,9 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.formAnalyzer;
 
 export type FormMetrics = {
   depth: number; // 0-100
@@ -30,9 +33,9 @@ function getScoreColor(score: number): string {
 }
 
 function getScoreLabel(score: number): string {
-  if (score >= 80) return 'Buena';
-  if (score >= 60) return 'Aceptable';
-  return 'Mejorar';
+  if (score >= 80) return t.scoreGood;
+  if (score >= 60) return t.scoreOk;
+  return t.scoreBad;
 }
 
 function MetricBar({ label, value }: { label: string; value: number }) {
@@ -65,15 +68,15 @@ export function FormAnalyzer({ score, metrics, feedback, isActive = true }: Form
           <Text style={[styles.scoreNumber, { color: scoreColor }]}>{score}</Text>
         </View>
         <View style={styles.headerText}>
-          <Text style={styles.title}>FORMA</Text>
+          <Text style={styles.title}>{t.title}</Text>
           <Text style={[styles.scoreLabel, { color: scoreColor }]}>{scoreLabel}</Text>
         </View>
       </View>
 
       <View style={styles.metrics}>
-        <MetricBar label="Profundidad" value={metrics.depth} />
-        <MetricBar label="Alineación" value={metrics.alignment} />
-        <MetricBar label="Tempo" value={metrics.tempo} />
+        <MetricBar label={t.depthLabel} value={metrics.depth} />
+        <MetricBar label={t.alignmentLabel} value={metrics.alignment} />
+        <MetricBar label={t.tempoLabel} value={metrics.tempo} />
       </View>
 
       {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}

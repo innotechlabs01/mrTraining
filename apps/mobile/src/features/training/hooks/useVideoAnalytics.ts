@@ -8,9 +8,6 @@ import {
   fetchSummary,
   fetchPerExercise,
   fetchSessions,
-  type APISessionAnalysis,
-  type APIExerciseAnalytics,
-  type APIAnalyticsSummary,
 } from '../../../infrastructure/videoanalytics/api';
 
 const VIDEO_ANALYTICS_QUERY_KEY = ['training', 'video-analytics'];

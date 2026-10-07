@@ -2,6 +2,19 @@ import type { RepQuality } from '../domain/RepTypes';
 import type { RepResult } from './RepEngine';
 import type { MovementMetrics } from './MovementEngine';
 
+/** Score thresholds (0-100) that map a form score to a rep quality verdict. */
+export const FORM_QUALITY_GOOD_MIN = 85;
+export const FORM_QUALITY_REGULAR_MIN = 60;
+
+export type ScoredQuality = Exclude<RepQuality, 'UNKNOWN'>;
+
+/** Map a 0-100 form score to its verdict quality. Single source of truth. */
+export function qualityForScore(score: number): ScoredQuality {
+  if (score >= FORM_QUALITY_GOOD_MIN) return 'GOOD';
+  if (score >= FORM_QUALITY_REGULAR_MIN) return 'REGULAR';
+  return 'BAD';
+}
+
 export interface FormResult {
   score: number;
   quality: RepQuality;
@@ -34,7 +47,7 @@ export class FormEngine {
     const depthBonus = Math.max(0, def.form.minKneeForGoodDeg - minKnee); // deeper = bonus pool
     score = Math.round(score - swayPenalty - symPenalty + this.cap(depthBonus, 0, 5));
 
-    let quality: RepQuality = score >= 85 ? 'GOOD' : score >= 60 ? 'REGULAR' : 'BAD';
+    const quality: RepQuality = qualityForScore(score);
 
     this.total += score;
     this.n += 1;

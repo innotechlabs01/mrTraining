@@ -9,6 +9,7 @@ import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { colors, fontFamilies, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { ArrowLeftIcon, BarbellIcon, BellIcon, ChatIcon, ChartBarIcon, FireIcon } from '../../../../shared/components/icons';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
+import { texts } from '../../../../shared/i18n/texts';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -20,11 +21,11 @@ type NotificationType = {
 };
 
 const NOTIFICATION_TYPES: NotificationType[] = [
-  { key: 'workoutReminders', icon: <BarbellIcon size={18} color={colors.text} />, label: 'Recordatorios de entrenamiento', description: 'Recibe notificaciones cuando se asigna un entrenamiento' },
-  { key: 'weeklyChallenges', icon: <FireIcon size={18} color={colors.text} />, label: 'Desafíos semanales', description: 'Notificaciones de desafíos de entrenamiento semanales' },
-  { key: 'newArticles', icon: <ChartBarIcon size={18} color={colors.text} />, label: 'Nuevos artículos', description: 'Nuevos artículos de blog y marketing' },
-  { key: 'communityUpdates', icon: <ChatIcon size={18} color={colors.text} />, label: 'Actualizaciones de la comunidad', description: 'Actualizaciones del foro y discusiones de la comunidad' },
-  { key: 'progressReports', icon: <BellIcon size={18} color={colors.text} />, label: 'Informes de progreso', description: 'Resúmenes de progreso y notificaciones de logros' },
+  { key: 'workoutReminders', icon: <BarbellIcon size={18} color={colors.text} />, label: texts.screens.notificationSettings.remindersLabel, description: texts.screens.notificationSettings.remindersDesc },
+  { key: 'weeklyChallenges', icon: <FireIcon size={18} color={colors.text} />, label: texts.screens.notificationSettings.challengesLabel, description: texts.screens.notificationSettings.challengesDesc },
+  { key: 'newArticles', icon: <ChartBarIcon size={18} color={colors.text} />, label: texts.screens.notificationSettings.articlesLabel, description: texts.screens.notificationSettings.articlesDesc },
+  { key: 'communityUpdates', icon: <ChatIcon size={18} color={colors.text} />, label: texts.screens.notificationSettings.communityLabel, description: texts.screens.notificationSettings.communityDesc },
+  { key: 'progressReports', icon: <BellIcon size={18} color={colors.text} />, label: texts.screens.notificationSettings.progressLabel, description: texts.screens.notificationSettings.progressDesc },
 ];
 
 type Preferences = Record<string, boolean>;
@@ -89,14 +90,14 @@ export function NotificationSettingsScreen() {
       <View style={styles.headerRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Volver"
+          accessibilityLabel={texts.common.back}
           onPress={() => navigation.goBack()}
           hitSlop={12}
           style={styles.backButton}
         >
           <ArrowLeftIcon size={24} color={colors.primary} />
         </Pressable>
-        <Text style={styles.headerTitle}>Configuración de notificaciones</Text>
+        <Text style={styles.headerTitle}>{texts.screens.notificationSettings.title}</Text>
         <View style={styles.headerSpacer} />
       </View>
 

@@ -1,9 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, radius, fontFamilies } from '../../../../shared/theme/tokens';
 import { welcomeImage } from '../../../../shared/theme/onboardingImages';
 import { ChevronRightIcon } from '../../../../shared/components/icons';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.welcome;
 
 type Props = {
   onNewUser: () => void;
@@ -14,7 +18,14 @@ export function WelcomeScreen({ onNewUser, onExistingUser }: Props) {
   return (
     <SafeAreaView style={styles.container}>
       {/* Fitness hero background */}
-      <Image source={{ uri: welcomeImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <Image
+        source={{ uri: welcomeImage }}
+        style={[StyleSheet.absoluteFill, styles.heroImage]}
+        placeholderContentFit="cover"
+        contentFit="cover"
+        cachePolicy="disk"
+        transition={200}
+      />
       {/* Dark overlay for contrast */}
       <View style={styles.overlay} pointerEvents="none" />
 
@@ -23,9 +34,9 @@ export function WelcomeScreen({ onNewUser, onExistingUser }: Props) {
           <View style={styles.iconCircle}>
             <Text style={styles.iconText}>MR</Text>
           </View>
-          <Text style={styles.title}>Ve más allá{'\n'}de tus límites</Text>
+          <Text style={styles.title}>{t.title}</Text>
           <Text style={styles.subtitle}>
-            Tu entrenador personal en el bolsillo. Entrena mejor, recupérate mejor y alcanza tus metas.
+            {t.subtitle}
           </Text>
         </View>
 
@@ -34,14 +45,14 @@ export function WelcomeScreen({ onNewUser, onExistingUser }: Props) {
             style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
             onPress={onNewUser}
             accessibilityRole="button"
-            accessibilityLabel="Soy nuevo aquí — Obtener un plan personalizado"
+            accessibilityLabel={t.newUserA11y}
           >
             <View style={styles.cardIcon}>
               <Text style={styles.cardMonogram}>MR</Text>
             </View>
             <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>Soy nuevo aquí</Text>
-              <Text style={styles.cardDesc}>Obtén un plan personalizado según tu deporte y objetivos</Text>
+              <Text style={styles.cardTitle}>{t.newUserTitle}</Text>
+              <Text style={styles.cardDesc}>{t.newUserDesc}</Text>
             </View>
             <ChevronRightIcon size={20} color={colors.primary} />
           </Pressable>
@@ -50,25 +61,25 @@ export function WelcomeScreen({ onNewUser, onExistingUser }: Props) {
             style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
             onPress={onExistingUser}
             accessibilityRole="button"
-            accessibilityLabel="Ya entreno — Iniciar sesión para continuar"
+            accessibilityLabel={t.existingUserA11y}
           >
             <View style={styles.cardIcon}>
               <Text style={styles.cardMonogram}>+</Text>
             </View>
             <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>Ya entreno</Text>
-              <Text style={styles.cardDesc}>Inicia sesión y continúa donde lo dejaste</Text>
+              <Text style={styles.cardTitle}>{t.existingUserTitle}</Text>
+              <Text style={styles.cardDesc}>{t.existingUserDesc}</Text>
             </View>
             <ChevronRightIcon size={20} color={colors.primary} />
           </Pressable>
         </View>
 
         <Text style={styles.hint}>
-          ¿Tienes un código de entrenador? Ingresalo durante el registro.
+          {t.hint}
         </Text>
 
         <Text style={styles.footer}>
-          Al continuar aceptas nuestros Términos de Servicio y Política de Privacidad.
+          {t.footer}
         </Text>
       </View>
     </SafeAreaView>
@@ -77,6 +88,7 @@ export function WelcomeScreen({ onNewUser, onExistingUser }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
+  heroImage: { backgroundColor: colors.surfaceRaised },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(11,15,14,0.55)',

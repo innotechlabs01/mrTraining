@@ -4,6 +4,7 @@ import { SessionsSection, NewsFeedSection, PRsSection, ChallengeSection } from '
 import type { Alert } from '../../../../alerts/alertService';
 import type { BlogPost } from '../../../../blog/blogService';
 import type { PersonalRecord } from '../../../../gamification/domain/prService';
+import { texts } from '../../../../../shared/i18n/texts';
 
 const sessions = [
   { id: 's1', name: 'Gimnasio Mañana', time: '08:00', endTime: '09:00', location: 'Sala A' },
@@ -146,7 +147,7 @@ describe('PRsSection', () => {
   it('shows empty state without PRs', () => {
     const { getByText } = render(<PRsSection prs={[]} />);
     expect(getByText('Mejores Marcas')).toBeTruthy();
-    expect(getByText('Subí tus marcas al entrenar')).toBeTruthy();
+    expect(getByText(texts.screens.todaySections.prsEmpty)).toBeTruthy();
   });
 });
 

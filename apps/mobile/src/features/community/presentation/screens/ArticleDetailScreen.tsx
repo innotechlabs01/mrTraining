@@ -10,6 +10,9 @@ import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.articleDetail;
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type ArticleRoute = RouteProp<RootStackParamList, 'ArticleDetail'>;
@@ -27,7 +30,7 @@ export function ArticleDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScreenHeader title="Artículo" onBack={() => navigation.goBack()} />
+      <ScreenHeader title={t.headerTitle} onBack={() => navigation.goBack()} />
 
       {isLoading ? (
         <View style={styles.loading}>
@@ -36,8 +39,8 @@ export function ArticleDetailScreen() {
       ) : isError || !article ? (
         <EmptyState
           variant="error"
-          title="No se pudo cargar"
-          message="El artículo no está disponible."
+          title={t.errorTitle}
+          message={t.errorMessage}
           onRetry={() => navigation.goBack()}
         />
       ) : (
@@ -73,7 +76,7 @@ const styles = StyleSheet.create({
   title: { ...typography.h2, color: colors.text },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   badge: {
-    backgroundColor: 'rgba(200, 255, 0, 0.1)',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: radius.sm,

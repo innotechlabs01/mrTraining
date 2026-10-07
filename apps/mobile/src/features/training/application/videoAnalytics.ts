@@ -21,7 +21,6 @@ export type VideoSession = {
 };
 
 const PROGRESS_MILESTONES = [0.25, 0.5, 0.75, 1.0];
-const STORAGE_KEY = 'mr_training.videoAnalytics.v1';
 
 let currentSession: VideoSession | null = null;
 let reportedMilestones = new Set<number>();

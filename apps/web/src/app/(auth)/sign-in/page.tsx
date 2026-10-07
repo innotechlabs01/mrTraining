@@ -7,6 +7,7 @@ import { AuthShell } from '@/features/auth/components/AuthShell';
 import { SignInForm } from '@/features/auth/components/SignInForm';
 import { motion } from 'framer-motion';
 import { ClipboardList } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 
 const ROLES = [
@@ -17,6 +18,7 @@ export default function SignInPage() {
   const router = useRouter();
   const { isSignedIn, isLoaded } = useAuth();
   const [role, setRole] = useState<string | null>(null);
+  const t = useTranslations('common');
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
@@ -29,11 +31,11 @@ export default function SignInPage() {
   };
 
   return (
-    <AuthShell title="Welcome back" subtitle="Sign in to your MR Training account">
+    <AuthShell title={t('welcome')} subtitle={t('signInSubtitle')}>
       <Suspense fallback={null}>
         {!role ? (
           <div className="flex flex-col gap-4">
-            <p className="text-sm text-text-secondary text-center mb-2">I am a:</p>
+            <p className="text-sm text-text-secondary text-center mb-2">{t('auth.iAm')}</p>
             <div className="grid grid-col-6 gap-3">
               {ROLES.map((r) => (
                 <motion.button
@@ -52,12 +54,6 @@ export default function SignInPage() {
                 </motion.button>
               ))}
             </div>
-            {/* <button
-              onClick={() => setRole('athlete')}
-              className="mt-2 text-xs text-text-muted hover:text-text-secondary transition-colors"
-            >
-              Skip & continue as Athlete
-            </button> */}
           </div>
         ) : (
           <SignInForm

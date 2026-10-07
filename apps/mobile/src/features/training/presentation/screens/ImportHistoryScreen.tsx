@@ -10,6 +10,9 @@ import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { CheckIcon } from '../../../../shared/components/icons';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.importHistoryScreen;
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ImportHistory'>;
 
@@ -38,19 +41,18 @@ export function ImportHistoryScreen({ navigation }: Props) {
     },
     onError: (err) => {
       console.error('Failed to import workouts:', err);
-      Alert.alert('Import failed', 'Check that the CSV is a valid Strong/Hevy/FitNotes export and try again.');
+      Alert.alert(t.importFailedTitle, t.importFailedBody);
     },
   });
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScreenHeader title="Importar historial" onBack={() => navigation.goBack()} />
+      <ScreenHeader title={t.headerTitle} onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.content}>
         <Card style={styles.introCard}>
-          <Text style={styles.introTitle}>Traé tu historial</Text>
+          <Text style={styles.introTitle}>{t.introTitle}</Text>
           <Text style={styles.introBody}>
-            Exportá tus entrenamientos desde Strong, Hevy o FitNotes como CSV y pegá acá el
-            contenido. Ejercicios desconocidos se crean automáticamente.
+            {t.introBody}
           </Text>
         </Card>
 
@@ -58,34 +60,34 @@ export function ImportHistoryScreen({ navigation }: Props) {
           <Card style={styles.resultCard}>
             <View style={styles.resultTitleRow}>
               <CheckIcon size={20} color={colors.success} />
-              <Text style={styles.resultTitle}>Importación lista</Text>
+              <Text style={styles.resultTitle}>{t.resultTitle}</Text>
             </View>
-            <Text style={styles.resultLine}>{result.sessionsImported} sesiones importadas</Text>
-            <Text style={styles.resultLine}>{result.setsImported} series registradas</Text>
+            <Text style={styles.resultLine}>{t.sessionsImported.replace('{n}', String(result.sessionsImported))}</Text>
+            <Text style={styles.resultLine}>{t.setsImported.replace('{n}', String(result.setsImported))}</Text>
             {result.exercisesCreated && result.exercisesCreated.length > 0 ? (
               <Text style={styles.resultLine}>
-                Ejercicios creados: {result.exercisesCreated.join(', ')}
+                {t.exercisesCreatedPrefix}{result.exercisesCreated.join(', ')}
               </Text>
             ) : null}
-            <PrimaryButton label="Listo" onPress={() => navigation.goBack()} />
+            <PrimaryButton label={t.doneButton} onPress={() => navigation.goBack()} />
           </Card>
         ) : (
           <>
             <View style={styles.csvBoxWrap}>
-              <Text style={styles.csvLabel}>CONTENIDO DEL CSV</Text>
+              <Text style={styles.csvLabel}>{t.csvLabel}</Text>
               <RNTextInput
                 value={csv}
                 onChangeText={setCsv}
                 style={styles.csvInput}
                 multiline
-                placeholder="Date,Workout Name,Exercise Name,Set Order,Weight,Reps…"
-                placeholderTextColor="rgba(255,255,255,0.3)"
+                placeholder={t.csvPlaceholder}
+                placeholderTextColor={colors.textSecondary}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
             </View>
             <PrimaryButton
-              label={importMutation.isPending ? 'Importando…' : 'Importar'}
+              label={importMutation.isPending ? t.importing : t.importButton}
               onPress={() => importMutation.mutate()}
               disabled={importMutation.isPending || csv.trim().length === 0}
             />
@@ -110,8 +112,8 @@ const styles = StyleSheet.create({
     minHeight: 180,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceRaised,
     color: colors.text,
     padding: spacing.md,
     textAlignVertical: 'top',

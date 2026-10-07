@@ -1,9 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { colors, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
+import { colors, spacing, fontFamilies } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { Badge } from '../../../../shared/components/ui/Badge';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.planInfoSections;
 
 export type Workout = {
   id: string;
@@ -60,7 +63,7 @@ function formatDateTime(dateString: string): string {
 // Date-only comparison: "Mañana" when the workout starts the day after today.
 function formatDayLabel(startDate: string, tomorrowStr: string): string {
   const datePart = startDate.slice(0, 10);
-  if (datePart === tomorrowStr) return 'Mañana';
+  if (datePart === tomorrowStr) return t.tomorrow;
   const [y, m, d] = datePart.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
   return `${dt.getDate()} ${MONTHS[dt.getMonth()]}`;
@@ -76,25 +79,25 @@ export function PlanInfoCard({
   onEmpty: boolean;
 }) {
   if (loading) {
-    return <EmptyState variant="loading" message="Cargando plan..." />;
+    return <EmptyState variant="loading" message={t.loadingPlan} />;
   }
   if (onEmpty) {
-    return <EmptyState variant="empty" message="Sin plan asignado" />;
+    return <EmptyState variant="empty" message={t.planEmpty} />;
   }
   const daysLabel = plan.days.length > 0 ? plan.days.map((d) => DAYS[d]).join(' · ') : '—';
   return (
     <Card>
       <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>Entrenamientos asignados</Text>
+        <Text style={styles.infoLabel}>{t.assignedLabel}</Text>
         <Text style={styles.infoValue}>{plan.assigned}</Text>
       </View>
       <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>Completados</Text>
+        <Text style={styles.infoLabel}>{t.completedLabel}</Text>
         <Text style={styles.infoValue}>{plan.completed}</Text>
       </View>
       {plan.days.length > 0 ? (
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Días de la semana</Text>
+          <Text style={styles.infoLabel}>{t.daysLabel}</Text>
           <Text style={styles.infoValue}>{daysLabel}</Text>
         </View>
       ) : null}
@@ -122,11 +125,11 @@ export function UpcomingWorkoutsSection({
 }) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Próximos Entrenamientos</Text>
+      <Text style={styles.sectionTitle}>{t.upcomingTitle}</Text>
       {loading ? (
-        <EmptyState variant="loading" message="Cargando entrenamientos..." />
+        <EmptyState variant="loading" message={t.loadingWorkouts} />
       ) : items.length === 0 ? (
-        <EmptyState variant="empty" message="Sin entrenamientos próximos" />
+        <EmptyState variant="empty" message={t.noUpcoming} />
       ) : (
         items.map((w) => (
           <Pressable
@@ -163,11 +166,11 @@ export function UpcomingSessionsSection({
 }) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Próximas Sesiones</Text>
+      <Text style={styles.sectionTitle}>{t.sessionsTitle}</Text>
       {loading ? (
-        <EmptyState variant="loading" message="Cargando sesiones..." />
+        <EmptyState variant="loading" message={t.loadingSessions} />
       ) : items.length === 0 ? (
-        <EmptyState variant="empty" message="Sin sesiones próximas" />
+        <EmptyState variant="empty" message={t.noSessions} />
       ) : (
         items.map((s) => (
           <Pressable

@@ -22,6 +22,9 @@ import {
   type ProgressSummary,
 } from './PlanHistorySections';
 import { nextOccurrence, toISODate } from '../../application/planSchedule';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.historyScreen;
 
 type HistoryNav = CompositeNavigationProp<
   BottomTabNavigationProp<AthleteTabParamList, 'Plan'>,
@@ -138,12 +141,12 @@ export function HistoryScreen() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <Text style={styles.eyebrow}>PLAN DE ENTRENAMIENTO</Text>
-        <Text style={styles.title}>Plan</Text>
+        <Text style={styles.eyebrow}>{t.eyebrow}</Text>
+        <Text style={styles.title}>{t.planTitle}</Text>
 
         {/* Tu Plan */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tu Plan</Text>
+          <Text style={styles.sectionTitle}>{t.yourPlan}</Text>
           <PlanInfoCard plan={planInfo} loading={workoutsLoading} onEmpty={planEmpty} />
         </View>
 

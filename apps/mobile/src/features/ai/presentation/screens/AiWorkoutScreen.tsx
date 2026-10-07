@@ -5,7 +5,9 @@ import { Camera, useCameraDevice, useCameraPermission, useFrameOutput } from 're
 import type { Frame } from 'react-native-vision-camera';
 import { runOnJS } from 'react-native-worklets';
 import { tokens } from '../../../../shared/theme/tokens';
+import { texts } from '../../../../shared/i18n/texts';
 import { useAiWorkout } from '../hooks/useAiWorkout';
+import type { RepQuality } from '../../domain/RepTypes';
 import { FramingOverlay } from '../components/FramingOverlay';
 import { DebugOverlay } from '../components/DebugOverlay';
 import { SessionSummaryOverlay } from '../components/SessionSummaryOverlay';
@@ -29,13 +31,30 @@ function Countdown({ active }: { active: boolean }): React.JSX.Element | null {
   );
 }
 
-export function AiWorkoutScreen({ route }: { route: { params: { exerciseId: string; target: number } } }): React.JSX.Element {
-  const { exerciseId, target } = route.params;
+type AiWorkoutParams = {
+  exerciseId: string;
+  target: number;
+  /** Workout exercise row id for handing results back to execution. */
+  exerciseDbId?: string;
+};
+
+function verdictForQuality(quality: RepQuality): { label: string; color: string } | null {
+  const t = texts.screens.aiWorkout;
+  if (quality === 'GOOD') return { label: t.verdictGood, color: colors.success };
+  if (quality === 'REGULAR') return { label: t.verdictRegular, color: colors.warning };
+  if (quality === 'BAD') return { label: t.verdictBad, color: colors.error };
+  return null;
+}
+
+export function AiWorkoutScreen({ route }: { route: { params: AiWorkoutParams } }): React.JSX.Element {
+  const { exerciseId, target, exerciseDbId } = route.params;
   const device = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
   const [counting, setCounting] = useState(false);
   const runtimeRef = useRef(new MediaPipePoseRuntime());
-  const ai = useAiWorkout(exerciseId, target, runtimeRef.current);
+  const aiOptions = useMemo(() => (exerciseDbId ? { executionExerciseId: exerciseDbId } : {}), [exerciseDbId]);
+  const ai = useAiWorkout(exerciseId, target, runtimeRef.current, aiOptions);
+  const verdict = ai.quality ? verdictForQuality(ai.quality) : null;
 
   useEffect(() => {
     if (!hasPermission) void requestPermission();
@@ -86,6 +105,15 @@ export function AiWorkoutScreen({ route }: { route: { params: { exerciseId: stri
           {ai.repCount} / {ai.target}
         </Text>
         {ai.hint ? <Text style={styles.hint}>{ai.hint}</Text> : null}
+        {verdict ? (
+          <View
+            style={[styles.verdictChip, { borderColor: verdict.color }]}
+            accessibilityRole="text"
+            accessibilityLabel={`${texts.screens.aiWorkout.formScoreLabel}: ${verdict.label}`}
+          >
+            <Text style={[styles.verdictLabel, { color: verdict.color }]}>{verdict.label}</Text>
+          </View>
+        ) : null}
       </View>
       <Pressable
         accessibilityRole="button"
@@ -112,6 +140,16 @@ const styles = StyleSheet.create({
   topBar: { position: 'absolute', top: spacing.lg, left: 0, right: 0, alignItems: 'center' },
   repCounter: { color: colors.text, ...(typography.metricLG as unknown as TextStyle) },
   hint: { color: colors.onSurfaceVariant, ...typography.bodySmall, marginTop: spacing.xs },
+  verdictChip: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    minHeight: 28,
+    justifyContent: 'center',
+    borderRadius: radius.full ?? radius.lg,
+    borderWidth: 1,
+    backgroundColor: colors.surface,
+  },
+  verdictLabel: { ...typography.label },
   cta: {
     position: 'absolute',
     bottom: spacing.xl,

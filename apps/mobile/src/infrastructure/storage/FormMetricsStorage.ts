@@ -8,9 +8,13 @@
  * - timestamp
  * - workout ID
  *
+ * Storage: MMKV, namespaced per user (`<base>:<userId>`). Consent granted
+ * pre-auth lands on the `:anon` key; the reader falls back to it so the
+ * decision is not re-asked after sign-in.
+ *
  * Synced to server after workout. Coach sees trends and areas for improvement.
  */
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { mmkv, mmkvGetJson, mmkvRemove, mmkvSetJson, userScopedKey } from './mmkv'
 
 const METRICS_KEY = '@mr/form_metrics'
 const CONSENT_KEY = '@mr/form_recording_consent'
@@ -19,7 +23,7 @@ export type FormMetricEntry = {
   id: string
   exerciseId: string
   exerciseName: string
-  workoutId?: string
+  workoutId?: string | undefined
   formScore: number
   depth: number
   alignment: number
@@ -31,9 +35,13 @@ export type FormMetricEntry = {
 
 export type ConsentState = 'pending' | 'accepted' | 'denied'
 
+function readConsentValue(userKey: string): string | undefined {
+  return mmkv.getString(userKey) ?? mmkv.getString(`${CONSENT_KEY}:anon`)
+}
+
 export async function getConsentState(): Promise<ConsentState> {
   try {
-    const value = await AsyncStorage.getItem(CONSENT_KEY)
+    const value = readConsentValue(userScopedKey(CONSENT_KEY))
     if (value === 'accepted') return 'accepted'
     if (value === 'denied') return 'denied'
     return 'pending'
@@ -43,7 +51,7 @@ export async function getConsentState(): Promise<ConsentState> {
 }
 
 export async function setConsentState(state: ConsentState): Promise<void> {
-  await AsyncStorage.setItem(CONSENT_KEY, state)
+  mmkv.set(userScopedKey(CONSENT_KEY), state)
 }
 
 // ============== Metrics Storage ==============
@@ -60,7 +68,7 @@ export async function saveFormMetric(entry: Omit<FormMetricEntry, 'id' | 'timest
 
   const existing = await getAllMetrics()
   existing.push(metric)
-  await AsyncStorage.setItem(METRICS_KEY, JSON.stringify(existing))
+  mmkvSetJson(userScopedKey(METRICS_KEY), existing)
 
   return metric
 }
@@ -70,9 +78,7 @@ export async function saveFormMetric(entry: Omit<FormMetricEntry, 'id' | 'timest
  */
 export async function getAllMetrics(): Promise<FormMetricEntry[]> {
   try {
-    const data = await AsyncStorage.getItem(METRICS_KEY)
-    if (!data) return []
-    return JSON.parse(data) as FormMetricEntry[]
+    return mmkvGetJson<FormMetricEntry[]>(userScopedKey(METRICS_KEY)) ?? []
   } catch {
     return []
   }
@@ -90,7 +96,7 @@ export async function getMetricsCount(): Promise<number> {
  * Clear all metrics (after successful sync)
  */
 export async function clearMetrics(): Promise<void> {
-  await AsyncStorage.removeItem(METRICS_KEY)
+  mmkvRemove(userScopedKey(METRICS_KEY))
 }
 
 /**

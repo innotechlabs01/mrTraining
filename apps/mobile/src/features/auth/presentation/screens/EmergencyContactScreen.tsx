@@ -6,12 +6,15 @@ import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, radius, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, spacing, typography } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { Input } from '../../../../shared/components/ui/Input';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { SubScreenHeader } from '../../../../shared/components/ui/SubScreenHeader';
 import { useAthleteProfile } from '../../application/useAthleteProfile';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.emergencyContact;
 
 export function EmergencyContactScreen() {
   const queryClient = useQueryClient();
@@ -27,20 +30,20 @@ export function EmergencyContactScreen() {
 
   const handleSave = async () => {
     if (!trimmed) {
-      Alert.alert('Error', 'Debes indicar un contacto');
+      Alert.alert(t.errorTitle, t.contactRequired);
       return;
     }
     if (trimmed.length > 50) {
-      Alert.alert('Error', 'Máximo 50 caracteres');
+      Alert.alert(t.errorTitle, t.maxChars);
       return;
     }
     setSaving(true);
     try {
       await apiClient.put('/athlete/profile', { emergencyContact: trimmed });
       await queryClient.invalidateQueries({ queryKey: ['athlete-profile'] });
-      Alert.alert('Guardado', 'Contacto de emergencia actualizado');
+      Alert.alert(t.savedTitle, t.savedBody);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'No se pudo guardar';
+      const msg = err instanceof Error ? err.message : t.saveFailed;
       Alert.alert('Error', msg);
     } finally {
       setSaving(false);
@@ -49,28 +52,28 @@ export function EmergencyContactScreen() {
 
   return (
     <View style={styles.container}>
-      <SubScreenHeader title="Contacto de emergencia" />
+      <SubScreenHeader title={t.headerTitle} />
       <View style={styles.body}>
         <Card style={styles.card}>
-          <Text style={styles.cardTitle}>¿A quién llamar?</Text>
+          <Text style={styles.cardTitle}>{t.whoToCall}</Text>
           <Text style={styles.cardSubtitle}>
-            Indica el nombre y número. Tu coach puede contactarlo en caso de necesidad.
+            {t.cardSubtitle}
           </Text>
 
-          <Text style={styles.label}>Contacto</Text>
+          <Text style={styles.label}>{t.contactLabel}</Text>
           <Input
-            placeholder="María López · 11-5555-1234"
+            placeholder={t.namePlaceholder}
             value={contact}
             onChangeText={setContact}
             autoCapitalize="sentences"
             autoCorrect={false}
             maxLength={50}
-            accessibilityLabel="Contacto de emergencia"
+            accessibilityLabel={t.headerTitle}
             returnKeyType="done"
           />
-          <Text style={styles.hint}>Máximo 50 caracteres</Text>
+          <Text style={styles.hint}>{t.maxChars}</Text>
 
-          <PrimaryButton label="Guardar" onPress={handleSave} disabled={saving} />
+          <PrimaryButton label={texts.common.save} onPress={handleSave} disabled={saving} />
         </Card>
       </View>
     </View>

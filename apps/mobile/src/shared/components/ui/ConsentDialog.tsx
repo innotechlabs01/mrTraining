@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Modal, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, Modal, StyleSheet, Alert } from 'react-native';
 import { colors, spacing, radius, typography, shadows } from '../../theme/tokens';
 import { PrimaryButton } from './PrimaryButton';
 import { texts } from '../../i18n/texts';

@@ -7,7 +7,10 @@ import { smartClient as apiClient } from '../../../../infrastructure/api/client'
 import { colors, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
-import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { PlayIcon } from '../../../../shared/components/icons';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.createChallengeScreen;
 
 export function CreateChallengeScreen() {
   const navigation = useNavigation();
@@ -44,41 +47,41 @@ export function CreateChallengeScreen() {
       return data;
     },
     onSuccess: () => {
-      Alert.alert('¡Desafío creado!', 'El desafío está listo para tus atletas.', [
+      Alert.alert(t.successTitle, t.successBody, [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
       queryClient.invalidateQueries({ queryKey: ['coach-challenges'] });
     },
     onError: () => {
-      Alert.alert('Error', 'No se pudo crear el desafío.');
+      Alert.alert(t.errorTitle, t.createFailed);
     },
   });
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScreenHeader title="Crear Desafío" onBack={() => navigation.goBack()} />
+      <ScreenHeader title={t.title} onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Title */}
         <View style={styles.field}>
-          <Text style={styles.label}>Título *</Text>
+          <Text style={styles.label}>{t.titleLabel}</Text>
           <TextInput
             style={styles.input}
             value={title}
             onChangeText={setTitle}
-            placeholder="Ej: Sentadilla perfecta"
+            placeholder={t.titlePlaceholder}
             placeholderTextColor={colors.textSecondary}
           />
         </View>
 
         {/* Description */}
         <View style={styles.field}>
-          <Text style={styles.label}>Descripción</Text>
+          <Text style={styles.label}>{t.descriptionLabel}</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
             value={description}
             onChangeText={setDescription}
-            placeholder="Describe el desafío..."
+            placeholder={t.descriptionPlaceholder}
             placeholderTextColor={colors.textSecondary}
             multiline
             numberOfLines={3}
@@ -87,7 +90,7 @@ export function CreateChallengeScreen() {
 
         {/* Exercise Type */}
         <View style={styles.field}>
-          <Text style={styles.label}>Tipo de ejercicio *</Text>
+          <Text style={styles.label}>{t.exerciseTypeLabel}</Text>
           <View style={styles.chipGroup}>
             {exerciseTypes.map((ex) => (
               <TouchableOpacity
@@ -106,7 +109,7 @@ export function CreateChallengeScreen() {
         {/* Target Sets & Reps */}
         <View style={styles.row}>
           <View style={[styles.field, styles.halfField]}>
-            <Text style={styles.label}>Series objetivo</Text>
+            <Text style={styles.label}>{t.targetSetsLabel}</Text>
             <TextInput
               style={styles.input}
               value={targetSets}
@@ -117,7 +120,7 @@ export function CreateChallengeScreen() {
             />
           </View>
           <View style={[styles.field, styles.halfField]}>
-            <Text style={styles.label}>Reps objetivo</Text>
+            <Text style={styles.label}>{t.targetRepsLabel}</Text>
             <TextInput
               style={styles.input}
               value={targetReps}
@@ -131,7 +134,7 @@ export function CreateChallengeScreen() {
 
         {/* Duration */}
         <View style={styles.field}>
-          <Text style={styles.label}>Duración (minutos)</Text>
+          <Text style={styles.label}>{t.durationLabel}</Text>
           <TextInput
             style={styles.input}
             value={durationMinutes}
@@ -144,9 +147,12 @@ export function CreateChallengeScreen() {
 
         {/* Note about video */}
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>🎥 Video demo</Text>
+          <View style={styles.infoTitleRow}>
+            <PlayIcon size={14} color={colors.primary} />
+            <Text style={styles.infoTitle}>{t.videoDemoTitle}</Text>
+          </View>
           <Text style={styles.infoText}>
-            Después de crear el desafío, podrás grabar o subir un video demostrando el ejercicio correcto.
+            {t.videoDemoBody}
           </Text>
         </View>
       </ScrollView>
@@ -219,6 +225,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: radius.lg,
     padding: spacing.md,
+    gap: spacing.xs,
+  },
+  infoTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
   },
   infoTitle: {

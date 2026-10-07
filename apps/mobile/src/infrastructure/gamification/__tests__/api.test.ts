@@ -45,7 +45,7 @@ describe('Gamification API Client', () => {
       const result = await fetchStreak();
 
       expect(result).toEqual(mockStreak);
-      expect(mockGet).toHaveBeenCalledWith('/v1/gamification/streak');
+      expect(mockGet).toHaveBeenCalledWith('/gamification/streak');
     });
 
     it('returns null on error', async () => {
@@ -78,7 +78,7 @@ describe('Gamification API Client', () => {
       });
 
       expect(result).toEqual(mockStreak);
-      expect(mockPost).toHaveBeenCalledWith('/v1/gamification/streak', {
+      expect(mockPost).toHaveBeenCalledWith('/gamification/streak/log', {
         workout_date: '2026-09-10',
         workout_type: 'strength',
         duration_minutes: 60,
@@ -106,7 +106,7 @@ describe('Gamification API Client', () => {
       const result = await fetchBadges();
 
       expect(result).toEqual(mockBadges);
-      expect(mockGet).toHaveBeenCalledWith('/v1/gamification/badges');
+      expect(mockGet).toHaveBeenCalledWith('/gamification/badges');
     });
 
     it('returns empty array on error', async () => {
@@ -132,7 +132,7 @@ describe('Gamification API Client', () => {
       });
 
       expect(result).toEqual(mockBadges);
-      expect(mockPost).toHaveBeenCalledWith('/v1/gamification/badges', {
+      expect(mockPost).toHaveBeenCalledWith('/gamification/badges/check', {
         totalWorkouts: 15,
         totalPRs: 2,
         feedInteractions: 0,
@@ -167,7 +167,7 @@ describe('Gamification API Client', () => {
       const result = await fetchPRs();
 
       expect(result).toEqual(mockPRs);
-      expect(mockGet).toHaveBeenCalledWith('/v1/gamification/prs');
+      expect(mockGet).toHaveBeenCalledWith('/gamification/prs');
     });
 
     it('returns empty array on error', async () => {
@@ -205,7 +205,7 @@ describe('Gamification API Client', () => {
       });
 
       expect(result).toEqual(mockResult);
-      expect(mockPost).toHaveBeenCalledWith('/v1/gamification/prs', {
+      expect(mockPost).toHaveBeenCalledWith('/gamification/prs', {
         exercise_id: 'ex1',
         exercise_name: 'Bench Press',
         value: 110,

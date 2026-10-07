@@ -7,10 +7,11 @@ import React, { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
+import { texts } from '../../../../shared/i18n/texts';
 
 export type WeightInputProps = {
   value: number;
-  prescribedWeight?: number | null;
+  prescribedWeight?: number | null | undefined;
   onChange: (weight: number) => void;
   unit?: string;
   step?: number;
@@ -25,7 +26,6 @@ export function WeightInput({
   prescribedWeight,
   onChange,
   unit = 'kg',
-  step = 2.5,
 }: WeightInputProps) {
   const [inputText, setInputText] = useState(value.toString());
 
@@ -90,7 +90,7 @@ export function WeightInput({
           inputMode="numeric"
           placeholder="0"
           placeholderTextColor={colors.textSecondary}
-          accessibilityLabel={`Peso en ${unit}`}
+          accessibilityLabel={`${texts.screens.weightInput.weightA11yPrefix} ${unit}`}
         />
         <Text style={styles.unit}>{unit}</Text>
       </View>

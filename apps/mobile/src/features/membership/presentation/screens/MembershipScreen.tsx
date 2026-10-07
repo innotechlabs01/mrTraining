@@ -20,6 +20,11 @@ import { AlertBanner } from '../../../../shared/components/ui/AlertBanner';
 import { ListCard } from '../../../../shared/components/ui/ListCard';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { MembershipIcon, CardIcon } from '../../../../shared/components/icons';
+import { texts } from '../../../../shared/i18n/texts';
+
+import { getStatusLabel, formatDate } from './membershipHelpers';
+
+const t = texts.screens.membershipScreen;
 
 type MembershipResponse = {
   membership?: {
@@ -56,24 +61,7 @@ type MembershipResponse = {
   id?: string;
 };
 
-function getStatusLabel(status: string): string {
-  const s = status.toLowerCase();
-  if (s === 'active') return 'Activa';
-  if (s === 'grace_period' || s === 'grace') return 'Período de gracia';
-  if (s === 'suspended') return 'Suspendida';
-  if (s === 'no_membership') return 'Sin membresía';
-  return status;
-}
 
-function formatDate(dateStr?: string): string {
-  if (!dateStr) return '—';
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('es-ES', { month: 'short', day: 'numeric', year: 'numeric' });
-  } catch {
-    return dateStr;
-  }
-}
 
 function formatCurrency(amount: number): string {
   return `$${Number(amount).toFixed(2)}`;
@@ -122,7 +110,7 @@ export function MembershipScreen() {
     const membershipId = rawMembership?.id ?? data?.id;
     const athleteId = (rawMembership?.athleteId ?? data?.athleteId) as string | undefined;
     if (!membershipId || !athleteId) {
-      Alert.alert('Pagar membresía', 'La membresía no está disponible. Contactá a tu entrenador.');
+      Alert.alert(t.payCta, t.unavailable);
       return;
     }
     setIsPaying(true);
@@ -132,11 +120,11 @@ export function MembershipScreen() {
       if (res?.url) {
         await Linking.openURL(res.url);
       } else {
-        Alert.alert('Checkout', 'No se pudo iniciar el checkout seguro.');
+        Alert.alert(t.checkoutFailedTitle, t.checkoutFailedBody);
       }
     } catch (e) {
       console.error('Failed to start checkout', e);
-      Alert.alert('Checkout', 'Algo salió mal. Intenta de nuevo.');
+      Alert.alert(t.genericErrorTitle, t.genericErrorBody);
     } finally {
       setIsPaying(false);
     }
@@ -146,7 +134,7 @@ export function MembershipScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.content}>
-          <ScreenHeader title="Tu plan" onBack={() => navigation.goBack()} />
+          <ScreenHeader title={t.planTitle} onBack={() => navigation.goBack()} />
           <Skeleton.List rows={3} />
         </View>
       </SafeAreaView>
@@ -162,14 +150,14 @@ export function MembershipScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        <ScreenHeader title="Tu plan" onBack={() => navigation.goBack()} />
+        <ScreenHeader title={t.planTitle} onBack={() => navigation.goBack()} />
 
         {isExpiring && (
           <AlertBanner
             tone="warning"
-            title="Tu membresía está por vencer"
-            message="Renová tu membresía para no perder el acceso a tu plan."
-            actionLabel="Renovar"
+            title={t.expiringTitle}
+            message={t.expiringBody}
+            actionLabel={t.renewCta}
             onAction={handlePay}
           />
         )}
@@ -188,17 +176,17 @@ export function MembershipScreen() {
             )}
             <Text style={styles.statusLabel}>Estado: {getStatusLabel(effectiveStatus)}</Text>
             <Text style={styles.dateText}>
-              Período: {formatDate(data?.currentPeriodStart)} al {formatDate(effectiveDueDate ?? undefined)}
+              {t.periodPrefix}{formatDate(data?.currentPeriodStart)}{t.periodSep}{formatDate(effectiveDueDate ?? undefined)}
             </Text>
-            {effectiveDueDate && <Text style={styles.dateText}>Vence: {formatDate(effectiveDueDate)}</Text>}
+            {effectiveDueDate && <Text style={styles.dateText}>{t.duePrefix}{formatDate(effectiveDueDate)}</Text>}
           </View>
         )}
 
         {/* Payment history */}
-        <Text style={styles.sectionEyebrow}>Historial de pagos</Text>
+        <Text style={styles.sectionEyebrow}>{t.historyTitle}</Text>
         {payments.length === 0 ? (
           <ListCard
-            title="Sin pagos aún"
+            title={t.noPayments}
             leadingIcon={<CardIcon size={20} color={colors.textSecondary} />}
           />
         ) : (
@@ -220,7 +208,7 @@ export function MembershipScreen() {
         )}
 
         <PrimaryButton
-          label={isPayable ? 'Pagar ahora' : `Al día · Próximo vencimiento ${formatDate(effectiveDueDate ?? undefined)}`}
+          label={isPayable ? t.payNow : `${t.paidUp}${formatDate(effectiveDueDate ?? undefined)}`}
           onPress={handlePay}
           disabled={!isPayable || isPaying}
         />      </ScrollView>

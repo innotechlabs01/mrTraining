@@ -15,7 +15,7 @@ export const recordView = async (view: Partial<VideoView>): Promise<VideoView> =
 };
 
 /** List video views, optionally filtered by exerciseID */
-export const listViews = async (athleteID: string, exerciseID?: string): Promise<VideoView[]> => {
+export const listViews = async (_athleteID: string, exerciseID?: string): Promise<VideoView[]> => {
   const params = new URLSearchParams();
   if (exerciseID) params.append('exerciseID', exerciseID);
   // athleteID may be inferred from auth, but include if needed

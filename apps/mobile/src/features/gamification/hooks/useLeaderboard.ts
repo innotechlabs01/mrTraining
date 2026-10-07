@@ -8,9 +8,6 @@ import {
   fetchGroupLeaderboard,
   fetchWeeklyLeaderboard,
   fetchLeaderboardHistory,
-  type APIGroupLeaderboard,
-  type APIWeeklyLeaderboard,
-  type APILeaderboardHistory,
 } from '../../../infrastructure/leaderboard/api';
 
 const LEADERBOARD_QUERY_KEY = ['gamification', 'leaderboard'];

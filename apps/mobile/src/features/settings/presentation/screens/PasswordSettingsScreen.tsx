@@ -10,6 +10,9 @@ import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { EyeIcon } from '../../../../shared/components/icons';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.passwordSettings;
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -27,35 +30,35 @@ export function PasswordSettingsScreen() {
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Completa todos los campos.');
+      Alert.alert(t.errorTitle, t.completeAll);
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Las contraseñas nuevas no coinciden.');
+      Alert.alert(t.errorTitle, t.mismatch);
       return;
     }
     if (newPassword.length < 8) {
-      Alert.alert('Error', 'La contraseña nueva debe tener al menos 8 caracteres.');
+      Alert.alert(t.errorTitle, t.tooShort);
       return;
     }
 
     setLoading(true);
     try {
       await user?.updatePassword({ currentPassword, newPassword });
-      Alert.alert('Listo', 'Contraseña actualizada correctamente.');
+      Alert.alert(t.successTitle, t.successBody);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'No se pudo actualizar la contraseña.';
-      Alert.alert('Error', message);
+      const message = err instanceof Error ? err.message : t.updateFailed;
+      Alert.alert(t.errorTitle, message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleForgotPassword = () => {
-    Alert.alert('Contraseña olvidada', 'El restablecimiento de contraseña aún no está disponible.');
+    Alert.alert(t.forgotTitle, t.forgotBody);
   };
 
   const toggleVisible = (field: PasswordField) => {
@@ -98,20 +101,20 @@ export function PasswordSettingsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScreenHeader title="Contraseña" onBack={() => navigation.goBack()} />
+        <ScreenHeader title={t.headerTitle} onBack={() => navigation.goBack()} />
         <View style={styles.body}>
-          <Text style={styles.hint}>Elige una contraseña segura de al menos 8 caracteres.</Text>
-          {passwordField('Contraseña actual', 'current', currentPassword, setCurrentPassword)}
-          {passwordField('Nueva contraseña', 'new', newPassword, setNewPassword)}
-          {passwordField('Confirmar nueva', 'confirm', confirmPassword, setConfirmPassword)}
+          <Text style={styles.hint}>{t.subtitle}</Text>
+          {passwordField(t.currentLabel, 'current', currentPassword, setCurrentPassword)}
+          {passwordField(t.newLabel, 'new', newPassword, setNewPassword)}
+          {passwordField(t.confirmLabel, 'confirm', confirmPassword, setConfirmPassword)}
           <PrimaryButton
-            label={loading ? 'Actualizando...' : 'Cambiar contraseña'}
+            label={loading ? t.saving : t.submit}
             onPress={handleChangePassword}
             loading={loading}
             disabled={loading}
           />
           <Pressable accessibilityRole="button" onPress={handleForgotPassword} style={styles.forgotLink} hitSlop={8}>
-            <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+            <Text style={styles.forgotText}>{t.forgotText}</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>

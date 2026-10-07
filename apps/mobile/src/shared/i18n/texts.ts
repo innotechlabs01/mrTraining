@@ -4,7 +4,12 @@
  * Neutral, professional Spanish (NOT Rioplatense). Every screen imports from
  * here instead of hard-coding literals. English can be added later as a second
  * locale key without restructuring.
+ *
+ * Screen-level copy lives in `./screensTexts` (line budget) and is re-exported
+ * here so consumers keep a single `texts` import.
  */
+import { screensTexts } from './screensTexts';
+
 export const texts = {
   tabs: {
     today: 'Hoy',
@@ -34,6 +39,7 @@ export const texts = {
     settings: 'Configuración',
     completed: 'Completado',
     pending: 'Pendiente',
+    offline: 'Sin conexión',
   },
   state: {
     errorTitle: 'Ocurrió un error',
@@ -61,8 +67,17 @@ export const texts = {
     emptyLeaderboard: 'Sin datos de leaderboard',
     emptyCoachFeed: 'No hay publicaciones del coach',
   },
-  screens: {
-    // Reserved for per-screen copy; add keys as screens migrate off literals.
+  screens: screensTexts,
+  formCamera: {
+    permissionBody: 'Se necesita permiso de cámara y micrófono',
+    grantPermissions: 'Otorgar Permisos',
+    cameraUnavailable: 'Cámara no disponible',
+    recording: 'GRABANDO',
+    uploading: 'Subiendo video...',
+    errorTitle: 'Error',
+    uploadFailed: 'No se pudo subir el video',
+    recordingFailed: 'No se pudo grabar el video',
+    startFailed: 'No se pudo iniciar la grabación',
   },
   challenge: {
     activeChallenge: 'Desafio Activo',

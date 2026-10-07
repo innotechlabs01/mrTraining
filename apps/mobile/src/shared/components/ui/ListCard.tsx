@@ -5,7 +5,7 @@ import { ChevronRightIcon } from '../icons';
 
 type Props = {
   title: string;
-  subtitle?: string;
+  subtitle?: string | undefined;
   leadingIcon?: React.ReactNode;
   trailing?: React.ReactNode;
   onPress?: () => void;

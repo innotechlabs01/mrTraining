@@ -9,7 +9,6 @@
 import {
   fetchStreak as apiFetchStreak,
   logWorkoutDay as apiLogWorkoutDay,
-  type APIStreak,
 } from '../../../infrastructure/gamification/api';
 
 export interface StreakData {

@@ -33,12 +33,12 @@ export interface HealthMetric {
 export interface SleepLog {
   date: string // YYYY-MM-DD reference night
   totalMinutes: number
-  deepMinutes?: number
-  remMinutes?: number
-  lightMinutes?: number
-  awakeMinutes?: number
-  efficiency?: number // 0..100
-  score?: number // 0..100 when the device provides one
+  deepMinutes?: number | undefined
+  remMinutes?: number | undefined
+  lightMinutes?: number | undefined
+  awakeMinutes?: number | undefined
+  efficiency?: number | undefined // 0..100
+  score?: number | undefined // 0..100 when the device provides one
   source: HealthPlatform
   recordedAt: string
 }

@@ -8,7 +8,6 @@
 import {
   fetchBadges as apiFetchBadges,
   checkBadges as apiCheckBadges,
-  type APIBadge,
 } from '../../../infrastructure/gamification/api';
 
 export type BadgeCategory = 'streak' | 'workout' | 'pr' | 'social';

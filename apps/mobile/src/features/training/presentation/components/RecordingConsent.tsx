@@ -4,17 +4,21 @@
  * Shows clear explanation of what data is collected and how it helps them improve.
  * Must be accepted before any recording begins.
  *
- * Stored in AsyncStorage so it only asks once per device.
+ * Consent state lives in MMKV (user-scoped) via FormMetricsStorage — the single
+ * source of truth for the consent key.
  */
 import React, { useState, useEffect } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { colors, spacing, radius, typography } from '../../../../shared/theme/tokens'
+import { texts } from '../../../../shared/i18n/texts'
 
-const CONSENT_KEY = '@mr/form_recording_consent'
-
-type ConsentState = 'pending' | 'accepted' | 'denied'
+const t = texts.screens.recordingConsent
+import {
+  getConsentState,
+  setConsentState,
+  type ConsentState,
+} from '../../../../infrastructure/storage/FormMetricsStorage'
 
 interface RecordingConsentProps {
   onConsent: (accepted: boolean) => void
@@ -24,21 +28,7 @@ interface RecordingConsentProps {
  * Check if user has already given consent
  */
 export async function hasRecordingConsent(): Promise<ConsentState> {
-  try {
-    const value = await AsyncStorage.getItem(CONSENT_KEY)
-    if (value === 'accepted') return 'accepted'
-    if (value === 'denied') return 'denied'
-    return 'pending'
-  } catch {
-    return 'pending'
-  }
-}
-
-/**
- * Save consent decision
- */
-async function saveConsent(decision: ConsentState): Promise<void> {
-  await AsyncStorage.setItem(CONSENT_KEY, decision)
+  return getConsentState()
 }
 
 export function RecordingConsent({ onConsent }: RecordingConsentProps) {
@@ -53,13 +43,13 @@ export function RecordingConsent({ onConsent }: RecordingConsentProps) {
   }, [])
 
   const handleAccept = async () => {
-    await saveConsent('accepted')
+    await setConsentState('accepted')
     setVisible(false)
     onConsent(true)
   }
 
   const handleDeny = async () => {
-    await saveConsent('denied')
+    await setConsentState('denied')
     setVisible(false)
     onConsent(false)
   }
@@ -80,68 +70,68 @@ export function RecordingConsent({ onConsent }: RecordingConsentProps) {
           </View>
 
           {/* Title */}
-          <Text style={styles.title}>Mejora tu rendimiento</Text>
+          <Text style={styles.title}>{t.title}</Text>
 
           {/* Friendly description */}
           <Text style={styles.description}>
-            Analizamos tu forma en cada ejercicio para ayudarte a mejorar. Tu coach verá tus métricas y te dará feedback personalizado.
+            {t.description}
           </Text>
 
           {/* Benefits */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>¿Cómo te ayuda?</Text>
+            <Text style={styles.sectionTitle}>{t.benefitsTitle}</Text>
             <View style={styles.listItem}>
               <Ionicons name="trending-up" size={16} color={colors.success} />
-              <Text style={styles.listText}>Detecta qué ejercicios necesitan atención</Text>
+              <Text style={styles.listText}>{t.benefit1}</Text>
             </View>
             <View style={styles.listItem}>
               <Ionicons name="bar-chart" size={16} color={colors.success} />
-              <Text style={styles.listText}>Muestra tu progreso semana a semana</Text>
+              <Text style={styles.listText}>{t.benefit2}</Text>
             </View>
             <View style={styles.listItem}>
               <Ionicons name="chatbubble-ellipses" size={16} color={colors.success} />
-              <Text style={styles.listText}>Tu coach te da feedback específico</Text>
+              <Text style={styles.listText}>{t.benefit3}</Text>
             </View>
           </View>
 
           {/* What we collect */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Qué recopilamos</Text>
+            <Text style={styles.sectionTitle}>{t.collectTitle}</Text>
             <View style={styles.listItem}>
               <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-              <Text style={styles.listText}>Puntuación de forma (0-100)</Text>
+              <Text style={styles.listText}>{t.collect1}</Text>
             </View>
             <View style={styles.listItem}>
               <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-              <Text style={styles.listText}>Profundidad, alineación y tempo</Text>
+              <Text style={styles.listText}>{t.collect2}</Text>
             </View>
           </View>
 
           {/* What we DON'T collect */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Tu privacidad</Text>
+            <Text style={styles.sectionTitle}>{t.privacyTitle}</Text>
             <View style={styles.listItem}>
               <Ionicons name="lock-closed" size={16} color={colors.primary} />
-              <Text style={styles.listText}>No grabamos video — solo números</Text>
+              <Text style={styles.listText}>{t.privacy1}</Text>
             </View>
             <View style={styles.listItem}>
               <Ionicons name="lock-closed" size={16} color={colors.primary} />
-              <Text style={styles.listText}>Solo tu coach puede ver tus métricas</Text>
+              <Text style={styles.listText}>{t.privacy2}</Text>
             </View>
           </View>
 
           {/* Privacy note */}
           <Text style={styles.privacy}>
-            Puedes desactivar esto en cualquier momento desde Configuración.
+            {t.privacyNote}
           </Text>
 
           {/* Buttons */}
           <View style={styles.buttons}>
             <TouchableOpacity onPress={handleDeny} style={styles.denyButton}>
-              <Text style={styles.denyText}>Ahora no</Text>
+              <Text style={styles.denyText}>{t.denyButton}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleAccept} style={styles.acceptButton}>
-              <Text style={styles.acceptText}>Activar</Text>
+              <Text style={styles.acceptText}>{t.acceptButton}</Text>
             </TouchableOpacity>
           </View>
         </View>

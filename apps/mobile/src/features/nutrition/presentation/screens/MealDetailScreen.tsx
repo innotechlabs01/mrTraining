@@ -5,10 +5,13 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
-import { colors, fontFamilies, radius, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, fontFamilies, spacing, typography } from '../../../../shared/theme/tokens';
 import { ArrowLeftIcon, ClockIcon, FireIcon } from '../../../../shared/components/icons';
 import { MetricCard } from '../../../../shared/components/ui/MetricCard';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.mealDetail;
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'MealDetail'>;
 type MealDetailRoute = RouteProp<RootStackParamList, 'MealDetail'>;
@@ -16,14 +19,14 @@ type MealDetailRoute = RouteProp<RootStackParamList, 'MealDetail'>;
 export function MealDetailScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<MealDetailRoute>();
-  const { name = 'Comida', calories, time } = route.params;
+  const { name = t.headerTitle, calories, time } = route.params;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Volver"
+          accessibilityLabel={texts.common.back}
           onPress={() => navigation.goBack()}
           hitSlop={12}
           style={styles.backButton}
@@ -37,7 +40,7 @@ export function MealDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <MetricCard label="Calorías" value={calories != null ? String(calories) : null} unit="kcal" size="lg" />
+        <MetricCard label={t.calories} value={calories != null ? String(calories) : null} unit="kcal" size="lg" />
 
         <View style={styles.metaRow}>
           {time != null ? (
@@ -54,8 +57,8 @@ export function MealDetailScreen() {
 
         <EmptyState
           variant="empty"
-          title="Sin desglose disponible"
-          message="Los macros, ingredientes y pasos de preparación se mostrarán cuando estén disponibles para esta comida."
+          title={t.emptyBreakdown}
+          message={t.emptyBreakdownBody}
         />
       </ScrollView>
     </SafeAreaView>

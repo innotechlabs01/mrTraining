@@ -3,12 +3,14 @@
  * Tracks view metrics (duration, pauses, replays, completion %).
  *
  * Uses expo-av for playback and sends metrics on unmount.
+ * Overlays and footer blocks live in ExerciseVideoOverlays / ExerciseVideoFooter.
  */
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { View, StyleSheet, TouchableOpacity } from 'react-native'
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av'
-import { Ionicons } from '@expo/vector-icons'
-import { colors, spacing, radius } from '../../theme/tokens'
+import { radius } from '../../theme/tokens'
+import { VideoLoadingOverlay, VideoControlsOverlay } from './ExerciseVideoOverlays'
+import { VideoProgressBar, VideoTitleBar } from './ExerciseVideoFooter'
 
 interface VideoMetrics {
   durationSec: number
@@ -129,11 +131,6 @@ export function ExerciseVideoPlayer({
     }
   }, [isPlaying])
 
-  const handleSeek = useCallback(async (milliseconds: number) => {
-    if (!videoRef.current) return
-    await videoRef.current.setPositionAsync(milliseconds)
-  }, [])
-
   const handleReplay = useCallback(async () => {
     if (!videoRef.current) return
     metricsRef.current.replayCount++
@@ -141,12 +138,6 @@ export function ExerciseVideoPlayer({
     await videoRef.current.setPositionAsync(0)
     await videoRef.current.playAsync()
   }, [])
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
 
   return (
     <View style={styles.container}>
@@ -167,58 +158,20 @@ export function ExerciseVideoPlayer({
           isLooping={false}
         />
 
-        {!isLoaded && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
-        )}
+        {!isLoaded && <VideoLoadingOverlay />}
 
         {showControls && isLoaded && (
-          <View style={styles.controlsOverlay}>
-            <TouchableOpacity onPress={togglePlay} style={styles.playButton}>
-              <Ionicons
-                name={isPlaying ? 'pause' : 'play'}
-                size={48}
-                color="white"
-              />
-            </TouchableOpacity>
-
-            {onRecordPress && (
-              <TouchableOpacity onPress={onRecordPress} style={styles.recordButton}>
-                <Ionicons name="camera" size={24} color="white" />
-                <Text style={styles.recordText}>Grabar</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <VideoControlsOverlay
+            isPlaying={isPlaying}
+            onTogglePlay={togglePlay}
+            onRecordPress={onRecordPress}
+          />
         )}
       </TouchableOpacity>
 
-      {isLoaded && (
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${duration > 0 ? (position / duration) * 100 : 0}%` },
-            ]}
-          />
-        </View>
-      )}
+      {isLoaded && <VideoProgressBar position={position} duration={duration} />}
 
-      {isLoaded && (
-        <View style={styles.timeRow}>
-          <Text style={styles.time}>{formatTime(position)}</Text>
-          <Text style={styles.time}>{formatTime(duration)}</Text>
-        </View>
-      )}
-
-      {title && (
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>{title}</Text>
-          <TouchableOpacity onPress={handleReplay} style={styles.replayButton}>
-            <Ionicons name="refresh" size={16} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
-      )}
+      {title && <VideoTitleBar title={title} onReplay={handleReplay} />}
     </View>
   )
 }
@@ -235,77 +188,5 @@ const styles = StyleSheet.create({
   },
   video: {
     flex: 1,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  controlsOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
-  },
-  playButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  recordButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.9)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    gap: 6,
-  },
-  recordText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  progressBar: {
-    height: 3,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  time: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 12,
-    fontVariant: ['tabular-nums'],
-  },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  title: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-    flex: 1,
-  },
-  replayButton: {
-    padding: spacing.sm,
   },
 })

@@ -287,6 +287,15 @@ export function ChatIcon({ size = S, color = DefaultColor }: IconProps) {
   );
 }
 
+export function SendIcon({ size = S, color = DefaultColor }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M22 2 11 13" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M22 2 15 22l-4-9-9-4 20-7z" stroke={color} strokeWidth={2} strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 export function FilterIcon({ size = S, color = DefaultColor }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

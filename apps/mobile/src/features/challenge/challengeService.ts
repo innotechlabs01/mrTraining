@@ -53,7 +53,7 @@ export async function uploadAttemptVideo(attemptId: string, fileUri: string): Pr
   const res = await fetch(`${base}/api/v1/athlete/challenges/attempts/${attemptId}/video`, {
     method: 'POST',
     body: formData,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
   });
 
   if (!res.ok) {

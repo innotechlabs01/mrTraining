@@ -1,62 +1,54 @@
 import React, { useRef, useState } from 'react';
 import {
-  View,
   Text,
   StyleSheet,
-  FlatList,
-  Image,
   Pressable,
   useWindowDimensions,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import {
   colors,
   spacing,
-  radius,
-  fontFamilies,
 } from '../../../../shared/theme/tokens';
 
 import {
   onboardingSlides,
 } from '../../../../shared/theme/brandAssets';
 
+import { texts } from '../../../../shared/i18n/texts';
+import { OnboardingSlideItem, type OnboardingSlide } from './onboardingSliders/OnboardingSlideItem';
+import { OnboardingBottomBar } from './onboardingSliders/OnboardingBottomBar';
+
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Sliders'>;
 
-type Slide = {
-  key: string;
-  image: number;
-  title: string;
-  subtitle: string;
-};
+const st = texts.screens.onboardingSliders;
 
-const SLIDES: Slide[] = [
+const SLIDES: OnboardingSlide[] = [
   {
     key: '1',
     image: onboardingSlides.slide1,
-    title: 'Entrena con propósito',
-    subtitle:
-      'Programas personalizados según tu deporte, tus objetivos y tu agenda.',
+    title: st.slide1Title,
+    subtitle: st.slide1Subtitle,
   },
   {
     key: '2',
     image: onboardingSlides.slide2,
-    title: 'Entrena a tu nivel',
-    subtitle:
-      'De principiante a avanzado, tu plan evoluciona a medida que mejoras.',
+    title: st.slide2Title,
+    subtitle: st.slide2Subtitle,
   },
   {
     key: '3',
     image: onboardingSlides.slide3,
-    title: 'Alcanza tu máximo',
-    subtitle:
-      'Registra tu progreso, construye constancia y alcanza tus metas cada semana.',
+    title: st.slide3Title,
+    subtitle: st.slide3Subtitle,
   },
 ];
 
@@ -67,37 +59,7 @@ export function OnboardingSlidersScreen({
 
   const [index, setIndex] = useState(0);
 
-  const listRef = useRef<FlatList<Slide>>(null);
-
-  // ================================================================
-  // IMAGE SIZE
-  // ================================================================
-  //
-  // Cada imagen conserva su proporción original.
-  // La imagen ocupa todo el ancho disponible.
-  //
-  // Importante:
-  // Image.resolveAssetSource() funciona con imágenes locales
-  // require(...) utilizadas por React Native.
-  //
-
-  const getImageDimensions = (image: number) => {
-    const source = Image.resolveAssetSource(image);
-
-    if (!source?.width || !source?.height) {
-      return {
-        width,
-        height: width,
-      };
-    }
-
-    const aspectRatio = source.width / source.height;
-
-    return {
-      width,
-      height: width / aspectRatio,
-    };
-  };
+  const listRef = useRef<FlashListRef<OnboardingSlide>>(null);
 
   // ================================================================
   // CHANGE SLIDE
@@ -164,7 +126,7 @@ export function OnboardingSlidersScreen({
           SLIDES
       ============================================================ */}
 
-      <FlatList
+      <FlashList
         ref={listRef}
         data={SLIDES}
         keyExtractor={(item) => item.key}
@@ -175,59 +137,9 @@ export function OnboardingSlidersScreen({
         decelerationRate="fast"
         onMomentumScrollEnd={onMomentumEnd}
         style={styles.slider}
-        renderItem={({ item }) => {
-          const imageDimensions = getImageDimensions(item.image);
-
-          return (
-            <View
-              style={[
-                styles.slide,
-                {
-                  width,
-                  height,
-                },
-              ]}
-            >
-              {/* ====================================================
-                  IMAGE
-              ==================================================== */}
-
-              <View style={styles.imageContainer}>
-                <Image
-                  source={item.image}
-                  style={{
-                    width: imageDimensions.width,
-                    height: imageDimensions.height,
-                  }}
-                  resizeMode="contain"
-                />
-              </View>
-
-              {/* ====================================================
-                  OVERLAY
-              ==================================================== */}
-
-              <View
-                style={styles.overlay}
-                pointerEvents="none"
-              />
-
-              {/* ====================================================
-                  TEXT CONTENT
-              ==================================================== */}
-
-              <View style={styles.slideContent}>
-                <Text style={styles.slideTitle}>
-                  {item.title}
-                </Text>
-
-                <Text style={styles.slideSubtitle}>
-                  {item.subtitle}
-                </Text>
-              </View>
-            </View>
-          );
-        }}
+        renderItem={({ item }) => (
+          <OnboardingSlideItem item={item} width={width} height={height} />
+        )}
       />
 
       {/* ============================================================
@@ -240,10 +152,10 @@ export function OnboardingSlidersScreen({
           onPress={skipOnboarding}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel="Omitir onboarding"
+          accessibilityLabel={st.skipA11y}
         >
           <Text style={styles.skipText}>
-            Omitir
+            {st.skip}
           </Text>
         </Pressable>
       )}
@@ -252,45 +164,12 @@ export function OnboardingSlidersScreen({
           BOTTOM CONTROLS
       ============================================================ */}
 
-      <View style={styles.bottom}>
-        {/* ========================================================
-            DOTS
-        ======================================================== */}
-
-        <View style={styles.dotsRow}>
-          {SLIDES.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.dot,
-                i === index
-                  ? styles.dotActive
-                  : styles.dotInactive,
-              ]}
-            />
-          ))}
-        </View>
-
-        {/* ========================================================
-            NEXT BUTTON
-        ======================================================== */}
-
-        <Pressable
-          onPress={goNext}
-          style={({ pressed }) => [
-            styles.nextBtn,
-            pressed && styles.pressed,
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel={
-            last ? 'Comenzar' : 'Siguiente'
-          }
-        >
-          <Text style={styles.nextText}>
-            {last ? 'Comenzar' : 'Siguiente'}
-          </Text>
-        </Pressable>
-      </View>
+      <OnboardingBottomBar
+        index={index}
+        count={SLIDES.length}
+        last={last}
+        onNext={goNext}
+      />
     </SafeAreaView>
   );
 }
@@ -300,10 +179,6 @@ export function OnboardingSlidersScreen({
 // ==================================================================
 
 const styles = StyleSheet.create({
-  // ================================================================
-  // CONTAINER
-  // ================================================================
-
   container: {
     flex: 1,
     backgroundColor: colors.base,
@@ -311,85 +186,6 @@ const styles = StyleSheet.create({
 
   slider: {
     flex: 1,
-  },
-
-  // ================================================================
-  // SLIDE
-  // ================================================================
-
-  slide: {
-    position: 'relative',
-    overflow: 'hidden',
-    backgroundColor: colors.base,
-  },
-
-  // ================================================================
-  // IMAGE CONTAINER
-  // ================================================================
-
-  imageContainer: {
-    position: 'absolute',
-
-    top: 0,
-    left: 0,
-    right: 0,
-
-    alignItems: 'center',
-
-    overflow: 'hidden',
-  },
-
-  // ================================================================
-  // OVERLAY
-  // ================================================================
-
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-
-    backgroundColor: 'rgba(11, 15, 14, 0.30)',
-  },
-
-  // ================================================================
-  // SLIDE CONTENT
-  // ================================================================
-
-  slideContent: {
-    position: 'absolute',
-
-    left: spacing.xl,
-    right: spacing.xl,
-
-    bottom: 145,
-
-    top: 530,
-
-    alignItems: 'center',
-  },
-
-  slideTitle: {
-    fontFamily: fontFamilies.displayBlack,
-
-    fontSize: 32,
-    lineHeight: 38,
-
-    color: colors.text,
-
-    textAlign: 'center',
-
-    letterSpacing: 0.5,
-  },
-
-  slideSubtitle: {
-    marginTop: spacing.sm,
-
-    fontSize: 16,
-    lineHeight: 24,
-
-    color: colors.textSecondary,
-
-    textAlign: 'center',
-
-    paddingHorizontal: spacing.sm,
   },
 
   // ================================================================
@@ -416,88 +212,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // ================================================================
-  // BOTTOM
-  // ================================================================
-
-  bottom: {
-    position: 'absolute',
-
-    bottom: 24,
-
-    left: 0,
-    right: 0,
-
-    alignItems: 'center',
-
-    gap: spacing.lg,
-
-    paddingHorizontal: spacing.xl,
-  },
-
-  // ================================================================
-  // DOTS
-  // ================================================================
-
-  dotsRow: {
-    flexDirection: 'row',
-
-    gap: spacing.sm,
-
-    alignItems: 'center',
-  },
-
-  dot: {
-    height: 8,
-
-    borderRadius: 4,
-  },
-
-  dotActive: {
-    width: 24,
-
-    backgroundColor: colors.primary,
-  },
-
-  dotInactive: {
-    width: 8,
-
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-  },
-
-  // ================================================================
-  // NEXT BUTTON
-  // ================================================================
-
-  nextBtn: {
-    width: 200,
-
-    height: 50,
-
-    borderRadius: radius.full,
-
-    backgroundColor: colors.primary,
-
-    justifyContent: 'center',
-
-    alignItems: 'center',
-  },
-
-  pressed: {
-    opacity: 0.85,
-
-    transform: [
-      {
-        scale: 0.98,
-      },
-    ],
-  },
-
-  nextText: {
-    fontSize: 16,
-
-    fontWeight: '700',
-
-    color: colors.base,
-  },
 });

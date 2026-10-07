@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, StyleSheet, FlatList, Text, TouchableOpacity } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,8 +10,11 @@ import { colors, spacing, radius, fontFamilies } from '../../../../shared/theme/
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
-import { FireIcon, UserIcon, TrendUpIcon } from '../../../../shared/components/icons';
+import { FireIcon, UserIcon } from '../../../../shared/components/icons';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.coachChallengesScreen;
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -29,6 +33,10 @@ async function fetchCoachChallenges(): Promise<Challenge[]> {
   return (data as any)?.data ?? [];
 }
 
+function keyExtractor(item: Challenge): string {
+  return item.id;
+}
+
 export function CoachChallengesScreen() {
   const navigation = useNavigation<Nav>();
 
@@ -38,7 +46,7 @@ export function CoachChallengesScreen() {
     staleTime: 30_000,
   });
 
-  const renderChallenge = ({ item }: { item: Challenge }) => (
+  const renderChallenge = useCallback(({ item }: { item: Challenge }) => (
     <TouchableOpacity
       style={styles.challengeCard}
       onPress={() => navigation.navigate('ChallengeDetail', { challengeId: item.id })}
@@ -50,7 +58,7 @@ export function CoachChallengesScreen() {
         </View>
         <View style={[styles.statusBadge, item.status === 'active' && styles.statusActive]}>
           <Text style={[styles.statusText, item.status === 'active' && styles.statusTextActive]}>
-            {item.status === 'active' ? 'Activo' : item.status}
+            {item.status === 'active' ? texts.challenge.active : item.status}
           </Text>
         </View>
       </View>
@@ -64,7 +72,7 @@ export function CoachChallengesScreen() {
         <View style={styles.footerItem}>
           <UserIcon size={14} color={colors.textSecondary} />
           <Text style={styles.footerText}>
-            {item.athlete_id ? 'Asignado' : 'Abierto'}
+            {item.athlete_id ? t.assigned : t.open}
           </Text>
         </View>
         <Text style={styles.footerDate}>
@@ -72,11 +80,11 @@ export function CoachChallengesScreen() {
         </Text>
       </View>
     </TouchableOpacity>
-  );
+  ), [navigation]);
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScreenHeader title="Mis Desafíos" onBack={() => navigation.goBack()} />
+      <ScreenHeader title={t.title} onBack={() => navigation.goBack()} />
 
       {isLoading ? (
         <View style={styles.loadingWrap}>
@@ -90,21 +98,21 @@ export function CoachChallengesScreen() {
       ) : isError ? (
         <EmptyState
           variant="error"
-          title="Error al cargar"
-          message="No se pudieron cargar los desafíos."
+          title={t.errorTitle}
+          message={t.errorMessage}
           onRetry={() => refetch()}
         />
       ) : challenges?.length === 0 ? (
         <EmptyState
           variant="empty"
-          title="Sin desafíos"
-          message="Crea tu primer desafío de video para tus atletas."
+          title={t.emptyTitle}
+          message={t.emptyMessage}
         />
       ) : (
-        <FlatList
+        <FlashList
           data={challenges}
           renderItem={renderChallenge}
-          keyExtractor={(item) => item.id}
+          keyExtractor={keyExtractor}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
         />
@@ -112,10 +120,9 @@ export function CoachChallengesScreen() {
 
       <View style={styles.ctaWrap}>
         <PrimaryButton
-          label="Crear desafío"
+          label={t.create}
           onPress={() => {
-            // TODO: Navigate to create challenge screen
-            navigation.navigate('CreateChallenge' as any);
+            navigation.navigate('CreateChallenge');
           }}
         />
       </View>

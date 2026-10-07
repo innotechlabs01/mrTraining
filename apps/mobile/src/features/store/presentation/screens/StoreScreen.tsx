@@ -10,6 +10,9 @@ import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { StoreIcon, PlusIcon } from '../../../../shared/components/icons';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.storeScreen;
 
 export function StoreScreen() {
   const queryClient = useQueryClient();
@@ -24,12 +27,12 @@ export function StoreScreen() {
   const purchaseMutation = useMutation({
     mutationFn: async (productId: string) => purchaseProduct(productId, 1),
     onSuccess: () => {
-      Alert.alert('Éxito', 'Producto agregado correctamente.');
+      Alert.alert(t.successTitle, t.addedBody);
       queryClient.invalidateQueries({ queryKey: ['athlete-store'] });
     },
     onError: (err: unknown) => {
-      const msg = err instanceof Error ? err.message : 'No se pudo completar la compra.';
-      Alert.alert('Error', msg);
+      const msg = err instanceof Error ? err.message : t.purchaseFailed;
+      Alert.alert(t.errorTitle, msg);
     },
   });
 
@@ -49,23 +52,23 @@ export function StoreScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        <ScreenHeader title="Tienda" onBack={() => navigation.goBack()} />
+        <ScreenHeader title={t.title} onBack={() => navigation.goBack()} />
 
         {isLoading ? (
           <Skeleton.List rows={4} />
         ) : isError ? (
           <EmptyState
             variant="error"
-            title="Ocurrió un error"
-            message="No se pudieron cargar los productos."
-            actionLabel="Reintentar"
+            title={t.errorTitle}
+            message={t.errorMessage}
+            actionLabel={texts.common.retry}
             onAction={() => refetch()}
           />
         ) : isEmpty ? (
           <EmptyState
             variant="empty"
-            title="Sin productos todavía"
-            message="Tu entrenador va a habilitar productos aquí cuando estén disponibles."
+            title={t.emptyTitle}
+            message={t.emptyMessage}
           />
         ) : (
           <View style={styles.grid}>
@@ -109,7 +112,7 @@ function ProductCard({
           <Text style={styles.stockText}>Stock: {outOfStock ? '—' : stock}</Text>
         </View>
         <PrimaryButton
-          label={outOfStock ? 'Sin stock' : 'Agregar'}
+          label={outOfStock ? t.outOfStock : texts.common.add}
           icon={outOfStock ? undefined : <PlusIcon size={16} color={colors.base} />}
           onPress={() => onAdd(product.id)}
           disabled={pending || outOfStock}

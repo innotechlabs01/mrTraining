@@ -14,6 +14,9 @@ describe('tokens', () => {
     expect(colors.success).toBe('#34D399');
     expect(colors.warning).toBe('#FBBF24');
     expect(colors.error).toBe('#FF6B6B');
+    expect(colors.primarySoft).toBe('#C8FF001A');
+    expect(colors.primaryFaint).toBe('#C8FF000F');
+    expect(colors.overlay).toBe('#00000099');
   });
 
   it('exposes the typography scale', () => {

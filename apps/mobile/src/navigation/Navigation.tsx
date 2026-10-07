@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import * as Linking from 'expo-linking';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, View } from 'react-native';
 import { useAuth, useUser, ClerkLoaded } from '@clerk/clerk-expo';
 import { SplashScreen } from '../features/auth/presentation/screens/SplashScreen';
@@ -11,36 +11,6 @@ import { SignInScreen } from '../features/auth/presentation/screens/SignInScreen
 import { InviteAcceptScreen } from '../features/auth/presentation/screens/InviteAcceptScreen';
 import { OnboardingScreen, OnboardingData } from '../features/auth/presentation/screens/OnboardingScreen';
 import { MembershipGate } from '../features/membership/presentation/MembershipGate';
-import { MembershipScreen } from '../features/membership/presentation/screens/MembershipScreen';
-import { StoreScreen } from '../features/store/presentation/screens/StoreScreen';
-import { EventDetailScreen } from '../features/events/presentation/screens/EventDetailScreen';
-import { WorkoutDetailScreen } from '../features/training/presentation/screens/WorkoutDetailScreen';
-import { WorkoutExecutionScreen } from '../features/training/presentation/screens/WorkoutExecutionScreen';
-import { AiWorkoutScreen } from '../features/ai/presentation/screens/AiWorkoutScreen';
-import { ImportHistoryScreen } from '../features/training/presentation/screens/ImportHistoryScreen';
-import { SearchScreen } from '../features/search/presentation/screens/SearchScreen';
-import { SettingsScreen } from '../features/settings/presentation/screens/SettingsScreen';
-import { NotificationSettingsScreen } from '../features/settings/presentation/screens/NotificationSettingsScreen';
-import { PasswordSettingsScreen } from '../features/settings/presentation/screens/PasswordSettingsScreen';
-import { PersonalDataScreen } from '../features/auth/presentation/screens/PersonalDataScreen';
-import { TrainingPreferencesScreen } from '../features/auth/presentation/screens/TrainingPreferencesScreen';
-import { EmergencyContactScreen } from '../features/auth/presentation/screens/EmergencyContactScreen';
-import { FavoritesScreen } from '../features/favorites/presentation/screens/FavoritesScreen';
-import { HelpScreen } from '../features/help/presentation/screens/HelpScreen';
-import { NotificationsScreen } from '../features/notifications/presentation/screens/NotificationsScreen';
-import { WorkoutListScreen } from '../features/training/presentation/screens/WorkoutListScreen';
-import { ProgressScreen } from '../features/progress/presentation/screens/ProgressScreen';
-import { NutritionScreen } from '../features/nutrition/presentation/screens/NutritionScreen';
-import { CommunityScreen } from '../features/community/presentation/screens/CommunityScreen';
-import { ArticlesScreen } from '../features/community/presentation/screens/ArticlesScreen';
-import { ArticleDetailScreen } from '../features/community/presentation/screens/ArticleDetailScreen';
-import { WeeklyChallengeScreen } from '../features/community/presentation/screens/WeeklyChallengeScreen';
-import { MealDetailScreen } from '../features/nutrition/presentation/screens/MealDetailScreen';
-import { CreateRoutineScreen } from '../features/training/presentation/screens/CreateRoutineScreen';
-import { DiscussionForumScreen } from '../features/community/presentation/screens/DiscussionForumScreen';
-import { ChallengeDetailScreen } from '../features/community/presentation/screens/ChallengeDetailScreen';
-import { ChallengeRecordingScreen } from '../features/community/presentation/screens/ChallengeRecordingScreen';
-import { LeaderboardScreen } from '../features/community/presentation/screens/LeaderboardScreen';
 import { AthleteTabs } from './AthleteTabs';
 import { darkTheme } from '../shared/theme/navigationTheme';
 
@@ -102,7 +72,7 @@ export type RootStackParamList = {
   Splash: undefined;
   Sliders: undefined;
   Welcome: undefined;
-  Auth: { code?: string; mode?: 'signin' | 'signup'; onboardingData?: OnboardingData } | undefined;
+  Auth: { code?: string | undefined; mode?: 'signin' | 'signup' | undefined; onboardingData?: OnboardingData | undefined } | undefined;
   Onboarding: undefined;
   InviteAccept: { code: string } | undefined;
   AthleteTabs: undefined;
@@ -110,7 +80,14 @@ export type RootStackParamList = {
   Store: undefined;
   WorkoutDetail: { workoutId: string };
   WorkoutExecution: { sessionId: string; workoutId: string };
-  AiWorkout: { sessionId: string; workoutId: string; exerciseId: string; target: number };
+  AiWorkout: {
+    sessionId: string;
+    workoutId: string;
+    exerciseId: string;
+    target: number;
+    /** Workout exercise row id; lets the session report results back to execution. */
+    exerciseDbId?: string;
+  };
   EventDetail: { eventId: string };
   ImportHistory: undefined;
   Search: undefined;
@@ -136,6 +113,8 @@ export type RootStackParamList = {
   ChallengeDetail: { challengeId: string };
   Leaderboard: { challengeId: string };
   ChallengeRecording: { challengeId: string; attemptId: string };
+  CoachChallenges: undefined;
+  CreateChallenge: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -150,7 +129,7 @@ function AthleteTabsWithGate() {
   );
 }
 
-function WelcomeScreenWrapper({ navigation }: any) {
+function WelcomeScreenWrapper({ navigation }: NativeStackScreenProps<RootStackParamList, 'Welcome'>) {
   return (
     <WelcomeScreen
       onNewUser={() => navigation.navigate('Onboarding')}
@@ -159,7 +138,7 @@ function WelcomeScreenWrapper({ navigation }: any) {
   );
 }
 
-function OnboardingScreenWrapper({ navigation }: any) {
+function OnboardingScreenWrapper({ navigation }: NativeStackScreenProps<RootStackParamList, 'Onboarding'>) {
   const handleComplete = useCallback(
     (data: OnboardingData) => navigation.navigate('Auth', { mode: 'signup', onboardingData: data }),
     [navigation],
@@ -170,7 +149,7 @@ function OnboardingScreenWrapper({ navigation }: any) {
 // --- Root Navigator (single navigator, conditional screens) ---
 function RootNavigator() {
   const { isSignedIn } = useAuth();
-  const { user, isLoaded: userLoaded } = useUser();
+  const { isLoaded: userLoaded } = useUser();
 
   // Show loading while Clerk initializes
   if (!userLoaded) {
@@ -201,37 +180,139 @@ function RootNavigator() {
         <>
           <Stack.Screen name="Splash" component={SplashScreen} />
           <Stack.Screen name="AthleteTabs" component={AthleteTabsWithGate} />
-          <Stack.Screen name="Membership" component={MembershipScreen} />
-          <Stack.Screen name="EventDetail" component={EventDetailScreen} />
-          <Stack.Screen name="Store" component={StoreScreen} />
+          <Stack.Screen
+            name="Membership"
+            getComponent={() => require('../features/membership/presentation/screens/MembershipScreen').MembershipScreen}
+          />
+          <Stack.Screen
+            name="EventDetail"
+            getComponent={() => require('../features/events/presentation/screens/EventDetailScreen').EventDetailScreen}
+          />
+          <Stack.Screen
+            name="Store"
+            getComponent={() => require('../features/store/presentation/screens/StoreScreen').StoreScreen}
+          />
           <Stack.Screen name="InviteAccept" component={InviteAcceptScreen} />
-          <Stack.Screen name="WorkoutDetail" component={WorkoutDetailScreen} />
-          <Stack.Screen name="WorkoutExecution" component={WorkoutExecutionScreen} options={{ presentation: 'modal' }} />
-          <Stack.Screen name="AiWorkout" component={AiWorkoutScreen} options={{ presentation: 'modal' }} />
-          <Stack.Screen name="ImportHistory" component={ImportHistoryScreen} options={{ presentation: 'modal' }} />
-          <Stack.Screen name="Search" component={SearchScreen} />
-          <Stack.Screen name="Settings" component={SettingsScreen} />
-          <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
-          <Stack.Screen name="PasswordSettings" component={PasswordSettingsScreen} />
-          <Stack.Screen name="PersonalData" component={PersonalDataScreen} />
-          <Stack.Screen name="TrainingPreferences" component={TrainingPreferencesScreen} />
-          <Stack.Screen name="EmergencyContact" component={EmergencyContactScreen} />
-          <Stack.Screen name="Favorites" component={FavoritesScreen} />
-          <Stack.Screen name="Help" component={HelpScreen} />
-          <Stack.Screen name="Notifications" component={NotificationsScreen} />
-          <Stack.Screen name="Workouts" component={WorkoutListScreen} />
-          <Stack.Screen name="Progress" component={ProgressScreen} />
-          <Stack.Screen name="Nutrition" component={NutritionScreen} />
-          <Stack.Screen name="Community" component={CommunityScreen} />
-          <Stack.Screen name="Articles" component={ArticlesScreen} />
-          <Stack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
-          <Stack.Screen name="WeeklyChallenge" component={WeeklyChallengeScreen} />
-          <Stack.Screen name="MealDetail" component={MealDetailScreen} />
-          <Stack.Screen name="CreateRoutine" component={CreateRoutineScreen} />
-          <Stack.Screen name="DiscussionForum" component={DiscussionForumScreen} />
-          <Stack.Screen name="ChallengeDetail" component={ChallengeDetailScreen} />
-          <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
-          <Stack.Screen name="ChallengeRecording" component={ChallengeRecordingScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen
+            name="WorkoutDetail"
+            getComponent={() => require('../features/training/presentation/screens/WorkoutDetailScreen').WorkoutDetailScreen}
+          />
+          <Stack.Screen
+            name="WorkoutExecution"
+            getComponent={() => require('../features/training/presentation/screens/WorkoutExecutionScreen').WorkoutExecutionScreen}
+            options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="AiWorkout"
+            getComponent={() => require('../features/ai/presentation/screens/AiWorkoutScreen').AiWorkoutScreen}
+            options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="ImportHistory"
+            getComponent={() => require('../features/training/presentation/screens/ImportHistoryScreen').ImportHistoryScreen}
+            options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="Search"
+            getComponent={() => require('../features/search/presentation/screens/SearchScreen').SearchScreen}
+          />
+          <Stack.Screen
+            name="Settings"
+            getComponent={() => require('../features/settings/presentation/screens/SettingsScreen').SettingsScreen}
+          />
+          <Stack.Screen
+            name="NotificationSettings"
+            getComponent={() => require('../features/settings/presentation/screens/NotificationSettingsScreen').NotificationSettingsScreen}
+          />
+          <Stack.Screen
+            name="PasswordSettings"
+            getComponent={() => require('../features/settings/presentation/screens/PasswordSettingsScreen').PasswordSettingsScreen}
+          />
+          <Stack.Screen
+            name="PersonalData"
+            getComponent={() => require('../features/auth/presentation/screens/PersonalDataScreen').PersonalDataScreen}
+          />
+          <Stack.Screen
+            name="TrainingPreferences"
+            getComponent={() => require('../features/auth/presentation/screens/TrainingPreferencesScreen').TrainingPreferencesScreen}
+          />
+          <Stack.Screen
+            name="EmergencyContact"
+            getComponent={() => require('../features/auth/presentation/screens/EmergencyContactScreen').EmergencyContactScreen}
+          />
+          <Stack.Screen
+            name="Favorites"
+            getComponent={() => require('../features/favorites/presentation/screens/FavoritesScreen').FavoritesScreen}
+          />
+          <Stack.Screen
+            name="Help"
+            getComponent={() => require('../features/help/presentation/screens/HelpScreen').HelpScreen}
+          />
+          <Stack.Screen
+            name="Notifications"
+            getComponent={() => require('../features/notifications/presentation/screens/NotificationsScreen').NotificationsScreen}
+          />
+          <Stack.Screen
+            name="Workouts"
+            getComponent={() => require('../features/training/presentation/screens/WorkoutListScreen').WorkoutListScreen}
+          />
+          <Stack.Screen
+            name="Progress"
+            getComponent={() => require('../features/progress/presentation/screens/ProgressScreen').ProgressScreen}
+          />
+          <Stack.Screen
+            name="Nutrition"
+            getComponent={() => require('../features/nutrition/presentation/screens/NutritionScreen').NutritionScreen}
+          />
+          <Stack.Screen
+            name="Community"
+            getComponent={() => require('../features/community/presentation/screens/CommunityScreen').CommunityScreen}
+          />
+          <Stack.Screen
+            name="Articles"
+            getComponent={() => require('../features/community/presentation/screens/ArticlesScreen').ArticlesScreen}
+          />
+          <Stack.Screen
+            name="ArticleDetail"
+            getComponent={() => require('../features/community/presentation/screens/ArticleDetailScreen').ArticleDetailScreen}
+          />
+          <Stack.Screen
+            name="WeeklyChallenge"
+            getComponent={() => require('../features/community/presentation/screens/WeeklyChallengeScreen').WeeklyChallengeScreen}
+          />
+          <Stack.Screen
+            name="MealDetail"
+            getComponent={() => require('../features/nutrition/presentation/screens/MealDetailScreen').MealDetailScreen}
+          />
+          <Stack.Screen
+            name="CreateRoutine"
+            getComponent={() => require('../features/training/presentation/screens/CreateRoutineScreen').CreateRoutineScreen}
+          />
+          <Stack.Screen
+            name="DiscussionForum"
+            getComponent={() => require('../features/community/presentation/screens/DiscussionForumScreen').DiscussionForumScreen}
+          />
+          <Stack.Screen
+            name="ChallengeDetail"
+            getComponent={() => require('../features/community/presentation/screens/ChallengeDetailScreen').ChallengeDetailScreen}
+          />
+          <Stack.Screen
+            name="Leaderboard"
+            getComponent={() => require('../features/community/presentation/screens/LeaderboardScreen').LeaderboardScreen}
+          />
+          <Stack.Screen
+            name="ChallengeRecording"
+            getComponent={() => require('../features/community/presentation/screens/ChallengeRecordingScreen').ChallengeRecordingScreen}
+            options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="CoachChallenges"
+            getComponent={() => require('../features/coaching/presentation/screens/CoachChallengesScreen').CoachChallengesScreen}
+          />
+          <Stack.Screen
+            name="CreateChallenge"
+            getComponent={() => require('../features/coaching/presentation/screens/CreateChallengeScreen').CreateChallengeScreen}
+          />
         </>
       )}
     </Stack.Navigator>

@@ -38,7 +38,8 @@ export interface APIComment {
 
 // ─── API Client ───────────────────────────────────────────────────────────────
 
-const COACH_FEED_BASE = '/v1/coach/feed';
+// smartClient baseURL already includes /api/v1 — do NOT prefix /v1 here.
+const COACH_FEED_BASE = '/coach/feed';
 
 /**
  * Fetch posts from the API.
@@ -53,8 +54,9 @@ export async function fetchPosts(
     );
     return response.data ?? [];
   } catch (error) {
+    // Propagate to React Query — screens surface via isError state.
     console.warn('[CoachFeedAPI] fetchPosts failed:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -70,8 +72,9 @@ export async function createPost(data: {
     const response = await apiClient.post<APIPost>(COACH_FEED_BASE, data);
     return response.data;
   } catch (error) {
+    // Propagate to React Query — mutations surface via isError state.
     console.warn('[CoachFeedAPI] createPost failed:', error);
-    return null;
+    throw error;
   }
 }
 
@@ -83,8 +86,9 @@ export async function deletePost(postId: string): Promise<boolean> {
     await apiClient.delete(`${COACH_FEED_BASE}/${postId}`);
     return true;
   } catch (error) {
+    // Propagate to React Query — mutations surface via isError state.
     console.warn('[CoachFeedAPI] deletePost failed:', error);
-    return false;
+    throw error;
   }
 }
 
@@ -99,8 +103,9 @@ export async function addReaction(
     await apiClient.post(`${COACH_FEED_BASE}/${postId}/react`, { type });
     return true;
   } catch (error) {
+    // Propagate to React Query — mutations surface via isError state.
     console.warn('[CoachFeedAPI] addReaction failed:', error);
-    return false;
+    throw error;
   }
 }
 
@@ -118,8 +123,9 @@ export async function addComment(
     );
     return response.data;
   } catch (error) {
+    // Propagate to React Query — mutations surface via isError state.
     console.warn('[CoachFeedAPI] addComment failed:', error);
-    return null;
+    throw error;
   }
 }
 
@@ -137,7 +143,8 @@ export async function fetchComments(
     );
     return response.data ?? [];
   } catch (error) {
+    // Propagate to React Query — screens surface via isError state.
     console.warn('[CoachFeedAPI] fetchComments failed:', error);
-    return [];
+    throw error;
   }
 }

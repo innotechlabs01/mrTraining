@@ -8,7 +8,7 @@ type Action = { label: string; onPress: () => void };
 type Props = {
   title: string;
   icon?: React.ReactNode;
-  action?: Action;
+  action?: Action | undefined;
   trailing?: React.ReactNode;
 };
 

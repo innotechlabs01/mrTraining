@@ -35,7 +35,7 @@ export type UseFormRecordingReturn = {
 export function useFormRecording(): UseFormRecordingReturn {
   const [consentState, setConsentStateLocal] = useState<ConsentState>('pending')
   const [pendingCount, setPendingCount] = useState(0)
-  const [showConsent, setShowConsent] = useState(false)
+  const [, setShowConsent] = useState(false)
 
   // Check consent on mount
   const checkConsent = useCallback(async () => {

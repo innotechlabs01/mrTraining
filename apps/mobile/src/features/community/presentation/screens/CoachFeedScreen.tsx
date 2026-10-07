@@ -1,7 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { colors, radius, spacing, typography } from '@shared/theme/tokens';
 import { ChatIcon } from '@shared/components/icons';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.coachFeedScreen;
 
 export interface CoachFeedItem {
   id: string;
@@ -26,11 +30,44 @@ function typeBadgeColor(type: CoachFeedItem['type']): string {
 
 function typeLabel(type: CoachFeedItem['type']): string {
   switch (type) {
-    case 'announcement': return 'Anuncio';
-    case 'feedback': return 'Feedback';
-    case 'reminder': return 'Recordatorio';
-    case 'challenge': return 'Desafío';
+    case 'announcement': return t.announcement;
+    case 'feedback': return t.feedback;
+    case 'reminder': return t.reminder;
+    case 'challenge': return t.challenge;
   }
+}
+
+const CoachFeedRow = React.memo(function CoachFeedRow({ item }: { item: CoachFeedItem }) {
+  const badgeColor = typeBadgeColor(item.type);
+  return (
+    <View style={styles.item} testID="coach-feed-item">
+      <View style={styles.itemHeader}>
+        <Text style={styles.coachName}>{item.coachName}</Text>
+        <View style={[styles.badge, { backgroundColor: badgeColor + '20' }]}>
+          <Text style={[styles.badgeText, { color: badgeColor }]}>
+            {typeLabel(item.type)}
+          </Text>
+        </View>
+      </View>
+      <Text style={styles.message}>{item.message}</Text>
+      <Text style={styles.time}>
+        {new Date(item.createdAt).toLocaleDateString('es-AR', {
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+        })}
+      </Text>
+    </View>
+  );
+});
+
+function keyExtractor(item: CoachFeedItem): string {
+  return item.id;
+}
+
+function renderItem({ item }: { item: CoachFeedItem }) {
+  return <CoachFeedRow item={item} />;
 }
 
 export function CoachFeed({ items }: CoachFeedProps) {
@@ -38,35 +75,15 @@ export function CoachFeed({ items }: CoachFeedProps) {
     <View style={styles.container}>
       <View style={styles.header}>
         <ChatIcon size={20} color={colors.primary} />
-        <Text style={styles.title}>Feed del Coach</Text>
+        <Text style={styles.title}>{texts.gamification.coachFeed}</Text>
       </View>
-      <FlatList
+      <FlashList
         data={items}
-        keyExtractor={(item) => item.id}
-        scrollEnabled={false}
-        renderItem={({ item }) => (
-          <View style={styles.item} testID="coach-feed-item">
-            <View style={styles.itemHeader}>
-              <Text style={styles.coachName}>{item.coachName}</Text>
-              <View style={[styles.badge, { backgroundColor: typeBadgeColor(item.type) + '20' }]}>
-                <Text style={[styles.badgeText, { color: typeBadgeColor(item.type) }]}>
-                  {typeLabel(item.type)}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.message}>{item.message}</Text>
-            <Text style={styles.time}>
-              {new Date(item.createdAt).toLocaleDateString('es-AR', {
-                day: 'numeric',
-                month: 'short',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </Text>
-          </View>
-        )}
+        keyExtractor={keyExtractor}
+        style={styles.list}
+        renderItem={renderItem}
         ListEmptyComponent={
-          <Text style={styles.empty}>No hay publicaciones del coach</Text>
+          <Text style={styles.empty}>{texts.gamification.emptyCoachFeed}</Text>
         }
       />
     </View>
@@ -78,6 +95,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: spacing.md,
+    flex: 1,
+  },
+  list: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',

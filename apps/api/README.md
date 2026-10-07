@@ -26,6 +26,33 @@ Copy `.env.example` to `.env` and configure:
 cp config/.env.example .env
 ```
 
+## Migrations
+
+SQL migrations live in `migrations/NNN_name.sql` and are applied by the
+`cmd/migrate` tool. It uses the same `.env`/environment variables as the API
+(`DATABASE_URL` or `TURSO_URL`, plus `TURSO_AUTH_TOKEN` for remote Turso), and
+runs idempotently: each applied file is recorded in the `schema_migrations`
+table and never re-executed.
+
+```bash
+# Apply pending migrations
+go run ./cmd/migrate
+
+# Preview what would be applied (no changes)
+go run ./cmd/migrate -dry-run
+
+# Point at another directory (e.g. inside the container image)
+go run ./cmd/migrate -dir /migrations
+```
+
+Rules:
+
+- New migrations go in `migrations/NNN_name.sql` (next number in sequence).
+- CI or the operator runs `migrate` **before** deploying a build that depends
+  on new tables.
+- Each migration runs in a transaction; a failure stops the run, exits
+  non-zero, and leaves the file unrecorded so it retries on the next run.
+
 ## Docker
 
 ```bash

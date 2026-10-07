@@ -2,6 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, spacing, typography, radius } from '../../../../shared/theme/tokens';
 import type { AiSessionSummary, VelocityTrend } from '../hooks/useSessionSummary';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.sessionSummaryOverlay;
 
 interface Props {
   summary: AiSessionSummary;
@@ -9,9 +12,9 @@ interface Props {
 }
 
 const TREND_LABEL: Record<VelocityTrend, string> = {
-  up: 'en subida',
-  down: 'en bajada',
-  flat: 'estable',
+  up: t.trendUp,
+  down: t.trendDown,
+  flat: t.trendFlat,
 };
 
 function row(label: string, value: string): React.JSX.Element {
@@ -26,18 +29,18 @@ function row(label: string, value: string): React.JSX.Element {
 export function SessionSummaryOverlay({ summary, visible }: Props): React.JSX.Element | null {
   if (!visible) return null;
   return (
-    <View style={styles.overlay} accessibilityRole="summary" accessibilityLabel="Resumen de sesión">
-      <Text style={styles.title}>Sesión completada</Text>
-      {row('Ejercicio', summary.exercise)}
-      {row('Objetivo', String(summary.target))}
-      {row('Repeticiones completadas', String(summary.completed))}
-      {row('Rechazadas', String(summary.rejected))}
-      {row('Forma media', `${summary.avgForm} %`)}
-      {row('Mejor forma', `${summary.bestForm} %`)}
-      {row('ROM promedio', `${summary.avgRom}°`)}
-      {row('Tempo promedio', `${summary.avgTempoMs} ms`)}
-      {row('Velocidad', TREND_LABEL[summary.velocityTrend])}
-      {row('Proximidad a fallo', `${Math.round(summary.failureProximity * 100)} %`)}
+    <View style={styles.overlay} accessibilityRole="summary" accessibilityLabel={t.a11y}>
+      <Text style={styles.title}>{t.title}</Text>
+      {row(t.exercise, summary.exercise)}
+      {row(t.target, String(summary.target))}
+      {row(t.repsCompleted, String(summary.completed))}
+      {row(t.rejected, String(summary.rejected))}
+      {row(t.avgForm, `${summary.avgForm} %`)}
+      {row(t.bestForm, `${summary.bestForm} %`)}
+      {row(t.avgRom, `${summary.avgRom}°`)}
+      {row(t.avgTempo, `${summary.avgTempoMs} ms`)}
+      {row(t.velocity, TREND_LABEL[summary.velocityTrend])}
+      {row(t.failureProximity, `${Math.round(summary.failureProximity * 100)} %`)}
     </View>
   );
 }

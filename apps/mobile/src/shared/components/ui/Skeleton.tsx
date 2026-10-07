@@ -40,8 +40,8 @@ function ShimmerGroup({ children }: { children: React.ReactNode }) {
     }
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: skeletonTokens.duration / 2, useNativeDriver: false }),
-        Animated.timing(opacity, { toValue: 0.4, duration: skeletonTokens.duration / 2, useNativeDriver: false }),
+        Animated.timing(opacity, { toValue: 1, duration: skeletonTokens.duration / 2, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.4, duration: skeletonTokens.duration / 2, useNativeDriver: true }),
       ]),
     );
     loop.start();

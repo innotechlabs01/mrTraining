@@ -1,4 +1,4 @@
-import { Linking, Pressable, View, Text, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -12,6 +12,9 @@ import { TrackedVideoPlayer } from '../components/TrackedVideoPlayer';
 import { RunningRouteView } from '../components/RunningRouteView';
 import { extractSessionId } from '../../application/sessionStart';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.workoutDetailScreen;
 
 type Exercise = {
   id: string;
@@ -22,10 +25,10 @@ type Exercise = {
   restSeconds: number | null;
   sortOrder: number;
   notes: string | null;
-  videoUrl?: string | null;
-  gpsRoute?: string | null;
-  mode?: string;
-  phase?: string;
+  videoUrl?: string | null | undefined;
+  gpsRoute?: string | null | undefined;
+  mode?: string | undefined;
+  phase?: string | undefined;
 };
 
 type Workout = {
@@ -34,11 +37,6 @@ type Workout = {
   contentName: string;
   status: string;
   progress: number;
-};
-
-type WorkoutDetailData = {
-  workout: Workout;
-  exercises: Exercise[];
 };
 
 type PrescriptionExercise = {
@@ -113,7 +111,7 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
     },
     onError: (err) => {
       console.error('Failed to start session:', err);
-      Alert.alert('Could not start workout', 'Please try again.');
+      Alert.alert(t.startErrorTitle, t.startErrorBody);
     },
   });
 
@@ -124,7 +122,7 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView style={styles.container}>
       <ScreenHeader
-        title={workoutData?.workout.contentName ?? 'Workout'}
+        title={workoutData?.workout.contentName ?? t.titleFallback}
         onBack={() => navigation.goBack()}
       />
       <ScrollView
@@ -144,7 +142,7 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
         ) : workoutData === null || error1 || error2 ? (
           <EmptyState
             variant="error"
-            message="Could not load workout"
+            message={t.loadError}
             onRetry={() => {
               queryClient.invalidateQueries({ queryKey: ['workout-detail', workoutId] });
               queryClient.invalidateQueries({ queryKey: ['workout-prescription', workoutId] });
@@ -160,10 +158,10 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
                 </Text>
                 <View style={styles.metaRow}>
                   {ex.weightKg !== null && ex.weightKg !== undefined ? (
-                    <Text style={styles.meta}>${ex.weightKg} kg</Text>
+                    <Text style={styles.meta}>{ex.weightKg} kg</Text>
                   ) : null}
                   {ex.restSeconds !== null && ex.restSeconds !== undefined ? (
-                    <Text style={styles.meta}>${ex.restSeconds}s rest</Text>
+                    <Text style={styles.meta}>{`${ex.restSeconds}${t.restTag}`}</Text>
                   ) : null}
                 </View>
                 {ex.videoUrl ? (
@@ -184,14 +182,14 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
             ))}
             <View style={styles.cta}>
               <PrimaryButton
-                label="Comenzar"
+                label={t.startLabel}
                 onPress={() => startSessionMutation.mutate()}
                 disabled={startSessionMutation.isPending}
               />
             </View>
           </>
         ) : (
-          <EmptyState variant="empty" message="No exercises found" />
+          <EmptyState variant="empty" message={t.emptyExercises} />
         )}
       </ScrollView>
     </SafeAreaView>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -42,6 +42,7 @@ export function BadgeUnlockToast({ badgeName, visible, onDismiss }: Props) {
     } else {
       translateY.value = -100;
       opacity.value = 0;
+      return undefined;
     }
   }, [visible]);
 

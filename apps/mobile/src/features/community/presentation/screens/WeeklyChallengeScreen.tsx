@@ -12,6 +12,9 @@ import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { FireIcon } from '../../../../shared/components/icons';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.weeklyChallenge;
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -41,7 +44,7 @@ export function WeeklyChallengeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScreenHeader title="Desafío semanal" onBack={() => navigation.goBack()} />
+      <ScreenHeader title={t.title} onBack={() => navigation.goBack()} />
 
       {isLoading ? (
         <View style={styles.skeletonWrap}>
@@ -50,15 +53,15 @@ export function WeeklyChallengeScreen() {
       ) : isError ? (
         <EmptyState
           variant="error"
-          title="Error al cargar"
-          message="No se pudo cargar el desafío semanal."
+          title={t.errorTitle}
+          message={t.errorMessage}
           onRetry={() => refetch()}
         />
       ) : !challenge ? (
         <EmptyState
           variant="empty"
-          title="Sin datos todavía"
-          message="Cuando haya un desafío activo, vas a ver aquí tu progreso semanal."
+          title={t.emptyTitle}
+          message={t.emptyMessage}
         />
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -72,17 +75,17 @@ export function WeeklyChallengeScreen() {
             <View style={styles.statsRow}>
               <View style={styles.stat}>
                 <Text style={styles.statValue}>{Math.ceil(challenge.durationMinutes / 1440)}</Text>
-                <Text style={styles.statLabel}>días</Text>
+                <Text style={styles.statLabel}>{t.daysUnit}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.stat}>
                 <Text style={styles.statValue}>{challenge.calories}</Text>
-                <Text style={styles.statLabel}>Kcal</Text>
+                <Text style={styles.statLabel}>{t.kcalUnit}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.stat}>
                 <Text style={styles.statValue}>{challenge.participantsCount}</Text>
-                <Text style={styles.statLabel}>participantes</Text>
+                <Text style={styles.statLabel}>{t.participantsUnit}</Text>
               </View>
             </View>
           </View>
@@ -91,7 +94,7 @@ export function WeeklyChallengeScreen() {
 
       <View style={styles.ctaWrap}>
         <PrimaryButton
-          label={challenge ? 'Ver detalles' : 'Unirse'}
+          label={challenge ? t.details : t.join}
           onPress={() => {
             if (challenge) {
               navigation.navigate('ChallengeDetail', { challengeId: challenge.id });

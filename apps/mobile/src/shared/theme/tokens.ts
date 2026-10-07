@@ -15,6 +15,9 @@ export const colors = {
   border: '#242B28', // Hairlines, separators (white/5 over base)
   primary: '#C8FF00', // Volt — the single accent
   primaryPressed: '#A8D900', // Pressed state of Volt
+  primarySoft: '#C8FF001A', // Volt @0.10 — selected tints, chips (hex8)
+  primaryFaint: '#C8FF000F', // Volt @0.06 — subtle pressed/active feedback (hex8)
+  overlay: '#00000099', // Black @0.6 — scrims over media and modals (hex8)
   secondary: '#3B9EFF', // Data-viz / macro secondary (carbs), sparingly
   text: '#FFFFFF', // Primary text (WCAG AA on all surfaces)
   textSecondary: '#9CA3AF', // Secondary text, captions, placeholders (gray-400)

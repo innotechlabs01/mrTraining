@@ -21,6 +21,9 @@ import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { MetricCard } from '../../../../shared/components/ui/MetricCard';
 import { SectionHeader } from '../../../../shared/components/ui/SectionHeader';
 import { ChallengeHomeCard } from '../../../../shared/components/ui/ChallengeHomeCard';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.todayScreen;
 import { ContinueWorkoutCard } from '../../../../shared/components/fitness/ContinueWorkoutCard';
 import { useStreak, usePRs } from '../../../gamification/hooks';
 import { listAlerts, type Alert } from '../../../alerts/alertService';
@@ -59,7 +62,7 @@ type TodayNav = CompositeNavigationProp<
 export function TodayScreen() {
   const navigation = useNavigation<TodayNav>();
   const { user } = useUser();
-  const firstName = user?.firstName || 'Deportista';
+  const firstName = user?.firstName || t.athleteFallback;
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['athlete-today'],
@@ -177,23 +180,23 @@ export function TodayScreen() {
         {/* Compact scoreboard — side by side, always visible ground layer */}
         <View style={styles.scoreboard}>
           <View style={styles.scoreItem}>
-            <MetricCard label="Sesiones" value={todaySessions.length} />
+            <MetricCard label={t.metricSessions} value={todaySessions.length} />
           </View>
           <View style={styles.scoreItem}>
-            <MetricCard label="Minutos" value={totalMinutes} unit="min" />
+            <MetricCard label={t.metricMinutes} value={totalMinutes} unit={t.minutesUnit} />
           </View>
           <View style={styles.scoreItem}>
-            <MetricCard label="Activos" value={activeWorkouts.length} />
+            <MetricCard label={t.metricActive} value={activeWorkouts.length} />
           </View>
           <View style={styles.scoreItem}>
-            <MetricCard label="Racha" value={streak} unit="días" tone={streak > 0 ? 'success' : 'text'} />
+            <MetricCard label={t.metricStreak} value={streak} unit={t.streakUnit} tone={streak > 0 ? 'success' : 'text'} />
           </View>
         </View>
 
         {isLoading ? (
           <EmptyState variant="loading" />
         ) : !hasData ? (
-          <EmptyState variant="empty" message="Todavía no hay datos" />
+          <EmptyState variant="empty" message={t.todayEmpty} />
         ) : null}
 
         <SessionsSection sessions={todaySessions} />
@@ -203,7 +206,7 @@ export function TodayScreen() {
         />
         {challengeToShow ? (
           <View style={{ gap: spacing.md }}>
-            <SectionHeader title="Desafíos" action={{ label: 'Ver todos', onPress: () => rootNav?.navigate('Community') }} />
+            <SectionHeader title={t.challengesTitle} action={{ label: t.challengesSeeAll, onPress: () => rootNav?.navigate('Community') }} />
             <ChallengeHomeCard challenge={challengeToShow} loading={challengeLoading} />
           </View>
         ) : (

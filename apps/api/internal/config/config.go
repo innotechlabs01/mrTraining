@@ -79,6 +79,15 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
+// DatabaseConnection returns the database URL and auth token using the same
+// .env file and precedence as Load (DATABASE_URL, falling back to TURSO_URL).
+// CLI tools that only need database access (e.g. cmd/migrate) use this instead
+// of Load so they don't require unrelated production variables.
+func DatabaseConnection() (url, token string) {
+	_ = godotenv.Load()
+	return getEnv("DATABASE_URL", getEnv("TURSO_URL", "")), getEnv("TURSO_AUTH_TOKEN", "")
+}
+
 // validate checks that all required configuration values are present.
 // In production, stricter validation is enforced.
 func (c *Config) validate() error {

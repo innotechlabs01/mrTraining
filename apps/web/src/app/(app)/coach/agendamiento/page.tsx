@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Calendar, Clock, User, Target, Dumbbell, CheckCircle2, XCircle, RefreshCw, MapPin, Video, Plus, Trash2, Save, CalendarClock } from 'lucide-react'
+import { Calendar, Clock, User, Dumbbell, CheckCircle2, XCircle, RefreshCw, MapPin, Video, Plus, Trash2, Save, CalendarClock } from 'lucide-react'
 import { coachingApi } from '@/features/shared/api/client'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'

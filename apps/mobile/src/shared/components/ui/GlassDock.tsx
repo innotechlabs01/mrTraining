@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { colors, fontFamilies, radius, spacing, shadows } from '../../theme/tokens';
+import { colors, fontFamilies, radius, spacing } from '../../theme/tokens';
 import {
   HomeIcon,
   BarbellIcon,
@@ -79,9 +79,10 @@ const styles = StyleSheet.create({
     // Subtle active tab highlight
     borderRadius: radius.md,
   },
-  tabPressed: { opacity: 0.7, backgroundColor: 'rgba(200,255,0,0.06)' },
+  // Volt feedback reserved for press only; focused tab uses tonal elevation
+  tabPressed: { opacity: 0.7, backgroundColor: colors.primaryFaint },
   tabFocused: {
-    backgroundColor: 'rgba(200,255,0,0.10)',
+    backgroundColor: colors.surfaceRaised,
   },
   label: {
     fontFamily: fontFamilies.bodySemiBold,

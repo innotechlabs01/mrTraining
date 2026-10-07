@@ -1,17 +1,21 @@
 /**
- * FormRecordingSync — Uploads pending form videos to the server.
+ * FormRecordingSync — Uploads pending form videos to the Go API.
  *
  * Uses the camera's recorded temp files directly.
  * Cleans up metadata after successful sync.
+ *
+ * IMPORTANT: All communication goes through the Go API (apps/api) via
+ * smartClient, which attaches the Clerk JWT Authorization header.
+ * smartClient baseURL is `${GO_API_URL}/api/v1`, so paths are relative
+ * to /api/v1. Never fetch the Next.js API from mobile.
  */
 import {
   getPendingVideos,
   removePendingVideo,
-  clearPendingVideos,
   type PendingFormVideo,
 } from './LocalVideoStorage'
+import { smartClient } from '../api/client'
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000'
 const MAX_RETRIES = 2
 
 type SyncResult = {
@@ -21,7 +25,7 @@ type SyncResult = {
 }
 
 /**
- * Upload a single video to the server
+ * Upload a single video to the Go API (authenticated).
  */
 async function uploadVideo(video: PendingFormVideo): Promise<boolean> {
   try {
@@ -38,13 +42,11 @@ async function uploadVideo(video: PendingFormVideo): Promise<boolean> {
       formData.append('workoutId', video.workoutId)
     }
 
-    const response = await fetch(`${API_BASE}/api/athlete/form-recordings/upload`, {
-      method: 'POST',
-      body: formData,
+    const response = await smartClient.post('/form-recordings/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
 
-    return response.ok
+    return response.status >= 200 && response.status < 300
   } catch (err) {
     console.error('Upload error:', err)
     return false

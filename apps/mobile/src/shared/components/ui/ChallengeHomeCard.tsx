@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, radius, typography, shadows } from '../../theme/tokens';
-import { FireIcon, TrophyIcon, ChevronRightIcon } from '../icons';
+import { FireIcon, ChevronRightIcon } from '../icons';
 import { CountdownTimer } from './CountdownTimer';
 import type { RootStackParamList } from '../../../navigation/Navigation';
 import { texts } from '../../i18n/texts';
@@ -62,7 +62,6 @@ export function ChallengeHomeCard({ challenge, loading }: Props) {
     return null;
   }
 
-  const daysLeft = getDaysRemaining(challenge.end_date);
   const lastDay = isLastDay(challenge.end_date);
   const attemptCount = challenge.attempt_count ?? 0;
   const canAttempt = attemptCount < challenge.max_attempts;
@@ -131,7 +130,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radius.sm,
-    backgroundColor: 'rgba(200, 255, 0, 0.1)',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

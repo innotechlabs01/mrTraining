@@ -336,6 +336,13 @@ func RegisterFormMetricsRoutes(api fiber.Router, handler *handlers.FormMetricsHa
 	fm.Get("/athlete/:id", handler.GetAthleteMetrics)
 }
 
+// RegisterFormRecordingRoutes registers form recording endpoints on the given API group.
+// The calling code must have already applied auth middleware to the api group.
+func RegisterFormRecordingRoutes(api fiber.Router, handler *handlers.FormRecordingHandler) {
+	fr := api.Group("/form-recordings")
+	fr.Post("/upload", middleware.RequireAthlete(), handler.UploadRecording)
+}
+
 // RegisterNotificationPreferencesRoutes registers notification preferences endpoints on the given API group.
 // The calling code must have already applied auth middleware to the api group.
 func RegisterNotificationPreferencesRoutes(api fiber.Router, handler *handlers.NotificationHandler) {

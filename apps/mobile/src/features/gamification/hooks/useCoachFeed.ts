@@ -10,8 +10,6 @@ import {
   addReaction,
   addComment,
   fetchComments,
-  type APIPost,
-  type APIComment,
 } from '../../../infrastructure/coachfeed/api';
 
 const COACH_FEED_QUERY_KEY = ['gamification', 'coach-feed'];

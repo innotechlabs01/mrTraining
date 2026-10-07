@@ -2,10 +2,10 @@
  * LocalVideoStorage — Tracks form recording videos pending sync.
  *
  * Videos are recorded to temp files by the camera.
- * Metadata is stored in AsyncStorage for sync tracking.
+ * Metadata is stored in MMKV (user-scoped) for sync tracking.
  * After sync, metadata is cleaned up.
  */
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { mmkvGetJson, mmkvRemove, mmkvSetJson, userScopedKey } from './mmkv'
 
 const PENDING_VIDEOS_KEY = '@mr/pending_form_videos'
 
@@ -26,9 +26,7 @@ export type PendingFormVideo = {
  */
 export async function getPendingVideos(): Promise<PendingFormVideo[]> {
   try {
-    const data = await AsyncStorage.getItem(PENDING_VIDEOS_KEY)
-    if (!data) return []
-    return JSON.parse(data) as PendingFormVideo[]
+    return mmkvGetJson<PendingFormVideo[]>(userScopedKey(PENDING_VIDEOS_KEY)) ?? []
   } catch {
     return []
   }
@@ -40,7 +38,7 @@ export async function getPendingVideos(): Promise<PendingFormVideo[]> {
 export async function addPendingVideo(video: PendingFormVideo): Promise<void> {
   const pending = await getPendingVideos()
   pending.push(video)
-  await AsyncStorage.setItem(PENDING_VIDEOS_KEY, JSON.stringify(pending))
+  mmkvSetJson(userScopedKey(PENDING_VIDEOS_KEY), pending)
 }
 
 /**
@@ -49,7 +47,7 @@ export async function addPendingVideo(video: PendingFormVideo): Promise<void> {
 export async function removePendingVideo(videoId: string): Promise<void> {
   const pending = await getPendingVideos()
   const updated = pending.filter((v) => v.id !== videoId)
-  await AsyncStorage.setItem(PENDING_VIDEOS_KEY, JSON.stringify(updated))
+  mmkvSetJson(userScopedKey(PENDING_VIDEOS_KEY), updated)
 }
 
 /**
@@ -64,5 +62,5 @@ export async function getPendingCount(): Promise<number> {
  * Clear all pending videos (after successful sync)
  */
 export async function clearPendingVideos(): Promise<void> {
-  await AsyncStorage.removeItem(PENDING_VIDEOS_KEY)
+  mmkvRemove(userScopedKey(PENDING_VIDEOS_KEY))
 }

@@ -1,5 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  mmkvGetJsonUserScoped,
+  mmkvSetJson,
+  userScopedKey,
+} from '../../../../infrastructure/storage/mmkv';
 
 export interface SessionRep {
   counted: boolean;
@@ -109,7 +113,7 @@ export function useSessionSummary(exercise: string, target: number): {
 
 export async function persistSessionSummary(summary: AiSessionSummary): Promise<void> {
   try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(summary));
+    mmkvSetJson(userScopedKey(STORAGE_KEY), summary);
   } catch {
     // persistence is best-effort; a failed write must not break the workout
   }
@@ -117,8 +121,7 @@ export async function persistSessionSummary(summary: AiSessionSummary): Promise<
 
 export async function readStoredSessionSummary(): Promise<AiSessionSummary | null> {
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as AiSessionSummary) : null;
+    return mmkvGetJsonUserScoped<AiSessionSummary>(STORAGE_KEY);
   } catch {
     return null;
   }

@@ -3,6 +3,7 @@ import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { smartClient as apiClient } from '../../../infrastructure/api/client';
 import { PaymentScreen } from './PaymentScreen';
 import { colors } from '../../../shared/theme/tokens';
+import { texts } from '../../../shared/i18n/texts';
 
 type MembershipState = {
   status: 'loading' | 'active' | 'grace_period' | 'suspended' | 'pending_approval' | 'no_membership';
@@ -74,7 +75,7 @@ export function MembershipGate({ children, athleteId }: { children: React.ReactN
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.text}>Loading...</Text>
+        <Text style={styles.text}>{texts.common.loading}</Text>
       </View>
     );
   }

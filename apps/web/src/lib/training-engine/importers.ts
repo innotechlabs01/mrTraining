@@ -20,8 +20,6 @@ export interface ParsedSetRow {
   rpe: number | null
 }
 
-type HeaderAliases = Partial<Record<keyof ParsedSetRow | 'weight' | 'reps' | 'seconds' | 'distance' | 'time' | 'exercise', string>>
-
 const HEADER_ALIASES: Record<string, string[]> = {
   date: ['date', 'workout date', 'fecha'],
   workoutName: ['workout name', 'workout', 'routine name', 'title'],

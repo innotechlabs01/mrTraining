@@ -1,4 +1,4 @@
-import { rirOf, toScale, avgRir, effortSummary, effortWeeks, effortHistogram, isHardSet, hasEffort, HARD_RIR, MIN_RATED } from '../effort'
+import { rirOf, toScale, effortSummary, effortWeeks, effortHistogram, isHardSet, hasEffort, HARD_RIR, MIN_RATED } from '../effort'
 import type { TrainingHistory, WorkoutRecord } from '../types'
 
 const day = (n: number): string => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10)

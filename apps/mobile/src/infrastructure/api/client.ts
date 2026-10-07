@@ -1,5 +1,5 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import { getClerkToken } from '../auth/clerk';
+import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import { getClerkToken, refreshClerkToken } from '../auth/clerk';
 import Constants from 'expo-constants';
 
 // Backend authority: Go API (apps/api) is the SINGLE source of truth.
@@ -91,10 +91,12 @@ const setupAuthInterceptor = (client: AxiosInstance) => {
       if (error.response?.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true;
 
-        // Try to get a fresh token and retry once
-        const token = await getClerkToken();
+        // Retry once with a FRESH token (bypass Clerk cache) — the 401
+        // almost certainly means the cached token expired.
+        const token = await refreshClerkToken();
         if (token && originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${token}`;
+          // If this retry still returns 401, _retry is set — we reject, no loop.
           return client(originalRequest);
         }
 

@@ -1,75 +1,30 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, Alert, Linking } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, spacing, radius, typography, shadows } from '../../../../shared/theme/tokens';
+import { colors, spacing } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { StatGrid } from '../../../../shared/components/ui/StatGrid';
-import { SectionHeader } from '../../../../shared/components/ui/SectionHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
-import { CountdownTimer } from '../../../../shared/components/ui/CountdownTimer';
 import { ConsentDialog } from '../../../../shared/components/ui/ConsentDialog';
-import { FireIcon, PlayIcon, CheckIcon, TrophyIcon, TrendUpIcon } from '../../../../shared/components/icons';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { ChallengeAttemptsList } from '../components/ChallengeAttemptsList';
+import { ChallengeCountdownCard } from '../components/ChallengeCountdownCard';
+import { ChallengeHeaderCard } from '../components/ChallengeHeaderCard';
+import { ChallengeLeaderboardPreview } from '../components/ChallengeLeaderboardPreview';
+import { ChallengeScoreBreakdown } from '../components/ChallengeScoreBreakdown';
+import { ChallengeVideoDemo } from '../components/ChallengeVideoDemo';
+import type { ChallengeResponse } from '../components/challengeTypes';
 import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.challengeDetail;
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type ChallengeDetailRoute = RouteProp<RootStackParamList, 'ChallengeDetail'>;
-
-type ChallengeData = {
-  id: string;
-  title: string;
-  description: string;
-  exercise_type: string;
-  video_url?: string;
-  end_date: string;
-  scoring_type: string;
-  status: string;
-  coach_id: string;
-  difficulty_level?: string;
-  max_attempts: number;
-  target_sets?: number;
-  target_reps?: number;
-};
-
-type ChallengeAttempt = {
-  id: string;
-  attempt_number: number;
-  form_score?: number;
-  depth_score?: number;
-  alignment_score?: number;
-  tempo_score?: number;
-  sets_completed: number;
-  reps_completed: number;
-  total_volume?: number;
-  status: string;
-  created_at: string;
-  completed_at?: string;
-};
-
-type LeaderboardEntry = {
-  rank: number;
-  athlete_id: string;
-  athlete_name: string;
-  best_score: number;
-  attempts: number;
-};
-
-type ChallengeResponse = {
-  challenge: ChallengeData;
-  attempts: ChallengeAttempt[];
-  stats: {
-    total_attempts: number;
-    unique_athletes: number;
-    avg_form_score: number;
-    best_form_score: number;
-  };
-  leaderboard: LeaderboardEntry[];
-};
 
 async function fetchChallenge(challengeId: string): Promise<ChallengeResponse> {
   const { data } = await apiClient.get(`/challenges/${challengeId}`);
@@ -120,17 +75,16 @@ export function ChallengeDetailScreen() {
     onSuccess: (res: any) => {
       const attemptId = res?.id ?? null;
       if (attemptId) setCurrentAttemptId(attemptId);
-      Alert.alert('Exito', 'Te has unido al desafio. Ahora puedes registrar tu intento.');
+      Alert.alert(t.joinedTitle, t.joinedBody);
       queryClient.invalidateQueries({ queryKey: ['challenge', challengeId] });
     },
     onError: () => {
-      Alert.alert('Error', 'No se pudo unir al desafio.');
+      Alert.alert(t.errorTitle, t.joinFailed);
     },
   });
 
   const challenge = response?.challenge;
   const attempts = response?.attempts ?? [];
-  const stats = response?.stats;
   const leaderboard = response?.leaderboard ?? [];
 
   const myAttempts = attempts.filter(a => a.status === 'completed');
@@ -178,30 +132,16 @@ export function ChallengeDetailScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {/* Countdown */}
           {challenge && (
-            <View style={styles.countdownCard}>
-              <CountdownTimer endDate={challenge.end_date} size="lg" />
-            </View>
+            <ChallengeCountdownCard endDate={challenge.end_date} />
           )}
 
           {/* Challenge Header */}
-          <View style={styles.headerCard}>
-            <Text style={styles.title}>{challenge?.title ?? texts.challenge.activeChallenge}</Text>
-            {challenge?.description ? (
-              <Text style={styles.description}>{challenge.description}</Text>
-            ) : null}
-            <View style={styles.metaRow}>
-              <View style={styles.exerciseBadge}>
-                <FireIcon size={14} color={colors.primary} />
-                <Text style={styles.exerciseText}>{challenge?.exercise_type}</Text>
-              </View>
-              {challenge?.scoring_type && (
-                <View style={styles.scoreBadge}>
-                  <TrendUpIcon size={14} color={colors.secondary} />
-                  <Text style={styles.scoreBadgeText}>{getScoreTypeLabel(challenge.scoring_type)}</Text>
-                </View>
-              )}
-            </View>
-          </View>
+          <ChallengeHeaderCard
+            title={challenge?.title ?? texts.challenge.activeChallenge}
+            description={challenge?.description}
+            exerciseType={challenge?.exercise_type}
+            scoreTypeLabel={challenge?.scoring_type ? getScoreTypeLabel(challenge.scoring_type) : null}
+          />
 
           {/* Stats */}
           <StatGrid
@@ -214,110 +154,23 @@ export function ChallengeDetailScreen() {
 
           {/* Coach Demo Video */}
           {challenge?.video_url ? (
-            <View style={styles.section}>
-              <SectionHeader title="Video demo" icon={<PlayIcon size={18} color={colors.primary} />} />
-              <View style={styles.videoCard}>
-                <PrimaryButton
-                  label="Ver video demo"
-                  variant="outline"
-                  onPress={() => {
-                    const url = challenge?.video_url;
-                    if (!url) return;
-                    Linking.openURL(url).catch(() =>
-                      Alert.alert('Error', 'No se pudo abrir el video.'),
-                    );
-                  }}
-                />
-              </View>
-            </View>
+            <ChallengeVideoDemo videoUrl={challenge.video_url} />
           ) : null}
 
           {/* My Last Attempt */}
           {lastAttempt ? (
-            <View style={styles.section}>
-              <SectionHeader title={texts.challenge.scoreBreakdown} icon={<CheckIcon size={18} color={colors.success} />} />
-              <View style={styles.statsCard}>
-                <View style={styles.statRow}>
-                  <Text style={styles.statLabel}>{texts.challenge.formScore}</Text>
-                  <Text style={styles.statValue}>{lastAttempt.form_score?.toFixed(1) ?? '-'}</Text>
-                </View>
-                <View style={styles.statRow}>
-                  <Text style={styles.statLabel}>Profundidad</Text>
-                  <Text style={styles.statValue}>{lastAttempt.depth_score?.toFixed(1) ?? '-'}</Text>
-                </View>
-                <View style={styles.statRow}>
-                  <Text style={styles.statLabel}>Alineacion</Text>
-                  <Text style={styles.statValue}>{lastAttempt.alignment_score?.toFixed(1) ?? '-'}</Text>
-                </View>
-                <View style={styles.statRow}>
-                  <Text style={styles.statLabel}>Tempo</Text>
-                  <Text style={styles.statValue}>{lastAttempt.tempo_score?.toFixed(1) ?? '-'}</Text>
-                </View>
-              </View>
-            </View>
+            <ChallengeScoreBreakdown attempt={lastAttempt} />
           ) : null}
 
           {/* My Attempts */}
-          {myAttempts.length > 0 ? (
-            <View style={styles.section}>
-              <SectionHeader title={`${texts.challenge.attempts} (${myAttempts.length})`} />
-              {myAttempts.slice(0, 5).map((a) => (
-                <View key={a.id} style={styles.attemptCard}>
-                  <View style={styles.attemptHeader}>
-                    <Text style={styles.attemptTitle}>
-                      {texts.challenge.attemptN.replace('{n}', String(a.attempt_number))}
-                    </Text>
-                    <Text style={styles.attemptDate}>
-                      {new Date(a.created_at).toLocaleDateString()}
-                    </Text>
-                  </View>
-                  <View style={styles.attemptScores}>
-                    <Text style={styles.attemptScore}>Forma: {a.form_score?.toFixed(1) ?? '-'}</Text>
-                    <Text style={styles.attemptScore}>Prof: {a.depth_score?.toFixed(1) ?? '-'}</Text>
-                    {a.total_volume != null && (
-                      <Text style={styles.attemptScore}>Vol: {a.total_volume.toFixed(0)}</Text>
-                    )}
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View style={styles.section}>
-              <EmptyState
-                variant="empty"
-                title={texts.challenge.noAttempts}
-                message="Participa registrando tu primer intento."
-              />
-            </View>
-          )}
+          <ChallengeAttemptsList attempts={myAttempts} />
 
           {/* Leaderboard */}
           {leaderboard.length > 0 && (
-            <View style={styles.section}>
-              <SectionHeader
-                title={texts.challenge.leaderboard}
-                icon={<TrophyIcon size={18} color={colors.primary} />}
-                action={{ label: texts.common.seeAll, onPress: () => navigation.navigate('Leaderboard', { challengeId }) }}
-              />
-              {leaderboard.slice(0, 5).map((entry) => (
-                <View key={entry.athlete_id} style={styles.leaderboardEntry}>
-                  <View style={styles.leaderboardPosition}>
-                    <Text style={[
-                      styles.leaderboardPositionText,
-                      entry.rank <= 3 && { color: colors.primary }
-                    ]}>
-                      {entry.rank}
-                    </Text>
-                  </View>
-                  <Text style={styles.leaderboardName} numberOfLines={1}>
-                    {entry.athlete_name}
-                  </Text>
-                  <Text style={styles.leaderboardScore}>
-                    {entry.best_score.toFixed(1)}
-                  </Text>
-                </View>
-              ))}
-            </View>
+            <ChallengeLeaderboardPreview
+              entries={leaderboard}
+              onSeeAll={() => navigation.navigate('Leaderboard', { challengeId })}
+            />
           )}
         </ScrollView>
       )}
@@ -365,145 +218,5 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
   loadingWrap: { padding: spacing.md, paddingBottom: spacing.lg, gap: spacing.lg },
   content: { padding: spacing.md, paddingBottom: spacing.xxl, gap: spacing.lg },
-  countdownCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    alignItems: 'center',
-    ...shadows.sm,
-  },
-  headerCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
-    ...shadows.sm,
-  },
-  title: {
-    ...typography.h3,
-    color: colors.text,
-  },
-  description: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  exerciseBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: 'rgba(200, 255, 0, 0.1)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.sm,
-  },
-  exerciseText: {
-    ...typography.bodySmall,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  scoreBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: 'rgba(59, 158, 255, 0.1)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.sm,
-  },
-  scoreBadgeText: {
-    ...typography.bodySmall,
-    color: colors.secondary,
-    fontWeight: '600',
-  },
-  section: { gap: spacing.sm },
-  videoCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    alignItems: 'center',
-    ...shadows.sm,
-  },
-  statsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
-    ...shadows.sm,
-  },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  statLabel: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  statValue: {
-    ...typography.bodyBold,
-    color: colors.primary,
-  },
-  attemptCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    ...shadows.sm,
-  },
-  attemptHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  attemptTitle: {
-    ...typography.bodyBold,
-    color: colors.text,
-  },
-  attemptDate: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  attemptScores: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  attemptScore: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  leaderboardEntry: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.md,
-    ...shadows.sm,
-  },
-  leaderboardPosition: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.full,
-    backgroundColor: colors.surfaceRaised,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  leaderboardPositionText: {
-    ...typography.bodyBold,
-    color: colors.textSecondary,
-  },
-  leaderboardName: {
-    flex: 1,
-    ...typography.body,
-    color: colors.text,
-  },
-  leaderboardScore: {
-    ...typography.metricSM,
-    color: colors.primary,
-  },
   ctaWrap: { padding: spacing.md, paddingTop: 0 },
 });

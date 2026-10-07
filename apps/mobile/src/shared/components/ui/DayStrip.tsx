@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { colors, radius, spacing, typography } from '../../theme/tokens';
 
 export type CalendarDay = {
@@ -54,7 +55,7 @@ export function DayStrip({ days, selectedKey, onSelect, onEndReached }: Props) {
   );
 
   return (
-    <FlatList
+    <FlashList
       horizontal
       data={days}
       keyExtractor={(d) => d.key}
@@ -63,7 +64,6 @@ export function DayStrip({ days, selectedKey, onSelect, onEndReached }: Props) {
       contentContainerStyle={styles.content}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.5}
-      initialNumToRender={12}
     />
   );
 }

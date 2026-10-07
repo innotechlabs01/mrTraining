@@ -14,6 +14,9 @@ import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { SearchIcon, BarbellIcon, TargetIcon, StarIcon } from '../../../../shared/components/icons';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.searchScreen;
 
 type SearchFilter = 'all' | 'entrenamientos' | 'nutricion';
 
@@ -26,8 +29,7 @@ type SearchItem = {
   favorite?: boolean;
 };
 
-const FILTERS: SearchFilter[] = ['all', 'entrenamientos', 'nutricion'];
-const FILTER_LABELS = { all: 'Todo', entrenamientos: 'Entrenamientos', nutricion: 'Nutrición' };
+const FILTER_LABELS = { all: t.filterAll, entrenamientos: t.filterTraining, nutricion: t.filterNutrition };
 const FILTER_KEYS: SearchFilter[] = ['all', 'entrenamientos', 'nutricion'];
 
 export function SearchScreen() {
@@ -82,7 +84,7 @@ export function SearchScreen() {
       type: 'exercise' as const,
       title: f.itemTitle ?? f.title ?? '',
       meta1: f.itemMeta ?? f.description ?? '',
-      meta2: 'Favorito',
+      meta2: t.favoriteLabel,
       favorite: true,
     }));
     exerciseItems.forEach((e) => {
@@ -113,7 +115,7 @@ export function SearchScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Buscar"
+            placeholder={texts.common.search}
             placeholderTextColor={colors.textSecondary}
             style={styles.searchInput}
             returnKeyType="search"
@@ -138,9 +140,9 @@ export function SearchScreen() {
       ) : filtered.length === 0 ? (
         <EmptyState
           variant="empty"
-          title="Sin resultados"
-          message="Intenta con otra búsqueda o filtro."
-          actionLabel={query ? 'Limpiar búsqueda' : undefined}
+          title={t.emptyTitle}
+          message={t.emptyMessage}
+          actionLabel={query ? t.clearSearch : undefined}
           onAction={
             query
               ? () => {

@@ -7,6 +7,9 @@ import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.repCounter;
 
 export type RepCounterProps = {
   currentReps: number;
@@ -41,10 +44,10 @@ export function RepCounter({
   return (
     <Card style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.label}>REPS</Text>
+        <Text style={styles.label}>{t.label}</Text>
         <View style={[styles.formBadge, formValid ? styles.formValid : styles.formInvalid]}>
           <Text style={styles.formBadgeText}>
-            {formValid ? 'Forma OK' : 'Forma baja'}
+            {formValid ? t.formOk : t.formBad}
           </Text>
         </View>
       </View>
@@ -52,7 +55,7 @@ export function RepCounter({
       <View style={styles.counterRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Decrementar reps"
+          accessibilityLabel={t.decrementA11y}
           onPress={onDecrement}
           style={styles.button}
         >
@@ -68,7 +71,7 @@ export function RepCounter({
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Incrementar reps"
+          accessibilityLabel={t.incrementA11y}
           onPress={handleIncrement}
           style={[styles.button, !formValid && isAutoCount && styles.buttonDisabled]}
         >
@@ -77,7 +80,7 @@ export function RepCounter({
       </View>
 
       {isAutoCount && !formValid ? (
-        <Text style={styles.hint}>Reps no se cuentan con forma baja</Text>
+        <Text style={styles.hint}>{t.lowFormHint}</Text>
       ) : null}
     </Card>
   );

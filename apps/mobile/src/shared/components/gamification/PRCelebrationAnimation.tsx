@@ -9,7 +9,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated/lib/typescript/commonTypes';
-import { colors, spacing } from '../../theme/tokens';
+import { colors } from '../../theme/tokens';
 
 type Props = {
   visible: boolean;

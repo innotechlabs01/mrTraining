@@ -8,7 +8,6 @@
 import {
   fetchPRs as apiFetchPRs,
   recordPR as apiRecordPR,
-  type APIPR,
 } from '../../../infrastructure/gamification/api';
 
 export interface PersonalRecord {
@@ -20,7 +19,7 @@ export interface PersonalRecord {
   /** When the PR was set */
   achievedAt: string; // ISO date
   /** Optional: previous best before this PR */
-  previousBest?: number;
+  previousBest?: number | undefined;
 }
 
 export interface PRAttempt {

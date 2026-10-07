@@ -13,6 +13,9 @@ import polyline from '@mapbox/polyline';
 import * as Location from 'expo-location';
 import { colors, spacing, typography, radius } from '../../../../shared/theme/tokens';
 import { MapPinIcon } from '../../../../shared/components/icons';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.runningRouteView;
 
 type Props = {
   gpsRoute: string;
@@ -69,7 +72,7 @@ export function RunningRouteView({ gpsRoute, height = 320 }: Props) {
   if (routePoints.length === 0) {
     return (
       <View style={[styles.wrapper, { height }]}>
-        <Text style={styles.emptyText}>Esta sesión no incluye una ruta de running.</Text>
+        <Text style={styles.emptyText}>{t.empty}</Text>
       </View>
     );
   }
@@ -95,14 +98,14 @@ export function RunningRouteView({ gpsRoute, height = 320 }: Props) {
             strokeColor={colors.primary}
             strokeWidth={4}
           />
-          <Marker coordinate={routePoints[0]} title="Inicio" pinColor={colors.primary} />
+          <Marker coordinate={routePoints[0]} title={t.markerStart} pinColor={colors.primary} />
           <Marker
             coordinate={routePoints[routePoints.length - 1]}
-            title="Fin"
+            title={t.markerEnd}
             pinColor={colors.textSecondary}
           />
           {livePosition ? (
-            <Marker coordinate={livePosition} title="Tú" anchor={{ x: 0.5, y: 1 }}>
+            <Marker coordinate={livePosition} title={t.markerYou} anchor={{ x: 0.5, y: 1 }}>
               <MapPinIcon size={32} color={colors.primary} />
             </Marker>
           ) : null}
@@ -110,8 +113,8 @@ export function RunningRouteView({ gpsRoute, height = 320 }: Props) {
       </View>
       <Text style={styles.caption}>
         {locationDenied
-          ? 'Permite la ubicación para seguir tu recorrido en el mapa.'
-          : `${routePoints.length} puntos · Sigue la línea en el mapa.`}
+          ? t.locationDenied
+          : t.pointsCaption.replace('{n}', String(routePoints.length))}
       </Text>
     </View>
   );

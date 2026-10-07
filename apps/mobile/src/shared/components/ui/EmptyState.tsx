@@ -11,8 +11,8 @@ type Props = {
   variant: Variant;
   title?: string;
   message?: string;
-  actionLabel?: string;
-  onAction?: () => void;
+  actionLabel?: string | undefined;
+  onAction?: (() => void) | undefined;
   onRetry?: () => void;
 };
 

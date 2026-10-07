@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, layout, radius, spacing, typography } from '../../theme/tokens';
+import { colors, radius, spacing, typography } from '../../theme/tokens';
 
 type Variant = 'primary' | 'ghost' | 'outline' | 'subtle';
 type Size = 'md' | 'lg';
@@ -12,7 +12,7 @@ type Props = {
   size?: Size;
   icon?: React.ReactNode;
   fullWidth?: boolean;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   loading?: boolean;
   error?: boolean;
 };

@@ -15,10 +15,10 @@ type Trend = {
 type Props = {
   label: string;
   value: string | number | null;
-  unit?: string;
-  tone?: Tone;
-  size?: 'md' | 'lg' | 'xl';
-  trend?: Trend;
+  unit?: string | undefined;
+  tone?: Tone | undefined;
+  size?: 'md' | 'lg' | 'xl' | undefined;
+  trend?: Trend | undefined;
   loading?: boolean;
 };
 

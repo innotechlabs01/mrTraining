@@ -13,7 +13,7 @@ export type MenuItem = {
   icon: React.ReactNode;
   onPress: () => void;
   /** Secondary text (current state, e.g. "Híbrido" / "L J · 08:00"). */
-  value?: string;
+  value?: string | undefined;
 };
 
 export function ProfileMenu({ items, title }: { items: MenuItem[]; title?: string }) {

@@ -11,7 +11,7 @@ const def = (): ExerciseDefinition => ({
   form: { kneeValgusToleranceDeg: 10, minKneeForGoodDeg: 90, maxLateralSway: 0.08, minSymmetry: 0.85 },
 });
 
-const M = (knee: number, now: number): MovementMetrics =>
+const M = (knee: number, _now: number): MovementMetrics =>
   ({ kneeAngleDeg: knee, hipDrop: knee < 90 ? 1.2 : 0, velocityDegPerSec: 0, symmetry: 0.95, lateralSway: 0.02 });
 
 describe('RepEngine', () => {

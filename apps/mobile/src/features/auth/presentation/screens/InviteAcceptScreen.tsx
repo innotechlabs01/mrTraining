@@ -8,6 +8,9 @@ import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { colors, spacing, typography, radius } from '../../../../shared/theme/tokens';
 import { LockIcon, CheckIcon, CloseIcon } from '../../../../shared/components/icons';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.inviteAccept;
 
 type InviteAcceptNavigationProp = NativeStackNavigationProp<RootStackParamList, 'InviteAccept'>;
 type InviteAcceptRouteProp = RouteProp<RootStackParamList, 'InviteAccept'>;
@@ -47,7 +50,7 @@ export function InviteAcceptScreen() {
     // Validate code format
     if (!coachCode.trim() || coachCode.length < 4) {
       setStatus('error');
-      setErrorMessage('Ingresa un código de invitación válido');
+      setErrorMessage(t.invalidCode);
       return;
     }
 
@@ -65,7 +68,7 @@ export function InviteAcceptScreen() {
       }, 2000);
     } catch (err) {
       setStatus('error');
-      const message = err instanceof Error ? err.message : 'No se pudo aceptar la invitación';
+      const message = err instanceof Error ? err.message : t.acceptFailed;
       setErrorMessage(message);
     }
   }, [isSignedIn, navigation]);
@@ -90,23 +93,23 @@ export function InviteAcceptScreen() {
         {status === 'idle' && (code ? (
           <>
             <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-            <Text style={styles.title}>Preparing...</Text>
+            <Text style={styles.title}>{t.preparingTitle}</Text>
           </>
         ) : (
           <>
-            <Text style={styles.title}>Connect with your coach</Text>
+            <Text style={styles.title}>{t.title}</Text>
             <Text style={styles.subtitle}>
-              Enter the code your coach shared with you
+              {t.subtitle}
             </Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. MR-A3X9"
+              placeholder={t.codePlaceholder}
               placeholderTextColor={colors.textSecondary}
               value={manualCode}
               onChangeText={setManualCode}
               autoCapitalize="characters"
               autoCorrect={false}
-              accessibilityLabel="Invite code"
+              accessibilityLabel={t.codeA11y}
             />
             <Pressable
               style={({ pressed }) => [
@@ -117,7 +120,7 @@ export function InviteAcceptScreen() {
               disabled={!manualCode.trim()}
               onPress={() => acceptInvite(manualCode.trim())}
             >
-              <Text style={styles.buttonText}>Connect with my coach</Text>
+              <Text style={styles.buttonText}>{t.connectButton}</Text>
             </Pressable>
           </>
         ))}
@@ -125,8 +128,8 @@ export function InviteAcceptScreen() {
         {status === 'loading' && (
           <>
             <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-            <Text style={styles.title}>Connecting to your coach...</Text>
-            <Text style={styles.subtitle}>Please wait while we set up your account</Text>
+            <Text style={styles.title}>{t.connectingTitle}</Text>
+            <Text style={styles.subtitle}>{t.connectingSubtitle}</Text>
           </>
         )}
 
@@ -135,15 +138,15 @@ export function InviteAcceptScreen() {
             <View style={styles.authIcon}>
               <LockIcon size={28} color={colors.textSecondary} />
             </View>
-            <Text style={styles.title}>Sign in required</Text>
+            <Text style={styles.title}>{t.signInRequiredTitle}</Text>
             <Text style={styles.subtitle}>
-              Create an account or sign in to connect with your coach
+              {t.signInRequiredSubtitle}
             </Text>
             <Pressable
               style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
               onPress={handleSignIn}
             >
-              <Text style={styles.buttonText}>Sign In / Sign Up</Text>
+              <Text style={styles.buttonText}>{t.signInButton}</Text>
             </Pressable>
           </>
         )}
@@ -153,11 +156,11 @@ export function InviteAcceptScreen() {
             <View style={styles.successIcon}>
               <CheckIcon size={28} color={colors.text} />
             </View>
-            <Text style={styles.title}>Welcome!</Text>
+            <Text style={styles.title}>{t.welcomeTitle}</Text>
             <Text style={styles.subtitle}>
               {coachName
-                ? `You are now connected to ${coachName}`
-                : 'Your account has been linked successfully'}
+                ? t.connectedWith.replace('{name}', coachName)
+                : t.linkedFallback}
             </Text>
           </>
         )}
@@ -167,10 +170,10 @@ export function InviteAcceptScreen() {
             <View style={styles.errorIcon}>
               <CloseIcon size={28} color={colors.text} />
             </View>
-            <Text style={styles.title}>Oops!</Text>
+            <Text style={styles.title}>{t.errorTitle}</Text>
             <Text style={styles.subtitle}>{errorMessage}</Text>
             <Text style={styles.hint}>
-              Please ask your coach for a valid invitation code
+              {t.errorHint}
             </Text>
           </>
         )}

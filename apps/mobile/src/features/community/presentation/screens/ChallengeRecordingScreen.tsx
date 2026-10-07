@@ -8,6 +8,9 @@ import { colors, spacing, radius } from '../../../../shared/theme/tokens'
 import { uploadAttemptVideo, submitAttempt } from '@features/challenge/challengeService'
 import { useQueryClient } from '@tanstack/react-query'
 import type { RootStackParamList } from '../../../../navigation/Navigation'
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.challengeRecording;
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type RecordingRoute = RouteProp<RootStackParamList, 'ChallengeRecording'>
@@ -46,7 +49,7 @@ export function ChallengeRecordingScreen() {
       await finishFlow(videoUrl)
     } catch (err) {
       console.error('Challenge video error:', err)
-      Alert.alert('Error', 'No se pudo procesar el intento.')
+      Alert.alert(t.errorTitle, t.processFailed)
       setIsUploading(false)
     }
   }, [attemptId, finishFlow])
@@ -79,14 +82,14 @@ export function ChallengeRecordingScreen() {
           console.error('Recording error:', error)
           setIsRecording(false)
           recorderRef.current = null
-          Alert.alert('Error', 'No se pudo grabar el video.')
+          Alert.alert(t.errorTitle, texts.formCamera.recordingFailed)
         },
       )
     } catch (err) {
       console.error('Start recording error:', err)
       setIsRecording(false)
       recorderRef.current = null
-      Alert.alert('Error', 'No se pudo iniciar la grabación.')
+      Alert.alert(t.errorTitle, texts.formCamera.startFailed)
     }
   }, [isRecording, videoOutput, uploadVideo])
 
@@ -94,12 +97,12 @@ export function ChallengeRecordingScreen() {
     return (
       <View style={styles.center}>
         <Ionicons name="videocam-off" size={48} color={colors.textSecondary} />
-        <Text style={styles.permissionText}>Se necesita permiso de cámara y micrófono</Text>
+        <Text style={styles.permissionText}>{texts.formCamera.permissionBody}</Text>
         <TouchableOpacity style={styles.permissionButton} onPress={async () => { await requestCameraPermission(); await requestMicPermission() }}>
-          <Text style={styles.permissionButtonText}>Otorgar permisos</Text>
+          <Text style={styles.permissionButtonText}>{t.grantPermissions}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.cancelButtonText}>Cancelar</Text>
+          <Text style={styles.cancelButtonText}>{texts.common.cancel}</Text>
         </TouchableOpacity>
       </View>
     )
@@ -108,9 +111,9 @@ export function ChallengeRecordingScreen() {
   if (!device) {
     return (
       <View style={styles.center}>
-        <Text style={styles.permissionText}>Cámara no disponible</Text>
+        <Text style={styles.permissionText}>{texts.formCamera.cameraUnavailable}</Text>
         <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.cancelButtonText}>Cancelar</Text>
+          <Text style={styles.cancelButtonText}>{texts.common.cancel}</Text>
         </TouchableOpacity>
       </View>
     )
@@ -123,14 +126,14 @@ export function ChallengeRecordingScreen() {
       {isRecording && (
         <View style={styles.recordingIndicator}>
           <View style={styles.recordingDot} />
-          <Text style={styles.recordingText}>GRABANDO</Text>
+          <Text style={styles.recordingText}>{texts.formCamera.recording}</Text>
         </View>
       )}
 
       {isUploading && (
         <View style={styles.uploadOverlay}>
           <ActivityIndicator size="large" color="white" />
-          <Text style={styles.uploadText}>Procesando intento…</Text>
+          <Text style={styles.uploadText}>{t.processing}</Text>
         </View>
       )}
 
@@ -163,14 +166,14 @@ const styles = StyleSheet.create({
   cancelButton: { marginTop: 16 },
   cancelButtonText: { color: colors.textSecondary, fontSize: 14 },
   recordingIndicator: { position: 'absolute', top: 100, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-  recordingDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#EF4444' },
-  recordingText: { color: '#EF4444', fontSize: 14, fontWeight: '700', letterSpacing: 2 },
+  recordingDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.error },
+  recordingText: { color: colors.error, fontSize: 14, fontWeight: '700', letterSpacing: 2 },
   uploadOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)' },
   uploadText: { color: 'white', fontSize: 16, marginTop: 12 },
   controls: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingBottom: 40, paddingTop: 20, backgroundColor: 'rgba(0,0,0,0.4)' },
   controlButton: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
   recordButton: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: 'white', justifyContent: 'center', alignItems: 'center', marginHorizontal: 30 },
-  recordButtonActive: { borderColor: '#EF4444' },
-  recordButtonInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#EF4444' },
+  recordButtonActive: { borderColor: colors.error },
+  recordButtonInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.error },
   recordButtonInnerActive: { borderRadius: 8, width: 32, height: 32 },
 })

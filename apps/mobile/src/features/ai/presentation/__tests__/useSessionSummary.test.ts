@@ -1,8 +1,5 @@
 import type { SessionRep } from '../hooks/useSessionSummary';
 
-jest.mock('@react-native-async-storage/async-storage', () =>
-  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
-);
 import { computeAiSessionSummary } from '../hooks/useSessionSummary';
 
 function rep(partial: Partial<SessionRep> & { counted: boolean }): SessionRep {

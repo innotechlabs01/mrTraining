@@ -4,18 +4,6 @@ import {
   clearSessionResume,
 } from '../executionResume';
 
-jest.mock('@react-native-async-storage/async-storage', () => {
-  const store: Record<string, string> = {};
-  return {
-    __esModule: true,
-    default: {
-      setItem: jest.fn(async (k: string, v: string) => { store[k] = v; }),
-      getItem: jest.fn(async (k: string) => store[k] ?? null),
-      removeItem: jest.fn(async (k: string) => { delete store[k]; }),
-    },
-  };
-});
-
 describe('executionResume', () => {
   it('saves and reads back a resume position', async () => {
     saveSessionResume('session-1', 2, 1);

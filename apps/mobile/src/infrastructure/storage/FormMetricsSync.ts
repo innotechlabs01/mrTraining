@@ -10,10 +10,8 @@
 import {
   getAllMetrics,
   clearMetrics,
-  type FormMetricEntry,
 } from './FormMetricsStorage'
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080'
+import { smartClient } from '../api/client'
 
 type SyncResult = {
   synced: number
@@ -44,30 +42,31 @@ export async function syncFormMetrics(): Promise<SyncResult> {
       recorded_at: m.timestamp,
     }))
 
-    // Send batch to Go API
-    const response = await fetch(`${API_BASE}/api/v1/form-metrics/sync`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ metrics: apiMetrics }),
-    })
+    // Send batch to Go API via smartClient (adds Clerk JWT Authorization header).
+    // smartClient baseURL is `${GO_API_URL}/api/v1`, so path is relative to /api/v1.
+    const { data } = await smartClient.post<{ success: boolean; data: { synced: number } }>(
+      '/form-metrics/sync',
+      { metrics: apiMetrics },
+    )
 
-    if (response.ok) {
-      const data = await response.json()
-      if (data.success) {
-        await clearMetrics()
-        result.synced = data.data.synced || metrics.length
-      } else {
-        result.failed = metrics.length
-        result.errors.push('Sync failed')
-      }
+    if (data.success) {
+      await clearMetrics()
+      result.synced = data.data?.synced || metrics.length
     } else {
       result.failed = metrics.length
-      result.errors.push(`Server returned ${response.status}`)
+      result.errors.push('Sync failed')
     }
   } catch (err) {
     const metrics = await getAllMetrics()
     result.failed = metrics.length
-    result.errors.push(err instanceof Error ? err.message : 'Unknown error')
+    const status = (err as { response?: { status?: number } })?.response?.status
+    result.errors.push(
+      status
+        ? `Server returned ${status}`
+        : err instanceof Error
+          ? err.message
+          : 'Unknown error',
+    )
   }
 
   return result

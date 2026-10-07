@@ -35,7 +35,8 @@ export interface APILeaderboardHistory {
 
 // ─── API Client ───────────────────────────────────────────────────────────────
 
-const LEADERBOARD_BASE = '/v1/leaderboard';
+// smartClient baseURL already includes /api/v1 — do NOT prefix /v1 here.
+const LEADERBOARD_BASE = '/leaderboard';
 
 /**
  * Fetch group leaderboard from the API.
@@ -51,8 +52,9 @@ export async function fetchGroupLeaderboard(
     );
     return response.data ?? [];
   } catch (error) {
+    // Propagate to React Query — screens surface via isError state.
     console.warn('[LeaderboardAPI] fetchGroupLeaderboard failed:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -72,8 +74,9 @@ export async function fetchWeeklyLeaderboard(
     );
     return response.data ?? [];
   } catch (error) {
+    // Propagate to React Query — screens surface via isError state.
     console.warn('[LeaderboardAPI] fetchWeeklyLeaderboard failed:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -89,7 +92,8 @@ export async function fetchLeaderboardHistory(
     );
     return response.data ?? [];
   } catch (error) {
+    // Propagate to React Query — screens surface via isError state.
     console.warn('[LeaderboardAPI] fetchLeaderboardHistory failed:', error);
-    return [];
+    throw error;
   }
 }

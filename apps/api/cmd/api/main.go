@@ -22,6 +22,7 @@ import (
 	eventapp "github.com/innotechlabs01/mr-training-api/internal/application/event"
 	favoriteapp "github.com/innotechlabs01/mr-training-api/internal/application/favorite"
 	formmetricsapp "github.com/innotechlabs01/mr-training-api/internal/application/formmetrics"
+	formrecordingapp "github.com/innotechlabs01/mr-training-api/internal/application/formrecording"
 	gamificationapp "github.com/innotechlabs01/mr-training-api/internal/application/gamification"
 	challengeapp "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
 	routineapp "github.com/innotechlabs01/mr-training-api/internal/application/routine"
@@ -56,6 +57,7 @@ import (
 	eventinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/event"
 	favoriteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/favorite"
 	formmetricsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formmetrics"
+	formrecordinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formrecording"
 	firebaseinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/firebase"
 	challengeinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/challenge"
 	routineinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/routine"
@@ -393,6 +395,14 @@ func main() {
 
 		// Register form metrics routes
 		routes.RegisterFormMetricsRoutes(api, formmetricsHandler)
+
+		// Wire Form Recording domain
+		formrecordingRepo := formrecordinginfrastructure.NewRepository(db.DB)
+		formrecordingService := formrecordingapp.NewService(formrecordingRepo)
+		formrecordingHandler := userhttp.NewFormRecordingHandler(formrecordingService)
+
+		// Register form recording routes
+		routes.RegisterFormRecordingRoutes(api, formrecordingHandler)
 
 		// Register notification preferences routes (using existing notification handler)
 		routes.RegisterNotificationPreferencesRoutes(api, notifHandler)

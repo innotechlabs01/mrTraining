@@ -6,6 +6,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fontFamilies, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { SearchIcon, BellIcon, UserIcon } from '../../../../shared/components/icons';
+import { texts } from '../../../../shared/i18n/texts';
 
 type Props = {
   firstName: string;
@@ -26,13 +27,13 @@ export function TodayHeader({ firstName, onSearch, onNotifications, onProfile }:
     <View style={styles.headerRow}>
       <View style={styles.headerLeft}>
         <Text style={styles.headerHi} numberOfLines={1}>
-          Hola, <Text style={styles.headerName}>{firstName}</Text>
+          {texts.screens.todayHeader.greeting}<Text style={styles.headerName}>{firstName}</Text>
         </Text>
         <Text style={styles.headerDate}>{formatToday(new Date())}</Text>
       </View>
       <View style={styles.headerRight}>
         <Pressable
-          accessibilityLabel="Buscar"
+          accessibilityLabel={texts.common.search}
           accessibilityRole="button"
           onPress={onSearch}
           style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
@@ -40,7 +41,7 @@ export function TodayHeader({ firstName, onSearch, onNotifications, onProfile }:
           <SearchIcon size={20} color={colors.textSecondary} />
         </Pressable>
         <Pressable
-          accessibilityLabel="Notificaciones"
+          accessibilityLabel={texts.common.notifications}
           accessibilityRole="button"
           onPress={onNotifications}
           style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
@@ -48,7 +49,7 @@ export function TodayHeader({ firstName, onSearch, onNotifications, onProfile }:
           <BellIcon size={20} color={colors.textSecondary} />
         </Pressable>
         <Pressable
-          accessibilityLabel="Perfil"
+          accessibilityLabel={texts.tabs.profile}
           accessibilityRole="button"
           onPress={onProfile}
           style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}

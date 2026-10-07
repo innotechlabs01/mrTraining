@@ -1,33 +1,63 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
 import { listFavorites, Favorite } from '@features/favorites/favoriteService';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
-import { colors, fontFamilies, radius, spacing, typography } from '../../../../shared/theme/tokens';
-import { ArrowLeftIcon, BellIcon, PlayIcon, SearchIcon, StarIcon, UserIcon } from '../../../../shared/components/icons';
+import { colors, fontFamilies, radius, spacing } from '../../../../shared/theme/tokens';
+import { ArrowLeftIcon, BellIcon, PlayIcon, SearchIcon, StarIcon } from '../../../../shared/components/icons';
 import { SegmentedFilter } from '../../../../shared/components/ui/SegmentedFilter';
 import { ListCard } from '../../../../shared/components/ui/ListCard';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.favoritesScreen;
 
 type FavoriteType = 'all' | 'video' | 'article';
 
 const FILTERS: { key: FavoriteType; label: string }[] = [
-  { key: 'all', label: 'Todo' },
-  { key: 'video', label: 'Video' },
-  { key: 'article', label: 'Artículo' },
+  { key: 'all', label: t.filterAll },
+  { key: 'video', label: t.filterVideo },
+  { key: 'article', label: t.filterArticle },
 ];
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+const FavoriteRow = React.memo(function FavoriteRow({
+  item,
+  last,
+}: {
+  item: Favorite;
+  last: boolean;
+}) {
+  return (
+    <ListCard
+      title={item.title}
+      subtitle={itemDescription(item)}
+      leadingIcon={<StarIcon size={20} color={colors.textSecondary} />}
+      trailing={isPlayable(item) ? <PlayIcon size={18} color={colors.primary} /> : undefined}
+      last={last}
+    />
+  );
+});
+
+function keyExtractor(item: Favorite): string {
+  return item.id;
+}
+
+function renderFavorite({ item, index }: { item: Favorite; index: number }, dataLength: number) {
+  return <FavoriteRow item={item} last={index === dataLength - 1} />;
+}
 
 export function FavoritesScreen() {
   const navigation = useNavigation<Nav>();
   const [filter, setFilter] = useState<FavoriteType>('all');
 
-  const { data: favoritesData, isLoading } = useQuery({
+  const { data: favoritesData, isLoading, isError, refetch } = useQuery({
     queryKey: ['favorites'],
     queryFn: listFavorites,
     staleTime: 300_000,
@@ -44,51 +74,55 @@ export function FavoritesScreen() {
       <View style={styles.headerRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Volver"
+          accessibilityLabel={texts.common.back}
           onPress={() => navigation.goBack()}
           hitSlop={12}
           style={styles.backButton}
         >
           <ArrowLeftIcon size={24} color={colors.primary} />
         </Pressable>
-        <Text style={styles.headerTitle}>Favoritos</Text>
+        <Text style={styles.headerTitle}>{t.headerTitle}</Text>
         <View style={styles.headerRight}>
-          <Pressable accessibilityLabel="Buscar" onPress={() => navigation.navigate('Search')} style={styles.iconButton}>
+          <Pressable accessibilityLabel={texts.common.search} onPress={() => navigation.navigate('Search')} style={styles.iconButton}>
             <SearchIcon size={18} color={colors.textSecondary} />
           </Pressable>
-          <Pressable accessibilityLabel="Notificaciones" onPress={() => navigation.navigate('Notifications')} style={styles.iconButton}>
+          <Pressable accessibilityLabel={texts.common.notifications} onPress={() => navigation.navigate('Notifications')} style={styles.iconButton}>
             <BellIcon size={18} color={colors.textSecondary} />
-          </Pressable>
-          <Pressable accessibilityLabel="Perfil" onPress={() => undefined} style={styles.iconButton}>
-            <UserIcon size={18} color={colors.textSecondary} />
           </Pressable>
         </View>
       </View>
 
       <SegmentedFilter options={FILTERS} value={filter} onChange={(k) => setFilter(k as FavoriteType)} />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {isLoading ? (
+      {isLoading ? (
+        <View style={styles.content}>
           <Skeleton.List rows={4} height={72} />
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            variant="empty"
-            title="Sin favoritos"
-            message="Marca contenido con la estrella para verlo aquí."
-          />
-        ) : (
-          filtered.map((item, idx) => (
-            <ListCard
-              key={item.id}
-              title={item.title}
-              subtitle={itemDescription(item)}
-              leadingIcon={<StarIcon size={20} color={colors.textSecondary} />}
-              trailing={isPlayable(item) ? <PlayIcon size={18} color={colors.primary} /> : undefined}
-              last={idx === filtered.length - 1}
-            />
-          ))
-        )}
-      </ScrollView>
+        </View>
+      ) : (
+        <FlashList
+          data={filtered}
+          renderItem={(info) => renderFavorite(info, filtered.length)}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            isError ? (
+              <EmptyState
+                variant="error"
+                title={t.errorTitle}
+                message={t.errorMessage}
+                onRetry={() => refetch()}
+              />
+            ) : (
+              <EmptyState
+                variant="empty"
+                title={t.emptyTitle}
+                message={t.emptyMessage}
+              />
+            )
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }

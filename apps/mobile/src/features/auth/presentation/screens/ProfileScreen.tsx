@@ -30,7 +30,11 @@ import {
 } from '../../../../shared/components/icons';
 import { ProfileHeader } from './ProfileHeader';
 import { ProfileMenu } from './ProfileMenu';
+import { unregisterPushToken } from '../../../../infrastructure/notifications/push';
 import { profileScheduleRaw, scheduleSummary, modalityLabel, useAthleteProfile } from '../../application/useAthleteProfile';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.profileScreen;
 
 type ProfileNav = CompositeNavigationProp<
   BottomTabNavigationProp<AthleteTabParamList, 'Profile'>,
@@ -69,9 +73,16 @@ export function ProfileScreen() {
   const schedule = profile ? profileScheduleRaw(profile) : { days: '', time: '' };
 
   const handleSignOut = () => {
-    Alert.alert('Cerrar Sesión', '¿Seguro que deseas cerrar sesión?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Cerrar Sesión', style: 'destructive', onPress: () => signOut() },
+    Alert.alert(t.signOutLabel, t.signOutConfirm, [
+      { text: texts.common.cancel, style: 'cancel' },
+      {
+        text: t.signOutLabel,
+        style: 'destructive',
+        // Unregister the push token while the Clerk session token is still valid.
+        onPress: () => {
+          void unregisterPushToken().finally(() => signOut());
+        },
+      },
     ]);
   };
 
@@ -80,9 +91,9 @@ export function ProfileScreen() {
     try {
       const canOpen = await Linking.canOpenURL(url);
       if (canOpen) await Linking.openURL(url);
-      else Alert.alert('Política de Privacidad', 'Próximamente');
+      else Alert.alert(t.privacyLabel, t.privacyComingSoon);
     } catch {
-      Alert.alert('Política de Privacidad', 'Próximamente');
+      Alert.alert(t.privacyLabel, t.privacyComingSoon);
     }
   };
 
@@ -102,31 +113,31 @@ export function ProfileScreen() {
 
         <View style={styles.sectionWrap}>
           <ProfileMenu
-            title="Mis datos"
+            title={t.myDataTitle}
             items={[
               {
                 key: 'personal',
-                label: 'Información personal',
+                label: t.personalInfoLabel,
                 icon: <UserIcon size={18} color={colors.primary} />,
                 onPress: openPersonalData,
               },
               {
                 key: 'modality',
-                label: 'Modo de entrenamiento',
+                label: t.modalityLabel,
                 icon: <BarbellIcon size={18} color={colors.primary} />,
                 value: profile ? modalityLabel(profile.modality ?? profile.service_type ?? profile.serviceType) : '—',
                 onPress: openTrainingPreferences,
               },
               {
                 key: 'schedule',
-                label: 'Horario de entrenamiento',
+                label: t.scheduleLabel,
                 icon: <ClockIcon size={18} color={colors.primary} />,
                 value: profile ? scheduleSummary(schedule.days, schedule.time) : '—',
                 onPress: openTrainingPreferences,
               },
               {
                 key: 'emergency',
-                label: 'Contacto de emergencia',
+                label: t.emergencyLabel,
                 icon: <HeartPulseIcon size={18} color={colors.primary} />,
                 value: profile?.emergency_contact ?? undefined,
                 onPress: openEmergencyContact,
@@ -137,20 +148,20 @@ export function ProfileScreen() {
 
         <View style={styles.sectionWrap}>
           <ProfileMenu
-            title="Mi cuenta"
+            title={t.myAccountTitle}
             items={[
               {
                 key: 'membership',
-                label: 'Membresía',
+                label: t.membershipLabel,
                 icon: <MembershipIcon size={18} color={colors.primary} />,
                 value: profile?.plan?.name ?? undefined,
                 onPress: openMembership,
               },
-              { key: 'store', label: 'Tienda', icon: <StoreIcon size={18} color={colors.primary} />, onPress: openStore },
-              { key: 'favorites', label: 'Favoritos', icon: <StarIcon size={18} color={colors.primary} />, onPress: openStore },
-              { key: 'settings', label: 'Ajustes', icon: <GearIcon size={18} color={colors.primary} />, onPress: openSettings },
-              { key: 'privacy', label: 'Política de Privacidad', icon: <LockIcon size={18} color={colors.primary} />, onPress: handlePrivacyPolicy },
-              { key: 'help', label: 'Ayuda', icon: <HelpIcon size={18} color={colors.primary} />, onPress: openHelp },
+              { key: 'store', label: t.storeLabel, icon: <StoreIcon size={18} color={colors.primary} />, onPress: openStore },
+              { key: 'favorites', label: t.favoritesLabel, icon: <StarIcon size={18} color={colors.primary} />, onPress: openStore },
+              { key: 'settings', label: t.settingsLabel, icon: <GearIcon size={18} color={colors.primary} />, onPress: openSettings },
+              { key: 'privacy', label: t.privacyLabel, icon: <LockIcon size={18} color={colors.primary} />, onPress: handlePrivacyPolicy },
+              { key: 'help', label: t.helpLabel, icon: <HelpIcon size={18} color={colors.primary} />, onPress: openHelp },
             ]}
           />
         </View>
@@ -160,10 +171,10 @@ export function ProfileScreen() {
             style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}
             onPress={handleSignOut}
             accessibilityRole="button"
-            accessibilityLabel="Cerrar sesión de tu cuenta"
+            accessibilityLabel={t.signOutA11y}
           >
             <LogoutIcon size={18} color={colors.error} />
-            <Text style={styles.signOutText}>Cerrar Sesión</Text>
+            <Text style={styles.signOutText}>{t.signOutLabel}</Text>
           </Pressable>
         </View>
       </ScrollView>

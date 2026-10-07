@@ -76,7 +76,7 @@ export function showToast(type: ToastType, title: string, message?: string) {
   Toast.show({
     type,
     text1: title,
-    text2: message,
+    ...(message !== undefined ? { text2: message } : {}),
     position: 'top',
     visibilityTime: 3000,
     autoHide: true,

@@ -23,6 +23,9 @@ import {
   useAthleteProfile,
   type AthleteModality,
 } from '../../application/useAthleteProfile';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.trainingPreferences;
 
 const MODALITY_ICONS: Record<AthleteModality, React.ReactElement> = {
   virtual: <ChatIcon size={18} color={colors.primary} />,
@@ -58,8 +61,8 @@ export function TrainingPreferencesScreen() {
       await queryClient.invalidateQueries({ queryKey: ['athlete-profile'] });
     } catch (err: unknown) {
       setModality(prev);
-      const msg = err instanceof Error ? err.message : 'No se pudo actualizar el modo de entrenamiento';
-      Alert.alert('Error', msg);
+      const msg = err instanceof Error ? err.message : t.modalityUpdateFailed;
+      Alert.alert(t.errorTitle, msg);
     } finally {
       setModalitySaving(null);
     }
@@ -82,10 +85,10 @@ export function TrainingPreferencesScreen() {
         scheduleTime,
       });
       await queryClient.invalidateQueries({ queryKey: ['athlete-profile'] });
-      Alert.alert('Guardado', 'Horario de entrenamiento actualizado');
+      Alert.alert(t.savedTitle, t.scheduleSaved);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'No se pudo actualizar';
-      Alert.alert('Error', msg);
+      const msg = err instanceof Error ? err.message : t.updateFailed;
+      Alert.alert(t.errorTitle, msg);
     } finally {
       setScheduleSaving(false);
     }
@@ -93,11 +96,11 @@ export function TrainingPreferencesScreen() {
 
   return (
     <View style={styles.container}>
-      <SubScreenHeader title="Preferencias de entrenamiento" />
+      <SubScreenHeader title={t.headerTitle} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Card style={styles.card}>
-          <Text style={styles.cardTitle}>Modo de entrenamiento</Text>
-          <Text style={styles.cardSubtitle}>Elige cómo entrenas con tu coach</Text>
+          <Text style={styles.cardTitle}>{t.modalityTitle}</Text>
+          <Text style={styles.cardSubtitle}>{t.modalitySubtitle}</Text>
 
           <View style={styles.segmentedRow}>
             {MODALITY_META.map((opt) => {
@@ -113,7 +116,7 @@ export function TrainingPreferencesScreen() {
                   ]}
                   onPress={() => handleModalitySelect(opt.key)}
                   disabled={!!modalitySaving}
-                  accessibilityLabel={`Modalidad ${opt.label}`}
+                  accessibilityLabel={`${t.modalityA11yPrefix} ${opt.label}`}
                   accessibilityState={{ selected }}
                 >
                   <View style={styles.pillIconView}>{MODALITY_ICONS[opt.key]}</View>
@@ -136,8 +139,8 @@ export function TrainingPreferencesScreen() {
         </Card>
 
         <Card style={styles.card}>
-          <Text style={styles.cardTitle}>Horario de entrenamiento</Text>
-          <Text style={styles.cardSubtitle}>Elige los días y el horario</Text>
+          <Text style={styles.cardTitle}>{t.scheduleTitle}</Text>
+          <Text style={styles.cardSubtitle}>{t.scheduleSubtitle}</Text>
 
           <View style={styles.dayRow}>
             {DAY_KEYS.map((day) => {
@@ -162,17 +165,17 @@ export function TrainingPreferencesScreen() {
             })}
           </View>
 
-          <Text style={styles.label}>Horario</Text>
+          <Text style={styles.label}>{t.timeLabel}</Text>
           <Input
             placeholder="08:00"
             value={scheduleTime}
             onChangeText={setScheduleTime}
             keyboardType="numbers-and-punctuation"
             maxLength={5}
-            accessibilityLabel="Horario"
+            accessibilityLabel={t.timeLabel}
           />
 
-          <PrimaryButton label="Guardar Horario" onPress={handleSaveSchedule} disabled={scheduleSaving} />
+          <PrimaryButton label={t.saveSchedule} onPress={handleSaveSchedule} disabled={scheduleSaving} />
         </Card>
       </ScrollView>
     </View>

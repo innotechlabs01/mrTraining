@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { colors, fontFamilies, radius, spacing, typography } from '../../theme/tokens';
 import { TrophyIcon } from '../icons';
 
@@ -16,17 +17,61 @@ interface LeaderboardProps {
   title?: string;
 }
 
-function MedalColor({ rank }: { rank: number }) {
+function medalColor(rank: number): string {
   switch (rank) {
     case 0: return colors.primary;
-    case 1: return '#C0C0C0';
-    case 2: return '#CD7F32';
+    case 1: return colors.text;
+    case 2: return colors.textSecondary;
     default: return colors.textSecondary;
   }
 }
 
+const LeaderboardRow = React.memo(function LeaderboardRow({
+  item,
+  rank,
+  isCurrentUser,
+}: {
+  item: LeaderboardEntry;
+  rank: number;
+  isCurrentUser: boolean;
+}) {
+  const medal = medalColor(rank);
+  return (
+    <View
+      style={[styles.row, isCurrentUser && styles.rowCurrent]}
+      testID="leaderboard-row"
+      accessibilityLabel={`Puesto ${rank + 1}: ${item.name}, ${item.points} puntos`}
+    >
+      <View style={[styles.rankBadge, { backgroundColor: medal + '20' }]}>
+        <Text style={[styles.rankText, { color: medal }]}>
+          {rank + 1}
+        </Text>
+      </View>
+      <View style={styles.info}>
+        <Text style={[styles.name, isCurrentUser && styles.nameCurrent]} numberOfLines={1}>
+          {item.name}
+        </Text>
+      </View>
+      <Text style={[styles.points, isCurrentUser && styles.pointsCurrent]}>
+        {item.points}
+      </Text>
+    </View>
+  );
+});
+
+function keyExtractor(item: LeaderboardEntry): string {
+  return item.userId;
+}
+
 export function Leaderboard({ entries, currentUserId, title = 'Leaderboard del Grupo' }: LeaderboardProps) {
   const sorted = [...entries].sort((a, b) => b.points - a.points);
+
+  const renderItem = useCallback(
+    ({ item, index }: { item: LeaderboardEntry; index: number }) => (
+      <LeaderboardRow item={item} rank={index} isCurrentUser={item.userId === currentUserId} />
+    ),
+    [currentUserId],
+  );
 
   return (
     <View style={styles.container}>
@@ -34,34 +79,11 @@ export function Leaderboard({ entries, currentUserId, title = 'Leaderboard del G
         <TrophyIcon size={20} color={colors.primary} />
         <Text style={styles.title}>{title}</Text>
       </View>
-      <FlatList
+      <FlashList
         data={sorted}
-        keyExtractor={(item) => item.userId}
+        keyExtractor={keyExtractor}
         scrollEnabled={false}
-        renderItem={({ item, index }) => {
-          const isCurrentUser = item.userId === currentUserId;
-          return (
-            <View
-              style={[styles.row, isCurrentUser && styles.rowCurrent]}
-              testID="leaderboard-row"
-              accessibilityLabel={`Puesto ${index + 1}: ${item.name}, ${item.points} puntos`}
-            >
-              <View style={[styles.rankBadge, { backgroundColor: MedalColor({ rank: index }) + '20' }]}>
-                <Text style={[styles.rankText, { color: MedalColor({ rank: index }) }]}>
-                  {index + 1}
-                </Text>
-              </View>
-              <View style={styles.info}>
-                <Text style={[styles.name, isCurrentUser && styles.nameCurrent]} numberOfLines={1}>
-                  {item.name}
-                </Text>
-              </View>
-              <Text style={[styles.points, isCurrentUser && styles.pointsCurrent]}>
-                {item.points}
-              </Text>
-            </View>
-          );
-        }}
+        renderItem={renderItem}
         ListEmptyComponent={
           <Text style={styles.empty}>Sin datos de leaderboard</Text>
         }

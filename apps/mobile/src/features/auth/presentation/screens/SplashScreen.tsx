@@ -4,7 +4,8 @@ import { brandIcon } from '../../../../shared/theme/brandAssets';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { useAuth } from '@clerk/clerk-expo';
-import { colors, fontFamilies, shadows } from '../../../../shared/theme/tokens';
+import { colors, fontFamilies, shadows, typography } from '../../../../shared/theme/tokens';
+import { texts } from '../../../../shared/i18n/texts';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 
@@ -127,7 +128,7 @@ export function SplashScreen({ navigation }: Props) {
         <Text style={styles.title}>MR TRAINING</Text>
         <View style={styles.subtitleRow}>
           <View style={styles.subtitleLine} />
-          <Text style={styles.subtitle}>Rendimiento de élite</Text>
+          <Text style={styles.subtitle}>{texts.screens.splash.subtitle}</Text>
           <View style={styles.subtitleLine} />
         </View>
       </View>
@@ -139,7 +140,7 @@ export function SplashScreen({ navigation }: Props) {
           <Animated.View style={[styles.dot, { transform: [{ translateY: dotTranslate(dot2) }] }]} />
           <Animated.View style={[styles.dot, { transform: [{ translateY: dotTranslate(dot3) }] }]} />
         </View>
-        <Text style={styles.loadingText}>Preparando tu experiencia</Text>
+        <Text style={styles.loadingText}>{texts.screens.splash.loadingText}</Text>
       </View>
     </View>
   );
@@ -182,7 +183,7 @@ const styles = StyleSheet.create({
   logo: { width: 96, height: 96 },
   title: {
     fontFamily: fontFamilies.displayBlack,
-    fontSize: 30,
+    fontSize: typography.h1.fontSize,
     fontWeight: '800',
     color: colors.primary,
     letterSpacing: 5,
@@ -191,7 +192,7 @@ const styles = StyleSheet.create({
   subtitleRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14, gap: 12 },
   subtitleLine: { width: 28, height: 1, backgroundColor: colors.textSecondary, opacity: 0.6 },
   subtitle: {
-    fontSize: 13,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
     color: colors.textSecondary,
     letterSpacing: 3,
@@ -208,7 +209,7 @@ const styles = StyleSheet.create({
   dotsRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
   loadingText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '400',
     color: colors.textSecondary,
     letterSpacing: 2,

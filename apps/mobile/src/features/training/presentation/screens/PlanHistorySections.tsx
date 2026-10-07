@@ -5,6 +5,9 @@ import { Card } from '../../../../shared/components/ui/Card';
 import { Badge } from '../../../../shared/components/ui/Badge';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { ProgressBar } from '../../../../shared/components/ui/ProgressBar';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.planHistorySections;
 
 export type ProgressSummary = {
   athleteId: string;
@@ -45,31 +48,31 @@ export function WeeklySummarySection({
 }) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Esta Semana</Text>
+      <Text style={styles.sectionTitle}>{t.weekTitle}</Text>
       {loading ? (
-        <EmptyState variant="loading" message="Cargando progreso..." />
+        <EmptyState variant="loading" message={t.loadingProgress} />
       ) : !summary ? (
-        <EmptyState variant="empty" message="Sin datos de progreso" />
+        <EmptyState variant="empty" message={t.noProgress} />
       ) : (
         <Card>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Entrenamientos Completados</Text>
+            <Text style={styles.summaryLabel}>{t.workoutsCompleted}</Text>
             <Text style={styles.summaryValue}>{summary.workoutsCompleted}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Volumen Total</Text>
+            <Text style={styles.summaryLabel}>{t.totalVolume}</Text>
             <Text style={styles.summaryValue}>{summary.totalVolume.toFixed(0)} kg</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Promedio de Completado</Text>
+            <Text style={styles.summaryLabel}>{t.avgCompleted}</Text>
             <Text style={styles.summaryValue}>{summary.avgCompletionRate.toFixed(1)}%</Text>
           </View>
           <View style={styles.progressWrap}>
             <ProgressBar progress={summary.avgCompletionRate / 100} />
           </View>
           <View style={styles.streakRow}>
-            <Text style={styles.streakLabel}>Racha</Text>
-            <Badge text={`${summary.streak} día${summary.streak === 1 ? '' : 's'}`} tone="primary" />
+            <Text style={styles.streakLabel}>{t.streakLabel}</Text>
+            <Badge text={`${summary.streak} ${t.streakUnit}${summary.streak === 1 ? '' : 's'}`} tone="primary" />
           </View>
         </Card>
       )}
@@ -96,13 +99,13 @@ export function HistorySection({
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Historial</Text>
+      <Text style={styles.sectionTitle}>{t.historyTitle}</Text>
 
       {/* Filtros segmentados */}
       <View style={styles.segmentRow}>
         {(['all', 'completed', 'pending'] as Filter[]).map((f) => {
           const active = filter === f;
-          const label = f === 'all' ? 'Todos' : f === 'completed' ? 'Completados' : 'Pendientes';
+          const label = f === 'all' ? t.filterAll : f === 'completed' ? t.filterCompleted : t.filterPending;
           return (
             <Pressable
               key={f}
@@ -118,7 +121,7 @@ export function HistorySection({
       </View>
 
       {loading ? (
-        <EmptyState variant="loading" message="Cargando entrenamientos..." />
+        <EmptyState variant="loading" message={t.loadingWorkouts} />
       ) : items.length === 0 || filtered.length === 0 ? (
         <EmptyState variant="empty" />
       ) : (

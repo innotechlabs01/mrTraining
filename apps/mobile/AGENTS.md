@@ -6,6 +6,8 @@ Owner de la app React Native (Expo 54, RN 0.81, TS strict). Cliente del Go API.
 - Solo `apps/mobile/`. No cambiar contratos API sin coordinar con Web/API.
 - Stack: Expo + React Navigation 7 (tabs + native-stack), TanStack Query 5,
   Zustand 5, Reanimated 3, FlashList, MMKV, Clerk Expo.
+- Mobile es athlete-only (decisión de producto 2026-10): no construir CoachTabs.
+  El coach vive en web (`apps/web`).
 
 ## Reglas obligatorias (apps/rules/)
 - `MASTER_PROMPT.md` (siempre)
@@ -28,8 +30,7 @@ Arquitecto mobile · Diseñador fitness UI · Ingeniero RN · QA device (iOS/And
 
 ## Tokens canónicos
 - `src/shared/theme/tokens.ts` es la única fuente. Dark-first, un solo acento.
-- ⚠️ Divergencia abierta: tokens usan Electric Green `#16E37A`, brand §4 dice
-  Volt `#C8FF00`. No introducir un tercer acento hasta resolverlo.
+- ✅ Resuelta: el acento canónico es Volt `#C8FF00` (code y tokens ya en Volt; rules §8 actualizadas).
 
 ## Reglas fitness pro
 - Sin emojis como iconos (usar `shared/components/icons/` SVG).

@@ -8,6 +8,9 @@ import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { ListCard } from '../../../../shared/components/ui/ListCard';
 import { BellIcon, LockIcon, UserIcon } from '../../../../shared/components/icons';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.settingsScreen;
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -15,10 +18,10 @@ export function SettingsScreen() {
   const navigation = useNavigation<Nav>();
 
   const handleDeleteAccount = () => {
-    Alert.alert('Eliminar cuenta', '¿Estás seguro? Esta acción no se puede deshacer.', [
-      { text: 'Cancelar', style: 'cancel' },
+    Alert.alert(t.deleteAccountLabel, t.deleteConfirm, [
+      { text: texts.common.cancel, style: 'cancel' },
       {
-        text: 'Eliminar',
+        text: texts.common.delete,
         style: 'destructive',
         onPress: () => Alert.alert('Cuenta eliminada', 'La eliminación de cuenta aún no está disponible.'),
       },
@@ -28,23 +31,23 @@ export function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <ScreenHeader title="Configuración" onBack={() => navigation.goBack()} />
+        <ScreenHeader title={t.title} onBack={() => navigation.goBack()} />
 
         <ListCard
-          title="Notificaciones"
-          subtitle="Gestionar recordatorios y actualizaciones"
+          title={t.notificationsLabel}
+          subtitle={t.notificationsDesc}
           leadingIcon={<BellIcon size={20} />}
           onPress={() => navigation.navigate('NotificationSettings')}
         />
         <ListCard
-          title="Contraseña"
-          subtitle="Cambiar o restablecer contraseña"
+          title={t.passwordLabel}
+          subtitle={t.passwordDesc}
           leadingIcon={<LockIcon size={20} />}
           onPress={() => navigation.navigate('PasswordSettings')}
         />
         <ListCard
-          title="Eliminar cuenta"
-          subtitle="Esta acción no se puede deshacer"
+          title={t.deleteAccountLabel}
+          subtitle={t.deleteAccountDesc}
           leadingIcon={<UserIcon size={20} color={colors.error} />}
           onPress={handleDeleteAccount}
           last

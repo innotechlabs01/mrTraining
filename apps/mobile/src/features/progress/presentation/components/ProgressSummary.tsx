@@ -3,6 +3,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { StatGrid } from '../../../../shared/components/ui/StatGrid';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.progressSummary;
 
 type ActiveWorkout = { id: string; contentName: string; modality: string; status: string; progress: number };
 
@@ -18,8 +21,8 @@ function WeeklyBars({ workouts }: { workouts: ActiveWorkout[] }) {
     return (
       <EmptyState
         variant="empty"
-        title="Sin datos todavía"
-        message="Registra sesiones para ver tu progreso semanal."
+        title={t.emptyTitle}
+        message={t.emptyMessage}
       />
     );
   }
@@ -51,12 +54,12 @@ export function ProgressSummary({ data, loading }: { data: ProgressData; loading
     <View style={styles.wrap}>
       <StatGrid
         metrics={[
-          { label: 'Sesiones', value: data ? String(data.activeWorkouts?.length ?? 0) : null },
-          { label: 'Readiness', value: data?.readiness?.score != null ? String(data.readiness.score) : null },
+          { label: t.sessionsLabel, value: data ? String(data.activeWorkouts?.length ?? 0) : null },
+          { label: t.readinessLabel, value: data?.readiness?.score != null ? String(data.readiness.score) : null },
         ]}
         cols={2}
       />
-      <Text style={styles.sectionTitle}>Actividad de la semana</Text>
+      <Text style={styles.sectionTitle}>{t.title}</Text>
       {data ? <WeeklyBars workouts={data.activeWorkouts ?? []} /> : null}
     </View>
   );

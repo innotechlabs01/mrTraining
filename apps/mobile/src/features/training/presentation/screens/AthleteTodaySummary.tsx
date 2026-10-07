@@ -16,6 +16,9 @@ import { Badge } from '../../../../shared/components/ui/Badge';
 import { InfoIcon } from '../../../../shared/components/icons';
 import { ActivityRings } from '../../../../shared/components/fitness/ActivityRings';
 import { StreakBadge } from '../../../../shared/components/gamification/StreakBadge';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.athleteTodaySummary;
 
 type HealthMetric = { metricType: string; value: number; unit: string; source: string; recordedAt: string };
 type SleepLog = { date: string; totalMinutes: number; deepMinutes?: number; remMinutes?: number };
@@ -94,7 +97,7 @@ export function AthleteTodaySummary({ athleteId, move, exercise, recovery, strea
     return (
       <Card style={styles.container}>
         <View style={styles.topRow}>
-          <Text style={styles.overline}>Readiness · Tu estado</Text>
+          <Text style={styles.overline}>{t.overline}</Text>
           {typeof streak === 'number' && <StreakBadge count={streak} inactive={streakInactive} />}
         </View>
         <View style={styles.heroRow}>
@@ -102,9 +105,9 @@ export function AthleteTodaySummary({ athleteId, move, exercise, recovery, strea
             <View style={styles.scoreRow}>
               <Text style={styles.score}>—</Text>
               <Text style={styles.scoreUnit}>/100</Text>
-              <Badge text="Cargando" tone="neutral" />
+              <Badge text={t.loadingBadge} tone="neutral" />
             </View>
-            <Text style={styles.scoreHint}>Recuperación de hoy</Text>
+            <Text style={styles.scoreHint}>{t.scoreHint}</Text>
           </View>
           <ActivityRings move={move} exercise={exercise} recovery={recovery} size={120} />
         </View>
@@ -129,15 +132,15 @@ export function AthleteTodaySummary({ athleteId, move, exercise, recovery, strea
   // Recommendation
   let recommendation = '';
   if (readinessScore != null && readinessScore >= 80) {
-    recommendation = 'Buen momento para sesión de alta intensidad';
+    recommendation = t.recHigh;
   } else if (readinessScore != null && readinessScore >= 60) {
-    recommendation = 'Sesión moderada — escucha a tu cuerpo';
+    recommendation = t.recModerate;
   } else if (readinessScore != null) {
-    recommendation = 'Prioriza descanso y recuperación hoy';
+    recommendation = t.recRest;
   } else if (hrvStat && hrvStat.deltaPct != null && hrvStat.deltaPct < -10) {
-    recommendation = 'Tu HRV está bajo tu promedio — sesiones suaves';
+    recommendation = t.recLowHrv;
   } else if (lastNight && lastNight.totalMinutes < 420) {
-    recommendation = 'Dormiste menos de 7 horas — cuidado con la carga';
+    recommendation = t.recLowSleep;
   }
 
   const readinessTone = readinessScore == null ? 'neutral' as const
@@ -145,15 +148,15 @@ export function AthleteTodaySummary({ athleteId, move, exercise, recovery, strea
     : readinessScore >= 60 ? 'warning' as const
     : 'error' as const;
   const readinessLabel = readinessScore == null ? '—'
-    : readinessScore >= 80 ? 'Listo'
-    : readinessScore >= 60 ? 'Moderado'
-    : 'Descansar';
+    : readinessScore >= 80 ? t.badgeReady
+    : readinessScore >= 60 ? t.badgeModerate
+    : t.badgeRest;
 
   return (
     <Card style={styles.container}>
       {/* Top row: overline + streak */}
       <View style={styles.topRow}>
-        <Text style={styles.overline}>Readiness · Tu estado</Text>
+        <Text style={styles.overline}>{t.overline}</Text>
         {typeof streak === 'number' && <StreakBadge count={streak} inactive={streakInactive} />}
       </View>
 
@@ -165,7 +168,7 @@ export function AthleteTodaySummary({ athleteId, move, exercise, recovery, strea
             <Text style={styles.scoreUnit}>/100</Text>
             <Badge text={readinessLabel} tone={readinessTone} />
           </View>
-          <Text style={styles.scoreHint}>Recuperación de hoy</Text>
+          <Text style={styles.scoreHint}>{t.scoreHint}</Text>
         </View>
         <ActivityRings move={move} exercise={exercise} recovery={recovery} size={120} />
       </View>
@@ -174,7 +177,7 @@ export function AthleteTodaySummary({ athleteId, move, exercise, recovery, strea
       <View style={styles.trendsRow}>
         {hrvStat && (
           <View style={styles.trendItem}>
-            <Text style={styles.trendLabel}>HRV</Text>
+            <Text style={styles.trendLabel}>{t.hrvLabel}</Text>
             <View style={styles.trendValueRow}>
               <Text style={styles.trendValue}>{Math.round(hrvStat.latest)}ms</Text>
               <DeltaBadge delta={hrvStat.deltaPct} />
@@ -183,7 +186,7 @@ export function AthleteTodaySummary({ athleteId, move, exercise, recovery, strea
         )}
         {rhrStat && (
           <View style={styles.trendItem}>
-            <Text style={styles.trendLabel}>Pulso</Text>
+            <Text style={styles.trendLabel}>{t.pulseLabel}</Text>
             <View style={styles.trendValueRow}>
               <Text style={styles.trendValue}>{Math.round(rhrStat.latest)}bpm</Text>
               <DeltaBadge delta={rhrStat.deltaPct} />
@@ -192,7 +195,7 @@ export function AthleteTodaySummary({ athleteId, move, exercise, recovery, strea
         )}
         {sleepHrs && (
           <View style={styles.trendItem}>
-            <Text style={styles.trendLabel}>Sueño</Text>
+            <Text style={styles.trendLabel}>{t.sleepLabel}</Text>
             <View style={styles.trendValueRow}>
               <Text style={styles.trendValue}>{sleepHrs}h</Text>
             </View>

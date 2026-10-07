@@ -13,6 +13,9 @@ import { Input } from '../../../../shared/components/ui/Input';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { SubScreenHeader } from '../../../../shared/components/ui/SubScreenHeader';
 import { useAthleteProfile } from '../../application/useAthleteProfile';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.personalData;
 
 export function PersonalDataScreen() {
   const { user } = useUser();
@@ -32,17 +35,17 @@ export function PersonalDataScreen() {
   const weight = profile?.weight != null ? String(profile.weight).replace(/\s?[Kk][Gg]\s?$/i, '').trim() + ' Kg' : '—';
   const age = profile?.age != null ? String(profile.age) : '—';
   const height = profile?.height != null ? String(profile.height).replace(/\s?[Cc][Mm]\s?$/i, '').trim() + ' cm' : '—';
-  const birthday = profile?.birthday ? `Cumpleaños: ${profile.birthday}` : null;
+  
 
   const handleSave = async () => {
     const fn = firstName.trim();
     const ln = lastName.trim();
     if (!fn || !ln) {
-      Alert.alert('Error', 'El nombre y el apellido son obligatorios');
+      Alert.alert(t.errorTitle, t.namesRequired);
       return;
     }
     if (fn.length < 2 || ln.length < 2) {
-      Alert.alert('Error', 'El nombre debe tener al menos 2 caracteres');
+      Alert.alert(t.errorTitle, t.nameTooShort);
       return;
     }
     setSaving(true);
@@ -52,9 +55,9 @@ export function PersonalDataScreen() {
       }
       await apiClient.put('/athlete/profile', { firstName: fn, lastName: ln });
       await queryClient.invalidateQueries({ queryKey: ['athlete-profile'] });
-      Alert.alert('Éxito', 'Tu perfil se ha actualizado');
+      Alert.alert(t.successTitle, t.updateSuccess);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'No se pudo actualizar el perfil';
+      const msg = err instanceof Error ? err.message : t.updateFailed;
       Alert.alert('Error', msg);
     } finally {
       setSaving(false);
@@ -62,56 +65,56 @@ export function PersonalDataScreen() {
   };
 
   const stats: Array<{ label: string; value: string }> = [
-    { label: 'Peso', value: weight },
-    { label: 'Edad', value: age },
-    { label: 'Altura', value: height },
+    { label: t.weightLabel, value: weight },
+    { label: t.ageLabel, value: age },
+    { label: t.heightLabel, value: height },
   ];
-  if (birthday) stats.push({ label: 'Cumpleaños', value: birthday.replace('Cumpleaños: ', '') });
+  if (profile?.birthday) stats.push({ label: t.birthdayLabel, value: profile.birthday });
 
   return (
     <View style={styles.container}>
-      <SubScreenHeader title="Información personal" />
+      <SubScreenHeader title={t.headerTitle} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Card style={styles.card}>
-          <Text style={styles.cardTitle}>Tus datos</Text>
-          <Text style={styles.cardSubtitle}>El nombre aparece en toda la app</Text>
+          <Text style={styles.cardTitle}>{t.cardTitle}</Text>
+          <Text style={styles.cardSubtitle}>{t.cardSubtitle}</Text>
 
-          <Text style={styles.label}>Nombre</Text>
+          <Text style={styles.label}>{t.firstNameLabel}</Text>
           <Input
-            placeholder="Juan"
+            placeholder={t.firstNamePlaceholder}
             value={firstName}
             onChangeText={setFirstName}
             autoCapitalize="words"
             autoCorrect={false}
-            accessibilityLabel="Nombre"
+            accessibilityLabel={t.firstNameLabel}
             returnKeyType="next"
           />
 
-          <Text style={styles.label}>Apellido</Text>
+          <Text style={styles.label}>{t.lastNameLabel}</Text>
           <Input
-            placeholder="Doe"
+            placeholder={t.lastNamePlaceholder}
             value={lastName}
             onChangeText={setLastName}
             autoCapitalize="words"
             autoCorrect={false}
-            accessibilityLabel="Apellido"
+            accessibilityLabel={t.lastNameLabel}
             returnKeyType="next"
           />
 
-          <Text style={styles.label}>Email</Text>
+          <Text style={styles.label}>{t.emailLabel}</Text>
           <View style={styles.readOnlyWrap}>
             <Text style={styles.readOnlyText} numberOfLines={1}>
               {email}
             </Text>
-            <Text style={styles.readOnlyHint}>Solo lectura</Text>
+            <Text style={styles.readOnlyHint}>{t.readOnlyHint}</Text>
           </View>
 
-          <PrimaryButton label="Guardar" onPress={handleSave} disabled={saving} />
+          <PrimaryButton label={texts.common.save} onPress={handleSave} disabled={saving} />
         </Card>
 
         <Card style={styles.card}>
-          <Text style={styles.cardTitle}>Datos registrados</Text>
-          <Text style={styles.cardSubtitle}>Los actualiza tu coach</Text>
+          <Text style={styles.cardTitle}>{t.statsTitle}</Text>
+          <Text style={styles.cardSubtitle}>{t.statsSubtitle}</Text>
           {stats.map((s, i) => (
             <View key={s.label}>
               {i > 0 ? <View style={styles.divider} /> : null}

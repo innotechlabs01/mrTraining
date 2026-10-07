@@ -4,17 +4,18 @@
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, spacing, typography } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { ChevronRightIcon } from '../../../../shared/components/icons';
+import { texts } from '../../../../shared/i18n/texts';
 
 export type UpNextExercise = {
   name: string;
   sets: number;
   reps: number;
   weightKg: number | null;
-  mode?: 'reps' | 'time' | 'cardio';
-  sec?: number | null;
+  mode?: 'reps' | 'time' | 'cardio' | undefined;
+  sec?: number | null | undefined;
 };
 
 export type UpNextPreviewProps = {
@@ -29,7 +30,7 @@ function ExerciseRow({ exercise, index }: { exercise: UpNextExercise; index: num
   const detail = isTimeMode
     ? `${exercise.sets} x ${exercise.sec ?? 0}s`
     : isCardioMode
-      ? `${exercise.sets} x ${exercise.reps} reps`
+      ? `${exercise.sets} x ${exercise.reps} ${texts.screens.upNextPreview.repsUnit}`
       : [
           `${exercise.sets} x ${exercise.reps}`,
           exercise.weightKg != null && exercise.weightKg > 0
@@ -62,7 +63,7 @@ export function UpNextPreview({ exercises, maxItems = 2 }: UpNextPreviewProps) {
 
   return (
     <Card style={styles.container}>
-      <Text style={styles.title}>SIGUIENTE</Text>
+      <Text style={styles.title}>{texts.screens.upNextPreview.title}</Text>
       {upcoming.map((exercise, i) => (
         <ExerciseRow key={`${exercise.name}-${i}`} exercise={exercise} index={i} />
       ))}

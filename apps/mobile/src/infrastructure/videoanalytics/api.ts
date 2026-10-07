@@ -43,7 +43,8 @@ export interface APIAnalyticsSummary {
 
 // ─── API Client ───────────────────────────────────────────────────────────────
 
-const VIDEO_ANALYTICS_BASE = '/v1/video-analytics';
+// smartClient baseURL already includes /api/v1 — do NOT prefix /v1 here.
+const VIDEO_ANALYTICS_BASE = '/video-analytics';
 
 /**
  * Track a new video analysis session via the API.
@@ -63,8 +64,9 @@ export async function trackSession(data: {
     const response = await apiClient.post<APISessionAnalysis>(`${VIDEO_ANALYTICS_BASE}/track`, data);
     return response.data;
   } catch (error) {
+    // Propagate to React Query — mutations surface via isError state.
     console.warn('[VideoAnalyticsAPI] trackSession failed:', error);
-    return null;
+    throw error;
   }
 }
 
@@ -76,8 +78,9 @@ export async function fetchSummary(): Promise<APIAnalyticsSummary | null> {
     const response = await apiClient.get<APIAnalyticsSummary>(`${VIDEO_ANALYTICS_BASE}/summary`);
     return response.data;
   } catch (error) {
+    // Propagate to React Query — screens surface via isError state.
     console.warn('[VideoAnalyticsAPI] fetchSummary failed:', error);
-    return null;
+    throw error;
   }
 }
 
@@ -89,8 +92,9 @@ export async function fetchPerExercise(): Promise<APIExerciseAnalytics[]> {
     const response = await apiClient.get<APIExerciseAnalytics[]>(`${VIDEO_ANALYTICS_BASE}/per-exercise`);
     return response.data ?? [];
   } catch (error) {
+    // Propagate to React Query — screens surface via isError state.
     console.warn('[VideoAnalyticsAPI] fetchPerExercise failed:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -107,7 +111,8 @@ export async function fetchSessions(
     );
     return response.data ?? [];
   } catch (error) {
+    // Propagate to React Query — screens surface via isError state.
     console.warn('[VideoAnalyticsAPI] fetchSessions failed:', error);
-    return [];
+    throw error;
   }
 }

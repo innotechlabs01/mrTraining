@@ -1,7 +1,7 @@
 import type { Landmark, Pose } from '../domain/Landmark';
 import { BODY_PART_LANDMARKS, type BodyPart } from '../domain/BodyPart';
 import type { CameraPositionStatus, ExerciseDefinition } from '../domain/RepTypes';
-import { frameSpread, avgMid } from './geometry';
+import { frameSpread } from './geometry';
 
 export interface CameraCheck {
   status: CameraPositionStatus;

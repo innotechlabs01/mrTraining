@@ -37,9 +37,9 @@ export interface APIPR {
 
 export interface APILogWorkoutRequest {
   workout_date: string;
-  workout_type?: string;
-  duration_minutes?: number;
-  calories_burned?: number;
+  workout_type?: string | undefined;
+  duration_minutes?: number | undefined;
+  calories_burned?: number | undefined;
 }
 
 export interface APIRecordPRRequest {
@@ -51,7 +51,8 @@ export interface APIRecordPRRequest {
 
 // ─── API Client ───────────────────────────────────────────────────────────────
 
-const GAMIFICATION_BASE = '/v1/gamification';
+// smartClient baseURL already includes /api/v1 — do NOT prefix /v1 here.
+const GAMIFICATION_BASE = '/gamification';
 
 /**
  * Fetch the athlete's streak from the API.
@@ -61,6 +62,7 @@ export async function fetchStreak(): Promise<APIStreak | null> {
     const response = await apiClient.get<APIStreak>(`${GAMIFICATION_BASE}/streak`);
     return response.data;
   } catch (error) {
+    // Intentional: offline-first — domain services fall back to local computation.
     console.warn('[GamificationAPI] fetchStreak failed, using local fallback:', error);
     return null;
   }
@@ -71,9 +73,10 @@ export async function fetchStreak(): Promise<APIStreak | null> {
  */
 export async function logWorkoutDay(data: APILogWorkoutRequest): Promise<APIStreak | null> {
   try {
-    const response = await apiClient.post<APIStreak>(`${GAMIFICATION_BASE}/streak`, data);
+    const response = await apiClient.post<APIStreak>(`${GAMIFICATION_BASE}/streak/log`, data);
     return response.data;
   } catch (error) {
+    // Intentional: offline-first — domain services fall back to local computation.
     console.warn('[GamificationAPI] logWorkoutDay failed:', error);
     return null;
   }
@@ -87,6 +90,7 @@ export async function fetchBadges(): Promise<APIBadge[]> {
     const response = await apiClient.get<APIBadge[]>(`${GAMIFICATION_BASE}/badges`);
     return response.data ?? [];
   } catch (error) {
+    // Intentional: offline-first — domain services fall back to local computation.
     console.warn('[GamificationAPI] fetchBadges failed, using local fallback:', error);
     return [];
   }
@@ -101,9 +105,10 @@ export async function checkBadges(data: {
   feedInteractions?: number;
 }): Promise<APIBadge[]> {
   try {
-    const response = await apiClient.post<APIBadge[]>(`${GAMIFICATION_BASE}/badges`, data);
+    const response = await apiClient.post<APIBadge[]>(`${GAMIFICATION_BASE}/badges/check`, data);
     return response.data ?? [];
   } catch (error) {
+    // Intentional: offline-first — badge check is best-effort, not screen-blocking.
     console.warn('[GamificationAPI] checkBadges failed:', error);
     return [];
   }
@@ -117,6 +122,7 @@ export async function fetchPRs(): Promise<APIPR[]> {
     const response = await apiClient.get<APIPR[]>(`${GAMIFICATION_BASE}/prs`);
     return response.data ?? [];
   } catch (error) {
+    // Intentional: offline-first — domain services fall back to local computation.
     console.warn('[GamificationAPI] fetchPRs failed, using local fallback:', error);
     return [];
   }
@@ -138,6 +144,7 @@ export async function recordPR(data: APIRecordPRRequest): Promise<{
     }>(`${GAMIFICATION_BASE}/prs`, data);
     return response.data;
   } catch (error) {
+    // Intentional: offline-first — domain services fall back to local computation.
     console.warn('[GamificationAPI] recordPR failed:', error);
     return null;
   }

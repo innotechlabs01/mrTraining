@@ -11,6 +11,7 @@ import { ArrowLeftIcon, BellIcon, SearchIcon, UserIcon } from '../../../../share
 import { SegmentedFilter } from '../../../../shared/components/ui/SegmentedFilter';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
+import { texts } from '../../../../shared/i18n/texts';
 
 type NotificationTab = 'reminders' | 'system';
 
@@ -23,14 +24,14 @@ type NotificationItem = {
 };
 
 const GROUP_LABELS: Record<NotificationItem['group'], string> = {
-  today: 'Hoy',
-  yesterday: 'Ayer',
-  older: 'Anteriores',
+  today: texts.screens.notificationsScreen.groupToday,
+  yesterday: texts.screens.notificationsScreen.groupYesterday,
+  older: texts.screens.notificationsScreen.groupOlder,
 };
 
 const TABS: { key: NotificationTab; label: string }[] = [
-  { key: 'reminders', label: 'Recordatorios' },
-  { key: 'system', label: 'Sistema' },
+  { key: 'reminders', label: texts.screens.notificationsScreen.tabReminders },
+  { key: 'system', label: texts.screens.notificationsScreen.tabSystem },
 ];
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -106,19 +107,19 @@ export function NotificationsScreen() {
       <View style={styles.headerRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Volver"
+          accessibilityLabel={texts.common.back}
           onPress={() => navigation.goBack()}
           hitSlop={12}
           style={styles.backButton}
         >
           <ArrowLeftIcon size={24} color={colors.primary} />
         </Pressable>
-        <Text style={styles.headerTitle}>Notificaciones</Text>
+        <Text style={styles.headerTitle}>{texts.screens.notificationsScreen.headerTitle}</Text>
         <View style={styles.headerRight}>
-          <Pressable accessibilityLabel="Buscar" onPress={() => navigation.navigate('Search')} style={styles.iconButton}>
+          <Pressable accessibilityLabel={texts.common.search} onPress={() => navigation.navigate('Search')} style={styles.iconButton}>
             <SearchIcon size={18} color={colors.textSecondary} />
           </Pressable>
-          <Pressable accessibilityLabel="Perfil" onPress={() => undefined} style={styles.iconButton}>
+          <Pressable accessibilityLabel={texts.tabs.profile} onPress={() => undefined} style={styles.iconButton}>
             <UserIcon size={18} color={colors.textSecondary} />
           </Pressable>
         </View>
@@ -130,7 +131,7 @@ export function NotificationsScreen() {
         {isLoading ? (
           <Skeleton.List rows={5} height={72} />
         ) : filtered.length === 0 ? (
-          <EmptyState variant="empty" title="No tienes notificaciones" message="Las notificaciones nuevas aparecerán aquí." />
+          <EmptyState variant="empty" title={texts.screens.notificationsScreen.emptyTitle} message={texts.screens.notificationsScreen.emptyMessage} />
         ) : (
           groupOrder.map((groupKey) => {
             const items = groups[groupKey];

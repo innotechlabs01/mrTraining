@@ -8,7 +8,6 @@ import {
   fetchStreakFromAPI,
   logWorkoutDayToAPI,
   calculateStreak,
-  mergeWorkoutDate,
   type StreakData,
 } from '../domain/streakService';
 

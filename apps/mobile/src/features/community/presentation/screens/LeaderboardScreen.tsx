@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,6 +11,7 @@ import { colors, spacing, radius, typography } from '../../../../shared/theme/to
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { TrophyIcon } from '../../../../shared/components/icons';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
+import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { texts } from '../../../../shared/i18n/texts';
 
@@ -26,9 +28,9 @@ type LeaderboardEntry = {
 };
 
 function getPositionColor(rank: number): string {
-  if (rank === 1) return '#FFD700';
-  if (rank === 2) return '#C0C0C0';
-  if (rank === 3) return '#CD7F32';
+  if (rank === 1) return colors.primary;
+  if (rank === 2) return colors.text;
+  if (rank === 3) return colors.textSecondary;
   return colors.textSecondary;
 }
 
@@ -37,6 +39,36 @@ function getPositionIcon(rank: number) {
     return <TrophyIcon size={16} color={getPositionColor(rank)} />;
   }
   return <Text style={styles.positionText}>{rank}</Text>;
+}
+
+const LeaderboardRow = React.memo(function LeaderboardRow({ item }: { item: LeaderboardEntry }) {
+  return (
+    <View style={styles.entry}>
+      <View style={styles.position}>
+        {getPositionIcon(item.rank)}
+      </View>
+      <View style={styles.athleteInfo}>
+        <Text style={styles.athleteName} numberOfLines={1}>
+          {item.athlete_name}
+        </Text>
+        <Text style={styles.attemptsText}>
+          {item.attempts} {texts.challenge.attempts.toLowerCase()}
+        </Text>
+      </View>
+      <View style={styles.scoreInfo}>
+        <Text style={styles.bestScore}>{item.best_score.toFixed(1)}</Text>
+        <Text style={styles.scoreLabel}>{texts.challenge.formScore.toLowerCase()}</Text>
+      </View>
+    </View>
+  );
+});
+
+function keyExtractor(item: LeaderboardEntry): string {
+  return `${item.athlete_id}-${item.rank}`;
+}
+
+function renderItem({ item }: { item: LeaderboardEntry }) {
+  return <LeaderboardRow item={item} />;
 }
 
 export function LeaderboardScreen() {
@@ -83,33 +115,13 @@ export function LeaderboardScreen() {
     };
   }, [challengeId, queryClient]);
 
-  const renderItem = ({ item }: { item: LeaderboardEntry }) => (
-    <View style={styles.entry}>
-      <View style={styles.position}>
-        {getPositionIcon(item.rank)}
-      </View>
-      <View style={styles.athleteInfo}>
-        <Text style={styles.athleteName} numberOfLines={1}>
-          {item.athlete_name}
-        </Text>
-        <Text style={styles.attemptsText}>
-          {item.attempts} {texts.challenge.attempts.toLowerCase()}
-        </Text>
-      </View>
-      <View style={styles.scoreInfo}>
-        <Text style={styles.bestScore}>{item.best_score.toFixed(1)}</Text>
-        <Text style={styles.scoreLabel}>{texts.challenge.formScore.toLowerCase()}</Text>
-      </View>
-    </View>
-  );
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScreenHeader title={texts.challenge.leaderboard} />
 
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <Skeleton.List rows={8} height={64} />
         </View>
       ) : error ? (
         <View style={styles.center}>
@@ -128,9 +140,9 @@ export function LeaderboardScreen() {
           />
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={data}
-          keyExtractor={(item) => `${item.athlete_id}-${item.rank}`}
+          keyExtractor={keyExtractor}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}

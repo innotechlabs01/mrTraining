@@ -6,11 +6,24 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { colors, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
+import { texts } from '../../../../shared/i18n/texts';
+
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 
 type MuscleGroup = 'Chest' | 'Back' | 'Shoulders' | 'Arms' | 'Legs' | 'Core';
 type Exercise = { id: string; name: string; sets: string; reps: string };
 const MUSCLE_GROUPS: MuscleGroup[] = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core'];
+
+const t = texts.screens.createRoutineScreen;
+
+const MUSCLE_GROUP_LABELS: Record<MuscleGroup, string> = {
+  Chest: t.muscleGroups.chest,
+  Back: t.muscleGroups.back,
+  Shoulders: t.muscleGroups.shoulders,
+  Arms: t.muscleGroups.arms,
+  Legs: t.muscleGroups.legs,
+  Core: t.muscleGroups.core,
+};
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 function ExerciseRow({ exercise, onUpdate }: { exercise: Exercise; onUpdate: (id: string, field: 'sets' | 'reps', value: string) => void }) {
@@ -40,7 +53,7 @@ export function CreateRoutineScreen() {
   const [routineName, setRoutineName] = useState('');
   const [selectedGroups, setSelectedGroups] = useState<MuscleGroup[]>(['Chest']);
   const [exercises, setExercises] = useState<Exercise[]>([
-    { id: '1', name: 'Bench Press', sets: '4', reps: '12' },
+    { id: '1', name: t.defaultExerciseName, sets: '4', reps: '12' },
   ]);
 
   const saveMutation = useMutation({
@@ -58,7 +71,7 @@ export function CreateRoutineScreen() {
       queryClient.invalidateQueries({ queryKey: ['routines'] });
       navigation.goBack();
     },
-    onError: () => Alert.alert('Error', 'No se pudo guardar la rutina. Intenta de nuevo.'),
+    onError: () => Alert.alert(t.errorTitle, t.saveFailed),
   });
 
   const toggleGroup = (g: MuscleGroup) =>
@@ -68,43 +81,43 @@ export function CreateRoutineScreen() {
     setExercises((p) => p.map((ex) => (ex.id === id ? { ...ex, [field]: value } : ex)));
 
   const addExercise = () =>
-    setExercises((p) => [...p, { id: String(p.length + 1), name: 'New Exercise', sets: '3', reps: '10' }]);
+    setExercises((p) => [...p, { id: String(p.length + 1), name: t.defaultExerciseName, sets: '3', reps: '10' }]);
 
   const canSave = routineName.trim().length > 0 && exercises.length > 0 && !saveMutation.isPending;
 
   return (
     <SafeAreaView style={s.container}>
       <View style={s.headerRow}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} hitSlop={12} style={s.backButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel={texts.common.back} onPress={() => navigation.goBack()} hitSlop={12} style={s.backButton}>
           <Text style={s.backChevron}>{'\u2039'}</Text>
         </Pressable>
-        <Text style={s.headerTitle}>Create Your Routine</Text>
+        <Text style={s.headerTitle}>{t.headerTitle}</Text>
         <View style={s.headerRight} />
       </View>
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-        <Text style={s.label}>Routine Name</Text>
-        <TextInput value={routineName} onChangeText={setRoutineName} placeholder="Enter routine name" placeholderTextColor={colors.textSecondary} style={s.nameInput} />
+        <Text style={s.label}>{t.routineNameLabel}</Text>
+        <TextInput value={routineName} onChangeText={setRoutineName} placeholder={t.routineNamePlaceholder} placeholderTextColor={colors.textSecondary} style={s.nameInput} />
 
-        <Text style={s.label}>Muscle Groups</Text>
+        <Text style={s.label}>{t.muscleGroupsLabel}</Text>
         <View style={s.chipRow}>
           {MUSCLE_GROUPS.map((group) => {
             const sel = selectedGroups.includes(group);
             return (
               <Pressable key={group} onPress={() => toggleGroup(group)} style={[s.chip, sel ? s.chipSelected : s.chipUnselected]}>
-                <Text style={[s.chipText, sel ? s.chipTextSelected : s.chipTextUnselected]}>{group}</Text>
+                <Text style={[s.chipText, sel ? s.chipTextSelected : s.chipTextUnselected]}>{MUSCLE_GROUP_LABELS[group]}</Text>
               </Pressable>
             );
           })}
         </View>
 
-        <Text style={s.label}>Exercises</Text>
+        <Text style={s.label}>{t.exercisesLabel}</Text>
         {exercises.map((ex) => (
           <ExerciseRow key={ex.id} exercise={ex} onUpdate={updateExercise} />
         ))}
 
         <Pressable onPress={addExercise} style={s.addExerciseButton}>
-          <Text style={s.addExerciseText}>+ Add Exercise</Text>
+          <Text style={s.addExerciseText}>{t.addExercise}</Text>
         </Pressable>
 
         <Pressable
@@ -113,7 +126,7 @@ export function CreateRoutineScreen() {
           disabled={!canSave}
         >
           <Text style={[s.saveButtonText, !canSave && s.saveButtonTextDisabled]}>
-            {saveMutation.isPending ? 'Saving...' : 'Save Routine'}
+            {saveMutation.isPending ? t.saving : t.saveButton}
           </Text>
         </Pressable>
       </ScrollView>

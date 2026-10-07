@@ -1,25 +1,54 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, Pressable } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, TextInput, Pressable } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { listMessages, sendMessage } from '../../communityService';
-import { colors, spacing, radius, typography, fontFamilies } from '../../../../shared/theme/tokens';
+import { listMessages, sendMessage, type CommunityMessage } from '../../communityService';
+import { colors, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
-import { ChatIcon } from '../../../../shared/components/icons';
+import { ChatIcon, SendIcon } from '../../../../shared/components/icons';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.discussionForum;
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+const MessageRow = React.memo(function MessageRow({ item }: { item: CommunityMessage }) {
+  return (
+    <View style={styles.messageRow}>
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>{item.userName.charAt(0).toUpperCase()}</Text>
+      </View>
+      <View style={styles.messageBody}>
+        <View style={styles.messageHeader}>
+          <Text style={styles.messageName}>{item.userName}</Text>
+          <Text style={styles.messageTime}>{formatTimeAgo(item.createdAt)}</Text>
+        </View>
+        <Text style={styles.messageText}>{item.message}</Text>
+      </View>
+    </View>
+  );
+});
+
+function keyExtractor(item: CommunityMessage): string {
+  return item.id;
+}
+
+function renderMessage({ item }: { item: CommunityMessage }) {
+  return <MessageRow item={item} />;
+}
 
 export function DiscussionForumScreen() {
   const navigation = useNavigation<Nav>();
   const [inputText, setInputText] = useState('');
   const queryClient = useQueryClient();
 
-  const { data: messages, isLoading } = useQuery({
+  const { data: messages, isLoading, isError, refetch } = useQuery({
     queryKey: ['community-messages'],
     queryFn: () => listMessages('default'),
     staleTime: 10_000,
@@ -35,62 +64,67 @@ export function DiscussionForumScreen() {
 
   const canSend = inputText.trim().length > 0 && !sendMessageMut.isPending;
 
+  const handleSend = useCallback(() => {
+    if (canSend) sendMessageMut.mutate(inputText.trim());
+  }, [canSend, inputText, sendMessageMut]);
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScreenHeader title="Foro de discusión" onBack={() => navigation.goBack()} />
+      <ScreenHeader title={t.headerTitle} onBack={() => navigation.goBack()} />
 
       <View style={styles.topicSection}>
         <ChatIcon size={16} color={colors.textSecondary} />
-        <Text style={styles.topicTitle}>Conversación</Text>
+        <Text style={styles.topicTitle}>{t.conversation}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.messagesContent} showsVerticalScrollIndicator={false}>
-        {isLoading ? (
+      {isLoading ? (
+        <View style={styles.messagesContent}>
           <Skeleton.List rows={6} height={56} />
-        ) : (messages ?? []).length === 0 ? (
-          <EmptyState
-            variant="empty"
-            title="Sin mensajes todavía"
-            message="Iniciá la conversación con un mensaje."
-          />
-        ) : (
-          (messages ?? []).map((m) => (
-            <View key={m.id} style={styles.messageRow}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{m.userName.charAt(0).toUpperCase()}</Text>
-              </View>
-              <View style={styles.messageBody}>
-                <View style={styles.messageHeader}>
-                  <Text style={styles.messageName}>{m.userName}</Text>
-                  <Text style={styles.messageTime}>{formatTimeAgo(m.createdAt)}</Text>
-                </View>
-                <Text style={styles.messageText}>{m.message}</Text>
-              </View>
-            </View>
-          ))
-        )}
-      </ScrollView>
+        </View>
+      ) : (
+        <FlashList
+          data={messages ?? []}
+          renderItem={renderMessage}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={styles.messagesContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            isError ? (
+              <EmptyState
+                variant="error"
+                title={t.errorTitle}
+                message={t.errorMessage}
+                onRetry={() => refetch()}
+              />
+            ) : (
+              <EmptyState
+                variant="empty"
+                title={t.emptyTitle}
+                message={t.emptyMessage}
+              />
+            )
+          }
+        />
+      )}
 
       {/* Input Bar */}
       <View style={styles.inputBar}>
         <TextInput
           value={inputText}
           onChangeText={setInputText}
-          placeholder="Escribe un mensaje..."
+          placeholder={t.inputPlaceholder}
           placeholderTextColor={colors.textSecondary}
           style={styles.inputField}
           multiline={false}
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Enviar"
+          accessibilityLabel={t.send}
           disabled={!canSend}
           style={({ pressed }) => [styles.sendButton, pressed && styles.sendButtonPressed, !canSend && styles.sendButtonDisabled]}
-          onPress={() => {
-            if (canSend) sendMessageMut.mutate(inputText.trim());
-          }}
+          onPress={handleSend}
         >
-          <Text style={styles.sendIcon}>{'➤'}</Text>
+          <SendIcon size={18} color={colors.base} />
         </Pressable>
       </View>
     </SafeAreaView>
@@ -153,7 +187,6 @@ const styles = StyleSheet.create({
   },
   sendButtonPressed: { backgroundColor: colors.primaryPressed },
   sendButtonDisabled: { opacity: 0.4 },
-  sendIcon: { fontSize: 14, color: colors.base },
 });
 
 export function formatTimeAgo(dateStr: string): string {

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Modal, ScrollView, Alert, ActivityIndicator } from 'react-native';
-import { useAuth } from '@clerk/clerk-expo';
 import { getAvailability, createAppointment } from '../../schedulingService';
 import { colors, spacing, typography, radius } from '../../../../shared/theme/tokens';
 import { CalendarIcon, CloseIcon } from '../../../../shared/components/icons';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.coachSchedule;
 
 type Props = {
   visible: boolean;
@@ -21,24 +23,7 @@ type AvailabilitySlot = {
   endTime: string;
 };
 
-  // Generate next 14 days
-  const getUpcomingDays = () => {
-    const days = [];
-    const now = new Date();
-    for (let i = 1; i <= 14; i++) {
-      const date = new Date(now);
-      date.setDate(now.getDate() + i);
-      days.push({
-        date: date.toISOString().split('T')[0],
-        dayOfWeek: date.getDay(),
-        label: date.toLocaleDateString('es-ES', { weekday: 'short', month: 'short', day: 'numeric' }),
-      });
-    }
-    return days;
-  };
-
-export function CoachScheduleModal({ visible, coachId, athleteId, athleteName, onScheduled, onClose }: Props) {
-  const { isSignedIn } = useAuth();
+export function CoachScheduleModal({ visible, coachId, athleteName, onScheduled, onClose }: Props) {
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
@@ -87,7 +72,7 @@ export function CoachScheduleModal({ visible, coachId, athleteId, athleteName, o
 
   const handleSchedule = async () => {
     if (!selectedSlot || !selectedDate) {
-      Alert.alert('Error', 'Elige un día y un horario.');
+      Alert.alert(t.errorTitle, t.pickDayTimeError);
       return;
     }
 
@@ -97,13 +82,13 @@ export function CoachScheduleModal({ visible, coachId, athleteId, athleteName, o
         date: selectedDate,
         startTime: selectedSlot.startTime,
         endTime: selectedSlot.endTime,
-        notes: `Consulta de onboarding para ${athleteName}`,
+        notes: `${t.notesPrefix}${athleteName}`,
       });
-      Alert.alert('Reservado', 'Tu consulta fue agendada. Revisa tu correo para más detalles.', [
+      Alert.alert(t.bookedTitle, t.bookedBody, [
         { text: 'OK', onPress: onScheduled },
       ]);
     } catch {
-      Alert.alert('Error', 'No se pudo agendar. Intenta de nuevo.');
+      Alert.alert(t.errorTitle, t.scheduleFailed);
     } finally {
       setLoading(false);
     }
@@ -113,36 +98,36 @@ export function CoachScheduleModal({ visible, coachId, athleteId, athleteName, o
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>Agendar consulta</Text>
-          <Pressable onPress={onClose} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel="Cerrar" hitSlop={8}>
+          <Text style={styles.title}>{t.modalTitle}</Text>
+          <Pressable onPress={onClose} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel={texts.common.close} hitSlop={8}>
             <CloseIcon size={20} color={colors.textSecondary} />
           </Pressable>
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.subtitle}>
-            Reserva una llamada con tu entrenador para revisar tu plan y comenzar.
+            {t.subtitle}
           </Text>
 
           {fetching ? (
             <View style={styles.loadingCard}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Cargando disponibilidad...</Text>
+              <Text style={styles.loadingText}>{t.loadingText}</Text>
             </View>
           ) : availability.length === 0 ? (
             <View style={styles.emptyCard}>
               <View style={styles.emptyIconWrap}>
                 <CalendarIcon size={32} color={colors.textSecondary} />
               </View>
-              <Text style={styles.emptyTitle}>Sin disponibilidad</Text>
-              <Text style={styles.emptyText}>Tu entrenador aún no configuró su agenda. Puedes comenzar a entrenar ahora y agendar más adelante.</Text>
+              <Text style={styles.emptyTitle}>{t.emptyTitle}</Text>
+              <Text style={styles.emptyText}>{t.emptyText}</Text>
               <Pressable style={styles.laterBtn} onPress={onScheduled} accessibilityRole="button">
-                <Text style={styles.laterBtnText}>Comenzar a entrenar</Text>
+                <Text style={styles.laterBtnText}>{t.startTraining}</Text>
               </Pressable>
             </View>
           ) : (
             <>
-              <Text style={styles.sectionTitle}>Elige un día</Text>
+              <Text style={styles.sectionTitle}>{t.pickDay}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.daysScroll}>
                 {upcomingDays.map((day) => {
                   const hasSlots = availability.some(s => s.dayOfWeek === day.dayOfWeek);
@@ -162,9 +147,9 @@ export function CoachScheduleModal({ visible, coachId, athleteId, athleteName, o
 
               {selectedDate && (
                 <>
-                  <Text style={styles.sectionTitle}>Elige un horario</Text>
+                  <Text style={styles.sectionTitle}>{t.pickTime}</Text>
                   {slotsForDay.length === 0 ? (
-                    <Text style={styles.noSlots}>Sin horarios disponibles para este día</Text>
+                    <Text style={styles.noSlots}>{t.noSlots}</Text>
                   ) : (
                     <View style={styles.slotsGrid}>
                       {slotsForDay.map((slot) => (
@@ -190,7 +175,7 @@ export function CoachScheduleModal({ visible, coachId, athleteId, athleteName, o
                   disabled={loading}
                 >
                   <Text style={styles.scheduleBtnText}>
-                    {loading ? 'Reservando...' : 'Reservar consulta'}
+                    {loading ? t.bookingLoading : t.bookButton}
                   </Text>
                 </Pressable>
               )}
@@ -205,32 +190,32 @@ export function CoachScheduleModal({ visible, coachId, athleteId, athleteName, o
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, paddingBottom: 0 },
-  title: { ...typography.title, fontSize: 22, color: colors.text },
+  title: { ...typography.title, color: colors.text },
   closeBtn: { width: 32, height: 32, borderRadius: radius.md, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center' },
   content: { padding: spacing.lg },
   subtitle: { ...typography.body, color: colors.textSecondary, lineHeight: 22, marginBottom: spacing.lg },
-  sectionTitle: { ...typography.bodyStrong, fontSize: 16, color: colors.text, marginBottom: spacing.sm },
+  sectionTitle: { ...typography.bodyStrong, fontSize: typography.body.fontSize, color: colors.text, marginBottom: spacing.sm },
   daysScroll: { marginBottom: spacing.lg },
   dayChip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, marginRight: spacing.sm },
   dayChipActive: { borderColor: colors.primary, backgroundColor: `${colors.primary}10` },
   dayChipDisabled: { opacity: 0.4 },
-  dayLabel: { ...typography.bodyStrong, fontSize: 14, color: colors.text },
+  dayLabel: { ...typography.bodyStrong, color: colors.text },
   dayLabelActive: { color: colors.primary },
   slotsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
   slotChip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   slotChipActive: { borderColor: colors.primary, backgroundColor: `${colors.primary}10` },
-  slotTime: { ...typography.bodyStrong, fontSize: 15, color: colors.text },
+  slotTime: { ...typography.bodyStrong, color: colors.text },
   slotTimeActive: { color: colors.primary },
   noSlots: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.lg },
   scheduleBtn: { backgroundColor: colors.primary, height: 52, borderRadius: radius.md, justifyContent: 'center', alignItems: 'center', marginTop: spacing.sm },
   scheduleBtnDisabled: { opacity: 0.5 },
-  scheduleBtnText: { ...typography.bodyStrong, fontSize: 16, color: colors.base },
+  scheduleBtnText: { ...typography.bodyStrong, fontSize: typography.body.fontSize, color: colors.base },
   loadingCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
   loadingText: { ...typography.body, color: colors.textSecondary, marginTop: spacing.sm },
   emptyCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
   emptyIconWrap: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm },
-  emptyTitle: { ...typography.title, fontSize: 18, color: colors.text, marginBottom: spacing.sm },
+  emptyTitle: { ...typography.h4, color: colors.text, marginBottom: spacing.sm },
   emptyText: { ...typography.body, color: colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: spacing.md },
   laterBtn: { backgroundColor: colors.primary, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.md },
-  laterBtnText: { ...typography.bodyStrong, fontSize: 15, color: colors.base },
+  laterBtnText: { ...typography.bodyStrong, color: colors.base },
 });

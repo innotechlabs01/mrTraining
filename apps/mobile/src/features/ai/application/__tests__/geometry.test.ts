@@ -2,7 +2,6 @@ import { angleDeg, hipDropRatio, frameSpread, avgMid } from '../geometry';
 import type { Landmark } from '../../domain/Landmark';
 
 const L = (x: number, y: number): Landmark => ({ x, y, z: 0, confidence: 1, visibility: 1 });
-const EPS = 1e-3;
 
 describe('geometry', () => {
   it('computes a right angle at the middle point', () => {
