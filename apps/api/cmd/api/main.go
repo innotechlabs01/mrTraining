@@ -46,6 +46,7 @@ import (
 	messageapp "github.com/innotechlabs01/mr-training-api/internal/application/message"
 	"github.com/innotechlabs01/mr-training-api/internal/config"
 	messagehandlers "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
+	handlers "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
 	handlerpkg "github.com/innotechlabs01/mr-training-api/internal/handlers"
 	alertinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/alert"
 	bloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/blog"
@@ -319,6 +320,9 @@ func main() {
 
 		// Register favorite routes
 		routes.RegisterFavoriteRoutes(api, favoriteHandler)
+
+    api.Get("/landing", handlers.HandlerGetLanding(db.DB))
+    api.Put("/landing", handlers.HandlerPutLanding(db.DB))
 
 		// Wire Alert domain
 		alertRepo := alertinfrastructure.NewRepository(db.DB)

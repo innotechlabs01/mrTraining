@@ -44,6 +44,11 @@ type Config struct {
 	RateLimitMax       int      // Max requests per window, per client IP
 	RateLimitWindowSec int      // Rate limit window in seconds
 
+	// MercadoPago
+	MercadoPagoWebhookURL string // URL del webhook recibido del frontend
+	MercadoPagoSecretKey  string // Clave secreta del webhook (del dashboard de MP)
+	AppURL                string // URL base de la app (para back_urls)
+
 	// Logging
 	LogLevel string // Log level: debug, info, warn, error
 }
