@@ -54,6 +54,8 @@ export {
   timeAgo,
   MUSCLE_GROUP_LABELS,
   EQUIPMENT_LABELS,
+  DIFFICULTY_LABELS,
+  FREQUENCY_LABELS,
   GOAL_LABELS
 } from './hooks/helpers'
 

@@ -6,10 +6,9 @@ import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 const TABS = [
-  { label: 'Exercises', href: '/coach/workouts/exercises' },
-  { label: 'Builder', href: '/coach/workouts/builder' },
-  { label: 'Templates', href: '/coach/workouts/templates' },
-  { label: 'Schedule', href: '/coach/workouts/schedule' },
+  { label: 'Ejercicios', href: '/coach/workouts/exercises' },
+  { label: 'Creador', href: '/coach/workouts/builder' },
+  { label: 'Agenda', href: '/coach/workouts/schedule' },
 ]
 
 export default function WorkoutsLayout({ children }: { children: React.ReactNode }) {

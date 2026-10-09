@@ -3,9 +3,10 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import { toast } from 'sonner'
 import {
   Search, Plus, X, ChevronUp, ChevronDown, Sparkles,
-  Save, FileText, Loader2, AlertTriangle, Dumbbell, MapPinned,
+  Save, Loader2, AlertTriangle, Dumbbell, MapPinned,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -21,6 +22,8 @@ import { templateApi } from '@/features/shared/api/client'
 import type { TemplateExerciseRow } from '@/features/shared/api/client'
 import { InfoTip } from './InfoTip'
 import { RouteMapEditor } from './RouteMapEditor'
+
+const INTENSITY_LABELS: Record<string, string> = { low: 'Baja', medium: 'Media', high: 'Alta' }
 
 const GOALS = Object.entries(GOAL_LABELS).map(([value, label]) => ({
   value: value as WorkoutGoal,
@@ -156,7 +159,7 @@ function AiModal({
             <div className="flex items-center justify-between p-5 border-b border-white/5">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-orange-400" />
-                <h3 className="text-base font-semibold text-white font-display">AI Generate Workout</h3>
+                <h3 className="text-base font-semibold text-white font-display">Generar entrenamiento con IA</h3>
               </div>
               <button
                 onClick={onClose}
@@ -168,7 +171,7 @@ function AiModal({
 
             <div className="p-5 space-y-5">
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-2">Focus</label>
+                <label className="block text-xs font-medium text-white/50 mb-2">Enfoque</label>
                 <div className="flex flex-wrap gap-2">
                   {GOALS.map(g => (
                     <button
@@ -189,7 +192,7 @@ function AiModal({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-2">Intensity</label>
+                <label className="block text-xs font-medium text-white/50 mb-2">Intensidad</label>
                 <div className="flex gap-2">
                   {(['low', 'medium', 'high'] as const).map(i => (
                     <button
@@ -203,7 +206,7 @@ function AiModal({
                           : 'bg-white/5 text-white/50 hover:bg-white/10',
                       )}
                     >
-                      {i}
+                      {INTENSITY_LABELS[i] ?? i}
                     </button>
                   ))}
                 </div>
@@ -211,7 +214,7 @@ function AiModal({
 
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-2">
-                  Duration (minutes)
+                  Duración (minutos)
                 </label>
                 <input
                   type="number"
@@ -230,7 +233,7 @@ function AiModal({
                 onClick={onClose}
                 className="px-4 py-2 rounded-lg text-sm font-medium text-white/60 bg-white/5 hover:bg-white/10 transition-colors"
               >
-                Cancel
+                Cancelar
               </button>
               <button
                 onClick={handleGenerate}
@@ -245,99 +248,14 @@ function AiModal({
                 {generating ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Generating...
+                    Generando...
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-3.5 h-3.5" />
-                    Generate
+                    Generar
                   </>
                 )}
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  )
-}
-
-function FrequencyModal({
-  open,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean
-  onClose: () => void
-  onConfirm: (frequency: 'once' | 'daily' | 'weekly' | 'custom') => void
-}) {
-  const [freq, setFreq] = useState<'once' | 'daily' | 'weekly' | 'custom'>('weekly')
-
-  const FREQ_OPTIONS = [
-    { value: 'once' as const, label: 'Once' },
-    { value: 'daily' as const, label: 'Daily' },
-    { value: 'weekly' as const, label: 'Weekly' },
-    { value: 'custom' as const, label: 'Custom' },
-  ]
-
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-        >
-          <motion.div
-            initial={{ scale: 0.92, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.92, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="w-full max-w-sm bg-surface-1 rounded-2xl border border-white/10"
-          >
-            <div className="flex items-center justify-between p-5 border-b border-white/5">
-              <h3 className="text-base font-semibold text-white font-display">Save as Template</h3>
-              <button
-                onClick={onClose}
-                className="p-1.5 rounded-md hover:bg-white/5 text-white/40 hover:text-white/70 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-3">
-              <p className="text-sm text-white/50">Select how often this template repeats:</p>
-              {FREQ_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setFreq(opt.value)}
-                  className={cn(
-                    'w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors',
-                    freq === opt.value
-                      ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
-                      : 'bg-white/5 text-white/60 hover:bg-white/10 border border-transparent',
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-end gap-3 p-5 border-t border-white/5">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white/60 bg-white/5 hover:bg-white/10 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => onConfirm(freq)}
-                className="px-5 py-2 rounded-lg text-sm font-semibold bg-orange-500 hover:bg-orange-600 text-white transition-colors"
-              >
-                Save Template
               </button>
             </div>
           </motion.div>
@@ -375,7 +293,7 @@ export default function WorkoutBuilder() {
     exercises, loading: libLoading, error: libError,
     search, setSearch,
   } = useExerciseLibrary()
-  const { plans: _, loading: plansLoading, error: plansError, createPlan, saveAsTemplate, updateTemplate } = useWorkoutPlans()
+  const { plans: _, loading: plansLoading, error: plansError, createPlan, updateTemplate } = useWorkoutPlans()
   const calc = useCalc()
   const searchParams = useSearchParams()
   const templateId = searchParams.get('templateId')
@@ -385,10 +303,7 @@ export default function WorkoutBuilder() {
   const [goal, setGoal] = useState<WorkoutGoal>('strength')
   const [workingExercises, setWorkingExercises] = useState<WorkoutExercise[]>([])
   const [showAiModal, setShowAiModal] = useState(false)
-  const [showFreqModal, setShowFreqModal] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [savedMessage, setSavedMessage] = useState('')
-  const [errorMessage, setErrorMessage] = useState('')
   const [editingExercise, setEditingExercise] = useState<string | null>(null)
   const [routeExerciseId, setRouteExerciseId] = useState<string | null>(null)
   const [templateLoading, setTemplateLoading] = useState(false)
@@ -415,7 +330,7 @@ export default function WorkoutBuilder() {
       })
       .catch(() => {
         if (cancelled) return
-        setTemplateError('No se pudo cargar la plantilla. Podés crear el workout desde cero.')
+        setTemplateError('No se pudo cargar la plantilla. Puedes crear el entrenamiento desde cero.')
       })
       .finally(() => {
         if (!cancelled) setTemplateLoading(false)
@@ -478,7 +393,6 @@ export default function WorkoutBuilder() {
   const handleSave = useCallback(async () => {
     if (!workoutName.trim() || workingExercises.length === 0) return
     setSaving(true)
-    setErrorMessage('')
     try {
       if (templateId) {
         await updateTemplate(templateId, {
@@ -489,7 +403,7 @@ export default function WorkoutBuilder() {
           estimatedDuration: duration,
           tags: [],
         })
-        setSavedMessage('Template updated!')
+        toast.success('Plantilla actualizada')
       } else {
         await createPlan({
           name: workoutName.trim(),
@@ -499,55 +413,18 @@ export default function WorkoutBuilder() {
           estimatedDuration: duration,
           tags: [],
         })
-        setSavedMessage('Workout saved!')
+        toast.success('Plan guardado')
       }
-      setTimeout(() => setSavedMessage(''), 3000)
       if (!templateId) resetBuilder()
     } catch {
-      setErrorMessage('Error saving workout')
+      toast.error(templateId
+        ? 'No se pudo actualizar la plantilla. Inténtalo de nuevo.'
+        : 'No se pudo guardar el plan. Inténtalo de nuevo.')
     } finally {
       setSaving(false)
     }
   }, [workoutName, description, goal, workingExercises, duration, createPlan, updateTemplate, templateId, resetBuilder])
 
-  const handleSaveTemplate = useCallback(async (frequency: 'once' | 'daily' | 'weekly' | 'custom') => {
-    if (!workoutName.trim() || workingExercises.length === 0) return
-    setSaving(true)
-    setErrorMessage('')
-    try {
-      if (templateId) {
-        await updateTemplate(templateId, {
-          name: workoutName.trim(),
-          description,
-          goal,
-          exercises: workingExercises,
-          estimatedDuration: duration,
-          tags: [],
-        })
-        setSavedMessage('Template updated!')
-      } else {
-        const plan: WorkoutPlan = {
-          id: '',
-          name: workoutName.trim(),
-          description,
-          goal,
-          exercises: workingExercises,
-          estimatedDuration: duration,
-          tags: [],
-          createdAt: '',
-        }
-        await saveAsTemplate(plan, frequency)
-        setSavedMessage('Template saved!')
-      }
-      setShowFreqModal(false)
-      setTimeout(() => setSavedMessage(''), 3000)
-      if (!templateId) resetBuilder()
-    } catch {
-      setErrorMessage('Error saving template')
-    } finally {
-      setSaving(false)
-    }
-  }, [workoutName, description, goal, workingExercises, duration, saveAsTemplate, updateTemplate, templateId, resetBuilder])
 
   const loading = libLoading || plansLoading
   const error = libError || plansError
@@ -559,7 +436,7 @@ export default function WorkoutBuilder() {
       {templateLoading && (
         <div className="mb-4 flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white/60">
           <Loader2 className="w-4 h-4 animate-spin" />
-          Loading template...
+          Cargando plantilla...
         </div>
       )}
       {templateError && (
@@ -567,26 +444,12 @@ export default function WorkoutBuilder() {
           {templateError}
         </div>
       )}
-      {errorMessage && (
-        <div className="mb-4 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
-          {errorMessage}
-        </div>
-      )}
-      {savedMessage && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-4 px-4 py-2.5 bg-green-500/10 border border-green-500/20 rounded-lg text-sm text-green-400 font-medium"
-        >
-          {savedMessage}
-        </motion.div>
-      )}
 
       <div className="flex gap-6" style={{ minHeight: 'calc(100vh - 12rem)' }}>
         {/* LEFT PANEL - Exercise Library */}
         <div className="w-[40%] shrink-0 sticky top-24 self-start space-y-3 max-h-[calc(100vh-10rem)] overflow-y-auto">
           <h2 className="text-sm font-semibold text-white/70 font-display uppercase tracking-wider">
-            Exercise Library
+            Biblioteca de ejercicios
           </h2>
 
           <div className="relative">
@@ -594,7 +457,7 @@ export default function WorkoutBuilder() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search exercises..."
+              placeholder="Buscar ejercicios..."
               className="w-full bg-surface-2 border border-white/5 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-orange-500/30 transition-colors"
             />
           </div>
@@ -611,7 +474,7 @@ export default function WorkoutBuilder() {
               <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3">
                 <Dumbbell className="w-5 h-5 text-white/30" />
               </div>
-              <p className="text-sm font-medium text-white/60">Create exercises first in the Exercise Library</p>
+              <p className="text-sm font-medium text-white/60">Crea primero ejercicios en la Biblioteca de ejercicios</p>
             </div>
           )}
 
@@ -645,7 +508,7 @@ export default function WorkoutBuilder() {
                       <button
                         onClick={() => addExercise(ex)}
                         className="shrink-0 p-1.5 rounded-md bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 transition-colors"
-                        title="Add to workout"
+                        title="Agregar al entrenamiento"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
@@ -661,7 +524,7 @@ export default function WorkoutBuilder() {
         <div className="flex-1 min-w-0 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-white/70 font-display uppercase tracking-wider">
-              {templateId ? 'Edit Template' : 'Workout Builder'}
+              {templateId ? 'Editar plantilla' : 'Creador de entrenamientos'}
             </h2>
             <div className="flex items-center gap-2">
               <button
@@ -669,20 +532,7 @@ export default function WorkoutBuilder() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                AI Generate
-              </button>
-              <button
-                onClick={() => setShowFreqModal(true)}
-                disabled={!workoutName.trim() || workingExercises.length === 0}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-                  workoutName.trim() && workingExercises.length > 0
-                    ? 'bg-white/5 text-white/60 hover:bg-white/10'
-                    : 'bg-white/5 text-white/30 cursor-not-allowed',
-                )}
-              >
-                <FileText className="w-3.5 h-3.5" />
-                Save as Template
+                Generar con IA
               </button>
               <button
                 onClick={handleSave}
@@ -699,7 +549,7 @@ export default function WorkoutBuilder() {
                 ) : (
                   <Save className="w-3.5 h-3.5" />
                 )}
-                {templateId ? 'Update' : 'Save Plan'}
+                {templateId ? 'Actualizar' : 'Guardar plan'}
               </button>
             </div>
           </div>
@@ -708,13 +558,13 @@ export default function WorkoutBuilder() {
             <input
               value={workoutName}
               onChange={e => setWorkoutName(e.target.value)}
-              placeholder="Workout name"
+              placeholder="Nombre del entrenamiento"
               className="w-full bg-surface-2 border border-white/5 rounded-lg p-3 text-base text-white placeholder:text-white/30 outline-none focus:border-orange-500/30 transition-colors font-display font-semibold"
             />
 
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-white/40">Goal:</span>
+                <span className="text-xs font-medium text-white/40">Objetivo:</span>
                 <InfoTip text="Objetivo principal de la sesión: fuerza, hipertrofia, resistencia, movilidad o activación. Define cómo interpretar repeticiones y cargas." placement="bottom" />
                 <select
                   value={goal}
@@ -732,7 +582,7 @@ export default function WorkoutBuilder() {
                   <span className="text-xs text-white/30">|</span>
                   <span className="text-xs text-white/50">
                     <span className="inline-flex items-center gap-1">
-                      Duration:
+                      Duración:
                       <InfoTip text="Tiempo total estimado de la sesión, calculado a partir de series, repeticiones y descansos de cada ejercicio." placement="bottom" />
                     </span>{' '}
                     <span className="text-white font-medium">{formatDuration(duration)}</span>
@@ -742,7 +592,7 @@ export default function WorkoutBuilder() {
                       <span className="text-xs text-white/30">|</span>
                       <span className="text-xs text-white/50">
                         <span className="inline-flex items-center gap-1">
-                          Volume:
+                          Volumen:
                           <InfoTip text="Volumen total de carga levantada: suma de (series × repeticiones × peso) de todos los ejercicios, en kg." placement="bottom" />
                         </span>{' '}
                         <span className="text-white font-medium">{volume.toLocaleString()} kg</span>
@@ -759,9 +609,9 @@ export default function WorkoutBuilder() {
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
                 <Dumbbell className="w-7 h-7 text-white/30" />
               </div>
-              <p className="text-sm font-medium text-white/60">Search and add exercises to build your workout</p>
+              <p className="text-sm font-medium text-white/60">Busca y agrega ejercicios para armar tu entrenamiento</p>
               <p className="text-xs text-white/40 mt-1">
-                Click the <Plus className="w-3 h-3 inline" /> button on any exercise to add it here
+                Toca el botón <Plus className="w-3 h-3 inline" /> de cualquier ejercicio para agregarlo aquí
               </p>
             </div>
           )}
@@ -894,7 +744,7 @@ export default function WorkoutBuilder() {
                             onClick={() => setEditingExercise(null)}
                             className="text-xs text-orange-400 hover:text-orange-300 font-medium"
                           >
-                            Done
+                            Listo
                           </button>
                         </div>
 
@@ -928,12 +778,12 @@ export default function WorkoutBuilder() {
                           <span className="text-xs text-white/60">
                             {we.sets} × {we.reps}
                             {we.weight ? ` @ ${we.weight} kg` : ''}
-                            {' | '}{we.rest}s rest
+                            {' | '}descanso {we.rest}s
                           </span>
                           {we.rpeTarget && (
                             <span className="text-xs text-blue-400">RPE {we.rpeTarget}</span>
                           )}
-                          <span className="text-[10px] text-white/30 ml-auto">Click to edit</span>
+                          <span className="text-[10px] text-white/30 ml-auto">Toca para editar</span>
                         </div>
                       )}
                     </div>
@@ -951,11 +801,6 @@ export default function WorkoutBuilder() {
         onApply={handleAiApply}
       />
 
-      <FrequencyModal
-        open={showFreqModal}
-        onClose={() => setShowFreqModal(false)}
-        onConfirm={handleSaveTemplate}
-      />
     </div>
   )
 }

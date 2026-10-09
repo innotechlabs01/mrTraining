@@ -19,17 +19,22 @@ function toExercise(e: ExerciseLibraryEntry): Exercise {
   }
 }
 
-// Map UI Exercise back to a partial library entry for create/update.
-function fromExercise(e: Partial<Exercise>): Partial<ExerciseLibraryEntry> {
+// Map UI Exercise back to the Go API contract (CreateExerciseRequest):
+// instructions are a newline-separated string and the primary muscle
+// group goes in bodyPart (single string).
+function fromExercise(e: Partial<Exercise>): Record<string, unknown> {
   return {
     name: e.name,
     description: e.description,
     mode: 'reps',
+    bodyPart: e.muscleGroups?.[0] ?? '',
     muscleGroups: e.muscleGroups,
     equipment: e.equipment,
     difficulty: e.difficulty,
     category: 'compound',
-    instructions: e.instructions,
+    instructions: Array.isArray(e.instructions)
+      ? e.instructions.join('\n')
+      : (e.instructions ?? ''),
     videoUrl: e.videoUrl,
   }
 }

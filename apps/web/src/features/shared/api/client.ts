@@ -872,25 +872,40 @@ export interface ExerciseLibraryEntry {
 // Exercise API — Go backend (primary) for list and create.
  // Go endpoints: GET /api/v1/exercises, POST /api/v1/exercises
  // PUT/DELETE not in Go API yet → Next.js fallback /api/exercises/:id
- export const exerciseApi = {
-   list: () =>
-     // Go API: GET /api/v1/exercises (returns { data: [...] })
-     goFetch<{ data: ExerciseLibraryEntry[] }>('/api/v1/exercises')
-       .then(res => ({ exercises: res.data })),
+// The Go API returns flat exercise rows with `bodyPart` (string) and
+// `instructions` (newline-separated string). Normalize to the UI shape:
+// muscleGroups array + instructions array.
+function normalizeExerciseEntry(raw: Record<string, unknown>): ExerciseLibraryEntry {
+  return {
+    ...(raw as unknown as ExerciseLibraryEntry),
+    muscleGroups: Array.isArray(raw.muscleGroups)
+      ? raw.muscleGroups as string[]
+      : raw.bodyPart ? [raw.bodyPart as string] : [],
+    instructions: Array.isArray(raw.instructions)
+      ? raw.instructions as string[]
+      : String(raw.instructions ?? '').split('\n').map((s: string) => s.trim()).filter(Boolean),
+  };
+}
 
-   create: (data: Partial<ExerciseLibraryEntry>) =>
-     // Go API: POST /api/v1/exercises (coach only)
-     goFetch<{ exercise: ExerciseLibraryEntry }>('/api/v1/exercises', {
-       method: 'POST',
-       body: JSON.stringify(data),
-     }),
+export const exerciseApi = {
+  list: () =>
+    // Go API: GET /api/v1/exercises (returns { data: [...] })
+    goFetch<{ data: Array<Record<string, unknown>> }>('/api/v1/exercises')
+      .then(res => ({ exercises: (res.data || []).map(normalizeExerciseEntry) })),
 
-  update: (id: string, data: Partial<ExerciseLibraryEntry>) =>
-    // Go API: PUT /api/v1/exercises/:id
-    goFetch<{ exercise: ExerciseLibraryEntry }>(`/api/v1/exercises/${id}`, {
+  create: (data: Record<string, unknown>) =>
+    // Go API: POST /api/v1/exercises (coach only) — returns the flat row
+    goFetch<Record<string, unknown>>('/api/v1/exercises', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then(raw => ({ exercise: normalizeExerciseEntry(raw) })),
+
+  update: (id: string, data: Record<string, unknown>) =>
+    // Go API: PUT /api/v1/exercises/:id — returns the flat row
+    goFetch<Record<string, unknown>>(`/api/v1/exercises/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    }),
+    }).then(raw => ({ exercise: normalizeExerciseEntry(raw) })),
 
   remove: (id: string) =>
     // Go API: DELETE /api/v1/exercises/:id

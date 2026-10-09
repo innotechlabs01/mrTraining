@@ -14,7 +14,7 @@ type Appointment = {
 }
 type DaySchedule = { dayOfWeek: number; startTime: string; endTime: string }
 
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const STATUS_STYLE: Record<string, string> = {
   scheduled: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   completed: 'bg-green-500/10 text-green-400 border-green-500/20',
