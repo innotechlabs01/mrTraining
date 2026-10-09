@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSignIn, useSignUp } from '@clerk/clerk-expo';
+import { useSignIn, useSignUp } from '@clerk/clerk-react';
 import { smartClient as apiClient } from '../../../../../infrastructure/api/client';
 import { showToast } from '../../../../../shared/components/ui/Toast';
 import {

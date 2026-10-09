@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, type CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useUser } from '@clerk/clerk-expo';
+import { useUser } from '@clerk/clerk-react';
 import { useQuery } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { colors, spacing } from '../../../../shared/theme/tokens';
@@ -39,7 +39,7 @@ type TodayData = {
   athlete: { id: string; name: string; sport: string };
   readiness: { sleep: number; hrv: number; recovery: number; score: number };
   todaySessions: Array<{ id: string; name: string; time: string; endTime: string; location: string; status: string }>;
-  activeWorkouts: Array<{ id: string; contentName: string; modality: string; status: string; progress: number }>;
+  activeWorkouts: Array<{ id: string; contentName: string; modality: string; status: string; progress: number; exerciseCount?: number; estimatedMinutes?: number }>;
 };
 
 type ActiveChallenge = {
@@ -135,8 +135,8 @@ export function TodayScreen() {
   const exerciseProgress = data ? Math.min(1, activeWorkouts.length / 2) : 0;
   const recoveryProgress = data ? data.readiness.recovery / 100 : 0;
 
-  // Total minutes from active workouts (estimate from progress).
-  const totalMinutes = activeWorkouts.reduce((sum, w) => sum + Math.round(w.progress * 0.6), 0);
+  // Total estimated minutes from the API's programmed exercise data.
+  const totalMinutes = activeWorkouts.reduce((sum, w) => sum + (w.estimatedMinutes ?? 0), 0);
 
   const rootNav = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
   const latestChatMessage = chatMessages.length > 0 ? chatMessages[chatMessages.length - 1] : null;
@@ -162,8 +162,8 @@ export function TodayScreen() {
           <ContinueWorkoutCard
             name={firstWorkout.contentName}
             progress={firstWorkout.progress ?? 0}
-            exerciseCount={1}
-            durationMin={Math.round(firstWorkout.progress * 0.6)}
+            exerciseCount={firstWorkout.exerciseCount ?? 0}
+            durationMin={firstWorkout.estimatedMinutes ?? 0}
             onPress={() => rootNav?.navigate('WorkoutDetail', { workoutId: firstWorkout.id })}
           />
         ) : null}

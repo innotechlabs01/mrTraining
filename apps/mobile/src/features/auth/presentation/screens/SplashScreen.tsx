@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Animated, Image, useWindowDimensions } from 're
 import { brandIcon } from '../../../../shared/theme/brandAssets';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@clerk/clerk-react';
 import { colors, fontFamilies, shadows, typography } from '../../../../shared/theme/tokens';
 import { texts } from '../../../../shared/i18n/texts';
 

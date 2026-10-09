@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     // Frosted glass: semi-transparent base with subtle noise
     backgroundColor: 'rgba(11,15,14,0.82)',
     // Subtle top border glow for depth
-    borderTopColor: 'rgba(200,255,0,0.08)',
+    borderTopColor: 'rgba(21,170,242,0.08)',
     borderTopWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     paddingHorizontal: spacing.sm,

@@ -45,13 +45,17 @@ export function ContinueWorkoutCard({ name, progress, exerciseCount, durationMin
       </View>
 
       <View style={styles.metaRow}>
-        <View style={styles.metaItem}>
-          <ClockIcon size={14} color={colors.onSurfaceVariant} />
-          <Text style={styles.metaText}>{durationMin} min</Text>
-        </View>
-        <Text style={styles.metaText}>
-          {exerciseCount} {exerciseCount === 1 ? 'ejercicio' : 'ejercicios'}
-        </Text>
+        {durationMin > 0 ? (
+          <View style={styles.metaItem}>
+            <ClockIcon size={14} color={colors.onSurfaceVariant} />
+            <Text style={styles.metaText}>≈{durationMin} min</Text>
+          </View>
+        ) : null}
+        {exerciseCount > 0 ? (
+          <Text style={styles.metaText}>
+            {exerciseCount} {exerciseCount === 1 ? 'ejercicio' : 'ejercicios'}
+          </Text>
+        ) : null}
         <Text style={styles.metaText}>{pct}%</Text>
       </View>
 

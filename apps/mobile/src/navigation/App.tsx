@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider, keepPreviousData } from '@tanstack/react-query';
 import { persistQueryClient } from '@tanstack/react-query-persist-client';
-import { ClerkProvider, useClerk, useUser } from '@clerk/clerk-expo';
+import { ClerkProvider, useClerk, useUser } from '@clerk/clerk-react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';

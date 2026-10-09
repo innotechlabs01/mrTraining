@@ -3,7 +3,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, Vie
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useUser } from '@clerk/clerk-expo';
+import { useUser } from '@clerk/clerk-react';
 import { colors, layout, spacing, typography } from '../../../../shared/theme/tokens';
 import { Input } from '../../../../shared/components/ui/Input';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
