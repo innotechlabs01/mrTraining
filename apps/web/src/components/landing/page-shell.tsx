@@ -1,10 +1,11 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { useI18n } from '@/features/shared/hooks/useI18n';
 import { MenuIcon, CloseIcon } from './icons';
-import { Link } from '@/i18n/navigation';
+import Link from 'next/link';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useState } from 'react';
+import { SignInButton } from './SignInButton';
 
 const LOGO = '/images/icon/icon_mr_rp_wapp.png';
 
@@ -17,7 +18,7 @@ const LINKS = [
 ] as const;
 
 export function Header({ activeKey }: { activeKey?: string }) {
-  const t = useTranslations('common');
+  const { t } = useI18n('common');
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -36,10 +37,8 @@ export function Header({ activeKey }: { activeKey?: string }) {
             ))}
           </nav>
           <div className="ig-nav-actions">
-            <LanguageSwitcher variant="dark" />
-            <a href="/sign-in" className="ig-btn ig-btn-solid">
-              {t('landing.signIn')}
-            </a>
+            <LanguageSwitcher />
+            <SignInButton />
           </div>
           <button
             className="ig-menu-toggle"
@@ -58,10 +57,8 @@ export function Header({ activeKey }: { activeKey?: string }) {
               {t(`landing.nav.${item.key}`)}
             </Link>
           ))}
-          <LanguageSwitcher variant="dark" />
-          <a href="/sign-in" className="ig-btn ig-btn-solid" onClick={() => setMenuOpen(false)}>
-            {t('landing.signIn')}
-          </a>
+          <LanguageSwitcher />
+          <SignInButton onNavigate={() => setMenuOpen(false)} />
         </nav>
       )}
     </>

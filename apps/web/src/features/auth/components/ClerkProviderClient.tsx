@@ -54,6 +54,7 @@ function TokenRefreshOnFocus() {
 export function ClerkProviderClient({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider
+      telemetry={{ disabled: true }}
       appearance={{
         variables: {
           colorPrimary: '#FF6B00',

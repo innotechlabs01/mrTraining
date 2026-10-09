@@ -1,0 +1,14 @@
+name: Clerk Sign In Load
+url: http://localhost:3000/sign-in
+tags:
+  - web
+  - debug
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Iniciar Sesión"
+    timeout: 30000
+- assertNotVisible: "Unhandled Runtime Error"
+- assertNotVisible: "ClerkRuntimeError"
+- takeScreenshot: clerk_signin_check

@@ -7,7 +7,7 @@ import { AuthShell } from '@/features/auth/components/AuthShell';
 import { SignInForm } from '@/features/auth/components/SignInForm';
 import { motion } from 'framer-motion';
 import { ClipboardList } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useI18n } from '@/features/shared/hooks/useI18n';
 import { cn } from '@/lib/utils';
 
 const ROLES = [
@@ -18,7 +18,7 @@ export default function SignInPage() {
   const router = useRouter();
   const { isSignedIn, isLoaded } = useAuth();
   const [role, setRole] = useState<string | null>(null);
-  const t = useTranslations('common');
+  const { t } = useI18n('common');
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {

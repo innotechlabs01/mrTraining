@@ -40,8 +40,8 @@ export async function listBlogPosts(coachId: string, options?: { publishedOnly?:
     title: r.title as string,
     content: r.content as string,
     excerpt: r.excerpt as string | null,
-    coverImageUrl: r.cover_image_url as string | null,
-    published: Boolean(r.published),
+    coverImageUrl: r.image_url as string | null,
+    published: Boolean(r.is_published),
     publishedAt: r.published_at as string | null,
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
@@ -60,8 +60,8 @@ export async function getBlogPostBySlug(slug: string): Promise<BlogPost | null> 
     title: r.title as string,
     content: r.content as string,
     excerpt: r.excerpt as string | null,
-    coverImageUrl: r.cover_image_url as string | null,
-    published: Boolean(r.published),
+    coverImageUrl: r.image_url as string | null,
+    published: Boolean(r.is_published),
     publishedAt: r.published_at as string | null,
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
@@ -80,8 +80,8 @@ export async function getBlogPostById(id: string): Promise<BlogPost | null> {
     title: r.title as string,
     content: r.content as string,
     excerpt: r.excerpt as string | null,
-    coverImageUrl: r.cover_image_url as string | null,
-    published: Boolean(r.published),
+    coverImageUrl: r.image_url as string | null,
+    published: Boolean(r.is_published),
     publishedAt: r.published_at as string | null,
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
@@ -162,7 +162,7 @@ export async function getAllPublicBlogPosts(): Promise<PublicBlogPost[]> {
     `SELECT bp.*, u.name as coach_name, u.avatar_url as coach_avatar_url
      FROM blog_posts bp
      INNER JOIN users u ON bp.coach_id = u.id
-     WHERE bp.published = 1
+     WHERE bp.is_published = 1
      ORDER BY bp.published_at DESC`
   )
   return result.rows.map((r) => ({
@@ -172,8 +172,8 @@ export async function getAllPublicBlogPosts(): Promise<PublicBlogPost[]> {
     title: r.title as string,
     content: r.content as string,
     excerpt: r.excerpt as string | null,
-    coverImageUrl: r.cover_image_url as string | null,
-    published: Boolean(r.published),
+    coverImageUrl: r.image_url as string | null,
+    published: Boolean(r.is_published),
     publishedAt: r.published_at as string | null,
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
@@ -200,8 +200,8 @@ export async function getAllPublicBlogPostBySlug(slug: string): Promise<PublicBl
     title: r.title as string,
     content: r.content as string,
     excerpt: r.excerpt as string | null,
-    coverImageUrl: r.cover_image_url as string | null,
-    published: Boolean(r.published),
+    coverImageUrl: r.image_url as string | null,
+    published: Boolean(r.is_published),
     publishedAt: r.published_at as string | null,
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,

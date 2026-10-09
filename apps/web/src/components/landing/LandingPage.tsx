@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useI18n } from '@/features/shared/hooks/useI18n';
 import { CloseIcon, MenuIcon } from './icons';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { SignInButton } from './SignInButton';
 import {
   AboutSection,
   AsesoriaSection,
@@ -42,7 +43,7 @@ const LOGO = '/images/icon/icon_mr_rp_wapp.png';
 const HERO_OUTLINE = '/images/icon/icon_mr_rp.png';
 
 export default function LandingPage() {
-  const t = useTranslations('common');
+  const { t } = useI18n('common');
   const [data, setData] = useState<LandingData | null>(null);
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [products, setProducts] = useState<Product[]>([]);
@@ -115,7 +116,7 @@ export default function LandingPage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <a href="#home" className="ig-logo">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={LOGO} alt="MR Training" style={{ height: 84, width: 'auto' }} />
+              <img src={HERO_OUTLINE} alt="MR Training" style={{ height: 84, width: 'auto' }} />
             </a>
           </div>
         </nav>
@@ -137,7 +138,7 @@ export default function LandingPage() {
         <div className="ig-container ig-nav-inner">
           <a href="#home" className="ig-logo">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={LOGO} alt="MR Training" style={{ height: 84, width: 'auto' }} />
+            <img src={HERO_OUTLINE} alt="MR Training" style={{ height: 84, width: 'auto' }} />
           </a>
           <nav className="ig-links" aria-label="MR Training">
             {NAV_ITEMS.map((item) => (
@@ -147,10 +148,8 @@ export default function LandingPage() {
             ))}
           </nav>
           <div className="ig-nav-actions">
-            <LanguageSwitcher variant="dark" />
-            <a href="/sign-in" className="ig-btn ig-btn-solid">
-              {t('landing.signIn')}
-            </a>
+            <LanguageSwitcher />
+            <SignInButton />
           </div>
           <button
             className="ig-menu-toggle"
@@ -170,10 +169,8 @@ export default function LandingPage() {
               {t(`landing.nav.${item.key}`)}
             </a>
           ))}
-          <LanguageSwitcher variant="dark" />
-          <a href="/sign-in" className="ig-btn ig-btn-solid" onClick={() => setMenuOpen(false)}>
-            {t('landing.signIn')}
-          </a>
+          <LanguageSwitcher />
+          <SignInButton onNavigate={() => setMenuOpen(false)} />
         </nav>
       )}
 
@@ -186,7 +183,7 @@ export default function LandingPage() {
           </div>
           <div className="ig-hero-outline">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={HERO_OUTLINE} alt="" />
+            <img src={LOGO} alt="" />
           </div>
           <div className="ig-container ig-hero-inner">
             <h1>

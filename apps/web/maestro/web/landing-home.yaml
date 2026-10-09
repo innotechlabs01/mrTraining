@@ -1,0 +1,21 @@
+name: Landing Home
+url: http://localhost:3000/
+tags:
+  - web
+  - smoke
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Asesoría"
+    timeout: 30000
+- assertVisible: "Iniciar Sesión"
+- assertNotVisible: "landing.nav"
+- scrollUntilVisible:
+    element:
+      text: "Plataforma de Coaching"
+    direction: UP
+    timeout: 15000
+- assertVisible:
+    id: "MR Training"
+- takeScreenshot: landing_home

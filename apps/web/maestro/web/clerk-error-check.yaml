@@ -1,0 +1,14 @@
+name: Clerk Load Error Check
+url: http://localhost:3000/
+tags:
+  - web
+  - debug
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Asesoría"
+    timeout: 30000
+- assertNotVisible: "Unhandled Runtime Error"
+- assertNotVisible: "ClerkRuntimeError"
+- takeScreenshot: clerk_error_check

@@ -627,7 +627,7 @@
   "kingOfTheJungle": "King of the Jungle",
   "alpha": "Alpha",
   "omega": "Omega",
-  "beginningAndEnd": "Beginning and End",
+  "beginningAndEnd": "Beginning And End",
   "fullCircle": "Full Circle",
   "infinity": "Infinity",
   "beyond": "Beyond",
@@ -852,7 +852,6 @@
   "theMostPowerfulForce": "The Most Powerful Force",
   "inTheUniverse": "In The Universe",
   "startEarly": "Start Early",
-  "stayConsistent": "Stay Consistent",
   "letTimeWork": "Let Time Work",
   "magicOfCompounding": "Magic Of Compounding",
   "smallHingesSwingBigDoors": "Small Hinges Swing Big Doors",
@@ -993,7 +992,6 @@
   "sourceOfAll": "Source Of All",
   "originOfAll": "Origin Of All",
   "alphaAndOmega": "Alpha And Omega",
-  "beginningAndEnd": "Beginning And End",
   "eternalNow": "Eternal Now",
   "timelessExistence": "Timeless Existence",
   "beyondTimeAndSpace": "Beyond Time And Space",
@@ -1045,7 +1043,6 @@
   "sincere": "Sincere",
   "transparent": "Transparent",
   "vulnerable": "Vulnerable",
-  "open": "Open",
   "receptive": "Receptive",
   "accepting": "Accepting",
   "embracing": "Embracing",
@@ -1158,7 +1155,6 @@
   "breakthroughToBreakthrough": "Breakthrough To Breakthrough",
   "miracleToMiracle": "Miracle To Miracle",
   "blessingToBlessing": "Blessing To Blessing",
-  "graceToGrace": "Grace To Grace",
   "peaceToPeace": "Peace To Peace",
   "joyToJoy": "Joy To Joy",
   "loveToLove": "Love To Love",
@@ -1172,7 +1168,191 @@
     "analyticsDesc": "Deep analytics and insights to track athlete progress and optimize training.",
     "teamComm": "Team Communication",
     "teamCommDesc": "Seamless communication tools for coaches and athletes to stay connected.",
-    "getStarted": "Get Started"
+    "getStarted": "Get Started",
+    "loading": "Loading...",
+    "error": "Error loading",
+    "signIn": "Sign In",
+    "menu": {
+      "open": "Open menu",
+      "close": "Close menu"
+    },
+    "nav": {
+      "home": "Home",
+      "about": "About Mao",
+      "asesoria": "Coaching",
+      "plans": "Plans",
+      "testimonials": "Testimonials",
+      "store": "Store",
+      "blog": "Blog",
+      "contact": "Contact"
+    },
+    "hero": {
+      "titleLine": "MR Training",
+      "titleAccent": "Coaching Platform",
+      "tagline": "Turn your strength into discipline, and your discipline into results.",
+      "stats": {
+        "0": {
+          "value": "12K+",
+          "label": "Training Hours"
+        },
+        "1": {
+          "value": "8+",
+          "label": "Years of Experience"
+        },
+        "2": {
+          "value": "300+",
+          "label": "Athletes Transformed"
+        },
+        "3": {
+          "value": "98%",
+          "label": "Satisfaction"
+        }
+      }
+    },
+    "footer": {
+      "legal": "Legal Terms",
+      "rights": "All rights reserved {year}"
+    },
+    "why": {
+      "titleA": "How We",
+      "titleB": "Train",
+      "lede": "A simple system that combines progression, feedback and consistency.",
+      "reasons": {
+        "0": {
+          "title": "Custom Programming",
+          "copy": "Every plan is written for you: goals, history, schedule and limitations. No shared templates."
+        },
+        "1": {
+          "title": "Real-Time Feedback",
+          "copy": "We review your sessions by video, adjust loads and fix technique every week. You never train alone."
+        },
+        "2": {
+          "title": "Nutrition Tracking",
+          "copy": "Clear macros, no extreme restrictions. Plans that fit your routine, not a cookbook."
+        },
+        "3": {
+          "title": "Results Community",
+          "copy": "Join a private community of athletes who already transformed their bodies and share tips every day."
+        }
+      }
+    },
+    "about": {
+      "eyebrow": "About Mao Restrepo",
+      "photoAlt": "Mao coaching an athlete",
+      "copy": {
+        "0": "I'm Mao Restrepo, an online coach with more than 8 years of experience preparing athletes for strength, endurance and physical transformation.",
+        "1": "My philosophy is not about magic diets or viral exercises. It's a simple system: constant progression, honest feedback and a plan that adapts to your real life.",
+        "2": "I work with clients of every level: from absolute beginners to competitive athletes. What they all share is a customized plan and direct WhatsApp communication so you are never alone in the process."
+      }
+    },
+    "asesoria": {
+      "title": "Online Coaching",
+      "subtitle": "A 1-on-1 coaching experience",
+      "heading": "Training, nutrition and tracking, together",
+      "p1": "We design your strength, endurance or transformation plan and adjust it every week based on your evolution.",
+      "p2": "Direct communication via WhatsApp, video review of your sessions and constant tracking of your metrics.",
+      "cta": "View plans",
+      "forTitle": "Who it's for",
+      "for": {
+        "0": "Beginners who want to start with solid technique",
+        "1": "Athletes looking to improve performance",
+        "2": "People with busy schedules",
+        "3": "Those who tried generic apps without results",
+        "4": "Competitors who need specific programming",
+        "5": "Anyone who wants real consistency"
+      },
+      "stepsTitle": "How we work",
+      "steps": {
+        "0": {
+          "n": "01",
+          "title": "Assessment",
+          "desc": "Initial interview, history and goal definition."
+        },
+        "1": {
+          "n": "02",
+          "title": "Custom plan",
+          "desc": "Programming written for your data, never templates."
+        },
+        "2": {
+          "n": "03",
+          "title": "Training",
+          "desc": "Execution with weekly load tracking."
+        },
+        "3": {
+          "n": "04",
+          "title": "Feedback",
+          "desc": "We review video and fix technique constantly."
+        },
+        "4": {
+          "n": "05",
+          "title": "Nutrition",
+          "desc": "Clear, sustainable macros for your routine."
+        },
+        "5": {
+          "n": "06",
+          "title": "Results",
+          "desc": "We measure progress and adjust what's needed."
+        }
+      },
+      "ctaTitle": "Ready to start?",
+      "ctaButton": "Contact now"
+    },
+    "plans": {
+      "title": "Plans",
+      "subtitle": "Choose the one that fits your goal",
+      "per": "month",
+      "choose": "Choose plan",
+      "empty": "No plans available yet."
+    },
+    "testimonials": {
+      "titleA": "What our",
+      "titleB": "athletes say",
+      "previous": "Previous testimonial",
+      "next": "Next testimonial",
+      "show": "Show testimonial",
+      "quote": {
+        "0": "In 12 weeks I added 18 kg to my bench press and learned to eat without starving. Mao's clarity about real progression is brutal.",
+        "1": "I came in not knowing how to lift a weight. Now I entered my first powerlifting competition and Mao took 1st place in my category.",
+        "2": "The difference is that Mao doesn't let you fail. If a week goes wrong, by Monday he adjusts everything. That gets results."
+      },
+      "name": {
+        "0": "Andrés R.",
+        "1": "Valeria M.",
+        "2": "Luis F."
+      }
+    },
+    "store": {
+      "title": "Store",
+      "copy": "Programs and products to train",
+      "empty": "The store will be available soon."
+    },
+    "blog": {
+      "title": "Blog",
+      "subtitle": "Learning for athletes and coaches",
+      "empty": "No articles published yet.",
+      "readTime": "{n} min read"
+    },
+    "contact": {
+      "titleA": "Let's talk",
+      "titleB": "about your goal",
+      "lede": "Tell us how we can help and we'll build your plan.",
+      "heading": "Direct contact",
+      "copy": "We reply within 24 business hours.",
+      "whatsappLabel": "WhatsApp",
+      "whatsappStrong": "Message us directly",
+      "emailLabel": "Email",
+      "cityLabel": "City",
+      "form": {
+        "name": "Your name",
+        "email": "Your email",
+        "message": "Tell us your goal...",
+        "submit": "Send message",
+        "sending": "Sending...",
+        "success": "Message sent! ",
+        "whatsapp": "You can also message us on WhatsApp.",
+        "error": "Couldn't send the message. Try again."
+      }
+    }
   },
   "auth": {
     "welcome": "Welcome back",
@@ -1185,5 +1365,6 @@
       "athleteDesc": "Track workouts & progress",
       "skipAthlete": "Skip & continue as Athlete"
     }
-  }
+  },
+  "signInSubtitle": "Choose your role to continue"
 }

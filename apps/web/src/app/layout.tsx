@@ -2,9 +2,13 @@ import type { Metadata } from 'next';
 import { Inter, Montserrat, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 import { ClerkProviderClient } from '@/features/auth/components/ClerkProviderClient';
+import { NextIntlClientProvider } from 'next-intl';
 import { QueryProvider } from '@/features/shared/providers/QueryProvider';
 import { Toaster } from 'sonner';
+import { getMessages } from '@/lib/messages';
 import './globals.css';
+
+const DEFAULT_LOCALE = 'es';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,7 +49,7 @@ export const metadata: Metadata = {
     description:
       'The unified coaching platform for modern coaches and their athletes.',
     type: 'website',
-    locale: 'en_US',
+    locale: 'es_US',
   },
   icons: {
     icon: '/images/icon/icon_mr_rp.png',
@@ -59,21 +63,25 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const messages = getMessages(DEFAULT_LOCALE);
+
   return (
     <html
-      lang="en"
+      lang="es"
       className={`${inter.variable} ${montserrat.variable} ${jetbrainsMono.variable}`}
       suppressHydrationWarning
     >
       <body className="font-body bg-surface-0 text-text-primary antialiased">
-        <ClerkProviderClient>
-          <QueryProvider>
-            <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-              {children}
-              <Toaster position="top-right" richColors theme="dark" />
-            </ThemeProvider>
-          </QueryProvider>
-        </ClerkProviderClient>
+        <NextIntlClientProvider locale={DEFAULT_LOCALE} messages={{ common: messages }}>
+          <ClerkProviderClient>
+            <QueryProvider>
+              <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+                {children}
+                <Toaster position="top-right" richColors theme="dark" />
+              </ThemeProvider>
+            </QueryProvider>
+          </ClerkProviderClient>
+        </NextIntlClientProvider>
       </body>
     </html>
   );
