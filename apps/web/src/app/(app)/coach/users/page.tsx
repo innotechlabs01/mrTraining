@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useUser } from '@clerk/nextjs'
 import { motion } from 'framer-motion'
 import { Search, Flag, ShieldCheck, ShieldAlert, ShieldX, RefreshCw, UserPlus, Copy, Check, Smartphone, Share2, QrCode } from 'lucide-react'
 import { useAthletes } from '@/features/coach/hooks/useAthletes'
@@ -24,6 +25,17 @@ const STATUS_BADGE: Record<string, { label: string; className: string; icon: Rea
   grace_period: { label: 'Por vencer', className: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: ShieldAlert },
   suspended: { label: 'Suspendido', className: 'bg-red-500/10 text-red-400 border-red-500/20', icon: ShieldX },
   cancelled: { label: 'Cancelado', className: 'bg-gray-500/10 text-gray-400 border-gray-500/20', icon: ShieldX },
+  expired: { label: 'Vencido', className: 'bg-red-500/10 text-red-400 border-red-500/20', icon: ShieldX },
+}
+
+// Status at a glance: subtle tinted border + soft background wash per status.
+// Deliberately low-opacity — the card must scan fast without shouting.
+const STATUS_CARD: Record<string, string> = {
+  active: 'border-green-500/40 bg-green-500/[0.04]',
+  grace_period: 'border-amber-500/40 bg-amber-500/[0.04]',
+  suspended: 'border-red-500/40 bg-red-500/[0.04]',
+  expired: 'border-red-500/40 bg-red-500/[0.04]',
+  cancelled: 'border-white/10 bg-surface-1',
 }
 
 function getDisplayName(a: { name: string; email?: string }): string {
@@ -38,6 +50,7 @@ function getDisplayName(a: { name: string; email?: string }): string {
 
 export default function CoachUsersPage() {
   const router = useRouter()
+  const { user } = useUser()
   const { athletes, isLoading } = useAthletes()
   const { openPanel } = useCoachPanel()
   const [search, setSearch] = useState('')
@@ -55,7 +68,16 @@ export default function CoachUsersPage() {
       .catch(() => {})
   }, [])
 
+  // Primary source: Clerk publicMetadata.coachCode (set at coach sign-up).
+  // Fallback: /api/coach/profile for accounts whose metadata lacks the code.
+  const clerkCoachCode = (user?.publicMetadata as { coachCode?: string } | undefined)?.coachCode || ''
+
   useEffect(() => {
+    if (clerkCoachCode) {
+      setCoachCode(clerkCoachCode)
+      setCoachLoading(false)
+      return
+    }
     setCoachLoading(true)
     fetch('/api/coach/profile')
       .then(res => res.json())
@@ -65,7 +87,7 @@ export default function CoachUsersPage() {
       })
       .catch(() => {})
       .finally(() => setCoachLoading(false))
-  }, [])
+  }, [clerkCoachCode])
 
   const inviteLink = coachCode
     ? `${process.env.NEXT_PUBLIC_WEB_INVITE_URL || 'https://mr-training.vercel.app/invite'}?code=${coachCode}`
@@ -249,7 +271,10 @@ export default function CoachUsersPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="w-full text-left rounded-2xl border border-white/5 bg-surface-1 p-4 hover:border-brand-primary/30 hover:bg-surface-2 transition-all group"
+              className={cn(
+                'w-full text-left rounded-2xl border p-4 hover:border-brand-primary/30 hover:bg-surface-2 transition-all group',
+                membership && statusInfo ? STATUS_CARD[membership.status] ?? 'border-white/5 bg-surface-1' : 'border-white/5 bg-surface-1',
+              )}
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
@@ -294,6 +319,12 @@ export default function CoachUsersPage() {
                       {membership.planName} · ${membership.planPrice}/mes
                     </span>
                   </div>
+                </div>
+              )}
+
+              {!membership && (
+                <div className="mt-3 p-2 rounded-lg border border-white/5 bg-white/[0.02]">
+                  <span className="text-[10px] font-semibold text-white/40">Sin membresía</span>
                 </div>
               )}
 

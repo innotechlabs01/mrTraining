@@ -532,9 +532,18 @@ export const coachingApi = {
     ),
   getCoachMemberships: <T>() =>
     // Go API: GET /api/v1/coaches/memberships (all athletes' memberships for coach)
-    goFetch<{ data: T[] }>('/api/v1/coaches/memberships').then(r => r.data).catch(() =>
-      coachingFetch.get<T[]>(`${COACHING_BASE}/memberships`)
-    ),
+    // Go returns snake_case — normalize to the camelCase shape pages expect.
+    goFetch<{ data: Array<Record<string, unknown>> }>('/api/v1/coaches/memberships')
+      .then(r => r.data.map((m: Record<string, unknown>) => ({
+        ...m,
+        athleteId: m.athleteId ?? m.athlete_id,
+        planName: m.planName ?? m.plan_name,
+        planPrice: m.planPrice ?? m.plan_price,
+        paymentDueDate: m.paymentDueDate ?? m.payment_due_date,
+      })) as T[])
+      .catch(() =>
+        coachingFetch.get<T[]>(`${COACHING_BASE}/memberships`)
+      ),
   getMembership: <T>(athleteId: string) =>
     // Go API: GET /api/v1/memberships (auth-derived)
     goFetch<T>('/api/v1/memberships').catch(() =>
