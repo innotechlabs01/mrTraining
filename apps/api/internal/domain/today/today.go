@@ -41,4 +41,9 @@ type ActiveWorkout struct {
 	Modality    string `json:"modality"`
 	Status      string `json:"status"`
 	Progress    int    `json:"progress"`
+	// ExerciseCount is the number of exercises programmed for this workout.
+	ExerciseCount int `json:"exerciseCount"`
+	// EstimatedMinutes is the planned duration derived from programmed
+	// exercise data (timed work + rest between sets), rounded up.
+	EstimatedMinutes int `json:"estimatedMinutes"`
 }

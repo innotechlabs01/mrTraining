@@ -58,8 +58,8 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*productdomain.Pro
 // Create inserts a new product record.
 func (r *Repository) Create(ctx context.Context, p *productdomain.Product) error {
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO products (id, name, brand, image_url, price, received, gross, stock, low_stock_threshold, coach_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO products (id, name, brand, image_url, price, received, gross, stock, low_stock_threshold, is_shop, coach_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
 		p.ID, p.Name, p.Brand, p.ImageURL, p.Price, p.Received, p.Gross,
 		p.Stock, p.LowStockThreshold, p.CoachID)
 	if err != nil {

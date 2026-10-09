@@ -62,20 +62,39 @@ func (r *Repository) GetTodayData(ctx context.Context, athleteID string) (*today
 		return nil
 	})
 
-	// Active workouts
+	// Active workouts — exercise count and estimated duration are derived
+	// from the programmed exercise data (workout_exercises), never invented
+	// client-side. Estimate = timed work (minutes*60 + sec) + sets * rest.
 	var workouts []today.ActiveWorkout
 	g.Go(func() error {
 		workouts = make([]today.ActiveWorkout, 0)
 		wrows, err := r.db.QueryContext(gctx,
-			`SELECT id, content_name, modality, status, progress FROM assigned_workouts
-			 WHERE athlete_id = ? AND status IN ('active','in_progress') ORDER BY start_date DESC LIMIT 5`, athleteID)
+			`SELECT aw.id, aw.content_name, aw.modality, aw.status, aw.progress,
+			        COALESCE(we.exercise_count, 0),
+			        (COALESCE(we.estimated_seconds, 0) + 59) / 60
+			 FROM assigned_workouts aw
+			 LEFT JOIN (
+			   SELECT workout_id,
+			          COUNT(*) AS exercise_count,
+			          SUM(CASE
+			                    WHEN COALESCE(minutes, 0) > 0 OR COALESCE(sec, 0) > 0
+			                    THEN (COALESCE(minutes, 0) * 60 + COALESCE(sec, 0))
+			                    ELSE 0
+			                  END)
+			              + COALESCE(sets, 0) * COALESCE(rest_seconds, 0) AS estimated_seconds
+			   FROM workout_exercises
+			   GROUP BY workout_id
+			 ) we ON we.workout_id = aw.id
+			 WHERE aw.athlete_id = ? AND aw.status IN ('active','in_progress')
+			 ORDER BY aw.start_date DESC LIMIT 5`, athleteID)
 		if err != nil {
 			return nil
 		}
 		defer wrows.Close()
 		for wrows.Next() {
 			var w today.ActiveWorkout
-			if err := wrows.Scan(&w.ID, &w.ContentName, &w.Modality, &w.Status, &w.Progress); err == nil {
+			if err := wrows.Scan(&w.ID, &w.ContentName, &w.Modality, &w.Status, &w.Progress,
+				&w.ExerciseCount, &w.EstimatedMinutes); err == nil {
 				workouts = append(workouts, w)
 			}
 		}
