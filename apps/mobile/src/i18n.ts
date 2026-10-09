@@ -1,6 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import * as Localization from 'react-native-localize';
+import * as Localization from 'expo-localization';
 
 // Import locale resources
 import enUSCommon from './locales/en-US/common.json';
@@ -32,19 +32,14 @@ const fallbackChain: Record<string, string[]> = {
   'es': ['es', 'en-US'],
 };
 
-// Detect device locale with country code
-const deviceLocales = Localization.getLocales();
-const deviceLocale = deviceLocales[0];
-const deviceLang = deviceLocale?.languageCode ?? 'en';
-const deviceCountry = deviceLocale?.countryCode ?? 'US';
-const deviceLocaleCode = `${deviceLang}-${deviceCountry}`.toLowerCase().replace('_', '-');
-
+// Detect device locale with country code using expo-localization
+const deviceLocale = Localization.locale; // e.g., "en-US", "es-AR"
 const supportedLocales = [
   'en-US', 'en-GB', 'es-ES', 'es-MX', 'es-AR', 'en', 'es'
 ] as const;
 
-const initLng = (supportedLocales as readonly string[]).includes(deviceLocaleCode)
-  ? deviceLocaleCode
+const initLng = supportedLocales.includes(deviceLocale as any)
+  ? deviceLocale
   : 'en-US';
 
 i18n
@@ -61,22 +56,5 @@ i18n
     interpolation: { escapeValue: false },
     react: { useSuspense: false },
   });
-
-// System locale change listener (optional - requires react-native-localize v2+)
-// if (typeof Localization.addEventListener === 'function') {
-//   Localization.addEventListener('change', () => {
-//     const newLocales = Localization.getLocales();
-//     const newLocale = newLocales[0];
-//     const newLang = newLocale?.languageCode ?? 'en';
-//     const newCountry = newLocale?.countryCode ?? 'US';
-//     const newLocaleCode = `${newLang}-${newCountry}`.toLowerCase().replace('_', '-');
-//     
-//     if ((supportedLocales as readonly string[]).includes(`${newLocale?.languageCode}-${newLocale?.countryCode ?? ''}`)) {
-//       i18n.changeLanguage(`${newLang}-${newCountry}`.toLowerCase().replace('_', '-'));
-//     } else if ((supportedLocales as readonly string[]).includes(newLang)) {
-//       i18n.changeLanguage(newLang);
-//     }
-//   });
-// }
 
 export default i18n;

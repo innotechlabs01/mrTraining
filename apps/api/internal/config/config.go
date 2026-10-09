@@ -49,6 +49,14 @@ type Config struct {
 	MercadoPagoSecretKey  string // Clave secreta del webhook (del dashboard de MP)
 	AppURL                string // URL base de la app (para back_urls)
 
+// Email (para notificaciones a coaches)
+	EmailSMTPHost         string // Servidor SMTP (ej: smtp.gmail.com)
+	EmailSMTPPort         int      // Puerto SMTP (ej: 587)
+	EmailSMTPUsername     string // Usuario SMTP (email)
+	EmailSMTPPassword     string // Contraseña SMTP (contraseña o App Password)
+	EmailFromName         string // Nombre del remitente
+	EmailEnabled          bool     // Cuando true, envía emails reales; false = modo solo-log
+
 	// Logging
 	LogLevel string // Log level: debug, info, warn, error
 }

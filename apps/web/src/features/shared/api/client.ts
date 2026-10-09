@@ -435,6 +435,15 @@ export const coachingApi = {
     goFetch<{ ok: boolean }>(`/api/v1/events/${id}`, { method: 'DELETE' }).catch(() =>
       coachingFetch.delete<{ ok: boolean }>(`${COACHING_BASE}/events/${id}`)
     ),
+  // Event RSVP — Go API
+  rsvpEvent: (eventId: string, data: { token?: string; status: 'accepted' | 'cancelled'; name?: string; email?: string; phone?: string }) =>
+    // Go API: POST /api/v1/events/:id/rsvp
+    goFetch<{ token: string; status: string }>(`/api/v1/events/${eventId}/rsvp`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).catch(() =>
+      coachingFetch.post<{ token: string; status: string }>(`${COACHING_BASE}/events/${eventId}/rsvp`, data)
+    ),
 
   // Plans (not in Go API yet — Next.js fallback)
   getPlans: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/plans`),

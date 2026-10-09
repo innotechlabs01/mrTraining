@@ -68,3 +68,32 @@ func (s *Service) PurchaseProduct(ctx context.Context, athleteID, productID stri
 
 	return purchase, nil
 }
+
+// GetPaymentsByDate reporte de pagos por fecha específica
+func (s *Service) GetPaymentsByDate(ctx context.Context, date string) ([]*store.Purchase, error) {
+	payments, err := s.repo.ListPurchases(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var result []*store.Purchase
+	for _, p := range payments {
+		if p.CreatedAt == date {
+			result = append(result, p)
+		}
+	}
+	return result, nil
+}
+
+// GetDailyRevenue reporte de ingresos totales por fecha
+func (s *Service) GetDailyRevenue(ctx context.Context, date string) (float64, error) {
+	payments, err := s.GetPaymentsByDate(ctx, date)
+	if err != nil {
+		return 0, err
+	}
+	var total float64
+	for _, p := range payments {
+		total += p.Price
+	}
+	return total, nil
+}
+

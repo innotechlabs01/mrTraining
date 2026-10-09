@@ -8,4 +8,5 @@ type Repository interface {
 	GetProduct(ctx context.Context, id string) (*Product, error)
 	CreatePurchase(ctx context.Context, purchase *Purchase) error
 	ListPurchasesByAthlete(ctx context.Context, athleteID string) ([]*Purchase, error)
+	ListPurchases(ctx context.Context) ([]*Purchase, error)
 }

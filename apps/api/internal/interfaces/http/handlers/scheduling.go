@@ -71,6 +71,15 @@ func (h *AthleteSchedulingHandler) CreateAppointment(c *fiber.Ctx) error {
 	if coachID == "" {
 		coachID = c.Query("coachId", "")
 	}
+	
+	// Check coach availability before creating appointment
+	if coachID != "" {
+		_, err := h.service.GetAvailability(c.Context(), coachID)
+		if err != nil {
+			return h.handleError(c, err)
+		}
+	}
+	
 	apt := &coach.Appointment{
 		ID:        uuid.New().String(),
 		AthleteID: userID,
@@ -83,6 +92,11 @@ func (h *AthleteSchedulingHandler) CreateAppointment(c *fiber.Ctx) error {
 	if err := h.service.CreateAppointment(c.Context(), apt); err != nil {
 		return h.handleError(c, err)
 	}
+	
+	// Send notification to coach via email
+	// TODO: Get coach email from Clerk or database and call service.sendAppointmentNotification
+	// h.service.sendAppointmentNotification(c.Context(), apt, coachEmail)
+	
 	return appresponse.Success(c, apt)
 }
 

@@ -2,15 +2,13 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
-	"strings"
+	"database/sql"
 
 	"github.com/innotechlabs01/mr-training-api/internal/domain/store"
-	"github.com/innotechlabs01/mr-training-api/internal/errors"
 )
 
-// Repository implements store.Repository using database/sql with libsql.
+// Repository defines data access for the athlete store.
 type Repository struct {
 	db *sql.DB
 }
@@ -20,16 +18,14 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// ListProducts retrieves all products ordered by name.
+// ListProducts returns all products available in the store.
 func (r *Repository) ListProducts(ctx context.Context) ([]*store.Product, error) {
 	if r.db == nil {
 		return []*store.Product{}, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `SELECT id, name, price FROM products ORDER BY name`)
+	query := "SELECT id, name, description, price, image_url, stock, low_stock_threshold, created_at, updated_at FROM products WHERE is_active = true"
+	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
-		if strings.Contains(err.Error(), "no such table") {
-			return []*store.Product{}, nil
-		}
 		return nil, fmt.Errorf("failed to list products: %w", err)
 	}
 	defer rows.Close()
@@ -37,17 +33,18 @@ func (r *Repository) ListProducts(ctx context.Context) ([]*store.Product, error)
 	var products []*store.Product
 	for rows.Next() {
 		var p store.Product
-		var price sql.NullFloat64
-		var name sql.NullString
-		if err := rows.Scan(&p.ID, &name, &price); err != nil {
+		var imageURL sql.NullString
+		var stock int
+		var lowStockThreshold int
+		var createdAt, updatedAt sql.NullString
+		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Price, &imageURL, &stock, &lowStockThreshold, &createdAt, &updatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan product: %w", err)
 		}
-		if name.Valid {
-			p.Name = name.String
-		}
-		if price.Valid {
-			p.Price = price.Float64
-		}
+		p.ImageURL = imageURL.String
+		p.Stock = stock
+		p.LowStockThreshold = lowStockThreshold
+		p.CreatedAt = createdAt.String
+		p.UpdatedAt = updatedAt.String
 		products = append(products, &p)
 	}
 	if products == nil {
@@ -56,102 +53,124 @@ func (r *Repository) ListProducts(ctx context.Context) ([]*store.Product, error)
 	return products, nil
 }
 
-// GetProduct retrieves a product by ID.
+// GetProduct returns a product by ID.
 func (r *Repository) GetProduct(ctx context.Context, id string) (*store.Product, error) {
 	if r.db == nil {
-		return nil, errors.NotFound("Product", id)
+		return nil, fmt.Errorf("database not initialized")
 	}
-	row := r.db.QueryRowContext(ctx, `SELECT id, name, price FROM products WHERE id = ?`, id)
+	query := "SELECT id, name, description, price, image_url, stock, low_stock_threshold, created_at, updated_at FROM products WHERE id = ? AND is_active = true"
+	row := r.db.QueryRowContext(ctx, query, id)
+
 	var p store.Product
-	var name sql.NullString
-	var price sql.NullFloat64
-	err := row.Scan(&p.ID, &name, &price)
+	var imageURL sql.NullString
+	var stock int
+	var lowStockThreshold int
+	var createdAt, updatedAt sql.NullString
+
+	err := row.Scan(&p.ID, &p.Name, &p.Description, &p.Price, &imageURL, &stock, &lowStockThreshold, &createdAt, &updatedAt)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, errors.NotFound("Product", id)
-		}
-		if strings.Contains(err.Error(), "no such table") {
-			return nil, errors.NotFound("Product", id)
-		}
-		return nil, fmt.Errorf("failed to get product: %w", err)
+		return nil, fmt.Errorf("product not found: %w", err)
 	}
-	if name.Valid {
-		p.Name = name.String
-	}
-	if price.Valid {
-		p.Price = price.Float64
-	}
+
+	p.ImageURL = imageURL.String
+	p.Stock = stock
+	p.LowStockThreshold = lowStockThreshold
+	p.CreatedAt = createdAt.String
+	p.UpdatedAt = updatedAt.String
 	return &p, nil
 }
 
-// CreatePurchase inserts a purchase record. Handles missing table gracefully.
+// CreatePurchase creates a purchase for an athlete.
 func (r *Repository) CreatePurchase(ctx context.Context, purchase *store.Purchase) error {
 	if r.db == nil {
-		return nil
+		return fmt.Errorf("database not initialized")
 	}
-	// Try store_purchases first, then athlete_purchases as fallback.
-	tables := []string{"store_purchases", "athlete_purchases"}
-	var lastErr error
-	for _, table := range tables {
-		query := fmt.Sprintf(`INSERT INTO %s (id, athlete_id, product_id, quantity, price, created_at) VALUES (?, ?, ?, ?, ?, ?)`, table)
-		_, err := r.db.ExecContext(ctx, query, purchase.ID, purchase.AthleteID, purchase.ProductID, purchase.Quantity, purchase.Price, purchase.CreatedAt)
-		if err == nil {
-			return nil
-		}
-		if strings.Contains(err.Error(), "no such table") {
-			lastErr = err
-			continue
-		}
+	query := "INSERT INTO store_purchases (id, athlete_id, product_id, quantity, price, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+	_, err := r.db.ExecContext(ctx, query, purchase.ID, purchase.AthleteID, purchase.ProductID, purchase.Quantity, purchase.Price, purchase.CreatedAt)
+	if err != nil {
 		return fmt.Errorf("failed to create purchase: %w", err)
 	}
-	// If both tables missing, return nil but don't fail per spec.
-	if lastErr != nil && strings.Contains(lastErr.Error(), "no such table") {
-		return nil
+
+	// Update product stock
+	productQuery := "UPDATE products SET stock = stock - ? WHERE id = ?"
+	_, err = r.db.ExecContext(ctx, productQuery, purchase.Quantity, purchase.ProductID)
+	if err != nil {
+		return fmt.Errorf("failed to update product stock: %w", err)
 	}
+
 	return nil
 }
 
-// ListPurchasesByAthlete retrieves purchases for a given athlete.
+// ListPurchasesByAthlete returns all purchases for a specific athlete.
 func (r *Repository) ListPurchasesByAthlete(ctx context.Context, athleteID string) ([]*store.Purchase, error) {
 	if r.db == nil {
 		return []*store.Purchase{}, nil
 	}
-	tables := []string{"store_purchases", "athlete_purchases"}
-	for _, table := range tables {
-		query := fmt.Sprintf(`SELECT id, athlete_id, product_id, quantity, price, created_at FROM %s WHERE athlete_id = ? ORDER BY created_at DESC`, table)
-		rows, err := r.db.QueryContext(ctx, query, athleteID)
-		if err != nil {
-			if strings.Contains(err.Error(), "no such table") {
-				continue
-			}
-			return nil, fmt.Errorf("failed to list purchases: %w", err)
-		}
-		defer rows.Close()
-
-		var purchases []*store.Purchase
-		for rows.Next() {
-			var p store.Purchase
-			var quantity sql.NullInt64
-			var price sql.NullFloat64
-			var createdAt sql.NullString
-			if err := rows.Scan(&p.ID, &p.AthleteID, &p.ProductID, &quantity, &price, &createdAt); err != nil {
-				return nil, fmt.Errorf("failed to scan purchase: %w", err)
-			}
-			if quantity.Valid {
-				p.Quantity = int(quantity.Int64)
-			}
-			if price.Valid {
-				p.Price = price.Float64
-			}
-			if createdAt.Valid {
-				p.CreatedAt = createdAt.String
-			}
-			purchases = append(purchases, &p)
-		}
-		if purchases == nil {
-			purchases = []*store.Purchase{}
-		}
-		return purchases, nil
+	query := "SELECT id, athlete_id, product_id, quantity, price, created_at FROM store_purchases WHERE athlete_id = ? ORDER BY created_at DESC"
+	rows, err := r.db.QueryContext(ctx, query, athleteID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list purchases: %w", err)
 	}
-	return []*store.Purchase{}, nil
+	defer rows.Close()
+
+	var purchases []*store.Purchase
+	for rows.Next() {
+		var p store.Purchase
+		
+		var quantity int
+		var price float64
+		var createdAt string
+		if err := rows.Scan(&p.ID, &p.AthleteID, &p.ProductID, &quantity, &price, &createdAt); err != nil {
+			return nil, fmt.Errorf("failed to scan purchase: %w", err)
+		}
+		
+		p.Quantity = quantity
+		p.Price = price
+		p.CreatedAt = createdAt
+		purchases = append(purchases, &p)
+	}
+	if purchases == nil {
+		purchases = []*store.Purchase{}
+	}
+	return purchases, nil
+}
+
+// ListPurchases returns all purchases in the system.
+func (r *Repository) ListPurchases(ctx context.Context) ([]*store.Purchase, error) {
+	if r.db == nil {
+		return []*store.Purchase{}, nil
+	}
+	query := "SELECT id, athlete_id, product_id, quantity, price, created_at FROM store_purchases ORDER BY created_at DESC"
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list purchases: %w", err)
+	}
+	defer rows.Close()
+
+	var purchases []*store.Purchase
+	for rows.Next() {
+		var p store.Purchase
+		var athleteID string
+		
+		var quantity sql.NullInt64
+		var price sql.NullFloat64
+		var createdAt sql.NullString
+		if err := rows.Scan(&p.ID, &athleteID, &p.ProductID, &quantity, &price, &createdAt); err != nil {
+			return nil, fmt.Errorf("failed to scan purchase: %w", err)
+		}
+		if quantity.Valid {
+			p.Quantity = int(quantity.Int64)
+		}
+		if price.Valid {
+			p.Price = price.Float64
+		}
+		if createdAt.Valid {
+			p.CreatedAt = createdAt.String
+		}
+		purchases = append(purchases, &p)
+	}
+	if purchases == nil {
+		purchases = []*store.Purchase{}
+	}
+	return purchases, nil
 }

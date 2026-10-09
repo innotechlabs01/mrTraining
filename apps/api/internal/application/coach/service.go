@@ -127,3 +127,13 @@ func (s *Service) SaveAvailability(ctx context.Context, coachID string, slots []
 	}
 	return nil
 }
+// sendAppointmentNotification sends email notification to coach when appointment is created
+func (s *Service) sendAppointmentNotification(ctx context.Context, appointment *coach.Appointment, coachEmail string) error {
+	// Log the appointment booking for notification
+	// TODO: Implement actual email sending using config.EmailSMTPHost, etc.
+	// See internal/config/config.go for email configuration (EmailSMTPHost, EmailSMTPPort, etc.)
+	
+	fmt.Printf("Appointment booked: coach=%s, athlete=%s, date=%s\n", coachEmail, appointment.AthleteID, appointment.StartTime)
+	
+	return nil
+}
