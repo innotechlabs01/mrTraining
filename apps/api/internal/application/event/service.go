@@ -116,10 +116,13 @@ func (s *Service) CreateEvent(ctx context.Context, coachID string, req dto.Creat
 }
 
 // UpdateEvent updates an existing event. Only the owning coach can update.
-func (s *Service) UpdateEvent(ctx context.Context, id string, req dto.UpdateEventRequest) (*eventdomain.Event, error) {
+func (s *Service) UpdateEvent(ctx context.Context, coachID, id string, req dto.UpdateEventRequest) (*eventdomain.Event, error) {
 	existing, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get event for update: %w", err)
+	}
+	if existing.CoachID != coachID {
+		return nil, apperrors.Forbidden("you can only update your own events")
 	}
 
 	if req.Title != "" {
@@ -207,7 +210,14 @@ func (s *Service) UpdateEvent(ctx context.Context, id string, req dto.UpdateEven
 }
 
 // DeleteEvent removes an event by ID.
-func (s *Service) DeleteEvent(ctx context.Context, id string) error {
+func (s *Service) DeleteEvent(ctx context.Context, coachID, id string) error {
+	existing, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get event for delete: %w", err)
+	}
+	if existing.CoachID != coachID {
+		return apperrors.Forbidden("you can only delete your own events")
+	}
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("delete event: %w", err)
 	}

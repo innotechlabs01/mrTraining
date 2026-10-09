@@ -40,4 +40,21 @@ type Repository interface {
 	// UpdateAthleteProfile updates the athlete's extended profile fields.
 	// Returns ErrNotFound if the profile does not exist.
 	UpdateAthleteProfile(ctx context.Context, userID string, profile *AthleteProfile) error
+
+	// EnsureUser idempotently creates the base users row if missing.
+	// Used for auto-provisioning when the Clerk webhook missed user.created.
+	EnsureUser(ctx context.Context, id, email, name, role string) error
+
+	// EnsureCoach idempotently creates the coaches profile row with a
+	// generated coach_code.
+	EnsureCoach(ctx context.Context, userID, email, name string) error
+
+	// EnsureAthleteProfile idempotently creates the athlete_profiles row.
+	EnsureAthleteProfile(ctx context.Context, userID, email, name string) error
+
+	// CoachExists reports whether the coach profile row exists.
+	CoachExists(ctx context.Context, userID string) (bool, error)
+
+	// AthleteProfileExists reports whether the athlete profile row exists.
+	AthleteProfileExists(ctx context.Context, userID string) (bool, error)
 }

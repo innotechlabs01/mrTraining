@@ -11,6 +11,8 @@ import (
 
 	app "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/challenge"
+	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
+	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/websocket"
 )
 
@@ -142,7 +144,11 @@ func (h *ChallengeHandler) UpdateChallenge(c *fiber.Ctx) error {
 // DeleteChallenge handles DELETE /challenges/:id.
 func (h *ChallengeHandler) DeleteChallenge(c *fiber.Ctx) error {
 	id := c.Params("id")
-	if err := h.service.DeleteChallenge(id); err != nil {
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	if err := h.service.DeleteChallenge(coachID, id); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})

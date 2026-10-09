@@ -133,8 +133,15 @@ func (s *Service) UpdateChallenge(ch *domain.Challenge) error {
 	return nil
 }
 
-// DeleteChallenge deletes a challenge.
-func (s *Service) DeleteChallenge(id string) error {
+// DeleteChallenge deletes a challenge. Only the owning coach can delete it.
+func (s *Service) DeleteChallenge(coachID, id string) error {
+	existing, err := s.repo.GetByID(id)
+	if err != nil {
+		return err
+	}
+	if existing.CoachID != coachID {
+		return errors.New("you can only delete your own challenges")
+	}
 	canDelete, reason, err := s.CanDeleteChallenge(id)
 	if err != nil {
 		return err

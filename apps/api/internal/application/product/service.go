@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	productdomain "github.com/innotechlabs01/mr-training-api/internal/domain/product"
+	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 )
 
@@ -69,10 +70,13 @@ func (s *Service) CreateProduct(ctx context.Context, coachID string, req dto.Cre
 }
 
 // UpdateProduct updates an existing product. Only the owning coach can update.
-func (s *Service) UpdateProduct(ctx context.Context, id string, req dto.UpdateProductRequest) (*productdomain.Product, error) {
+func (s *Service) UpdateProduct(ctx context.Context, coachID, id string, req dto.UpdateProductRequest) (*productdomain.Product, error) {
 	existing, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get product for update: %w", err)
+	}
+	if existing.CoachID != coachID {
+		return nil, apperrors.Forbidden("you can only update your own products")
 	}
 
 	if req.Name != "" {
@@ -108,7 +112,14 @@ func (s *Service) UpdateProduct(ctx context.Context, id string, req dto.UpdatePr
 }
 
 // DeleteProduct removes a product by ID.
-func (s *Service) DeleteProduct(ctx context.Context, id string) error {
+func (s *Service) DeleteProduct(ctx context.Context, coachID, id string) error {
+	existing, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get product for delete: %w", err)
+	}
+	if existing.CoachID != coachID {
+		return apperrors.Forbidden("you can only delete your own products")
+	}
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("delete product: %w", err)
 	}

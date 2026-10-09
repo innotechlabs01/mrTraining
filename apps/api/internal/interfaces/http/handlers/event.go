@@ -113,7 +113,7 @@ func (h *EventHandler) UpdateEvent(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	event, err := h.service.UpdateEvent(c.Context(), id, req)
+	event, err := h.service.UpdateEvent(c.Context(), coachID, id, req)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -130,7 +130,12 @@ func (h *EventHandler) DeleteEvent(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "event ID is required")
 	}
 
-	if err := h.service.DeleteEvent(c.Context(), id); err != nil {
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	if err := h.service.DeleteEvent(c.Context(), coachID, id); err != nil {
 		return h.handleError(c, err)
 	}
 

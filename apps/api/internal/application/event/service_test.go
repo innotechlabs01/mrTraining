@@ -240,7 +240,7 @@ func TestUpdateEvent_Success(t *testing.T) {
 	}
 
 	svc := NewService(mock)
-	event, err := svc.UpdateEvent(context.Background(), "evt-1", dto.UpdateEventRequest{
+	event, err := svc.UpdateEvent(context.Background(), "coach-1", "evt-1", dto.UpdateEventRequest{
 		Title: "Updated Title",
 	})
 	if err != nil {
@@ -256,11 +256,14 @@ func TestUpdateEvent_Success(t *testing.T) {
 
 func TestDeleteEvent_Success(t *testing.T) {
 	mock := &mockRepository{
+		getByIDFn: func(ctx context.Context, id string) (*eventdomain.Event, error) {
+			return &eventdomain.Event{ID: id, Title: "Competition", CoachID: "coach-1"}, nil
+		},
 		deleteFn: func(ctx context.Context, id string) error { return nil },
 	}
 
 	svc := NewService(mock)
-	err := svc.DeleteEvent(context.Background(), "evt-1")
+	err := svc.DeleteEvent(context.Background(), "coach-1", "evt-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -274,7 +277,7 @@ func TestDeleteEvent_NotFound(t *testing.T) {
 	}
 
 	svc := NewService(mock)
-	err := svc.DeleteEvent(context.Background(), "nonexistent")
+	err := svc.DeleteEvent(context.Background(), "coach-1", "nonexistent")
 	if err == nil {
 		t.Fatal("expected error for nonexistent event")
 	}

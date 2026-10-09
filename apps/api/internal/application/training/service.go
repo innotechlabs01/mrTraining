@@ -479,7 +479,14 @@ func (s *Service) DeleteAssignedWorkout(ctx context.Context, id string) error {
 }
 
 // DeleteWorkoutTemplate deletes a workout template and its exercises.
-func (s *Service) DeleteWorkoutTemplate(ctx context.Context, id string) error {
+func (s *Service) DeleteWorkoutTemplate(ctx context.Context, coachID, id string) error {
+	existing, err := s.workoutRepo.GetTemplate(ctx, id)
+	if err != nil {
+		return err
+	}
+	if existing.CoachID != coachID {
+		return errors.Forbidden("you can only delete your own templates")
+	}
 	if err := s.workoutRepo.DeleteTemplate(ctx, id); err != nil {
 		return fmt.Errorf("delete workout template: %w", err)
 	}

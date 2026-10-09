@@ -189,13 +189,13 @@ func TestCreateProduct_DefaultThreshold(t *testing.T) {
 func TestUpdateProduct_Success(t *testing.T) {
 	mock := &mockRepository{
 		getByIDFn: func(ctx context.Context, id string) (*productdomain.Product, error) {
-			return &productdomain.Product{ID: id, Name: "Old Name", Price: 10.00}, nil
+			return &productdomain.Product{ID: id, Name: "Old Name", Price: 10.00, CoachID: "coach-1"}, nil
 		},
 		updateFn: func(ctx context.Context, product *productdomain.Product) error { return nil },
 	}
 
 	svc := NewService(mock)
-	product, err := svc.UpdateProduct(context.Background(), "prod-1", dto.UpdateProductRequest{
+	product, err := svc.UpdateProduct(context.Background(), "coach-1", "prod-1", dto.UpdateProductRequest{
 		Name:  "New Name",
 		Price: 25.00,
 	})
@@ -212,11 +212,14 @@ func TestUpdateProduct_Success(t *testing.T) {
 
 func TestDeleteProduct_Success(t *testing.T) {
 	mock := &mockRepository{
+		getByIDFn: func(ctx context.Context, id string) (*productdomain.Product, error) {
+			return &productdomain.Product{ID: id, Name: "Old Name", Price: 10.00, CoachID: "coach-1"}, nil
+		},
 		deleteFn: func(ctx context.Context, id string) error { return nil },
 	}
 
 	svc := NewService(mock)
-	err := svc.DeleteProduct(context.Background(), "prod-1")
+	err := svc.DeleteProduct(context.Background(), "coach-1", "prod-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -230,7 +233,7 @@ func TestDeleteProduct_NotFound(t *testing.T) {
 	}
 
 	svc := NewService(mock)
-	err := svc.DeleteProduct(context.Background(), "nonexistent")
+	err := svc.DeleteProduct(context.Background(), "coach-1", "nonexistent")
 	if err == nil {
 		t.Fatal("expected error for nonexistent product")
 	}

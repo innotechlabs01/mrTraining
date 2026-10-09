@@ -219,7 +219,8 @@ func main() {
 
 		// Wire User domain
 		userRepo := userinfrastructure.NewRepository(db.DB)
-		userService := userdomain.NewService(userRepo)
+		clerkIdentity := userinfrastructure.NewClerkClient(cfg.ClerkSecretKey)
+		userService := userdomain.NewService(userRepo, clerkIdentity)
 		userHandler := userhttp.NewUserHandler(userService)
 
 		// Register user routes

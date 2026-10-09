@@ -12,24 +12,54 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 )
 
+// IdentityProvider fetches identity data (email, name) from the auth
+// provider (Clerk Backend API). It is a port so tests can mock it.
+type IdentityProvider interface {
+	GetUser(ctx context.Context, userID string) (email, name string, err error)
+}
+
 // Service implements user-related business operations.
 // It depends on the user.Repository interface, making it testable with mocks.
 type Service struct {
-	repo user.Repository
+	repo     user.Repository
+	identity IdentityProvider
 }
 
 // NewService creates a new user application service with the given repository.
-func NewService(repo user.Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo user.Repository, identity IdentityProvider) *Service {
+	return &Service{repo: repo, identity: identity}
 }
 
 // GetCurrentUser returns the authenticated user's profile along with
 // the role-specific profile (coach or athlete). If the user has neither,
 // only the base user is returned.
-func (s *Service) GetCurrentUser(ctx context.Context, userID string) (*user.User, *user.Coach, *user.AthleteProfile, error) {
+//
+// Auto-provisioning (defense in depth): if the Clerk webhook missed the
+// user.created event and the base row or the role profile is missing, the
+// service seeds them from the auth provider so a newly registered coach or
+// athlete never lands on a broken dashboard. fallbackRole comes from the
+// verified JWT claims.
+func (s *Service) GetCurrentUser(ctx context.Context, userID, fallbackRole string) (*user.User, *user.Coach, *user.AthleteProfile, error) {
 	u, err := s.repo.GetByID(ctx, userID)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("get current user: %w", err)
+		appErr, ok := err.(*errors.AppError)
+		if !ok || appErr.Status != 404 || fallbackRole == "" {
+			return nil, nil, nil, fmt.Errorf("get current user: %w", err)
+		}
+		// Missing base row — provision from the identity provider.
+		email, name := "", ""
+		if s.identity != nil {
+			if e, n, ierr := s.identity.GetUser(ctx, userID); ierr == nil {
+				email, name = e, n
+			}
+		}
+		if perr := s.repo.EnsureUser(ctx, userID, email, name, fallbackRole); perr != nil {
+			return nil, nil, nil, fmt.Errorf("provision user: %w", perr)
+		}
+		u, err = s.repo.GetByID(ctx, userID)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("get current user after provision: %w", err)
+		}
 	}
 
 	var coach *user.Coach
@@ -39,13 +69,40 @@ func (s *Service) GetCurrentUser(ctx context.Context, userID string) (*user.User
 	case "coach":
 		coach, err = s.repo.GetCoach(ctx, userID)
 		if err != nil {
-			// Coach profile may not exist yet; don't fail the whole request
-			coach = nil
+			// Coach profile may not exist yet — provision it instead of
+			// leaving the coach on a broken dashboard.
+			email, name := u.Email, u.Name
+			if s.identity != nil {
+				if e, n, ierr := s.identity.GetUser(ctx, userID); ierr == nil {
+					email, name = e, n
+				}
+			}
+			if perr := s.repo.EnsureCoach(ctx, userID, email, name); perr == nil {
+				coach, err = s.repo.GetCoach(ctx, userID)
+				if err != nil {
+					coach = nil
+				}
+			} else {
+				coach = nil
+			}
 		}
 	case "athlete":
 		athlete, err = s.repo.GetAthleteProfile(ctx, userID)
 		if err != nil {
-			athlete = nil
+			email, name := u.Email, u.Name
+			if s.identity != nil {
+				if e, n, ierr := s.identity.GetUser(ctx, userID); ierr == nil {
+					email, name = e, n
+				}
+			}
+			if perr := s.repo.EnsureAthleteProfile(ctx, userID, email, name); perr == nil {
+				athlete, err = s.repo.GetAthleteProfile(ctx, userID)
+				if err != nil {
+					athlete = nil
+				}
+			} else {
+				athlete = nil
+			}
 		}
 	}
 

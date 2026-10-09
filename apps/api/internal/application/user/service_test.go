@@ -58,6 +58,27 @@ func (m *mockRepository) UpdateAthleteProfile(ctx context.Context, userID string
 	return m.updateAthleteProfileFn(ctx, userID, profile)
 }
 
+func (m *mockRepository) EnsureUser(ctx context.Context, id, email, name, role string) error {
+	return nil
+}
+
+func (m *mockRepository) EnsureCoach(ctx context.Context, userID, email, name string) error {
+	return nil
+}
+
+func (m *mockRepository) EnsureAthleteProfile(ctx context.Context, userID, email, name string) error {
+	return nil
+}
+
+func (m *mockRepository) CoachExists(ctx context.Context, userID string) (bool, error) {
+	return true, nil
+}
+
+func (m *mockRepository) AthleteProfileExists(ctx context.Context, userID string) (bool, error) {
+	return true, nil
+}
+
+
 func TestGetCurrentUser_Coach(t *testing.T) {
 	mock := &mockRepository{
 		getByIDFn: func(ctx context.Context, id string) (*userdomain.User, error) {
@@ -80,8 +101,8 @@ func TestGetCurrentUser_Coach(t *testing.T) {
 		},
 	}
 
-	svc := NewService(mock)
-	u, coach, athlete, err := svc.GetCurrentUser(context.Background(), "user-1")
+	svc := NewService(mock, nil)
+	u, coach, athlete, err := svc.GetCurrentUser(context.Background(), "user-1", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -123,8 +144,8 @@ func TestGetCurrentUser_Athlete(t *testing.T) {
 		},
 	}
 
-	svc := NewService(mock)
-	u, coach, athlete, err := svc.GetCurrentUser(context.Background(), "user-2")
+	svc := NewService(mock, nil)
+	u, coach, athlete, err := svc.GetCurrentUser(context.Background(), "user-2", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -150,8 +171,8 @@ func TestGetCurrentUser_NotFound(t *testing.T) {
 		},
 	}
 
-	svc := NewService(mock)
-	_, _, _, err := svc.GetCurrentUser(context.Background(), "nonexistent")
+	svc := NewService(mock, nil)
+	_, _, _, err := svc.GetCurrentUser(context.Background(), "nonexistent", "")
 	if err == nil {
 		t.Fatal("expected error for nonexistent user")
 	}
@@ -169,7 +190,7 @@ func TestUpdateProfile_Success(t *testing.T) {
 		},
 	}
 
-	svc := NewService(mock)
+	svc := NewService(mock, nil)
 	err := svc.UpdateProfile(context.Background(), "user-1", dto.UpdateProfileRequest{
 		Name:      "New Name",
 		AvatarURL: "https://example.com/avatar.jpg",
@@ -189,7 +210,7 @@ func TestUpdateProfile_UserNotFound(t *testing.T) {
 		},
 	}
 
-	svc := NewService(mock)
+	svc := NewService(mock, nil)
 	err := svc.UpdateProfile(context.Background(), "nonexistent", dto.UpdateProfileRequest{Name: "X"})
 	if err == nil {
 		t.Fatal("expected error for nonexistent user")
@@ -212,7 +233,7 @@ func TestUpdateAthleteProfile_Success(t *testing.T) {
 		},
 	}
 
-	svc := NewService(mock)
+	svc := NewService(mock, nil)
 	err := svc.UpdateAthleteProfile(context.Background(), "user-1", dto.UpdateAthleteRequest{
 		EmergencyContact: "Mom",
 		Modality:         "virtual",
@@ -254,7 +275,7 @@ func TestListCoaches_Pagination(t *testing.T) {
 		},
 	}
 
-	svc := NewService(mock)
+	svc := NewService(mock, nil)
 
 	// Page 1, limit 10
 	result, total, err := svc.ListCoaches(context.Background(), 1, 10)
@@ -288,7 +309,7 @@ func TestListCoaches_Empty(t *testing.T) {
 		},
 	}
 
-	svc := NewService(mock)
+	svc := NewService(mock, nil)
 	result, total, err := svc.ListCoaches(context.Background(), 1, 20)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -308,7 +329,7 @@ func TestGetUser_Success(t *testing.T) {
 		},
 	}
 
-	svc := NewService(mock)
+	svc := NewService(mock, nil)
 	u, err := svc.GetUser(context.Background(), "user-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -325,7 +346,7 @@ func TestGetUser_NotFound(t *testing.T) {
 		},
 	}
 
-	svc := NewService(mock)
+	svc := NewService(mock, nil)
 	_, err := svc.GetUser(context.Background(), "nonexistent")
 	if err == nil {
 		t.Fatal("expected error for nonexistent user")

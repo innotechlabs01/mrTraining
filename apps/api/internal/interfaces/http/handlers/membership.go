@@ -81,7 +81,12 @@ func (h *MembershipHandler) CancelMembership(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "membership ID is required")
 	}
 
-	if err := h.service.CancelMembership(c.Context(), id); err != nil {
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	if err := h.service.CancelMembership(c.Context(), coachID, id); err != nil {
 		return h.handleError(c, err)
 	}
 
@@ -96,7 +101,12 @@ func (h *MembershipHandler) RenewMembership(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "membership ID is required")
 	}
 
-	if err := h.service.RenewMembership(c.Context(), id); err != nil {
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	if err := h.service.RenewMembership(c.Context(), coachID, id); err != nil {
 		return h.handleError(c, err)
 	}
 

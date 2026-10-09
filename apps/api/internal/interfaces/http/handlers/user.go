@@ -36,7 +36,7 @@ func (h *UserHandler) GetCurrentUser(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	u, coach, athlete, err := h.service.GetCurrentUser(c.Context(), userID)
+	u, coach, athlete, err := h.service.GetCurrentUser(c.Context(), userID, middleware.GetUserRole(c))
 	if err != nil {
 		return h.handleError(c, err)
 	}

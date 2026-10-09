@@ -41,12 +41,22 @@ func (h *TrainingHandler) ListExercises(c *fiber.Ctx) error {
 		limit = 20
 	}
 
+	// Coach scoping: a coach must see the global library plus their own
+	// custom exercises. Derive it from the authenticated user instead of
+	// trusting a client-provided coach_id query param.
+	coachID := c.Query("coach_id")
+	if coachID == "" {
+		if role := middleware.GetUserRole(c); role == "coach" || role == "admin" || role == "super_admin" {
+			coachID = middleware.GetUserID(c)
+		}
+	}
+
 	filter := trainingdomain.ExerciseFilter{
 		BodyPart:   c.Query("body_part"),
 		Equipment:  c.Query("equipment"),
 		Difficulty: c.Query("difficulty"),
 		Search:     c.Query("search"),
-		CoachID:    c.Query("coach_id"),
+		CoachID:    coachID,
 	}
 
 	exercises, total, err := h.service.ListExercises(c.Context(), page, limit, filter)

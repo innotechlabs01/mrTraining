@@ -110,7 +110,7 @@ func (h *ProductHandler) UpdateProduct(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	product, err := h.service.UpdateProduct(c.Context(), id, req)
+	product, err := h.service.UpdateProduct(c.Context(), coachID, id, req)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -127,7 +127,12 @@ func (h *ProductHandler) DeleteProduct(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "product ID is required")
 	}
 
-	if err := h.service.DeleteProduct(c.Context(), id); err != nil {
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	if err := h.service.DeleteProduct(c.Context(), coachID, id); err != nil {
 		return h.handleError(c, err)
 	}
 

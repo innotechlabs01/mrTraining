@@ -93,9 +93,16 @@ func (s *Service) CreateMembership(ctx context.Context, req CreateRequest) (*dom
 }
 
 // CancelMembership sets the membership status to "cancelled".
-func (s *Service) CancelMembership(ctx context.Context, id string) error {
+func (s *Service) CancelMembership(ctx context.Context, coachID, id string) error {
 	if id == "" {
 		return errors.BadRequest("membership ID is required")
+	}
+	existing, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if existing.CoachID != coachID {
+		return errors.Forbidden("you can only cancel memberships of your own athletes")
 	}
 
 	if err := s.repo.Cancel(ctx, id); err != nil {
@@ -106,7 +113,7 @@ func (s *Service) CancelMembership(ctx context.Context, id string) error {
 }
 
 // RenewMembership extends the membership period by one billing cycle.
-func (s *Service) RenewMembership(ctx context.Context, id string) error {
+func (s *Service) RenewMembership(ctx context.Context, coachID, id string) error {
 	if id == "" {
 		return errors.BadRequest("membership ID is required")
 	}
@@ -114,6 +121,9 @@ func (s *Service) RenewMembership(ctx context.Context, id string) error {
 	m, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
+	}
+	if m.CoachID != coachID {
+		return errors.Forbidden("you can only renew memberships of your own athletes")
 	}
 
 	newPeriodStart := m.CurrentPeriodEnd
