@@ -1,0 +1,29 @@
+name: Coach Sign In (credentials from e2e/credentials.env)
+url: http://localhost:3000/sign-in
+tags:
+  - web
+  - auth
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Iniciar Sesión"
+    timeout: 30000
+- tapOn:
+    text: "Correo electrónico"
+- inputText: ${COACH_EMAIL}
+- tapOn:
+    text: "Continuar"
+- extendedWaitUntil:
+    visible: "Contraseña"
+    timeout: 15000
+- tapOn:
+    text: "Contraseña"
+- inputText: ${COACH_PASSWORD}
+- tapOn:
+    text: "Continuar"
+- extendedWaitUntil:
+    visible: "Dashboard|Coach|Atletas"
+    timeout: 30000
+- assertNotVisible: "Unhandled Runtime Error"
+- takeScreenshot: coach_signin_success

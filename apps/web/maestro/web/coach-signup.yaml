@@ -1,0 +1,38 @@
+name: Coach Sign Up (email -> verification code -> password)
+url: http://localhost:3000/sign-up
+tags:
+  - web
+  - auth
+  - signup
+---
+# Prerequisite: CAPTCHA must be disabled in the Clerk dev instance
+# (Dashboard -> Configure -> Attack protection) for automated runs.
+# signUp.create happens on Continue; validate the created user via
+# Clerk BAPI: GET /v1/users?email_address=<email>
+- launchApp: {}
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 30000
+- tapOn:
+    css: "input[type='email']"
+- inputText: ${SIGNUP_EMAIL}
+- tapOn: "Continue"
+- extendedWaitUntil:
+    visible: "verification code sent"
+    timeout: 20000
+# The 6-digit code is delivered to the Clerk dev email preview.
+# Pass it via SIGNUP_CODE to complete verification automatically.
+- tapOn:
+    css: "input[inputmode='numeric']"
+- inputText: ${SIGNUP_CODE}
+- extendedWaitUntil:
+    visible: "Create a password|Create your account"
+    timeout: 20000
+- tapOn:
+    css: "input[type='password']"
+- inputText: ${SIGNUP_PASSWORD}
+- tapOn: "Create Account"
+- extendedWaitUntil:
+    visible: "Coach|Dashboard|Atletas"
+    timeout: 30000
+- takeScreenshot: coach_signup_success

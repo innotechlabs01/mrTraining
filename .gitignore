@@ -36,3 +36,6 @@ next-env.d.ts
 
 # Local dev databases
 apps/web/local.db
+
+# E2E Maestro credentials (real values — never commit)
+e2e/credentials.env
