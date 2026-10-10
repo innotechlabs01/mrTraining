@@ -24,6 +24,8 @@ type mockRepository struct {
 	setListItemsFn              func(ctx context.Context, eventID string, items []string) error
 	getFormResponsesFn          func(ctx context.Context, eventID, athleteID string) ([]eventdomain.EventFormResponse, error)
 	saveFormResponsesFn         func(ctx context.Context, eventID, athleteID string, responses []eventdomain.EventFormResponse) error
+	listRegistrationsByEventFn  func(ctx context.Context, eventID string) ([]*eventdomain.EventRegistration, error)
+	listFormResponsesByEventFn  func(ctx context.Context, eventID string) ([]eventdomain.EventFormResponse, error)
 }
 
 func (m *mockRepository) ListByCoach(ctx context.Context, coachID string) ([]*eventdomain.Event, error) {
@@ -56,6 +58,20 @@ func (m *mockRepository) UpsertRegistration(ctx context.Context, reg *eventdomai
 
 func (m *mockRepository) ListRegistrationsByAthlete(ctx context.Context, athleteID string) ([]*eventdomain.Event, error) {
 	return m.listRegistrationsByAthleteFn(ctx, athleteID)
+}
+
+func (m *mockRepository) ListRegistrationsByEvent(ctx context.Context, eventID string) ([]*eventdomain.EventRegistration, error) {
+	if m.listRegistrationsByEventFn != nil {
+		return m.listRegistrationsByEventFn(ctx, eventID)
+	}
+	return []*eventdomain.EventRegistration{}, nil
+}
+
+func (m *mockRepository) ListFormResponsesByEvent(ctx context.Context, eventID string) ([]eventdomain.EventFormResponse, error) {
+	if m.listFormResponsesByEventFn != nil {
+		return m.listFormResponsesByEventFn(ctx, eventID)
+	}
+	return []eventdomain.EventFormResponse{}, nil
 }
 
 func (m *mockRepository) SetAthletes(ctx context.Context, eventID string, athleteIDs []string) error {
@@ -271,6 +287,9 @@ func TestDeleteEvent_Success(t *testing.T) {
 
 func TestDeleteEvent_NotFound(t *testing.T) {
 	mock := &mockRepository{
+		getByIDFn: func(ctx context.Context, id string) (*eventdomain.Event, error) {
+			return nil, errors.NotFound("Event", id)
+		},
 		deleteFn: func(ctx context.Context, id string) error {
 			return errors.NotFound("Event", id)
 		},
@@ -280,6 +299,116 @@ func TestDeleteEvent_NotFound(t *testing.T) {
 	err := svc.DeleteEvent(context.Background(), "coach-1", "nonexistent")
 	if err == nil {
 		t.Fatal("expected error for nonexistent event")
+	}
+}
+
+func TestRsvpPublic_Success(t *testing.T) {
+	var upserted *eventdomain.EventRegistration
+	mock := &mockRepository{
+		getByIDFn: func(ctx context.Context, id string) (*eventdomain.Event, error) {
+			return &eventdomain.Event{ID: id, CoachID: "coach-1", IsPublic: true, Date: "2099-01-01", Status: "scheduled"}, nil
+		},
+		upsertRegistrationFn: func(ctx context.Context, reg *eventdomain.EventRegistration) error {
+			upserted = reg
+			return nil
+		},
+		saveFormResponsesFn: func(ctx context.Context, eventID, athleteID string, responses []eventdomain.EventFormResponse) error {
+			return nil
+		},
+		getRegistrationFn: func(ctx context.Context, eventID, athleteID string) (*eventdomain.EventRegistration, error) {
+			return upserted, nil
+		},
+	}
+
+	svc := NewService(mock)
+	reg, err := svc.RsvpPublic(context.Background(), "evt-1", "tok-123", "accepted", []AnswerInput{{FieldID: "name", Value: "Ana"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if reg.AthleteID != "anon:tok-123" {
+		t.Fatalf("expected anon:tok-123 athlete id, got %s", reg.AthleteID)
+	}
+	if reg.Status != "accepted" {
+		t.Fatalf("expected accepted, got %s", reg.Status)
+	}
+}
+
+func TestRsvpPublic_RejectsPrivateEvent(t *testing.T) {
+	mock := &mockRepository{
+		getByIDFn: func(ctx context.Context, id string) (*eventdomain.Event, error) {
+			return &eventdomain.Event{ID: id, IsPublic: false, Date: "2099-01-01"}, nil
+		},
+	}
+	svc := NewService(mock)
+	if _, err := svc.RsvpPublic(context.Background(), "evt-1", "tok-1", "accepted", nil); err == nil {
+		t.Fatal("expected error for private event")
+	}
+}
+
+func TestRsvpPublic_RejectsEndedEvent(t *testing.T) {
+	mock := &mockRepository{
+		getByIDFn: func(ctx context.Context, id string) (*eventdomain.Event, error) {
+			return &eventdomain.Event{ID: id, IsPublic: true, Date: "2020-01-01", Time: "08:00", EndTime: "09:00", Status: "scheduled"}, nil
+		},
+	}
+	svc := NewService(mock)
+	if _, err := svc.RsvpPublic(context.Background(), "evt-1", "tok-1", "accepted", nil); err == nil {
+		t.Fatal("expected conflict for ended event")
+	}
+}
+
+func TestRsvpPublic_RejectsCancelledEvent(t *testing.T) {
+	mock := &mockRepository{
+		getByIDFn: func(ctx context.Context, id string) (*eventdomain.Event, error) {
+			return &eventdomain.Event{ID: id, IsPublic: true, Date: "2099-01-01", Status: "cancelled"}, nil
+		},
+	}
+	svc := NewService(mock)
+	if _, err := svc.RsvpPublic(context.Background(), "evt-1", "tok-1", "accepted", nil); err == nil {
+		t.Fatal("expected conflict for cancelled event")
+	}
+}
+
+func TestListRegistrationsByEvent_Success(t *testing.T) {
+	mock := &mockRepository{
+		getByIDFn: func(ctx context.Context, id string) (*eventdomain.Event, error) {
+			return &eventdomain.Event{ID: id, Title: "Competition", CoachID: "coach-1"}, nil
+		},
+		listRegistrationsByEventFn: func(ctx context.Context, eventID string) ([]*eventdomain.EventRegistration, error) {
+			return []*eventdomain.EventRegistration{
+				{ID: "r1", EventID: eventID, AthleteID: "ath-1", Status: "accepted"},
+				{ID: "r2", EventID: eventID, AthleteID: "ath-2", Status: "cancelled"},
+			}, nil
+		},
+	}
+
+	svc := NewService(mock)
+	regs, err := svc.ListRegistrationsByEvent(context.Background(), "coach-1", "evt-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(regs) != 2 {
+		t.Fatalf("expected 2 registrations, got %d", len(regs))
+	}
+	if regs[0].Status != "accepted" || regs[1].Status != "cancelled" {
+		t.Fatalf("unexpected statuses: %s, %s", regs[0].Status, regs[1].Status)
+	}
+}
+
+func TestListRegistrationsByEvent_Forbidden(t *testing.T) {
+	mock := &mockRepository{
+		getByIDFn: func(ctx context.Context, id string) (*eventdomain.Event, error) {
+			return &eventdomain.Event{ID: id, CoachID: "another-coach"}, nil
+		},
+		listRegistrationsByEventFn: func(ctx context.Context, eventID string) ([]*eventdomain.EventRegistration, error) {
+			t.Fatal("repo must not be called for a foreign event")
+			return nil, nil
+		},
+	}
+
+	svc := NewService(mock)
+	if _, err := svc.ListRegistrationsByEvent(context.Background(), "coach-1", "evt-1"); err == nil {
+		t.Fatal("expected forbidden error for event owned by another coach")
 	}
 }
 

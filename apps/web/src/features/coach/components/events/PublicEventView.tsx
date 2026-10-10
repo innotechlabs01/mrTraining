@@ -1,8 +1,10 @@
 'use client';
 
-import { MapPin, Clock, Users } from 'lucide-react';
+import { MapPin, Clock, Users, Lock } from 'lucide-react';
 import type { CoachEvent } from '@/features/coach/types';
+import { isEventExpired } from '@/features/coach/utils/eventExpiry';
 import { EventFormatBody } from './EventFormatBody';
+import { EventRsvp } from './EventRsvp';
 import { usePublicPageConfig } from '@/features/coach/hooks/usePublicPageConfig';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -20,6 +22,8 @@ const FORMAT_LABELS: Record<string, string> = {
 
 export function PublicEventView({ event }: { event: CoachEvent }) {
   const { config } = usePublicPageConfig();
+
+  const closed = isEventExpired(event) || event.status === 'cancelled';
 
   return (
     <div className="min-h-[70vh] bg-[#0a0a0a] flex items-center justify-center p-4">
@@ -55,8 +59,24 @@ export function PublicEventView({ event }: { event: CoachEvent }) {
             <p className="mt-4 rounded-lg bg-surface-2 border border-white/5 px-3 py-2 text-xs text-white/70">{config.welcomeMessage}</p>
           )}
 
+          {/* Lista/running show their content; formulario's real fields live in EventRsvp below. */}
+          {(event.format === 'lista' || event.format === 'running') && (
+            <div className="mt-5 pt-4 border-t border-white/10">
+              <EventFormatBody event={event} hideRegistrationForm />
+            </div>
+          )}
+
           <div className="mt-5 pt-4 border-t border-white/10">
-            <EventFormatBody event={event} />
+            {closed ? (
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-surface-2 px-4 py-3 text-xs text-white/50">
+                <Lock className="w-4 h-4 shrink-0" />
+                {event.status === 'cancelled'
+                  ? 'Este evento fue cancelado. Las inscripciones están cerradas.'
+                  : 'Las inscripciones para este evento están cerradas.'}
+              </div>
+            ) : (
+              <EventRsvp event={event} />
+            )}
           </div>
         </div>
         <p className="text-center text-[10px] text-white/30 mt-3">{config.footerText}</p>

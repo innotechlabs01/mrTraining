@@ -34,6 +34,9 @@ type Repository interface {
 	// ListRegistrationsByAthlete retrieves all events an athlete is registered for.
 	ListRegistrationsByAthlete(ctx context.Context, athleteID string) ([]*Event, error)
 
+	// ListRegistrationsByEvent retrieves all registrations for an event, ordered by creation.
+	ListRegistrationsByEvent(ctx context.Context, eventID string) ([]*EventRegistration, error)
+
 	// SetAthletes replaces the athlete list for an event.
 	SetAthletes(ctx context.Context, eventID string, athleteIDs []string) error
 
@@ -48,4 +51,7 @@ type Repository interface {
 
 	// SaveFormResponses replaces an athlete's form responses for an event.
 	SaveFormResponses(ctx context.Context, eventID, athleteID string, responses []EventFormResponse) error
+
+	// ListFormResponsesByEvent retrieves all form responses for an event (coach view).
+	ListFormResponsesByEvent(ctx context.Context, eventID string) ([]EventFormResponse, error)
 }

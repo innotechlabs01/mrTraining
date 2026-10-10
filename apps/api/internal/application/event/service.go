@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -42,6 +44,32 @@ func (s *Service) GetEvent(ctx context.Context, id string) (*eventdomain.Event, 
 		return nil, fmt.Errorf("get event: %w", err)
 	}
 	return event, nil
+}
+
+// ListRegistrationsByEvent returns all registrations for an event.
+// Only the coach who owns the event may read them.
+func (s *Service) ListRegistrationsByEvent(ctx context.Context, coachID, eventID string) ([]*eventdomain.EventRegistration, error) {
+	if err := ownershipCheck(ctx, s.repo, eventID, coachID); err != nil {
+		return nil, err
+	}
+	regs, err := s.repo.ListRegistrationsByEvent(ctx, eventID)
+	if err != nil {
+		return nil, fmt.Errorf("list registrations by event: %w", err)
+	}
+	return regs, nil
+}
+
+// ListFormResponsesByEvent returns all form responses for an event.
+// Only the coach who owns the event may read them.
+func (s *Service) ListFormResponsesByEvent(ctx context.Context, coachID, eventID string) ([]eventdomain.EventFormResponse, error) {
+	if err := ownershipCheck(ctx, s.repo, eventID, coachID); err != nil {
+		return nil, err
+	}
+	responses, err := s.repo.ListFormResponsesByEvent(ctx, eventID)
+	if err != nil {
+		return nil, fmt.Errorf("list form responses by event: %w", err)
+	}
+	return responses, nil
 }
 
 // CreateEvent creates a new event. Only coaches can create events.
@@ -355,6 +383,84 @@ func (s *Service) RespondToEvent(ctx context.Context, eventID, athleteID, status
 	}
 
 	// Re-read so the returned registration has DB timestamps.
+	if saved, err := s.repo.GetRegistration(ctx, eventID, athleteID); err == nil {
+		return saved, nil
+	}
+	return reg, nil
+}
+
+// eventEnded reports whether the event's end moment is in the past.
+func eventEnded(event *eventdomain.Event) bool {
+	if event.Date == "" {
+		return false
+	}
+	end := event.Date + "T23:59:59"
+	if t := strings.TrimSpace(event.EndTime); t != "" {
+		end = event.Date + "T" + t + ":00"
+	}
+	parsed, err := time.ParseInLocation("2006-01-02T15:04:05", end, time.Local)
+	if err != nil {
+		return false
+	}
+	return parsed.Before(time.Now())
+}
+
+// RsvpPublic accepts or cancels an anonymous RSVP from the public event link.
+// The attendee is identified by a client-held token (stored as "anon:<token>").
+// Only public, not-cancelled, not-ended events accept RSVPs.
+func (s *Service) RsvpPublic(ctx context.Context, eventID, token, status string, answers []AnswerInput) (*eventdomain.EventRegistration, error) {
+	if status != "accepted" && status != "cancelled" {
+		return nil, apperrors.BadRequest("status must be 'accepted' or 'cancelled'")
+	}
+	if strings.TrimSpace(token) == "" {
+		return nil, apperrors.BadRequest("token is required")
+	}
+
+	event, err := s.repo.GetByID(ctx, eventID)
+	if err != nil {
+		return nil, err
+	}
+	if !event.IsPublic {
+		return nil, apperrors.Forbidden("event is not open for public registration")
+	}
+	if event.Status == "cancelled" {
+		return nil, apperrors.Conflict("event was cancelled")
+	}
+	if eventEnded(event) {
+		return nil, apperrors.Conflict("event has already ended")
+	}
+
+	athleteID := "anon:" + strings.TrimSpace(token)
+	reg := &eventdomain.EventRegistration{
+		ID:        uuid.New().String(),
+		EventID:   eventID,
+		AthleteID: athleteID,
+		Status:    status,
+	}
+	if err := s.repo.UpsertRegistration(ctx, reg); err != nil {
+		return nil, fmt.Errorf("public rsvp: %w", err)
+	}
+
+	if status == "accepted" {
+		responses := make([]eventdomain.EventFormResponse, 0, len(answers))
+		for _, a := range answers {
+			if a.FieldID == "" {
+				continue
+			}
+			responses = append(responses, eventdomain.EventFormResponse{
+				EventID:   eventID,
+				AthleteID: athleteID,
+				FieldID:   a.FieldID,
+				Value:     a.Value,
+			})
+		}
+		if len(responses) > 0 {
+			if err := s.repo.SaveFormResponses(ctx, eventID, athleteID, responses); err != nil {
+				return nil, fmt.Errorf("save public rsvp responses: %w", err)
+			}
+		}
+	}
+
 	if saved, err := s.repo.GetRegistration(ctx, eventID, athleteID); err == nil {
 		return saved, nil
 	}

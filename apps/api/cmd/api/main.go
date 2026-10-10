@@ -253,6 +253,11 @@ func main() {
 		// Register event routes
 		routes.RegisterEventRoutes(api, eventHandler)
 
+		// Public event routes (share link): registered OUTSIDE the /api/v1
+		// prefix so the Clerk RequireAuth group middleware does not intercept
+		// anonymous visitors viewing a public event and confirming attendance.
+		routes.RegisterPublicEventRoutes(app.Group("/public"), eventHandler)
+
 		// Wire Product domain
 		productRepo := productinfrastructure.NewRepository(db.DB)
 		productService := productapp.NewService(productRepo)

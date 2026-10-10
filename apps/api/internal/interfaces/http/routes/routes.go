@@ -96,6 +96,8 @@ func RegisterEventRoutes(api fiber.Router, handler *handlers.EventHandler) {
 	// Events (coach)
 	api.Get("/events", middleware.Cache(5*time.Minute, "events"), handler.ListEvents)
 	api.Get("/events/:id", middleware.Cache(5*time.Minute, "events"), handler.GetEvent)
+	api.Get("/events/:id/registrations", middleware.RequireCoach(), handler.ListEventRegistrations)
+	api.Get("/events/:id/form-responses", middleware.RequireCoach(), handler.ListEventFormResponses)
 	api.Post("/events", middleware.RequireCoach(), handler.CreateEvent)
 	api.Put("/events/:id", middleware.RequireCoach(), handler.UpdateEvent)
 	api.Delete("/events/:id", middleware.RequireCoach(), handler.DeleteEvent)
@@ -396,4 +398,12 @@ func RegisterChallengeRoutes(api fiber.Router, handler *handlers.ChallengeHandle
 	api.Get("/athlete/community/challenges", middleware.RequireAthlete(), handler.ListAthleteChallenges)
 	api.Get("/athlete/community/challenges/:id", middleware.RequireAthlete(), handler.GetChallenge)
 	api.Post("/athlete/community/challenges/:id/join", middleware.RequireAthlete(), handler.JoinChallenge)
+}
+
+// RegisterPublicEventRoutes registers unauthenticated public event routes.
+// These live outside the Clerk-protected /api/v1 group so anonymous
+// visitors with a share link can view a public event and RSVP.
+func RegisterPublicEventRoutes(api fiber.Router, handler *handlers.EventHandler) {
+	api.Get("/events/:id", handler.GetPublicEvent)
+	api.Post("/events/:id/rsvp", handler.RsvpEventPublic)
 }

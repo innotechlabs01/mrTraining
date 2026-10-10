@@ -114,3 +114,13 @@ type EventRegistrationResponse struct {
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
 }
+
+// EventFormResponse represents one submitted form answer for an event.
+type EventFormResponse struct {
+	ID        string `json:"id"`
+	EventID   string `json:"event_id"`
+	AthleteID string `json:"athlete_id"`
+	FieldID   string `json:"field_id"`
+	Value     string `json:"value"`
+	CreatedAt string `json:"created_at,omitempty"`
+}

@@ -227,6 +227,9 @@ func TestDeleteProduct_Success(t *testing.T) {
 
 func TestDeleteProduct_NotFound(t *testing.T) {
 	mock := &mockRepository{
+		getByIDFn: func(ctx context.Context, id string) (*productdomain.Product, error) {
+			return nil, errors.NotFound("Product", id)
+		},
 		deleteFn: func(ctx context.Context, id string) error {
 			return errors.NotFound("Product", id)
 		},

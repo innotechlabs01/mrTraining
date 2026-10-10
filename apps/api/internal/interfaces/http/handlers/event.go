@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 
 	eventapp "github.com/innotechlabs01/mr-training-api/internal/application/event"
 	eventdomain "github.com/innotechlabs01/mr-training-api/internal/domain/event"
@@ -64,6 +65,153 @@ func (h *EventHandler) GetEvent(c *fiber.Ctx) error {
 	}
 
 	return appresponse.Success(c, toEventResponse(event))
+}
+
+// ListEventRegistrations handles GET /events/:id/registrations.
+// Returns all registrations for an event. Requires coach role and
+// ownership of the event.
+func (h *EventHandler) ListEventRegistrations(c *fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "event ID is required")
+	}
+
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	regs, err := h.service.ListRegistrationsByEvent(c.Context(), coachID, id)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	responses := make([]dto.EventRegistrationResponse, len(regs))
+	for i, r := range regs {
+		responses[i] = dto.EventRegistrationResponse{
+			ID:        r.ID,
+			EventID:   r.EventID,
+			AthleteID: r.AthleteID,
+			Status:    r.Status,
+			CreatedAt: r.CreatedAt,
+			UpdatedAt: r.UpdatedAt,
+		}
+	}
+
+	return appresponse.Success(c, dto.ListResponse[dto.EventRegistrationResponse]{
+		Data:  responses,
+		Total: len(responses),
+		Page:  1,
+		Limit: len(responses),
+	})
+}
+
+// ListEventFormResponses handles GET /events/:id/form-responses.
+// Returns all form responses for an event (coach view). Requires coach role
+// and ownership of the event.
+func (h *EventHandler) ListEventFormResponses(c *fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "event ID is required")
+	}
+
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	responses, err := h.service.ListFormResponsesByEvent(c.Context(), coachID, id)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	out := make([]dto.EventFormResponse, len(responses))
+	for i, r := range responses {
+		out[i] = dto.EventFormResponse{
+			ID:        r.ID,
+			EventID:   r.EventID,
+			AthleteID: r.AthleteID,
+			FieldID:   r.FieldID,
+			Value:     r.Value,
+			CreatedAt: r.CreatedAt,
+		}
+	}
+
+	return appresponse.Success(c, dto.ListResponse[dto.EventFormResponse]{
+		Data:  out,
+		Total: len(out),
+		Page:  1,
+		Limit: len(out),
+	})
+}
+
+// GetPublicEvent handles GET /api/v1/public/events/:id.
+// Anonymous share-link access: only public events are returned and the
+// coach ID is stripped from the payload.
+func (h *EventHandler) GetPublicEvent(c *fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "event ID is required")
+	}
+
+	event, err := h.service.GetEvent(c.Context(), id)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	if !event.IsPublic {
+		return errors.NotFound("Event", id)
+	}
+
+	resp := toEventResponse(event)
+	resp.CoachID = ""
+	return appresponse.Success(c, resp)
+}
+
+// RsvpEventPublic handles POST /api/v1/public/events/:id/rsvp.
+// Anonymous attendees confirm or cancel attendance via the share link.
+// The request is identified by a client-held token; when absent, one is
+// generated and returned. Identity fields (name/email/phone) and custom
+// form answers are stored as form responses.
+func (h *EventHandler) RsvpEventPublic(c *fiber.Ctx) error {
+	eventID := c.Params("id")
+	if eventID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "event ID is required")
+	}
+
+	var body struct {
+		Token   string                 `json:"token"`
+		Status  string                 `json:"status"`
+		Name    string                 `json:"name"`
+		Email   string                 `json:"email"`
+		Phone   string                 `json:"phone"`
+		Answers []eventapp.AnswerInput `json:"answers"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	token := strings.TrimSpace(body.Token)
+	if token == "" {
+		token = uuid.New().String()
+	}
+
+	answers := append([]eventapp.AnswerInput{}, body.Answers...)
+	for _, a := range []struct{ id, value string }{
+		{"name", body.Name},
+		{"email", body.Email},
+		{"phone", body.Phone},
+	} {
+		if strings.TrimSpace(a.value) != "" {
+			answers = append(answers, eventapp.AnswerInput{FieldID: a.id, Value: a.value})
+		}
+	}
+
+	reg, err := h.service.RsvpPublic(c.Context(), eventID, token, body.Status, answers)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, fiber.Map{"token": token, "status": reg.Status})
 }
 
 // CreateEvent handles POST /events.

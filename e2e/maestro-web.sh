@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Runs Maestro web (chromium) flows with credentials from e2e/credentials.env.
+# Web flows use `url:` in the flow config (not appId:) — platform is auto-detected.
 # Maestro does NOT inherit shell env — every var is forwarded via -e flags.
 # Usage: ./e2e/maestro-web.sh <flow-file-or-dir> [extra maestro args]
+#   e.g. ./e2e/maestro-web.sh e2e/public-event-rsvp.yaml --headless
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -26,4 +28,4 @@ if [ $# -eq 0 ]; then
   exit 1
 fi
 
-exec maestro test --udid chromium "${MAESTRO_ENV_ARGS[@]}" "$@"
+exec maestro test "${MAESTRO_ENV_ARGS[@]}" "$@"

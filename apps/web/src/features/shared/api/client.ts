@@ -435,14 +435,65 @@ export const coachingApi = {
     goFetch<{ ok: boolean }>(`/api/v1/events/${id}`, { method: 'DELETE' }).catch(() =>
       coachingFetch.delete<{ ok: boolean }>(`${COACHING_BASE}/events/${id}`)
     ),
-  // Event RSVP — Go API
-  rsvpEvent: (eventId: string, data: { token?: string; status: 'accepted' | 'cancelled'; name?: string; email?: string; phone?: string }) =>
-    // Go API: POST /api/v1/events/:id/rsvp
-    goFetch<{ token: string; status: string }>(`/api/v1/events/${eventId}/rsvp`, {
+  getEventRegistrations: (eventId: string) =>
+    // Go API: GET /api/v1/events/:id/registrations (coach-scoped)
+    goFetch<{
+      data?: Array<{
+        id: string
+        event_id: string
+        athlete_id: string
+        status: string
+        created_at: string
+        updated_at: string
+      }>
+    }>(`/api/v1/events/${eventId}/registrations`).then((res) =>
+      (res.data ?? []).map((r) => ({
+        id: r.id,
+        eventId: r.event_id,
+        athleteId: r.athlete_id,
+        status: r.status as 'accepted' | 'cancelled',
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      })),
+    ),
+  // Event RSVP — public share-link endpoints (no auth; outside /api/v1)
+  getPublicEvent: (id: string) =>
+    // Go API: GET /public/events/:id (public events only)
+    goFetch<GoEvent>(`/public/events/${id}`, { auth: false }).then(mapGoEvent),
+  rsvpEvent: (eventId: string, data: {
+    token?: string;
+    status: 'accepted' | 'cancelled';
+    name?: string;
+    email?: string;
+    phone?: string;
+    answers?: Array<{ field_id: string; value: string }>;
+  }) =>
+    // Go API: POST /public/events/:id/rsvp
+    goFetch<{ token: string; status: string }>(`/public/events/${eventId}/rsvp`, {
+      auth: false,
       method: 'POST',
       body: JSON.stringify(data),
-    }).catch(() =>
-      coachingFetch.post<{ token: string; status: string }>(`${COACHING_BASE}/events/${eventId}/rsvp`, data)
+    }),
+  getEventFormResponses: (eventId: string) =>
+    // Go API: GET /api/v1/events/:id/form-responses (coach-scoped)
+    goFetch<{
+      data?: Array<{
+        id: string
+        event_id: string
+        athlete_id: string
+        field_id: string
+        value: string
+        created_at?: string
+      }>
+    }>(`/api/v1/events/${eventId}/form-responses`).then((res) =>
+      (res.data ?? []).map((r) => ({
+        id: r.id,
+        eventId: r.event_id,
+        athleteId: r.athlete_id,
+        fieldId: r.field_id,
+        value: r.value,
+        createdAt: r.created_at ?? '',
+      })),
     ),
 
   // Plans (not in Go API yet — Next.js fallback)

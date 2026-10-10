@@ -1,13 +1,16 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { motion } from 'framer-motion'
-import { Plus, MapPin, Users, Pencil, ListChecks, FileText, Footprints } from 'lucide-react'
+import { Plus, MapPin, Users, Pencil, ListChecks, FileText, Footprints, BarChart3, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CoachEvent, EventFormat } from '@/features/coach/types'
 import { useEvents } from '@/features/coach/hooks/useEvents'
+import { isEventExpired } from '@/features/coach/utils/eventExpiry'
 import { EventModal } from '@/features/coach/components/events/EventModal'
 import { EventDetailModal } from '@/features/coach/components/events/EventDetailModal'
+import { EventStatsModal } from '@/features/coach/components/events/EventStatsModal'
 
 const TYPE_LABELS: Record<string, string> = {
   competition: 'Competencia',
@@ -23,9 +26,13 @@ const TYPE_COLORS: Record<string, string> = {
   evaluacion: 'bg-purple-500/10 text-purple-400',
   other: 'bg-white/10 text-white/50',
 }
+// Status is only surfaced for exceptional states — a normal upcoming event
+// needs no badge (scheduled is the default, confirmed lives on registrations).
+const STATUS_LABELS: Record<string, string> = {
+  completed: 'Completado',
+  cancelled: 'Cancelado',
+}
 const STATUS_COLORS: Record<string, string> = {
-  scheduled: 'bg-amber-500/10 text-amber-400',
-  confirmed: 'bg-green-500/10 text-green-400',
   completed: 'bg-blue-500/10 text-blue-400',
   cancelled: 'bg-red-500/10 text-red-400',
 }
@@ -51,24 +58,52 @@ const FORMAT_FILTERS: { label: string; value: EventFormat | 'all' }[] = [
 
 export default function CoachEventsPage() {
   const { events, addEvent, updateEvent, deleteEvent } = useEvents()
+  const [tab, setTab] = useState<'active' | 'expired'>('active')
   const [typeFilter, setTypeFilter] = useState('all')
   const [formatFilter, setFormatFilter] = useState<EventFormat | 'all'>('all')
   const [editing, setEditing] = useState<CoachEvent | null>(null)
   const [showNew, setShowNew] = useState(false)
   const [detail, setDetail] = useState<CoachEvent | null>(null)
+  const [statsEvent, setStatsEvent] = useState<CoachEvent | null>(null)
 
-  const filtered = events.filter(
+  const activeEvents = events.filter((e) => !isEventExpired(e))
+  const expiredEvents = events.filter((e) => isEventExpired(e))
+  const tabEvents = tab === 'active' ? activeEvents : expiredEvents
+
+  const filtered = tabEvents.filter(
     (e) => (typeFilter === 'all' || e.type === typeFilter) && (formatFilter === 'all' || (e.format ?? 'lista') === formatFilter),
   )
 
   const handleSave = (event: CoachEvent) => {
     if (events.find(e => e.id === event.id)) {
       updateEvent(event.id, event)
+      toast.success('Evento actualizado')
     } else {
       addEvent(event)
+      toast.success('Evento creado')
     }
     setEditing(null)
     setShowNew(false)
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteEvent(id)
+      toast.success('Evento eliminado')
+    } catch {
+      toast.error('No se pudo eliminar el evento. Inténtalo de nuevo.')
+    }
+    setDetail(null)
+  }
+
+  const handleCancel = async (event: CoachEvent) => {
+    try {
+      await updateEvent(event.id, { ...event, status: 'cancelled' })
+      toast.success('Evento cancelado')
+      setDetail({ ...event, status: 'cancelled' })
+    } catch {
+      toast.error('No se pudo cancelar el evento. Inténtalo de nuevo.')
+    }
   }
 
   const handleTogglePublic = (id: string) => {
@@ -78,6 +113,11 @@ export default function CoachEventsPage() {
     updateEvent(id, updated)
     setDetail(updated)
   }
+
+  const TABS = [
+    { key: 'active' as const, label: 'Activos', count: activeEvents.length },
+    { key: 'expired' as const, label: 'Vencidos', count: expiredEvents.length },
+  ]
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -93,6 +133,30 @@ export default function CoachEventsPage() {
           <Plus size={16} />
           Nuevo Evento
         </button>
+      </div>
+
+      <div className="flex items-center gap-2 border-b border-white/5 pb-0">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={cn(
+              'relative px-3 py-2 text-xs font-medium transition-colors',
+              tab === t.key ? 'text-white' : 'text-white/40 hover:text-white/70',
+            )}
+          >
+            {t.label}
+            <span className={cn(
+              'ml-1.5 px-1.5 py-0.5 rounded text-[10px]',
+              tab === t.key ? 'bg-brand-primary/15 text-brand-primary' : 'bg-white/5 text-white/40',
+            )}>
+              {t.count}
+            </span>
+            {tab === t.key && (
+              <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-brand-primary rounded" />
+            )}
+          </button>
+        ))}
       </div>
 
       <div className="space-y-2">
@@ -130,7 +194,8 @@ export default function CoachEventsPage() {
         {filtered.map((event, i) => {
           const fmt = FORMAT_META[event.format ?? 'lista']
           const Icon = fmt.icon
-          const [y, m, d] = event.date.split('-')
+          const expired = isEventExpired(event)
+          const [, m, d] = event.date.split('-')
           return (
             <motion.div
               key={event.id}
@@ -141,6 +206,7 @@ export default function CoachEventsPage() {
               className={cn(
                 'relative rounded-2xl border border-white/5 bg-surface-1 p-4 pl-5 hover:border-white/10 transition-all cursor-pointer border-l-2',
                 fmt.accent,
+                expired && 'opacity-60 hover:opacity-100',
               )}
             >
               <div className="flex items-start justify-between gap-3">
@@ -155,6 +221,12 @@ export default function CoachEventsPage() {
                       {event.time} - {event.endTime}
                     </p>
                     <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                      {expired && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-red-500/10 text-red-400">
+                          <Clock className="w-3 h-3" />
+                          Vencido
+                        </span>
+                      )}
                       <span className={cn('px-2 py-0.5 rounded text-[10px] font-medium', TYPE_COLORS[event.type])}>
                         {TYPE_LABELS[event.type]}
                       </span>
@@ -162,20 +234,33 @@ export default function CoachEventsPage() {
                         <Icon className="w-3 h-3" />
                         {fmt.label}
                       </span>
-                      <span className={cn('px-2 py-0.5 rounded text-[10px] font-medium', STATUS_COLORS[event.status])}>
-                        {event.status}
-                      </span>
+                      {STATUS_LABELS[event.status] && (
+                        <span className={cn('px-2 py-0.5 rounded text-[10px] font-medium', STATUS_COLORS[event.status])}>
+                          {STATUS_LABELS[event.status]}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setEditing(event) }}
-                    className="p-1.5 rounded-md text-white/30 hover:text-white hover:bg-white/10 transition-colors"
-                    aria-label="Editar evento"
-                  >
-                    <Pencil size={14} />
-                  </button>
+                  {expired ? (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setStatsEvent(event) }}
+                      className="p-1.5 rounded-md text-white/30 hover:text-brand-primary hover:bg-brand-primary/10 transition-colors"
+                      aria-label="Ver resultados del evento"
+                      title="Ver resultados"
+                    >
+                      <BarChart3 size={14} />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditing(event) }}
+                      className="p-1.5 rounded-md text-white/30 hover:text-white hover:bg-white/10 transition-colors"
+                      aria-label="Editar evento"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
                   <div className="flex flex-col items-end gap-1 text-xs text-white/30">
                     {event.location && (
                       <span className="flex items-center gap-1">
@@ -194,19 +279,28 @@ export default function CoachEventsPage() {
           )
         })}
         {filtered.length === 0 && (
-          <p className="text-sm text-white/30 text-center py-10">No hay eventos con estos filtros.</p>
+          <p className="text-sm text-white/30 text-center py-10">
+            {tab === 'active'
+              ? 'No hay eventos activos con estos filtros.'
+              : 'No hay eventos vencidos con estos filtros.'}
+          </p>
         )}
       </div>
 
-      <EventModal open={!!editing || showNew} event={editing} onClose={() => { setEditing(null); setShowNew(false) }} onSave={handleSave} />
+      <EventModal key={editing?.id ?? 'new'} open={!!editing || showNew} event={editing} onClose={() => { setEditing(null); setShowNew(false) }} onSave={handleSave} />
       {detail && (
         <EventDetailModal
           event={detail}
           onClose={() => setDetail(null)}
           onEdit={(e) => { setDetail(null); setEditing(e) }}
-          onDelete={(id) => { deleteEvent(id); setDetail(null) }}
+          onDelete={handleDelete}
+          onCancel={handleCancel}
+          onStats={(e) => { setDetail(null); setStatsEvent(e) }}
           onTogglePublic={handleTogglePublic}
         />
+      )}
+      {statsEvent && (
+        <EventStatsModal event={statsEvent} onClose={() => setStatsEvent(null)} />
       )}
     </div>
   )

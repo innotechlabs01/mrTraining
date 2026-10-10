@@ -239,6 +239,15 @@ export interface CoachEvent {
   public?: boolean
 }
 
+export interface EventRegistration {
+  id: string
+  eventId: string
+  athleteId: string
+  status: 'accepted' | 'cancelled'
+  createdAt: string
+  updatedAt: string
+}
+
 // ---- Live Sessions (calendar) ----
 
 export type LiveSessionStatus = 'scheduled' | 'live' | 'completed' | 'cancelled'

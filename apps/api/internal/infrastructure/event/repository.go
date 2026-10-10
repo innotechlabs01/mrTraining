@@ -216,6 +216,31 @@ func (r *Repository) ListRegistrationsByAthlete(ctx context.Context, athleteID s
 	return events, nil
 }
 
+// ListRegistrationsByEvent retrieves all registrations for an event, ordered by creation.
+func (r *Repository) ListRegistrationsByEvent(ctx context.Context, eventID string) ([]*eventdomain.EventRegistration, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, event_id, athlete_id, status, created_at, updated_at
+		 FROM event_registrations WHERE event_id = ?
+		 ORDER BY created_at`, eventID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list registrations by event: %w", err)
+	}
+	defer rows.Close()
+
+	regs := make([]*eventdomain.EventRegistration, 0)
+	for rows.Next() {
+		reg := &eventdomain.EventRegistration{}
+		if err := rows.Scan(&reg.ID, &reg.EventID, &reg.AthleteID, &reg.Status, &reg.CreatedAt, &reg.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan registration: %w", err)
+		}
+		regs = append(regs, reg)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate registrations: %w", err)
+	}
+	return regs, nil
+}
+
 // SetAthletes replaces the athlete list for an event.
 func (r *Repository) SetAthletes(ctx context.Context, eventID string, athleteIDs []string) error {
 	if _, err := r.db.ExecContext(ctx, `DELETE FROM event_athletes WHERE event_id = ?`, eventID); err != nil {
@@ -289,6 +314,31 @@ func (r *Repository) GetFormResponses(ctx context.Context, eventID, athleteID st
 			return nil, fmt.Errorf("failed to scan form response: %w", err)
 		}
 		responses = append(responses, resp)
+	}
+	return responses, nil
+}
+
+// ListFormResponsesByEvent retrieves all form responses for an event (coach view).
+func (r *Repository) ListFormResponsesByEvent(ctx context.Context, eventID string) ([]eventdomain.EventFormResponse, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, event_id, athlete_id, field_id, value
+		 FROM event_form_responses WHERE event_id = ?
+		 ORDER BY athlete_id, created_at`, eventID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query event form responses: %w", err)
+	}
+	defer rows.Close()
+
+	responses := make([]eventdomain.EventFormResponse, 0)
+	for rows.Next() {
+		var resp eventdomain.EventFormResponse
+		if err := rows.Scan(&resp.ID, &resp.EventID, &resp.AthleteID, &resp.FieldID, &resp.Value); err != nil {
+			return nil, fmt.Errorf("failed to scan form response: %w", err)
+		}
+		responses = append(responses, resp)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate form responses: %w", err)
 	}
 	return responses, nil
 }
