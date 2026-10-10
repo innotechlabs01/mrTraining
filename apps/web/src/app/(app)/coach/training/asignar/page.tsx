@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Search, Check, Dumbbell, FileText } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
+import { Search, Check, Dumbbell } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAthletes } from '@/features/coach/hooks/useAthletes'
 import { useUser } from '@clerk/nextjs'
@@ -11,38 +12,47 @@ import {
   type WorkoutTemplateSummary,
   type PastAssignmentListItem,
 } from '@/features/shared/api/client'
-import type { TrainingMode } from '@/features/coach/types'
-
-type AssignType = 'workout' | 'program'
 
 const DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const DAY_INDEX = [1, 2, 3, 4, 5, 6, 0]
-
-const MODALITIES: { label: string; value: TrainingMode }[] = [
-  { label: 'Virtual', value: 'virtual' },
-  { label: 'Presencial', value: 'presencial' },
-  { label: 'Híbrido', value: 'hibrido' },
-  { label: 'Running', value: 'running' },
-]
 
 /** Selection ids are prefixed so handleAssign knows which source to hydrate. */
 type ContentSource =
   | { kind: 'template'; id: string; name: string; description: string }
   | { kind: 'past'; id: string; name: string; athleteName: string }
 
+function todayStr(offsetDays = 0): string {
+  const d = new Date()
+  d.setDate(d.getDate() + offsetDays)
+  return d.toISOString().split('T')[0]
+}
+
 export default function CoachAsignarPage() {
   const { athletes } = useAthletes()
   const { user } = useUser()
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>([])
-  const [assignType, setAssignType] = useState<AssignType>('workout')
   const [selectedContent, setSelectedContent] = useState('')
-  const [modality, setModality] = useState<TrainingMode>('presencial')
   const [selectedDays, setSelectedDays] = useState<number[]>([])
   const [searchAthlete, setSearchAthlete] = useState('')
   const [assigning, setAssigning] = useState(false)
   const [templates, setTemplates] = useState<WorkoutTemplateSummary[]>([])
   const [pastAssignments, setPastAssignments] = useState<PastAssignmentListItem[]>([])
   const [sourcesLoading, setSourcesLoading] = useState(true)
+
+  // Dates: desde starts today (no past dates), hasta starts tomorrow
+  // and never allows going before the day after desde.
+  const [startDate, setStartDate] = useState(todayStr())
+  const [endDate, setEndDate] = useState(todayStr(30))
+
+  const minEnd = useMemo(() => {
+    const d = new Date(startDate + 'T12:00:00')
+    d.setDate(d.getDate() + 1)
+    return d.toISOString().split('T')[0]
+  }, [startDate])
+
+  useEffect(() => {
+    if (endDate < minEnd) setEndDate(minEnd)
+  }, [minEnd, endDate])
 
   useEffect(() => {
     let cancelled = false
@@ -75,13 +85,12 @@ export default function CoachAsignarPage() {
   )
 
   // Real sources only: builder-saved templates + the coach's own assignment history.
-  const workoutSources: ContentSource[] = [
+  const contentOptions: ContentSource[] = [
     ...(templates || []).map(t => ({ kind: 'template' as const, id: t.id, name: t.name, description: t.description })),
     ...pastAssignments
       .filter(a => a.contentName)
       .map(a => ({ kind: 'past' as const, id: a.id, name: a.contentName, athleteName: a.athleteName })),
   ]
-  const contentOptions = workoutSources
 
   const selectedOption = contentOptions.find(c => `${c.kind}:${c.id}` === selectedContent)
 
@@ -89,9 +98,6 @@ export default function CoachAsignarPage() {
     if (!selectedContent || selectedAthletes.length === 0 || !user) return
     setAssigning(true)
     try {
-      const startDate = new Date().toISOString().split('T')[0]
-      const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-
       for (const athId of selectedAthletes) {
         const athlete = athletes.find(a => a.id === athId)
 
@@ -100,28 +106,32 @@ export default function CoachAsignarPage() {
         // builder-saved templates carry a templateId.
         const isTemplate = selectedOption?.kind === 'template'
         if (!isTemplate) {
-          alert('Solo se pueden asignar plantillas del Builder')
+          toast.error('Solo se pueden asignar plantillas del Builder')
           setAssigning(false)
           return
         }
 
         await workoutApi.create({
           name: selectedOption?.name || 'Workout',
-          description: selectedOption?.kind === 'template' ? selectedOption.description : '',
+          description: selectedOption?.description || '',
           sportType: athlete?.sport || 'general',
           templateId: selectedOption?.id,
           scheduledDate: startDate,
           startDate,
           endDate,
-          modality,
+          // Modality is hidden from the UI — send empty instead of a fake default.
+          modality: '',
           daysOfWeek: selectedDays,
           athleteId: athId,
         })
       }
-      alert(`Asignado a ${selectedAthletes.length} atleta${selectedAthletes.length > 1 ? 's' : ''}`)
+      toast.success(`Asignado a ${selectedAthletes.length} atleta${selectedAthletes.length > 1 ? 's' : ''}`)
+      setSelectedAthletes([])
+      setSelectedContent('')
+      setSelectedDays([])
     } catch (error) {
       console.error('Failed to assign workout:', error)
-      alert('Error al asignar el workout')
+      toast.error('No se pudo asignar el workout. Inténtalo de nuevo.')
     } finally {
       setAssigning(false)
     }
@@ -129,20 +139,30 @@ export default function CoachAsignarPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-xl font-display font-bold text-white">Asignar</h1>
-        <p className="text-sm text-white/40 mt-1">Asigna workouts o programas a atletas</p>
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-brand-primary/15 flex items-center justify-center shrink-0">
+          <Dumbbell size={20} className="text-brand-primary" />
+        </div>
+        <div>
+          <h1 className="text-xl font-display font-bold text-white">Asignar</h1>
+          <p className="text-sm text-white/40 mt-1">Asigna un workout a uno o varios atletas</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div className="rounded-2xl border border-white/5 bg-surface-1 p-4">
-            <h2 className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-3">Atletas</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-semibold text-white/50 uppercase tracking-wider">Atletas</h2>
+              {selectedAthletes.length > 0 && (
+                <span className="text-xs text-brand-primary font-medium">{selectedAthletes.length} seleccionado{selectedAthletes.length > 1 ? 's' : ''}</span>
+              )}
+            </div>
             <div className="relative mb-3">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
               <input
                 type="text"
-                placeholder="Buscar..."
+                placeholder="Buscar atleta..."
                 value={searchAthlete}
                 onChange={(e) => setSearchAthlete(e.target.value)}
                 className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-surface-0 border border-white/5 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-brand-primary/50"
@@ -163,7 +183,7 @@ export default function CoachAsignarPage() {
                     )}
                   >
                     <div className={cn(
-                      'w-4 h-4 rounded border flex items-center justify-center transition-all',
+                      'w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0',
                       selected ? 'bg-brand-primary border-brand-primary' : 'border-white/20',
                     )}>
                       {selected && <Check size={10} className="text-white" />}
@@ -173,12 +193,12 @@ export default function CoachAsignarPage() {
                   </button>
                 )
               })}
+              {filteredAthletes.length === 0 && (
+                <p className="text-xs text-white/30 text-center py-6">
+                  {athletes.length === 0 ? 'Sin atletas asignados todavía' : 'Sin resultados'}
+                </p>
+              )}
             </div>
-            {selectedAthletes.length > 0 && (
-              <p className="text-xs text-brand-primary mt-2 font-medium">
-                {selectedAthletes.length} seleccionados
-              </p>
-            )}
           </div>
         </div>
 
@@ -187,47 +207,23 @@ export default function CoachAsignarPage() {
             <h2 className="text-xs font-semibold text-white/50 uppercase tracking-wider">Configuración</h2>
 
             <div>
-              <p className="text-xs text-white/40 mb-2">Tipo de asignación</p>
-              <div className="flex gap-2">
-                {([
-                  { label: 'Workout', value: 'workout' as const, icon: Dumbbell },
-                  { label: 'Programa', value: 'program' as const, icon: FileText },
-                ]).map((t) => (
-                  <button
-                    key={t.value}
-                    onClick={() => { setAssignType(t.value); setSelectedContent('') }}
-                    className={cn(
-                      'flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium border transition-all',
-                      assignType === t.value
-                        ? 'border-brand-primary/30 bg-brand-primary/10 text-brand-primary'
-                        : 'border-white/10 text-white/40 hover:border-white/20',
-                    )}
-                  >
-                    <t.icon size={14} />
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
               <p className="text-xs text-white/40 mb-2">Contenido</p>
               <select
                 value={selectedContent}
                 onChange={(e) => setSelectedContent(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-surface-0 border border-white/5 text-xs text-white focus:outline-none focus:border-brand-primary/50"
               >
-                <option value="">Seleccionar {assignType}...</option>
+                <option value="">Seleccionar workout…</option>
                 {sourcesLoading ? (
                   <option value="" disabled>Cargando…</option>
                 ) : contentOptions.length === 0 ? (
-                  <option value="" disabled>Sin plantillas todavía — guardá una desde el Builder</option>
+                  <option value="" disabled>Sin plantillas todavía — guarda una desde el Builder</option>
                 ) : (
                   <>
                     {templates.length > 0 && (
                       <optgroup label="Plantillas del Builder">
                         {templates.map((t) => (
-                          <option key={t.id} value={`template:${t.id}`}>{t.name} ({t.exerciseCount} ej.)</option>
+                          <option key={t.id} value={`template:${t.id}`}>{t.name}{t.exerciseCount ? ` (${t.exerciseCount} ej.)` : ''}</option>
                         ))}
                       </optgroup>
                     )}
@@ -244,27 +240,7 @@ export default function CoachAsignarPage() {
             </div>
 
             <div>
-              <p className="text-xs text-white/40 mb-2">Modalidad</p>
-              <div className="flex flex-wrap gap-2">
-                {MODALITIES.map((m) => (
-                  <button
-                    key={m.value}
-                    onClick={() => setModality(m.value)}
-                    className={cn(
-                      'px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
-                      modality === m.value
-                        ? 'border-brand-primary/30 bg-brand-primary/10 text-brand-primary'
-                        : 'border-white/10 text-white/40 hover:border-white/20',
-                    )}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs text-white/40 mb-2">Días de la semana</p>
+              <p className="text-xs text-white/40 mb-2">Días de la semana <span className="text-white/25">(opcional)</span></p>
               <div className="flex gap-1.5">
                 {DAYS.map((day, i) => {
                   const idx = DAY_INDEX[i]
@@ -291,14 +267,20 @@ export default function CoachAsignarPage() {
                 <p className="text-xs text-white/40 mb-2">Desde</p>
                 <input
                   type="date"
-                  className="w-full px-3 py-2 rounded-lg bg-surface-0 border border-white/5 text-xs text-white focus:outline-none focus:border-brand-primary/50"
+                  value={startDate}
+                  min={todayStr()}
+                  onChange={(e) => setStartDate(e.target.value || todayStr())}
+                  className="w-full px-3 py-2 rounded-lg bg-surface-0 border border-white/5 text-xs text-white focus:outline-none focus:border-brand-primary/50 [color-scheme:dark]"
                 />
               </div>
               <div className="flex-1">
                 <p className="text-xs text-white/40 mb-2">Hasta</p>
                 <input
                   type="date"
-                  className="w-full px-3 py-2 rounded-lg bg-surface-0 border border-white/5 text-xs text-white focus:outline-none focus:border-brand-primary/50"
+                  value={endDate}
+                  min={minEnd}
+                  onChange={(e) => setEndDate(e.target.value || minEnd)}
+                  className="w-full px-3 py-2 rounded-lg bg-surface-0 border border-white/5 text-xs text-white focus:outline-none focus:border-brand-primary/50 [color-scheme:dark]"
                 />
               </div>
             </div>
@@ -308,12 +290,12 @@ export default function CoachAsignarPage() {
               onClick={handleAssign}
               className={cn(
                 'w-full py-2.5 rounded-lg text-sm font-semibold transition-all',
-                selectedContent && selectedAthletes.length > 0
-                  ? 'bg-brand-primary text-white hover:bg-brand-primary/90'
+                selectedContent && selectedAthletes.length > 0 && !assigning
+                  ? 'bg-brand-primary text-white hover:bg-brand-primary/90 active:scale-[0.98]'
                   : 'bg-white/5 text-white/20 cursor-not-allowed',
               )}
             >
-              {assigning ? 'Asignando...' : `Asignar a ${selectedAthletes.length > 0 ? `${selectedAthletes.length} atleta${selectedAthletes.length > 1 ? 's' : ''}` : 'seleccionar atletas'}`}
+              {assigning ? 'Asignando…' : `Asignar a ${selectedAthletes.length > 0 ? `${selectedAthletes.length} atleta${selectedAthletes.length > 1 ? 's' : ''}` : 'seleccionar atletas'}`}
             </button>
           </div>
         </div>
