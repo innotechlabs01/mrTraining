@@ -1165,9 +1165,9 @@ export interface PastAssignmentDetail {
 export const templateApi = {
   list: () =>
     // Go API: GET /api/v1/workout-templates
-    // Response format: { templates: WorkoutTemplateSummary[] }
-    goFetch<{ templates: WorkoutTemplateSummary[] }>('/api/v1/workout-templates')
-      .then((res) => res.templates)
+    // Go returns { data: [...] }; older Next route returns { templates: [...] }.
+    goFetch<{ templates?: WorkoutTemplateSummary[]; data?: WorkoutTemplateSummary[] }>('/api/v1/workout-templates')
+      .then((res) => res.data ?? res.templates ?? [])
       .catch(() =>
         nextFetch.get<{ templates: WorkoutTemplateSummary[] }>('/api/coach/workout-templates')
           .then((res) => res.templates)
