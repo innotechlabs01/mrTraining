@@ -1,6 +1,7 @@
 export type LandingStat = { value: string; label: string };
 export type LandingReason = { n: string; title: string; copy: string };
-export type LandingTestimonial = { quote: string; name: string; seed: string };
+export type LandingTestimonial = { quote: string; name: string; seed: string; photo?: string };
+export type LandingTrainer = { name: string; seed: string; photo?: string };
 
 export type LandingContact = {
   whatsapp: string;
@@ -11,7 +12,9 @@ export type LandingContact = {
 
 export type LandingBrand = {
   colors: { primary: string };
+  font?: string;
   heroSubtitle: string;
+  heroMedia?: string; // uploaded image or video URL — takes precedence over heroPhoto
   heroPhoto: string;
   heroPhotoAlt: string;
   aboutTitle: string;
@@ -27,6 +30,7 @@ export interface LandingData {
   brand: LandingBrand;
   stats: LandingStat[];
   reasons: LandingReason[];
+  trainers?: LandingTrainer[];
   testimonials: LandingTestimonial[];
   tienda: { title: string; copy: string };
   blog: { title: string; subtitle: string };
@@ -118,7 +122,16 @@ export function pickItem<T>(dbValue: T | undefined, fallbackDefault: T | undefin
   return localized;
 }
 
+import { goFetch } from '@/lib/api/go-client';
+
 export async function fetchLanding(): Promise<LandingData | null> {
+  // Go API is the source of truth; Next route is the legacy fallback.
+  try {
+    const r = await goFetch<LandingData>('/public/landing', { auth: false });
+    if (r && r.brand) return r;
+  } catch {
+    /* fall through to legacy */
+  }
   try {
     const res = await fetch('/api/landing');
     if (!res.ok) return null;
@@ -126,6 +139,24 @@ export async function fetchLanding(): Promise<LandingData | null> {
   } catch {
     return null;
   }
+}
+
+/** True for uploaded/remote video assets (used to render <video> in the hero). */
+export function isVideoUrl(url?: string): boolean {
+  if (!url) return false;
+  return /\.(mp4|mov|webm)(\?.*)?$/i.test(url);
+}
+
+const GO_MEDIA_BASE = process.env.NEXT_PUBLIC_GO_API_URL || '';
+
+/**
+ * Media uploaded via the Go API is served from the API host under /uploads/...;
+ * external URLs and local /images pass through untouched.
+ */
+export function mediaUrl(url?: string): string {
+  if (!url) return '';
+  if (url.startsWith('/uploads/')) return `${GO_MEDIA_BASE}${url}`;
+  return url;
 }
 
 export async function fetchPublicProducts(): Promise<Product[]> {

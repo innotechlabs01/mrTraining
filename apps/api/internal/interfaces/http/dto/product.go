@@ -18,10 +18,18 @@ type CreateProductRequest struct {
 	Stock int `json:"stock"`
 	// LowStockThreshold is the threshold for low stock alerts (default: 5).
 	LowStockThreshold int `json:"low_stock_threshold"`
+	// Description is an optional product description shown in the store.
+	Description string `json:"description"`
+	// Category is an optional product category (e.g. supplements, apparel).
+	Category string `json:"category"`
+	// IsShop controls whether the product is visible in the public store.
+	IsShop bool `json:"is_shop"`
 }
 
 // UpdateProductRequest is the payload for updating a product.
-// Empty/zero values are ignored (partial update).
+// Text fields and scalars keep the historical "ignore zero values" semantics,
+// except description/category (empty string is a valid clear) and is_shop
+// (pointer so an explicit false is distinguishable from "not provided").
 type UpdateProductRequest struct {
 	Name              string  `json:"name,omitempty"`
 	Brand             string  `json:"brand,omitempty"`
@@ -31,6 +39,9 @@ type UpdateProductRequest struct {
 	Gross             float64 `json:"gross,omitempty"`
 	Stock             int     `json:"stock,omitempty"`
 	LowStockThreshold int     `json:"low_stock_threshold,omitempty"`
+	Description       *string `json:"description,omitempty"`
+	Category          *string `json:"category,omitempty"`
+	IsShop            *bool   `json:"is_shop,omitempty"`
 }
 
 // ProductResponse represents a product in API responses.
@@ -44,6 +55,9 @@ type ProductResponse struct {
 	Gross             float64 `json:"gross"`
 	Stock             int     `json:"stock"`
 	LowStockThreshold int     `json:"low_stock_threshold"`
+	Description       string  `json:"description"`
+	Category          string  `json:"category"`
+	IsShop            bool    `json:"is_shop"`
 	CoachID           string  `json:"coach_id"`
 	CreatedAt         string  `json:"created_at"`
 	UpdatedAt         string  `json:"updated_at"`

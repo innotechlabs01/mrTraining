@@ -61,7 +61,8 @@ export async function goFetch<T>(path: string, options: GoRequestOptions = {}): 
 
   const doFetch = async (token: string | null) => {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+      // FormData lets the browser set the multipart boundary.
+      ...(rest.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
       ...(customHeaders as Record<string, string>),
     };
     if (token) {

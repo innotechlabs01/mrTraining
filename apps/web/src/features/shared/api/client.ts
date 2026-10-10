@@ -26,8 +26,10 @@
  */
 import { goClient, goFetch } from '@/lib/api/go-client'
 import type { CoachEvent } from '@/features/coach/types'
+import type { Plan } from '@/features/coach/types'
 import type { Product } from '@/features/coach/types'
 import type { Sale } from '@/features/coach/types'
+import type { LandingData } from '@/components/landing/data'
 
 export interface BlogPost {
   id: string;
@@ -298,6 +300,185 @@ type GoEvent = {
   updated_at: string;
 };
 
+// Go API speaks snake_case; web Product type speaks camelCase.
+export type GoProduct = {
+  id: string;
+  name: string;
+  brand?: string;
+  image_url?: string;
+  price: number;
+  received: number;
+  gross: number;
+  stock: number;
+  low_stock_threshold: number;
+  description?: string;
+  category?: string;
+  is_shop?: boolean;
+  created_at: string;
+  updated_at?: string;
+};
+
+// Exported for server-side prefetch (see src/app/(app)/coach/page.tsx) — the
+// RSC must apply the exact same mapping so hydrated data matches client shape.
+export function mapGoProduct(g: GoProduct): Product {
+  return {
+    id: g.id,
+    name: g.name,
+    brand: g.brand,
+    imageUrl: g.image_url,
+    price: g.price,
+    received: g.received,
+    gross: g.gross,
+    stock: g.stock,
+    lowStockThreshold: g.low_stock_threshold,
+    description: g.description,
+    category: g.category,
+    isShop: Boolean(g.is_shop),
+    createdAt: g.created_at,
+  };
+}
+
+export function toGoProduct(p: Partial<Product>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (p.name !== undefined) out.name = p.name;
+  if (p.brand !== undefined) out.brand = p.brand;
+  if (p.imageUrl !== undefined) out.image_url = p.imageUrl;
+  if (p.price !== undefined) out.price = p.price;
+  if (p.received !== undefined) out.received = p.received;
+  if (p.gross !== undefined) out.gross = p.gross;
+  if (p.stock !== undefined) out.stock = p.stock;
+  if (p.lowStockThreshold !== undefined) out.low_stock_threshold = p.lowStockThreshold;
+  if (p.description !== undefined) out.description = p.description;
+  if (p.category !== undefined) out.category = p.category;
+  if (p.isShop !== undefined) out.is_shop = p.isShop;
+  return out;
+}
+
+// Go API plan shape (snake_case) and mapping to the web Plan type.
+export type GoPlan = {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+  billing_period: string;
+  max_athletes: number;
+  max_sessions_per_week: number;
+  is_active: boolean;
+  athlete_count: number;
+  coach_id: string;
+  trm?: number;
+  discount?: {
+    type: string;
+    value: number;
+    label?: string;
+    valid_from?: string;
+    valid_until?: string;
+    code?: string;
+  } | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export function mapGoPlan(g: GoPlan): Plan {
+  return {
+    id: g.id,
+    name: g.name,
+    description: g.description,
+    price: g.price,
+    currency: g.currency === 'USD' ? 'USD' : 'COP',
+    billingPeriod: (g.billing_period as Plan['billingPeriod']) ?? 'monthly',
+    trainingMode: [],
+    maxAthletes: g.max_athletes,
+    maxSessionsPerWeek: g.max_sessions_per_week,
+    features: [],
+    isActive: g.is_active,
+    athleteCount: g.athlete_count,
+    trm: g.trm,
+    discount: g.discount
+      ? {
+          type: g.discount.type as 'percentage' | 'fixed',
+          value: g.discount.value,
+          label: g.discount.label,
+          validFrom: g.discount.valid_from,
+          validUntil: g.discount.valid_until,
+          code: g.discount.code,
+        }
+      : null,
+  };
+}
+
+export function toGoPlan(p: Partial<Plan>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (p.name !== undefined) out.name = p.name;
+  if (p.description !== undefined) out.description = p.description;
+  if (p.price !== undefined) out.price = p.price;
+  if (p.currency !== undefined) out.currency = p.currency;
+  if (p.billingPeriod !== undefined) out.billing_period = p.billingPeriod;
+  if (p.maxAthletes !== undefined) out.max_athletes = p.maxAthletes;
+  if (p.maxSessionsPerWeek !== undefined) out.max_sessions_per_week = p.maxSessionsPerWeek;
+  if (p.isActive !== undefined) out.is_active = p.isActive;
+  if (p.trm !== undefined) out.trm = p.trm;
+  if (p.discount !== undefined && p.discount) {
+    out.discount_type = p.discount.type;
+    out.discount_value = p.discount.value;
+    out.discount_label = p.discount.label ?? '';
+    out.discount_valid_from = p.discount.validFrom ?? '';
+    out.discount_valid_until = p.discount.validUntil ?? '';
+    out.discount_code = p.discount.code ?? '';
+  } else if (p.discount === null) {
+    out.discount_type = '';
+    out.discount_value = 0;
+    out.discount_label = '';
+    out.discount_valid_from = '';
+    out.discount_valid_until = '';
+    out.discount_code = '';
+  }
+  return out;
+}
+
+// Go API speaks snake_case for sales too; normalize to the web Sale type.
+export type GoSale = {
+  id: string;
+  product_id: string;
+  product_name: string;
+  brand?: string;
+  quantity: number;
+  unit_price: number;
+  unit_received: number;
+  total: number;
+  date: string;
+  created_at: string;
+};
+
+export function mapGoSale(s: GoSale): Sale {
+  return {
+    id: s.id,
+    productId: s.product_id,
+    productName: s.product_name,
+    brand: s.brand,
+    quantity: s.quantity,
+    unitPrice: s.unit_price,
+    unitReceived: s.unit_received,
+    total: s.total,
+    date: s.date,
+    createdAt: s.created_at,
+  };
+}
+
+export function toGoSale(s: Omit<Sale, 'id' | 'createdAt'>): Record<string, unknown> {
+  return {
+    product_id: s.productId,
+    product_name: s.productName,
+    brand: s.brand,
+    quantity: s.quantity,
+    unit_price: s.unitPrice,
+    unit_received: s.unitReceived,
+    total: s.total,
+    date: s.date,
+  };
+}
+
 // Exported for server-side prefetch (see src/app/(app)/coach/page.tsx) — the
 // RSC must apply the exact same mapping so hydrated data matches client shape.
 export function mapGoEvent(g: GoEvent): CoachEvent {
@@ -496,11 +677,36 @@ export const coachingApi = {
       })),
     ),
 
-  // Plans (not in Go API yet — Next.js fallback)
-  getPlans: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/plans`),
-  savePlan: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/plans`, data),
-  updatePlan: <T>(id: string, data: unknown) => coachingFetch.put<T>(`${COACHING_BASE}/plans/${id}`, data),
-  deletePlan: <T>(id: string) => coachingFetch.delete<T>(`${COACHING_BASE}/plans/${id}`),
+  // Plans — Go API (primary) with Next.js fallback
+  getPlans: <T>() =>
+    // Go API: GET /api/v1/plans (coach plans, all statuses)
+    goFetch<{ data?: GoPlan[] }>('/api/v1/plans')
+      .catch(() => coachingFetch.get<Plan[]>(`${COACHING_BASE}/plans`))
+      .then((res) => (Array.isArray(res) ? res : (res.data ?? []).map(mapGoPlan))),
+  savePlan: <T>(data: unknown) =>
+    // Go API: POST /api/v1/plans
+    goFetch<{ id: string }>('/api/v1/plans', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).catch(() => coachingFetch.post<T>(`${COACHING_BASE}/plans`, data)),
+  updatePlan: <T>(id: string, data: unknown) =>
+    // Go API: PUT /api/v1/plans/:id
+    goFetch<{ ok: boolean }>(`/api/v1/plans/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }).catch(() => coachingFetch.put<T>(`${COACHING_BASE}/plans/${id}`, data)),
+  deletePlan: <T>(id: string) =>
+    // Go API: DELETE /api/v1/plans/:id
+    goFetch<{ ok: boolean }>(`/api/v1/plans/${id}`, {
+      method: 'DELETE',
+    }).catch(() => coachingFetch.delete<T>(`${COACHING_BASE}/plans/${id}`)),
+
+  // Public plans & TRM — no auth
+  getPublicPlans: <T>(coachId: string) =>
+    goFetch<{ data?: GoPlan[] }>(`/public/coaches/${coachId}/plans`, { auth: false })
+      .then((res) => (Array.isArray(res) ? res : (res.data ?? []).map(mapGoPlan))),
+  getTRM: <T>() =>
+    goFetch<T>(`/public/trm`, { auth: false }),
 
   // Tickets (not in Go API yet — Next.js fallback)
   getTickets: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/tickets`),
@@ -534,16 +740,16 @@ export const coachingApi = {
   updateLiveSession: <T>(id: string, data: unknown) => coachingFetch.put<T>(`${COACHING_BASE}/live-sessions/${id}`, data),
   deleteLiveSession: <T>(id: string) => coachingFetch.delete<T>(`${COACHING_BASE}/live-sessions/${id}`),
 
-  // Products — Go API (primary)
+  // Products — Go API (primary, snake_case contract normalized here)
   getProducts: () =>
     // Go API: GET /api/v1/products
-    goFetch<{ data: Product[] }>('/api/v1/products').then(res => res.data),
+    goFetch<{ data: GoProduct[] }>('/api/v1/products').then(res => res.data.map(mapGoProduct)),
   saveProduct: (data: Omit<Product, 'id' | 'createdAt'>) =>
     // Go API: POST /api/v1/products
-    goFetch<{ id: string }>('/api/v1/products', { method: 'POST', body: JSON.stringify(data) }),
+    goFetch<{ id: string }>('/api/v1/products', { method: 'POST', body: JSON.stringify(toGoProduct(data)) }),
   updateProduct: (id: string, data: Partial<Product>) =>
     // Go API: PUT /api/v1/products/:id
-    goFetch<{ ok: boolean }>(`/api/v1/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    goFetch<{ ok: boolean }>(`/api/v1/products/${id}`, { method: 'PUT', body: JSON.stringify(toGoProduct(data)) }),
   deleteProduct: (id: string) =>
     // Go API: DELETE /api/v1/products/:id
     goFetch<{ ok: boolean }>(`/api/v1/products/${id}`, { method: 'DELETE' }),
@@ -551,13 +757,13 @@ export const coachingApi = {
   // Public Products (not in Go API yet — Next.js fallback)
   getPublicProducts: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/public-products`),
 
-  // Sales — Go API (primary)
+  // Sales — Go API (primary, snake_case contract normalized here)
   getSales: () =>
     // Go API: GET /api/v1/coaches/sales
-    goFetch<{ data: Sale[] }>('/api/v1/coaches/sales').then(res => res.data),
+    goFetch<{ data: GoSale[] }>('/api/v1/coaches/sales').then(res => res.data.map(mapGoSale)),
   saveSale: (data: Omit<Sale, 'id' | 'createdAt'>) =>
     // Go API: POST /api/v1/coaches/sales
-    goFetch<{ id: string }>('/api/v1/coaches/sales', { method: 'POST', body: JSON.stringify(data) }),
+    goFetch<{ id: string }>('/api/v1/coaches/sales', { method: 'POST', body: JSON.stringify(toGoSale(data)) }),
   deleteSale: (id: string) =>
     // Go API: DELETE /api/v1/coaches/sales/:id
     goFetch<{ ok: boolean }>(`/api/v1/coaches/sales/${id}`, { method: 'DELETE' }),
@@ -570,6 +776,24 @@ export const coachingApi = {
   savePaymentMethod: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/payment-methods`, data),
   updatePaymentMethod: <T>(id: string, data: unknown) => coachingFetch.put<T>(`${COACHING_BASE}/payment-methods/${id}`, data),
   deletePaymentMethod: <T>(id: string) => coachingFetch.delete<T>(`${COACHING_BASE}/payment-methods/${id}`),
+
+  // Landing content — Go API (primary source of truth).
+  // Public visitors consume /public/landing (see components/landing/data.ts).
+  getLanding: () =>
+    // Go API: GET /api/v1/landing (coach-only)
+    goFetch<LandingData>('/api/v1/landing'),
+  saveLanding: (data: unknown) =>
+    // Go API: PUT /api/v1/landing — saves and publishes a new version
+    goFetch<{ message: string; version: number }>('/api/v1/landing', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  uploadLandingMedia: (file: File) => {
+    // Go API: POST /api/v1/landing/media — multipart upload to /uploads/landing
+    const form = new FormData()
+    form.append('file', file)
+    return goFetch<{ url: string }>('/api/v1/landing/media', { method: 'POST', body: form })
+  },
 
   // Public Page Config (not in Go API yet — Next.js fallback)
   getPublicPageConfig: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/public-page`),

@@ -20,6 +20,7 @@ import {
   HelpCircle,
   Book,
   Flame,
+  Globe,
 } from 'lucide-react'
 
 interface NavItemConfig {
@@ -48,6 +49,7 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: 'ventas', label: 'Ventas', icon: ShoppingCart, href: '/coach/ventas' },
   { id: 'blog', label: 'Blog', icon: Book, href: '/coach/blog' },
   { id: 'live-sessions', label: 'Sesiones en Vivo', icon: Activity, href: '/coach/live-session' },
+  { id: 'landing', label: 'Landing Page', icon: Globe, href: '/coach/landing' },
   { id: 'support', label: 'Soporte', icon: HelpCircle, href: '/coach/support' },
 ]
 

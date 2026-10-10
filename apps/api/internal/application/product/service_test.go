@@ -186,6 +186,91 @@ func TestCreateProduct_DefaultThreshold(t *testing.T) {
 	}
 }
 
+// TestCreateProduct_PersistsStoreFields covers the coach-ventas bug where
+// description, category, is_shop and image_url were silently dropped on create.
+func TestCreateProduct_PersistsStoreFields(t *testing.T) {
+	var createdProduct *productdomain.Product
+	mock := &mockRepository{
+		createFn: func(ctx context.Context, product *productdomain.Product) error {
+			createdProduct = product
+			return nil
+		},
+	}
+
+	svc := NewService(mock)
+	_, err := svc.CreateProduct(context.Background(), "coach-1", dto.CreateProductRequest{
+		Name:        "Whey",
+		Price:       49.99,
+		ImageURL:    "data:image/png;base64,abc",
+		Description: "Proteína de suelo",
+		Category:    "Suplementos",
+		IsShop:      true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if createdProduct.Description != "Proteína de suelo" {
+		t.Errorf("expected description persisted, got %q", createdProduct.Description)
+	}
+	if createdProduct.Category != "Suplementos" {
+		t.Errorf("expected category persisted, got %q", createdProduct.Category)
+	}
+	if !createdProduct.IsShop {
+		t.Error("expected is_shop persisted as true")
+	}
+	if createdProduct.ImageURL != "data:image/png;base64,abc" {
+		t.Errorf("expected image_url persisted, got %q", createdProduct.ImageURL)
+	}
+}
+
+// TestUpdateProduct_StoreFields verifies pointer semantics: explicit false and
+// empty strings must be applied, omitted fields untouched.
+func TestUpdateProduct_StoreFields(t *testing.T) {
+	var updated *productdomain.Product
+	mock := &mockRepository{
+		getByIDFn: func(ctx context.Context, id string) (*productdomain.Product, error) {
+			return &productdomain.Product{
+				ID:          id,
+				Name:        "Whey",
+				CoachID:     "coach-1",
+				Description: "old desc",
+				Category:    "old cat",
+				ImageURL:    "data:image/png;base64,xyz",
+				IsShop:      true,
+			}, nil
+		},
+		updateFn: func(ctx context.Context, product *productdomain.Product) error {
+			updated = product
+			return nil
+		},
+	}
+
+	emptyDesc := ""
+	isShopFalse := false
+	category := "Ropa"
+	svc := NewService(mock)
+	product, err := svc.UpdateProduct(context.Background(), "coach-1", "prod-1", dto.UpdateProductRequest{
+		Description: &emptyDesc,
+		Category:    &category,
+		IsShop:      &isShopFalse,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if product.Description != "" {
+		t.Errorf("expected description cleared, got %q", product.Description)
+	}
+	if updated.Category != "Ropa" {
+		t.Errorf("expected category updated, got %q", updated.Category)
+	}
+	if updated.IsShop {
+		t.Error("expected explicit is_shop=false applied")
+	}
+	if updated.ImageURL != "data:image/png;base64,xyz" {
+		t.Errorf("expected image_url untouched, got %q", updated.ImageURL)
+	}
+}
+
 func TestUpdateProduct_Success(t *testing.T) {
 	mock := &mockRepository{
 		getByIDFn: func(ctx context.Context, id string) (*productdomain.Product, error) {

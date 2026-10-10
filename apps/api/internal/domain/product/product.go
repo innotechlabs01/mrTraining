@@ -13,6 +13,9 @@ type Product struct {
 	Gross              float64 `json:"gross"`
 	Stock              int     `json:"stock"`
 	LowStockThreshold  int     `json:"low_stock_threshold"`
+	Description        string  `json:"description"`
+	Category           string  `json:"category"`
+	IsShop             bool    `json:"is_shop"`
 	CoachID            string  `json:"coach_id"`
 	CreatedAt          string  `json:"created_at"`
 	UpdatedAt          string  `json:"updated_at"`

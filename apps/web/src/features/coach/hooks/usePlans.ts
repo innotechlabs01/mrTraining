@@ -64,3 +64,20 @@ export function usePlans() {
     refresh,
   }
 }
+
+export function usePublicPlans(coachId: string) {
+  return useQuery({
+    queryKey: ['public-plans', coachId],
+    queryFn: () => coachingApi.getPublicPlans<Plan[]>(coachId),
+    enabled: !!coachId,
+    staleTime: 5 * 60_000,
+  })
+}
+
+export function useTRM() {
+  return useQuery({
+    queryKey: ['trm'],
+    queryFn: () => coachingApi.getTRM<{ value: number; vigencia_desde: string }>(),
+    staleTime: 4 * 60 * 60_000,
+  })
+}

@@ -55,6 +55,9 @@ func (s *Service) CreateProduct(ctx context.Context, coachID string, req dto.Cre
 		Gross:             req.Gross,
 		Stock:             req.Stock,
 		LowStockThreshold: req.LowStockThreshold,
+		Description:       req.Description,
+		Category:          req.Category,
+		IsShop:            req.IsShop,
 		CoachID:           coachID,
 	}
 
@@ -102,6 +105,15 @@ func (s *Service) UpdateProduct(ctx context.Context, coachID, id string, req dto
 	}
 	if req.LowStockThreshold > 0 {
 		existing.LowStockThreshold = req.LowStockThreshold
+	}
+	if req.Description != nil {
+		existing.Description = *req.Description
+	}
+	if req.Category != nil {
+		existing.Category = *req.Category
+	}
+	if req.IsShop != nil {
+		existing.IsShop = *req.IsShop
 	}
 
 	if err := s.repo.Update(ctx, existing); err != nil {

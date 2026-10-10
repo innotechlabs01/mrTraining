@@ -67,7 +67,7 @@ export const COACH_PLAN_CONFIGS: CoachPlanConfig[] = [
     icon: Dumbbell,
     color: 'text-red-400',
     bgColor: 'bg-red-500/10',
-    sections: ['today', 'athletes', 'workouts', 'training', 'analytics', 'settings'],
+    sections: ['today', 'athletes', 'workouts', 'training', 'analytics', 'settings', 'landing'],
   },
   {
     plan: 'hypertrophy',
@@ -76,7 +76,7 @@ export const COACH_PLAN_CONFIGS: CoachPlanConfig[] = [
     icon: BarChart3,
     color: 'text-orange-400',
     bgColor: 'bg-orange-500/10',
-    sections: ['today', 'athletes', 'workouts', 'training', 'analytics', 'settings'],
+    sections: ['today', 'athletes', 'workouts', 'training', 'analytics', 'settings', 'landing'],
   },
   {
     plan: 'fat-loss',
@@ -85,7 +85,7 @@ export const COACH_PLAN_CONFIGS: CoachPlanConfig[] = [
     icon: Flame,
     color: 'text-yellow-400',
     bgColor: 'bg-yellow-500/10',
-    sections: ['today', 'athletes', 'workouts', 'training', 'nutrition', 'analytics', 'settings'],
+    sections: ['today', 'athletes', 'workouts', 'training', 'nutrition', 'analytics', 'settings', 'landing'],
   },
   {
     plan: 'endurance',
@@ -94,7 +94,7 @@ export const COACH_PLAN_CONFIGS: CoachPlanConfig[] = [
     icon: Activity,
     color: 'text-green-400',
     bgColor: 'bg-green-500/10',
-    sections: ['today', 'athletes', 'workouts', 'training', 'community', 'analytics', 'settings'],
+    sections: ['today', 'athletes', 'workouts', 'training', 'community', 'analytics', 'settings', 'landing'],
   },
   {
     plan: 'recovery',
@@ -103,7 +103,7 @@ export const COACH_PLAN_CONFIGS: CoachPlanConfig[] = [
     icon: Heart,
     color: 'text-pink-400',
     bgColor: 'bg-pink-500/10',
-    sections: ['today', 'athletes', 'workouts', 'training', 'analytics', 'settings'],
+    sections: ['today', 'athletes', 'workouts', 'training', 'analytics', 'settings', 'landing'],
   },
   {
     plan: 'general',
@@ -112,7 +112,7 @@ export const COACH_PLAN_CONFIGS: CoachPlanConfig[] = [
     icon: Smile,
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/10',
-    sections: ['today', 'athletes', 'workouts', 'training', 'analytics', 'settings'],
+    sections: ['today', 'athletes', 'workouts', 'training', 'analytics', 'settings', 'landing'],
   },
   {
     plan: 'performance',
@@ -121,7 +121,7 @@ export const COACH_PLAN_CONFIGS: CoachPlanConfig[] = [
     icon: Trophy,
     color: 'text-purple-400',
     bgColor: 'bg-purple-500/10',
-    sections: ['today', 'athletes', 'workouts', 'training', 'analytics', 'events', 'settings'],
+    sections: ['today', 'athletes', 'workouts', 'training', 'analytics', 'events', 'settings', 'landing'],
   },
 ];
 
@@ -182,5 +182,5 @@ export function useCoachProfile(): CoachProfileContextValue {
 export function useCoachSections(): CoachSectionId[] {
   const { profile } = useCoachProfile();
   const config = COACH_PLAN_CONFIGS.find(p => p.plan === profile?.plan);
-  return config?.sections ?? ['today', 'athletes', 'workouts', 'training', 'analytics', 'settings'];
+  return config?.sections ?? ['today', 'athletes', 'workouts', 'training', 'analytics', 'settings', 'landing'];
 }

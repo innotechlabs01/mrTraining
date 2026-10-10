@@ -407,3 +407,20 @@ func RegisterPublicEventRoutes(api fiber.Router, handler *handlers.EventHandler)
 	api.Get("/events/:id", handler.GetPublicEvent)
 	api.Post("/events/:id/rsvp", handler.RsvpEventPublic)
 }
+
+// RegisterPlanRoutes registers plan-related routes on the given API group.
+func RegisterPlanRoutes(api fiber.Router, handler *handlers.PlanHandler) {
+	// Coach CRUD (own plans, all statuses)
+	api.Get("/plans", middleware.RequireCoach(), handler.ListPlans)
+	api.Post("/plans", middleware.RequireCoach(), handler.CreatePlan)
+	api.Put("/plans/:id", middleware.RequireCoach(), handler.UpdatePlan)
+	api.Delete("/plans/:id", middleware.RequireCoach(), handler.DeletePlan)
+}
+
+// RegisterPublicPlanRoutes registers unauthenticated public plan routes.
+// Lives outside /api/v1 so anonymous landing visitors can fetch published
+// plans and the current TRM without a Clerk token.
+func RegisterPublicPlanRoutes(api fiber.Router, handler *handlers.PlanHandler) {
+	api.Get("/coaches/:coachId/plans", handler.ListPublicPlans)
+	api.Get("/trm", handler.GetTRM)
+}

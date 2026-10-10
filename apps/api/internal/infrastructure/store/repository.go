@@ -23,7 +23,7 @@ func (r *Repository) ListProducts(ctx context.Context) ([]*store.Product, error)
 	if r.db == nil {
 		return []*store.Product{}, nil
 	}
-	query := "SELECT id, name, description, price, image_url, stock, low_stock_threshold, created_at, updated_at FROM products WHERE is_active = true"
+	query := "SELECT id, name, description, price, image_url, stock, low_stock_threshold, created_at, updated_at FROM products WHERE is_shop = 1"
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list products: %w", err)
@@ -58,7 +58,7 @@ func (r *Repository) GetProduct(ctx context.Context, id string) (*store.Product,
 	if r.db == nil {
 		return nil, fmt.Errorf("database not initialized")
 	}
-	query := "SELECT id, name, description, price, image_url, stock, low_stock_threshold, created_at, updated_at FROM products WHERE id = ? AND is_active = true"
+	query := "SELECT id, name, description, price, image_url, stock, low_stock_threshold, created_at, updated_at FROM products WHERE id = ? AND is_shop = 1"
 	row := r.db.QueryRowContext(ctx, query, id)
 
 	var p store.Product

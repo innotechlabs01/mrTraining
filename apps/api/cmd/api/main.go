@@ -35,9 +35,11 @@ import (
 	notificationapp "github.com/innotechlabs01/mr-training-api/internal/application/notification"
 	onboardingapp "github.com/innotechlabs01/mr-training-api/internal/application/onboarding"
 	polarapp "github.com/innotechlabs01/mr-training-api/internal/application/polar"
+	planapp "github.com/innotechlabs01/mr-training-api/internal/application/plan"
 	productapp "github.com/innotechlabs01/mr-training-api/internal/application/product"
 	runningapp "github.com/innotechlabs01/mr-training-api/internal/application/running"
 	storeapp "github.com/innotechlabs01/mr-training-api/internal/application/store"
+	trmapp "github.com/innotechlabs01/mr-training-api/internal/application/trm"
 	todayapp "github.com/innotechlabs01/mr-training-api/internal/application/today"
 	trainingapp "github.com/innotechlabs01/mr-training-api/internal/application/training"
 	userdomain "github.com/innotechlabs01/mr-training-api/internal/application/user"
@@ -72,6 +74,7 @@ import (
 	notificationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/notification"
 	onboardinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/onboarding"
 	polarinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/polar"
+	planinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/plan"
 	productinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/product"
 	runninginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/running"
 	storeinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/store"
@@ -258,6 +261,16 @@ func main() {
 		// anonymous visitors viewing a public event and confirming attendance.
 		routes.RegisterPublicEventRoutes(app.Group("/public"), eventHandler)
 
+		// Wire Plan domain
+		planRepo := planinfrastructure.NewRepository(db.DB)
+		planService := planapp.NewService(planRepo)
+		trmService := trmapp.NewService()
+		planHandler := userhttp.NewPlanHandler(planService, trmService)
+
+		// Register plan routes (coach CRUD under /api/v1, public under /public)
+		routes.RegisterPlanRoutes(api, planHandler)
+		routes.RegisterPublicPlanRoutes(app.Group("/public"), planHandler)
+
 		// Wire Product domain
 		productRepo := productinfrastructure.NewRepository(db.DB)
 		productService := productapp.NewService(productRepo)
@@ -327,8 +340,13 @@ func main() {
 		// Register favorite routes
 		routes.RegisterFavoriteRoutes(api, favoriteHandler)
 
-    api.Get("/landing", handlers.HandlerGetLanding(db.DB))
-    api.Put("/landing", handlers.HandlerPutLanding(db.DB))
+    api.Get("/landing", middleware.RequireCoach(), handlers.HandlerGetLanding(db.DB))
+    api.Put("/landing", middleware.RequireCoach(), handlers.HandlerPutLanding(db.DB))
+    api.Post("/landing/media", middleware.RequireCoach(), handlers.HandlerUploadLandingMedia())
+
+		// Public landing content (anonymous visitors of the public site)
+		pub := app.Group("/public")
+		pub.Get("/landing", middleware.Cache(time.Hour, "landing"), handlers.HandlerGetLanding(db.DB))
 
 		// Wire Alert domain
 		alertRepo := alertinfrastructure.NewRepository(db.DB)
@@ -448,6 +466,21 @@ func main() {
 			for range ticker.C {
 				if err := challengeService.ExpireChallenges(); err != nil {
 					log.Error("failed to expire challenges", zap.Error(err))
+				}
+			}
+		}()
+
+		// Background job: pre-fetch TRM every 4 hours to warm cache.
+		go func() {
+			ticker := time.NewTicker(4 * time.Hour)
+			defer ticker.Stop()
+			// Initial fetch on startup
+			if _, err := trmService.GetCurrent(context.Background()); err != nil {
+				log.Warn("initial TRM fetch failed", zap.Error(err))
+			}
+			for range ticker.C {
+				if _, err := trmService.GetCurrent(context.Background()); err != nil {
+					log.Warn("scheduled TRM fetch failed", zap.Error(err))
 				}
 			}
 		}()

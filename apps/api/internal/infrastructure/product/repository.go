@@ -23,7 +23,7 @@ func NewRepository(db *sql.DB) *Repository {
 func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*productdomain.Product, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, name, brand, image_url, price, received, gross, stock, low_stock_threshold,
-		 coach_id, created_at, updated_at
+		 description, category, is_shop, coach_id, created_at, updated_at
 		 FROM products WHERE coach_id = ? ORDER BY name`, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list products: %w", err)
@@ -45,7 +45,7 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*produc
 func (r *Repository) GetByID(ctx context.Context, id string) (*productdomain.Product, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, name, brand, image_url, price, received, gross, stock, low_stock_threshold,
-		 coach_id, created_at, updated_at
+		 description, category, is_shop, coach_id, created_at, updated_at
 		 FROM products WHERE id = ?`, id)
 
 	p, err := scanProductRow(row)
@@ -58,10 +58,10 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*productdomain.Pro
 // Create inserts a new product record.
 func (r *Repository) Create(ctx context.Context, p *productdomain.Product) error {
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO products (id, name, brand, image_url, price, received, gross, stock, low_stock_threshold, is_shop, coach_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+		`INSERT INTO products (id, name, brand, image_url, price, received, gross, stock, low_stock_threshold, description, category, is_shop, coach_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		p.ID, p.Name, p.Brand, p.ImageURL, p.Price, p.Received, p.Gross,
-		p.Stock, p.LowStockThreshold, p.CoachID)
+		p.Stock, p.LowStockThreshold, p.Description, p.Category, p.IsShop, p.CoachID)
 	if err != nil {
 		return fmt.Errorf("failed to create product: %w", err)
 	}
@@ -72,9 +72,10 @@ func (r *Repository) Create(ctx context.Context, p *productdomain.Product) error
 func (r *Repository) Update(ctx context.Context, p *productdomain.Product) error {
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE products SET name=?, brand=?, image_url=?, price=?, received=?, gross=?,
-		 stock=?, low_stock_threshold=?, updated_at=datetime('now') WHERE id=?`,
+		 stock=?, low_stock_threshold=?, description=?, category=?, is_shop=?,
+		 updated_at=datetime('now') WHERE id=?`,
 		p.Name, p.Brand, p.ImageURL, p.Price, p.Received, p.Gross,
-		p.Stock, p.LowStockThreshold, p.ID)
+		p.Stock, p.LowStockThreshold, p.Description, p.Category, p.IsShop, p.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update product: %w", err)
 	}
@@ -185,11 +186,21 @@ type scannable interface {
 
 func scanProductFromRow(s scannable) (*productdomain.Product, error) {
 	p := &productdomain.Product{}
+	var description, category sql.NullString
+	var isShop int
 	err := s.Scan(&p.ID, &p.Name, &p.Brand, &p.ImageURL, &p.Price, &p.Received,
-		&p.Gross, &p.Stock, &p.LowStockThreshold, &p.CoachID, &p.CreatedAt, &p.UpdatedAt)
+		&p.Gross, &p.Stock, &p.LowStockThreshold, &description, &category, &isShop,
+		&p.CoachID, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
+	if description.Valid {
+		p.Description = description.String
+	}
+	if category.Valid {
+		p.Category = category.String
+	}
+	p.IsShop = isShop != 0
 	return p, nil
 }
 

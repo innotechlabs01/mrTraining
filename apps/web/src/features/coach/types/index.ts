@@ -188,12 +188,14 @@ export interface PlanDiscount {
   code?: string
 }
 
+export type PlanCurrency = 'COP' | 'USD'
+
 export interface Plan {
   id: string
   name: string
   description: string
   price: number
-  currency: string
+  currency: PlanCurrency
   billingPeriod: 'monthly' | 'quarterly' | 'yearly'
   trainingMode: TrainingMode[]
   maxAthletes: number
@@ -201,6 +203,7 @@ export interface Plan {
   features: string[]
   isActive: boolean
   athleteCount: number
+  trm?: number
   discount?: PlanDiscount | null
 }
 

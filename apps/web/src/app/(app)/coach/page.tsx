@@ -2,7 +2,8 @@ import { HydrationBoundary, dehydrate, QueryClient } from '@tanstack/react-query
 import { auth } from '@clerk/nextjs/server'
 import { cookies } from 'next/headers'
 import CoachDashboard from '@/features/coach/components/dashboard/CoachDashboard'
-import { mapGoEvent } from '@/features/shared/api/client'
+import { mapGoEvent, mapGoProduct, mapGoSale } from '@/features/shared/api/client'
+import type { GoProduct, GoSale } from '@/features/shared/api/client'
 import type { AthleteBrief, DashboardMetrics, RevenuePoint } from '@/features/coach/types'
 
 /**
@@ -94,16 +95,16 @@ export default async function CoachPage() {
         queryKey: ['coach-products'],
         staleTime: 60_000,
         queryFn: async () => {
-          const res = (await goGet('/api/v1/products', token as string)) as { data?: unknown[] }
-          return res.data ?? []
+          const res = (await goGet('/api/v1/products', token as string)) as { data?: GoProduct[] }
+          return (res.data ?? []).map(mapGoProduct)
         },
       }),
       queryClient.prefetchQuery({
         queryKey: ['coach-sales'],
         staleTime: 60_000,
         queryFn: async () => {
-          const res = (await goGet('/api/v1/coaches/sales', token as string)) as { data?: unknown[] }
-          return res.data ?? []
+          const res = (await goGet('/api/v1/coaches/sales', token as string)) as { data?: GoSale[] }
+          return (res.data ?? []).map(mapGoSale)
         },
       }),
     )

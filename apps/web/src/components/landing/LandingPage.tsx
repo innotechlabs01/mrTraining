@@ -25,6 +25,8 @@ import {
   fetchPublicBlogPosts,
   fetchPublicPlans,
   fetchPublicProducts,
+  isVideoUrl,
+  mediaUrl,
   pick,
 } from './data';
 
@@ -42,10 +44,12 @@ const NAV_ITEMS = [
 const LOGO = '/images/icon/icon_mr_rp_wapp.png';
 const HERO_OUTLINE = '/images/icon/icon_mr_rp.png';
 
-export default function LandingPage() {
+export default function LandingPage({ previewData }: { previewData?: LandingData }) {
   const { t } = useI18n('common');
-  const [data, setData] = useState<LandingData | null>(null);
-  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [data, setData] = useState<LandingData | null>(previewData ?? null);
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>(
+    previewData ? 'ready' : 'loading'
+  );
   const [products, setProducts] = useState<Product[]>([]);
   const [storeHydrated, setStoreHydrated] = useState(false);
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -65,11 +69,17 @@ export default function LandingPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchLanding().then((landing) => {
-      if (cancelled) return;
-      setData(landing);
-      setLoadState(landing ? 'ready' : 'error');
-    });
+    if (previewData) {
+      // Preview mode (coach editor): draft data injected, only public feeds fetched.
+      setData(previewData);
+      setLoadState('ready');
+    } else {
+      fetchLanding().then((landing) => {
+        if (cancelled) return;
+        setData(landing);
+        setLoadState(landing ? 'ready' : 'error');
+      });
+    }
     fetchPublicProducts().then((items) => {
       if (cancelled) return;
       setProducts(items);
@@ -88,7 +98,7 @@ export default function LandingPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [previewData]);
 
   const testimonials = Array.isArray(data?.testimonials) ? data.testimonials : [];
   const goPrev = () => setTestiIndex((i) => (testimonials.length ? (i - 1 + testimonials.length) % testimonials.length : 0));
@@ -178,8 +188,12 @@ export default function LandingPage() {
         {/* H E R O */}
         <section className="ig-hero" id="home" style={heroAccent}>
           <div className="ig-hero-photo">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={brand.heroPhoto} alt={brand.heroPhotoAlt} />
+            {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/media-has-caption */}
+            {brand.heroMedia && isVideoUrl(brand.heroMedia) ? (
+              <video src={mediaUrl(brand.heroMedia)} autoPlay muted loop playsInline aria-label={brand.heroPhotoAlt} />
+            ) : (
+              <img src={mediaUrl(brand.heroMedia || brand.heroPhoto)} alt={brand.heroPhotoAlt} />
+            )}
           </div>
           <div className="ig-hero-outline">
             {/* eslint-disable-next-line @next/next/no-img-element */}

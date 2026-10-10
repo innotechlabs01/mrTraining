@@ -5,7 +5,7 @@ import { Book, Clock, Package } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import { ArrowLeftIcon, ArrowRightIcon, StarIcon } from './icons';
 import type { BlogPost, LandingReason, LandingTestimonial, Plan, Product } from './data';
-import { FALLBACK_ABOUT, FALLBACK_REASONS, FALLBACK_TESTIMONIALS, pick } from './data';
+import { FALLBACK_ABOUT, FALLBACK_REASONS, FALLBACK_TESTIMONIALS, mediaUrl, pick } from './data';
 import type { LandingBrand } from './data';
 
 // ---------------------------------------------------------------------------
@@ -77,7 +77,7 @@ export function AboutSection({ brand }: { brand: LandingBrand }) {
         </div>
         <div className="ig-exp-photo">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={brand.aboutPhoto} alt={photoAlt} />
+          <img src={mediaUrl(brand.aboutPhoto)} alt={photoAlt} />
         </div>
       </div>
     </section>
@@ -239,7 +239,7 @@ export function TestimonialsSection({
         </div>
         <div className="ig-testi-name">{name}</div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="ig-testi-avatar" src={`https://i.pravatar.cc/120?img=${12 + (index % 50)}`} alt={name} />
+        <img className="ig-testi-avatar" src={current?.photo ? mediaUrl(current.photo) : `https://i.pravatar.cc/120?img=${12 + (index % 50)}`} alt={name} />
         <div className="ig-testi-nav">
           <button onClick={onPrev} aria-label={t('landing.testimonials.previous')}>
             <ArrowLeftIcon />
