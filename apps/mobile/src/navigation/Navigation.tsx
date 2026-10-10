@@ -100,6 +100,9 @@ export type RootStackParamList = {
   EmergencyContact: undefined;
   Favorites: undefined;
   Help: undefined;
+  MyTickets: undefined;
+  CreateTicket: undefined;
+  TicketChat: { ticketId: string };
   Notifications: undefined;
   Workouts: undefined;
   Progress: undefined;
@@ -248,6 +251,18 @@ function RootNavigator() {
           <Stack.Screen
             name="Help"
             getComponent={() => require('../features/help/presentation/screens/HelpScreen').HelpScreen}
+          />
+          <Stack.Screen
+            name="MyTickets"
+            getComponent={() => require('../features/support/presentation/screens/MyTicketsScreen').MyTicketsScreen}
+          />
+          <Stack.Screen
+            name="CreateTicket"
+            getComponent={() => require('../features/support/presentation/screens/CreateTicketScreen').CreateTicketScreen}
+          />
+          <Stack.Screen
+            name="TicketChat"
+            getComponent={() => require('../features/support/presentation/screens/TicketChatScreen').TicketChatScreen}
           />
           <Stack.Screen
             name="Notifications"

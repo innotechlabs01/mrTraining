@@ -319,28 +319,40 @@ export interface NavItem {
 
 // ---- Support / Help desk ----
 
-export type TicketStatus = 'open' | 'resolved'
-export type TicketCategory = 'problem' | 'question' | 'feedback'
-export type TicketPriority = 'low' | 'medium' | 'high'
-export type TicketAuthor = 'coach' | 'support'
+export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
+export type TicketCategory = 'problem' | 'question' | 'feature' | 'billing' | 'technical' | 'other'
+export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent'
+export type TicketAuthor = 'coach' | 'support' | 'athlete'
 
 export interface TicketMessage {
   id: string
+  ticket_id: string
   author: TicketAuthor
+  author_id: string
   body: string
-  imageUrl?: string
-  createdAt: string
+  image_url?: string
+  read_at?: string
+  created_at: string
 }
 
 export interface SupportTicket {
   id: string
-  number: number
+  ticket_number: number
   subject: string
-  category: TicketCategory
-  priority: TicketPriority
-  status: TicketStatus
-  createdAt: string
-  resolvedAt?: string
+  category: string
+  priority: string
+  status: string
+  coach_id: string
+  athlete_id?: string
+  assigned_to?: string
+  unread_count: number
+  last_message_at: string
+  created_at: string
+  updated_at: string
+  resolved_at?: string
+}
+
+export interface SupportTicketWithMessages extends SupportTicket {
   messages: TicketMessage[]
 }
 

@@ -437,6 +437,35 @@ export function toGoPlan(p: Partial<Plan>): Record<string, unknown> {
   return out;
 }
 
+// Support ticket types (snake_case from Go API)
+export type SupportTicket = {
+  id: string;
+  ticket_number: number;
+  subject: string;
+  category: string;
+  priority: string;
+  status: string;
+  coach_id: string;
+  athlete_id?: string;
+  assigned_to?: string;
+  unread_count: number;
+  last_message_at: string;
+  created_at: string;
+  updated_at: string;
+  resolved_at?: string;
+};
+
+export type TicketMessage = {
+  id: string;
+  ticket_id: string;
+  author: string;
+  author_id: string;
+  body: string;
+  image_url?: string;
+  read_at?: string;
+  created_at: string;
+};
+
 // Go API speaks snake_case for sales too; normalize to the web Sale type.
 export type GoSale = {
   id: string;
@@ -708,9 +737,59 @@ export const coachingApi = {
   getTRM: <T>() =>
     goFetch<T>(`/public/trm`, { auth: false }),
 
-  // Tickets (not in Go API yet — Next.js fallback)
-  getTickets: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/tickets`),
-  saveTicket: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/tickets`, data),
+  // Tickets (Support) — Go API (primary) with Next.js fallback
+  getTickets: <T>() =>
+    // Go API: GET /api/v1/tickets (coach tickets, all statuses)
+    goFetch<{ data?: SupportTicket[] }>('/api/v1/tickets')
+      .catch(() => coachingFetch.get<SupportTicket[]>(`${COACHING_BASE}/tickets`))
+      .then((res) => (Array.isArray(res) ? res : (res.data ?? []))),
+  saveTicket: <T>(data: unknown) =>
+    // Go API: POST /api/v1/tickets
+    goFetch<{ id: string }>('/api/v1/tickets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).catch(() => coachingFetch.post<T>(`${COACHING_BASE}/tickets`, data)),
+  updateTicket: <T>(id: string, data: unknown) =>
+    // Go API: PUT /api/v1/tickets/:id
+    goFetch<{ ok: boolean }>(`/api/v1/tickets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }).catch(() => coachingFetch.put<T>(`${COACHING_BASE}/tickets/${id}`, data)),
+  deleteTicket: <T>(id: string) =>
+    // Go API: DELETE /api/v1/tickets/:id
+    goFetch<{ ok: boolean }>(`/api/v1/tickets/${id}`, { method: 'DELETE' }).catch(() =>
+      coachingFetch.delete<T>(`${COACHING_BASE}/tickets/${id}`)),
+  getTicket: <T>(id: string) =>
+    goFetch<SupportTicket>(`/api/v1/tickets/${id}`).catch(() =>
+      coachingFetch.get<SupportTicket>(`${COACHING_BASE}/tickets/${id}`)),
+
+  // Athlete tickets
+  getAthleteTickets: <T>() =>
+    goFetch<{ data?: SupportTicket[] }>('/api/v1/athlete/tickets')
+      .catch(() => coachingFetch.get<SupportTicket[]>(`${COACHING_BASE}/athlete/tickets`))
+      .then((res) => (Array.isArray(res) ? res : (res.data ?? []))),
+  createAthleteTicket: <T>(data: unknown) =>
+    goFetch<{ id: string }>('/api/v1/athlete/tickets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).catch(() => coachingFetch.post<T>(`${COACHING_BASE}/athlete/tickets`, data)),
+  getAthleteTicket: <T>(id: string) =>
+    goFetch<SupportTicket>(`/api/v1/athlete/tickets/${id}`).catch(() =>
+      coachingFetch.get<SupportTicket>(`${COACHING_BASE}/athlete/tickets/${id}`)),
+
+  // Ticket messages
+  getTicketMessages: <T>(ticketId: string) =>
+    goFetch<{ data?: TicketMessage[] }>(`/api/v1/tickets/${ticketId}/messages`)
+      .then((res) => (Array.isArray(res) ? res : (res.data ?? []))),
+  addTicketMessage: <T>(ticketId: string, data: unknown) =>
+    goFetch<{ id: string }>(`/api/v1/tickets/${ticketId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  markTicketRead: <T>(ticketId: string) =>
+    goFetch<{ ok: boolean }>(`/api/v1/tickets/${ticketId}/read`, { method: 'POST' }),
+  getTicketUnreadCount: <T>(ticketId: string) =>
+    goFetch<{ count: number }>(`/api/v1/tickets/${ticketId}/unread`),
 
   // Assigned Workouts — Go API (primary) with Next.js fallback
   getAssignedWorkouts: <T>() =>

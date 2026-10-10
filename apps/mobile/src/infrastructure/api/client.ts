@@ -31,6 +31,13 @@ const GO_API_PATH_MAP: Record<string, string> = {
   '/athlete/membership': '/memberships',
   '/athlete/notifications': '/notifications',
   '/athlete/push-tokens': '/devices',
+  '/athlete/tickets': '/athlete/tickets',
+  '/athlete/tickets/create': '/athlete/tickets',
+  '/tickets': '/tickets',
+  '/tickets/:id': '/tickets/:id',
+  '/tickets/:id/messages': '/tickets/:id/messages',
+  '/tickets/:id/read': '/tickets/:id/read',
+  '/tickets/:id/unread': '/tickets/:id/unread',
 };
 
 // Paths that stay in Next.js (not in Go API)

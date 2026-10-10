@@ -40,6 +40,7 @@ import (
 	runningapp "github.com/innotechlabs01/mr-training-api/internal/application/running"
 	storeapp "github.com/innotechlabs01/mr-training-api/internal/application/store"
 	trmapp "github.com/innotechlabs01/mr-training-api/internal/application/trm"
+	supportapp "github.com/innotechlabs01/mr-training-api/internal/application/support"
 	todayapp "github.com/innotechlabs01/mr-training-api/internal/application/today"
 	trainingapp "github.com/innotechlabs01/mr-training-api/internal/application/training"
 	userdomain "github.com/innotechlabs01/mr-training-api/internal/application/user"
@@ -75,6 +76,7 @@ import (
 	onboardinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/onboarding"
 	polarinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/polar"
 	planinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/plan"
+	supportinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/support"
 	productinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/product"
 	runninginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/running"
 	storeinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/store"
@@ -291,6 +293,14 @@ func main() {
 
 		// Register notification routes
 		routes.RegisterNotificationRoutes(api, notifHandler)
+
+		// Wire Support domain (uses notifService for push notifications)
+		supportRepo := supportinfrastructure.NewRepository(db.DB)
+		supportService := supportapp.NewService(supportRepo, notifService)
+		supportHandler := userhttp.NewSupportHandler(supportService)
+
+		// Register support routes
+		routes.RegisterSupportRoutes(api, supportHandler)
 
 		// Wire Running domain
 		runningRepo := runninginfrastructure.NewRepository(db.DB)

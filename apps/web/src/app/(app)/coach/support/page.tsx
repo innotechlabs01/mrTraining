@@ -16,24 +16,30 @@ import {
   MessageSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useTickets } from '@/features/coach/hooks/useTickets'
+import { useTickets, useAddTicketMessage, useMarkTicketRead, useTicketMessages } from '@/features/coach/hooks/useTickets'
 import type { SupportTicket, TicketCategory, TicketPriority, TicketStatus, TicketMessage } from '@/features/coach/types'
 
-const CATEGORY: Record<TicketCategory, { label: string; className: string }> = {
+const CATEGORY: Record<string, { label: string; className: string }> = {
   problem: { label: 'Problema', className: 'bg-red-500/15 text-red-400' },
   question: { label: 'Pregunta', className: 'bg-blue-500/15 text-blue-400' },
-  feedback: { label: 'Sugerencia', className: 'bg-purple-500/15 text-purple-400' },
+  feature: { label: 'Función', className: 'bg-green-500/15 text-green-400' },
+  billing: { label: 'Facturación', className: 'bg-yellow-500/15 text-yellow-400' },
+  technical: { label: 'Técnico', className: 'bg-purple-500/15 text-purple-400' },
+  other: { label: 'Otro', className: 'bg-white/10 text-white/50' },
 }
 
-const PRIORITY: Record<TicketPriority, { label: string; className: string }> = {
+const PRIORITY: Record<string, { label: string; className: string }> = {
   low: { label: 'Baja', className: 'bg-white/10 text-white/50' },
   medium: { label: 'Media', className: 'bg-amber-500/15 text-amber-400' },
   high: { label: 'Alta', className: 'bg-red-500/20 text-red-400' },
+  urgent: { label: 'Urgente', className: 'bg-red-500/20 text-red-400 animate-pulse' },
 }
 
-const STATUS: Record<TicketStatus, { label: string; className: string }> = {
+const STATUS: Record<string, { label: string; className: string }> = {
   open: { label: 'Abierto', className: 'bg-emerald-500/15 text-emerald-400' },
+  in_progress: { label: 'En progreso', className: 'bg-blue-500/15 text-blue-400' },
   resolved: { label: 'Resuelto', className: 'bg-white/10 text-white/50' },
+  closed: { label: 'Cerrado', className: 'bg-white/10 text-white/30' },
 }
 
 function fmtDate(iso: string) {
@@ -46,10 +52,12 @@ function fmtDate(iso: string) {
 }
 
 export default function CoachSupportPage() {
-  const { tickets: remoteTickets, addTicket } = useTickets()
+  const { tickets: remoteTickets, createTicket: createTicketApi, updateTicket: updateTicketApi, isLoading, refresh } = useTickets()
+  const addMessageApi = useAddTicketMessage('')
+  const markReadApi = useMarkTicketRead('')
   const [localTickets, setLocalTickets] = useState<SupportTicket[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [filter, setFilter] = useState<'all' | TicketStatus>('all')
+  const [filter, setFilter] = useState<'all' | string>('all')
   const [composing, setComposing] = useState(false)
 
   useEffect(() => {
@@ -57,7 +65,7 @@ export default function CoachSupportPage() {
   }, [remoteTickets])
 
   const sorted = useMemo(
-    () => [...localTickets].sort((a, b) => a.createdAt.localeCompare(b.createdAt)).reverse(),
+    () => [...localTickets].sort((a, b) => a.created_at.localeCompare(b.created_at)).reverse(),
     [localTickets],
   )
   const visible = sorted.filter((t) => (filter === 'all' ? true : t.status === filter))
@@ -69,47 +77,42 @@ export default function CoachSupportPage() {
   }, [visible, selectedId])
 
   const openCount = localTickets.filter((t) => t.status === 'open').length
-  const nextNum = Math.max(0, ...localTickets.map((t) => t.number)) + 1
+  const nextNum = Math.max(0, ...localTickets.map((t) => t.ticket_number)) + 1
 
-  const createTicket = useCallback((input: {
+  const createTicket = useCallback(async (input: {
     subject: string
-    category: TicketCategory
-    priority: TicketPriority
+    category: string
+    priority: string
     body: string
-    imageUrl?: string
+    image_url?: string
   }) => {
-    const ticket: SupportTicket = {
-      id: crypto.randomUUID(),
-      number: nextNum,
+    const ticketId = await createTicketApi({
       subject: input.subject,
       category: input.category,
       priority: input.priority,
-      status: 'open',
-      createdAt: new Date().toISOString(),
-      messages: [{
-        id: crypto.randomUUID(),
-        author: 'coach',
-        body: input.body,
-        imageUrl: input.imageUrl,
-        createdAt: new Date().toISOString(),
-      }],
-    }
-    addTicket(ticket)
-    setLocalTickets(prev => [...prev, ticket])
-    return ticket
-  }, [addTicket, nextNum])
+      body: input.body,
+      image_url: input.image_url,
+    } as any)
+    await refresh()
+    return ticketId
+  }, [createTicketApi, refresh])
 
-  const addMessage = useCallback((ticketId: string, author: 'coach' | 'support', body: string, imageUrl?: string) => {
-    const msg: TicketMessage = { id: crypto.randomUUID(), author, body, imageUrl, createdAt: new Date().toISOString() }
-    setLocalTickets(prev => prev.map(t => t.id === ticketId ? { ...t, messages: [...t.messages, msg] } : t))
+  const addMessage = useCallback(async (body: string, imageUrl?: string) => {
+    addMessageApi.mutate({ body, image_url: imageUrl })
   }, [])
 
-  const resolveTicket = useCallback((ticketId: string) => {
-    setLocalTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: 'resolved', resolvedAt: new Date().toISOString() } : t))
-  }, [])
+  const resolveTicket = useCallback(async (ticketId: string) => {
+    await updateTicketApi(ticketId, { status: 'resolved' } as any)
+    await refresh()
+  }, [updateTicketApi, refresh])
 
-  const reopenTicket = useCallback((ticketId: string) => {
-    setLocalTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: 'open', resolvedAt: undefined } : t))
+  const reopenTicket = useCallback(async (ticketId: string) => {
+    await updateTicketApi(ticketId, { status: 'open' } as any)
+    await refresh()
+  }, [updateTicketApi, refresh])
+
+  const markAsRead = useCallback(() => {
+    markReadApi.mutate()
   }, [])
 
   return (
@@ -167,7 +170,7 @@ export default function CoachSupportPage() {
                 )}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-white/50 tabular-nums">#{t.number}</span>
+                  <span className="text-xs font-semibold text-white/50 tabular-nums">#{t.ticket_number}</span>
                   <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', STATUS[t.status].className)}>
                     {STATUS[t.status].label}
                   </span>
@@ -177,7 +180,7 @@ export default function CoachSupportPage() {
                   <span className={cn('rounded px-1.5 py-0.5', CATEGORY[t.category].className)}>
                     {CATEGORY[t.category].label}
                   </span>
-                  <span>· {fmtDate(t.createdAt)}</span>
+                  <span>· {fmtDate(t.created_at)}</span>
                 </p>
               </button>
             ))}
@@ -192,7 +195,7 @@ export default function CoachSupportPage() {
               ticket={selected}
               onResolve={() => resolveTicket(selected.id)}
               onReopen={() => reopenTicket(selected.id)}
-                onReply={(body, imageUrl) => addMessage(selected.id, 'coach', body, imageUrl)}
+                onReply={(body, imageUrl) => addMessage(body, imageUrl)}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-white/30">
@@ -207,9 +210,9 @@ export default function CoachSupportPage() {
           <NewTicketModal
             nextNumber={nextNum}
             onClose={() => setComposing(false)}
-            onCreate={(input) => {
-              const t = createTicket(input)
-              setSelectedId(t.id)
+            onCreate={async (input) => {
+              const ticketId = await createTicket(input)
+              setSelectedId(ticketId)
               setComposing(false)
             }}
           />
@@ -234,10 +237,12 @@ function TicketDetail({
   const [img, setImg] = useState<string | undefined>()
   const fileRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const { data: messages = [] } = useTicketMessages(ticket.id)
+  const { mutate: addMessageApi } = useAddTicketMessage(ticket.id)
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
-  }, [ticket.messages.length])
+  }, [messages.length])
 
   const send = () => {
     if (!reply.trim() && !img) return
@@ -251,7 +256,7 @@ function TicketDetail({
       <div className="flex items-start justify-between gap-3 border-b border-white/5 p-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-white/50 tabular-nums">#{ticket.number}</span>
+            <span className="text-xs font-semibold text-white/50 tabular-nums">#{ticket.ticket_number}</span>
             <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', STATUS[ticket.status].className)}>
               {STATUS[ticket.status].label}
             </span>
@@ -263,7 +268,7 @@ function TicketDetail({
             </span>
           </div>
           <h2 className="mt-1.5 truncate text-base font-semibold text-white">{ticket.subject}</h2>
-          <p className="text-[11px] text-white/40">Creado {fmtDate(ticket.createdAt)}</p>
+          <p className="text-[11px] text-white/40">Creado {fmtDate(ticket.created_at)}</p>
         </div>
         {ticket.status === 'open' ? (
           <button
@@ -276,7 +281,7 @@ function TicketDetail({
           <div className="flex shrink-0 flex-col items-end gap-1">
             <span className="inline-flex items-center gap-1 text-[11px] text-white/40">
               <CheckCircle2 size={13} className="text-emerald-400" />
-              Resuelto {ticket.resolvedAt ? fmtDate(ticket.resolvedAt) : ''}
+              Resuelto {ticket.resolved_at ? fmtDate(ticket.resolved_at) : ''}
             </span>
             <button
               onClick={onReopen}
@@ -290,7 +295,7 @@ function TicketDetail({
 
       {/* Thread */}
       <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-        {ticket.messages.map((m) => (
+        {messages.map((m) => (
           <div
             key={m.id}
             className={cn('flex', m.author === 'coach' ? 'justify-end' : 'justify-start')}
@@ -311,13 +316,13 @@ function TicketDetail({
                     <CircleDot size={11} /> Soporte
                   </span>
                 )}
-                <span className="text-white/30">· {fmtDate(m.createdAt)}</span>
+                <span className="text-white/30">· {fmtDate(m.created_at)}</span>
               </div>
               {m.body && <p className="whitespace-pre-wrap text-sm text-white/85">{m.body}</p>}
-              {m.imageUrl && (
+              {m.image_url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={m.imageUrl}
+                  src={m.image_url}
                   alt="Adjunto"
                   className="mt-2 max-h-48 rounded-lg border border-white/10 object-cover"
                 />

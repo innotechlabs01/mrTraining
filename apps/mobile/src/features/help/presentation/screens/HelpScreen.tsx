@@ -12,13 +12,14 @@ import {
   ChatIcon,
   TargetIcon,
   ChevronRightIcon,
+  TicketIcon,
 } from '../../../../shared/components/icons';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { texts } from '../../../../shared/i18n/texts';
 
 const t = texts.screens.helpScreen;
 
-type HelpTab = 'faq' | 'contact';
+type HelpTab = 'faq' | 'contact' | 'myTickets';
 
 type ContactRow = {
   icon: React.ReactNode;
@@ -41,26 +42,22 @@ const FAQ_DATA: FAQItem[] = [
   {
     id: '1',
     question: t.faqPassword,
-    answer:
-      t.faqPasswordAnswer,
+    answer: t.faqPasswordAnswer,
   },
   {
     id: '2',
     question: t.faqCoach,
-    answer:
-      t.faqCoachAnswer,
+    answer: t.faqCoachAnswer,
   },
   {
     id: '3',
     question: t.faqSchedule,
-    answer:
-      t.faqScheduleAnswer,
+    answer: t.faqScheduleAnswer,
   },
   {
     id: '4',
     question: t.faqCancel,
-    answer:
-      t.faqCancelAnswer,
+    answer: t.faqCancelAnswer,
   },
 ];
 
@@ -98,6 +95,7 @@ export function HelpScreen() {
           options={[
             { key: 'faq', label: t.tabFaq },
             { key: 'contact', label: t.tabContact },
+            { key: 'myTickets', label: t.tabMyTickets },
           ]}
           value={tab}
           onChange={(key) => setTab(key as HelpTab)}
@@ -134,6 +132,36 @@ export function HelpScreen() {
               );
             })}
           </Card>
+        ) : tab === 'myTickets' ? (
+          <View style={styles.myTicketsWrap}>
+            <Pressable
+              style={styles.myTicketsCard}
+              onPress={() => navigation.navigate('MyTickets')}
+              accessibilityRole="button"
+              accessibilityLabel={t.tabMyTickets}
+            >
+              <View style={styles.myTicketsHeader}>
+                <TicketIcon size={24} color={colors.primary} />
+                <View style={styles.myTicketsInfo}>
+                  <Text style={styles.myTicketsTitle}>{t.tabMyTickets}</Text>
+                  <Text style={styles.myTicketsSubtitle}>
+                    Gestiona tus tickets de soporte, crea nuevos y chatea con el equipo.
+                  </Text>
+                </View>
+                <ChevronRightIcon size={20} color={colors.textMuted} />
+              </View>
+            </Pressable>
+            <View style={styles.contactList}>
+              {CONTACT_ROWS.map((row) => (
+                <ListCard
+                  key={row.label}
+                  title={row.label}
+                  leadingIcon={row.icon}
+                  onPress={() => handleContactPress(row)}
+                />
+              ))}
+            </View>
+          </View>
         ) : (
           <View style={styles.contactList}>
             {CONTACT_ROWS.map((row) => (
@@ -170,4 +198,24 @@ const styles = StyleSheet.create({
   separator: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginLeft: spacing.md },
   contactList: { gap: spacing.sm },
   pressed: { opacity: 0.8 },
+  myTicketsWrap: { flex: 1 },
+  myTicketsCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  myTicketsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  myTicketsInfo: { flex: 1 },
+  myTicketsTitle: { ...typography.bodyStrong, color: colors.text },
+  myTicketsSubtitle: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
+  contactList: { gap: spacing.sm },
 });
+
+export default HelpScreen;

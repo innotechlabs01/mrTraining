@@ -60,6 +60,7 @@ export const miscScreensTexts = {
     title: 'Ayuda',
     tabFaq: 'Preguntas',
     tabContact: 'Contacto',
+    tabMyTickets: 'Mis tickets',
     supportLabel: 'Atención al cliente',
     websiteLabel: 'Sitio web',
     faqPassword: '¿Cómo restablezco mi contraseña?',

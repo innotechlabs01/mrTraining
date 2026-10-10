@@ -424,3 +424,24 @@ func RegisterPublicPlanRoutes(api fiber.Router, handler *handlers.PlanHandler) {
 	api.Get("/coaches/:coachId/plans", handler.ListPublicPlans)
 	api.Get("/trm", handler.GetTRM)
 }
+
+// RegisterSupportRoutes registers support ticket routes on the given API group.
+func RegisterSupportRoutes(api fiber.Router, handler *handlers.SupportHandler) {
+	// Coach endpoints
+	api.Get("/tickets", middleware.RequireCoach(), handler.ListTickets)
+	api.Post("/tickets", middleware.RequireCoach(), handler.CreateTicket)
+	api.Get("/tickets/:id", middleware.RequireCoach(), handler.GetTicket)
+	api.Put("/tickets/:id", middleware.RequireCoach(), handler.UpdateTicket)
+	api.Delete("/tickets/:id", middleware.RequireCoach(), handler.DeleteTicket)
+
+	// Athlete endpoints
+	api.Get("/athlete/tickets", middleware.RequireAthlete(), handler.ListAthleteTickets)
+	api.Post("/athlete/tickets", middleware.RequireAthlete(), handler.CreateAthleteTicket)
+	api.Get("/athlete/tickets/:id", middleware.RequireAthlete(), handler.GetAthleteTicket)
+
+	// Messages (coach, athlete, support)
+	api.Get("/tickets/:ticketId/messages", middleware.RequireAuth(""), handler.ListMessages)
+	api.Post("/tickets/:ticketId/messages", middleware.RequireAuth(""), handler.AddMessage)
+	api.Post("/tickets/:ticketId/read", middleware.RequireAuth(""), handler.MarkRead)
+	api.Get("/tickets/:ticketId/unread", middleware.RequireAuth(""), handler.GetUnreadCount)
+}
