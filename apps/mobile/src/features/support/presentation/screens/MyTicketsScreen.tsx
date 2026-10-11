@@ -3,13 +3,14 @@ import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, typography } from '../../../../../shared/theme/tokens';
-import { ScreenHeader } from '../../../../../shared/components/ui/ScreenHeader';
-import { Badge } from '../../../../../shared/components/ui/Badge';
-import { ListCard } from '../../../../../shared/components/ui/ListCard';
-import { supportApi, type SupportTicket } from '../../api';
-import type { RootStackParamList } from '../../../../../navigation/Navigation';
-import { ChevronRightIcon } from '../../../../../shared/components/icons';
+import { colors, spacing, typography } from '../../../../shared/theme/tokens';
+import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
+import { Badge } from '../../../../shared/components/ui/Badge';
+import { ListCard } from '../../../../shared/components/ui/ListCard';
+import { supportApi } from '../../api';
+import type { SupportTicket } from '../../types';
+import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { ChevronRightIcon } from '../../../../shared/components/icons';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -28,8 +29,6 @@ const STATUS_LABELS: Record<string, string> = {
   resolved: 'Resuelto',
   closed: 'Cerrado',
 };
-
-type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function MyTicketsScreen() {
   const navigation = useNavigation<Nav>();

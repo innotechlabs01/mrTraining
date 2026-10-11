@@ -49,15 +49,3 @@ export const supportApi = {
   },
 };
 
-export type CreateTicketRequest = {
-  subject: string;
-  body: string;
-  category?: string;
-  priority?: string;
-  image_url?: string;
-};
-
-export type AddMessageRequest = {
-  body: string;
-  image_url?: string;
-};

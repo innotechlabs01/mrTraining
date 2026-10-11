@@ -3,14 +3,13 @@ import { View, Text, StyleSheet, FlatList, TextInput, KeyboardAvoidingView, Plat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, typography } from '../../../../../shared/theme/tokens';
-import { ScreenHeader } from '../../../../../shared/components/ui/ScreenHeader';
-import { Button } from '../../../../../shared/components/ui/Button';
+import { colors, spacing, typography } from '../../../../shared/theme/tokens';
+import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
+import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { supportApi, type SupportTicket, type TicketMessage } from '../../api';
-import type { RootStackParamList } from '../../../../../navigation/Navigation';
-import { SendIcon, ImageIcon, ChevronRightIcon } from '../../../../../shared/components/icons';
-import { formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
+import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { SendIcon, ImageIcon, ChevronRightIcon } from '../../../../shared/components/icons';
+
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = { params: { ticketId: string } };
@@ -134,13 +133,13 @@ export function TicketChatScreen() {
             maxLength={2000}
             onSubmitEditing={handleSend}
           />
-          <Button
-            title=""
+          <PrimaryButton
+            label=""
             icon={<SendIcon size={20} color={colors.onPrimary} />}
             variant="primary"
             onPress={handleSend}
             disabled={sending || !newMessage.trim()}
-            style={styles.sendButton}
+            fullWidth={false}
             loading={sending}
           />
         </View>
@@ -151,7 +150,13 @@ export function TicketChatScreen() {
 
 function renderMessage({ item }: { item: TicketMessage }) {
   const isMine = item.author === 'athlete';
-  const time = formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: es });
+  const time = new Date(item.created_at).toLocaleString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   return (
     <View style={[styles.messageWrapper, isMine ? styles.myMessage : styles.otherMessage]}>

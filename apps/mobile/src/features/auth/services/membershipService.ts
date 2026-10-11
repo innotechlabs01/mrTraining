@@ -7,7 +7,7 @@
  * Traemos la misma lógica al mobile para consistencia.
  */
 
-import { apiClient } from '../infrastructure/api/client';
+import { apiClient } from '../../../infrastructure/api/client';
 
 export interface Plan {
   id: string;

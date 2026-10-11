@@ -15,6 +15,7 @@ type Props = {
   disabled?: boolean | undefined;
   loading?: boolean;
   error?: boolean;
+  style?: any;
 };
 
 const HEIGHT: Record<Size, number> = { md: 48, lg: 56 };
@@ -29,6 +30,7 @@ export function PrimaryButton({
   disabled = false,
   loading = false,
   error = false,
+  style,
 }: Props) {
   const isActive = disabled || loading || error;
   return (
@@ -45,6 +47,7 @@ export function PrimaryButton({
         variant === 'primary' && error && styles.errorPrimary,
         !isActive && pressed && styles.pressed,
         isActive && styles.disabledBase,
+        style,
       ]}
     >
       {loading ? (

@@ -3,7 +3,7 @@ import * as Linking from 'expo-linking';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, View } from 'react-native';
-import { useAuth, useUser, ClerkProvider } from '@clerk/clerk-react';
+import { useAuth, useUser } from '@clerk/clerk-expo';
 import Constants from 'expo-constants';
 import { SplashScreen } from '../features/auth/presentation/screens/SplashScreen';
 import { OnboardingSlidersScreen } from '../features/auth/presentation/screens/OnboardingSlidersScreen';
@@ -338,10 +338,8 @@ function RootNavigator() {
 // --- Main Navigator ---
 export function AppNavigator() {
   return (
-    <ClerkProvider apiKey={process.env.CLERK_PUBLISH_KEY || Constants.expoConfig?.extra?.clerkPublishableKey || "pk_test_dXByaWdodC1tYXJ0ZW4tNjQuY2xlcmsuYWNjb3VudHMuZGV2JA"}>
-      <NavigationContainer linking={linking} theme={darkTheme}>
-        <RootNavigator />
-      </NavigationContainer>
-    </ClerkProvider>
+    <NavigationContainer linking={linking} theme={darkTheme}>
+      <RootNavigator />
+    </NavigationContainer>
   );
 }

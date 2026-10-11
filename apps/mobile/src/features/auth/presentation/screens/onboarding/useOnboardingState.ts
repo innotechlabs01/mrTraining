@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useUser } from '@clerk/clerk-expo';
 import {
   AGE_DEFAULT,
   HEIGHT_DEFAULT_CM,

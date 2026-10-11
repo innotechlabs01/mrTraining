@@ -3,13 +3,14 @@ import { View, Text, StyleSheet, ScrollView, TextInput, Alert, KeyboardAvoidingV
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, typography } from '../../../../../shared/theme/tokens';
-import { ScreenHeader } from '../../../../../shared/components/ui/ScreenHeader';
-import { Button } from '../../../../../shared/components/ui/Button';
-import { Input } from '../../../../../shared/components/ui/Input';
-import { Select } from '../../../../../shared/components/ui/Select';
-import { supportApi, type CreateTicketRequest } from '../../api';
-import type { RootStackParamList } from '../../../../../navigation/Navigation';
+import { colors, spacing, typography } from '../../../../shared/theme/tokens';
+import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
+import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
+import { Input } from '../../../../shared/components/ui/Input';
+import { Select } from '../../../../shared/components/ui/Select';
+import { supportApi } from '../../api';
+import type { CreateTicketRequest } from '../../types';
+import type { RootStackParamList } from '../../../../navigation/Navigation';
 
 const CATEGORIES = [
   { value: 'problem', label: 'Problema técnico' },
@@ -111,14 +112,14 @@ export function CreateTicketScreen() {
           />
 
           <View style={styles.buttonRow}>
-            <Button
-              title="Cancelar"
-              variant="secondary"
+            <PrimaryButton
+              label="Cancelar"
+              variant="ghost"
               onPress={() => navigation.goBack()}
               style={styles.button}
             />
-            <Button
-              title={loading ? 'Enviando...' : 'Enviar ticket'}
+            <PrimaryButton
+              label={loading ? 'Enviando...' : 'Enviar ticket'}
               variant="primary"
               onPress={handleSubmit}
               disabled={loading}

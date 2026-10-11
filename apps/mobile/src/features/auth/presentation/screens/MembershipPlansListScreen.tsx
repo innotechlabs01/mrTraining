@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { showToast } from '../../../../../shared/components/ui/Toast';
-import { getAvailablePlans } from '../../../../../features/auth/services/membershipService';
-import { useClerkAuth } from '../../../../../features/auth/hooks/useClerkAuth';
+import { showToast } from '../../../../shared/components/ui/Toast';
+import { getAvailablePlans } from '../../services/membershipService';
+import { useClerkAuth } from '../../hooks/useClerkAuth';
 
 export function MembershipPlansListScreen({ navigation }: any) {
   const { user } = useClerkAuth();
@@ -73,7 +73,7 @@ export function MembershipPlansListScreen({ navigation }: any) {
             {plan.description}
           </Text>
           <Text style={styles.planPrice}>{plan.price}</Text>
-        </View>
+        </TouchableOpacity>
       ))}
       <TouchableOpacity
         style={styles.continueButton}

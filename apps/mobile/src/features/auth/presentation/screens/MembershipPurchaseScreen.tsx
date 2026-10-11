@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { View, ActivityIndicator, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { showToast } from '../../../../../shared/components/ui/Toast';
-import { purchaseMembership, getAvailablePlans } from '../../../../../features/auth/services/membershipService';
-import { useClerkAuth } from '../../../../../features/auth/hooks/useClerkAuth';
+import { showToast } from '../../../../shared/components/ui/Toast';
+import { purchaseMembership, getAvailablePlans } from '../../services/membershipService';
+import { useClerkAuth } from '../../hooks/useClerkAuth';
 
 interface MembershipPurchaseScreenProps {
   navigation: any;
