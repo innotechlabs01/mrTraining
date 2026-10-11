@@ -136,9 +136,11 @@ NEVER report PASS when the real mobile UI was not actually tested.
 ```
 Recibes una tarea
   ↓
-0. Trabaja SIEMPRE en tu worktree (un branch = un worktree).
-   Si no tenes uno: scripts/worktree.sh new feature/<nombre>
-   NUNCA trabajar en main. Detalle: 14-team-workflow.md
+0. Invoca el skill `pipeline-init` (carga mr-context + herdr-setup,
+   y herdr si HERDR_ENV=1). Trabaja SIEMPRE en tu worktree
+   (un branch = un worktree). Si no tenes uno:
+   scripts/worktree.sh new feature/<nombre>. NUNCA en main.
+   Detalle: 14-team-workflow.md
   ↓
 1. Identifica el tipo de cambio
   ↓
@@ -157,9 +159,10 @@ Recibes una tarea
 
 ## TEAM WORKFLOW (detalle en `14-team-workflow.md`)
 
-- **Skill inicial:** carga `mr-context` al empezar CADA tarea — mapa del repo,
-  no-negociables, barra de calidad senior. Obligatorio para agentes nuevos.
-  Para setup/uso de Herdr (panes paralelos de agentes): skill `herdr-setup`.
+- **Paso 0 — pipeline-init:** todo agente invoca el skill `pipeline-init`
+  ANTES de tocar código. Carga `mr-context` (mapa repo, no-negociables,
+  barra senior) + `herdr-setup` (conceptos Herdr) + `herdr` sólo si
+  `HERDR_ENV=1` (corre dentro de un pane Herdr).
 - **Multi-branch:** un branch = un worktree (`scripts/worktree.sh`). Worktrees
   en `../mr-training-worktrees/<branch>`. Cada uno con su `pnpm install`.
 - **Spec-first:** toda feature coach nueva pasa Spec → Plan → BOARD.md →
@@ -276,3 +279,4 @@ docs/
 7. Mantenible antes que rapido
 8. Nunca optimizar por velocidad. Siempre optimizar por calidad.
 9. Pensar antes de codificar.
+# Test change Sat Oct 10 22:21:11 -05 2026

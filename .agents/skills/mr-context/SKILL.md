@@ -58,6 +58,8 @@ packages/     Empty by design — see 14-team-workflow.md §4 before adding
 
 ## Task flow
 
+Entry point: `pipeline-init` skill (loads this + herdr context). Then:
+
 ```
 1. Worktree: scripts/worktree.sh new feature/<name>
 2. Read the matching rule files (map in AGENTS.md)

@@ -61,6 +61,8 @@ ad-hoc: el spec reutilizable define roles, acceptance criteria y criterios
 de UX una sola vez; cada feature lo extiende.
 
 ```
+pipeline-init (skill, paso 0 — carga mr-context + herdr-setup [+ herdr si HERDR_ENV=1])
+  ↓
 Spec (docs/superpowers/specs/)
   ↓  defines: roles, AC, criterios UX, flujos
 Plan (docs/superpowers/plans/)
@@ -105,8 +107,9 @@ Reglas:
 
 | Skill | Cuándo cargarlo |
 |---|---|
-| `mr-context` | Al INICIO de CADA tarea — mapa del repo, no-negociables, barra de calidad senior |
-| `herdr-setup` | Cuando el humano pregunta por Herdr, quiere panes paralelos de agentes, o ver estados de agentes entre proyectos |
+| `pipeline-init` | **Paso 0 de CADA task** — bootstrap: carga mr-context + herdr-setup, y herdr si `HERDR_ENV=1`. Invocar ANTES de tocar código |
+| `mr-context` | Al INICIO de CADA tarea — mapa del repo, no-negociables, barra de calidad senior (lo carga pipeline-init) |
+| `herdr-setup` | Cuando el humano pregunta por Herdr, quiere panes paralelos de agentes, o ver estados de agentes entre proyectos (lo carga pipeline-init) |
 | `herdr` | Controlar Herdr desde dentro de un pane (inicia sesión en pane: `HERDR_ENV=1`) — arrancar agentes, leer output, esperar estados |
 
 Nuevo skill oficial ⇒ agregarlo a esta tabla + mención en AGENTS.md.
