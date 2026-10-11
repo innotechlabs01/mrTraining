@@ -24,6 +24,7 @@ Si no sabes que regla aplica, lee `apps/rules/MASTER_PROMPT.md` primero.
 | **Seguridad / Auth** | `11-security.md` |
 | **Coding style / Linting** | `12-coding-standards.md` |
 | **Testing** | `13-testing.md` |
+| **Team workflow / Worktrees / Caveman** | `14-team-workflow.md` |
 | **Mobile / React Native** | `mobile-rules/*` (ver seccion abajo) |
 | **Cualquier cosa** | `MASTER_PROMPT.md` (siempre) |
 
@@ -135,6 +136,10 @@ NEVER report PASS when the real mobile UI was not actually tested.
 ```
 Recibes una tarea
   ↓
+0. Trabaja SIEMPRE en tu worktree (un branch = un worktree).
+   Si no tenes uno: scripts/worktree.sh new feature/<nombre>
+   NUNCA trabajar en main. Detalle: 14-team-workflow.md
+  ↓
 1. Identifica el tipo de cambio
   ↓
 2. Lee el/los archivo(s) de reglas de `apps/rules/` correspondientes
@@ -144,7 +149,27 @@ Recibes una tarea
 4. Ejecuta el cambio siguiendo las reglas
   ↓
 5. Verifica con lint, build, tests segun 13-testing.md
+  ↓
+6. Commit atomico convencional + PR a main. Limpia el worktree tras merge.
 ```
+
+---
+
+## TEAM WORKFLOW (detalle en `14-team-workflow.md`)
+
+- **Skill inicial:** carga `mr-context` al empezar CADA tarea — mapa del repo,
+  no-negociables, barra de calidad senior. Obligatorio para agentes nuevos.
+- **Multi-branch:** un branch = un worktree (`scripts/worktree.sh`). Worktrees
+  en `../mr-training-worktrees/<branch>`. Cada uno con su `pnpm install`.
+- **Spec-first:** toda feature coach nueva pasa Spec → Plan → BOARD.md →
+  Worktree → Implement → PR. Specs en `docs/superpowers/specs/` (template:
+  `TEMPLATE-coach-feature.md`).
+- **Skills:** flujo repetido 2-3 veces → extraer como Skill. No antes.
+- **Shared code:** mover a `packages/` sólo con uso real en 2+ apps y lógica
+  pura (types/domain/rules). Generar types desde el contrato Go API.
+- **Caveman full:** los agentes responden en modo caveman (sin relleno, ahorro
+  de tokens). Código, commits, specs y docs se escriben NORMAL. Seguridad e
+  irreversibles siempre en claro. Detalle y excepciones: `14-team-workflow.md`.
 
 ---
 
