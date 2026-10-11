@@ -107,6 +107,7 @@ Reglas:
 |---|---|
 | `mr-context` | Al INICIO de CADA tarea — mapa del repo, no-negociables, barra de calidad senior |
 | `herdr-setup` | Cuando el humano pregunta por Herdr, quiere panes paralelos de agentes, o ver estados de agentes entre proyectos |
+| `herdr` | Controlar Herdr desde dentro de un pane (inicia sesión en pane: `HERDR_ENV=1`) — arrancar agentes, leer output, esperar estados |
 
 Nuevo skill oficial ⇒ agregarlo a esta tabla + mención en AGENTS.md.
 
