@@ -106,6 +106,7 @@ Reglas:
 | Skill | Cuándo cargarlo |
 |---|---|
 | `mr-context` | Al INICIO de CADA tarea — mapa del repo, no-negociables, barra de calidad senior |
+| `herdr-setup` | Cuando el humano pregunta por Herdr, quiere panes paralelos de agentes, o ver estados de agentes entre proyectos |
 
 Nuevo skill oficial ⇒ agregarlo a esta tabla + mención en AGENTS.md.
 

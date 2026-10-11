@@ -176,9 +176,10 @@ Never skip the design phase. Never jump to code.
 
 ```
 apps/
-├── web/                  # Next.js frontend + API Routes (BACKEND ACTIVO)
-├── backend/              # Go auxiliar (NO activo en QA; no para nuevos endpoints)
-└── mobile/               # React Native mobile app
+├── web/                  # Next.js frontend (coach dashboard + landing)
+├── api/                  # Go API (Fiber) — BACKEND PRINCIPAL, fuente de verdad
+├── mobile/               # React Native mobile app (athlete)
+└── rules/                # Archivos de reglas (fuente de verdad de proceso)
 
 packages/
 ├── shared/               # Shared types, DTOs, utilities

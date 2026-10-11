@@ -159,6 +159,7 @@ Recibes una tarea
 
 - **Skill inicial:** carga `mr-context` al empezar CADA tarea — mapa del repo,
   no-negociables, barra de calidad senior. Obligatorio para agentes nuevos.
+  Para setup/uso de Herdr (panes paralelos de agentes): skill `herdr-setup`.
 - **Multi-branch:** un branch = un worktree (`scripts/worktree.sh`). Worktrees
   en `../mr-training-worktrees/<branch>`. Cada uno con su `pnpm install`.
 - **Spec-first:** toda feature coach nueva pasa Spec → Plan → BOARD.md →
@@ -231,17 +232,17 @@ cd apps/web && pnpm build        # Build de produccion
 cd apps/web && pnpm lint         # ESLint
 cd apps/web && pnpm test         # Jest
 
-# Backend (apps/backend)
-cd apps/backend && go build ./... # Compilar
-cd apps/backend && go test ./...  # Tests
+# Backend (apps/api — Go/Fiber)
+cd apps/api && go build ./... # Compilar
+cd apps/api && go test ./...  # Tests
 
 # Mobile (apps/mobile)
 cd apps/mobile && npx react-native run-ios     # iOS Simulator
 cd apps/mobile && npx react-native run-android # Android Emulator
 cd apps/mobile && npm test                      # Jest tests
 
-# Infra (solo Redis + NATS necesarios para dev)
-docker compose -f apps/backend/docker-compose.yml up -d redis nats
+# Infra (Redis para dev)
+docker compose -f apps/api/docker-compose.dev.yml up -d redis
 ```
 
 ---
@@ -251,8 +252,8 @@ docker compose -f apps/backend/docker-compose.yml up -d redis nats
 ```
 apps/
 ├── web/          # Next.js frontend (coach dashboard + landing)
-├── backend/      # Go API (Fiber, Clean Architecture, CQRS)
-├── rules/        # 15 archivos de reglas (esta es LA fuente de verdad)
+├── api/          # Go API (Fiber, Clean Architecture, CQRS) — backend
+├── rules/        # 16 archivos de reglas (esta es LA fuente de verdad)
 │   └── mobile-rules/  # Reglas especificas para React Native
 └── mobile/       # React Native (iOS + Android)
 
