@@ -51,7 +51,8 @@ Bootstrap done. Now:
 4. ¿Feature con diseño? → Spec primero (TEMPLATE-coach-feature.md)
 5. Implementar en slices chicos, commit atómico
 6. Verificar: lint + typecheck + tests (+ dispositivo real si mobile UI)
-7. PR a main → Review → aprobación del usuario = Done
+7. Review chain: qa → code-reviewer → security-hacker (cada uno gate)
+8. USER GATE: resumen + evidencia al usuario → aprobación = Done + PR merge
 ```
 
 Full detail: `apps/rules/14-team-workflow.md`.

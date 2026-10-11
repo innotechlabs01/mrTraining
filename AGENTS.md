@@ -165,9 +165,11 @@ Recibes una tarea
   `HERDR_ENV=1` (corre dentro de un pane Herdr).
 - **Multi-branch:** un branch = un worktree (`scripts/worktree.sh`). Worktrees
   en `../mr-training-worktrees/<branch>`. Cada uno con su `pnpm install`.
-- **Spec-first:** toda feature coach nueva pasa Spec → Plan → BOARD.md →
-  Worktree → Implement → PR. Specs en `docs/superpowers/specs/` (template:
-  `TEMPLATE-coach-feature.md`).
+- **Spec-first + stage machine:** toda feature coach nueva pasa
+  Spec → TODO (architect) → In Progress (devs) → Review (qa →
+  code-reviewer → security-hacker) → USER GATE → Done. Loop max
+  3 por stage. Specs en `docs/superpowers/specs/` (template:
+  `TEMPLATE-coach-feature.md`). Detalle: `14-team-workflow.md` §2.
 - **Skills:** flujo repetido 2-3 veces → extraer como Skill. No antes.
 - **Shared code:** mover a `packages/` sólo con uso real en 2+ apps y lógica
   pura (types/domain/rules). Generar types desde el contrato Go API.

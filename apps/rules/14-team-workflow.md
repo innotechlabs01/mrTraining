@@ -60,21 +60,53 @@ y está bien: eso es el aislamiento.
 ad-hoc: el spec reutilizable define roles, acceptance criteria y criterios
 de UX una sola vez; cada feature lo extiende.
 
+Stage machine de Orca Team (orden estricto — ver skill `orca-team`):
+
 ```
 pipeline-init (skill, paso 0 — carga mr-context + herdr-setup [+ herdr si HERDR_ENV=1])
   ↓
-Spec (docs/superpowers/specs/)
-  ↓  defines: roles, AC, criterios UX, flujos
-Plan (docs/superpowers/plans/)
-  ↓  define: fases, archivos, estimaciones
-BOARD.md (Orca Team kanban)
-  ↓  TODO → In Progress → Review → Done
-Worktree (sección 1)
+Spec (docs/superpowers/specs/)     ← diseño previo, roles + AC + criterios UX
   ↓
-Implement + Validación (13-testing.md, mobile validation rule de AGENTS.md)
-  ↓
-PR a main → Review → Done
+TODO                                ← architect revisa: descompone, elige
+                                      roles (ux-ui? dev-front? dev-backend?
+                                      dev-react-native?), escribe AC, dispatch
+  ↓ dispatch (--worktree new-child para devs paralelos)
+IN PROGRESS                         ← dev(s) implementan. Commits atómicos.
+                                      Tests/lint ANTES de reportar worker_done.
+  ↓ worker_done (outcome explícito + resumen + archivos modificados)
+REVIEW                              ← cadena de gates, en este orden:
+                                      1. qa         (tests + AC empíricos)
+                                      2. code-reviewer (diff: corrección,
+                                         patrones, mantenibilidad)
+                                      3. security-hacker (OWASP, inyección,
+                                         secrets, auth)
+  ↓ todos PASS
+USER GATE                           ← resumen + evidencia al usuario.
+                                      Esperar aprobación EXPLÍCITA.
+  ↓ "approved" / "apruebo"
+DONE                                ← board actualizado + PR mergeado.
+                                      Tras merge: limpiar worktree.
 ```
+
+**Loop rule:** cualquier FAIL de stage devuelve la task a IN PROGRESS con los
+findings adjuntos al spec, y se re-dispatcha el mismo dev role (`--retry-of`).
+Max 3 loops por stage; al 4to fallo, escalar al usuario.
+
+**Roles (el architect decide, el coordinator confirma):**
+- `dev-front` — Next.js/React (apps/web)
+- `dev-backend` — Go/API/DB (apps/api)
+- `dev-react-native` — React Native (apps/mobile)
+- `dev-flutter` — Flutter/Dart (si aplica)
+- `ux-ui-designer` — diseño ANTES de código cuando cambia UX visible
+
+Si el plan del architect no está claro, preguntar al usuario ANTES de dispatch.
+
+**Worktrees — cuál mecanismo cuándo:**
+- Dispatch Orca (coordinator + workers) → `--worktree new-child` (Orca gestiona
+  el worktree aislado por worker paralelo).
+- Trabajo solo (un agente, sin Orca) → `scripts/worktree.sh new <branch>`.
+- Ambos son git worktrees con la misma regla: una branch = un worktree,
+  `pnpm install` por worktree, nunca main.
 
 Reglas:
 - Specs viven en `docs/superpowers/specs/YYYY-MM-DD-<feature>-design.md`.
@@ -82,9 +114,41 @@ Reglas:
   (roles + AC, criterios UX obligatorios, scope explícito fuera de alcance).
   Spec de referencia del Coach OS:
   `2026-07-08-coach-operating-system-design.md`.
-- Nada llega a Done sin aprobación explícita del usuario.
-- Features chicas (< 1 día, 1 archivo) pueden saltar spec — pero el board
-  y el worktree siguen siendo obligatorios.
+- El spec alimenta al architect stage: el architect descompone LO QUE EL SPEC
+  define. Spec no existe ⇒ architect improvisa ⇒ rework. Spec primero.
+- El board es `BOARD.md` en la raíz, formato Orca Team (ver §2.1). Se actualiza
+  en CADA transición de stage.
+- Nada llega a Done sin aprobación explícita del usuario (USER GATE).
+- Features chicas (< 1 día, 1 archivo) pueden saltar spec — pero pasan por el
+  stage machine igual (architect chico → implement → qa → review → gate).
+
+### 2.1 Formato del board (Orca Team)
+
+```markdown
+## TODO
+- [ ] T-NNN: <título> — notas (added by @user)
+
+## In Progress
+- [ ] T-NNN: <título> — architect: <plan resumen> | dev-<role> (dispatch <id>)
+
+## Review
+- [ ] T-NNN: <título> — QA <PASS|FAIL xN> | review <status> | security <status>
+
+## Done
+- [x] T-NNN: <título> — approved by @user <YYYY-MM-DD>
+```
+
+IDs secuenciales `T-NNN` por proyecto. Mostrar el board al usuario después
+de cada transición.
+
+### 2.2 Workers — obligaciones
+
+Todo `worker_done` debe traer: outcome explícito (PASS/FAIL), resumen de 3
+frases, y `--files-modified` si hubo código. FAIL = loop rule. `question` de
+un worker ⇒ responder siempre, nunca dejarla colgada.
+
+En contexto Orca, el worker también arranca con `pipeline-init` (paso 0) para
+tener mapa del repo y barra senior antes de tocar el código.
 
 ---
 
