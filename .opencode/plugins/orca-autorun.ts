@@ -167,3 +167,8 @@ export const OrcaAutorun: Plugin = async () => {
     },
   }
 }
+
+export default {
+  id: "orca-autorun",
+  setup: OrcaAutorun,
+}
