@@ -30,7 +30,8 @@
             "android.permission.health.READ_STEPS"
           ]
         }
-      ]
+      ],
+      "expo-video"
     ],
     "ios": {
       "supportsTablet": true,
