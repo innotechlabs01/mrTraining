@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated, Image, useWindowDimensions } from 'react-native';
 import { brandIcon } from '../../../../shared/theme/brandAssets';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -7,11 +7,15 @@ import { useAuth } from '@clerk/clerk-expo';
 import { colors, fontFamilies, shadows, typography } from '../../../../shared/theme/tokens';
 import { texts } from '../../../../shared/i18n/texts';
 
+/** Minimum brand moment before routing away from splash. */
+const MIN_SPLASH_MS = 3500;
+
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 
 export function SplashScreen({ navigation }: Props) {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, isLoaded: authLoaded } = useAuth();
   const { width } = useWindowDimensions();
+  const [minDelayDone, setMinDelayDone] = useState(false);
 
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const dot1 = useRef(new Animated.Value(0)).current;
@@ -63,19 +67,28 @@ export function SplashScreen({ navigation }: Props) {
     b2.start();
     b3.start();
 
-    // Route after a brief brand moment. Signed-in users skip straight in.
-    const timer = setTimeout(() => {
-      navigation.replace(isSignedIn ? 'AthleteTabs' : 'Sliders');
-    }, 3500);
-
     return () => {
-      clearTimeout(timer);
       pulseLoop.stop();
       b1.stop();
       b2.stop();
       b3.stop();
     };
-  }, [pulseAnim, dot1, dot2, dot3, navigation, isSignedIn]);
+  }, [pulseAnim, dot1, dot2, dot3]);
+
+  // Route only when BOTH conditions hold:
+  // 1. Clerk finished hydrating the session (authLoaded) — no race with stored
+  //    sessions being restored after the timer fires.
+  // 2. The brand moment elapsed (MIN_SPLASH_MS).
+  useEffect(() => {
+    const timer = setTimeout(() => setMinDelayDone(true), MIN_SPLASH_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (authLoaded && minDelayDone) {
+      navigation.replace(isSignedIn ? 'AthleteTabs' : 'Sliders');
+    }
+  }, [authLoaded, minDelayDone, isSignedIn, navigation]);
 
   const haloOpacity = pulseAnim.interpolate({
     inputRange: [0, 1],

@@ -171,3 +171,39 @@ export async function verifyTokenForBackend(token: string) {
 
   return await response.json();
 }
+
+/**
+ * Verifica si un usuario existe en Clerk por email
+ * 
+ * GET /v1/users?email_address=email
+ * 
+ * Returns the user if found, null if not found
+ */
+export async function checkUserExistsByEmail(email: string): Promise<ClerkUser | null> {
+  if (!CLERK_PUBLISHABLE_KEY) {
+    throw new Error('CLERK_PUBLISHABLE_KEY no configurada');
+  }
+
+  const response = await fetch(
+    `${CLERK_API_BASE}/users?email_address=${encodeURIComponent(email)}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${CLERK_PUBLISHABLE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    if (response.status === 404) return null;
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Error verificando usuario');
+  }
+
+  const data = await response.json();
+  // Clerk returns an array of users matching the email
+  if (Array.isArray(data) && data.length > 0) {
+    return data[0];
+  }
+  return null;
+}

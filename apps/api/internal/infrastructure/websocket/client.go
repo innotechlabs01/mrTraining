@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/gofiber/websocket/v2"
@@ -63,7 +64,7 @@ func (c *Client) ReadPump() {
 	})
 
 	for {
-		_, _, err := c.Conn.ReadMessage()
+		_, payload, err := c.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
 				logger.L().Warn("websocket unexpected close",
@@ -72,7 +73,15 @@ func (c *Client) ReadPump() {
 			}
 			break
 		}
-		// Server is receive-only; ignore incoming messages.
+		// Subscribe protocol: the client may send
+		// {"type":"subscribe","topic":"events"} to join a topic feed.
+		var msg struct {
+			Type   string `json:"type"`
+			Topic  string `json:"topic"`
+		}
+		if json.Unmarshal(payload, &msg) == nil && msg.Type == "subscribe" && msg.Topic != "" {
+			c.Hub.Subscribe(c, msg.Topic)
+		}
 	}
 }
 

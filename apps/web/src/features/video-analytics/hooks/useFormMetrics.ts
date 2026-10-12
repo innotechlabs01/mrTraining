@@ -29,7 +29,7 @@ export function useAthleteFormMetrics(athleteId: string) {
     queryKey: ['form-metrics', athleteId],
     queryFn: async (): Promise<ExerciseFormStats[]> => {
       // Go API endpoint
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9090'
       const res = await fetch(`${apiUrl}/api/v1/form-metrics/athlete/${athleteId}`)
       if (!res.ok) throw new Error('Failed to fetch form metrics')
       const data = await res.json()

@@ -1,4 +1,5 @@
 import { smartClient as apiClient } from '@infrastructure/api/client';
+import { asList } from '@infrastructure/api/envelope';
 
 export interface Alert {
   id: string;
@@ -11,6 +12,7 @@ export interface Alert {
 
 /** Retrieve the computed alerts for the current athlete */
 export const listAlerts = async (): Promise<Alert[]> => {
-  const { data } = await apiClient.get<Alert[]>('/alerts');
-  return data;
+  const { data } = await apiClient.get('/alerts');
+  // Go API wraps lists in ListResponse { data, total, page, limit }.
+  return asList<Alert>(data);
 };

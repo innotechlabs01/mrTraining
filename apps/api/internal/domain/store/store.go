@@ -23,3 +23,26 @@ type Purchase struct {
 	Price       float64 `json:"price"`
 	CreatedAt   string  `json:"created_at"`
 }
+
+// Order represents a cart checkout awaiting (or confirmed by) a payment.
+type Order struct {
+	ID          string  `json:"id"`
+	AthleteID   string  `json:"athlete_id"`
+	Status      string  `json:"status"` // pending | paid | failed
+	Total       float64 `json:"total"`
+	Currency    string  `json:"currency"`
+	ExternalRef string  `json:"external_ref,omitempty"` // MP payment id
+	CreatedAt   string  `json:"created_at"`
+	PaidAt      string  `json:"paid_at,omitempty"`
+}
+
+// OrderItem is one product line inside an order.
+type OrderItem struct {
+	ID          string  `json:"id"`
+	OrderID     string  `json:"order_id"`
+	ProductID   string  `json:"product_id"`
+	ProductName string  `json:"product_name"`
+	UnitPrice   float64 `json:"unit_price"`
+	Quantity    int     `json:"quantity"`
+	Fulfilled   bool    `json:"fulfilled"`
+}

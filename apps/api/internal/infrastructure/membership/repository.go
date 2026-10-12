@@ -189,6 +189,7 @@ func (r *Repository) GetPaymentHistory(ctx context.Context, athleteID string) ([
 }
 
 // RecordPayment inserts a new payment record.
+// Idempotent per Polar/MP order id — replays are no-ops.
 func (r *Repository) RecordPayment(ctx context.Context, p *membership.Payment) error {
 	// Idempotency guard: skip duplicate Polar order IDs
 	if p.PolarOrderID != "" {
@@ -201,7 +202,29 @@ func (r *Repository) RecordPayment(ctx context.Context, p *membership.Payment) e
 			return nil
 		}
 	}
+	return r.insertPayment(ctx, p)
+}
 
+// GetPaymentByExternalID retrieves a payment record by its external gateway id.
+// Used by the MercadoPago webhook to keep fulfillment idempotent.
+func (r *Repository) GetPaymentByExternalID(ctx context.Context, externalID string) (*membership.Payment, error) {
+	var p membership.Payment
+	var polarOrderID, paidAt sql.NullString
+	err := r.db.QueryRowContext(ctx, `
+		SELECT id, membership_id, amount, currency, status, polar_order_id,
+		       period_start, period_end, paid_at, created_at
+		FROM membership_payments WHERE polar_order_id = ? LIMIT 1
+	`, externalID).Scan(&p.ID, &p.MembershipID, &p.Amount, &p.Currency, &p.Status,
+		&polarOrderID, &p.PeriodStart, &p.PeriodEnd, &paidAt, &p.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get payment by external id: %w", err)
+	}
+	p.PolarOrderID = polarOrderID.String
+	p.PaidAt = paidAt.String
+	return &p, nil
+}
+
+func (r *Repository) insertPayment(ctx context.Context, p *membership.Payment) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO membership_payments
 		 (id, membership_id, amount, currency, status, polar_order_id,
@@ -212,6 +235,21 @@ func (r *Repository) RecordPayment(ctx context.Context, p *membership.Payment) e
 		nullString(p.PaidAt))
 	if err != nil {
 		return fmt.Errorf("failed to record payment: %w", err)
+	}
+	return nil
+}
+
+// RecordMembershipSale mirrors a completed membership payment into the
+// sales table so the coach dashboard and ventas page track the revenue.
+// Uses the MP payment id as the sales row primary key for idempotency.
+func (r *Repository) RecordMembershipSale(ctx context.Context, saleID string, m *membership.Membership) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT OR IGNORE INTO sales
+			(id, product_id, product_name, brand, quantity, unit_price, unit_received, total, date, coach_id, created_at)
+		VALUES (?, '', ?, 'membresia', 1, ?, 0, ?, date('now'), ?, datetime('now'))
+	`, saleID, "Membresía: "+m.PlanName, m.PlanPrice, m.PlanPrice, m.CoachID)
+	if err != nil {
+		return fmt.Errorf("failed to record membership sale: %w", err)
 	}
 	return nil
 }

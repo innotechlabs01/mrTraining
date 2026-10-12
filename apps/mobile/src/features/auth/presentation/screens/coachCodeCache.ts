@@ -31,3 +31,15 @@ export function cacheCoachCode(code: string): void {
     console.error('[coachCode] save failed:', err);
   }
 }
+
+export async function isCodeAccepted(code: string): Promise<boolean> {
+  try {
+    const cached = await getCachedCoachCode();
+    return cached?.toUpperCase() === code.toUpperCase();
+  } catch (err) {
+    console.error('[coachCode] isCodeAccepted failed:', err);
+    return false;
+  }
+}
+
+

@@ -4,73 +4,114 @@ import (
 	"log"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/innotechlabs01/mr-training-api/internal/application/payment"
+	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/middleware"
+	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
-// PaymentHandler handles HTTP requests for the payment domain.
+// PaymentHandler handles MercadoPago checkout endpoints.
 type PaymentHandler struct {
 	svc *payment.Service
 }
 
-// NewPaymentHandler creates a new PaymentHandler with the given application service.
 func NewPaymentHandler(svc *payment.Service) *PaymentHandler {
 	return &PaymentHandler{svc: svc}
 }
 
-// RegisterRoutes registers the payment endpoints in the Fiber app.
-// The handler must be created with NewPaymentHandler first.
-func RegisterRoutes(api fiber.Router, handler *PaymentHandler) {
-	pr := api.Group("/v1/payments")
-	{
-		pr.Post("/preference", handlerCreatePreference(handler))
-		pr.Post("/webhook", handlerWebhook(handler))
-		pr.Get("/status/:id", handlerPaymentStatus(handler))
-	}
+// RegisterPublicPaymentRoutes mounts the webhook OUTSIDE the auth group —
+// MercadoPago cannot attach a Clerk token to its notifications.
+func RegisterPublicPaymentRoutes(app fiber.Router, handler *PaymentHandler) {
+	app.Post("/payments/webhook", handler.handleWebhook)
 }
 
-// handlerCreatePreference creates a handler function for creating payment preference.
-func handlerCreatePreference(h *PaymentHandler) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		var req payment.PreferenceRequest
-		if err := c.BodyParser(&req); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
-		}
-
-		resp, err := h.svc.CreatePreference(c.Context(), &req)
-		if err != nil {
-			log.Printf("Error creating preference: %v", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-
-		return c.JSON(resp)
-	}
+// RegisterPaymentRoutes mounts athlete-facing checkout endpoints. The caller
+// must pass the auth-protected /api/v1 group.
+func RegisterPaymentRoutes(api fiber.Router, handler *PaymentHandler) {
+	api.Post("/payments/cart/preference", middleware.RequireAthlete(), handler.handleCartPreference)
+	api.Post("/payments/membership/preference", middleware.RequireAthlete(), handler.handleMembershipPreference)
+	api.Get("/payments/orders/:id", middleware.RequireAthlete(), handler.handleGetOrder)
 }
 
-// handlerWebhook creates a handler function for processing webhook.
-func handlerWebhook(h *PaymentHandler) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		body := c.Body()
-		signature := c.Get("X-Signature-Ed25519")
-
-		resp, err := h.svc.ProcessWebhook(body, signature)
-		if err != nil {
-			log.Printf("Error processing webhook: %v", err)
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
-		}
-
-		return c.JSON(resp)
+// handleCartPreference validates the cart against the DB, creates a pending
+// order and returns the MercadoPago init point for the browser flow.
+func (h *PaymentHandler) handleCartPreference(c *fiber.Ctx) error {
+	athleteID := middleware.GetUserID(c)
+	if athleteID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
+
+	var req struct {
+		Items []payment.CartPreferenceItem `json:"items"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	resp, err := h.svc.CreateCartPreference(c.Context(), athleteID, req.Items)
+	if err != nil {
+		if appErr, ok := err.(*errors.AppError); ok {
+			return appresponse.Error(c, appErr.Status, appErr.Message)
+		}
+		log.Printf("[payment] cart preference error: %v", err)
+		return appresponse.Error(c, fiber.StatusInternalServerError, "internal error")
+	}
+
+	return appresponse.Success(c, resp)
 }
 
-// handlerPaymentStatus creates a handler function for getting payment status.
-func handlerPaymentStatus(h *PaymentHandler) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		id := c.Params("id")
-		status, err := h.svc.GetPaymentStatus(id)
-		if err != nil {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "payment not found"})
-		}
-
-		return c.JSON(fiber.Map{"status": status})
+// handleGetOrder lets the client poll the order status after the browser
+// payment flow returns.
+func (h *PaymentHandler) handleGetOrder(c *fiber.Ctx) error {
+	orderID := c.Params("id")
+	if orderID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "order id required")
 	}
+
+	order, err := h.svc.GetOrder(c.Context(), orderID)
+	if err != nil {
+		return appresponse.Error(c, fiber.StatusNotFound, "order not found")
+	}
+	return appresponse.Success(c, order)
+}
+
+// handleMembershipPreference creates an MP preference for the athlete's
+// current membership plan (price set by the coach on the web).
+func (h *PaymentHandler) handleMembershipPreference(c *fiber.Ctx) error {
+	athleteID := middleware.GetUserID(c)
+	if athleteID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	resp, err := h.svc.CreateMembershipPreference(c.Context(), athleteID)
+	if err != nil {
+		if appErr, ok := err.(*errors.AppError); ok {
+			return appresponse.Error(c, appErr.Status, appErr.Message)
+		}
+		log.Printf("[payment] membership preference error: %v", err)
+		return appresponse.Error(c, fiber.StatusInternalServerError, "internal error")
+	}
+
+	return appresponse.Success(c, resp)
+}
+
+// handleWebhook processes MercadoPago payment notifications. Signed with the
+// webhook secret (x-signature); fulfillment is idempotent per order.
+func (h *PaymentHandler) handleWebhook(c *fiber.Ctx) error {
+	body := c.Body()
+	signature := c.Get("x-signature")
+
+	if err := h.svc.ProcessWebhook(c.Context(), body, signature); err != nil {
+		if appErr, ok := err.(*errors.AppError); ok {
+			// Always answer 200 for invalid signatures so MercadoPago does not
+			// retry abusive payloads; real errors are logged server-side.
+			log.Printf("[payment] webhook rejected: %s", appErr.Message)
+			return appresponse.Error(c, appErr.Status, appErr.Message)
+		}
+		log.Printf("[payment] webhook error: %v", err)
+		return appresponse.Error(c, fiber.StatusInternalServerError, "internal error")
+	}
+
+	return appresponse.Success(c, fiber.Map{"received": true})
 }

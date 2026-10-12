@@ -52,6 +52,7 @@ import (
 	handlers "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
 	handlerpkg "github.com/innotechlabs01/mr-training-api/internal/handlers"
 	alertinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/alert"
+	paymentapp "github.com/innotechlabs01/mr-training-api/internal/application/payment"
 	bloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/blog"
 	cacheinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/cache"
 	coachinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach"
@@ -253,7 +254,7 @@ func main() {
 		// Wire Event domain
 		eventRepo := eventinfrastructure.NewRepository(db.DB)
 		eventService := eventapp.NewService(eventRepo)
-		eventHandler := userhttp.NewEventHandler(eventService)
+		eventHandler := userhttp.NewEventHandler(eventService, hub)
 
 		// Register event routes
 		routes.RegisterEventRoutes(api, eventHandler)
@@ -503,6 +504,14 @@ func main() {
 		storeRepo := storeinfrastructure.NewRepository(storeRepoDB)
 		storeService := storeapp.NewService(storeRepo)
 		storeHandler := userhttp.NewStoreHandler(storeService)
+
+		// Wire Payment domain (MercadoPago cart checkout).
+		// Webhook mounts OUTSIDE the auth group — MP notifications carry no
+		// Clerk token; preference + order polling require the athlete.
+		paymentService := paymentapp.NewService(cfg, storeRepo, membershipService)
+		paymentHandler := userhttp.NewPaymentHandler(paymentService)
+		userhttp.RegisterPublicPaymentRoutes(app, paymentHandler)
+		userhttp.RegisterPaymentRoutes(api, paymentHandler)
 
 // Register store routes
 	routes.RegisterStoreRoutes(api, storeHandler)

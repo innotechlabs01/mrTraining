@@ -11,6 +11,7 @@ import (
 	eventdomain "github.com/innotechlabs01/mr-training-api/internal/domain/event"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/websocket"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
@@ -18,11 +19,12 @@ import (
 // EventHandler handles HTTP requests for the event domain.
 type EventHandler struct {
 	service *eventapp.Service
+	hub     *websocket.Hub
 }
 
 // NewEventHandler creates a new EventHandler with the given application service.
-func NewEventHandler(service *eventapp.Service) *EventHandler {
-	return &EventHandler{service: service}
+func NewEventHandler(service *eventapp.Service, hub *websocket.Hub) *EventHandler {
+	return &EventHandler{service: service, hub: hub}
 }
 
 // ListEvents handles GET /events.
@@ -240,6 +242,7 @@ func (h *EventHandler) CreateEvent(c *fiber.Ctx) error {
 	}
 
 	middleware.InvalidateCache("events")
+	h.broadcastEventsUpdate("created", event.ID)
 	return appresponse.Success(c, toEventResponse(event))
 }
 
@@ -267,6 +270,7 @@ func (h *EventHandler) UpdateEvent(c *fiber.Ctx) error {
 	}
 
 	middleware.InvalidateCache("events")
+	h.broadcastEventsUpdate("updated", event.ID)
 	return appresponse.Success(c, toEventResponse(event))
 }
 
@@ -288,7 +292,23 @@ func (h *EventHandler) DeleteEvent(c *fiber.Ctx) error {
 	}
 
 	middleware.InvalidateCache("events")
+	h.broadcastEventsUpdate("deleted", id)
 	return appresponse.Success(c, fiber.Map{"message": "event deleted"})
+}
+
+// broadcastEventsUpdate pushes a real-time update to every WS client
+// subscribed to the "events" topic (mobile events tab, web coach dashboard).
+func (h *EventHandler) broadcastEventsUpdate(action, eventID string) {
+	if h.hub == nil {
+		return
+	}
+	h.hub.BroadcastToTopic("events", websocket.Message{
+		Type: "events.updated",
+		Payload: map[string]string{
+			"action":   action,
+			"event_id": eventID,
+		},
+	})
 }
 
 // RegisterForEvent handles POST /events/:id/register.
@@ -444,6 +464,8 @@ func (h *EventHandler) RespondToEvent(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
+	// Notify the coach dashboard in real time.
+	h.broadcastEventsUpdate("rsvp", eventID)
 	return appresponse.Success(c, fiber.Map{"registration": toRegistrationResponse(reg)})
 }
 

@@ -20,6 +20,7 @@ type Props = {
   onPasswordChange: (value: string) => void;
   onConfirmPasswordChange: (value: string) => void;
   onCoachCodeChange: (value: string) => void;
+  onForgotPassword: (email: string) => void;
 };
 
 // FitBody lavanda full-bleed form band → MR surface.
@@ -35,6 +36,7 @@ export function SignInFormSection({
   onPasswordChange,
   onConfirmPasswordChange,
   onCoachCodeChange,
+  onForgotPassword,
 }: Props) {
   return (
     <View style={styles.formBand}>
@@ -125,32 +127,35 @@ export function SignInFormSection({
         </>
       )}
 
-      {/* Coach Code — required for sign-up; optional auto-fill for returning athletes */}
-      <Text style={styles.fieldLabel}>{t.coachCodeLabel}{mode === 'signup' ? ' *' : ''}</Text>
-      <View style={styles.inputWrapper}>
-        <TagIcon size={18} color={colors.textSecondary} />
-        <TextInput
-          style={styles.input}
-          placeholder={t.coachCodePlaceholder}
-          placeholderTextColor={colors.textSecondary}
-          value={coachCode}
-          onChangeText={onCoachCodeChange}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          maxLength={8}
-          accessibilityLabel={t.coachCodeA11y}
-        />
-      </View>
-      <Text style={styles.codeHint}>
-        {mode === 'signup' ? t.coachCodeRequired : t.coachCodeOptional}
-      </Text>
+      {/* Coach Code — sign-up only. Returning athletes get it auto-filled from
+          cache (invisible but still submitted → accept-invite runs). */}
+      {mode === 'signup' && (
+        <>
+          <Text style={styles.fieldLabel}>{t.coachCodeLabel} *</Text>
+          <View style={styles.inputWrapper}>
+            <TagIcon size={18} color={colors.textSecondary} />
+            <TextInput
+              style={styles.input}
+              placeholder={t.coachCodePlaceholder}
+              placeholderTextColor={colors.textSecondary}
+              value={coachCode}
+              onChangeText={onCoachCodeChange}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={8}
+              accessibilityLabel={t.coachCodeA11y}
+            />
+          </View>
+          <Text style={styles.codeHint}>{t.coachCodeRequired}</Text>
+        </>
+      )}
 
-      {/* Forgot Password link — right-aligned, only in sign-in mode (FitBody) */}
+      {/* Forgot Password — adjacent to password field, only in sign-in mode */}
       {mode === 'signin' && (
         <Pressable
-          onPress={() => showToast('info', t.comingSoonTitle, t.comingSoonResetPassword)}
+          onPress={() => onForgotPassword(email)}
           style={styles.forgotBtn}
-          hitSlop={8}
+          hitSlop={12}
         >
           <Text style={styles.forgotText}>{t.forgotPassword}</Text>
         </Pressable>

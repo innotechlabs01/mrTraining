@@ -142,6 +142,63 @@ func (s *Service) RenewMembership(ctx context.Context, coachID, id string) error
 	return nil
 }
 
+// ActivateAfterPayment records a completed MercadoPago payment for a
+// membership and refreshes its period. Idempotent per MP payment id: the
+// payment id doubles as the record primary key, so replayed webhooks
+// collide harmlessly instead of double-extending the period.
+func (s *Service) ActivateAfterPayment(ctx context.Context, membershipID, mpPaymentID string, amount float64) error {
+	if membershipID == "" || mpPaymentID == "" {
+		return errors.BadRequest("membership id and payment id are required")
+	}
+
+	m, err := s.repo.GetByID(ctx, membershipID)
+	if err != nil {
+		return err
+	}
+
+	// Idempotency: has this exact MP payment been recorded already?
+	if existing, err := s.repo.GetPaymentByExternalID(ctx, mpPaymentID); err == nil && existing != nil {
+		return nil
+	}
+
+	// Extend from today (or from the current period end if it is still in
+	// the future, so an early payment stacks periods instead of losing days).
+	newStart := time.Now().UTC().Format("2006-01-02")
+	if m.CurrentPeriodEnd > newStart {
+		newStart = m.CurrentPeriodEnd
+	}
+	newEnd := computePeriodEnd(newStart, m.BillingPeriod)
+
+	p := &domain.Payment{
+		ID:           mpPaymentID,
+		MembershipID: m.ID,
+		Amount:       amount,
+		Currency:     "COP",
+		Status:       "completed",
+		PolarOrderID: mpPaymentID,
+		PeriodStart:  newStart,
+		PeriodEnd:    newEnd,
+		PaidAt:       time.Now().UTC().Format(time.RFC3339),
+	}
+	if err := s.repo.RecordPayment(ctx, p); err != nil {
+		return err
+	}
+
+	m.CurrentPeriodStart = newStart
+	m.CurrentPeriodEnd = newEnd
+	m.PaymentDueDate = computePaymentDueDate(newEnd, m.GracePeriodDays)
+	m.Status = "active"
+	if err := s.repo.Update(ctx, m); err != nil {
+		return err
+	}
+
+	// Mirror the membership payment into the sales table so the coach
+	// dashboard revenue metric and the ventas page pick it up automatically.
+	// Uses the MP payment id as the sales id for idempotency.
+	_ = s.repo.RecordMembershipSale(ctx, mpPaymentID, m)
+	return nil
+}
+
 // GetPaymentHistory returns the payment records for an athlete.
 func (s *Service) GetPaymentHistory(ctx context.Context, athleteID string) ([]*domain.Payment, error) {
 	payments, err := s.repo.GetPaymentHistory(ctx, athleteID)

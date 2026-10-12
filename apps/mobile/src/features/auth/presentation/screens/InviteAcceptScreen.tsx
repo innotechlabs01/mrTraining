@@ -9,6 +9,7 @@ import { smartClient as apiClient } from '../../../../infrastructure/api/client'
 import { colors, spacing, typography, radius } from '../../../../shared/theme/tokens';
 import { LockIcon, CheckIcon, CloseIcon } from '../../../../shared/components/icons';
 import { texts } from '../../../../shared/i18n/texts';
+import { cacheCoachCode, isCodeAccepted } from './coachCodeCache';
 
 const t = texts.screens.inviteAccept;
 
@@ -25,6 +26,7 @@ export function InviteAcceptScreen() {
   const [code, setCode] = useState<string | null>(null);
   const [manualCode, setManualCode] = useState('');
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const acceptInFlightRef = useRef<string | null>(null);
 
   useEffect(() => {
     const routeCode = route.params?.code;
@@ -54,6 +56,10 @@ export function InviteAcceptScreen() {
       return;
     }
 
+    // Guard against duplicate calls (rapid deep-link opens / effect re-runs).
+    if (acceptInFlightRef.current === coachCode.trim().toUpperCase()) return;
+    acceptInFlightRef.current = coachCode.trim().toUpperCase();
+
     setStatus('loading');
 
     try {
@@ -61,12 +67,14 @@ export function InviteAcceptScreen() {
         code: coachCode.trim(),
       });
 
+      cacheCoachCode(coachCode.trim());
       setCoachName(data.coachName || '');
       setStatus('success');
       timeoutRef.current = setTimeout(() => {
         navigation.navigate('AthleteTabs');
       }, 2000);
     } catch (err) {
+      acceptInFlightRef.current = null;
       setStatus('error');
       const message = err instanceof Error ? err.message : t.acceptFailed;
       setErrorMessage(message);
@@ -75,11 +83,26 @@ export function InviteAcceptScreen() {
 
   useEffect(() => {
     if (code && isSignedIn) {
-      acceptInvite(code);
+      // Returning athlete re-opening the same deep link: the code was already
+      // accepted and cached — skip the accept round-trip and go straight to
+      // the athlete home.
+      let cancelled = false;
+      isCodeAccepted(code).then((accepted) => {
+        if (cancelled) return;
+        if (accepted) {
+          navigation.replace('AthleteTabs');
+        } else {
+          acceptInvite(code);
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
     } else if (code && !isSignedIn) {
       setStatus('needs_auth');
     }
-  }, [code, isSignedIn, acceptInvite]);
+    return undefined;
+  }, [code, isSignedIn, acceptInvite, navigation]);
 
   const handleSignIn = () => {
     navigation.navigate('Auth', { code: (code ?? manualCode) || undefined });

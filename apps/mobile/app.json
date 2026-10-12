@@ -31,7 +31,9 @@
           ]
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-image",
+      "expo-localization"
     ],
     "ios": {
       "supportsTablet": true,
@@ -44,7 +46,7 @@
         "NSLocationWhenInUseUsageDescription": "MR Training usa tu ubicación para mostrarte tu posición en tiempo real durante las rutas de running.",
         "NSCameraUsageDescription": "MR Training usa la cámara para guiar tu técnica de ejercicio con inteligencia artificial en tiempo real.",
         "NSMicrophoneUsageDescription": "MR Training usa el micrófono para grabar tus intentos de desafío con audio.",
-        "NSHealthShareUsageDescription": "MR Training lee tus datos de salud (HRV, sue\u00f1o, pulso) para medir tu recuperaci\u00f3n y optimizar tu entrenamiento.",
+        "NSHealthShareUsageDescription": "MR Training lee tus datos de salud (HRV, sueño, pulso) para medir tu recuperación y optimizar tu entrenamiento.",
         "NSHealthUpdateUsageDescription": "MR Training guarda tus entrenamientos en Apple Health.",
         "UIBackgroundModes": [
           "processing",
@@ -105,7 +107,7 @@
     "extra": {
       "clerkPublishableKey": "pk_test_dXByaWdodC1tYXJ0ZW4tNjQuY2xlcmsuYWNjb3VudHMuZGV2JA",
       "apiBaseUrl": "https://mr-training.vercel.app",
-      "goApiUrl": "http://192.168.58.104:3001",
+      "goApiUrl": "http://192.168.58.100:9090",
       "eas": {
         "projectId": "c4e4a8cc-bcf6-43cd-8d13-33bd46e6fea7"
       }

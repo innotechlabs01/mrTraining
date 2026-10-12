@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 
-const GO_API_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:8080';
+const GO_API_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:9090';
 
 export const dynamic = 'force-dynamic';
 

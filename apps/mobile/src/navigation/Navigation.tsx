@@ -152,11 +152,11 @@ function OnboardingScreenWrapper({ navigation }: NativeStackScreenProps<RootStac
 
 // --- Root Navigator (single navigator, conditional screens) ---
 function RootNavigator() {
-  const { isSignedIn } = useAuth();
-  const { isLoaded: userLoaded } = useUser();
+  const { isSignedIn, isLoaded: authLoaded } = useAuth();
 
-  // Show loading while Clerk initializes
-  if (!userLoaded) {
+  // Show loading while Clerk initializes/hydrates the session.
+  // useAuth().isLoaded is the correct gate for isSignedIn routing.
+  if (!authLoaded) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: darkTheme.colors.background }}>
         <ActivityIndicator size="large" color={darkTheme.colors.primary} />

@@ -12,7 +12,7 @@ import Constants from 'expo-constants';
 const GO_API_URL: string =
   process.env.EXPO_PUBLIC_GO_API_URL ??
   Constants.expoConfig?.extra?.goApiUrl ??
-  'http://localhost:8080';
+  'http://localhost:9090';
 const NEXT_API_URL: string = Constants.expoConfig?.extra?.apiBaseUrl ?? '';
 
 // Path mapping: mobile paths → Go API paths
@@ -100,7 +100,27 @@ const setupAuthInterceptor = (client: AxiosInstance) => {
   });
 
   client.interceptors.response.use(
-    (response: AxiosResponse) => response,
+    (response: AxiosResponse) => {
+      // Go API list endpoints wrap payloads in ListResponse:
+      //   { data: T[], total: number, page: number, limit: number }
+      // Consumers expect the bare array, so unwrap it centrally. Strict shape
+      // check (array data + numeric total + page) so single-object responses
+      // that merely carry a `data` field are left untouched.
+      const d = response.data as unknown;
+      if (
+        d !== null &&
+        typeof d === 'object' &&
+        !Array.isArray(d) &&
+        'data' in d &&
+        Array.isArray((d as { data?: unknown }).data) &&
+        'total' in d &&
+        typeof (d as { total?: unknown }).total === 'number' &&
+        'page' in d
+      ) {
+        response.data = (d as { data: unknown[] }).data;
+      }
+      return response;
+    },
     async (error) => {
       const originalRequest = error.config;
 

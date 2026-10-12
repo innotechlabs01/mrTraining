@@ -1,9 +1,19 @@
 # Team Board
 
-## TODO
-- [ ] (vacío - esperando inicio de sprint)
-
 ## In Progress
+- [ ] T-007: Auth flow refactor — single source of truth for session routing | dev+ux-ui complete | qa pending user device test
+
+## Review
+- [ ] T-008: MercadoPago cart checkout + orders + stock fulfillment + events chain | architect: skeleton MP era dead code (unmounted, double /v1, fake signature, no fulfillment) | dev: config keys, migration 018 (store_orders/items), store repo +orders (FulfillOrder transactional idempotente), payment service rewrite (cart preference multi-item, MP /checkout/preferences, webhook HMAC x-signature real, fetch payment + fulfill), handler + main wiring (webhook PUBLIC fuera auth, pref/order detrás RequireAthlete), mobile CartSheet → MP browser + polling 6×2.5s, migration aplicada, API 9090 vivo | smoke: pref 401, order 401, webhook 401 firma ✓ | events chain web→api→mobile validada (detail tolera no-registrado, respond crea registro) | tests 288/288 go build OK | membership MP = TODO (necesita catálogo de precios) | qa pending real payment test
+
+## Done
+- [x] T-006: Deep link invite persistence — skip InviteAccept for returning athletes with cached code. | architect: check isCodeAccepted in InviteAccept, skip to AthleteTabs if cached, else acceptInvite | dev: added isCodeAccepted to coachCodeCache, InviteAccept checks cache on mount, navigation.replace AthleteTabs if accepted | tests 288/288 pass | expo-doctor clean | qa PASS | code-reviewer PASS | security PASS | approved by @user 2026-10-12
+
+## Done
+- [x] T-004: iOS pod install fail — VisionCamera needs NitroImage from nitro-specs repo; repo not found on GitHub. | architect: remove bad source, add react-native-nitro-image, reinstall pods, verify iOS build + camera flow | dev: **pod install PASS** (NitroImage 0.15.2 in Podfile.lock); **xcodebuild PASS** (BUILD SUCCEEDED); npm tests 287/288 pass (1 pre-existing EmptyState test flakiness) | qa PASS | code-reviewer PASS | security PASS | approved by @user 2026-10-12
+
+## Done
+- [x] T-005: Expo SDK 54 → 57 upgrade — project incompatible with Expo Go 57; need full SDK migration including React Native 0.81→0.87, expo packages, config plugins, breaking changes per upgrade guide | architect: incremental 54→55→56→57, nitro stack alignment, Hermes v1 memory fix in 57.0.17+, New Arch mandatory | dev-react-native: **expo@57.0.25 + RN 0.86.3 + Hermes 250829098.0.17**; iOS deployment target 16.4; AppDelegate Swift 6 compatibility; xcodebuild BUILD SUCCEEDED; npm tests 288/288 pass; expo-doctor clean | qa PASS | code-reviewer PASS | security PASS | approved by @user 2026-10-12
 
 ## Review
 

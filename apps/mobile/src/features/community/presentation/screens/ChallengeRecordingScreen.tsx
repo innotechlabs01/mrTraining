@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'
 import { Camera, useCameraDevice, useCameraPermission, useMicrophonePermission, CameraRef, useVideoOutput } from 'react-native-vision-camera'
-import { Ionicons } from '@expo/vector-icons'
+import { Ionicons } from '@react-native-vector-icons/ionicons'
 import { useRoute, useNavigation, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { colors, spacing, radius } from '../../../../shared/theme/tokens'

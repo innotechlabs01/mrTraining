@@ -1,3 +1,7 @@
 packages:
   - 'apps/web'
   - 'packages/*'
+  # NOTE: apps/mobile is NOT a pnpm workspace member — it uses npm with its
+  # own package-lock.json (React Native/Expo toolchain). Adding it here once
+  # leaked react-native + @types/react@19 into the root lockfile and broke
+  # apps/web type-checking (dual @types/react). Keep it out.

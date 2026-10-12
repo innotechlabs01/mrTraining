@@ -30,8 +30,8 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontFamily: fontFamilies.display,
-    fontSize: typography.h1.fontSize,
-    lineHeight: 34,
+    fontSize: typography.h2.fontSize,
+    lineHeight: 30,
     color: colors.text,
     textAlign: 'center',
   },

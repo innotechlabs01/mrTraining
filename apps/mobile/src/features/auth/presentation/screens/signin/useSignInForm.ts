@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSignIn, useSignUp } from '@clerk/clerk-expo';
+import { useAuth, useClerk, useSignIn, useSignUp } from '@clerk/clerk-expo';
 import { smartClient as apiClient } from '../../../../../infrastructure/api/client';
 import { showToast } from '../../../../../shared/components/ui/Toast';
 import {
@@ -10,6 +10,7 @@ import {
 } from '../onboardingPending';
 import { getCachedCoachCode, cacheCoachCode } from '../coachCodeCache';
 import { texts } from '../../../../../shared/i18n/texts';
+import { resolveAuthError } from './clerkErrors';
 
 const t = texts.screens.signIn;
 
@@ -23,6 +24,14 @@ type UseSignInFormOptions = {
   getOnboardingData: () => OnboardingPayload | undefined;
 };
 
+/**
+ * Email/password sign-in + sign-up form state.
+ *
+ * Concerns kept OUT of this hook (single responsibility):
+ * - Password reset flow → usePasswordReset()
+ * - Error copy/mapping → clerkErrors.resolveAuthError()
+ * - Session routing on auth success → SignInScreen redirect effect
+ */
 export function useSignInForm({
   initialCode,
   initialMode,
@@ -30,6 +39,8 @@ export function useSignInForm({
 }: UseSignInFormOptions) {
   const { signIn, setActive, isLoaded: signInLoaded } = useSignIn();
   const { signUp, setActive: setActiveSignUp, isLoaded: signUpLoaded } = useSignUp();
+  const { isSignedIn } = useAuth();
+  const { signOut } = useClerk();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -76,27 +87,65 @@ export function useSignInForm({
     await clearPendingOnboarding();
   };
 
+  const acceptInviteIfPresent = async (normalizedCode: string) => {
+    if (!normalizedCode) return;
+    try {
+      await apiClient.post('/athlete/accept-invite', { code: normalizedCode });
+    } catch (err) {
+      console.error('[Auth] accept-invite failed:', err);
+    }
+  };
+
+  /** Post-session-success side effects shared by sign-in and sign-up. */
+  const afterSessionActive = async (normalizedCode: string, flushOnboarding: boolean) => {
+    if (normalizedCode) cacheCoachCode(normalizedCode);
+    if (flushOnboarding) {
+      await flushPendingOnboarding();
+    } else {
+      const onboarding = getOnboardingData();
+      await postOnboard(onboarding);
+    }
+    await acceptInviteIfPresent(normalizedCode);
+  };
+
+  /**
+   * Clerk's internal navigation can throw (e.g. "Cannot read property 'href'")
+   * AFTER the session was already created. Recover by activating the session
+   * directly instead of failing the whole sign-in.
+   */
+  const recoverSessionFromInternalError = async (
+    err: unknown,
+  ): Promise<boolean> => {
+    if (!(err instanceof TypeError) || !setActive) return false;
+    const sessionCreated = (signIn as { createdSessionId?: string | null })
+      .createdSessionId;
+    if (!sessionCreated) return false;
+    try {
+      await setActive({ session: sessionCreated });
+      return true;
+    } catch (activateErr) {
+      console.error('[Auth] session activate recovery failed:', activateErr);
+      return false;
+    }
+  };
+
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
       showToast('error', t.errorTitle, t.completeAllFields);
       return;
     }
-
     if (!EMAIL_REGEX.test(email.trim())) {
       showToast('error', t.errorTitle, t.invalidEmail);
       return;
     }
-
     if (password.length < 8) {
       showToast('error', t.errorTitle, t.passwordTooShort);
       return;
     }
-
     if (mode === 'signup' && confirmPassword !== password) {
       showToast('error', t.errorTitle, t.passwordsMismatch);
       return;
     }
-
     if (mode === 'signup' && !coachCode.trim()) {
       showToast('error', t.errorTitle, t.coachCodeMissing);
       return;
@@ -105,6 +154,10 @@ export function useSignInForm({
     const normalizedCode = coachCode.trim().toUpperCase();
 
     if (mode === 'signin') {
+      if (isSignedIn) {
+        showToast('info', t.errorTitle, 'Ya tienes una sesión activa.');
+        return;
+      }
       if (!signInLoaded) {
         showToast('info', t.waitTitle, t.authInProgress);
         return;
@@ -116,20 +169,26 @@ export function useSignInForm({
           password,
         });
         if (result.status === 'complete') {
-          if (normalizedCode) cacheCoachCode(normalizedCode);
           await setActive({ session: result.createdSessionId });
-          await flushPendingOnboarding();
-          if (normalizedCode) {
-            try {
-              await apiClient.post('/athlete/accept-invite', { code: normalizedCode });
-            } catch (err) {
-              console.error('[Auth] accept-invite failed on sign-in:', err);
-            }
-          }
+          await afterSessionActive(normalizedCode, true);
+        } else {
+          showToast('error', t.signInFailedTitle, t.signInFailedFallback);
         }
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : t.signInFailedFallback;
-        showToast('error', t.signInFailedTitle, message);
+        if (await recoverSessionFromInternalError(err)) return;
+        const resolved = resolveAuthError(err, 'signin');
+        console.error('[Auth] Sign-in error:', err);
+        showToast(resolved.kind, resolved.title, resolved.message);
+        // Stale client session (backend has session, local says signed-out):
+        // clear it so the next attempt works.
+        if (resolved.shouldSignOut && !isSignedIn) {
+          try {
+            await signOut();
+            showToast('info', t.errorTitle, 'Sesión restaurada. Intenta de nuevo.');
+          } catch (soErr) {
+            console.error('[Auth] signOut recovery failed:', soErr);
+          }
+        }
       } finally {
         setLoading(false);
       }
@@ -146,18 +205,10 @@ export function useSignInForm({
           unsafeMetadata: { coachCode: normalizedCode },
         });
         if (result.status === 'complete') {
-          if (normalizedCode) cacheCoachCode(normalizedCode);
           await setActiveSignUp({ session: result.createdSessionId });
-          const onboarding = getOnboardingData();
-          await postOnboard(onboarding);
-          if (normalizedCode) {
-            try {
-              await apiClient.post('/athlete/accept-invite', { code: normalizedCode });
-            } catch (err) {
-              console.error('[Auth] accept-invite failed on sign-up:', err);
-            }
-          }
+          await afterSessionActive(normalizedCode, false);
         } else {
+          // Email verification pending — buffer onboarding data for later.
           const onboarding = getOnboardingData();
           if (onboarding) {
             savePendingOnboarding(onboarding);
@@ -165,8 +216,9 @@ export function useSignInForm({
           showToast('success', t.checkEmailTitle, t.checkEmailBody);
         }
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : t.signUpFailedFallback;
-        showToast('error', t.signUpFailedTitle, message);
+        const resolved = resolveAuthError(err, 'signup');
+        console.error('[Auth] Sign-up error:', err);
+        showToast(resolved.kind, resolved.title, resolved.message);
       } finally {
         setLoading(false);
       }
@@ -192,5 +244,6 @@ export function useSignInForm({
     loading,
     isLoaded,
     handleSubmit,
+    isSignedIn,
   };
 }

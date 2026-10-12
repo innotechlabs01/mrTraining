@@ -4,14 +4,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, type CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
+import { useWsSubscription } from '../../../../shared/hooks/useWsSubscription';
 import { colors, layout, spacing, typography, radius } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { Card } from '../../../../shared/components/ui/Card';
 import { Badge } from '../../../../shared/components/ui/Badge';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
+import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { DayStrip, type CalendarDay } from '../../../../shared/components/ui/DayStrip';
+import { CalendarIcon, ClockIcon, MapPinIcon } from '../../../../shared/components/icons';
 import type { AthleteTabParamList } from '../../../../navigation/AthleteTabs';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { texts } from '../../../../shared/i18n/texts';
@@ -64,6 +67,14 @@ function toneForEventStatus(status: string): BadgeTone {
   return 'neutral';
 }
 
+/** Per-type accent (dot + card bar) — Gestalt similarity: like events read alike. */
+function accentForType(type?: string): string {
+  const s = (type ?? '').toLowerCase();
+  if (s.includes('run') || s.includes('carrera')) return colors.success;
+  if (s.includes('compet') || s.includes('challenge') || s.includes('reto')) return colors.warning;
+  return colors.primary;
+}
+
 function formatDate(dateStr: string): string {
   if (!dateStr) return '—';
   try {
@@ -95,13 +106,35 @@ function compareByTime(a: EventItem, b: EventItem): number {
 
 export function EventsScreen() {
   const navigation = useNavigation<EventsNav>();
-  const { data, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['athlete-events'],
+  const queryClient = useQueryClient();
+
+  // Real-time: coach creates/updates events on web → push notification via WS
+  // → invalidate the list so athletes see changes instantly.
+  useWsSubscription('events', (msg) => {
+    if (msg.type === 'events.updated') {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    }
+  });
+
+  const { data, isLoading, isError, refetch, isRefetching } = useQuery({
+    queryKey: ['events'],
     queryFn: async () => {
-      const { data } = await apiClient.get('/athlete/events');
+      // Primary source: the full (in-app public) event list — an athlete
+      // without registrations must still see upcoming events.
+      const { data } = await apiClient.get('/events');
       if (Array.isArray(data)) return data as EventItem[];
-      if (Array.isArray(data.events)) return data.events as EventItem[];
-      if (Array.isArray(data.data)) return data.data as EventItem[];
+      if (Array.isArray((data as any)?.events)) return (data as any).events as EventItem[];
+      if (Array.isArray((data as any)?.data)) return (data as any).data as EventItem[];
+      // Fallback: my registrations (older backend shape).
+      try {
+        const reg = await apiClient.get('/athlete/events');
+        const rd = reg.data;
+        if (Array.isArray(rd)) return rd as EventItem[];
+        if (Array.isArray((rd as any)?.events)) return (rd as any).events as EventItem[];
+        if (Array.isArray((rd as any)?.data)) return (rd as any).data as EventItem[];
+      } catch {
+        // Registration endpoint may fail for fresh accounts — ignore.
+      }
       return [] as EventItem[];
     },
     staleTime: 2 * 60 * 1000,
@@ -171,41 +204,63 @@ export function EventsScreen() {
         <DayStrip days={days} selectedKey={selectedKey} onSelect={setSelectedKey} onEndReached={extendWindow} />
 
         {showLoading ? (
-          <EmptyState variant="loading" message={t.loading} />
+          // Rule (01-mobile-ui-ux §4): skeleton loaders for lists — never a
+          // full-screen spinner.
+          <Skeleton.List rows={3} height={88} />
+        ) : isError ? (
+          <EmptyState variant="error" onRetry={() => refetch()} />
         ) : selectedEvents.length === 0 ? (
           <EmptyState variant="empty" message={t.emptyDay} />
         ) : (
           <View style={styles.list}>
-            {selectedEvents.map((ev) => (
-              <Pressable
-                key={ev.id}
-                onPress={() =>
-                  navigation
-                    .getParent<NativeStackNavigationProp<RootStackParamList>>()
-                    ?.navigate('EventDetail', { eventId: ev.id })
-                }
-                style={({ pressed }) => (pressed ? styles.cardPressed : undefined)}
-              >
-                <Card style={styles.card}>
-                  <View style={styles.cardAccent} />
-                  <View style={styles.cardTopRow}>
-                    <View style={[styles.typeDot, { backgroundColor: colors.primary }]} />
-                    <Text style={styles.typeText} numberOfLines={1}>
-                      {((ev.type ?? t.fallbackTitle)).toUpperCase()}
+            {selectedEvents.map((ev) => {
+              const accent = accentForType(ev.type);
+              return (
+                <Pressable
+                  key={ev.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${ev.title}${ev.time ? `, ${ev.time}` : ''}, ${formatDate(ev.date)}`}
+                  onPress={() =>
+                    navigation
+                      .getParent<NativeStackNavigationProp<RootStackParamList>>()
+                      ?.navigate('EventDetail', { eventId: ev.id })
+                  }
+                  style={({ pressed }) => [pressed && styles.cardPressed]}
+                >
+                  <Card style={[styles.card, { borderLeftColor: accent }]}>
+                    <View style={[styles.cardAccent, { backgroundColor: accent }]} />
+                    <View style={styles.cardTopRow}>
+                      <View style={[styles.typeDot, { backgroundColor: accent }]} />
+                      <Text style={styles.typeText} numberOfLines={1}>
+                        {(ev.type ?? t.fallbackTitle).toUpperCase()}
+                      </Text>
+                      {!!ev.status && <Badge text={ev.status} tone={toneForEventStatus(ev.status)} />}
+                    </View>
+                    <Text style={styles.cardTitle} numberOfLines={2}>
+                      {ev.title}
                     </Text>
-                    {!!ev.status && <Badge text={ev.status} tone={toneForEventStatus(ev.status)} />}
-                  </View>
-                  <Text style={styles.cardTitle} numberOfLines={2}>
-                    {ev.title}
-                  </Text>
-                  <Text style={styles.cardMeta} numberOfLines={2}>
-                    {formatDate(ev.date)}
-                    {ev.time ? ` · ${ev.time}` : ''}
-                    {ev.location ? ` · ${ev.location}` : ''}
-                  </Text>
-                </Card>
-              </Pressable>
-            ))}
+                    <View style={styles.metaRow}>
+                      <CalendarIcon size={12} color={colors.textSecondary} />
+                      <Text style={styles.metaText}>{formatDate(ev.date)}</Text>
+                      {!!ev.time && (
+                        <>
+                          <ClockIcon size={12} color={colors.textSecondary} />
+                          <Text style={styles.metaText}>{ev.time}</Text>
+                        </>
+                      )}
+                      {!!ev.location && (
+                        <>
+                          <MapPinIcon size={12} color={colors.textSecondary} />
+                          <Text style={[styles.metaText, styles.metaLocation]} numberOfLines={1}>
+                            {ev.location}
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                  </Card>
+                </Pressable>
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -217,11 +272,12 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
   content: { paddingHorizontal: layout.pagePadding, paddingBottom: 100 },
   list: { gap: spacing.sm, paddingTop: spacing.sm },
-  cardPressed: { opacity: 0.85 },
+  cardPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
   card: {
     position: 'relative',
     overflow: 'hidden',
     paddingLeft: spacing.lg,
+    borderLeftWidth: 2,
   },
   cardAccent: {
     position: 'absolute',
@@ -241,5 +297,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitle: { fontSize: 16, fontWeight: '600', color: colors.text, lineHeight: 22, marginBottom: spacing.sm },
-  cardMeta: { ...typography.caption, color: colors.textSecondary },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  metaText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  metaLocation: { flexShrink: 1 },
 });

@@ -45,9 +45,11 @@ type Config struct {
 	RateLimitWindowSec int      // Rate limit window in seconds
 
 	// MercadoPago
-	MercadoPagoWebhookURL string // URL del webhook recibido del frontend
-	MercadoPagoSecretKey  string // Clave secreta del webhook (del dashboard de MP)
-	AppURL                string // URL base de la app (para back_urls)
+	MercadoPagoWebhookURL  string // URL del webhook registrada en el dashboard de MP
+	MercadoPagoSecretKey   string // Access token (APP_USR-...) para llamar la API de MP
+	MercadoPagoPublicKey   string // Public key (APP_USR-...) — informativa, para el cliente
+	MercadoPagoWebhookKey  string // Webhook secret: firma x-signature de las notificaciones
+	AppURL                 string // URL base de la app (para back_urls)
 
 // Email (para notificaciones a coaches)
 	EmailSMTPHost         string // Servidor SMTP (ej: smtp.gmail.com)
@@ -93,6 +95,12 @@ func Load() (*Config, error) {
 		RateLimitWindowSec: getEnvInt("RATE_LIMIT_WINDOW", 60),
 
 		LogLevel: getEnv("LOG_LEVEL", "info"),
+
+		MercadoPagoWebhookURL: getEnv("MERCADO_PAGO_WEBHOOK_URL", ""),
+		MercadoPagoSecretKey:  getEnv("MERCADO_PAGO_SECRET_KEY", ""),
+		MercadoPagoPublicKey:  getEnv("MERCADO_PAGO_PUBLIC_KEY", ""),
+		MercadoPagoWebhookKey: getEnv("MERCADO_PAG_SECRET_WEBHOOK", getEnv("MERCADO_PAGO_WEBHOOK_SECRET", "")),
+		AppURL:                getEnv("APP_URL", ""),
 	}
 
 	if err := cfg.validate(); err != nil {

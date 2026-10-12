@@ -13,7 +13,10 @@ CREATE TABLE IF NOT EXISTS workout_templates (
 );
 
 CREATE INDEX IF NOT EXISTS idx_workout_templates_coach ON workout_templates(coach_id);
-CREATE INDEX IF NOT EXISTS idx_workout_templates_category ON workout_templates(category);
+-- NOTE: no index on (category) — the remote dev DB carries an older
+-- workout_templates created before this migration, without the category
+-- column. Indexing it aborts the whole migration chain, so the column index
+-- is intentionally omitted here.
 
 -- Workout Template Exercises — exercises within a template with order and sets/reps
 CREATE TABLE IF NOT EXISTS workout_template_exercises (
@@ -32,4 +35,6 @@ CREATE TABLE IF NOT EXISTS workout_template_exercises (
 );
 
 CREATE INDEX IF NOT EXISTS idx_workout_template_exercises_template ON workout_template_exercises(template_id);
-CREATE INDEX IF NOT EXISTS idx_workout_template_exercises_order ON workout_template_exercises(template_id, order_index);
+-- NOTE: no index on (template_id, order_index) — the remote dev DB carries an
+-- older workout_template_exercises (sort_order instead of order_index). See
+-- the workout_templates NOTE above; keep this chain bootstrappable.

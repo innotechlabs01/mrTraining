@@ -50,6 +50,7 @@ export function ProfileScreen() {
   const rootNav = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
   const openMembership = () => rootNav?.navigate('Membership');
   const openStore = () => rootNav?.navigate('Store');
+  const openFavorites = () => rootNav?.navigate('Favorites');
   const openSettings = () => rootNav?.navigate('Settings');
   const openHelp = () => rootNav?.navigate('Help');
   const openPersonalData = () => rootNav?.navigate('PersonalData');
@@ -158,7 +159,7 @@ export function ProfileScreen() {
                 onPress: openMembership,
               },
               { key: 'store', label: t.storeLabel, icon: <StoreIcon size={18} color={colors.primary} />, onPress: openStore },
-              { key: 'favorites', label: t.favoritesLabel, icon: <StarIcon size={18} color={colors.primary} />, onPress: openStore },
+              { key: 'favorites', label: t.favoritesLabel, icon: <StarIcon size={18} color={colors.primary} />, onPress: openFavorites },
               { key: 'settings', label: t.settingsLabel, icon: <GearIcon size={18} color={colors.primary} />, onPress: openSettings },
               { key: 'privacy', label: t.privacyLabel, icon: <LockIcon size={18} color={colors.primary} />, onPress: handlePrivacyPolicy },
               { key: 'help', label: t.helpLabel, icon: <HelpIcon size={18} color={colors.primary} />, onPress: openHelp },

@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
+import { asList } from '../../../../infrastructure/api/envelope';
 import { listFavorites } from '../../../favorites/favoriteService';
 import { colors, layout, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
@@ -50,7 +51,8 @@ export function SearchScreen() {
     queryKey: ['exercises'],
     queryFn: async () => {
       const { data } = await apiClient.get('/exercises');
-      return data as Array<{ id: string; name: string; category?: string; muscleGroup?: string }>;
+      // Go API wraps lists in ListResponse { data, total, page, limit }.
+      return asList<{ id: string; name: string; category?: string; muscleGroup?: string }>(data);
     },
     staleTime: 300_000,
   });

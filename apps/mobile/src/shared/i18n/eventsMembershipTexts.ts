@@ -72,6 +72,8 @@ export const eventsMembershipTexts = {
     unavailable: 'La membresía no está disponible. Contacta a tu entrenador.',
     checkoutFailedTitle: 'Checkout',
     checkoutFailedBody: 'No se pudo iniciar el checkout seguro.',
+    checkoutSuccessTitle: 'Pago en proceso',
+    checkoutSuccessBody: 'Cuando MercadoPago confirme el pago, tu membresía se activará automáticamente.',
     genericErrorTitle: 'Checkout',
     genericErrorBody: 'Algo salió mal. Intenta de nuevo.',
     planTitle: 'Tu plan',

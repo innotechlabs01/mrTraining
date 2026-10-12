@@ -2,6 +2,7 @@ package membership
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/innotechlabs01/mr-training-api/internal/domain/membership"
@@ -191,4 +192,17 @@ type testError struct {
 
 func (e *testError) Error() string {
 	return e.msg
+}
+
+// GetPaymentByExternalID implements the idempotency lookup for the MP
+// webhook. The in-memory repo doesn't persist payments, so it always
+// reports not found — the caller proceeds to record the payment.
+func (r *InMemoryMembershipRepository) GetPaymentByExternalID(ctx context.Context, externalID string) (*membership.Payment, error) {
+	return nil, fmt.Errorf("payment not found: %s", externalID)
+}
+
+// RecordMembershipSale mirrors a membership payment into the sales table.
+// No-op in the in-memory repo (tests don't verify sales-table mirroring).
+func (r *InMemoryMembershipRepository) RecordMembershipSale(ctx context.Context, saleID string, m *membership.Membership) error {
+	return nil
 }

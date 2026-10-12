@@ -13,6 +13,15 @@ type Repository interface {
 	// Returns ErrNotFound if no membership exists with the given ID.
 	GetByID(ctx context.Context, id string) (*Membership, error)
 
+	// GetPaymentByExternalID retrieves a payment record by its external
+	// gateway id (MercadoPago payment id). Used for webhook idempotency.
+	GetPaymentByExternalID(ctx context.Context, externalID string) (*Payment, error)
+
+	// RecordMembershipSale mirrors a membership payment into the sales table
+	// so the coach dashboard's revenue metric picks it up. Idempotent: the
+	// MP payment id doubles as the sales row id.
+	RecordMembershipSale(ctx context.Context, saleID string, m *Membership) error
+
 	// Create inserts a new membership record.
 	Create(ctx context.Context, m *Membership) error
 

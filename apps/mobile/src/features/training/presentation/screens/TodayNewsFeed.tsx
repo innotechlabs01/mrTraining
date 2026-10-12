@@ -80,7 +80,9 @@ function ArticlesBlock({
 }
 
 function AlertsBlock({ alerts }: { alerts: Alert[] }) {
-  if (alerts.length === 0) return null;
+  // Defensive: a malformed payload (envelope object instead of array) must
+  // never crash the Today screen.
+  if (!Array.isArray(alerts) || alerts.length === 0) return null;
   return (
     <Card style={styles.alertCard}>
       {alerts.slice(0, 2).map((a, i) => (
@@ -115,7 +117,10 @@ export function NewsFeedSection({
   onPressArticles: () => void;
 }) {
   const [open, setOpen] = useState(true);
-  const hasContent = !!latestMessage || posts.length > 0 || alerts.length > 0;
+  const hasContent =
+    !!latestMessage ||
+    posts.length > 0 ||
+    (Array.isArray(alerts) && alerts.length > 0);
 
   return (
     <View style={styles.section}>

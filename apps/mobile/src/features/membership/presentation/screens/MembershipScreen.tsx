@@ -17,6 +17,7 @@ import { colors, layout, radius, spacing, typography } from '../../../../shared/
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { AlertBanner } from '../../../../shared/components/ui/AlertBanner';
+import { showToast } from '../../../../shared/components/ui/Toast';
 import { ListCard } from '../../../../shared/components/ui/ListCard';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { MembershipIcon, CardIcon } from '../../../../shared/components/icons';
@@ -107,24 +108,24 @@ export function MembershipScreen() {
   const isExpiring = effectiveStatus === 'grace_period' || effectiveStatus === 'grace';
 
   const handlePay = async () => {
-    const membershipId = rawMembership?.id ?? data?.id;
-    const athleteId = (rawMembership?.athleteId ?? data?.athleteId) as string | undefined;
-    if (!membershipId || !athleteId) {
-      Alert.alert(t.payCta, t.unavailable);
-      return;
-    }
     setIsPaying(true);
     try {
-      const { createCheckout } = await import('@features/polar/polarService');
-      const res = await createCheckout(athleteId, membershipId);
-      if (res?.url) {
-        await Linking.openURL(res.url);
+      const { createMembershipPreference } = await import('../../membershipPayment');
+      const res = await createMembershipPreference();
+      if (res?.initPoint) {
+        const WebBrowser = await import('expo-web-browser');
+        await WebBrowser.openBrowserAsync(res.initPoint);
+        await WebBrowser.dismissBrowser();
+        // Poll: refetch after the browser flow so the updated period shows.
+        await refetch();
+        showToast('success', t.checkoutSuccessTitle, t.checkoutSuccessBody);
       } else {
         Alert.alert(t.checkoutFailedTitle, t.checkoutFailedBody);
       }
-    } catch (e) {
-      console.error('Failed to start checkout', e);
-      Alert.alert(t.genericErrorTitle, t.genericErrorBody);
+    } catch (e: unknown) {
+      console.error('[Membership] MP checkout failed:', e);
+      const msg = e instanceof Error ? e.message : t.genericErrorBody;
+      Alert.alert(t.genericErrorTitle, msg);
     } finally {
       setIsPaying(false);
     }

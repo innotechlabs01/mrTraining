@@ -34,12 +34,18 @@ const toolbarConfig: any = [
   'undo', 'redo'
 ]
 
-// Simple dynamic import with ssr: false
+// Simple dynamic import with ssr: false.
+// NOTE: the monorepo root hoists a newer @types/react than apps/web pins,
+// which makes dynamic()'s inferred ComponentType fail JSX structural checks
+// ("Property 'refs' is missing" / ReactNode bigint mismatch). The trailing
+// `as unknown as` cast bypasses that cross-version structural check; the
+// underlying component is a plain function component.
 const CKEditorComponent = dynamic(
   () => import('@ckeditor/ckeditor5-react').then(({ CKEditor }) =>
     import('@ckeditor/ckeditor5-build-classic').then(({ default: ClassicEditor }) => {
+      const CKEditorUntyped = CKEditor as unknown as React.ComponentType<Record<string, unknown>>
       const CKEditorWrapper = (props: any) => (
-        <CKEditor
+        <CKEditorUntyped
           editor={ClassicEditor}
           config={{
             toolbar: toolbarConfig,
@@ -57,7 +63,11 @@ const CKEditorComponent = dynamic(
     })
   ),
   { ssr: false, loading: () => <div className="h-[200px] animate-pulse bg-surface-2 rounded-xl" /> }
-)
+) as unknown as React.FC<{
+  value?: string
+  onChange?: (value: string) => void
+  disabled?: boolean
+}>
 
 export function RichTextEditor({
   value,

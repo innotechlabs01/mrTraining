@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const GO_API_BASE = process.env.GO_API_URL || process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:3001';
+const GO_API_BASE = process.env.GO_API_URL || process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:9090';
 
 async function forward(req: NextRequest, params: { proxy: string[] }) {
   const pathSegments = params.proxy ?? [];

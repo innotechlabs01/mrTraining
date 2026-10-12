@@ -94,6 +94,14 @@ export function PlusIcon({ size = S, color = DefaultColor }: IconProps) {
   );
 }
 
+export function MinusIcon({ size = S, color = DefaultColor }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M5 12h14" stroke={color} strokeWidth={2.5} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function PlayIcon({ size = S, color = DefaultColor }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -348,6 +356,19 @@ export function LockIcon({ size = S, color = DefaultColor }: IconProps) {
       <Rect x="5" y="10" width="14" height="11" rx="2" stroke={color} strokeWidth={2} />
       <Path d="M8 10V7a4 4 0 0 1 8 0v3" stroke={color} strokeWidth={2} strokeLinecap="round" />
       <Circle cx="12" cy="15" r="1.4" fill={color} />
+    </Svg>
+  );
+}
+
+export function HashIcon({ size = S, color = DefaultColor }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
