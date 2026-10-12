@@ -117,6 +117,7 @@ export function useMarkTicketRead(ticketId: string) {
 }
 
 export function useAthleteTickets() {
+  const queryClient = useQueryClient()
   const { data: tickets = [], isLoading, error: queryError, refetch } = useQuery({
     queryKey: ['athlete-tickets'],
     queryFn: () => coachingApi.getAthleteTickets<SupportTicket[]>(),
