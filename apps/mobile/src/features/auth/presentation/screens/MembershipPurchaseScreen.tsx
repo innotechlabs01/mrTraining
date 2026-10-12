@@ -4,6 +4,7 @@ import { View, ActivityIndicator, Text, TouchableOpacity, StyleSheet, Alert } fr
 import { showToast } from '../../../../shared/components/ui/Toast';
 import { purchaseMembership, getAvailablePlans } from '../../services/membershipService';
 import { useClerkAuth } from '../../hooks/useClerkAuth';
+import { colors } from '../../../../shared/theme/tokens';
 
 interface MembershipPurchaseScreenProps {
   navigation: any;
@@ -192,22 +193,22 @@ export function MembershipPurchaseScreen({ navigation, route }: MembershipPurcha
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0f',
+    backgroundColor: colors.base,
   },
   header: {
     padding: 20,
     borderBottomWidth: 1,
-    borderColor: '#2a2a3a',
-    backgroundColor: '#12121a',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   headerLeft: {},
   headerTitle: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 20,
     fontWeight: 'bold',
   },
   headerSubtitle: {
-    color: '#666',
+    color: colors.textSecondary,
     fontSize: 14,
     marginTop: 4,
   },
@@ -215,33 +216,33 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   backButtonText: {
-    color: '#34d399',
+    color: colors.success,
     fontSize: 14,
   },
   planCard: {
-    backgroundColor: '#1a1a24',
+    backgroundColor: colors.surfaceRaised,
     borderRadius: 16,
     padding: 24,
     margin: 20,
     borderWidth: 1,
-    borderColor: '#2a2a3a',
+    borderColor: colors.border,
   },
   planCardTitle: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 22,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 8,
   },
   planCardDescription: {
-    color: '#888',
+    color: colors.textSecondary,
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 12,
     lineHeight: 18,
   },
   planCardPrice: {
-    color: '#34d399',
+    color: colors.success,
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
     margin: 20,
   },
   featuresTitle: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 12,
@@ -263,23 +264,23 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   featureIcon: {
-    color: '#34d399',
+    color: colors.success,
     fontSize: 12,
     marginRight: 6,
   },
   featureText: {
-    color: '#e0e0e0',
+    color: colors.text,
     fontSize: 14,
   },
   buyButton: {
-    backgroundColor: '#34d399',
+    backgroundColor: colors.success,
     padding: 16,
     borderRadius: 10,
     margin: 20,
     alignItems: 'center',
   },
   buyButtonText: {
-    color: '#0a0a0f',
+    color: colors.base,
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -290,11 +291,11 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   noPlansText: {
-    color: '#666',
+    color: colors.textSecondary,
     fontSize: 16,
   },
   popularBadge: {
-    backgroundColor: '#34d399',
+    backgroundColor: colors.success,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -308,7 +309,7 @@ const styles = StyleSheet.create({
     margin: 20,
   },
   featuresTitle: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 12,
@@ -320,12 +321,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   featureIcon: {
-    color: '#34d399',
+    color: colors.success,
     fontSize: 12,
     marginRight: 6,
   },
   featureText: {
-    color: '#e0e0e0',
+    color: colors.text,
     fontSize: 14,
   },
   alternativesSection: {
@@ -333,12 +334,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   alternativesText: {
-    color: '#666',
+    color: colors.textSecondary,
     fontSize: 14,
     marginBottom: 10,
   },
   viewAllLink: {
-    color: '#34d399',
+    color: colors.success,
     fontSize: 14,
     fontWeight: '500',
   },

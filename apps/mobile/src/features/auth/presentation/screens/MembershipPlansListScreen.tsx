@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'rea
 import { showToast } from '../../../../shared/components/ui/Toast';
 import { getAvailablePlans } from '../../services/membershipService';
 import { useClerkAuth } from '../../hooks/useClerkAuth';
+import { colors } from '../../../../shared/theme/tokens';
 
 export function MembershipPlansListScreen({ navigation }: any) {
   const { user } = useClerkAuth();
@@ -88,11 +89,11 @@ export function MembershipPlansListScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0f',
+    backgroundColor: colors.base,
     padding: 20,
   },
   title: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 20,
@@ -105,16 +106,16 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   emptyText: {
-    color: '#666',
+    color: colors.textSecondary,
     fontSize: 16,
   },
   planItem: {
-    backgroundColor: '#1a1a24',
+    backgroundColor: colors.surfaceRaised,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#2a2a3a',
+    borderColor: colors.border,
   },
   planHeader: {
     flexDirection: 'row',
@@ -123,12 +124,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   planName: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '600',
   },
   popularBadge: {
-    backgroundColor: '#34d399',
+    backgroundColor: colors.success,
     paddingHorizontal: 4,
     paddingVertical: 2,
     borderRadius: 4,
@@ -137,12 +138,12 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   planDescription: {
-    color: '#888',
+    color: colors.textSecondary,
     fontSize: 14,
     marginBottom: 4,
   },
   planPrice: {
-    color: '#34d399',
+    color: colors.success,
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -153,20 +154,20 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   emptyText: {
-    color: '#666',
+    color: colors.textSecondary,
     fontSize: 16,
     textAlign: 'center',
   },
   continueButton: {
     marginTop: 20,
-    backgroundColor: '#2a2a3a',
+    backgroundColor: colors.border,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
     alignSelf: 'center',
   },
   continueText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 14,
   },
 });

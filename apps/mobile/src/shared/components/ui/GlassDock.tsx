@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { colors, fontFamilies, radius, spacing } from '../../theme/tokens';
+import { colors, fontFamilies, radius, shadows, spacing } from '../../theme/tokens';
 import {
   HomeIcon,
   BarbellIcon,
@@ -63,12 +63,9 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
-    // Frosted glass shadow layers
-    shadowColor: '#000000',
+    // Frosted glass shadow layers (canonical elevation token)
+    ...shadows.md,
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 16,
   },
   tab: {
     flex: 1,

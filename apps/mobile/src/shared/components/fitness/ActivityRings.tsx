@@ -2,6 +2,8 @@ import React from 'react';
 import { View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
+import { colors } from '../../theme/tokens';
+
 type Props = {
   move: number;
   exercise: number;
@@ -9,9 +11,9 @@ type Props = {
   size?: number;
 };
 
-const MOVE_COLOR = '#15AAF2';
-const EXERCISE_COLOR = '#34D399';
-const RECOVERY_COLOR = '#3B9EFF';
+const MOVE_COLOR = colors.primary;
+const EXERCISE_COLOR = colors.success;
+const RECOVERY_COLOR = colors.secondary;
 
 export function ActivityRings({ move, exercise, recovery, size = 200 }: Props) {
   const strokeWidth = size * 0.08;

@@ -3,6 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import { View, ActivityIndicator, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { showToast } from '../../../../shared/components/ui/Toast';
 import { useClerkAuth } from '../../hooks/useClerkAuth';
+import { colors } from '../../../../shared/theme/tokens';
 import { getMembershipStatus, getAvailablePlans } from '../../services/membershipService';
 
 interface MembershipCheckScreenProps {
@@ -141,7 +142,7 @@ export function MembershipCheckScreen({ navigation }: MembershipCheckScreenProps
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0f',
+    backgroundColor: colors.base,
     padding: 20,
     justifyContent: 'center',
   },
@@ -151,7 +152,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#888',
+    color: colors.textSecondary,
     marginTop: 10,
   },
   errorContainer: {
@@ -161,40 +162,40 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    color: '#ff5f57',
+    color: colors.error,
     fontSize: 16,
     marginBottom: 15,
   },
   button: {
-    backgroundColor: '#2a2a3a',
+    backgroundColor: colors.border,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
   },
   buttonText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
   },
   title: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 20,
   },
   emptyText: {
-    color: '#666',
+    color: colors.textSecondary,
     fontSize: 16,
     textAlign: 'center',
     marginTop: 20,
   },
   planItem: {
-    backgroundColor: '#1a1a24',
+    backgroundColor: colors.surfaceRaised,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#2a2a3a',
+    borderColor: colors.border,
   },
   planHeader: {
     flexDirection: 'row',
@@ -203,12 +204,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   planName: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '600',
   },
   popularBadge: {
-    backgroundColor: '#34d399',
+    backgroundColor: colors.success,
     paddingHorizontal: 4,
     paddingVertical: 2,
     borderRadius: 4,
@@ -220,12 +221,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   planDescription: {
-    color: '#888',
+    color: colors.textSecondary,
     fontSize: 14,
     marginBottom: 4,
   },
   daysText: {
-    color: '#34d399',
+    color: colors.success,
     fontSize: 12,
     fontWeight: '500',
   },
@@ -233,20 +234,20 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
   },
   planPriceAmount: {
-    color: '#34d399',
+    color: colors.success,
     fontSize: 18,
     fontWeight: 'bold',
   },
   continueButton: {
     marginTop: 20,
-    backgroundColor: '#2a2a3a',
+    backgroundColor: colors.border,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
     alignSelf: 'center',
   },
   continueText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     textAlign: 'center',
   },

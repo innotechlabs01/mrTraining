@@ -9,8 +9,8 @@ interface Props {
 
 const colorFor = (status: CameraPositionStatus): string => {
   if (status === 'POSITION_VALID') return colors.primary;
-  if (status === 'POSITION_ADJUSTING') return '#F5C451';
-  return '#E5484D';
+  if (status === 'POSITION_ADJUSTING') return colors.warning;
+  return colors.error;
 };
 
 export function FramingOverlay({ status }: Props): React.JSX.Element {
