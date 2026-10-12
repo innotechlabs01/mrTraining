@@ -233,7 +233,7 @@ func (s *Service) JoinChallenge(challengeID, athleteID string, videoConsent, pho
 		ChallengeID:    challengeID,
 		AthleteID:      athleteID,
 		AttemptNumber:  attemptCount + 1,
-		ConsentGivenAt: &now,
+		ConsentGivenAt: &[]string{now.Format(time.RFC3339)}[0],
 		VideoConsent:   videoConsent,
 		PhotoConsent:   photoConsent,
 		Status:         "in_progress",
@@ -283,7 +283,7 @@ func (s *Service) SubmitAttempt(attemptID string, metrics map[string]interface{}
 	}
 
 	now := time.Now().UTC()
-	a.CompletedAt = &now
+	a.CompletedAt = &[]string{now.Format(time.RFC3339)}[0]
 	a.Status = "completed"
 	if err := s.repo.UpdateAttempt(a); err != nil {
 		return nil, err

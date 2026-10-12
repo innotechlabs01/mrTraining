@@ -43,12 +43,8 @@ func (r *repository) GetByID(id string) (*domain.Challenge, error) {
 	ch.StartDate = startDate.String
 	ch.EndDate = endDate.String
 	ch.ExpiresAt = expiresAt.String
-	if createdAtStr.Valid {
-		ch.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr.String)
-	}
-	if updatedAtStr.Valid {
-		ch.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAtStr.String)
-	}
+	ch.CreatedAt = createdAtStr.String
+	ch.UpdatedAt = updatedAtStr.String
 	ch.DaysLeft = calcDaysLeft(ch.EndDate)
 	ch.IsUrgent = ch.DaysLeft <= 1 && ch.DaysLeft > 0
 	return ch, nil
@@ -150,8 +146,8 @@ func (r *repository) Create(ch *domain.Challenge) error {
 	if ch.ID == "" {
 		ch.ID = "ch-" + now.Format("20060102150405")
 	}
-	ch.CreatedAt = now
-	ch.UpdatedAt = now
+	ch.CreatedAt = now.Format(time.RFC3339)
+	ch.UpdatedAt = now.Format(time.RFC3339)
 	if ch.Status == "" {
 		ch.Status = "draft"
 	}
@@ -179,7 +175,7 @@ func (r *repository) Update(ch *domain.Challenge) error {
 		    status = ?, start_date = ?, end_date = ?, expires_at = ?, updated_at = ?
 		WHERE id = ?
 	`
-	ch.UpdatedAt = time.Now().UTC()
+	ch.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	_, err := r.db.Exec(query,
 		ch.Title, nullStr(ch.Description), ch.ExerciseType, nullStr(ch.VideoURL),
 		ch.DurationMinutes, ch.Calories, ch.TargetSets, ch.TargetReps,
@@ -219,14 +215,14 @@ func (r *repository) CreateAttempt(a *domain.ChallengeAttempt) error {
 	if a.ID == "" {
 		a.ID = "ca-" + now.Format("20060102150405") + "-" + a.AthleteID
 	}
-	a.CreatedAt = now
+	a.CreatedAt = now.Format(time.RFC3339)
 
 	_, err := r.db.Exec(query,
 		a.ID, a.ChallengeID, a.AthleteID, a.AttemptNumber,
-		nullTime(a.ConsentGivenAt), boolToInt(a.VideoConsent), boolToInt(a.PhotoConsent),
+		nullStrPtr(a.ConsentGivenAt), boolToInt(a.VideoConsent), boolToInt(a.PhotoConsent),
 		nullStr(a.VideoURL), a.FormScore, a.DepthScore, a.AlignmentScore, a.TempoScore,
 		a.SetsCompleted, a.RepsCompleted, a.TotalVolume, nullStr(a.Notes), a.Status,
-		nullTime(a.CompletedAt), a.CreatedAt,
+		nullStrPtr(a.CompletedAt), a.CreatedAt,
 	)
 	return err
 }
@@ -241,7 +237,7 @@ func (r *repository) GetAttempt(id string) (*domain.ChallengeAttempt, error) {
 		FROM challenge_attempts WHERE id = ?
 	`
 	a := &domain.ChallengeAttempt{}
-	var consentAt, completedAt sql.NullTime
+	var consentAt, completedAt sql.NullString
 	err := r.db.QueryRow(query, id).Scan(
 		&a.ID, &a.ChallengeID, &a.AthleteID, &a.AttemptNumber,
 		&consentAt, &a.VideoConsent, &a.PhotoConsent,
@@ -253,10 +249,10 @@ func (r *repository) GetAttempt(id string) (*domain.ChallengeAttempt, error) {
 		return nil, err
 	}
 	if consentAt.Valid {
-		a.ConsentGivenAt = &consentAt.Time
+		a.ConsentGivenAt = &consentAt.String
 	}
 	if completedAt.Valid {
-		a.CompletedAt = &completedAt.Time
+		a.CompletedAt = &completedAt.String
 	}
 	return a, nil
 }
@@ -307,7 +303,7 @@ func (r *repository) UpdateAttempt(a *domain.ChallengeAttempt) error {
 	_, err := r.db.Exec(query,
 		nullStr(a.VideoURL), a.FormScore, a.DepthScore, a.AlignmentScore,
 		a.TempoScore, a.SetsCompleted, a.RepsCompleted, a.TotalVolume,
-		nullStr(a.Notes), a.Status, nullTime(a.CompletedAt), a.ID,
+		nullStr(a.Notes), a.Status, nullStrPtr(a.CompletedAt), a.ID,
 	)
 	return err
 }
@@ -435,7 +431,7 @@ func (r *repository) GetAthleteProgress(athleteID string, exerciseType string) (
 
 	var progress []map[string]interface{}
 	for rows.Next() {
-		var createdAt time.Time
+		var createdAt string
 		var formScore, depthScore sql.NullFloat64
 		var attemptNum int
 		if err := rows.Scan(&createdAt, &formScore, &depthScore, &attemptNum); err != nil {
@@ -497,12 +493,8 @@ func (r *repository) listQuery(query string, args ...interface{}) ([]*domain.Cha
 		ch.StartDate = startDate.String
 		ch.EndDate = endDate.String
 		ch.ExpiresAt = expiresAt.String
-		if createdAtStr.Valid {
-			ch.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr.String)
-		}
-		if updatedAtStr.Valid {
-			ch.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAtStr.String)
-		}
+		ch.CreatedAt = createdAtStr.String
+		ch.UpdatedAt = updatedAtStr.String
 		ch.DaysLeft = calcDaysLeft(ch.EndDate)
 		ch.IsUrgent = ch.DaysLeft <= 1 && ch.DaysLeft > 0
 		challenges = append(challenges, ch)
@@ -520,7 +512,7 @@ func (r *repository) listAttempts(query string, args ...interface{}) ([]*domain.
 	var attempts []*domain.ChallengeAttempt
 	for rows.Next() {
 		a := &domain.ChallengeAttempt{}
-		var consentAt, completedAt sql.NullTime
+		var consentAt, completedAt sql.NullString
 		err := rows.Scan(
 			&a.ID, &a.ChallengeID, &a.AthleteID, &a.AttemptNumber,
 			&consentAt, &a.VideoConsent, &a.PhotoConsent,
@@ -532,14 +524,22 @@ func (r *repository) listAttempts(query string, args ...interface{}) ([]*domain.
 			return nil, err
 		}
 		if consentAt.Valid {
-			a.ConsentGivenAt = &consentAt.Time
+			a.ConsentGivenAt = &consentAt.String
 		}
 		if completedAt.Valid {
-			a.CompletedAt = &completedAt.Time
+			a.CompletedAt = &completedAt.String
 		}
 		attempts = append(attempts, a)
 	}
 	return attempts, nil
+}
+
+// nullStrPtr converts a *string to sql.NullString, handling nil.
+func nullStrPtr(s *string) sql.NullString {
+	if s == nil || *s == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: *s, Valid: true}
 }
 
 func nullStr(s string) sql.NullString {
@@ -626,8 +626,8 @@ func (r *repository) CreateExercise(ex *domain.ChallengeExercise) error {
 	if ex.ID == "" {
 		ex.ID = "ce-" + now.Format("20060102150405")
 	}
-	ex.CreatedAt = now
-	ex.UpdatedAt = now
+	ex.CreatedAt = now.Format(time.RFC3339)
+	ex.UpdatedAt = now.Format(time.RFC3339)
 
 	_, err := r.db.Exec(query,
 		ex.ID, ex.ChallengeID, ex.ExerciseType, nullStr(ex.Title),
@@ -646,7 +646,7 @@ func (r *repository) UpdateExercise(ex *domain.ChallengeExercise) error {
 		    updated_at = ?
 		WHERE id = ?
 	`
-	ex.UpdatedAt = time.Now().UTC()
+	ex.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	_, err := r.db.Exec(query,
 		ex.ExerciseType, nullStr(ex.Title), nullStr(ex.Description), nullStr(ex.VideoURL),
 		ex.OrderIndex, ex.TargetSets, ex.TargetReps, ex.TargetWeightKg,

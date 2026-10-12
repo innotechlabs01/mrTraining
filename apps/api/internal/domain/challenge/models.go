@@ -1,7 +1,5 @@
 package challenge
 
-import "time"
-
 // ChallengeExercise represents a single exercise within a challenge.
 type ChallengeExercise struct {
 	ID              string  `json:"id"`
@@ -14,8 +12,8 @@ type ChallengeExercise struct {
 	TargetSets      int     `json:"target_sets,omitempty"`
 	TargetReps      int     `json:"target_reps,omitempty"`
 	TargetWeightKg  float64 `json:"target_weight_kg,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	CreatedAt       string  `json:"created_at"`
+	UpdatedAt       string  `json:"updated_at"`
 }
 
 // Challenge represents a coach-created video challenge.
@@ -40,8 +38,8 @@ type Challenge struct {
 	ExpiresAt       string             `json:"expires_at,omitempty"`
 	DaysLeft        int                `json:"days_left"`  // calculated
 	IsUrgent        bool               `json:"is_urgent"`  // last day
-	CreatedAt       time.Time          `json:"created_at"`
-	UpdatedAt       time.Time          `json:"updated_at"`
+	CreatedAt       string             `json:"created_at"`
+	UpdatedAt       string             `json:"updated_at"`
 }
 
 // ChallengeAttempt represents an athlete's attempt at a challenge.
@@ -50,7 +48,7 @@ type ChallengeAttempt struct {
 	ChallengeID    string     `json:"challenge_id"`
 	AthleteID      string     `json:"athlete_id"`
 	AttemptNumber  int        `json:"attempt_number"`
-	ConsentGivenAt *time.Time `json:"consent_given_at,omitempty"`
+	ConsentGivenAt *string    `json:"consent_given_at,omitempty"`
 	VideoConsent   bool       `json:"video_consent"`
 	PhotoConsent   bool       `json:"photo_consent"`
 	VideoURL       string     `json:"video_url,omitempty"`
@@ -63,8 +61,8 @@ type ChallengeAttempt struct {
 	TotalVolume    *float64   `json:"total_volume,omitempty"`
 	Notes          string     `json:"notes,omitempty"`
 	Status         string     `json:"status"` // in_progress | completed | reviewed
-	CompletedAt    *time.Time `json:"completed_at,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
+	CompletedAt    *string    `json:"completed_at,omitempty"`
+	CreatedAt      string     `json:"created_at"`
 }
 
 // LeaderboardEntry represents a ranked athlete in a challenge leaderboard.
