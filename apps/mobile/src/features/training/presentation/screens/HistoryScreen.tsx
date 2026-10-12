@@ -45,7 +45,11 @@ export function HistoryScreen() {
     queryKey: ['athlete-workouts'],
     queryFn: async () => {
       const res = await apiClient.get('/athlete/workouts');
-      const raw = res.data?.data ?? res.data?.workouts ?? [];
+      // The axios interceptor already unwraps Go's ListResponse — if the data
+      // is still wrapped (older shape), fall back to manual unwrap.
+      const raw = Array.isArray(res.data)
+        ? res.data
+        : res.data?.data ?? res.data?.workouts ?? [];
       return (Array.isArray(raw) ? (raw as Workout[]) : []) as Workout[];
     },
     staleTime: 5 * 60 * 1000,
@@ -56,7 +60,9 @@ export function HistoryScreen() {
     queryKey: ['upcoming-sessions'],
     queryFn: async () => {
       const res = await apiClient.get('/athlete/sessions');
-      const raw = res.data?.data ?? res.data?.sessions ?? [];
+      const raw = Array.isArray(res.data)
+        ? res.data
+        : res.data?.data ?? res.data?.sessions ?? [];
       const list: TrainingSession[] = Array.isArray(raw) ? (raw as TrainingSession[]) : [];
       const now = new Date();
       const filtered = list.filter((s) => new Date(s.scheduledAt) >= now);

@@ -71,7 +71,9 @@ export function NotificationsScreen() {
     queryKey: ['notifications'],
     queryFn: async () => {
       const { data } = await apiClient.get('/athlete/notifications');
-      return (data?.notifications ?? data?.data ?? []) as Array<{
+      return (Array.isArray(data)
+        ? data
+        : data?.notifications ?? data?.data ?? []) as Array<{
         id: string;
         type: string;
         title: string;

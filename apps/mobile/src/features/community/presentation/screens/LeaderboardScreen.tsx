@@ -80,7 +80,7 @@ export function LeaderboardScreen() {
     queryKey: ['leaderboard', challengeId],
     queryFn: async () => {
       const { data } = await apiClient.get(`/challenges/${challengeId}/leaderboard`);
-      return data?.data as LeaderboardEntry[];
+      return (Array.isArray(data) ? data : data?.data) as LeaderboardEntry[];
     },
     staleTime: 30_000,
   });
