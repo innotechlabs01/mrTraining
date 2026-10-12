@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { FlashList } from '@shopify/flash-list';
 import { colors, spacing, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { Badge } from '../../../../shared/components/ui/Badge';
@@ -10,18 +11,10 @@ import { ListCard } from '../../../../shared/components/ui/ListCard';
 import { supportApi } from '../../api';
 import type { SupportTicket } from '../../types';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
-import { ChevronRightIcon } from '../../../../shared/components/icons';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 type Tab = 'all' | 'open' | 'in_progress' | 'resolved' | 'closed';
-
-const STATUS_COLORS: Record<string, string> = {
-  open: colors.success,
-  in_progress: colors.info,
-  resolved: colors.warning,
-  closed: colors.textMuted,
-};
 
 const STATUS_LABELS: Record<string, string> = {
   open: 'Abierto',
@@ -71,7 +64,6 @@ export function MyTicketsScreen() {
 
   const renderItem = ({ item }: { item: SupportTicket }) => {
     const unread = unreadCounts[item.id] || 0;
-    const statusColor = STATUS_COLORS[item.status] || colors.textMuted;
     const statusLabel = STATUS_LABELS[item.status] || item.status;
 
     return (
@@ -146,14 +138,13 @@ export function MyTicketsScreen() {
         ))}
       </View>
 
-      <FlatList
+      <FlashList
         data={filteredTickets}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
-        }
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyText}>No tienes tickets{tab !== 'all' ? ` con estado "${STATUS_LABELS[tab]}"` : ''}.</Text>

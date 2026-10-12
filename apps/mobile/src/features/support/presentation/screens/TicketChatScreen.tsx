@@ -1,14 +1,15 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { colors, spacing, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { supportApi, type SupportTicket, type TicketMessage } from '../../api';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
-import { SendIcon, ImageIcon, ChevronRightIcon } from '../../../../shared/components/icons';
+import { SendIcon } from '../../../../shared/components/icons';
 
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -18,7 +19,7 @@ export function TicketChatScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { ticketId } = route.params;
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<FlashListRef<TicketMessage>>(null);
 
   const [ticket, setTicket] = useState<SupportTicket | null>(null);
   const [messages, setMessages] = useState<TicketMessage[]>([]);
@@ -47,11 +48,15 @@ export function TicketChatScreen() {
     loadData();
   }, [loadData]);
 
+  // Newest-first order preserves the previous `inverted` FlatList layout
+  // (FlashList has no `inverted` prop): newest message stays pinned at top.
+  const orderedMessages = useMemo(() => [...messages].reverse(), [messages]);
+
   useEffect(() => {
-    if (messages.length > 0) {
-      flatListRef.current?.scrollToEnd({ animated: true });
+    if (orderedMessages.length > 0) {
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
     }
-  }, [messages]);
+  }, [orderedMessages]);
 
   const handleSend = async () => {
     if (!newMessage.trim() || sending) return;
@@ -115,13 +120,12 @@ export function TicketChatScreen() {
         style={styles.flex}
         keyboardVerticalOffset={60}
       >
-        <FlatList
+        <FlashList
           ref={flatListRef}
-          data={messages}
+          data={orderedMessages}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => renderMessage(item)}
-          inverted
         />
         <View style={styles.inputContainer}>
           <TextInput
@@ -182,8 +186,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
   flex: { flex: 1 },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  headerBadge: { backgroundColor: colors.danger, borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 2 },
-  badgeText: { ...typography.caption, color: colors.onDanger, fontWeight: '600' },
+  headerBadge: { backgroundColor: colors.error, borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 2 },
+  badgeText: { ...typography.caption, color: colors.onError, fontWeight: '600' },
   listContent: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.sm },
   messageWrapper: { maxWidth: '85%' },
   myMessage: { alignSelf: 'flex-end' },
@@ -197,7 +201,7 @@ const styles = StyleSheet.create({
   messageImage: { width: 200, height: 200, borderRadius: 8, marginTop: spacing.xs },
   timestamp: { ...typography.caption, marginTop: spacing.xs, opacity: 0.7 },
   myTimestamp: { color: colors.onPrimary, textAlign: 'right' },
-  otherTimestamp: { color: colors.textMuted, textAlign: 'left' },
+  otherTimestamp: { color: colors.textSecondary, textAlign: 'left' },
   readReceipt: { ...typography.caption, color: colors.success, marginTop: spacing.xs, textAlign: 'right' },
   inputContainer: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   textInput: { flex: 1, ...typography.body, backgroundColor: colors.base, borderRadius: 20, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, minHeight: 44, maxHeight: 120 },
