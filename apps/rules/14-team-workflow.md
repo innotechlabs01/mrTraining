@@ -99,6 +99,23 @@ Max 3 loops por stage; al 4to fallo, escalar al usuario.
 - `dev-flutter` — Flutter/Dart (si aplica)
 - `ux-ui-designer` — diseño ANTES de código cuando cambia UX visible
 
+### 2.0 Router rol → agente → skills (automático, fuente: plugin `orca-autorun`)
+
+El coordinator NO improvisa el dispatch: llama la tool `orca_dispatch` (plugin `.opencode/plugin/orca-autorun.ts`) con el rol y recibe agente + skills + worktree + template exactos. Mapa fijo:
+
+| Rol board | Agente (`.opencode/agent/`) | Skills a invocar | Reglas a leer |
+|---|---|---|---|
+| `dev-front` | `web.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md`, `00-product-vision.md`, `03-ux-workflows.md`, `06-frontend-architecture.md`, `08-api-specification.md` |
+| `dev-backend` | `api.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md`, `04-database-design.md`, `05-backend-architecture.md`, `08-api-specification.md` |
+| `dev-react-native` | `mobile.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md` + `mobile-rules/*` |
+| `dev-flutter` | `general` (no hay agente flutter registrado) | `pipeline-init`, `mr-context` | reglas que apliquen + spec |
+| `ux-ui-designer` | `web-designer.md` o `mobile-designer.md` (según superficie) | `pipeline-init`, `mr-context` | `01-brand-guidelines.md`, `02-design-system.md`, `03-ux-workflows.md` |
+| `qa` | `qa.md` | `pipeline-init`, `mr-context` | `13-testing.md` (+ `mobile-rules/03-mobile-testing.md` si mobile) |
+| `code-reviewer` | `code-reviewer.md` | `pipeline-init`, `mr-context` | `12-coding-standards.md` |
+| `security-hacker` | `security-hacker.md` | `pipeline-init`, `mr-context` | `11-security.md` (+ `mobile-rules/04-mobile-security.md` si mobile) |
+
+Orden gates REVIEW fijo: `qa` → `code-reviewer` → `security-hacker`. Cada gate corre vía dispatch con su agente; `worker_done` debe traer outcome + resumen 3 frases + `--files-modified` si hubo código.
+
 Si el plan del architect no está claro, preguntar al usuario ANTES de dispatch.
 
 **Worktrees — cuál mecanismo cuándo:**
