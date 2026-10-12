@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
-import { colors, fontFamilies, radius, spacing, typography } from '../../../../shared/theme/tokens';
-import { ArrowLeftIcon, BarbellIcon, BellIcon, ChatIcon, ChartBarIcon, FireIcon } from '../../../../shared/components/icons';
+import { colors, layout, radius, spacing, typography } from '../../../../shared/theme/tokens';
+import { BarbellIcon, BellIcon, ChatIcon, ChartBarIcon, FireIcon } from '../../../../shared/components/icons';
+import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { texts } from '../../../../shared/i18n/texts';
 
@@ -87,18 +88,8 @@ export function NotificationSettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.headerRow}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={texts.common.back}
-          onPress={() => navigation.goBack()}
-          hitSlop={12}
-          style={styles.backButton}
-        >
-          <ArrowLeftIcon size={24} color={colors.primary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>{texts.screens.notificationSettings.title}</Text>
-        <View style={styles.headerSpacer} />
+      <View style={styles.headerWrap}>
+        <ScreenHeader title={texts.screens.notificationSettings.title} onBack={() => navigation.goBack()} />
       </View>
 
       <View style={styles.contentWrap}>
@@ -129,27 +120,8 @@ export function NotificationSettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  backButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontFamily: fontFamilies.displayBold,
-    fontSize: 20,
-    lineHeight: 26,
-    color: colors.primary,
-  },
-  headerSpacer: { width: 32 },
-  contentWrap: { padding: spacing.md, gap: spacing.md },
+  headerWrap: { paddingHorizontal: layout.pagePadding },
+  contentWrap: { padding: layout.pagePadding, gap: spacing.md },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

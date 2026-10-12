@@ -6,13 +6,14 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, spacing, radius, typography, fontFamilies } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, radius, typography, fontFamilies } from '../../../../shared/theme/tokens';
+import { BellIcon, SearchIcon } from '../../../../shared/components/icons';
+import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { texts } from '../../../../shared/i18n/texts';
 import { WorkoutCard, type WorkoutItem } from '../components/WorkoutCard';
 import { CreateWorkoutCard } from '../components/CreateWorkoutCard';
-import { WorkoutListHeader } from '../components/WorkoutListHeader';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 
 type Level = 'All' | 'Beginner' | 'Intermediate' | 'Advanced';
@@ -65,11 +66,22 @@ export function WorkoutListScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <WorkoutListHeader
-        onBack={() => navigation.goBack()}
-        onSearch={() => navigation.navigate('Search')}
-        onNotifications={() => navigation.navigate('Notifications')}
-      />
+      <View style={styles.headerWrap}>
+        <ScreenHeader
+          title={texts.screens.workoutListHeader.title}
+          onBack={() => navigation.goBack()}
+          action={
+            <View style={styles.headerRight}>
+              <Pressable accessibilityLabel={texts.common.search} onPress={() => navigation.navigate('Search')} style={styles.iconButton}>
+                <SearchIcon size={18} color={colors.textSecondary} />
+              </Pressable>
+              <Pressable accessibilityLabel={texts.common.notifications} onPress={() => navigation.navigate('Notifications')} style={styles.iconButton}>
+                <BellIcon size={18} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+          }
+        />
+      </View>
 
       {/* Filter pills */}
       <View style={styles.filterRow}>
@@ -126,10 +138,22 @@ export function WorkoutListScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
+  headerWrap: { paddingHorizontal: layout.pagePadding },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   filterRow: {
     flexDirection: 'row',
     gap: 8,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: layout.pagePadding,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
   },
@@ -146,7 +170,7 @@ const styles = StyleSheet.create({
   pillText: { fontFamily: fontFamilies.bodySemiBold, fontSize: 13, lineHeight: 16 },
   pillTextSelected: { color: colors.base, fontWeight: '700' },
   pillTextUnselected: { color: colors.textSecondary },
-  listContent: { padding: spacing.md, paddingBottom: 32, gap: spacing.md },
+  listContent: { padding: layout.pagePadding, paddingBottom: 32, gap: spacing.md },
   emptyWrap: { alignItems: 'center', paddingVertical: spacing.xl, gap: 4 },
   emptyText: { fontFamily: fontFamilies.bodySemiBold, fontSize: 14, color: colors.text },
   emptySub: { ...typography.caption, color: colors.textSecondary },

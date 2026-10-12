@@ -5,7 +5,9 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
+import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
+import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { texts } from '../../../../shared/i18n/texts';
 
 import type { RootStackParamList } from '../../../../navigation/Navigation';
@@ -87,12 +89,8 @@ export function CreateRoutineScreen() {
 
   return (
     <SafeAreaView style={s.container}>
-      <View style={s.headerRow}>
-        <Pressable accessibilityRole="button" accessibilityLabel={texts.common.back} onPress={() => navigation.goBack()} hitSlop={12} style={s.backButton}>
-          <Text style={s.backChevron}>{'\u2039'}</Text>
-        </Pressable>
-        <Text style={s.headerTitle}>{t.headerTitle}</Text>
-        <View style={s.headerRight} />
+      <View style={s.headerWrap}>
+        <ScreenHeader title={t.headerTitle} onBack={() => navigation.goBack()} />
       </View>
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -120,15 +118,12 @@ export function CreateRoutineScreen() {
           <Text style={s.addExerciseText}>{t.addExercise}</Text>
         </Pressable>
 
-        <Pressable
-          style={({ pressed }) => [s.saveButton, pressed && s.saveButtonPressed, !canSave && s.saveButtonDisabled]}
-          onPress={() => canSave && saveMutation.mutate()}
+        <PrimaryButton
+          label={saveMutation.isPending ? t.saving : t.saveButton}
+          onPress={() => saveMutation.mutate()}
           disabled={!canSave}
-        >
-          <Text style={[s.saveButtonText, !canSave && s.saveButtonTextDisabled]}>
-            {saveMutation.isPending ? t.saving : t.saveButton}
-          </Text>
-        </Pressable>
+          loading={saveMutation.isPending}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -136,12 +131,8 @@ export function CreateRoutineScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm },
-  backButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  backChevron: { color: colors.primary, fontSize: 32, lineHeight: 32, fontWeight: '400' },
-  headerTitle: { flex: 1, textAlign: 'center', fontFamily: fontFamilies.displayBold, fontSize: 20, lineHeight: 26, color: colors.primary },
-  headerRight: { width: 32 },
-  content: { padding: spacing.md, paddingBottom: 32, gap: spacing.md },
+  headerWrap: { paddingHorizontal: layout.pagePadding },
+  content: { padding: layout.pagePadding, paddingBottom: 32, gap: spacing.md },
   label: { fontFamily: fontFamilies.bodySemiBold, fontSize: 14, lineHeight: 20, color: colors.text, letterSpacing: 0.05, textTransform: 'uppercase' },
   nameInput: { height: 48, backgroundColor: colors.surfaceRaised, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, fontFamily: fontFamilies.body, fontSize: 16, color: colors.text },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
@@ -159,9 +150,4 @@ const s = StyleSheet.create({
   smallInput: { width: 48, height: 36, backgroundColor: colors.surfaceRaised, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, borderRadius: radius.md, textAlign: 'center', fontFamily: fontFamilies.bodyMedium, fontSize: 14, color: colors.text },
   addExerciseButton: { alignItems: 'center', paddingVertical: spacing.sm },
   addExerciseText: { fontFamily: fontFamilies.bodySemiBold, fontSize: 14, color: colors.primary },
-  saveButton: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, borderRadius: radius.full, height: 48, marginTop: spacing.sm },
-  saveButtonPressed: { backgroundColor: colors.primaryPressed },
-  saveButtonDisabled: { opacity: 0.5 },
-  saveButtonText: { fontFamily: fontFamilies.bodySemiBold, fontSize: 16, color: colors.base, fontWeight: '700' },
-  saveButtonTextDisabled: { opacity: 0.7 },
 });

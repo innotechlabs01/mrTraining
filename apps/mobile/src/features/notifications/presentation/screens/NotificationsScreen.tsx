@@ -6,8 +6,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
-import { colors, fontFamilies, radius, spacing, typography } from '../../../../shared/theme/tokens';
-import { ArrowLeftIcon, BellIcon, SearchIcon, UserIcon } from '../../../../shared/components/icons';
+import { colors, layout, radius, spacing, typography } from '../../../../shared/theme/tokens';
+import { BellIcon, SearchIcon, UserIcon } from '../../../../shared/components/icons';
+import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { SegmentedFilter } from '../../../../shared/components/ui/SegmentedFilter';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
@@ -104,25 +105,21 @@ export function NotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.headerRow}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={texts.common.back}
-          onPress={() => navigation.goBack()}
-          hitSlop={12}
-          style={styles.backButton}
-        >
-          <ArrowLeftIcon size={24} color={colors.primary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>{texts.screens.notificationsScreen.headerTitle}</Text>
-        <View style={styles.headerRight}>
-          <Pressable accessibilityLabel={texts.common.search} onPress={() => navigation.navigate('Search')} style={styles.iconButton}>
-            <SearchIcon size={18} color={colors.textSecondary} />
-          </Pressable>
-          <Pressable accessibilityLabel={texts.tabs.profile} onPress={() => undefined} style={styles.iconButton}>
-            <UserIcon size={18} color={colors.textSecondary} />
-          </Pressable>
-        </View>
+      <View style={styles.headerWrap}>
+        <ScreenHeader
+          title={texts.screens.notificationsScreen.headerTitle}
+          onBack={() => navigation.goBack()}
+          action={
+            <View style={styles.headerRight}>
+              <Pressable accessibilityLabel={texts.common.search} onPress={() => navigation.navigate('Search')} style={styles.iconButton}>
+                <SearchIcon size={18} color={colors.textSecondary} />
+              </Pressable>
+              <Pressable accessibilityLabel={texts.tabs.profile} onPress={() => undefined} style={styles.iconButton}>
+                <UserIcon size={18} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+          }
+        />
       </View>
 
       <SegmentedFilter options={TABS} value={tab} onChange={(k) => setTab(k as NotificationTab)} />
@@ -153,23 +150,7 @@ export function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  backButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontFamily: fontFamilies.displayBold,
-    fontSize: 20,
-    lineHeight: 26,
-    color: colors.primary,
-  },
+  headerWrap: { paddingHorizontal: layout.pagePadding },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   iconButton: {
     width: 36,
@@ -181,7 +162,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  content: { padding: spacing.md, paddingBottom: 48, gap: spacing.lg },
+  content: { padding: layout.pagePadding, paddingBottom: 48, gap: spacing.lg },
   groupSection: { gap: spacing.sm },
   groupLabel: {
     ...typography.caption,

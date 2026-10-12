@@ -1,12 +1,13 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
-import { colors, fontFamilies, spacing, typography } from '../../../../shared/theme/tokens';
-import { ArrowLeftIcon, ClockIcon, FireIcon } from '../../../../shared/components/icons';
+import { colors, layout, spacing, typography } from '../../../../shared/theme/tokens';
+import { ClockIcon, FireIcon } from '../../../../shared/components/icons';
+import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { MetricCard } from '../../../../shared/components/ui/MetricCard';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { texts } from '../../../../shared/i18n/texts';
@@ -23,20 +24,8 @@ export function MealDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.headerRow}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={texts.common.back}
-          onPress={() => navigation.goBack()}
-          hitSlop={12}
-          style={styles.backButton}
-        >
-          <ArrowLeftIcon size={24} color={colors.primary} />
-        </Pressable>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {name}
-        </Text>
-        <View style={styles.headerSpacer} />
+      <View style={styles.headerWrap}>
+        <ScreenHeader title={name} onBack={() => navigation.goBack()} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -67,25 +56,8 @@ export function MealDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  backButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontFamily: fontFamilies.displayBold,
-    fontSize: 20,
-    lineHeight: 26,
-    color: colors.primary,
-  },
-  headerSpacer: { width: 32 },
-  content: { padding: spacing.md, paddingBottom: spacing.xxl, gap: spacing.lg },
+  headerWrap: { paddingHorizontal: layout.pagePadding },
+  content: { padding: layout.pagePadding, paddingBottom: spacing.xxl, gap: spacing.lg },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   metaText: { ...typography.bodySmall, color: colors.textSecondary },
