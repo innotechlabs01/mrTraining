@@ -39,3 +39,5 @@ apps/web/local.db
 
 # E2E Maestro credentials (real values — never commit)
 e2e/credentials.env
+# Local AI runtime state
+.atl/
