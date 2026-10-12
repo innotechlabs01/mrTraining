@@ -4,7 +4,9 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'rea
 import { showToast } from '../../../../shared/components/ui/Toast';
 import { getAvailablePlans } from '../../services/membershipService';
 import { useClerkAuth } from '../../hooks/useClerkAuth';
-import { colors } from '../../../../shared/theme/tokens';
+import { colors, radius, spacing } from '../../../../shared/theme/tokens';
+import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
+import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 
 export function MembershipPlansListScreen({ navigation }: any) {
   const { user } = useClerkAuth();
@@ -37,8 +39,8 @@ export function MembershipPlansListScreen({ navigation }: any) {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
-        <Text>{'Cargando planes...'}</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>{'Cargando planes...'}</Text>
       </View>
     );
   }
@@ -55,7 +57,7 @@ export function MembershipPlansListScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Mis Planes de Membresía</Text>
+      <ScreenHeader title="Mis Planes de Membresía" />
       {plans.map((plan: any, index: number) => (
         <TouchableOpacity
           key={index}
@@ -76,12 +78,10 @@ export function MembershipPlansListScreen({ navigation }: any) {
           <Text style={styles.planPrice}>{plan.price}</Text>
         </TouchableOpacity>
       ))}
-      <TouchableOpacity
-        style={styles.continueButton}
+      <PrimaryButton
+        label="Ver estado actual"
         onPress={() => navigation.replace('MembershipCheck')}
-      >
-        <Text style={styles.continueText}>Ver estado actual</Text>
-      </TouchableOpacity>
+      />
     </View>
   );
 }
@@ -92,27 +92,33 @@ const styles = StyleSheet.create({
     backgroundColor: colors.base,
     padding: 20,
   },
-  title: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.base,
+  },
+  loadingText: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    marginTop: spacing.sm,
   },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: colors.base,
     padding: 20,
   },
   emptyText: {
     color: colors.textSecondary,
     fontSize: 16,
+    textAlign: 'center',
   },
   planItem: {
     backgroundColor: colors.surfaceRaised,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: radius.md,
+    padding: spacing.md,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: colors.border,
@@ -121,7 +127,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   planName: {
     color: colors.text,
@@ -129,8 +135,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   popularBadge: {
-    backgroundColor: colors.success,
-    paddingHorizontal: 4,
+    backgroundColor: colors.primary,
+    color: colors.onPrimary,
+    paddingHorizontal: spacing.xs,
     paddingVertical: 2,
     borderRadius: 4,
     fontSize: 10,
@@ -140,34 +147,11 @@ const styles = StyleSheet.create({
   planDescription: {
     color: colors.textSecondary,
     fontSize: 14,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   planPrice: {
-    color: colors.success,
+    color: colors.primary,
     fontSize: 14,
     fontWeight: 'bold',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyText: {
-    color: colors.textSecondary,
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  continueButton: {
-    marginTop: 20,
-    backgroundColor: colors.border,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignSelf: 'center',
-  },
-  continueText: {
-    color: colors.text,
-    fontSize: 14,
   },
 });

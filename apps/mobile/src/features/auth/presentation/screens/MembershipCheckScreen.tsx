@@ -3,7 +3,9 @@ import { useNavigation } from '@react-navigation/native';
 import { View, ActivityIndicator, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { showToast } from '../../../../shared/components/ui/Toast';
 import { useClerkAuth } from '../../hooks/useClerkAuth';
-import { colors } from '../../../../shared/theme/tokens';
+import { colors, radius, spacing } from '../../../../shared/theme/tokens';
+import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
+import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { getMembershipStatus, getAvailablePlans } from '../../services/membershipService';
 
 interface MembershipCheckScreenProps {
@@ -68,7 +70,7 @@ export function MembershipCheckScreen({ navigation }: MembershipCheckScreenProps
   if (statusLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Verificando tu membresía...</Text>
       </View>
     );
@@ -81,9 +83,7 @@ export function MembershipCheckScreen({ navigation }: MembershipCheckScreenProps
         <Text style={styles.errorText}>
           No se pudieron cargar los planes. Por favor, inténtalo de nuevo.
         </Text>
-        <TouchableOpacity style={styles.button} onPress={() => nav.replace('Auth')}>
-          <Text style={styles.buttonText}>Volver a Sign In</Text>
-        </TouchableOpacity>
+        <PrimaryButton label="Volver a Sign In" onPress={() => nav.replace('Auth')} />
       </View>
     );
   }
@@ -92,7 +92,7 @@ export function MembershipCheckScreen({ navigation }: MembershipCheckScreenProps
   // Si no tiene, mostramos los planes
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Selecciona tu plan</Text>
+      <ScreenHeader title="Selecciona tu plan" />
       {plans.length === 0 ? (
         <Text style={styles.emptyText}>
           No hay planes disponibles en este momento.
@@ -129,12 +129,11 @@ export function MembershipCheckScreen({ navigation }: MembershipCheckScreenProps
           );
         })
       )}
-      <TouchableOpacity
-        style={styles.continueButton}
+      <PrimaryButton
+        label="Yo ya tengo una membresía"
+        variant="outline"
         onPress={() => nav.replace('Auth')}
-      >
-        <Text style={styles.continueText}>Yo ya tengo una membresía</Text>
-      </TouchableOpacity>
+      />
     </View>
   );
 }
@@ -150,38 +149,32 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: colors.base,
   },
   loadingText: {
     color: colors.textSecondary,
-    marginTop: 10,
+    marginTop: spacing.sm,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: colors.base,
     padding: 20,
+    gap: spacing.md,
   },
   errorText: {
     color: colors.error,
     fontSize: 16,
-    marginBottom: 15,
-  },
-  button: {
-    backgroundColor: colors.border,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  buttonText: {
-    color: colors.text,
-    fontSize: 16,
-  },
-  title: {
-    color: colors.text,
-    fontSize: 24,
-    fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 20,
+  },
+  planItem: {
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   emptyText: {
     color: colors.textSecondary,
@@ -189,19 +182,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
   },
-  planItem: {
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
   planHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   planName: {
     color: colors.text,
@@ -209,8 +194,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   popularBadge: {
-    backgroundColor: colors.success,
-    paddingHorizontal: 4,
+    backgroundColor: colors.primary,
+    color: colors.onPrimary,
+    paddingHorizontal: spacing.xs,
     paddingVertical: 2,
     borderRadius: 4,
     fontSize: 10,
@@ -218,12 +204,12 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   planDetails: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   planDescription: {
     color: colors.textSecondary,
     fontSize: 14,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   daysText: {
     color: colors.success,
@@ -234,21 +220,8 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
   },
   planPriceAmount: {
-    color: colors.success,
+    color: colors.primary,
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  continueButton: {
-    marginTop: 20,
-    backgroundColor: colors.border,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignSelf: 'center',
-  },
-  continueText: {
-    color: colors.text,
-    fontSize: 16,
-    textAlign: 'center',
   },
 });

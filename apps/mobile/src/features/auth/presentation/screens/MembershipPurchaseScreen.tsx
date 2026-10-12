@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { View, ActivityIndicator, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, ActivityIndicator, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { showToast } from '../../../../shared/components/ui/Toast';
 import { purchaseMembership, getAvailablePlans } from '../../services/membershipService';
 import { useClerkAuth } from '../../hooks/useClerkAuth';
-import { colors } from '../../../../shared/theme/tokens';
+import { colors, radius, spacing } from '../../../../shared/theme/tokens';
+import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
+import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 
 interface MembershipPurchaseScreenProps {
   navigation: any;
   route: any;
 }
 
-export function MembershipPurchaseScreen({ navigation, route }: MembershipPurchaseScreenProps) {
+export function MembershipPurchaseScreen({ navigation }: MembershipPurchaseScreenProps) {
   const { user } = useClerkAuth();
   const [plans, setPlans] = useState<Array<{ plan: any; daysRemaining?: number }>>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -96,7 +98,7 @@ export function MembershipPurchaseScreen({ navigation, route }: MembershipPurcha
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Cargando planes...</Text>
       </View>
     );
@@ -118,23 +120,11 @@ export function MembershipPurchaseScreen({ navigation, route }: MembershipPurcha
 
   return (
     <View style={styles.container}>
-      {/* Header con información del plan */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>Seleccionar Plan</Text>
-          <Text style={styles.headerSubtitle}>
-            Elige el plan que mejor se adapte a ti
-          </Text>
-        </View>
-        {route.goBack && (
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.backButtonText}>← Regresar</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      <ScreenHeader
+        title="Seleccionar Plan"
+        subtitle="Elige el plan que mejor se adapte a ti"
+        onBack={() => navigation.goBack()}
+      />
 
       {/* Detalles del plan seleccionado */}
       <View style={styles.planCard}>
@@ -162,18 +152,15 @@ export function MembershipPurchaseScreen({ navigation, route }: MembershipPurcha
       </View>
 
       {/* Botón de compra */}
-      <TouchableOpacity
-        style={styles.buyButton}
+      <PrimaryButton
+        label={isPaying ? 'Procesando pago...' : 'Comprar Membresía'}
         onPress={handlePurchase}
-        disabled={isPaying}
-      >
-        <Text style={styles.buyButtonText}>
-          {isPaying ? 'Procesando pago...' : 'Comprar Membresía'}
-        </Text>
-      </TouchableOpacity>
+        loading={isPaying}
+        style={styles.buyButtonSpacing}
+      />
 
       {/* Opción para planes alternativos */}
-      <View style={styles.alternativesSection} marginTop={20}>
+      <View style={styles.alternativesSection}>
         <Text style={styles.alternativesText}>
           Otros planes disponibles
         </Text>
@@ -195,34 +182,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.base,
   },
-  header: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.base,
   },
-  headerLeft: {},
-  headerTitle: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  headerSubtitle: {
+  loadingText: {
     color: colors.textSecondary,
-    fontSize: 14,
-    marginTop: 4,
-  },
-  backButton: {
-    padding: 8,
-  },
-  backButtonText: {
-    color: colors.success,
-    fontSize: 14,
+    fontSize: 16,
+    marginTop: spacing.sm,
   },
   planCard: {
     backgroundColor: colors.surfaceRaised,
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
     margin: 20,
     borderWidth: 1,
     borderColor: colors.border,
@@ -232,7 +206,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   planCardDescription: {
     color: colors.textSecondary,
@@ -242,11 +216,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   planCardPrice: {
-    color: colors.success,
+    color: colors.primary,
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   featuresSection: {
     margin: 20,
@@ -272,22 +246,14 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
   },
-  buyButton: {
-    backgroundColor: colors.success,
-    padding: 16,
-    borderRadius: 10,
+  buyButtonSpacing: {
     margin: 20,
-    alignItems: 'center',
-  },
-  buyButtonText: {
-    color: colors.base,
-    fontSize: 18,
-    fontWeight: 'bold',
   },
   noPlansContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: colors.base,
     padding: 20,
   },
   noPlansText: {
@@ -295,51 +261,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   popularBadge: {
-    backgroundColor: colors.success,
+    backgroundColor: colors.primary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
-    fontSize: 10,
-    fontWeight: 'bold',
     position: 'absolute',
     top: 8,
     right: 8,
   },
-  featuresSection: {
-    margin: 20,
-  },
-  featuresTitle: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  featuresList: {},
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  featureIcon: {
-    color: colors.success,
-    fontSize: 12,
-    marginRight: 6,
-  },
-  featureText: {
-    color: colors.text,
-    fontSize: 14,
+  badgeText: {
+    color: colors.onPrimary,
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   alternativesSection: {
     marginTop: 20,
     paddingHorizontal: 20,
   },
+  viewAllPlans: {},
   alternativesText: {
     color: colors.textSecondary,
     fontSize: 14,
     marginBottom: 10,
   },
   viewAllLink: {
-    color: colors.success,
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '500',
   },
