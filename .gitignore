@@ -36,8 +36,19 @@ next-env.d.ts
 
 # Local dev databases
 apps/web/local.db
+local.db
 
 # E2E Maestro credentials (real values — never commit)
 e2e/credentials.env
+
 # Local AI runtime state
 .atl/
+
+# OS artifacts
+.DS_Store
+
+# IDE/Editor
+.idea/
+.vscode/
+*.swp
+*.swo
