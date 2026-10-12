@@ -3,7 +3,7 @@ import { texts } from '../texts';
 describe('i18n texts', () => {
   it('exposes every locked tab label in neutral Spanish', () => {
     expect(texts.tabs.today).toBe('Hoy');
-    expect(texts.tabs.plan).toBe('Plan');
+    expect(texts.tabs.history).toBe('Historial');
     expect(texts.tabs.events).toBe('Eventos');
     expect(texts.tabs.recovery).toBe('Recuperación');
     expect(texts.tabs.profile).toBe('Perfil');

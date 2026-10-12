@@ -13,7 +13,7 @@ import { screensTexts } from './screensTexts';
 export const texts = {
   tabs: {
     today: 'Hoy',
-    plan: 'Plan',
+    history: 'Historial',
     events: 'Eventos',
     recovery: 'Recuperación',
     profile: 'Perfil',

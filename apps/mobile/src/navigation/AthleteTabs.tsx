@@ -9,7 +9,7 @@ import { GlassDock } from '../shared/components/ui/GlassDock';
 
 export type AthleteTabParamList = {
   Today: undefined;
-  Plan: undefined;
+  History: undefined;
   Events: undefined;
   Recovery: undefined;
   Profile: undefined;
@@ -24,7 +24,7 @@ export function AthleteTabs() {
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Today" component={TodayScreen} />
-      <Tab.Screen name="Plan" component={HistoryScreen} />
+      <Tab.Screen name="History" component={HistoryScreen} />
       <Tab.Screen name="Events" component={EventsScreen} />
       <Tab.Screen name="Recovery" component={RecoveryScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />

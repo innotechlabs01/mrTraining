@@ -3,12 +3,12 @@ import { fireEvent, render } from '@testing-library/react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { GlassDock } from '../GlassDock';
 
-const TAB_LABELS: Record<string, string> = { Today: 'Hoy', Plan: 'Plan', Events: 'Eventos', Recovery: 'Recuperación', Profile: 'Perfil' };
+const TAB_LABELS: Record<string, string> = { Today: 'Hoy', History: 'Historial', Events: 'Eventos', Recovery: 'Recuperación', Profile: 'Perfil' };
 
 function makeProps(active: string, nav?: { navigate?: jest.Mock }): BottomTabBarProps {
   const routes = [
     { key: 'Today', name: 'Today' },
-    { key: 'Plan', name: 'Plan' },
+    { key: 'History', name: 'History' },
     { key: 'Events', name: 'Events' },
     { key: 'Recovery', name: 'Recovery' },
     { key: 'Profile', name: 'Profile' },
@@ -27,7 +27,7 @@ describe('GlassDock', () => {
   it('renders the five tab labels and marks the active tab', () => {
     const { getByRole } = render(<GlassDock {...makeProps('Today')} />);
     expect(getByRole('tab', { name: 'Hoy' })).toBeTruthy();
-    expect(getByRole('tab', { name: 'Plan' })).toBeTruthy();
+    expect(getByRole('tab', { name: 'Historial' })).toBeTruthy();
     expect(getByRole('tab', { name: 'Eventos' })).toBeTruthy();
     expect(getByRole('tab', { name: 'Recuperación' })).toBeTruthy();
     expect(getByRole('tab', { name: 'Perfil' })).toBeTruthy();
@@ -37,8 +37,8 @@ describe('GlassDock', () => {
   it('navigates to a non-active tab on press', () => {
     const navigate = jest.fn();
     const { getByRole } = render(<GlassDock {...makeProps('Today', { navigate })} />);
-    fireEvent.press(getByRole('tab', { name: 'Plan' }));
-    expect(navigate).toHaveBeenCalledWith('Plan');
+    fireEvent.press(getByRole('tab', { name: 'Historial' }));
+    expect(navigate).toHaveBeenCalledWith('History');
   });
 
   it('does not render a central FAB', () => {

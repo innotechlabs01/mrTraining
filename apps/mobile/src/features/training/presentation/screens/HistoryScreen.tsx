@@ -27,7 +27,7 @@ import { texts } from '../../../../shared/i18n/texts';
 const t = texts.screens.historyScreen;
 
 type HistoryNav = CompositeNavigationProp<
-  BottomTabNavigationProp<AthleteTabParamList, 'Plan'>,
+  BottomTabNavigationProp<AthleteTabParamList, 'History'>,
   NativeStackNavigationProp<RootStackParamList>
 >;
 

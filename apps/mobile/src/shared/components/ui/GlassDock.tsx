@@ -13,7 +13,7 @@ import { texts } from '../../i18n/texts';
 
 const TAB_META: Record<string, { label: string; Icon: (p: { size: number; color: string }) => React.ReactElement }> = {
   Today: { label: texts.tabs.today, Icon: HomeIcon },
-  Plan: { label: texts.tabs.plan, Icon: BarbellIcon },
+  History: { label: texts.tabs.history, Icon: BarbellIcon },
   Events: { label: texts.tabs.events, Icon: CalendarIcon },
   Recovery: { label: texts.tabs.recovery, Icon: HeartPulseIcon },
   Profile: { label: texts.tabs.profile, Icon: UserIcon },
