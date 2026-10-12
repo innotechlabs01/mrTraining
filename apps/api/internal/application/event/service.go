@@ -37,6 +37,17 @@ func (s *Service) ListEvents(ctx context.Context, coachID string) ([]*eventdomai
 	return events, nil
 }
 
+// ListEventsForAthlete returns events created by every coach the athlete
+// is linked to (coach_athlete_links), so the athlete sees their coach's
+// events in the events tab.
+func (s *Service) ListEventsForAthlete(ctx context.Context, athleteID string) ([]*eventdomain.Event, error) {
+	events, err := s.repo.ListByAthleteLinks(ctx, athleteID)
+	if err != nil {
+		return nil, fmt.Errorf("list events for athlete: %w", err)
+	}
+	return events, nil
+}
+
 // GetEvent returns a single event by ID with its registrations and form data.
 func (s *Service) GetEvent(ctx context.Context, id string) (*eventdomain.Event, error) {
 	event, err := s.repo.GetByID(ctx, id)

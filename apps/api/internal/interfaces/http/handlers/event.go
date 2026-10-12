@@ -35,9 +35,21 @@ func (h *EventHandler) ListEvents(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
+	// The authenticated user may be a coach (their own events) or an athlete
+	// (events from every coach they train with). Try coach-scoped first; fall
+	// back to the athlete's linked coaches' events.
 	events, err := h.service.ListEvents(c.Context(), coachID)
 	if err != nil {
 		return h.handleError(c, err)
+	}
+
+	if len(events) == 0 {
+		// Probably an athlete: look up events from all linked coaches.
+		athleteEvents, err := h.service.ListEventsForAthlete(c.Context(), coachID)
+		if err != nil {
+			return h.handleError(c, err)
+		}
+		events = athleteEvents
 	}
 
 	responses := make([]dto.EventResponse, len(events))

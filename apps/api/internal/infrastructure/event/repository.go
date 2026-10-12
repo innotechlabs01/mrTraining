@@ -506,3 +506,31 @@ func boolToInt(b bool) int {
 	}
 	return 0
 }
+
+// ListByAthleteLinks retrieves events from every coach the athlete trains
+// with (coach_athlete_links JOIN), so athletes see their coach's events.
+func (r *Repository) ListByAthleteLinks(ctx context.Context, athleteID string) ([]*eventdomain.Event, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT DISTINCT e.id, e.title, e.date, e.time, e.end_time, e.type, e.modality,
+		 e.location, e.description, e.status, e.format, e.is_public,
+		 e.running_distance_km, e.running_pace, e.running_meeting_point,
+		 e.coach_id, e.created_at, e.updated_at
+		 FROM events e
+		 INNER JOIN coach_athlete_links cal ON e.coach_id = cal.coach_id
+		 WHERE cal.athlete_id = ?
+		 ORDER BY e.date`, athleteID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list events by athlete links: %w", err)
+	}
+	defer rows.Close()
+
+	var events []*eventdomain.Event
+	for rows.Next() {
+		e, err := scanEvent(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan event: %w", err)
+		}
+		events = append(events, e)
+	}
+	return events, nil
+}

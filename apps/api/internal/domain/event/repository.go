@@ -9,6 +9,10 @@ type Repository interface {
 	// Returns an empty slice (not nil) if no events exist.
 	ListByCoach(ctx context.Context, coachID string) ([]*Event, error)
 
+	// ListByAthleteLinks retrieves all events from every coach the athlete
+	// is linked to (coach_athlete_links), ordered by date.
+	ListByAthleteLinks(ctx context.Context, athleteID string) ([]*Event, error)
+
 	// GetByID retrieves an event by its unique identifier.
 	// Returns ErrNotFound if no event exists with the given ID.
 	GetByID(ctx context.Context, id string) (*Event, error)
