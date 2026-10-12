@@ -7,7 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { getClerkToken } from '../../../../infrastructure/auth/clerk';
-import { colors, spacing, radius, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, radius, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { TrophyIcon } from '../../../../shared/components/icons';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   list: {
-    padding: spacing.lg,
+    padding: layout.pagePadding,
     gap: spacing.sm,
   },
   entry: {

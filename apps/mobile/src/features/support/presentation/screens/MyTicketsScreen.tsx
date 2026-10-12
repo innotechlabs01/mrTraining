@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FlashList } from '@shopify/flash-list';
-import { colors, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { Badge } from '../../../../shared/components/ui/Badge';
 import { ListCard } from '../../../../shared/components/ui/ListCard';
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   tabLabel: { ...typography.caption, color: colors.textSecondary },
   tabLabelActive: { color: colors.onPrimary, fontWeight: '600' },
   tabLabelInactive: { color: colors.textSecondary },
-  listContent: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.sm },
+  listContent: { padding: layout.pagePadding, paddingBottom: spacing.xl, gap: spacing.sm },
   trailing: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   unreadBadge: { marginLeft: spacing.xs },
   meta: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.xs },

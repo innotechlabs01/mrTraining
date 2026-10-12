@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { listMessages, sendMessage, type CommunityMessage } from '../../communityService';
-import { colors, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: colors.text,
   },
-  messagesContent: { padding: spacing.md, paddingBottom: spacing.lg, gap: spacing.md },
+  messagesContent: { padding: layout.pagePadding, paddingBottom: spacing.lg, gap: spacing.md },
   messageRow: { flexDirection: 'row', gap: spacing.sm },
   avatar: {
     width: 32,

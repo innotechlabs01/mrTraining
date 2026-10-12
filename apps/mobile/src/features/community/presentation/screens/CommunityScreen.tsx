@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { getCommunity } from '../../communityService';
 import { useCoachFeedPosts } from '../../../gamification/hooks/useCoachFeed';
-import { colors, spacing } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { SegmentedFilter } from '../../../../shared/components/ui/SegmentedFilter';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
@@ -153,5 +153,5 @@ const styles = StyleSheet.create({
   filterWrap: { paddingHorizontal: spacing.md, paddingVertical: spacing.md },
   skeletonWrap: { paddingHorizontal: spacing.md },
   feedWrap: { flex: 1, paddingHorizontal: spacing.md },
-  listContent: { paddingHorizontal: spacing.md, gap: spacing.sm, paddingBottom: spacing.md },
+  listContent: { paddingHorizontal: layout.pagePadding, gap: spacing.sm, paddingBottom: spacing.md },
 });

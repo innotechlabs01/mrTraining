@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, spacing } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
@@ -188,6 +188,6 @@ export function EventDetailScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  content: { padding: spacing.lg, paddingBottom: 140 },
+  content: { padding: layout.pagePadding, paddingBottom: 140 },
   body: { gap: spacing.sm },
 });

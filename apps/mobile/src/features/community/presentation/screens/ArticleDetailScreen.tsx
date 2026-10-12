@@ -5,7 +5,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { getBlogPost } from '@features/blog/blogService';
-import { colors, spacing, radius, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, radius, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
@@ -72,7 +72,7 @@ export function ArticleDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
   loading: { padding: spacing.md },
-  content: { padding: spacing.md, paddingBottom: spacing.xxl, gap: spacing.md },
+  content: { padding: layout.pagePadding, paddingBottom: spacing.xxl, gap: spacing.md },
   title: { ...typography.h2, color: colors.text },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   badge: {

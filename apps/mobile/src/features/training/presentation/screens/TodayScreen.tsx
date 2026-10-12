@@ -16,7 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUser } from '@clerk/clerk-expo';
 import { useQuery } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, spacing } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing } from '../../../../shared/theme/tokens';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { MetricCard } from '../../../../shared/components/ui/MetricCard';
 import { SectionHeader } from '../../../../shared/components/ui/SectionHeader';
@@ -229,7 +229,7 @@ export function TodayScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  content: { padding: spacing.lg, paddingBottom: 120, gap: spacing.lg },
+  content: { padding: layout.pagePadding, paddingBottom: 120, gap: spacing.lg },
   scoreboard: { flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing.sm, marginHorizontal: -spacing.sm },
   scoreItem: { flexBasis: '50%', maxWidth: '50%', minWidth: 0, paddingHorizontal: spacing.sm },
 });

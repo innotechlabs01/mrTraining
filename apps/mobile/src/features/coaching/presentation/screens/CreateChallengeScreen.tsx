@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { PlayIcon } from '../../../../shared/components/icons';
@@ -171,7 +171,7 @@ export function CreateChallengeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  content: { padding: spacing.md, paddingBottom: 100, gap: spacing.md },
+  content: { padding: layout.pagePadding, paddingBottom: 100, gap: spacing.md },
   field: { gap: spacing.xs },
   halfField: { flex: 1 },
   row: { flexDirection: 'row', gap: spacing.md },

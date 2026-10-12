@@ -5,7 +5,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, spacing } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { StatGrid } from '../../../../shared/components/ui/StatGrid';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
@@ -217,6 +217,6 @@ export function ChallengeDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
   loadingWrap: { padding: spacing.md, paddingBottom: spacing.lg, gap: spacing.lg },
-  content: { padding: spacing.md, paddingBottom: spacing.xxl, gap: spacing.lg },
+  content: { padding: layout.pagePadding, paddingBottom: spacing.xxl, gap: spacing.lg },
   ctaWrap: { padding: spacing.md, paddingTop: 0 },
 });

@@ -3,7 +3,7 @@ import { Alert, ScrollView, StyleSheet, Text, TextInput as RNTextInput, View } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { colors, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, typography } from '../../../../shared/theme/tokens';
 import { importData } from '../../../import/importService';
 import { Card } from '../../../../shared/components/ui/Card';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
@@ -100,7 +100,7 @@ export function ImportHistoryScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: 60 },
+  content: { padding: layout.pagePadding, gap: spacing.lg, paddingBottom: 60 },
 
   introCard: { gap: spacing.xs },
   introTitle: { ...typography.bodyStrong, color: colors.text },

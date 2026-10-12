@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
@@ -132,8 +132,8 @@ export function CoachChallengesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  loadingWrap: { padding: spacing.md, gap: spacing.md },
-  list: { padding: spacing.md, gap: spacing.md, paddingBottom: 100 },
+  loadingWrap: { padding: layout.pagePadding, gap: spacing.md },
+  list: { padding: layout.pagePadding, gap: spacing.md, paddingBottom: 100 },
   skeletonCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,

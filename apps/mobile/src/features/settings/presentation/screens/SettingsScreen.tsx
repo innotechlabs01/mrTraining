@@ -3,7 +3,7 @@ import { View, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { ListCard } from '../../../../shared/components/ui/ListCard';
 import { BellIcon, LockIcon, UserIcon } from '../../../../shared/components/icons';
@@ -59,5 +59,5 @@ export function SettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  content: { flex: 1, padding: spacing.md, gap: spacing.sm },
+  content: { flex: 1, padding: layout.pagePadding, gap: spacing.sm },
 });

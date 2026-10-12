@@ -6,7 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { listFavorites } from '../../../favorites/favoriteService';
-import { colors, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { SegmentedFilter } from '../../../../shared/components/ui/SegmentedFilter';
 import { ListCard } from '../../../../shared/components/ui/ListCard';
@@ -182,7 +182,7 @@ export function SearchScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  searchWrap: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  searchWrap: { paddingHorizontal: layout.pagePadding, paddingTop: spacing.sm },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.body,
     fontSize: 15,
   },
-  filterWrap: { paddingHorizontal: spacing.md, paddingVertical: spacing.md },
-  skeletonWrap: { paddingHorizontal: spacing.md },
-  listContent: { flex: 1, paddingHorizontal: spacing.md, gap: spacing.sm },
+  filterWrap: { paddingHorizontal: layout.pagePadding, paddingVertical: spacing.md },
+  skeletonWrap: { paddingHorizontal: layout.pagePadding },
+  listContent: { flex: 1, paddingHorizontal: layout.pagePadding, gap: spacing.sm },
 });

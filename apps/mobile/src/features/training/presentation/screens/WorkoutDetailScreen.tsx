@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, typography } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
@@ -198,7 +198,7 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  content: { padding: spacing.lg, paddingBottom: 100 },
+  content: { padding: layout.pagePadding, paddingBottom: 100 },
   card: { marginBottom: spacing.sm, gap: spacing.xs },
   exerciseName: { ...typography.bodyStrong, color: colors.text },
   exerciseSetReps: { ...typography.body, color: colors.textSecondary },

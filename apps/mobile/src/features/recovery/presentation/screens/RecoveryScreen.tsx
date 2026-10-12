@@ -9,7 +9,7 @@
 import React, { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, typography } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { Input } from '../../../../shared/components/ui/Input';
@@ -127,7 +127,7 @@ export function RecoveryScreen() {
                       inputMode="numeric"
                     />
                   </View>
-                  <PrimaryButton label={tr.manualSave} onPress={() => saveManual()} disabled={!manualInput} />
+                  <PrimaryButton label={tr.manualSave} variant="subtle" onPress={() => saveManual()} disabled={!manualInput} />
                 </View>
               </Card>
             ) : (
@@ -160,7 +160,7 @@ export function RecoveryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  content: { padding: spacing.lg, paddingBottom: 100 },
+  content: { padding: layout.pagePadding, paddingBottom: 100 },
   eyebrow: {
     fontSize: 10, fontWeight: '700', letterSpacing: 3,
     color: colors.primary, marginBottom: spacing.xs,

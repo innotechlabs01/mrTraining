@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { listBlogPosts } from '@features/blog/blogService';
-import { colors, spacing } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { SegmentedFilter } from '../../../../shared/components/ui/SegmentedFilter';
 import { ListCard } from '../../../../shared/components/ui/ListCard';
@@ -132,5 +132,5 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
   filterWrap: { paddingHorizontal: spacing.md, paddingVertical: spacing.md },
   skeletonWrap: { paddingHorizontal: spacing.md },
-  listContent: { padding: spacing.md, gap: spacing.sm },
+  listContent: { padding: layout.pagePadding, gap: spacing.sm },
 });

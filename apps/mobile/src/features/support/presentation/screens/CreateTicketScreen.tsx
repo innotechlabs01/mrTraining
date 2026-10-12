@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TextInput, Alert, KeyboardAvoidingV
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { Input } from '../../../../shared/components/ui/Input';
@@ -136,7 +136,7 @@ export function CreateTicketScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
   scrollContainer: { flex: 1 },
-  scrollContent: { flexGrow: 1, padding: spacing.md, paddingBottom: spacing.xl },
+  scrollContent: { flexGrow: 1, padding: layout.pagePadding, paddingBottom: spacing.xl },
   sectionLabel: { ...typography.bodyStrong, color: colors.text, marginBottom: spacing.xs, marginTop: spacing.lg },
   input: { marginBottom: spacing.md },
   textArea: { minHeight: 140, paddingTop: spacing.sm },

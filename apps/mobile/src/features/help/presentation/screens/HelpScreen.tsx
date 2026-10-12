@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, Linking, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { SegmentedFilter } from '../../../../shared/components/ui/SegmentedFilter';
 import { ListCard } from '../../../../shared/components/ui/ListCard';
@@ -182,7 +182,7 @@ export function HelpScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
   tabRow: { paddingHorizontal: spacing.md, paddingVertical: spacing.md },
-  bodyWrap: { flex: 1, padding: spacing.md },
+  bodyWrap: { flex: 1, padding: layout.pagePadding },
   card: { padding: 0, overflow: 'hidden' },
   faqRow: {
     flexDirection: 'row',

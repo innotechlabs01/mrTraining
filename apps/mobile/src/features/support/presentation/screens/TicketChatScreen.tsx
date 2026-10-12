@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
-import { colors, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { supportApi, type SupportTicket, type TicketMessage } from '../../api';
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   headerBadge: { backgroundColor: colors.error, borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 2 },
   badgeText: { ...typography.caption, color: colors.onError, fontWeight: '600' },
-  listContent: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.sm },
+  listContent: { padding: layout.pagePadding, paddingBottom: spacing.xl, gap: spacing.sm },
   messageWrapper: { maxWidth: '85%' },
   myMessage: { alignSelf: 'flex-end' },
   otherMessage: { alignSelf: 'flex-start' },

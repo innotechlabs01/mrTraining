@@ -125,7 +125,7 @@ export function PasswordSettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
   flex: { flex: 1 },
-  body: { padding: spacing.lg, gap: spacing.lg },
+  body: { padding: layout.pagePadding, gap: spacing.lg },
   hint: { ...typography.bodySmall, color: colors.textSecondary },
   field: { gap: spacing.sm },
   label: { ...typography.overline, color: colors.textSecondary },

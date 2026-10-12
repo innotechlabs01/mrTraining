@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { colors, radius, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { ProgressBar } from '../../../../shared/components/ui/ProgressBar';
@@ -222,7 +222,7 @@ export function WorkoutExecutionScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  content: { padding: spacing.lg, paddingBottom: 120, gap: spacing.lg },
+  content: { padding: layout.pagePadding, paddingBottom: 120, gap: spacing.lg },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',

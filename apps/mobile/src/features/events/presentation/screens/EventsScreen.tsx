@@ -6,7 +6,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, spacing, typography, radius } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, typography, radius } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { Card } from '../../../../shared/components/ui/Card';
 import { Badge } from '../../../../shared/components/ui/Badge';
@@ -215,8 +215,8 @@ export function EventsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  content: { paddingBottom: 100 },
-  list: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+  content: { paddingHorizontal: layout.pagePadding, paddingBottom: 100 },
+  list: { gap: spacing.sm, paddingTop: spacing.sm },
   cardPressed: { opacity: 0.85 },
   card: {
     position: 'relative',

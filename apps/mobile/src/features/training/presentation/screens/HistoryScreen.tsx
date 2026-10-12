@@ -6,7 +6,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, spacing, typography, fontFamilies } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, typography, fontFamilies } from '../../../../shared/theme/tokens';
 import type { AthleteTabParamList } from '../../../../navigation/AthleteTabs';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 import {
@@ -169,7 +169,7 @@ export function HistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  content: { padding: spacing.lg, paddingBottom: 100 },
+  content: { padding: layout.pagePadding, paddingBottom: 100 },
   eyebrow: { ...typography.label, color: colors.primary, marginBottom: spacing.sm },
   title: { ...typography.title, color: colors.text, marginBottom: spacing.lg },
   section: { marginBottom: spacing.lg },
