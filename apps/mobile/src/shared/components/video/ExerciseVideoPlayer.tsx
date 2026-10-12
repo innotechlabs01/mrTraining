@@ -2,12 +2,13 @@
  * ExerciseVideoPlayer — Displays demo videos for exercises.
  * Tracks view metrics (duration, pauses, replays, completion %).
  *
- * Uses expo-av for playback and sends metrics on unmount.
+ * Uses expo-video for playback and sends metrics on unmount.
  * Overlays and footer blocks live in ExerciseVideoOverlays / ExerciseVideoFooter.
  */
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { View, StyleSheet, TouchableOpacity } from 'react-native'
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av'
+import { useEvent, useEventListener } from 'expo'
+import { useVideoPlayer, VideoView } from 'expo-video'
 import { radius } from '../../theme/tokens'
 import { VideoLoadingOverlay, VideoControlsOverlay } from './ExerciseVideoOverlays'
 import { VideoProgressBar, VideoTitleBar } from './ExerciseVideoFooter'
@@ -35,12 +36,28 @@ export function ExerciseVideoPlayer({
   title,
   onRecordPress,
 }: ExerciseVideoPlayerProps) {
-  const videoRef = useRef<Video>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
+  const player = useVideoPlayer({ uri: videoUrl }, (p) => {
+    p.loop = false
+    // Emit timeUpdate at the same cadence expo-av used for status updates (~500ms).
+    p.timeUpdateEventInterval = 0.5
+  })
+  const { isPlaying } = useEvent(player, 'playingChange', { isPlaying: player.playing })
   const [isLoaded, setIsLoaded] = useState(false)
   const [showControls, setShowControls] = useState(true)
   const [duration, setDuration] = useState(0)
   const [position, setPosition] = useState(0)
+  const sourceRef = useRef(videoUrl)
+
+  // expo-av reloaded whenever `source` changed — replicate with replaceAsync.
+  useEffect(() => {
+    if (sourceRef.current !== videoUrl) {
+      sourceRef.current = videoUrl
+      setIsLoaded(false)
+      setPosition(0)
+      setDuration(0)
+      void player.replaceAsync({ uri: videoUrl })
+    }
+  }, [videoUrl, player])
 
   // Metrics tracking
   const metricsRef = useRef<VideoMetrics>({
@@ -80,46 +97,34 @@ export function ExerciseVideoPlayer({
     }
   }, [sendMetrics])
 
-  const handleLoad = useCallback((status: AVPlaybackStatus) => {
-    if (status.isLoaded && status.durationMillis) {
-      const dur = status.durationMillis / 1000
-      setDuration(dur)
-      metricsRef.current.durationSec = dur
-      setIsLoaded(true)
-    }
-  }, [])
+  // Duration is reported in seconds (old onLoad gave AVPlaybackStatus millis).
+  useEventListener(player, 'sourceLoad', ({ duration: loadedDuration }) => {
+    setDuration(loadedDuration)
+    metricsRef.current.durationSec = loadedDuration
+    setIsLoaded(true)
+  })
 
-  const handlePlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
-    if (!status.isLoaded) return
+  // Replaces onPlaybackStatusUpdate for position / completion-% tracking.
+  useEventListener(player, 'timeUpdate', ({ currentTime }) => {
+    setPosition(currentTime)
+    metricsRef.current.maxPositionSec = Math.max(metricsRef.current.maxPositionSec, currentTime)
 
-    if (status.positionMillis !== undefined) {
-      const pos = status.positionMillis / 1000
-      setPosition(pos)
-      metricsRef.current.maxPositionSec = Math.max(metricsRef.current.maxPositionSec, pos)
-    }
-
-    if (status.durationMillis && status.positionMillis !== undefined) {
+    if (player.duration > 0) {
       metricsRef.current.completedPct = Math.round(
-        (status.positionMillis / status.durationMillis) * 100
+        (currentTime / player.duration) * 100
       )
     }
+  })
 
-    if (status.didJustFinish) {
-      setIsPlaying(false)
-      metricsRef.current.completedPct = 100
-      sendMetrics()
-    }
+  // Natural end of playback (old `didJustFinish`).
+  useEventListener(player, 'playToEnd', () => {
+    metricsRef.current.completedPct = 100
+    void sendMetrics()
+  })
 
-    if (status.isPlaying !== undefined) {
-      setIsPlaying(status.isPlaying)
-    }
-  }, [sendMetrics])
-
-  const togglePlay = useCallback(async () => {
-    if (!videoRef.current) return
-
+  const togglePlay = useCallback(() => {
     if (isPlaying) {
-      await videoRef.current.pauseAsync()
+      player.pause()
       metricsRef.current.pauseCount++
     } else {
       // Detect replay
@@ -127,17 +132,16 @@ export function ExerciseVideoPlayer({
         metricsRef.current.replayCount++
         isReplayRef.current = false
       }
-      await videoRef.current.playAsync()
+      player.play()
     }
-  }, [isPlaying])
+  }, [isPlaying, player])
 
-  const handleReplay = useCallback(async () => {
-    if (!videoRef.current) return
+  const handleReplay = useCallback(() => {
     metricsRef.current.replayCount++
     isReplayRef.current = false
-    await videoRef.current.setPositionAsync(0)
-    await videoRef.current.playAsync()
-  }, [])
+    player.currentTime = 0
+    player.play()
+  }, [player])
 
   return (
     <View style={styles.container}>
@@ -146,16 +150,11 @@ export function ExerciseVideoPlayer({
         onPress={() => setShowControls(!showControls)}
         style={styles.videoWrapper}
       >
-        <Video
-          ref={videoRef}
-          source={{ uri: videoUrl }}
+        <VideoView
+          player={player}
           style={styles.video}
-          resizeMode={ResizeMode.CONTAIN}
-          onLoad={handleLoad}
-          onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-          useNativeControls={false}
-          shouldPlay={false}
-          isLooping={false}
+          contentFit="contain"
+          nativeControls={false}
         />
 
         {!isLoaded && <VideoLoadingOverlay />}

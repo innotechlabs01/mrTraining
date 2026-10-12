@@ -8,9 +8,10 @@
  *
  * All network calls are fire-and-forget; a failed tracking event never blocks playback.
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { useEventListener } from 'expo';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { colors, spacing, typography } from '../../../../shared/theme/tokens';
 import { recordView } from '../../../videoViews/videoViewService';
 import { PlayIcon } from '../../../../shared/components/icons';
@@ -27,63 +28,86 @@ type Props = {
 const PROGRESS_MARKS = [0.25, 0.5, 0.75];
 
 export function TrackedVideoPlayer({ videoUrl, exerciseId, athleteId }: Props) {
-  const videoRef = useRef<Video>(null);
+  const player = useVideoPlayer({ uri: videoUrl }, (p) => {
+    p.loop = false;
+    // Emit timeUpdate at the same cadence expo-av used for status updates (~500ms).
+    p.timeUpdateEventInterval = 0.5;
+  });
   const [playing, setPlaying] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'playing' | 'error'>('idle');
   const viewIdRef = useRef<string | null>(null);
   const reportedMarks = useRef(new Set<number>());
+  const sourceRef = useRef(videoUrl);
+
+  // expo-av reloaded whenever `source` changed — replicate with replaceAsync.
+  useEffect(() => {
+    if (sourceRef.current !== videoUrl) {
+      sourceRef.current = videoUrl;
+      void player.replaceAsync({ uri: videoUrl });
+    }
+  }, [videoUrl, player]);
 
   // Fire-and-forget POST — never blocks the player.
   const track = useCallback((action: string, data: Record<string, unknown> = {}) => {
     recordView({ exerciseID: exerciseId, athleteID: athleteId, action, ...data }).catch(() => {});
   }, [exerciseId, athleteId]);
 
-  const handlePlaybackStatusUpdate = useCallback((s: any) => {
-    if (!s.isLoaded) return;
-
-    const duration = (s.durationMillis ?? 0) / 1000;
-    const position = (s.positionMillis ?? 0) / 1000;
-    const pct = duration > 0 ? position / duration : 0;
+  // Replaces onPlaybackStatusUpdate: progress marks + >=90% completion.
+  useEventListener(player, 'timeUpdate', ({ currentTime }) => {
+    const duration = player.duration || 0;
+    const pct = duration > 0 ? currentTime / duration : 0;
 
     // Report progress at 25/50/75% marks.
     for (const mark of PROGRESS_MARKS) {
       if (pct >= mark && !reportedMarks.current.has(mark)) {
         reportedMarks.current.add(mark);
         if (viewIdRef.current) {
-          track('progress', { viewId: viewIdRef.current, positionSec: position, totalDurationSec: duration });
+          track('progress', { viewId: viewIdRef.current, positionSec: currentTime, totalDurationSec: duration });
         }
       }
     }
 
     // On completion (>= 90% or natural end).
-    if (s.didJustFinish || pct >= 0.9) {
-      if (viewIdRef.current) {
-        track('complete', { viewId: viewIdRef.current, positionSec: position, totalDurationSec: duration });
-      }
+    if (pct >= 0.9 && viewIdRef.current) {
+      track('complete', { viewId: viewIdRef.current, positionSec: currentTime, totalDurationSec: duration });
     }
-  }, [track]);
+  });
+
+  // Natural end of playback (old `didJustFinish`).
+  useEventListener(player, 'playToEnd', () => {
+    if (viewIdRef.current) {
+      track('complete', { viewId: viewIdRef.current, positionSec: player.currentTime, totalDurationSec: player.duration });
+    }
+  });
+
+  // Load / error states (old onLoad / onError).
+  useEventListener(player, 'statusChange', ({ status: playerStatus }) => {
+    if (playerStatus === 'error') {
+      setStatus('error');
+    } else if (playerStatus === 'readyToPlay') {
+      setStatus((prev) => (prev === 'loading' ? 'idle' : prev));
+    }
+  });
 
   const handlePlay = useCallback(async () => {
-    if (!videoRef.current) return;
     setStatus('loading');
     try {
       // Start view tracking and playback in parallel — analytics never blocks video.
-      const playPromise = videoRef.current.playAsync();
-      const viewPromise = recordView({ exerciseID: exerciseId, athleteID: athleteId, action: 'start' })
+      player.play();
+      const res = await recordView({ exerciseID: exerciseId, athleteID: athleteId, action: 'start' })
         .catch(() => null);
 
-      const [, res] = await Promise.all([playPromise, viewPromise]);
       viewIdRef.current = res?.viewId ?? null;
       reportedMarks.current.clear();
       setPlaying(true);
       setStatus('playing');
     } catch {
       // Fallback: play without tracking.
-      await videoRef.current?.playAsync().catch(() => {});
+      player.play();
       setPlaying(true);
       setStatus('playing');
     }
-  }, [exerciseId, athleteId]);
+  }, [exerciseId, athleteId, player]);
 
   const handleRetry = useCallback(() => {
     setStatus('idle');
@@ -92,16 +116,11 @@ export function TrackedVideoPlayer({ videoUrl, exerciseId, athleteId }: Props) {
 
   return (
     <View style={styles.container}>
-      <Video
-        ref={videoRef}
-        source={{ uri: videoUrl }}
+      <VideoView
+        player={player}
         style={styles.video}
-        resizeMode={ResizeMode.CONTAIN}
-        onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-        onLoad={() => setStatus((prev) => (prev === 'loading' ? 'idle' : prev))}
-        onError={() => setStatus('error')}
-        shouldPlay={false}
-        useNativeControls
+        contentFit="contain"
+        nativeControls
       />
       {status === 'error' && (
         <View style={styles.playOverlay}>
