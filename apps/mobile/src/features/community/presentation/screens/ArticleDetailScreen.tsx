@@ -9,6 +9,7 @@ import { colors, layout, spacing, radius, typography } from '../../../../shared/
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
+import { HtmlBody } from '../../../../shared/components/ui/HtmlBody';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { texts } from '../../../../shared/i18n/texts';
 
@@ -62,7 +63,7 @@ export function ArticleDetailScreen() {
 
           {!!article.excerpt && <Text style={styles.excerpt}>{article.excerpt}</Text>}
 
-          <Text style={styles.body}>{article.content}</Text>
+          <HtmlBody html={article.content} />
         </ScrollView>
       )}
     </SafeAreaView>
@@ -84,5 +85,4 @@ const styles = StyleSheet.create({
   badgeText: { ...typography.bodySmall, color: colors.primary, fontWeight: '600' },
   date: { ...typography.bodySmall, color: colors.textSecondary },
   excerpt: { ...typography.body, color: colors.textSecondary, fontStyle: 'italic' },
-  body: { ...typography.body, color: colors.text, lineHeight: 24 },
 });
