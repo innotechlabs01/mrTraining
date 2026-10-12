@@ -127,7 +127,7 @@ export function RecoveryScreen() {
                       inputMode="numeric"
                     />
                   </View>
-                  <PrimaryButton label={tr.manualSave} variant="subtle" onPress={() => saveManual()} disabled={!manualInput} />
+                  <PrimaryButton label={tr.manualSave} onPress={() => saveManual()} disabled={!manualInput} />
                 </View>
               </Card>
             ) : (

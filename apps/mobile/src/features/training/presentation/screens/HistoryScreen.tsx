@@ -142,7 +142,7 @@ export function HistoryScreen() {
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <Text style={styles.eyebrow}>{t.eyebrow}</Text>
-        <Text style={styles.title}>{t.planTitle}</Text>
+        <Text style={styles.title}>{t.title}</Text>
 
         {/* Tu Plan */}
         <View style={styles.section}>

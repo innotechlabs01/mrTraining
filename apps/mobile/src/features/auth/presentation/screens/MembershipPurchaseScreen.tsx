@@ -10,7 +10,6 @@ import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 
 interface MembershipPurchaseScreenProps {
   navigation: any;
-  route: any;
 }
 
 export function MembershipPurchaseScreen({ navigation }: MembershipPurchaseScreenProps) {
@@ -165,7 +164,6 @@ export function MembershipPurchaseScreen({ navigation }: MembershipPurchaseScree
           Otros planes disponibles
         </Text>
         <TouchableOpacity
-          style={styles.viewAllPlans}
           onPress={() => navigationRef.navigate('MembershipPlansList')}
         >
           <Text style={styles.viewAllLink}>
@@ -278,7 +276,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingHorizontal: 20,
   },
-  viewAllPlans: {},
   alternativesText: {
     color: colors.textSecondary,
     fontSize: 14,

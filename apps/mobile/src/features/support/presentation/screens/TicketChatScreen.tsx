@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -48,15 +48,13 @@ export function TicketChatScreen() {
     loadData();
   }, [loadData]);
 
-  // Newest-first order preserves the previous `inverted` FlatList layout
-  // (FlashList has no `inverted` prop): newest message stays pinned at top.
-  const orderedMessages = useMemo(() => [...messages].reverse(), [messages]);
-
+  // API order is oldest-first: newest message renders last, next to the input.
+  // scrollToEnd keeps the latest message visible after load/send.
   useEffect(() => {
-    if (orderedMessages.length > 0) {
-      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    if (messages.length > 0) {
+      flatListRef.current?.scrollToEnd({ animated: true });
     }
-  }, [orderedMessages]);
+  }, [messages]);
 
   const handleSend = async () => {
     if (!newMessage.trim() || sending) return;
@@ -122,7 +120,7 @@ export function TicketChatScreen() {
       >
         <FlashList
           ref={flatListRef}
-          data={orderedMessages}
+          data={messages}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => renderMessage(item)}

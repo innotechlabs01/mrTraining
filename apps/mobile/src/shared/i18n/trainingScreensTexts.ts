@@ -55,7 +55,7 @@ export const trainingScreensTexts = {
   },
   historyScreen: {
     eyebrow: 'PLAN DE ENTRENAMIENTO',
-    planTitle: 'Plan',
+    title: 'Historial',
     yourPlan: 'Tu Plan',
   },
   planInfoSections: {
