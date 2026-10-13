@@ -1,11 +1,10 @@
 /**
- * TodayScreen — athlete landing (balanced density).
+ * TodayScreen — athlete landing (balanced density, fitness-first).
  *
- * Layout: header → dominant ContinueWorkoutCard (the next workout IS the
- * action) → readiness hero (with loading fallback) → compact scoreboard →
- * sessions → PRs → challenge (active or available) → community & news feed
- * (open by default). Never reads empty while data loads.
- * All sections are presentational; only this screen owns queries + navigation.
+ * Layout: time-aware greeting → dominant ContinueWorkoutCard → readiness
+ * rings + streak → compact scoreboard → LIVE sessions (if any) → sessions
+ * → PRs → challenge → coach articles carousel → store carousel →
+ * community feed. Training IS the action.
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, ScrollView, RefreshControl, View } from 'react-native';
@@ -22,18 +21,23 @@ import { MetricCard } from '../../../../shared/components/ui/MetricCard';
 import { SectionHeader } from '../../../../shared/components/ui/SectionHeader';
 import { ChallengeHomeCard } from '../../../../shared/components/ui/ChallengeHomeCard';
 import { texts } from '../../../../shared/i18n/texts';
-
-const t = texts.screens.todayScreen;
 import { ContinueWorkoutCard } from '../../../../shared/components/fitness/ContinueWorkoutCard';
 import { useStreak, usePRs } from '../../../gamification/hooks';
 import { listAlerts, type Alert } from '../../../alerts/alertService';
 import { listMessages, type CommunityMessage } from '../../../community/communityService';
 import { listBlogPosts, type BlogPost } from '../../../blog/blogService';
+import { listStore, type StoreProduct } from '../../../store/storeService';
+import { useCart } from '../../../store/application/cartStore';
 import { AthleteTodaySummary } from './AthleteTodaySummary';
 import { TodayHeader } from './TodayHeader';
 import { SessionsSection, NewsFeedSection, PRsSection, ChallengeSection } from './TodaySections';
+import { LiveSessionsSection, ArticlesCarousel, StoreCarousel } from './TodayExtraSections';
+import { showToast } from '../../../../shared/components/ui/Toast';
 import type { AthleteTabParamList } from '../../../../navigation/AthleteTabs';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
+
+const t = texts.screens.todayScreen;
+const tStore = texts.screens.storeScreen;
 
 type TodayData = {
   athlete: { id: string; name: string; sport: string };
@@ -58,6 +62,13 @@ type TodayNav = CompositeNavigationProp<
   BottomTabNavigationProp<AthleteTabParamList, 'Today'>,
   NativeStackNavigationProp<RootStackParamList>
 >;
+
+function timeGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return t.greetingMorning;
+  if (h < 19) return t.greetingAfternoon;
+  return t.greetingEvening;
+}
 
 export function TodayScreen() {
   const navigation = useNavigation<TodayNav>();
@@ -99,7 +110,6 @@ export function TodayScreen() {
     staleTime: 60 * 1000,
   });
 
-  // Fallback when no active challenge: surface available challenges the athlete can join.
   const { data: availableChallenges = [] } = useQuery({
     queryKey: ['available-challenges-today'],
     queryFn: async (): Promise<Array<ActiveChallenge>> => {
@@ -114,6 +124,19 @@ export function TodayScreen() {
   const { data: prsData } = usePRs();
   const prs = prsData ?? [];
   const challengeToShow = activeChallenge ?? availableChallenges[0];
+
+  // Store products for the home carousel
+  const { data: storeProducts = [] } = useQuery({
+    queryKey: ['athlete-store-preview'],
+    queryFn: () => listStore().catch((): StoreProduct[] => []),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const addToCart = useCart((s) => s.add);
+  const handleAddProduct = useCallback((product: StoreProduct) => {
+    addToCart(product);
+    showToast('success', tStore.successTitle, tStore.addedBody);
+  }, [addToCart]);
 
   const [alerts, setAlerts] = useState<Alert[]>([]);
   useEffect(() => {
@@ -135,13 +158,18 @@ export function TodayScreen() {
   const exerciseProgress = data ? Math.min(1, activeWorkouts.length / 2) : 0;
   const recoveryProgress = data ? data.readiness.recovery / 100 : 0;
 
-  // Total estimated minutes from the API's programmed exercise data.
   const totalMinutes = activeWorkouts.reduce((sum, w) => sum + (w.estimatedMinutes ?? 0), 0);
-
   const rootNav = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
   const latestChatMessage = chatMessages.length > 0 ? chatMessages[chatMessages.length - 1] : null;
-  const displayedArticles = blogPosts.slice(0, 2);
   const firstWorkout = activeWorkouts[0];
+
+  const handleJoinLive = useCallback((id: string) => {
+    rootNav?.navigate('EventDetail', { eventId: id });
+  }, [rootNav]);
+
+  const handleOpenArticle = useCallback((id: string) => {
+    rootNav?.navigate('ArticleDetail', { id });
+  }, [rootNav]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -152,12 +180,13 @@ export function TodayScreen() {
       >
         <TodayHeader
           firstName={firstName}
+          greeting={timeGreeting()}
           onSearch={() => rootNav?.navigate('Search')}
           onNotifications={() => rootNav?.navigate('Notifications')}
           onProfile={() => navigation.navigate('Profile')}
         />
 
-        {/* Training-first: the workout IS the action — first after the header */}
+        {/* Training-first: the workout IS the action */}
         {firstWorkout ? (
           <ContinueWorkoutCard
             name={firstWorkout.contentName}
@@ -177,7 +206,7 @@ export function TodayScreen() {
           streakInactive={streak === 0}
         />
 
-        {/* Compact scoreboard — side by side, always visible ground layer */}
+        {/* Compact scoreboard */}
         <View style={styles.scoreboard}>
           <View style={styles.scoreItem}>
             <MetricCard label={t.metricSessions} value={todaySessions.length} />
@@ -199,25 +228,39 @@ export function TodayScreen() {
           <EmptyState variant="empty" message={t.todayEmpty} />
         ) : null}
 
+        {/* LIVE sessions — urgent red accent */}
+        <LiveSessionsSection sessions={todaySessions} onJoin={handleJoinLive} />
+
         <SessionsSection sessions={todaySessions} />
-        <PRsSection
-          prs={prs}
-          onPress={() => navigation.navigate('Progress')}
-        />
+        <PRsSection prs={prs} onPress={() => navigation.navigate('Progress')} />
+
         {challengeToShow ? (
           <View style={{ gap: spacing.md }}>
             <SectionHeader title={t.challengesTitle} action={{ label: t.challengesSeeAll, onPress: () => rootNav?.navigate('Community') }} />
             <ChallengeHomeCard challenge={challengeToShow} loading={challengeLoading} />
           </View>
         ) : (
-          <ChallengeSection
-            hasChallenge={false}
-            onPressChallenges={() => rootNav?.navigate('Community')}
-          />
+          <ChallengeSection hasChallenge={false} onPressChallenges={() => rootNav?.navigate('Community')} />
         )}
+
+        {/* Coach articles — promoted from accordion to dedicated carousel */}
+        <ArticlesCarousel
+          posts={blogPosts.slice(0, 6)}
+          onOpen={handleOpenArticle}
+          onSeeAll={() => rootNav?.navigate('Articles')}
+        />
+
+        {/* Store — featured products with add-to-cart */}
+        <StoreCarousel
+          products={storeProducts}
+          onAdd={handleAddProduct}
+          onSeeAll={() => rootNav?.navigate('Store')}
+        />
+
+        {/* Community — chat + alerts (simplified, articles moved up) */}
         <NewsFeedSection
           latestMessage={latestChatMessage}
-          posts={displayedArticles}
+          posts={[]}
           alerts={alerts}
           onPressCommunity={() => rootNav?.navigate('DiscussionForum')}
           onPressArticles={() => rootNav?.navigate('Articles')}

@@ -10,6 +10,7 @@ import { texts } from '../../../../shared/i18n/texts';
 
 type Props = {
   firstName: string;
+  greeting?: string;
   onSearch: () => void;
   onNotifications: () => void;
   onProfile: () => void;
@@ -22,12 +23,13 @@ function formatToday(date: Date): string {
   return `${WEEKDAYS[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]}`;
 }
 
-export function TodayHeader({ firstName, onSearch, onNotifications, onProfile }: Props) {
+export function TodayHeader({ firstName, greeting, onSearch, onNotifications, onProfile }: Props) {
   return (
     <View style={styles.headerRow}>
       <View style={styles.headerLeft}>
         <Text style={styles.headerHi} numberOfLines={1}>
-          {texts.screens.todayHeader.greeting}<Text style={styles.headerName}>{firstName}</Text>
+          {greeting ?? texts.screens.todayHeader.greeting}{' '}
+          <Text style={styles.headerName}>{firstName}</Text>
         </Text>
         <Text style={styles.headerDate}>{formatToday(new Date())}</Text>
       </View>
