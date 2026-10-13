@@ -1,9 +1,10 @@
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, layout, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, typography, radius, fontFamilies } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
@@ -11,6 +12,7 @@ import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { TrackedVideoPlayer } from '../components/TrackedVideoPlayer';
 import { RunningRouteView } from '../components/RunningRouteView';
 import { extractSessionId } from '../../application/sessionStart';
+import { BarbellIcon, PlayIcon, MapPinIcon, ClockIcon } from '../../../../shared/components/icons';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { texts } from '../../../../shared/i18n/texts';
 
@@ -58,6 +60,21 @@ type PrescriptionExercise = {
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WorkoutDetail'>;
 
+// Phase accent colors — visual grouping (Gestalt continuity).
+function phaseAccent(phase?: string): string {
+  const p = (phase ?? '').toLowerCase();
+  if (p.includes('warm') || p.includes('calentamiento')) return colors.warning;
+  if (p.includes('cool') || p.includes('enfriamiento') || p.includes('stretch')) return colors.success;
+  return colors.primary; // main / default
+}
+
+function phaseLabel(phase?: string): string {
+  const p = (phase ?? '').toLowerCase();
+  if (p.includes('warm') || p.includes('calentamiento')) return t.phaseWarmup;
+  if (p.includes('cool') || p.includes('enfriamiento') || p.includes('stretch')) return t.phaseCooldown;
+  return t.phaseMain;
+}
+
 export function WorkoutDetailScreen({ route, navigation }: Props) {
   const { workoutId } = route.params;
   const queryClient = useQueryClient();
@@ -84,7 +101,6 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Transform prescription exercises to screen Exercise type
   const exercises: Exercise[] = prescriptionData?.data?.map((ex) => ({
     id: ex.id,
     name: ex.name,
@@ -119,6 +135,29 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
   const hasExercises = exercises.length > 0;
   const athleteId = workoutData?.workout.athleteId ?? '';
 
+  // Estimated total time: sets × (reps_time + rest) per exercise, rough.
+  const estimatedMinutes = exercises.reduce((sum, ex) => {
+    const perSetMin = (ex.restSeconds ?? 90) / 60;
+    return sum + ex.sets * (1.5 / 60 + perSetMin);
+  }, 0);
+
+  // Group exercises by phase for visual sections.
+  const phaseGroups = useMemo(() => {
+    const groups: { phase: string; accent: string; exercises: { ex: Exercise; num: number }[] }[] = [];
+    let counter = 1;
+    for (const ex of exercises) {
+      const label = phaseLabel(ex.phase);
+      const accent = phaseAccent(ex.phase);
+      let group = groups.find((g) => g.phase === label);
+      if (!group) {
+        group = { phase: label, accent, exercises: [] };
+        groups.push(group);
+      }
+      group.exercises.push({ ex, num: counter++ });
+    }
+    return groups;
+  }, [exercises]);
+
   return (
     <SafeAreaView style={styles.container}>
       <ScreenHeader
@@ -150,36 +189,71 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
           />
         ) : hasExercises ? (
           <>
-            {exercises.map((ex) => (
-              <Card key={ex.id} style={styles.card}>
-                <Text style={styles.exerciseName}>{ex.name}</Text>
-                <Text style={styles.exerciseSetReps}>
-                  {ex.sets} × {ex.reps}
-                </Text>
-                <View style={styles.metaRow}>
-                  {ex.weightKg !== null && ex.weightKg !== undefined ? (
-                    <Text style={styles.meta}>{ex.weightKg} kg</Text>
-                  ) : null}
-                  {ex.restSeconds !== null && ex.restSeconds !== undefined ? (
-                    <Text style={styles.meta}>{`${ex.restSeconds}${t.restTag}`}</Text>
-                  ) : null}
+            {/* --- Summary header --- */}
+            <Card style={styles.summaryCard}>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryValue}>{exercises.length}</Text>
+                  <Text style={styles.summaryLabel}>{t.totalExercises}</Text>
                 </View>
-                {ex.videoUrl ? (
-                  <View style={{ marginTop: spacing.sm }}>
-                    <TrackedVideoPlayer
-                      videoUrl={ex.videoUrl}
-                      exerciseId={ex.id}
-                      athleteId={athleteId}
-                    />
-                  </View>
-                ) : null}
-                {ex.gpsRoute ? (
-                  <View style={{ marginTop: spacing.sm }}>
-                    <RunningRouteView gpsRoute={ex.gpsRoute} />
-                  </View>
-                ) : null}
-              </Card>
+                <View style={styles.summaryDivider} />
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryValue}>~{Math.max(10, Math.round(estimatedMinutes))}</Text>
+                  <Text style={styles.summaryLabel}>min</Text>
+                </View>
+              </View>
+            </Card>
+
+            {/* --- Exercise cards grouped by phase --- */}
+            {phaseGroups.map((group) => (
+              <View key={group.phase} style={styles.phaseSection}>
+                <View style={[styles.phaseHeader, { borderLeftColor: group.accent }]}>
+                  <View style={[styles.phaseDot, { backgroundColor: group.accent }]} />
+                  <Text style={[styles.phaseTitle, { color: group.accent }]}>{group.phase}</Text>
+                </View>
+                {group.exercises.map(({ ex, num }) => (
+                  <Card key={ex.id} style={[styles.card, { borderLeftColor: group.accent }]}>
+                    <View style={styles.exerciseTopRow}>
+                      <View style={[styles.exerciseNumber, { borderColor: group.accent }]}>
+                        <Text style={[styles.exerciseNumberText, { color: group.accent }]}>{num}</Text>
+                      </View>
+                      <View style={styles.exerciseBody}>
+                        <Text style={styles.exerciseName}>{ex.name}</Text>
+                        <View style={styles.chipRow}>
+                          <Chip text={`${ex.sets} × ${ex.reps}`} />
+                          {ex.weightKg !== null && ex.weightKg !== undefined && ex.weightKg > 0 && (
+                            <Chip text={`${ex.weightKg} kg`} icon="weight" />
+                          )}
+                          {ex.restSeconds !== null && ex.restSeconds !== undefined && (
+                            <Chip text={`${ex.restSeconds}${t.restTag}`} icon="rest" />
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                    {ex.notes ? <Text style={styles.notes}>{ex.notes}</Text> : null}
+                    {ex.videoUrl ? (
+                      <View style={styles.mediaWrap}>
+                        <TrackedVideoPlayer
+                          videoUrl={ex.videoUrl}
+                          exerciseId={ex.id}
+                          athleteId={athleteId}
+                        />
+                      </View>
+                    ) : null}
+                    {ex.gpsRoute ? (
+                      <View style={styles.mediaWrap}>
+                        <View style={styles.gpsLabel}>
+                          <MapPinIcon size={14} color={colors.primary} />
+                          <Text style={styles.gpsLabelText}>{t.gpsRouteLabel}</Text>
+                        </View>
+                        <RunningRouteView gpsRoute={ex.gpsRoute} />
+                      </View>
+                    ) : null}
+                  </Card>
+                ))}
+              </View>
             ))}
+
             <View style={styles.cta}>
               <PrimaryButton
                 label={t.startLabel}
@@ -196,14 +270,105 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
   );
 }
 
+// --- Sub-components ---
+
+function Chip({ text, icon }: { text: string; icon?: string }) {
+  return (
+    <View style={chipStyles.chip}>
+      {icon === 'weight' && <BarbellIcon size={12} color={colors.textSecondary} />}
+      {icon === 'rest' && <ClockIcon size={12} color={colors.textSecondary} />}
+      <Text style={chipStyles.chipText}>{text}</Text>
+    </View>
+  );
+}
+
+const chipStyles = StyleSheet.create({
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.surfaceRaised,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+});
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  content: { padding: layout.pagePadding, paddingBottom: 100 },
-  card: { marginBottom: spacing.sm, gap: spacing.xs },
-  exerciseName: { ...typography.bodyStrong, color: colors.text },
-  exerciseSetReps: { ...typography.body, color: colors.textSecondary },
-  metaRow: { flexDirection: 'row', gap: spacing.md },
-  meta: { ...typography.caption, color: colors.textSecondary },
+  content: { padding: layout.pagePadding, paddingBottom: 120 },
+
+  // Summary header
+  summaryCard: {
+    marginBottom: spacing.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xl },
+  summaryItem: { alignItems: 'center' },
+  summaryValue: {
+    fontFamily: fontFamilies.display,
+    fontSize: 28,
+    color: colors.primary,
+    fontWeight: '800',
+  },
+  summaryLabel: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
+  summaryDivider: { width: 1, height: 40, backgroundColor: colors.border },
+
+  // Phase sections
+  phaseSection: { marginBottom: spacing.md },
+  phaseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderLeftWidth: 3,
+    paddingLeft: spacing.sm,
+    marginBottom: spacing.sm,
+    minHeight: 32,
+  },
+  phaseDot: { width: 10, height: 10, borderRadius: radius.full },
+  phaseTitle: {
+    ...typography.label,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+  },
+
+  // Exercise card
+  card: {
+    position: 'relative',
+    overflow: 'hidden',
+    paddingLeft: spacing.lg,
+    borderLeftWidth: 2,
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
+  },
+  exerciseTopRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  exerciseNumber: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.full,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  exerciseNumberText: { fontSize: 14, fontWeight: '700' },
+  exerciseBody: { flex: 1, gap: spacing.xs },
+  exerciseName: { ...typography.bodyStrong, color: colors.text, fontSize: 15 },
+  chipRow: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
+  notes: { ...typography.caption, color: colors.textSecondary, fontStyle: 'italic', marginTop: spacing.xs },
+
+  mediaWrap: { marginTop: spacing.sm },
+  gpsLabel: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs },
+  gpsLabelText: { ...typography.caption, color: colors.primary, fontWeight: '600' },
+
   cta: {
     position: 'absolute',
     left: spacing.lg,
