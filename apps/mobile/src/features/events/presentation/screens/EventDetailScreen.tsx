@@ -68,9 +68,18 @@ export function EventDetailScreen({ route, navigation }: Props) {
 
   const { data, isLoading, isError, refetch } = useQuery<EventDetailData>({
     queryKey: ['event-detail', eventId],
-    queryFn: async () => {
+    queryFn: async (): Promise<EventDetailData> => {
       const { data } = await apiClient.get(`/athlete/events/${eventId}`);
-      return data as EventDetailData;
+      // Normalize Go's snake_case keys to the camelCase shape our types expect.
+      const raw = data as Record<string, unknown> | null;
+      if (!raw) throw new Error('no data');
+      return {
+        ...(raw as unknown as EventDetailData),
+        listItems: (raw.list_items ?? raw.listItems ?? []) as string[],
+        formFields: (raw.form_fields ?? raw.formFields ?? []) as EventDetailData['formFields'],
+        responses: (raw.responses ?? []) as EventDetailData['responses'],
+        registration: (raw.registration ?? null) as EventDetailData['registration'],
+      };
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -153,7 +162,7 @@ export function EventDetailScreen({ route, navigation }: Props) {
           <View style={styles.body}>
             <EventInfoCard event={ev} />
 
-            {!!data.listItems.length && (
+            {Array.isArray(data.listItems) && data.listItems.length > 0 && (
               <EventListItemsCard items={data.listItems} />
             )}
 
@@ -161,7 +170,7 @@ export function EventDetailScreen({ route, navigation }: Props) {
               <EventRunningInfoCard running={data.running} />
             )}
 
-            {!!data.formFields.length && (
+            {Array.isArray(data.formFields) && data.formFields.length > 0 && (
               <EventRegistrationForm
                 fields={data.formFields}
                 answers={answers}
