@@ -99,22 +99,43 @@ Max 3 loops por stage; al 4to fallo, escalar al usuario.
 - `dev-flutter` — Flutter/Dart (si aplica)
 - `ux-ui-designer` — diseño ANTES de código cuando cambia UX visible
 
-### 2.0 Router rol → agente → skills (automático, fuente: plugin `orca-autorun`)
+### 2.0 Router rol → role template → skills (fuente: skill `orca-team`)
 
-El coordinator NO improvisa el dispatch: llama la tool `orca_dispatch` (plugin `.opencode/plugin/orca-autorun.ts`) con el rol y recibe agente + skills + worktree + template exactos. Mapa fijo:
+> **Actualizado 2026-10-12.** El plugin project-local `orca-autorun`
+> (`.opencode/plugins/orca-autorun.ts`, tool `orca_dispatch`) y los agentes
+> `.opencode/agent/*.md` fueron removidos en `d1f4b55`. El dispatch ahora se
+> arma con el skill `orca-team` + `ORCA orchestration worker-start`. NO existe
+> la tool `orca_dispatch`.
 
-| Rol board | Agente (`.opencode/agent/`) | Skills a invocar | Reglas a leer |
+El coordinator NO improvisa el dispatch: lee el **role template** del skill
+(`~/.config/opencode/skills/orca-team/roles/<rol>.md`), llena el `Task Context`
+y despacha:
+
+```bash
+ORCA=/Applications/Orca.app/Contents/Resources/bin/orca
+SPEC=$(cat ~/.config/opencode/skills/orca-team/roles/<rol>.md | <fill Task Context>)
+"$ORCA" orchestration worker-start --spec "$SPEC" --worktree current \
+  --agent opencode --json
+```
+
+Mapa fijo rol → template + reglas que el worker DEBE leer:
+
+| Rol board | Role template (`skills/orca-team/roles/`) | Skills a invocar | Reglas a leer |
 |---|---|---|---|
-| `dev-front` | `web.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md`, `00-product-vision.md`, `03-ux-workflows.md`, `06-frontend-architecture.md`, `08-api-specification.md` |
-| `dev-backend` | `api.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md`, `04-database-design.md`, `05-backend-architecture.md`, `08-api-specification.md` |
-| `dev-react-native` | `mobile.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md` + `mobile-rules/*` |
-| `dev-flutter` | `general` (no hay agente flutter registrado) | `pipeline-init`, `mr-context` | reglas que apliquen + spec |
-| `ux-ui-designer` | `web-designer.md` o `mobile-designer.md` (según superficie) | `pipeline-init`, `mr-context` | `01-brand-guidelines.md`, `02-design-system.md`, `03-ux-workflows.md` |
+| `architect` | `architect.md` | `pipeline-init`, `mr-context` | spec + reglas de arquitectura que apliquen |
+| `dev-front` | `dev-front.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md`, `00-product-vision.md`, `03-ux-workflows.md`, `06-frontend-architecture.md`, `08-api-specification.md` |
+| `dev-backend` | `dev-backend.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md`, `04-database-design.md`, `05-backend-architecture.md`, `08-api-specification.md` |
+| `dev-react-native` | `dev-react-native.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md` + `mobile-rules/*` |
+| `dev-flutter` | `dev-flutter.md` | `pipeline-init`, `mr-context` | reglas que apliquen + spec |
+| `ux-ui-designer` | `ux-ui-designer.md` | `pipeline-init`, `mr-context` | `01-brand-guidelines.md`, `02-design-system.md`, `03-ux-workflows.md` |
 | `qa` | `qa.md` | `pipeline-init`, `mr-context` | `13-testing.md` (+ `mobile-rules/03-mobile-testing.md` si mobile) |
 | `code-reviewer` | `code-reviewer.md` | `pipeline-init`, `mr-context` | `12-coding-standards.md` |
 | `security-hacker` | `security-hacker.md` | `pipeline-init`, `mr-context` | `11-security.md` (+ `mobile-rules/04-mobile-security.md` si mobile) |
 
-Orden gates REVIEW fijo: `qa` → `code-reviewer` → `security-hacker`. Cada gate corre vía dispatch con su agente; `worker_done` debe traer outcome + resumen 3 frases + `--files-modified` si hubo código.
+Los workers heredan el modelo default global de `~/.config/opencode/opencode.json`;
+`--model` NO se soporta con `--agent opencode`.
+
+Orden gates REVIEW fijo: `qa` → `code-reviewer` → `security-hacker`. Cada gate corre vía dispatch con su role template; `worker_done` debe traer outcome + resumen 3 frases + `--files-modified` si hubo código.
 
 Si el plan del architect no está claro, preguntar al usuario ANTES de dispatch.
 

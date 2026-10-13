@@ -157,6 +157,55 @@ Recibes una tarea
 
 ---
 
+## EJECUCIÓN AUTÓNOMA CON SKILLS DEL EQUIPO
+
+**Los skills son el camino de ejecución, no un accesorio.** Antes de resolver
+una tarea, el agente DEBE cargar los skills que apliquen y seguirlos al pie de
+la letra. No improvises un flujo propio si ya existe un skill.
+
+| Skill | Cuándo |
+|---|---|
+| `pipeline-init` | Paso 0 de toda tarea (contexto + worktree + reglas). |
+| `mr-context` | Mapa del repo, no-negociables y barra senior. |
+| `orca-team` | Orquestación multi-rol sobre el board (ver abajo). |
+| `herdr` / `herdr-setup` | Sólo si `HERDR_ENV=1`. |
+
+### orca-team — equipo orquestado
+
+Cuando la tarea NO es un cambio trivial de un solo archivo, el agente trabaja
+como **coordinador** del pipeline orca-team. Los role prompts viven en el skill
+(`~/.config/opencode/skills/orca-team/roles/*.md`); NO hay plugin ni agentes
+project-local (fueron removidos en `d1f4b55` — ver `14-team-workflow.md` §2.0).
+
+```
+pipeline-init → Spec → TODO (architect) → IN PROGRESS (devs + ux-ui)
+  → REVIEW (qa → code-reviewer → security-hacker) → USER GATE → DONE
+```
+
+- El board `BOARD.md` es la fuente de verdad; actualizalo en CADA transición.
+- El coordinador NO improvisa: lee el role template del skill, llena el
+  `Task Context`, y despacha con
+  `orca orchestration worker-start --spec "$SPEC" --worktree current --agent opencode --json`.
+- Verificá que Orca responda antes de despachar:
+  `/Applications/Orca.app/Contents/Resources/bin/orca --version`. Si no
+  responde, reportá el fallo y degradá a ejecución directa; NUNCA simules orca.
+- Los workers heredan el modelo default global de
+  `~/.config/opencode/opencode.json`; `--model` NO se soporta con
+  `--agent opencode`.
+
+### Autonomía — no pedir aprobación paso a paso
+
+- **NO pidas aprobación** por cada decisión de implementación o diseño:
+  ejecutá los cambios según los skills y `apps/rules/`.
+- Pedile al usuario SÓLO si: (1) llegaste al **USER GATE** (feature completa
+  lista para Done), (2) la decisión es irreversible o sensible en seguridad
+  (borrar datos, migraciones destructivas, credenciales, producción), o
+  (3) hay una ambigüedad real con tradeoffs que no podés resolver.
+- Hacé **una sola** pregunta y detenete a esperar.
+- Nada llega a Done sin aprobación explícita ("apruebo" / "approved" / "done").
+
+---
+
 ## TEAM WORKFLOW (detalle en `14-team-workflow.md`)
 
 - **Paso 0 — pipeline-init:** todo agente invoca el skill `pipeline-init`
