@@ -34,4 +34,8 @@ describe('i18n texts', () => {
     expect(texts.state.emptyNutritionTitle).toBe('Sin registro de comidas hoy');
     expect(texts.state.emptyProgressTitle).toBe('Sin datos todavía');
   });
+
+  it('exposes workoutDetailScreen.noVideoHint for exercises without demo video', () => {
+    expect(texts.screens.workoutDetailScreen.noVideoHint).toBe('Sin video demo');
+  });
 });

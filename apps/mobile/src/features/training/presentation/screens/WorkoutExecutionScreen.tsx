@@ -134,7 +134,7 @@ export function WorkoutExecutionScreen({ route, navigation }: Props) {
                 b: String(vm.currentExercise.sets),
               })}
               viewDemoLabel={t.viewDemo}
-              {...(vm.demoVideoUrl ? { onViewDemo: () => vm.setDemoVisible(true) } : {})}
+              {...(isPlayableVideoUrl(vm.demoVideoUrl) ? { onViewDemo: () => vm.setDemoVisible(true) } : {})}
               verdict={vm.formVerdict}
             />
 

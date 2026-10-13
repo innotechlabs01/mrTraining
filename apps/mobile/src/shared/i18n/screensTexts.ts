@@ -38,6 +38,7 @@ export const screensTexts = {
     pendingSync: 'Sincronización pendiente',
     viewDemo: 'Ver demo',
     demoA11y: 'Ver video demostrativo',
+    noVideoHint: 'Sin video demo',
   },
   aiWorkout: {
     trainWithAi: 'Entrenar con IA',

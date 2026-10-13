@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,15 +9,17 @@ import { Card } from '../../../../shared/components/ui/Card';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
-import { TrackedVideoPlayer } from '../components/TrackedVideoPlayer';
-import { isPlayableVideoUrl } from '../../../../shared/components/video/isPlayableVideoUrl';
+import { getVideoState } from '../components/videoState';
 import { RunningRouteView } from '../components/RunningRouteView';
+import { ExerciseDemoModal } from '../components/execution/ExerciseDemoModal';
 import { extractSessionId } from '../../application/sessionStart';
 import { BarbellIcon, PlayIcon, MapPinIcon, ClockIcon } from '../../../../shared/components/icons';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { texts } from '../../../../shared/i18n/texts';
 
 const t = texts.screens.workoutDetailScreen;
+const tExec = texts.screens.workoutExecution;
+const tVideo = texts.screens.trackedVideoPlayer;
 
 type Exercise = {
   id: string;
@@ -74,6 +76,38 @@ function phaseLabel(phase?: string): string {
   if (p.includes('warm') || p.includes('calentamiento')) return t.phaseWarmup;
   if (p.includes('cool') || p.includes('enfriamiento') || p.includes('stretch')) return t.phaseCooldown;
   return t.phaseMain;
+}
+
+// Exercise card video CTA — the 4 first-class video states from the design spec:
+// has-video (thumbnail + "Ver demo"), no-video-with-hint ("Sin video demo"),
+// error (invalid URL — load error copy). Playback happens only in ExerciseDemoModal
+// (lazy mount): no VideoView is mounted inside the list.
+function ExerciseVideoCta({
+  videoUrl,
+  onWatchDemo,
+}: {
+  videoUrl: string | undefined;
+  onWatchDemo: () => void;
+}) {
+  const state = getVideoState(videoUrl);
+
+  if (state === 'no-video-with-hint') {
+    return <Text style={styles.noVideoHint}>{t.noVideoHint}</Text>;
+  }
+
+  if (state === 'error') {
+    return <Text style={styles.errorText}>{tVideo.loadError}</Text>;
+  }
+
+  // has-video: thumbnail + "Ver demo" CTA, tap opens ExerciseDemoModal
+  return (
+    <Pressable style={styles.thumbnailWrap} onPress={onWatchDemo} hitSlop={8}>
+      <View style={styles.thumbnailPlaceholder}>
+        <PlayIcon size={48} color={colors.primary} />
+      </View>
+      <Text style={styles.thumbnailLabel}>{tExec.viewDemo}</Text>
+    </Pressable>
+  );
 }
 
 export function WorkoutDetailScreen({ route, navigation }: Props) {
@@ -147,7 +181,12 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
 
   const isLoading = loading1 || loading2;
   const hasExercises = exercises.length > 0;
-  const athleteId = workoutData?.workout.athleteId ?? '';
+
+  // Demo video modal state
+  const [demoVisible, setDemoVisible] = useState(false);
+  const [demoVideoUrl, setDemoVideoUrl] = useState<string | null>(null);
+  const [demoExerciseId, setDemoExerciseId] = useState<string | null>(null);
+  const [demoExerciseName, setDemoExerciseName] = useState<string | null>(null);
 
   // Estimated total time: sets × (reps_time + rest) per exercise, rough.
   const estimatedMinutes = exercises.reduce((sum, ex) => {
@@ -245,15 +284,15 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
                       </View>
                     </View>
                     {ex.notes ? <Text style={styles.notes}>{ex.notes}</Text> : null}
-                    {isPlayableVideoUrl(ex.videoUrl) ? (
-                      <View style={styles.mediaWrap}>
-                        <TrackedVideoPlayer
-                          videoUrl={ex.videoUrl}
-                          exerciseId={ex.id}
-                          athleteId={athleteId}
-                        />
-                      </View>
-                    ) : null}
+                    <ExerciseVideoCta
+                      videoUrl={ex.videoUrl}
+                      onWatchDemo={() => {
+                        setDemoVideoUrl(ex.videoUrl ?? null);
+                        setDemoExerciseId(ex.id);
+                        setDemoExerciseName(ex.name);
+                        setDemoVisible(true);
+                      }}
+                    />
                     {ex.gpsRoute ? (
                       <View style={styles.mediaWrap}>
                         <View style={styles.gpsLabel}>
@@ -280,6 +319,20 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
           <EmptyState variant="empty" message={t.emptyExercises} />
         )}
       </ScrollView>
+      {demoVisible && demoVideoUrl && demoExerciseId && demoExerciseName && (
+        <ExerciseDemoModal
+          videoUrl={demoVideoUrl}
+          exerciseId={demoExerciseId}
+          exerciseName={demoExerciseName}
+          showAiCta={false}
+          onClose={() => {
+            setDemoVisible(false);
+            setDemoVideoUrl(null);
+            setDemoExerciseId(null);
+            setDemoExerciseName(null);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -382,6 +435,41 @@ const styles = StyleSheet.create({
   mediaWrap: { marginTop: spacing.sm },
   gpsLabel: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs },
   gpsLabelText: { ...typography.caption, color: colors.primary, fontWeight: '600' },
+
+  // Video state styles (per spec §2/§3/§7)
+  thumbnailWrap: {
+    aspectRatio: 16 / 9,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceRaised,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+  },
+  thumbnailPlaceholder: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbnailLabel: {
+    ...typography.caption,
+    color: colors.primary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  noVideoHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  errorText: {
+    ...typography.caption,
+    color: colors.error,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
 
   cta: {
     position: 'absolute',

@@ -170,6 +170,7 @@ export const trainingScreensTexts = {
     weightLabel: 'kg',
     totalExercises: 'ejercicios',
     gpsRouteLabel: 'Ruta GPS',
+    noVideoHint: 'Sin video demo',
   },
   recordingConsent: {
     title: 'Mejora tu rendimiento',
