@@ -6,13 +6,13 @@ import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@clerk/clerk-expo';
-import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { colors, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { Input } from '../../../../shared/components/ui/Input';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { SubScreenHeader } from '../../../../shared/components/ui/SubScreenHeader';
 import { useAthleteProfile } from '../../application/useAthleteProfile';
+import { profileErrorMessage, updateUserName } from '../../application/athleteProfileApi';
 import { texts } from '../../../../shared/i18n/texts';
 
 const t = texts.screens.personalData;
@@ -53,12 +53,11 @@ export function PersonalDataScreen() {
       if (user) {
         await user.update({ firstName: fn, lastName: ln });
       }
-      await apiClient.put('/athlete/profile', { firstName: fn, lastName: ln });
+      await updateUserName(queryClient, { firstName: fn, lastName: ln });
       await queryClient.invalidateQueries({ queryKey: ['athlete-profile'] });
       Alert.alert(t.successTitle, t.updateSuccess);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : t.updateFailed;
-      Alert.alert('Error', msg);
+      Alert.alert('Error', profileErrorMessage(err, t.updateFailed));
     } finally {
       setSaving(false);
     }

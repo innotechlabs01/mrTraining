@@ -27,6 +27,7 @@ import { CompletionSummary } from '../components/execution/CompletionSummary';
 import { AiWorkoutCta } from '../components/execution/AiWorkoutCta';
 import { ExerciseCard } from '../components/execution/ExerciseCard';
 import { ExerciseDemoModal } from '../components/execution/ExerciseDemoModal';
+import { isPlayableVideoUrl } from '../../../../shared/components/video/isPlayableVideoUrl';
 import { PendingSyncBadge } from '../components/execution/PendingSyncBadge';
 import { RestOverlay } from '../components/execution/RestOverlay';
 import { SetInput } from '../components/execution/SetInput';
@@ -206,7 +207,7 @@ export function WorkoutExecutionScreen({ route, navigation }: Props) {
           onSkip={() => vm.setRestSecondsLeft(null)}
         />
       ) : null}
-      {vm.demoVisible && vm.currentExercise && vm.demoVideoUrl ? (
+      {vm.demoVisible && vm.currentExercise && isPlayableVideoUrl(vm.demoVideoUrl) ? (
         <ExerciseDemoModal
           videoUrl={vm.demoVideoUrl}
           exerciseId={vm.currentExercise.id}

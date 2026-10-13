@@ -10,6 +10,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native'
 import { useEvent, useEventListener } from 'expo'
 import { useVideoPlayer, VideoView } from 'expo-video'
 import { radius } from '../../theme/tokens'
+import { isPlayableVideoUrl } from './isPlayableVideoUrl'
 import { VideoLoadingOverlay, VideoControlsOverlay } from './ExerciseVideoOverlays'
 import { VideoProgressBar, VideoTitleBar } from './ExerciseVideoFooter'
 
@@ -142,6 +143,9 @@ export function ExerciseVideoPlayer({
     player.currentTime = 0
     player.play()
   }, [player])
+
+  // Defense in depth: never mount VideoView for an unplayable URL.
+  if (!isPlayableVideoUrl(videoUrl)) return null
 
   return (
     <View style={styles.container}>

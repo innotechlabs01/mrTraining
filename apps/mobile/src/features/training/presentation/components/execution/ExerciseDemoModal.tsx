@@ -11,6 +11,7 @@ import { colors, spacing } from '../../../../../shared/theme/tokens';
 import { texts } from '../../../../../shared/i18n/texts';
 import { CloseIcon } from '../../../../../shared/components/icons';
 import { ExerciseVideoPlayer } from '../../../../../shared/components/video/ExerciseVideoPlayer';
+import { isPlayableVideoUrl } from '../../../../../shared/components/video/isPlayableVideoUrl';
 
 type Props = {
   videoUrl: string;
@@ -31,6 +32,7 @@ export function ExerciseDemoModal({
   onRecordPress,
 }: Props) {
   const recordProps = showAiCta && onRecordPress ? { onRecordPress } : {};
+  if (!isPlayableVideoUrl(videoUrl)) return null;
   return (
     <Modal animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <SafeAreaView style={styles.root}>

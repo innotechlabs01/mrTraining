@@ -5,7 +5,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { colors, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { Input } from '../../../../shared/components/ui/Input';
@@ -23,6 +22,7 @@ import {
   useAthleteProfile,
   type AthleteModality,
 } from '../../application/useAthleteProfile';
+import { profileErrorMessage, updateAthleteSection } from '../../application/athleteProfileApi';
 import { texts } from '../../../../shared/i18n/texts';
 
 const t = texts.screens.trainingPreferences;
@@ -57,12 +57,11 @@ export function TrainingPreferencesScreen() {
     setModality(next);
     setModalitySaving(next);
     try {
-      await apiClient.put('/athlete/profile', { modality: next });
+      await updateAthleteSection(queryClient, { modality: next });
       await queryClient.invalidateQueries({ queryKey: ['athlete-profile'] });
     } catch (err: unknown) {
       setModality(prev);
-      const msg = err instanceof Error ? err.message : t.modalityUpdateFailed;
-      Alert.alert(t.errorTitle, msg);
+      Alert.alert(t.errorTitle, profileErrorMessage(err, t.modalityUpdateFailed));
     } finally {
       setModalitySaving(null);
     }
@@ -80,15 +79,14 @@ export function TrainingPreferencesScreen() {
   const handleSaveSchedule = async () => {
     setScheduleSaving(true);
     try {
-      await apiClient.put('/athlete/profile', {
-        scheduleDays: Array.from(scheduleDays).join(','),
-        scheduleTime,
+      await updateAthleteSection(queryClient, {
+        schedule_days: Array.from(scheduleDays).join(','),
+        schedule_time: scheduleTime,
       });
       await queryClient.invalidateQueries({ queryKey: ['athlete-profile'] });
       Alert.alert(t.savedTitle, t.scheduleSaved);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : t.updateFailed;
-      Alert.alert(t.errorTitle, msg);
+      Alert.alert(t.errorTitle, profileErrorMessage(err, t.updateFailed));
     } finally {
       setScheduleSaving(false);
     }

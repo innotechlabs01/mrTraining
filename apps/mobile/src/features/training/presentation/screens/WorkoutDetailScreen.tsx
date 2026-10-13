@@ -10,6 +10,7 @@ import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { TrackedVideoPlayer } from '../components/TrackedVideoPlayer';
+import { isPlayableVideoUrl } from '../../../../shared/components/video/isPlayableVideoUrl';
 import { RunningRouteView } from '../components/RunningRouteView';
 import { extractSessionId } from '../../application/sessionStart';
 import { BarbellIcon, PlayIcon, MapPinIcon, ClockIcon } from '../../../../shared/components/icons';
@@ -244,7 +245,7 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
                       </View>
                     </View>
                     {ex.notes ? <Text style={styles.notes}>{ex.notes}</Text> : null}
-                    {ex.videoUrl ? (
+                    {isPlayableVideoUrl(ex.videoUrl) ? (
                       <View style={styles.mediaWrap}>
                         <TrackedVideoPlayer
                           videoUrl={ex.videoUrl}

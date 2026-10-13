@@ -13,6 +13,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useEventListener } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { colors, spacing, typography } from '../../../../shared/theme/tokens';
+import { isPlayableVideoUrl } from '../../../../shared/components/video/isPlayableVideoUrl';
 import { recordView } from '../../../videoViews/videoViewService';
 import { PlayIcon } from '../../../../shared/components/icons';
 import { texts } from '../../../../shared/i18n/texts';
@@ -34,6 +35,7 @@ export function TrackedVideoPlayer({ videoUrl, exerciseId, athleteId }: Props) {
     p.timeUpdateEventInterval = 0.5;
   });
   const [playing, setPlaying] = useState(false);
+  const [ready, setReady] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'playing' | 'error'>('idle');
   const viewIdRef = useRef<string | null>(null);
   const reportedMarks = useRef(new Set<number>());
@@ -85,6 +87,7 @@ export function TrackedVideoPlayer({ videoUrl, exerciseId, athleteId }: Props) {
     if (playerStatus === 'error') {
       setStatus('error');
     } else if (playerStatus === 'readyToPlay') {
+      setReady(true);
       setStatus((prev) => (prev === 'loading' ? 'idle' : prev));
     }
   });
@@ -114,8 +117,12 @@ export function TrackedVideoPlayer({ videoUrl, exerciseId, athleteId }: Props) {
     setPlaying(false);
   }, []);
 
+  // Defense in depth: callers already guard, but never mount VideoView for an
+  // unplayable URL (and never reserve the black 16/9 block).
+  if (!isPlayableVideoUrl(videoUrl)) return null;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, ready ? styles.containerReady : styles.containerPending]}>
       <VideoView
         player={player}
         style={styles.video}
@@ -148,7 +155,9 @@ export function TrackedVideoPlayer({ videoUrl, exerciseId, athleteId }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { borderRadius: 12, overflow: 'hidden', backgroundColor: '#000', aspectRatio: 16 / 9 },
+  container: { borderRadius: 12, overflow: 'hidden', aspectRatio: 16 / 9 },
+  containerReady: { backgroundColor: '#000' },
+  containerPending: { backgroundColor: colors.surfaceRaised },
   video: { width: '100%', height: '100%' },
   playOverlay: {
     ...StyleSheet.absoluteFillObject,

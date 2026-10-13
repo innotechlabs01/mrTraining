@@ -5,13 +5,13 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { colors, spacing, typography } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { Input } from '../../../../shared/components/ui/Input';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { SubScreenHeader } from '../../../../shared/components/ui/SubScreenHeader';
 import { useAthleteProfile } from '../../application/useAthleteProfile';
+import { profileErrorMessage, updateAthleteSection } from '../../application/athleteProfileApi';
 import { texts } from '../../../../shared/i18n/texts';
 
 const t = texts.screens.emergencyContact;
@@ -39,12 +39,11 @@ export function EmergencyContactScreen() {
     }
     setSaving(true);
     try {
-      await apiClient.put('/athlete/profile', { emergencyContact: trimmed });
+      await updateAthleteSection(queryClient, { emergency_contact: trimmed });
       await queryClient.invalidateQueries({ queryKey: ['athlete-profile'] });
       Alert.alert(t.savedTitle, t.savedBody);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : t.saveFailed;
-      Alert.alert('Error', msg);
+      Alert.alert('Error', profileErrorMessage(err, t.saveFailed));
     } finally {
       setSaving(false);
     }

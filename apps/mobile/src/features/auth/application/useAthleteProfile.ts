@@ -4,6 +4,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../infrastructure/api/client';
+import { ATHLETE_PROFILE_QUERY_KEY } from './athleteProfileApi';
 
 export type AthleteModality = 'virtual' | 'hibrido' | 'presencial';
 
@@ -81,7 +82,7 @@ export function profileScheduleRaw(profile: AthleteProfile | null | undefined): 
 
 export function useAthleteProfile() {
   return useQuery({
-    queryKey: ['athlete-profile'],
+    queryKey: ATHLETE_PROFILE_QUERY_KEY,
     queryFn: async () => {
       const { data } = await apiClient.get('/athlete/profile');
       return (data?.athlete_profile ?? data?.profile ?? data?.user ?? data ?? null) as AthleteProfile | null;
