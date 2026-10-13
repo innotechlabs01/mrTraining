@@ -7,10 +7,10 @@ appId: com.innotechlabssas.mrtraining
 - waitForAnimationToEnd
 - inputText:
     id: "email-input"
-    text: "athlete@test.com"
+    text: "${MAESTRO_ATHLETE_EMAIL}"
 - inputText:
     id: "password-input"
-    text: "testpassword123"
+    text: "${MAESTRO_ATHLETE_PASSWORD}"
 - tapOn:
     id: "submit-button"
 - waitForAnimationToEnd
