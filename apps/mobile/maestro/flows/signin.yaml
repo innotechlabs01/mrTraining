@@ -1,0 +1,16 @@
+appId: com.innotechlabssas.mrtraining
+---
+- launchApp
+- waitForAnimationToEnd
+- tapOn:
+    id: "sign-in-button"
+- waitForAnimationToEnd
+- inputText:
+    id: "email-input"
+    text: "athlete@test.com"
+- inputText:
+    id: "password-input"
+    text: "testpassword123"
+- tapOn:
+    id: "submit-button"
+- waitForAnimationToEnd
