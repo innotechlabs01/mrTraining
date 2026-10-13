@@ -137,9 +137,9 @@ NEVER report PASS when the real mobile UI was not actually tested.
 Recibes una tarea
   ↓
 0. Invoca el skill `pipeline-init` (carga mr-context + herdr-setup,
-   y herdr si HERDR_ENV=1). Trabaja sobre el checkout actual en un
-   branch de trabajo. NUNCA en main. NO crees worktrees: los agentes
-   se activan como worker-tasks sobre el checkout actual.
+   y herdr si HERDR_ENV=1). Trabajá SIEMPRE en `main` en el checkout
+   `mr-training` (SIN branches ni worktrees). Los agentes se activan
+   como worker-tasks sobre ese checkout.
    Detalle: 14-team-workflow.md
   ↓
 1. Identifica el tipo de cambio
@@ -212,10 +212,10 @@ pipeline-init → Spec → TODO (architect) → IN PROGRESS (devs + ux-ui)
   ANTES de tocar código. Carga `mr-context` (mapa repo, no-negociables,
   barra senior) + `herdr-setup` (conceptos Herdr) + `herdr` sólo si
   `HERDR_ENV=1` (corre dentro de un pane Herdr).
-- **Sin worktrees:** un branch = un checkout. Trabajá sobre el checkout
-  actual (NUNCA en main). NO ejecutes `scripts/worktree.sh` para crear
-  worktrees; los agentes se activan como worker-tasks sobre el checkout.
-  NO crees ni muevas worktrees: worker-tasks automáticos, nada más.
+- **Todo en main, sin branches ni worktrees:** trabajá SIEMPRE en el
+  checkout `mr-training` sobre `main`. NO ejecutes `scripts/worktree.sh`,
+  NO crees branches de trabajo ni worktrees; los agentes se activan como
+  worker-tasks sobre ese checkout.
 - **Spec-first + stage machine:** toda feature coach nueva pasa
   Spec → TODO (architect) → In Progress (devs) → Review (qa →
   code-reviewer → security-hacker) → USER GATE → Done. Loop max
