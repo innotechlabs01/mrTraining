@@ -1,3 +1,11 @@
+/**
+ * DEPRECATED (T-009.1) — dead video path. No caller exists in the web app, and
+ * this route violates API-first by writing `exercise_library.video_url` directly
+ * to the DB instead of going through the Go API (the single source of truth).
+ * The live demo-video write is POST/PUT /api/v1/exercises. Kept for reference;
+ * do not add new callers. Removal is a separate ticket requiring explicit approval.
+ * See docs/superpowers/specs/2026-10-12-T-009-T-010-exercise-video-and-profile-422-design.md §2.1.
+ */
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { put } from '@vercel/blob';

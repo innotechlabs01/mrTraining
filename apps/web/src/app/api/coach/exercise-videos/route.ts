@@ -1,6 +1,13 @@
 /**
  * GET /api/coach/exercise-videos?exerciseId=xxx — List demo videos for an exercise.
  * DELETE /api/coach/exercise-videos?id=xxx — Delete a video.
+ *
+ * DEPRECATED (T-009.1) — dead video path. No UI consumer calls these routes and
+ * the `exercise_videos` table is never read by the Go API (the single source of
+ * truth). The live demo-video source is `exercise_library.video_url` via
+ * POST/PUT /api/v1/exercises. Kept for reference; do not add new callers.
+ * Removal is a separate ticket requiring explicit approval.
+ * See docs/superpowers/specs/2026-10-12-T-009-T-010-exercise-video-and-profile-422-design.md §2.1.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'

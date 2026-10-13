@@ -1,5 +1,13 @@
 -- Exercise demo videos: coach uploads to Vercel, URL stored here.
 -- Videos are attached to exercises so athletes can watch form demos.
+--
+-- DEPRECATED (T-009.1): this table is a dead path. Nothing reads it —
+-- the Go API (the single source of truth) never queries `exercise_videos`,
+-- and mobile has no consumer. The live demo-video source is
+-- `exercise_library.video_url`, written via the Go API
+-- (POST/PUT /api/v1/exercises). Do NOT drop this table here: removal is a
+-- separate ticket requiring explicit approval. See
+-- docs/superpowers/specs/2026-10-12-T-009-T-010-exercise-video-and-profile-422-design.md §2.1.
 
 CREATE TABLE IF NOT EXISTS exercise_videos (
   id TEXT PRIMARY KEY,

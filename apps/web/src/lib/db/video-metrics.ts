@@ -1,3 +1,15 @@
+/**
+ * DEPRECATED (T-009.1) — dead video path.
+ *
+ * These helpers read/write the `exercise_videos` table, which is no longer
+ * consumed by anything: the Go API never queries it and mobile has no reader.
+ * The live demo-video source is `exercise_library.video_url`, written through
+ * the Go API (POST/PUT /api/v1/exercises).
+ *
+ * Kept for reference only; do not add new callers. Removal (including the
+ * table drop) is a separate ticket requiring explicit approval.
+ * See docs/superpowers/specs/2026-10-12-T-009-T-010-exercise-video-and-profile-422-design.md §2.1.
+ */
 import { getDB, generateId } from './db'
 
 export interface ExerciseVideo {

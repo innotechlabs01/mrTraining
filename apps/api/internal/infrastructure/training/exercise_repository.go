@@ -209,7 +209,7 @@ func (r *ExerciseRepository) Update(ctx context.Context, e *training.ExerciseEnt
 		defaultSec = sql.NullInt64{Int64: int64(*e.DefaultSec), Valid: true}
 	}
 
-	_, err := r.db.ExecContext(ctx,
+	res, err := r.db.ExecContext(ctx,
 		`UPDATE exercise_library
 		 SET slug = ?, name = ?, description = ?, mode = ?, body_part = ?, muscle_groups = ?,
 		     secondary_muscles = ?, equipment = ?, difficulty = ?, category = ?, instructions = ?,
@@ -221,6 +221,11 @@ func (r *ExerciseRepository) Update(ctx context.Context, e *training.ExerciseEnt
 		defaultSec, videoURL, imageURL, e.IsCustom, coachID, e.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update exercise: %w", err)
+	}
+	// Fail loud: an UPDATE that matches no row must not silently report success.
+	// Mirrors the NotFound pattern in user/repository.go Update and ExerciseRepository.Delete.
+	if n, _ := res.RowsAffected(); n == 0 {
+		return errors.NotFound("Exercise", e.ID)
 	}
 	return nil
 }

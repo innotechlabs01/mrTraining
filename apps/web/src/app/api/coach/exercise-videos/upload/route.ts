@@ -1,4 +1,12 @@
 /**
+ * DEPRECATED (T-009.1) — dead video path. This route writes to the
+ * `exercise_videos` table, which the Go API never reads and mobile never
+ * consumes, so uploads here are invisible to athletes. The live demo-video
+ * source is `exercise_library.video_url` via POST/PUT /api/v1/exercises.
+ * Kept for reference; do not add new callers. Removal is a separate ticket
+ * requiring explicit approval.
+ * See docs/superpowers/specs/2026-10-12-T-009-T-010-exercise-video-and-profile-422-design.md §2.1.
+ *
  * POST /api/coach/exercise-videos/upload — Upload a demo video for an exercise.
  *
  * Body: multipart/form-data
