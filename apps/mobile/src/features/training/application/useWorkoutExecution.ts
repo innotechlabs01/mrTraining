@@ -70,6 +70,7 @@ export function useWorkoutExecution({ sessionId, workoutId, navigation }: UseWor
 
   const logSetMutation = useLogSetFlow({
     sessionId,
+    workoutId,
     exercises: d.exercises,
     currentExerciseIndex,
     currentSetIndex,

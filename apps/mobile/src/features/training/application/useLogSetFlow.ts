@@ -34,6 +34,7 @@ type CheckBadgesVars = {
 
 export type LogSetFlowParams = {
   sessionId: string;
+  workoutId: string;
   exercises: Exercise[];
   currentExerciseIndex: number;
   currentSetIndex: number;
@@ -75,7 +76,7 @@ export type LogSetFlowParams = {
 export function useLogSetFlow(p: LogSetFlowParams) {
   const collectPrs = async (): Promise<CompletedPr[]> => {
     try {
-      const { data } = await apiClient.get(`/athlete/sessions/${p.sessionId}`);
+      const { data } = await apiClient.get(`/workouts/sessions/${p.sessionId}`);
       const live = data as SessionLiveData;
       return (live.exercises ?? [])
         .filter((e) => e.pr)
@@ -92,28 +93,25 @@ export function useLogSetFlow(p: LogSetFlowParams) {
       const exercise = p.exercises[p.currentExerciseIndex] as Exercise;
       const hasMoreSets = p.currentSetIndex < exercise.sets - 1;
 
+      // Go API contract (single source of truth):
+      //   POST /workouts/:workoutId/sets                → LogWorkoutSet
+      //   GET  /workouts/sessions/:sessionId            → session (PR check)
+      //   POST /workouts/sessions/:sessionId/complete   → { durationSeconds }
+      // There is no per-exercise progress endpoint — position is kept locally
+      // via saveSessionResume. `setIndex` is 1-based server-side.
       const steps: OutboxStep[] = [
         {
-          path: `/athlete/sessions/${p.sessionId}/sets`,
+          path: `/workouts/${p.workoutId}/sets`,
           body: {
             exerciseId: exercise.id,
-            setIndex: p.currentSetIndex,
+            setIndex: p.currentSetIndex + 1,
             weightKg: payload.weightKg,
             reps: payload.reps,
-            sec: payload.sec,
+            duration: payload.sec ?? 0,
             rir: payload.rir,
           },
         },
       ];
-      if (!hasMoreSets) {
-        steps.push({
-          path: `/athlete/sessions/${p.sessionId}/progress`,
-          body: {
-            currentExerciseIndex: p.currentExerciseIndex + 1,
-            durationSeconds: p.durationSeconds,
-          },
-        });
-      }
 
       let offline = false;
       for (let i = 0; i < steps.length; i++) {
@@ -145,10 +143,17 @@ export function useLogSetFlow(p: LogSetFlowParams) {
         const prs = offline ? [] : await collectPrs();
         if (!offline) {
           try {
-            await apiClient.post(`/athlete/sessions/${p.sessionId}/complete`, {});
+            await apiClient.post(`/workouts/sessions/${p.sessionId}/complete`, {
+              durationSeconds: p.durationSeconds,
+            });
           } catch (err) {
             console.error('[WorkoutExecution] complete failed; queued for sync:', err);
-            enqueueSetOutbox([{ path: `/athlete/sessions/${p.sessionId}/complete`, body: {} }]);
+            enqueueSetOutbox([
+              {
+                path: `/workouts/sessions/${p.sessionId}/complete`,
+                body: { durationSeconds: p.durationSeconds },
+              },
+            ]);
             offline = true;
           }
         }
