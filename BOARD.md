@@ -1,12 +1,11 @@
 # Team Board
 
-## In Progress (team pipeline)
-- [ ] T-011: Clerk refresh token not working correctly | architect spec `2026-10-13-T-011-clerk-refresh-token.md` — Go API does NOT expect a JWT template (verified); real bugs are mobile-side (401 retry reuses same token, dead session never redirects, AppState swallow) | dev-react-native implementing
-- [ ] T-012: Exercise detail video UX/UI | design spec `2026-10-13-T-012-exercise-video-ux.md` (thumbnail → tap → fullscreen modal, 4 states, lazy mount) | dev-react-native implementing
-
 ## Review (team pipeline)
-- [ ] T-009: Exercise demo video not visible on athlete mobile | spec `2026-10-12-T-009-T-010...md` | dev-backend A1+A2 + dev-react-native B1 done (commits dd8f2d9→7bbb5b8) | code-reviewer PASS, security-hacker PASS | go build OK, mobile 314/314 | QA device validation BLOCKED-at-signin (needs Maestro sign-in flow fix) | A3 data repair (insert-only re-seed) HELD for user approval
-- [ ] T-010: Athlete profile edit 422 | dev-react-native B2+B3+B4 done (commit 7bbb5b8) | code-reviewer PASS, security-hacker PASS | mobile 314/314 | QA device validation pending sign-in
+- [ ] T-009: Exercise demo video not visible on athlete mobile | spec `2026-10-12-T-009-T-010...md` | dev-backend A1+A2 + dev-react-native B1 done | code-reviewer PASS, security-hacker PASS | go build/test green, mobile 345/345 | QA device BLOCKED-at-signin (needs Maestro creds env) | A3 data repair (insert-only re-seed) HELD for user approval
+- [ ] T-010: Athlete profile edit 422 | dev-react-native done (route name→PUT /users/me, athlete fields→PUT /athletes/me, RMW merge, human 422s) | code-reviewer PASS, security-hacker PASS | mobile 345/345 | QA device pending sign-in
+- [ ] T-011: Clerk refresh token | architect spec `2026-10-13-T-011-clerk-refresh-token.md` (Go needs NO JWT template — verified) | dev done (token-change guard, null-token → signOut, AppState logging); review loop 1: fixed spurious-signout catch | needs device E2E (session fresh >1h)
+- [ ] T-012: Exercise video UX (thumbnail → fullscreen modal, 4 states, lazy mount) | design spec `2026-10-13-T-012-exercise-video-ux.md` | implemented + coordinator-fixed wiring bug | needs device validation
+- [ ] T-013 (live bug): set logging 404s | root cause: mobile hit nonexistent `/athletes/sessions/:id/sets` | fixed → `/workouts/:workoutId/sets` (1-based setIndex, sec→duration), complete carries durationSeconds, dead /progress call removed | security loop: 2 IDORs patched server-side | mobile 345/345, go green | needs device E2E
 
 ## In Progress
 - [ ] T-007: Auth flow refactor — single source of truth for session routing | dev+ux-ui complete | qa pending user device test
