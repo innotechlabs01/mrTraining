@@ -1,8 +1,12 @@
 # Team Board
 
+## In Progress (team pipeline)
+- [ ] T-011: Clerk refresh token not working correctly | architect spec `2026-10-13-T-011-clerk-refresh-token.md` — Go API does NOT expect a JWT template (verified); real bugs are mobile-side (401 retry reuses same token, dead session never redirects, AppState swallow) | dev-react-native implementing
+- [ ] T-012: Exercise detail video UX/UI | design spec `2026-10-13-T-012-exercise-video-ux.md` (thumbnail → tap → fullscreen modal, 4 states, lazy mount) | dev-react-native implementing
+
 ## Review (team pipeline)
-- [ ] T-009: Coach-uploaded exercise demo video not visible on athlete mobile | architect spec `2026-10-12-T-009-T-010-exercise-video-and-profile-422-design.md` | dev-backend A1+A2 done (fail-loud 404 + deprecate dead path), dev-react-native B1 done (isPlayableVideoUrl guard, no black box) | commits 114982c, 7bbb5b8 | go build OK, mobile 314/314 | qa + code-reviewer + security-hacker pending | A3 (data repair) HELD for user approval
-- [ ] T-010: Athlete profile edit 422 (`PUT /users/me`) | dev-react-native B2+B3+B4 done (route name→PUT /users/me, athlete fields→PUT /athletes/me, read-modify-write merge, human 422 errors) | commit 7bbb5b8 | mobile 314/314 | real-device validation of AC-8..AC-11 pending | qa + code-reviewer + security-hacker pending
+- [ ] T-009: Exercise demo video not visible on athlete mobile | spec `2026-10-12-T-009-T-010...md` | dev-backend A1+A2 + dev-react-native B1 done (commits dd8f2d9→7bbb5b8) | code-reviewer PASS, security-hacker PASS | go build OK, mobile 314/314 | QA device validation BLOCKED-at-signin (needs Maestro sign-in flow fix) | A3 data repair (insert-only re-seed) HELD for user approval
+- [ ] T-010: Athlete profile edit 422 | dev-react-native B2+B3+B4 done (commit 7bbb5b8) | code-reviewer PASS, security-hacker PASS | mobile 314/314 | QA device validation pending sign-in
 
 ## In Progress
 - [ ] T-007: Auth flow refactor — single source of truth for session routing | dev+ux-ui complete | qa pending user device test

@@ -127,16 +127,23 @@ const setupAuthInterceptor = (client: AxiosInstance) => {
       if (error.response?.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true;
 
-        // Retry once with a FRESH token (bypass Clerk cache) — the 401
-        // almost certainly means the cached token expired.
-        const token = await refreshClerkToken();
-        if (token && originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
+        // Extract the failed token from the Authorization header to compare
+        // with the fresh token. Only retry if the token actually changed
+        // (mirrors web guard at apps/web/src/lib/api/go-client.ts:81-90).
+        const failedAuthHeader = originalRequest.headers?.Authorization;
+        const failedToken =
+          typeof failedAuthHeader === 'string'
+            ? failedAuthHeader.replace('Bearer ', '')
+            : '';
+
+        const freshToken = await refreshClerkToken();
+        if (freshToken && freshToken !== failedToken && originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${freshToken}`;
           // If this retry still returns 401, _retry is set — we reject, no loop.
           return client(originalRequest);
         }
 
-        // Token refresh failed — caller should handle redirect to auth
+        // Token refresh failed or returned same token — caller should handle redirect to auth
       }
 
       return Promise.reject(error);
