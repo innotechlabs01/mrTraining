@@ -4,6 +4,7 @@ package validator
 
 import (
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -12,6 +13,20 @@ import (
 
 // timePattern matches a 24-hour HH:MM time.
 var timePattern = regexp.MustCompile(`^([01]?[0-9]|2[0-3]):[0-5][0-9]$`)
+
+// isValidHTTPURL accepts only absolute http(s) URLs with a non-whitespace host.
+// Guards against dangerous schemes (javascript:, file:) and malformed values
+// being stored as media URLs and later rendered by clients.
+func isValidHTTPURL(raw string) bool {
+	if strings.ContainsAny(raw, " \t\n\r") {
+		return false
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	return (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
+}
 
 // ValidationError represents a single field validation failure.
 type ValidationError struct {
@@ -159,6 +174,13 @@ func ValidateCreateExercise(req *dto.CreateExerciseRequest) ValidationErrors {
 				Message: "must be one of: compound, isolation",
 			})
 		}
+	}
+
+	if strings.TrimSpace(req.VideoURL) != "" && !isValidHTTPURL(req.VideoURL) {
+		errs = append(errs, ValidationError{
+			Field:   "videoUrl",
+			Message: "must be a valid http(s) URL with a host",
+		})
 	}
 
 	return errs
@@ -321,6 +343,13 @@ func ValidateUpdateExercise(req *dto.UpdateExerciseRequest) ValidationErrors {
 				Message: "must be one of: compound, isolation",
 			})
 		}
+	}
+
+	if req.VideoURL != nil && strings.TrimSpace(*req.VideoURL) != "" && !isValidHTTPURL(*req.VideoURL) {
+		errs = append(errs, ValidationError{
+			Field:   "videoUrl",
+			Message: "must be a valid http(s) URL with a host",
+		})
 	}
 
 	return errs

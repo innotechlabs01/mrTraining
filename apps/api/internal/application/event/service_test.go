@@ -12,6 +12,7 @@ import (
 // mockRepository implements event.Repository for testing.
 type mockRepository struct {
 	listByCoachFn               func(ctx context.Context, coachID string) ([]*eventdomain.Event, error)
+	listByAthleteLinksFn        func(ctx context.Context, athleteID string) ([]*eventdomain.Event, error)
 	getByIDFn                   func(ctx context.Context, id string) (*eventdomain.Event, error)
 	createFn                    func(ctx context.Context, event *eventdomain.Event) error
 	updateFn                    func(ctx context.Context, event *eventdomain.Event) error
@@ -30,6 +31,13 @@ type mockRepository struct {
 
 func (m *mockRepository) ListByCoach(ctx context.Context, coachID string) ([]*eventdomain.Event, error) {
 	return m.listByCoachFn(ctx, coachID)
+}
+
+func (m *mockRepository) ListByAthleteLinks(ctx context.Context, athleteID string) ([]*eventdomain.Event, error) {
+	if m.listByAthleteLinksFn == nil {
+		return nil, nil
+	}
+	return m.listByAthleteLinksFn(ctx, athleteID)
 }
 
 func (m *mockRepository) GetByID(ctx context.Context, id string) (*eventdomain.Event, error) {

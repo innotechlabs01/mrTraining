@@ -419,8 +419,8 @@ func (s *Service) GetAssignedWorkoutDetail(ctx context.Context, workoutID string
 }
 
 // GetWorkoutSession returns a workout session by ID.
-func (s *Service) GetWorkoutSession(ctx context.Context, sessionID string) (*training.WorkoutSession, error) {
-	session, err := s.workoutRepo.GetWorkoutSession(ctx, sessionID)
+func (s *Service) GetWorkoutSession(ctx context.Context, sessionID, athleteID string) (*training.WorkoutSession, error) {
+	session, err := s.workoutRepo.GetWorkoutSession(ctx, sessionID, athleteID)
 	if err != nil {
 		return nil, fmt.Errorf("get workout session: %w", err)
 	}
@@ -437,8 +437,8 @@ func (s *Service) CreateWorkoutSession(ctx context.Context, workoutID, athleteID
 }
 
 // CompleteSession marks a workout session as completed with the given duration.
-func (s *Service) CompleteSession(ctx context.Context, sessionID string, durationSeconds int) error {
-	if err := s.workoutRepo.CompleteSession(ctx, sessionID, durationSeconds); err != nil {
+func (s *Service) CompleteSession(ctx context.Context, sessionID, athleteID string, durationSeconds int) error {
+	if err := s.workoutRepo.CompleteSession(ctx, sessionID, athleteID, durationSeconds); err != nil {
 		return fmt.Errorf("complete session: %w", err)
 	}
 	return nil

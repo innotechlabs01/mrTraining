@@ -9,7 +9,7 @@ import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import * as SplashScreen from 'expo-splash-screen';
 import { AppNavigator } from './Navigation';
-import { setClerkInstance, setOnSessionExpired, getOnSessionExpired } from '../infrastructure/auth/clerk';
+import { setClerkInstance, setOnSessionExpired } from '../infrastructure/auth/clerk';
 import { useAppFonts } from '../shared/theme/fonts';
 import { registerBackgroundSync } from '../infrastructure/health/background-sync';
 import { registerForPushNotifications } from '../infrastructure/notifications/push';
@@ -110,19 +110,13 @@ function AppStateRefresh() {
     const sub = AppState.addEventListener('change', (next) => {
       if (next === 'active' && clerk.session) {
         // Pre-emptive token refresh on foreground.
-        // Log failures; if session is unrecoverable, trigger global handler.
+        // A rejection here is most often a transient network error — it must
+        // NOT force a sign-out. The dead-session path (getToken resolving
+        // null) is handled by getClerkToken() firing onSessionExpired.
         clerk.session
           .getToken({ skipCache: true })
           .catch((err) => {
             console.warn('[AppStateRefresh] token refresh failed', err);
-            // Clerk returns null/throws when the long-lived session is dead.
-            // The getClerkToken(null, { skipCache: true }) path in clerk.ts
-            // will call onSessionExpired. We also call it here as a fallback
-            // in case the error surfaces before the auth interceptor runs.
-            const cb = getOnSessionExpired();
-            if (cb) {
-              cb();
-            }
           });
       }
     });

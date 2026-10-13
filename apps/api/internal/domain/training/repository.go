@@ -62,13 +62,15 @@ type WorkoutRepository interface {
 	GetAssignedWorkoutDetail(ctx context.Context, id string) (*WorkoutDetail, error)
 
 	// GetWorkoutSession retrieves a workout session by ID.
-	GetWorkoutSession(ctx context.Context, sessionID string) (*WorkoutSession, error)
+	// The session must belong to the given athlete (IDOR protection).
+	GetWorkoutSession(ctx context.Context, sessionID, athleteID string) (*WorkoutSession, error)
 
 	// CreateWorkoutSession creates a new workout session for an athlete.
 	CreateWorkoutSession(ctx context.Context, workoutID, athleteID string) (*WorkoutSession, error)
 
 	// CompleteSession marks a session as completed with the given duration.
-	CompleteSession(ctx context.Context, sessionID string, durationSeconds int) error
+	// The session must belong to the given athlete (IDOR protection).
+	CompleteSession(ctx context.Context, sessionID, athleteID string, durationSeconds int) error
 
 	// GetPrescription retrieves the exercise prescription for an assigned workout.
 	GetPrescription(ctx context.Context, workoutID string) ([]WorkoutExercise, error)

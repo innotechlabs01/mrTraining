@@ -112,7 +112,7 @@ func (m *mockWorkoutRepository) GetAssignedWorkoutDetail(ctx context.Context, id
 	return nil, training.ErrNotFound
 }
 
-func (m *mockWorkoutRepository) GetWorkoutSession(ctx context.Context, sessionID string) (*training.WorkoutSession, error) {
+func (m *mockWorkoutRepository) GetWorkoutSession(ctx context.Context, sessionID, athleteID string) (*training.WorkoutSession, error) {
 	return nil, training.ErrNotFound
 }
 
@@ -120,7 +120,7 @@ func (m *mockWorkoutRepository) CreateWorkoutSession(ctx context.Context, workou
 	return &training.WorkoutSession{ID: "mock-session-id", WorkoutID: workoutID, AthleteID: athleteID}, nil
 }
 
-func (m *mockWorkoutRepository) CompleteSession(ctx context.Context, sessionID string, durationSeconds int) error {
+func (m *mockWorkoutRepository) CompleteSession(ctx context.Context, sessionID, athleteID string, durationSeconds int) error {
 	return nil
 }
 

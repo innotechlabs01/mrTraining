@@ -603,11 +603,11 @@ func (r *WorkoutRepository) getAssignedWorkoutExercises(ctx context.Context, wor
 }
 
 // GetWorkoutSession retrieves a workout session by ID.
-func (r *WorkoutRepository) GetWorkoutSession(ctx context.Context, sessionID string) (*training.WorkoutSession, error) {
+func (r *WorkoutRepository) GetWorkoutSession(ctx context.Context, sessionID, athleteID string) (*training.WorkoutSession, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, workout_id, athlete_id, started_at, completed, completed_at,
 		 current_exercise_index, duration_seconds
-		 FROM workout_session_logs WHERE id = ?`, sessionID)
+		 FROM workout_session_logs WHERE id = ? AND athlete_id = ?`, sessionID, athleteID)
 
 	s := &training.WorkoutSession{}
 	var completedAt sql.NullString
@@ -646,12 +646,12 @@ func (r *WorkoutRepository) CreateWorkoutSession(ctx context.Context, workoutID,
 }
 
 // CompleteSession marks a session as completed with the given duration.
-func (r *WorkoutRepository) CompleteSession(ctx context.Context, sessionID string, durationSeconds int) error {
+func (r *WorkoutRepository) CompleteSession(ctx context.Context, sessionID, athleteID string, durationSeconds int) error {
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE workout_session_logs
 		 SET completed = 1, completed_at = datetime('now'), duration_seconds = ?
-		 WHERE id = ? AND completed = 0`,
-		durationSeconds, sessionID)
+		 WHERE id = ? AND athlete_id = ? AND completed = 0`,
+		durationSeconds, sessionID, athleteID)
 	if err != nil {
 		return fmt.Errorf("failed to complete session: %w", err)
 	}

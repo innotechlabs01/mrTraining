@@ -394,7 +394,7 @@ func (h *TrainingHandler) GetWorkoutSession(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "session ID is required")
 	}
 
-	session, err := h.service.GetWorkoutSession(c.Context(), sessionID)
+	session, err := h.service.GetWorkoutSession(c.Context(), sessionID, userID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -420,7 +420,7 @@ func (h *TrainingHandler) CompleteSession(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	if err := h.service.CompleteSession(c.Context(), sessionID, req.DurationSeconds); err != nil {
+	if err := h.service.CompleteSession(c.Context(), sessionID, userID, req.DurationSeconds); err != nil {
 		return h.handleError(c, err)
 	}
 
@@ -440,10 +440,9 @@ func (h *TrainingHandler) LogWorkoutSet(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	// Set athlete ID from auth context if not provided
-	if req.AthleteID == "" {
-		req.AthleteID = middleware.GetUserID(c)
-	}
+	// Athlete identity comes from the JWT only — a client-supplied athleteId
+	// is never trusted (prevents cross-athlete set logging / IDOR).
+	req.AthleteID = middleware.GetUserID(c)
 	if req.AthleteID == "" {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
