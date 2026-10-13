@@ -94,14 +94,27 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
     isError: error2,
   } = useQuery({
     queryKey: ['workout-prescription', workoutId],
-    queryFn: async () => {
+    queryFn: async (): Promise<PrescriptionExercise[]> => {
       const { data } = await apiClient.get(`/athlete/workouts/${workoutId}/prescription`);
-      return data as { data: PrescriptionExercise[] };
+      // The shared axios interceptor already unwraps Go's ListResponse
+      // ({ data, total, page, limit }) into a bare array. Tolerate both the
+      // bare-array and the wrapped shape so a contract nuance can't blank
+      // the screen.
+      if (Array.isArray(data)) return data as PrescriptionExercise[];
+      return (data as { data?: PrescriptionExercise[] } | null)?.data ?? [];
     },
     staleTime: 5 * 60 * 1000,
   });
 
-  const exercises: Exercise[] = prescriptionData?.data?.map((ex) => ({
+  // Prefer the prescription endpoint; fall back to the exercises the detail
+  // envelope already returned (identical shape) so the workout never reads
+  // empty when the API actually has data.
+  const detailExercises =
+    (workoutData as { exercises?: PrescriptionExercise[] } | undefined)?.exercises ?? [];
+  const rawExercises: PrescriptionExercise[] =
+    prescriptionData && prescriptionData.length > 0 ? prescriptionData : detailExercises;
+
+  const exercises: Exercise[] = rawExercises.map((ex) => ({
     id: ex.id,
     name: ex.name,
     sets: ex.sets,
@@ -114,7 +127,7 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
     gpsRoute: ex.gpsRoute ?? undefined,
     mode: ex.mode,
     phase: ex.phase,
-  })) || [];
+  }));
 
   const startSessionMutation = useMutation({
     mutationFn: async () => {
