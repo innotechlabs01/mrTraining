@@ -1,5 +1,9 @@
 # Team Board
 
+## In Progress (team pipeline)
+- [ ] T-009: Coach-uploaded exercise demo video not visible on athlete mobile | architect: dispatched (re-run on working model)
+- [ ] T-010: Athlete profile edit 422 (`PUT /users/me`) | architect: dispatched (re-run on working model)
+
 ## In Progress
 - [ ] T-007: Auth flow refactor — single source of truth for session routing | dev+ux-ui complete | qa pending user device test
 
