@@ -24,7 +24,7 @@ Si no sabes que regla aplica, lee `apps/rules/MASTER_PROMPT.md` primero.
 | **Seguridad / Auth** | `11-security.md` |
 | **Coding style / Linting** | `12-coding-standards.md` |
 | **Testing** | `13-testing.md` |
-| **Team workflow / Worktrees / Caveman** | `14-team-workflow.md` |
+| **Team workflow / Caveman** | `14-team-workflow.md` |
 | **Mobile / React Native** | `mobile-rules/*` (ver seccion abajo) |
 | **Cualquier cosa** | `MASTER_PROMPT.md` (siempre) |
 
@@ -137,9 +137,9 @@ NEVER report PASS when the real mobile UI was not actually tested.
 Recibes una tarea
   ↓
 0. Invoca el skill `pipeline-init` (carga mr-context + herdr-setup,
-   y herdr si HERDR_ENV=1). Trabaja SIEMPRE en tu worktree
-   (un branch = un worktree). Si no tenes uno:
-   scripts/worktree.sh new feature/<nombre>. NUNCA en main.
+   y herdr si HERDR_ENV=1). Trabaja sobre el checkout actual en un
+   branch de trabajo. NUNCA en main. NO crees worktrees: los agentes
+   se activan como worker-tasks sobre el checkout actual.
    Detalle: 14-team-workflow.md
   ↓
 1. Identifica el tipo de cambio
@@ -152,7 +152,7 @@ Recibes una tarea
   ↓
 5. Verifica con lint, build, tests segun 13-testing.md
   ↓
-6. Commit atomico convencional + PR a main. Limpia el worktree tras merge.
+6. Commit atomico convencional + PR a main. Sin worktrees: trabajá en mr-training.
 ```
 
 ---
@@ -165,7 +165,7 @@ la letra. No improvises un flujo propio si ya existe un skill.
 
 | Skill | Cuándo |
 |---|---|
-| `pipeline-init` | Paso 0 de toda tarea (contexto + worktree + reglas). |
+| `pipeline-init` | Paso 0 de toda tarea (contexto + reglas). |
 | `mr-context` | Mapa del repo, no-negociables y barra senior. |
 | `orca-team` | Orquestación multi-rol sobre el board (ver abajo). |
 | `herdr` / `herdr-setup` | Sólo si `HERDR_ENV=1`. |
@@ -212,8 +212,10 @@ pipeline-init → Spec → TODO (architect) → IN PROGRESS (devs + ux-ui)
   ANTES de tocar código. Carga `mr-context` (mapa repo, no-negociables,
   barra senior) + `herdr-setup` (conceptos Herdr) + `herdr` sólo si
   `HERDR_ENV=1` (corre dentro de un pane Herdr).
-- **Multi-branch:** un branch = un worktree (`scripts/worktree.sh`). Worktrees
-  en `../mr-training-worktrees/<branch>`. Cada uno con su `pnpm install`.
+- **Sin worktrees:** un branch = un checkout. Trabajá sobre el checkout
+  actual (NUNCA en main). NO ejecutes `scripts/worktree.sh` para crear
+  worktrees; los agentes se activan como worker-tasks sobre el checkout.
+  NO crees ni muevas worktrees: worker-tasks automáticos, nada más.
 - **Spec-first + stage machine:** toda feature coach nueva pasa
   Spec → TODO (architect) → In Progress (devs) → Review (qa →
   code-reviewer → security-hacker) → USER GATE → Done. Loop max
