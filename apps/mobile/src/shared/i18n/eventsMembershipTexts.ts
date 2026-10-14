@@ -63,6 +63,10 @@ export const eventsMembershipTexts = {
     checkoutFailedBody: 'No se pudo iniciar el checkout seguro.',
     genericErrorTitle: 'Checkout',
     genericErrorBody: 'Algo salió mal. Intenta de nuevo.',
+    yourPlan: 'Tu plan',
+    expiredOn: 'venció el',
+    renewToContinue: 'Renueva para continuar entrenando.',
+    payAmount: 'Pagar ${amount} USD',
   },
   pendingApproval: {
     title: 'Esperando aprobación',

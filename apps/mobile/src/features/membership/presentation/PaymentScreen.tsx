@@ -51,8 +51,10 @@ export function PaymentScreen({ membership }: Props) {
   const formatDate = (dateStr: string) => {
     if (!dateStr) return t.notAvailable;
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+    return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
   };
+
+  const expiredDate = membership.currentPeriodEnd || membership.paymentDueDate;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -60,9 +62,9 @@ export function PaymentScreen({ membership }: Props) {
         <View style={styles.iconCircle}><LockIcon size={36} color={colors.error} /></View>
         <Text style={styles.title}>{t.expiredTitle}</Text>
         <Text style={styles.subtitle}>
-          Your plan <Text style={styles.highlight}>{membership.planName}</Text> expired on{' '}
-          {formatDate(membership.currentPeriodEnd || membership.paymentDueDate)}.
-          {'\n'}Please renew to continue training.
+          {t.yourPlan} <Text style={styles.highlight}>{membership.planName}</Text> {t.expiredOn} {' '}
+          {formatDate(expiredDate)}.
+          {'\n'}{t.renewToContinue}
         </Text>
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
@@ -81,7 +83,7 @@ export function PaymentScreen({ membership }: Props) {
           </View>
         </View>
         <Pressable style={({ pressed }) => [styles.payBtn, pressed && !isPaying && { opacity: 0.8 }, isPaying && { opacity: 0.6 }]} disabled={isPaying} onPress={handlePay}>
-          <Text style={styles.payText}>{isPaying ? t.processing : `Pay ${membership.planPrice} USD`}</Text>
+          <Text style={styles.payText}>{isPaying ? t.processing : t.payAmount.replace('${amount}', String(membership.planPrice))}</Text>
         </Pressable>
       </View>
     </SafeAreaView>
