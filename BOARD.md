@@ -1,6 +1,9 @@
 # Team Board
 
 ## Review (team pipeline)
+- [ ] T-014: Verify challenge visibility in mobile home tab | **MANUAL VERIFICATION**: Code path confirmed — TodayScreen uses GET /athlete/challenges/active (joins coach_athlete_links, filters status='active' AND expires_at > now), ChallengeHomeCard renders title/exercise_type/countdown, navigation to ChallengeDetailScreen works | **BLOCKER**: No active challenge in Turso DB for linked coach-athlete pair (ch-20261010022004 404 = not in DB) | Coach must create + activate (Play ▶) challenge in web → status='active' + expires_at='2026-10-30T23:59:59Z' | Device QA pending active challenge creation
+
+## Review (team pipeline)
 - [ ] T-009: Exercise demo video not visible on athlete mobile | spec `2026-10-12-T-009-T-010...md` | dev-backend A1+A2 + dev-react-native B1 done | code-reviewer PASS, security-hacker PASS | go build/test green, mobile 345/345 | **A3 data repair APPLIED + verified** (AC-5 orphans=0, AC-6 idempotent) b9e1004 | QA device BLOCKED-at-signin (needs Maestro creds env)
 - [ ] T-010: Athlete profile edit 422 | dev-react-native done (route name→PUT /users/me, athlete fields→PUT /athletes/me, RMW merge, human 422s) | code-reviewer PASS, security-hacker PASS | mobile 345/345 | QA device pending sign-in
 - [ ] T-011: Clerk refresh token | architect spec `2026-10-13-T-011-clerk-refresh-token.md` (Go needs NO JWT template — verified) | dev done (token-change guard, null-token → signOut, AppState logging); review loop 1: fixed spurious-signout catch | needs device E2E (session fresh >1h)
