@@ -77,6 +77,7 @@ export const communityTexts = {
     label: 'Ver video demo',
     errorTitle: 'Error',
     openFailed: 'No se pudo abrir el video.',
+    noVideo: 'Sin video demo disponible',
   },
   coachChallengesScreen: {
     title: 'Mis Desafíos',

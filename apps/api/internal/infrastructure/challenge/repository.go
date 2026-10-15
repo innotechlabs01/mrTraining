@@ -601,15 +601,27 @@ func (r *repository) GetExercisesByChallenge(challengeID string) ([]*domain.Chal
 	var exercises []*domain.ChallengeExercise
 	for rows.Next() {
 		ex := &domain.ChallengeExercise{}
+		var title, description, videoURL, createdAt, updatedAt sql.NullString
+		var orderIndex, targetSets, targetReps sql.NullInt64
+		var targetWeightKg sql.NullFloat64
 		err := rows.Scan(
-			&ex.ID, &ex.ChallengeID, &ex.ExerciseType, &ex.Title,
-			&ex.Description, &ex.VideoURL, &ex.OrderIndex,
-			&ex.TargetSets, &ex.TargetReps, &ex.TargetWeightKg,
-			&ex.CreatedAt, &ex.UpdatedAt,
+			&ex.ID, &ex.ChallengeID, &ex.ExerciseType, &title,
+			&description, &videoURL, &orderIndex,
+			&targetSets, &targetReps, &targetWeightKg,
+			&createdAt, &updatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
+		ex.Title = title.String
+		ex.Description = description.String
+		ex.VideoURL = videoURL.String
+		ex.OrderIndex = int(orderIndex.Int64)
+		ex.TargetSets = int(targetSets.Int64)
+		ex.TargetReps = int(targetReps.Int64)
+		ex.TargetWeightKg = targetWeightKg.Float64
+		ex.CreatedAt = createdAt.String
+		ex.UpdatedAt = updatedAt.String
 		exercises = append(exercises, ex)
 	}
 	return exercises, nil

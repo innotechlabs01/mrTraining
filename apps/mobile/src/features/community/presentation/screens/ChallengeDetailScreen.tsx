@@ -154,8 +154,18 @@ export function ChallengeDetailScreen() {
 
           {/* Coach Demo Video */}
           {challenge?.video_url ? (
-            <ChallengeVideoDemo videoUrl={challenge.video_url} />
-          ) : null}
+            <ChallengeVideoDemo
+              videoUrl={challenge.video_url}
+              challengeId={challenge.id}
+              challengeTitle={challenge.title}
+            />
+          ) : (
+            <ChallengeVideoDemo
+              videoUrl=""
+              challengeId={challenge?.id}
+              challengeTitle={challenge?.title}
+            />
+          )}
 
           {/* My Last Attempt */}
           {lastAttempt ? (
