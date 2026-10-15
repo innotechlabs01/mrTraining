@@ -5,7 +5,7 @@ import { SectionHeader } from '../../../../shared/components/ui/SectionHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { PlayIcon, LockIcon } from '../../../../shared/components/icons';
 import { texts } from '../../../../shared/i18n/texts';
-import { ExerciseDemoModal } from '../../../../training/presentation/components/execution/ExerciseDemoModal';
+import { ExerciseDemoModal } from '../../../../features/training/presentation/components/execution/ExerciseDemoModal';
 import { isPlayableVideoUrl } from '../../../../shared/components/video/isPlayableVideoUrl';
 
 type Props = {
