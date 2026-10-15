@@ -74,8 +74,13 @@ export function ChallengeDetailScreen() {
       joinChallenge(challengeId, videoConsent, photoConsent),
     onSuccess: (res: any) => {
       const attemptId = res?.id ?? null;
-      if (attemptId) setCurrentAttemptId(attemptId);
-      Alert.alert(t.joinedTitle, t.joinedBody);
+      if (attemptId) {
+        setCurrentAttemptId(attemptId);
+        // Navigate to challenge execution screen to perform the exercise
+        navigation.navigate('ChallengeExecution', { challengeId, attemptId });
+      } else {
+        Alert.alert(t.joinedTitle, t.joinedBody);
+      }
       queryClient.invalidateQueries({ queryKey: ['challenge', challengeId] });
     },
     onError: () => {
@@ -191,7 +196,7 @@ export function ChallengeDetailScreen() {
           {currentAttemptId ? (
             <PrimaryButton
               label={texts.challenge.submitAttempt}
-              onPress={() => navigation.navigate('ChallengeRecording', { challengeId, attemptId: currentAttemptId })}
+              onPress={() => navigation.navigate('ChallengeExecution', { challengeId, attemptId: currentAttemptId })}
             />
           ) : (
             <PrimaryButton

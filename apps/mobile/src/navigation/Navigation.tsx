@@ -117,6 +117,7 @@ export type RootStackParamList = {
   ChallengeDetail: { challengeId: string };
   Leaderboard: { challengeId: string };
   ChallengeRecording: { challengeId: string; attemptId: string };
+  ChallengeExecution: { challengeId: string; attemptId: string };
   CoachChallenges: undefined;
   CreateChallenge: undefined;
 };
@@ -320,6 +321,10 @@ function RootNavigator() {
             name="ChallengeRecording"
             getComponent={() => require('../features/community/presentation/screens/ChallengeRecordingScreen').ChallengeRecordingScreen}
             options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="ChallengeExecution"
+            getComponent={() => require('../features/community/presentation/screens/ChallengeExecutionScreen').ChallengeExecutionScreen}
           />
           <Stack.Screen
             name="CoachChallenges"
