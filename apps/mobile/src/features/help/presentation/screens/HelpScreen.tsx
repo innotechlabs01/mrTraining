@@ -119,7 +119,7 @@ export function HelpScreen() {
                     <Text style={styles.faqQuestion}>{item.question}</Text>
                     <ChevronRightIcon
                       size={18}
-                      color={colors.primary}
+                      color={colors.primarySoft}
                     />
                   </Pressable>
                   {expanded ? (
@@ -141,14 +141,14 @@ export function HelpScreen() {
               accessibilityLabel={t.tabMyTickets}
             >
               <View style={styles.myTicketsHeader}>
-                <TicketIcon size={24} color={colors.primary} />
+                <TicketIcon size={24} color={colors.primarySoft} />
                 <View style={styles.myTicketsInfo}>
                   <Text style={styles.myTicketsTitle}>{t.tabMyTickets}</Text>
                   <Text style={styles.myTicketsSubtitle}>
                     Gestiona tus tickets de soporte, crea nuevos y chatea con el equipo.
                   </Text>
                 </View>
-                <ChevronRightIcon size={20} color={colors.textMuted} />
+                <ChevronRightIcon size={20} color={colors.textSecondary} />
               </View>
             </Pressable>
             <View style={styles.contactList}>
@@ -215,7 +215,6 @@ const styles = StyleSheet.create({
   myTicketsInfo: { flex: 1 },
   myTicketsTitle: { ...typography.bodyStrong, color: colors.text },
   myTicketsSubtitle: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
-  contactList: { gap: spacing.sm },
 });
 
 export default HelpScreen;

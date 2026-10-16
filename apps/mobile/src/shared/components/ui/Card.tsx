@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View, type ViewProps } from '
 import { colors, layout, radius, shadows } from '../../theme/tokens';
 
 type Props = ViewProps & {
-  variant?: 'default' | 'elevated' | 'outlined';
+  variant?: 'default' | 'elevated' | 'outlined' | 'premium';
   onPress?: () => void;
   disabled?: boolean;
   selected?: boolean;
@@ -68,6 +68,14 @@ const styles = StyleSheet.create({
   },
   elevated: { ...shadows.md },
   outlined: { borderWidth: 1 },
+  premium: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.xxl,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: layout.heroPadding,
+    ...shadows.xl,
+  },
   pressed: { backgroundColor: colors.surfaceRaised },
   disabled: { opacity: 0.6 },
   selected: { borderWidth: 2, borderColor: colors.primary, backgroundColor: `${colors.primary}1A` },

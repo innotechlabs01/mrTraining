@@ -6,7 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
-import { colors, layout, radius, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, radius, shadows, spacing, typography } from '../../../../shared/theme/tokens';
 import { BellIcon, ChartBarIcon, SearchIcon } from '../../../../shared/components/icons';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { useAnalyticsSummary, usePerExerciseAnalytics } from '../../../training/hooks/useVideoAnalytics';
@@ -134,14 +134,15 @@ const styles = StyleSheet.create({
   headerWrap: { paddingHorizontal: layout.pagePadding },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   iconButton: {
-    width: 36,
-    height: 36,
+    width: 48,
+    height: 48,
     borderRadius: radius.full,
     backgroundColor: colors.surfaceRaised,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    ...shadows.sm,
   },
   content: { padding: layout.pagePadding, paddingBottom: 48, gap: spacing.md },
   statsRow: {

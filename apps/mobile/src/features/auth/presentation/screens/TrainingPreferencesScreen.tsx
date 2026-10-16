@@ -28,9 +28,9 @@ import { texts } from '../../../../shared/i18n/texts';
 const t = texts.screens.trainingPreferences;
 
 const MODALITY_ICONS: Record<AthleteModality, React.ReactElement> = {
-  virtual: <ChatIcon size={18} color={colors.primary} />,
-  hibrido: <StarIcon size={18} color={colors.primary} />,
-  presencial: <MapPinIcon size={18} color={colors.primary} />,
+  virtual: <ChatIcon size={18} color={colors.primarySoft} />,
+  hibrido: <StarIcon size={18} color={colors.primarySoft} />,
+  presencial: <MapPinIcon size={18} color={colors.primarySoft} />,
 };
 
 export function TrainingPreferencesScreen() {
@@ -201,8 +201,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minHeight: 72,
   },
-  pillSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
-  pillUnselected: { backgroundColor: colors.surfaceRaised, borderColor: colors.border },
+  pillSelected: { backgroundColor: colors.primarySoft, borderColor: colors.primarySoft },
+  pillUnselected: { backgroundColor: colors.surfaceRaised, borderColor: colors.border, },
   pillIconView: { marginBottom: 2 },
   pillText: { ...typography.caption, fontWeight: '700', textAlign: 'center' },
   pillTextSelected: { color: colors.base },

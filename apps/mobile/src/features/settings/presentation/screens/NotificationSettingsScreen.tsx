@@ -22,11 +22,11 @@ type NotificationType = {
 };
 
 const NOTIFICATION_TYPES: NotificationType[] = [
-  { key: 'workoutReminders', icon: <BarbellIcon size={18} color={colors.text} />, label: texts.screens.notificationSettings.remindersLabel, description: texts.screens.notificationSettings.remindersDesc },
-  { key: 'weeklyChallenges', icon: <FireIcon size={18} color={colors.text} />, label: texts.screens.notificationSettings.challengesLabel, description: texts.screens.notificationSettings.challengesDesc },
-  { key: 'newArticles', icon: <ChartBarIcon size={18} color={colors.text} />, label: texts.screens.notificationSettings.articlesLabel, description: texts.screens.notificationSettings.articlesDesc },
-  { key: 'communityUpdates', icon: <ChatIcon size={18} color={colors.text} />, label: texts.screens.notificationSettings.communityLabel, description: texts.screens.notificationSettings.communityDesc },
-  { key: 'progressReports', icon: <BellIcon size={18} color={colors.text} />, label: texts.screens.notificationSettings.progressLabel, description: texts.screens.notificationSettings.progressDesc },
+  { key: 'workoutReminders', icon: <BarbellIcon size={18} color={colors.primarySoft} />, label: texts.screens.notificationSettings.remindersLabel, description: texts.screens.notificationSettings.remindersDesc },
+  { key: 'weeklyChallenges', icon: <FireIcon size={18} color={colors.primarySoft} />, label: texts.screens.notificationSettings.challengesLabel, description: texts.screens.notificationSettings.challengesDesc },
+  { key: 'newArticles', icon: <ChartBarIcon size={18} color={colors.primarySoft} />, label: texts.screens.notificationSettings.articlesLabel, description: texts.screens.notificationSettings.articlesDesc },
+  { key: 'communityUpdates', icon: <ChatIcon size={18} color={colors.primarySoft} />, label: texts.screens.notificationSettings.communityLabel, description: texts.screens.notificationSettings.communityDesc },
+  { key: 'progressReports', icon: <BellIcon size={18} color={colors.primarySoft} />, label: texts.screens.notificationSettings.progressLabel, description: texts.screens.notificationSettings.progressDesc },
 ];
 
 type Preferences = Record<string, boolean>;

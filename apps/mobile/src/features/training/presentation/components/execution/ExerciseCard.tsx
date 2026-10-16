@@ -1,9 +1,10 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, typography } from '../../../../../shared/theme/tokens';
+import { colors, layout, spacing, typography, shadows, radius } from '../../../../../shared/theme/tokens';
 import { InfoIcon, PlayIcon } from '../../../../../shared/components/icons';
 import type { ScoredQuality } from '../../../../ai/application/FormEngine';
 import { FormVerdictBadge } from './FormVerdictBadge';
+import { Card } from '../../../../../shared/components/ui/Card';
 
 type Props = {
   name: string;
@@ -29,7 +30,7 @@ export function ExerciseCard({
   verdict,
 }: Props) {
   return (
-    <View style={styles.block}>
+    <Card variant="premium" style={styles.block}>
       <View style={styles.header}>
         <Text style={styles.name}>{name}</Text>
         {onViewDemo ? (
@@ -40,7 +41,7 @@ export function ExerciseCard({
             style={styles.demoButton}
             hitSlop={8}
           >
-            <PlayIcon size={20} color={colors.primary} />
+            <PlayIcon size={24} color={colors.primary} />
           </Pressable>
         ) : null}
       </View>
@@ -53,17 +54,17 @@ export function ExerciseCard({
       ) : null}
       {verdict ? <FormVerdictBadge quality={verdict.quality} score={verdict.score} /> : null}
       <Text style={styles.progress}>{progressText}</Text>
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  block: { gap: spacing.xs },
+  block: { gap: spacing.sm },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   demoButton: {
     minHeight: 44,
@@ -71,7 +72,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  name: { ...typography.display, color: colors.text, flex: 1 },
+  name: { ...typography.bodyStrong, color: colors.text, flex: 1 },
   detail: { ...typography.body, color: colors.textSecondary },
   whyText: { ...typography.caption, color: colors.primary },
   whyRow: {

@@ -1,6 +1,7 @@
 import { authScreensTexts } from './authScreensTexts';
 import { trainingScreensTexts } from './trainingScreensTexts';
 import { miscScreensTexts } from './miscScreensTexts';
+import { eventsMembershipTexts } from './eventsMembershipTexts';
 
 /**
  * Screen-level UI copy (Spanish, neutral/professional).
@@ -15,6 +16,7 @@ export const screensTexts = {
   ...authScreensTexts,
   ...trainingScreensTexts,
   ...miscScreensTexts,
+  ...eventsMembershipTexts,
   workoutExecution: {
     loadingWorkout: 'Cargando entrenamiento…',
     loadWorkoutError: 'No se pudo cargar el entrenamiento',

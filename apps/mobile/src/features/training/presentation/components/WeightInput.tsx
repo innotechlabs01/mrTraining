@@ -3,9 +3,9 @@
  * Supports quick increment/decrement buttons and manual text input.
  * Validates non-negative values within a reasonable range.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, radius, spacing, typography, shadows, layout } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { texts } from '../../../../shared/i18n/texts';
 
@@ -38,6 +38,19 @@ export function WeightInput({
     [value, onChange],
   );
 
+  // Pre-create handlers for each delta to avoid re-creating on render
+  const handleQuickSteps = useMemo(
+    () => QUICK_STEPS.map((delta) => ({
+      delta,
+      onPress: () => {
+        const next = Math.min(MAX_WEIGHT, Math.max(MIN_WEIGHT, value + delta));
+        onChange(next);
+        setInputText(next.toString());
+      },
+    })),
+    [value, onChange],
+  );
+
   const handleTextChange = useCallback((text: string) => {
     setInputText(text);
   }, []);
@@ -56,25 +69,25 @@ export function WeightInput({
   const hasPrescription = prescribedWeight != null && prescribedWeight > 0;
 
   return (
-    <Card style={styles.container}>
+    <Card variant="premium" style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.label}>PESO</Text>
+        <Text style={styles.label}>{texts.screens.weightInput.weightLabel}</Text>
         {hasPrescription ? (
           <Text style={styles.prescribed}>Prescrito: {prescribedWeight} {unit}</Text>
         ) : null}
       </View>
 
       <View style={styles.inputRow}>
-        {QUICK_STEPS.map((delta) => (
+        {handleQuickSteps.map((step) => (
           <Pressable
-            key={delta}
+            key={step.delta}
             accessibilityRole="button"
-            accessibilityLabel={`${delta > 0 ? 'Más' : 'Menos'} ${Math.abs(delta)} ${unit}`}
-            onPress={() => handleQuickStep(delta)}
+            accessibilityLabel={`${step.delta > 0 ? 'Más' : 'Menos'} ${Math.abs(step.delta)} ${unit}`}
+            onPress={step.onPress}
             style={styles.quickButton}
           >
             <Text style={styles.quickButtonText}>
-              {delta > 0 ? '+' : ''}{delta}
+              {step.delta > 0 ? '+' : ''}{step.delta}
             </Text>
           </Pressable>
         ))}
@@ -100,13 +113,15 @@ export function WeightInput({
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.md,
+    padding: spacing.lg,
     gap: spacing.md,
+    ...shadows.sm,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: spacing.xs,
   },
   label: {
     ...typography.label,
@@ -120,18 +135,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: spacing.sm,
+    marginBottom: spacing.xs,
   },
   quickButton: {
-    width: 48,
-    height: 36,
-    borderRadius: radius.sm,
+    width: 56,
+    height: 44,
+    borderRadius: radius.md,
     backgroundColor: colors.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
+    ...shadows.sm,
   },
   quickButtonText: {
     ...typography.bodyStrong,
     color: colors.text,
+    fontSize: 14,
   },
   mainInput: {
     flexDirection: 'row',
@@ -140,17 +158,18 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   textInput: {
-    ...typography.metricLG,
+    ...typography.heroMetric,
     color: colors.text,
     backgroundColor: colors.surfaceRaised,
     borderRadius: radius.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    minWidth: 120,
+    minWidth: 140,
     textAlign: 'center',
   },
   unit: {
-    ...typography.body,
+    ...typography.bodyStrong,
     color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
 });

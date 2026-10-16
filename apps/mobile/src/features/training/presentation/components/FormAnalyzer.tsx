@@ -7,7 +7,7 @@
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, radius, spacing, typography, shadows } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { texts } from '../../../../shared/i18n/texts';
 
@@ -24,6 +24,12 @@ export type FormAnalyzerProps = {
   metrics: FormMetrics;
   feedback: string | null;
   isActive?: boolean;
+  /** Analyzer confidence 0-1. If below threshold, shows low-confidence state. */
+  confidence?: number;
+  /** Explicit error state from the analyzer pipeline. */
+  isError?: boolean;
+  /** Error message when isError is true. */
+  errorMessage?: string;
 };
 
 function getScoreColor(score: number): string {
@@ -55,29 +61,45 @@ function MetricBar({ label, value }: { label: string; value: number }) {
   );
 }
 
-export function FormAnalyzer({ score, metrics, feedback, isActive = true }: FormAnalyzerProps) {
+export function FormAnalyzer({ score, metrics, feedback, isActive = true, confidence, isError, errorMessage }: FormAnalyzerProps) {
   if (!isActive) return null;
 
   const scoreColor = getScoreColor(score);
   const scoreLabel = getScoreLabel(score);
 
+  // Low confidence threshold - below 0.5 shows low confidence warning
+  const LOW_CONFIDENCE_THRESHOLD = 0.5;
+  const isLowConfidence = confidence !== undefined && confidence < LOW_CONFIDENCE_THRESHOLD;
+
   return (
-    <Card style={styles.container}>
+    <Card variant="premium" style={styles.container}>
+      {isError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{errorMessage ?? t.errorGeneric}</Text>
+        </View>
+      )}
+      {isLowConfidence && !isError && (
+        <View style={styles.lowConfidenceBanner}>
+          <Text style={styles.lowConfidenceText}>{t.lowConfidence}</Text>
+        </View>
+      )}
       <View style={styles.header}>
         <View style={[styles.scoreCircle, { borderColor: scoreColor }]}>
-          <Text style={[styles.scoreNumber, { color: scoreColor }]}>{score}</Text>
+          <Text style={[styles.scoreNumber, { color: scoreColor }]}>{isError || isLowConfidence ? '—' : score}</Text>
         </View>
         <View style={styles.headerText}>
           <Text style={styles.title}>{t.title}</Text>
-          <Text style={[styles.scoreLabel, { color: scoreColor }]}>{scoreLabel}</Text>
+          <Text style={[styles.scoreLabel, { color: scoreColor }]}>{isError || isLowConfidence ? t.statusUnavailable : scoreLabel}</Text>
         </View>
       </View>
 
-      <View style={styles.metrics}>
-        <MetricBar label={t.depthLabel} value={metrics.depth} />
-        <MetricBar label={t.alignmentLabel} value={metrics.alignment} />
-        <MetricBar label={t.tempoLabel} value={metrics.tempo} />
-      </View>
+      {!isError && !isLowConfidence && (
+        <View style={styles.metrics}>
+          <MetricBar label={t.depthLabel} value={metrics.depth} />
+          <MetricBar label={t.alignmentLabel} value={metrics.alignment} />
+          <MetricBar label={t.tempoLabel} value={metrics.tempo} />
+        </View>
+      )}
 
       {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
     </Card>
@@ -86,8 +108,9 @@ export function FormAnalyzer({ score, metrics, feedback, isActive = true }: Form
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.md,
+    padding: spacing.lg,
     gap: spacing.md,
+    ...shadows.sm,
   },
   header: {
     flexDirection: 'row',
@@ -95,15 +118,15 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   scoreCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     borderWidth: 3,
     alignItems: 'center',
     justifyContent: 'center',
   },
   scoreNumber: {
-    ...typography.metricMD,
+    ...typography.heroMetric,
   },
   headerText: {
     flex: 1,
@@ -117,12 +140,12 @@ const styles = StyleSheet.create({
     ...typography.bodyStrong,
   },
   metrics: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   metricRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   metricLabel: {
     ...typography.caption,
@@ -131,7 +154,7 @@ const styles = StyleSheet.create({
   },
   metricBarTrack: {
     flex: 1,
-    height: 6,
+    height: 8,
     backgroundColor: colors.surfaceRaised,
     borderRadius: radius.full,
     overflow: 'hidden',
@@ -141,14 +164,41 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
   },
   metricValue: {
-    ...typography.caption,
+    ...typography.bodyStrong,
     color: colors.text,
-    width: 30,
+    width: 36,
     textAlign: 'right',
   },
   feedback: {
     ...typography.bodySmall,
     color: colors.primary,
     fontStyle: 'italic',
+    marginTop: spacing.xs,
+  },
+  errorBanner: {
+    backgroundColor: `${colors.error}1A`,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  errorText: {
+    ...typography.bodySmall,
+    color: colors.error,
+    textAlign: 'center',
+  },
+  lowConfidenceBanner: {
+    backgroundColor: `${colors.warning}1A`,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.warning,
+  },
+  lowConfidenceText: {
+    ...typography.bodySmall,
+    color: colors.warning,
+    textAlign: 'center',
   },
 });

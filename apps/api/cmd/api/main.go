@@ -255,16 +255,31 @@ func main() {
 		trainingService := trainingapp.NewService(trainingExerciseRepo, trainingWorkoutRepo, trainingProgressRepo, trainingSessionRepo)
 		trainingHandler := userhttp.NewTrainingHandler(trainingService)
 
-		// Register training routes
-		routes.RegisterTrainingRoutes(api, trainingHandler)
-
 		// Wire Membership domain
 		membershipRepo := membershipinfrastructure.NewRepository(db.DB)
 		membershipService := membershipapp.NewService(membershipRepo)
 		membershipHandler := userhttp.NewMembershipHandler(membershipService)
 
+		// Create the membership status reader for the RequireActiveMiddleware
+		statusReader := middleware.NewMembershipStatusReader(membershipService)
+
+		// Register user routes
+		routes.RegisterUserRoutes(api, userHandler)
+
+		// Register training routes
+		routes.RegisterTrainingRoutes(api, trainingHandler, statusReader)
+
+		// Register today routes
+		todayRepo := todayinfrastructure.NewRepository(db.DB)
+		todayService := todayapp.NewService(todayRepo)
+		todayHandler := userhttp.NewTodayHandler(todayService)
+		routes.RegisterTodayRoutes(api, todayHandler, statusReader)
+
 		// Register membership routes
-		routes.RegisterMembershipRoutes(api, membershipHandler)
+		routes.RegisterMembershipRoutes(api, membershipHandler, statusReader)
+
+		// Register training routes
+		routes.RegisterTrainingRoutes(api, trainingHandler, statusReader)
 
 		// Wire Event domain
 		eventRepo := eventinfrastructure.NewRepository(db.DB)
@@ -335,12 +350,6 @@ func main() {
 		routes.RegisterHealthRoutes(api, healthDataHandler)
 
 		// Wire Today domain
-		todayRepo := todayinfrastructure.NewRepository(db.DB)
-		todayService := todayapp.NewService(todayRepo)
-		todayHandler := userhttp.NewTodayHandler(todayService)
-
-		// Register today routes
-		routes.RegisterTodayRoutes(api, todayHandler)
 
 		// Wire Onboarding domain
 		onboardingRepo := onboardinginfrastructure.NewRepository(db.DB)

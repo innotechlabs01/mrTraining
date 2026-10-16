@@ -1,5 +1,5 @@
 name: Athlete Sign In (credentials from e2e/credentials.env)
-appId: com.mrtraining.mobile
+appId: com.innotechlabssas.mrtraining
 tags:
   - mobile
   - auth
@@ -7,16 +7,16 @@ tags:
 - launchApp:
     clearState: true
 - extendedWaitUntil:
-    visible: "Iniciar Sesión|Sign In"
+    visible: "Iniciar sesión|Sign In"
     timeout: 30000
 - tapOn:
-    text: "Correo electrónico|Email"
+    text: "Usuario o correo|Correo electrónico|Email"
 - inputText: ${ATHLETE_EMAIL}
 - tapOn:
     text: "Contraseña|Password"
 - inputText: ${ATHLETE_PASSWORD}
 - tapOn:
-    text: "Iniciar Sesión|Sign In"
+    text: "Iniciar sesión|Sign In"
 - extendedWaitUntil:
     visible: "Hoy|Today"
     timeout: 60000

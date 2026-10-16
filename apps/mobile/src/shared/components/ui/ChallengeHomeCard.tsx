@@ -107,15 +107,15 @@ export function ChallengeHomeCard({ challenge, loading }: Props) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
     marginHorizontal: spacing.lg,
-    marginVertical: spacing.sm,
-    ...shadows.sm,
+    marginVertical: spacing.md,
+    ...shadows.md,
   },
   urgent: {
     borderColor: colors.error,
-    borderWidth: 1,
+    borderWidth: 1.5,
   },
   pressed: {
     opacity: 0.9,
@@ -124,31 +124,32 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.sm,
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
     flex: 1,
-    ...typography.bodyBold,
+    ...typography.h4,
     color: colors.text,
   },
   meta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
     marginTop: spacing.sm,
   },
   exerciseType: {
     ...typography.bodySmall,
     color: colors.primary,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   dot: {
     ...typography.bodySmall,
@@ -162,20 +163,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
   },
   attemptsInfo: {
     alignItems: 'flex-end',
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   attemptsText: {
     ...typography.caption,
     color: colors.textSecondary,
+    fontSize: 12,
   },
   attemptBadge: {
     backgroundColor: colors.primary,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: radius.full,
   },
   attemptBadgeText: {
@@ -184,8 +186,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   skeleton: {
-    height: 120,
+    height: 140,
     backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
   },
 });

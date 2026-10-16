@@ -3,8 +3,8 @@
  * Helps athletes prepare for what's next with a compact card design.
  */
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, typography } from '../../../../shared/theme/tokens';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { colors, radius, spacing, typography, shadows } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { ChevronRightIcon } from '../../../../shared/components/icons';
 import { texts } from '../../../../shared/i18n/texts';
@@ -41,7 +41,9 @@ function ExerciseRow({ exercise, index }: { exercise: UpNextExercise; index: num
           .join(' ');
 
   return (
-    <View style={styles.exerciseRow}>
+    <Pressable
+      style={({ pressed }) => [styles.exerciseRow, pressed && styles.pressed]}
+    >
       <View style={styles.indexBadge}>
         <Text style={styles.indexText}>{index + 1}</Text>
       </View>
@@ -52,7 +54,7 @@ function ExerciseRow({ exercise, index }: { exercise: UpNextExercise; index: num
         <Text style={styles.exerciseDetail}>{detail}</Text>
       </View>
       <ChevronRightIcon size={16} color={colors.textSecondary} />
-    </View>
+    </Pressable>
   );
 }
 
@@ -62,7 +64,7 @@ export function UpNextPreview({ exercises, maxItems = 2 }: UpNextPreviewProps) {
   if (upcoming.length === 0) return null;
 
   return (
-    <Card style={styles.container}>
+    <Card variant="premium" style={styles.container}>
       <Text style={styles.title}>{texts.screens.upNextPreview.title}</Text>
       {upcoming.map((exercise, i) => (
         <ExerciseRow key={`${exercise.name}-${i}`} exercise={exercise} index={i} />
@@ -73,8 +75,9 @@ export function UpNextPreview({ exercises, maxItems = 2 }: UpNextPreviewProps) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.md,
-    gap: spacing.sm,
+    padding: spacing.lg,
+    gap: spacing.md,
+    ...shadows.sm,
   },
   title: {
     ...typography.label,
@@ -84,20 +87,20 @@ const styles = StyleSheet.create({
   exerciseRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.xs,
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
   },
   indexBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceRaised,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   indexText: {
-    ...typography.caption,
-    color: colors.textSecondary,
+    ...typography.bodyStrong,
+    color: colors.primary,
   },
   exerciseInfo: {
     flex: 1,
@@ -111,4 +114,5 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
   },
+  pressed: { opacity: 0.7 },
 });

@@ -5,11 +5,13 @@
  */
 import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, radius, spacing, typography, shadows, layout } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { texts } from '../../../../shared/i18n/texts';
 
 const t = texts.screens.repCounter;
+
+const FORM_THRESHOLD_DEFAULT = 60;
 
 export type RepCounterProps = {
   currentReps: number;
@@ -20,8 +22,6 @@ export type RepCounterProps = {
   onDecrement: () => void;
   isAutoCount?: boolean;
 };
-
-const FORM_THRESHOLD_DEFAULT = 60;
 
 export function RepCounter({
   currentReps,
@@ -42,7 +42,7 @@ export function RepCounter({
   }, [formValid, isAutoCount, onIncrement]);
 
   return (
-    <Card style={styles.container}>
+    <Card variant="premium" style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.label}>{t.label}</Text>
         <View style={[styles.formBadge, formValid ? styles.formValid : styles.formInvalid]}>
@@ -88,72 +88,81 @@ export function RepCounter({
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.md,
-    gap: spacing.sm,
+    padding: spacing.lg,
+    gap: spacing.md,
+    ...shadows.sm,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: spacing.xs,
   },
   label: {
     ...typography.label,
     color: colors.textSecondary,
   },
   formBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
   },
   formValid: {
     backgroundColor: `${colors.success}20`,
+    borderWidth: 1,
+    borderColor: colors.success,
   },
   formInvalid: {
     backgroundColor: `${colors.error}20`,
+    borderWidth: 1,
+    borderColor: colors.error,
   },
   formBadgeText: {
-    ...typography.caption,
+    ...typography.bodyStrong,
     color: colors.text,
   },
   counterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.lg,
+    gap: spacing.xl,
+    marginVertical: spacing.xs,
   },
   button: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: colors.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
+    ...shadows.sm,
   },
   buttonDisabled: {
     opacity: 0.4,
   },
   buttonText: {
-    ...typography.h2,
+    ...typography.heroMetric,
     color: colors.text,
   },
   repsDisplay: {
     alignItems: 'center',
-    minWidth: 80,
+    minWidth: 100,
   },
   repsNumber: {
-    ...typography.metricLG,
+    ...typography.heroMetric,
     color: colors.text,
   },
   repsComplete: {
     color: colors.success,
   },
   repsTarget: {
-    ...typography.body,
+    ...typography.bodyStrong,
     color: colors.textSecondary,
   },
   hint: {
     ...typography.caption,
     color: colors.warning,
     textAlign: 'center',
+    marginTop: spacing.xs,
   },
 });

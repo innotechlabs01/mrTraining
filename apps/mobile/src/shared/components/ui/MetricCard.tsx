@@ -17,7 +17,7 @@ type Props = {
   value: string | number | null;
   unit?: string | undefined;
   tone?: Tone | undefined;
-  size?: 'md' | 'lg' | 'xl' | undefined;
+  size?: 'md' | 'lg' | 'xl' | 'hero' | undefined;
   trend?: Trend | undefined;
   loading?: boolean;
 };
@@ -31,7 +31,8 @@ const TONE_COLOR: Record<Tone, string> = {
 
 /** Big-number display unit — the hero is the numeral, not the label. */
 export function MetricCard({ label, value, unit, tone = 'text', size = 'md', trend, loading = false }: Props) {
-  const metricStyle = (size === 'xl' ? typography.metricXL : size === 'lg' ? typography.metricLG : typography.metricMD) as unknown as TextStyle;
+  const metricStyle = (size === 'hero' ? typography.heroMetric : size === 'xl' ? typography.metricXL : size === 'lg' ? typography.metricLG : typography.metricMD) as unknown as TextStyle;
+  const unitStyle = size === 'hero' ? styles.heroUnit : styles.unit;
   const color = TONE_COLOR[tone];
 
   if (loading) {
@@ -64,7 +65,7 @@ export function MetricCard({ label, value, unit, tone = 'text', size = 'md', tre
         <Text style={[metricStyle, { color }]} numberOfLines={1} adjustsFontSizeToFit>
           {showValue}
         </Text>
-        {unit ? <Text style={styles.unit}>{unit}</Text> : null}
+        {unit ? <Text style={unitStyle}>{unit}</Text> : null}
       </View>
     </Card>
   );
@@ -77,4 +78,5 @@ const styles = StyleSheet.create({
   trendText: { ...typography.caption, color: colors.textSecondary },
   valueRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs },
   unit: { ...typography.bodySmall, color: colors.textSecondary },
+  heroUnit: { ...typography.heroMetricSub, color: colors.textSecondary },
 });

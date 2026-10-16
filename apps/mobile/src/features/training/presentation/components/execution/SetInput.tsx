@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { spacing } from '../../../../../shared/theme/tokens';
+import { spacing, radius, typography, colors, shadows } from '../../../../../shared/theme/tokens';
 import { Input } from '../../../../../shared/components/ui/Input';
 
 type Props = {
@@ -32,4 +32,11 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: spacing.md },
   fillCol: { flex: 1 },
   fixedCol: { width: 84 },
+  input: {
+    height: 56,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceRaised,
+    paddingHorizontal: spacing.lg,
+    ...shadows.sm,
+  },
 });

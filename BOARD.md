@@ -10,7 +10,42 @@
 - [ ] T-012: Exercise video UX (thumbnail → fullscreen modal, 4 states, lazy mount) | design spec `2026-10-13-T-012-exercise-video-ux.md` | implemented + coordinator-fixed wiring bug | needs device validation
 - [ ] T-013 (live bug): set logging 404s | root cause: mobile hit nonexistent `/athletes/sessions/:id/sets` | fixed → `/workouts/:workoutId/sets` (1-based setIndex, sec→duration), complete carries durationSeconds, dead /progress call removed | security loop: 2 IDORs patched server-side | mobile 345/345, go green | needs device E2E
 
+## Done
+- [x] T-015: Mobile app no arranca (iOS Simulator) — `[runtime not ready]: ReferenceError: Property 'layout' doesn't exist`
+  - **FIX APLICADO (dev-react-native, 5 archivos sin commitear)**: `AthleteTodaySummary.tsx` + `layout` import; `tokens.ts` restore `tokens` aggregate; `NutritionScreen`/`ProgressScreen`/`StoreScreen` + `shadows` import. jest 353/353. App lanza en iPhone 17 sim sin `runtime not ready`. Maestro Hoy-tab render verificado (screenshot en state/reports/t015-today-renders.png).
+  - **QA PASS** (worker_done succeeded). **USER GATE: aprobado por @user** → Done
+
+## Review
+- [ ] T-026: Rediseño UI/UX membresía móvil (pantallas profesionales y claras) — IMPLEMENTADO (sin commitear)
+  - `MembershipScreen`, `PaymentScreen`, `MembershipCheckScreen`, `MembershipPurchaseScreen`, `ProfileScreen` (días restantes + vencimiento)
+  - `navigation/Navigation.tsx` (rutas agregadas), `screensTexts.ts` (textos), 5 componentes nuevos
+  - tsc limpio, jest 353/353. **Pendiente QA device real con Maestro** antes de Done.
+  - roles: dev-react-native → qa → code-reviewer → security-hacker → USER GATE
+
 ## In Progress
+- [ ] T-027: Bloqueo de acceso a app hasta membresía activa + flujo de pago MercadoPago
+  - **Architect plan DONE**: `docs/superpowers/plans/T-027-membership-gate-payments.md`
+  - **Hallazgos críticos**: MembershipGate NUNCA bloquea (envelope-parsing bug, fail-open); PaymentScreen usa Polar legacy (no MP); membershipService.ts usa 4 endpoints fantasma (404); Go API YA tiene flujo MP completo sin usar; NO hay backend enforcement en rutas de training; Bold = cero código en apps/api.
+  - **Scope confirmado por @user**: MercadoPago solo.
+  - **Fases**: A (dev-backend: endpoint status + middleware RequireActiveMembership + tests + docs) → B (dev-react-native: gate fail-closed + PaymentScreen a MP + rewire service) → C (qa → code-reviewer → security-hacker) → USER GATE.
+  - **Do NOT touch**: DB schema/migrations, RLS, auth/session/Clerk, PKCE, env secrets, producción.
+  - **Preservar**: T-026 redesign sin commitear en apps/mobile.
+
+
+  - `ProfileScreen.tsx` — muestra días restantes junto al plan (consulta `/athlete/membership` desde frontend)
+  - `navigation/Navigation.tsx` — agregadas rutas `MembershipCheck`, `MembershipPurchase`, `MembershipPlansList` a `RootStackParamList`
+  - `src/shared/i18n/screensTexts.ts` — agregado `eventsMembershipTexts` al spread (claves `membershipScreen.*`, `paymentScreen.*`)
+  - Nuevos componentes: `MembershipHeroCard`, `MembershipStatusBadge`, `MembershipSkeleton`, `NoMembershipState`, `PaymentHistoryList`
+  - **Do NOT touch**: pago Bold/MercadoPago, webhooks, contratos Go API, auth/sesión, RLS, DB.
+  - **QA pendiente** (T-015 QA todavía corriendo, no interferir)
+
+- [ ] T-015: Mobile app no arranca (iOS Simulator)
+  - **ROOT CAUSE (coordinator, reproducido 2026-10-15)**: cambios SIN COMMITEAR en working tree. `apps/mobile/src/features/training/presentation/screens/AthleteTodaySummary.tsx:225` usa `layout.heroPadding` pero importa solo `{ colors, spacing, radius, typography }` → `StyleSheet.create` a nivel módulo evalúa antes de que exista el binding → crash en bootstrap. Segunda regresión: `src/shared/theme/tokens.ts` eliminó `export const tokens = {...}` y `export default tokens`, y `src/features/ai/presentation/screens/AiWorkoutScreen.tsx:7` sigue importando `{ tokens }` (TS2305).
+  - **Evidencia**: `npx expo run:ios` → log Metro: `[React] [runtime not ready]: ReferenceError: Property 'layout' doesn't exist`. Bundle OK (HTTP 200, 15.9MB), jest 353/353 PASS → defecto es de evaluación de módulo, no de tipos ni de bundling.
+  - **HALLAZGO A (separado, no bloquea)**: `npm run typecheck` está ENMASCARADO. `tsconfig.json:9` usa `baseUrl` → error TS5101 y tsc aborta diagnósticos: reporta 1 mensaje y sale 0. Con `--ignoreDeprecations 6.0`: 1570 errores (256 fuera de `__tests__`), incl. `useClerkAuth.ts` (`ClerkUser`, `nav`, `navigate` no definidos), `MediaPipePoseRuntime.ts` (firma `detect` ≠ `PoseRuntime`, mal uso de `TfliteModel`), `StyleSheet.absoluteFillObject`. Decisión pendiente: fix mínimo vs. task aparte de deuda.
+  - **Do NOT touch**: datos mock/API/auth, `docs/Phase.md` y `docs/mobile-app-ui-audit.md` (contienen afirmaciones falsas: `layout` "no bloqueante", `src/theme/field.ts` inexistente, `layout.ts` inexistente).
+  - roles: dev-react-native → qa (device validation obligatoria: Maestro)
+
 - [ ] T-007: Auth flow refactor — single source of truth for session routing | dev+ux-ui complete | qa pending user device test
 
 ## Review

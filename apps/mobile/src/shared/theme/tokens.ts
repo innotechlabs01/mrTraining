@@ -79,6 +79,9 @@ export const typography = {
   metricLG: { fontFamily: fontFamilies.displayBlack, fontSize: 44, lineHeight: 44, letterSpacing: -0.025, fontVariant: ['tabular-nums'] as FontVariant[] },
   metricMD: { fontFamily: fontFamilies.displayBlack, fontSize: 32, lineHeight: 32, letterSpacing: -0.02, fontVariant: ['tabular-nums'] as FontVariant[] },
   metricSM: { fontFamily: fontFamilies.displayBlack, fontSize: 24, lineHeight: 28, letterSpacing: -0.015, fontVariant: ['tabular-nums'] as FontVariant[] },
+  // Premium hero variants
+  heroMetric: { fontFamily: fontFamilies.displayBlack, fontSize: 72, lineHeight: 72, letterSpacing: -0.04, fontVariant: ['tabular-nums'] as FontVariant[] },
+  heroMetricSub: { fontFamily: fontFamilies.bodyMedium, fontSize: 14, lineHeight: 20, letterSpacing: 0.02, textTransform: 'uppercase' as const },
 } as const;
 
 export const spacing = {
@@ -95,19 +98,26 @@ export const radius = {
   sm: 8, // rounded-lg — chips, small containers
   md: 12, // rounded-xl — buttons, inputs
   lg: 16, // rounded-2xl — default cards, lists
-  xl: 24, // rounded-3xl — large media cards
+  xl: 24, // rounded-3xl — large media cards, premium cards
+  xxl: 32, // rounded-4xl — hero cards, dashboard cards
   full: 9999,
 } as const;
 
 export const shadows = {
   sm: { shadowColor: '#000000', shadowOpacity: 0.15, shadowRadius: 8, elevation: 2 },
   md: { shadowColor: '#000000', shadowOpacity: 0.25, shadowRadius: 16, elevation: 6 },
+  lg: { shadowColor: '#000000', shadowOpacity: 0.35, shadowRadius: 24, elevation: 10 },
+  xl: { shadowColor: '#000000', shadowOpacity: 0.4, shadowRadius: 32, elevation: 14 },
   glow: { shadowColor: '#15AAF2', shadowOpacity: 0.3, shadowRadius: 20, elevation: 8 },
+  glowStrong: { shadowColor: '#15AAF2', shadowOpacity: 0.5, shadowRadius: 32, elevation: 16 },
 } as const;
 
+/** Layout tokens — local definition for Hermes module shape stability.
+ * Values inlined to match layout.ts source of truth. */
 export const layout = {
-  pagePadding: spacing.lg,
-  cardPadding: spacing.md,
+  pagePadding: 24, // spacing.lg
+  cardPadding: 16, // spacing.md
+  heroPadding: 32, // spacing.xl
   touchTarget: 48,
   headerHeight: 56,
   navDockRaise: 20, // FAB center raise (-mt)
@@ -119,5 +129,16 @@ export const skeleton = {
   radius: radius.sm,
 } as const;
 
-export const tokens = { colors, typography, spacing, radius, shadows, layout, fontFamilies, skeleton };
+/** Aggregate export for backward compatibility with existing imports. */
+export const tokens = {
+  colors,
+  typography,
+  spacing,
+  radius,
+  shadows,
+  layout,
+  fontFamilies,
+  skeleton,
+} as const;
+
 export default tokens;

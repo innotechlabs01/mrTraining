@@ -360,6 +360,7 @@ Error codes are stable, machine-readable strings that clients can switch on:
 | `VALIDATION_FAILED` | Request body or query parameters are structurally invalid |
 | `UNAUTHENTICATED` | No valid authentication credentials provided |
 | `FORBIDDEN` | Authenticated but insufficient permissions |
+| `MEMBERSHIP_REQUIRED` | Membership required — the athlete does not have an active or valid membership. See `GET /api/v1/athletes/membership/status` for details. |
 | `NOT_FOUND` | Requested resource does not exist or is outside the user's scope |
 | `CONFLICT` | Request conflicts with the current state of the resource |
 | `RATE_LIMITED` | Too many requests; retry after the specified delay |
@@ -1505,6 +1506,40 @@ Response: `BlogPost { id, title, content, slug, created_at }`.
 #### Polar Checkout (athlete)
 ```text
 POST   /api/v1/polar/checkout         # RequireAthlete — { athleteID, membershipID } → { url? }
+```
+
+#### Membership Status (athlete)
+```text
+GET    /api/v1/athletes/membership/status  # RequireActiveMembership — always 200
+```
+
+Returns the athlete's membership gate status. **Always returns `200` even when no membership exists** (never 404). Response payload:
+
+```json
+{
+  "hasActiveMembership": true,
+  "status": "active|trial|past_due|expired|cancelled|none",
+  "isInGracePeriod": false,
+  "daysRemaining": 12,
+  "expiresAt": "2026-11-15",
+  "membership": {
+    "id": "...",
+    "planName": "...",
+    "planPrice": 150000,
+    "billingPeriod": "monthly",
+    "currentPeriodStart": "...",
+    "currentPeriodEnd": "...",
+    "paymentDueDate": "...",
+    "athleteId": "...",
+    "coachId": "..."
+  },
+  "membershipId": "..."
+}
+```
+
+- `membership: null` when none. `hasActiveMembership = status ∈ {active, trial, past_due}`.
+- Source of truth: `GetMembership` + `RecalculateStatus()`. Athlete identity comes from the auth token (no path param).
+- Status mapping: `active`, `trial`, `past_due` → `hasActiveMembership = true`; `expired`, `cancelled`, `none` → `hasActiveMembership = false`.
 ```
 
 #### Import (athlete)

@@ -8,14 +8,15 @@
  *   - Activity rings + streak pill
  */
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, spacing, radius, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { Badge } from '../../../../shared/components/ui/Badge';
 import { InfoIcon } from '../../../../shared/components/icons';
 import { ActivityRings } from '../../../../shared/components/fitness/ActivityRings';
 import { StreakBadge } from '../../../../shared/components/gamification/StreakBadge';
+import { MetricCard } from '../../../../shared/components/ui/MetricCard';
 import { texts } from '../../../../shared/i18n/texts';
 
 const t = texts.screens.athleteTodaySummary;
@@ -95,7 +96,7 @@ export function AthleteTodaySummary({ athleteId, move, exercise, recovery, strea
   // Fallback skeleton while health data loads — the hero must never disappear.
   if (!health) {
     return (
-      <Card style={styles.container}>
+      <Card variant="premium" style={styles.container}>
         <View style={styles.topRow}>
           <Text style={styles.overline}>{t.overline}</Text>
           {typeof streak === 'number' && <StreakBadge count={streak} inactive={streakInactive} />}
@@ -152,8 +153,12 @@ export function AthleteTodaySummary({ athleteId, move, exercise, recovery, strea
     : readinessScore >= 60 ? t.badgeModerate
     : t.badgeRest;
 
+  // Determine metric size based on screen width to avoid overflow on compact screens
+  const { width: screenWidth } = Dimensions.get('window');
+  const readinessMetricSize = screenWidth < 360 ? 'xl' : 'hero';
+
   return (
-    <Card style={styles.container}>
+    <Card variant="premium" style={styles.container}>
       {/* Top row: overline + streak */}
       <View style={styles.topRow}>
         <Text style={styles.overline}>{t.overline}</Text>
@@ -163,14 +168,16 @@ export function AthleteTodaySummary({ athleteId, move, exercise, recovery, strea
       {/* Scoreboard: big numeral + rings */}
       <View style={styles.heroRow}>
         <View style={styles.scoreCol}>
-          <View style={styles.scoreRow}>
-            <Text style={styles.score}>{readinessScore ?? '—'}</Text>
-            <Text style={styles.scoreUnit}>/100</Text>
-            <Badge text={readinessLabel} tone={readinessTone} />
-          </View>
+          <MetricCard
+            size={readinessMetricSize}
+            label={t.readinessLabel}
+            value={readinessScore}
+            unit="/100"
+            tone={readinessTone === 'success' ? 'success' : readinessTone === 'warning' ? 'warning' : readinessTone === 'error' ? 'error' : 'text'}
+          />
           <Text style={styles.scoreHint}>{t.scoreHint}</Text>
         </View>
-        <ActivityRings move={move} exercise={exercise} recovery={recovery} size={120} />
+        <ActivityRings move={move} exercise={exercise} recovery={recovery} size={140} />
       </View>
 
       {/* Mini trends */}
@@ -215,16 +222,14 @@ export function AthleteTodaySummary({ athleteId, move, exercise, recovery, strea
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, gap: spacing.md },
+  container: { padding: layout.heroPadding, gap: spacing.lg },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   overline: { ...typography.overline, color: colors.textSecondary },
-  heroRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
-  scoreCol: { flex: 1, gap: spacing.xs },
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xl },
+  scoreCol: { flex: 1, gap: spacing.sm },
   scoreRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: spacing.xs },
-  score: { ...typography.metricXL, color: colors.text },
-  scoreUnit: { ...typography.bodySmall, color: colors.textSecondary },
   scoreHint: { ...typography.caption, color: colors.textSecondary },
-  trendsRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.xs },
+  trendsRow: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.md },
   trendItem: { flex: 1 },
   trendLabel: { ...typography.caption, color: colors.textSecondary, fontSize: 10, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
   trendValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
@@ -233,10 +238,10 @@ const styles = StyleSheet.create({
   recommendation: {
     backgroundColor: `${colors.primary}14`,
     borderRadius: radius.sm,
-    padding: spacing.sm,
+    padding: spacing.md,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.sm,
   },
-  recommendationText: { ...typography.caption, color: colors.primary, lineHeight: 18, flex: 1 },
+  recommendationText: { ...typography.caption, color: colors.primary, lineHeight: 20, flex: 1 },
 });

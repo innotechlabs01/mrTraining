@@ -44,3 +44,27 @@ type PaymentResponse struct {
 	PaidAt       string  `json:"paid_at,omitempty"`
 	CreatedAt    string  `json:"created_at"`
 }
+
+// MembershipStatusResponse represents the gate-status payload for the membership status endpoint.
+type MembershipStatusResponse struct {
+	HasActiveMembership bool                  `json:"hasActiveMembership"`
+	Status              string                `json:"status"`
+	IsInGracePeriod     bool                  `json:"isInGracePeriod"`
+	DaysRemaining       int                   `json:"daysRemaining"`
+	ExpiresAt           string                `json:"expiresAt"`
+	Membership          *MembershipSummary    `json:"membership"`
+	MembershipID        string                `json:"membershipId"`
+}
+
+// MembershipSummary is a summary of membership details shown in the status response.
+type MembershipSummary struct {
+	ID                 string  `json:"id"`
+	PlanName           string  `json:"planName"`
+	PlanPrice          float64 `json:"planPrice"`
+	BillingPeriod      string  `json:"billingPeriod"`
+	CurrentPeriodStart string  `json:"currentPeriodStart"`
+	CurrentPeriodEnd   string  `json:"currentPeriodEnd"`
+	PaymentDueDate     string  `json:"paymentDueDate"`
+	AthleteID          string  `json:"athleteId"`
+	CoachID            string  `json:"coachId"`
+}

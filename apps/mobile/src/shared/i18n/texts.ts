@@ -78,6 +78,7 @@ export const texts = {
     uploadFailed: 'No se pudo subir el video',
     recordingFailed: 'No se pudo grabar el video',
     startFailed: 'No se pudo iniciar la grabación',
+    errorGeneric: 'Error en el análisis',
   },
   challenge: {
     activeChallenge: 'Desafio Activo',

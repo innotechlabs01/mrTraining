@@ -40,7 +40,7 @@ const FavoriteRow = React.memo(function FavoriteRow({
       title={item.title}
       subtitle={itemDescription(item)}
       leadingIcon={<StarIcon size={20} color={colors.textSecondary} />}
-      trailing={isPlayable(item) ? <PlayIcon size={18} color={colors.primary} /> : undefined}
+      trailing={isPlayable(item) ? <PlayIcon size={18} color={colors.primarySoft} /> : undefined}
       last={last}
     />
   );
@@ -140,8 +140,8 @@ const styles = StyleSheet.create({
   headerWrap: { paddingHorizontal: layout.pagePadding },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   iconButton: {
-    width: 36,
-    height: 36,
+    width: 48,
+    height: 48,
     borderRadius: radius.full,
     backgroundColor: colors.surfaceRaised,
     borderWidth: StyleSheet.hairlineWidth,

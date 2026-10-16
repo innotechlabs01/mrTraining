@@ -198,6 +198,9 @@ export const trainingScreensTexts = {
     scoreGood: 'Buena',
     scoreOk: 'Aceptable',
     scoreBad: 'Mejorar',
+    lowConfidence: 'Confianza baja — datos insuficientes',
+    statusUnavailable: 'No disponible',
+    errorGeneric: 'Error en el análisis',
   },
   repCounter: {
     label: 'REPS',

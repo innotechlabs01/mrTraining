@@ -5,9 +5,9 @@
  * visibility, AI flag, and navigation are owned by the parent screen.
  */
 import React from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing } from '../../../../../shared/theme/tokens';
+import { colors, spacing, radius, shadows, typography } from '../../../../../shared/theme/tokens';
 import { texts } from '../../../../../shared/i18n/texts';
 import { CloseIcon } from '../../../../../shared/components/icons';
 import { ExerciseVideoPlayer } from '../../../../../shared/components/video/ExerciseVideoPlayer';
@@ -45,7 +45,19 @@ export function ExerciseDemoModal({
         >
           <CloseIcon size={24} color={colors.text} />
         </Pressable>
-        <View>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{exerciseName}</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={texts.common.close}
+              onPress={onClose}
+              style={styles.close}
+              hitSlop={8}
+            >
+              <CloseIcon size={24} color={colors.text} />
+            </Pressable>
+          </View>
           <ExerciseVideoPlayer
             videoUrl={videoUrl}
             videoId={exerciseId}
@@ -63,15 +75,33 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.base,
-    justifyContent: 'center',
-    padding: spacing.lg,
+  },
+  modalContent: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    overflow: 'hidden',
+    ...shadows.xl,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    ...typography.h3,
+    color: colors.text,
+    flex: 1,
   },
   close: {
-    alignSelf: 'flex-end',
-    minHeight: 44,
-    minWidth: 44,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
   },
 });

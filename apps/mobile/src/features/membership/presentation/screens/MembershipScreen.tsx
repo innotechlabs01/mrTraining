@@ -1,29 +1,26 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
   Alert,
-  Linking,
   AppState,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, layout, radius, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { AlertBanner } from '../../../../shared/components/ui/AlertBanner';
 import { showToast } from '../../../../shared/components/ui/Toast';
-import { ListCard } from '../../../../shared/components/ui/ListCard';
-import { Skeleton } from '../../../../shared/components/ui/Skeleton';
-import { MembershipIcon, CardIcon } from '../../../../shared/components/icons';
 import { texts } from '../../../../shared/i18n/texts';
-
-import { getStatusLabel, formatDate } from './membershipHelpers';
+import { MembershipSkeleton } from '../components/MembershipSkeleton';
+import { NoMembershipState } from '../components/NoMembershipState';
+import { MembershipHeroCard } from '../components/MembershipHeroCard';
+import { PaymentHistoryList } from '../components/PaymentHistoryList';
 
 const t = texts.screens.membershipScreen;
 
@@ -34,18 +31,18 @@ type MembershipResponse = {
     planPrice: number;
     paymentDueDate: string;
     currentPeriodEnd: string;
-    startDate?: string;
     currentPeriodStart?: string;
     status?: string;
     athleteId: string;
     coachId: string;
+    daysRemaining?: number;
   } | null;
   payments?: Array<{
     id: string;
     amount: number;
     date?: string;
-    createdAt?: string;
     paymentDate?: string;
+    createdAt?: string;
     status?: string;
     transactionId?: string;
     reference?: string;
@@ -57,15 +54,46 @@ type MembershipResponse = {
   paymentDueDate?: string;
   currentPeriodEnd?: string;
   currentPeriodStart?: string;
-  athleteId?: string;
-  coachId?: string;
-  id?: string;
+  daysRemaining?: number;
 };
 
+// The Go API (source of truth) serializes the membership DTO in snake_case
+// (plan_name, plan_price, payment_due_date, …). Normalize once at the query
+// boundary so the rest of the screen keeps working with camelCase fields.
+function normalizeMembership(raw: unknown): MembershipResponse['membership'] {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+  const num = (v: unknown): number => (typeof v === 'number' ? v : Number(v) || 0);
+  return {
+    id: str(r.id),
+    planName: str(r.plan_name ?? r.planName),
+    planPrice: num(r.plan_price ?? r.planPrice),
+    paymentDueDate: str(r.payment_due_date ?? r.paymentDueDate),
+    currentPeriodEnd: str(r.current_period_end ?? r.currentPeriodEnd),
+    currentPeriodStart: str(r.current_period_start ?? r.currentPeriodStart),
+    status: str(r.status ?? 'active'),
+    athleteId: str(r.athlete_id ?? r.athleteId),
+    coachId: str(r.coach_id ?? r.coachId),
+  };
+}
 
-
-function formatCurrency(amount: number): string {
-  return `$${Number(amount).toFixed(2)}`;
+function formatDate(dateStr?: string): string {
+  if (!dateStr) return '—';
+  try {
+    // Date-only strings ("YYYY-MM-DD") parse as UTC midnight, shifting the
+    // displayed day in non-UTC timezones. Parse them as local midnight.
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+      ? new Date(`${dateStr}T00:00:00`)
+      : new Date(dateStr);
+    return d.toLocaleDateString('es-ES', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
 }
 
 export function MembershipScreen() {
@@ -73,14 +101,44 @@ export function MembershipScreen() {
   const queryClient = useQueryClient();
   const [isPaying, setIsPaying] = useState(false);
 
-  const { data, isLoading, refetch, isRefetching } = useQuery({
+  const { data, isLoading, refetch, isRefetching } = useQuery<MembershipResponse>({
     queryKey: ['athlete-membership'],
     queryFn: async () => {
       const { data } = await apiClient.get('/athlete/membership');
-      const membership = data?.data?.[0] ?? data?.membership ?? data;
-      return { ...data, membership } as MembershipResponse;
+      // The Go API returns the membership DTO directly (pkg/response.Success
+      // does not wrap). Keep the legacy fallbacks for other shapes, then
+      // normalize snake_case keys into the camelCase shape this screen reads.
+      const raw = (data?.data?.[0] ?? data?.membership ?? data) as unknown;
+      return { ...data, membership: normalizeMembership(raw) } as MembershipResponse;
     },
     staleTime: 2 * 60 * 1000,
+  });
+
+  // Payment history: the Go API exposes it at GET /memberships/:id/payments
+  // (IDOR-safe — the handler derives records from the authenticated user).
+  const membershipId = data?.membership?.id ?? null;
+  const { data: paymentsData } = useQuery<NonNullable<MembershipResponse['payments']>>({
+    queryKey: ['athlete-membership-payments', membershipId],
+    enabled: !!membershipId,
+    queryFn: async () => {
+      const { data } = await apiClient.get(`/athlete/membership/${membershipId}/payments`);
+      const arr: Array<Record<string, unknown>> = Array.isArray(data)
+        ? (data as Array<Record<string, unknown>>)
+        : ((data?.data as Array<Record<string, unknown>>) ?? []);
+      return arr.map((p): NonNullable<MembershipResponse['payments']>[number] => {
+        const item: NonNullable<MembershipResponse['payments']>[number] = {
+          id: String(p.id ?? ''),
+          amount: Number(p.amount ?? 0),
+        };
+        const paymentDate =
+          typeof p.paid_at === 'string' ? p.paid_at : typeof p.created_at === 'string' ? p.created_at : undefined;
+        if (paymentDate !== undefined) item.paymentDate = paymentDate;
+        if (typeof p.created_at === 'string') item.createdAt = p.created_at;
+        if (typeof p.status === 'string') item.status = p.status;
+        if (typeof p.polar_order_id === 'string') item.transactionId = p.polar_order_id;
+        return item;
+      });
+    },
   });
 
   const handleRefresh = useCallback(() => {
@@ -96,18 +154,7 @@ export function MembershipScreen() {
     return () => sub.remove();
   }, [queryClient]);
 
-  const rawMembership = data?.membership ?? null;
-  const effectivePlanName = rawMembership?.planName ?? data?.planName ?? null;
-  const effectivePlanPrice = rawMembership?.planPrice ?? data?.planPrice ?? null;
-  const effectiveStatus = (rawMembership?.status ?? data?.status ?? 'active') as string;
-  const effectiveDueDate = rawMembership?.paymentDueDate ?? data?.paymentDueDate ?? null;
-  const payments = data?.payments ?? [];
-  const isPayable = data?.isPayable ?? (effectiveStatus === 'grace_period' || effectiveStatus === 'suspended');
-  const hasMembership = !!effectivePlanName || !!rawMembership;
-
-  const isExpiring = effectiveStatus === 'grace_period' || effectiveStatus === 'grace';
-
-  const handlePay = async () => {
+  const handlePay = useCallback(async () => {
     setIsPaying(true);
     try {
       const { createMembershipPreference } = await import('../../membershipPayment');
@@ -116,7 +163,6 @@ export function MembershipScreen() {
         const WebBrowser = await import('expo-web-browser');
         await WebBrowser.openBrowserAsync(res.initPoint);
         await WebBrowser.dismissBrowser();
-        // Poll: refetch after the browser flow so the updated period shows.
         await refetch();
         showToast('success', t.checkoutSuccessTitle, t.checkoutSuccessBody);
       } else {
@@ -129,25 +175,54 @@ export function MembershipScreen() {
     } finally {
       setIsPaying(false);
     }
-  };
+  }, [refetch]);
+
+  const rawMembership = data?.membership ?? null;
+  const effectivePlanName = rawMembership?.planName ?? data?.planName ?? null;
+  const effectivePlanPrice = rawMembership?.planPrice ?? data?.planPrice ?? null;
+  const effectiveStatus = (rawMembership?.status ?? data?.status ?? 'active') as string;
+  const effectiveDueDate = rawMembership?.paymentDueDate ?? data?.paymentDueDate ?? null;
+  const effectiveCurrentPeriodStart =
+    rawMembership?.currentPeriodStart ?? data?.currentPeriodStart ?? null;
+  const effectiveCurrentPeriodEnd =
+    rawMembership?.currentPeriodEnd ?? data?.currentPeriodEnd ?? null;
+  // Days until the period ends (client-side — the API does not send this).
+  const daysRemaining = (() => {
+    if (rawMembership?.daysRemaining != null) return rawMembership.daysRemaining;
+    if (!effectiveCurrentPeriodEnd) return data?.daysRemaining ?? null;
+    const end = new Date(effectiveCurrentPeriodEnd);
+    if (Number.isNaN(end.getTime())) return null;
+    return Math.ceil((end.getTime() - Date.now()) / 86_400_000);
+  })();
+  const payments = paymentsData ?? data?.payments ?? [];
+  // Payable when the Go API says the membership is past_due / expired (the
+  // domain recalculates: payment date passed ⇒ expired) or when the payment
+  // due date is in the past, regardless of the reported status.
+  const PAYABLE_STATUSES = ['past_due', 'expired', 'grace_period', 'grace', 'suspended'];
+  const dueDatePassed = (() => {
+    if (!effectiveDueDate) return false;
+    const due = new Date(effectiveDueDate);
+    return !Number.isNaN(due.getTime()) && due.getTime() < Date.now();
+  })();
+  const isPayable =
+    data?.isPayable ?? (PAYABLE_STATUSES.includes(effectiveStatus) || dueDatePassed);
+  const hasMembership = !!effectivePlanName || !!rawMembership;
+  const isExpiring = effectiveStatus === 'grace_period' || effectiveStatus === 'grace';
 
   if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.content}>
-          <ScreenHeader title={t.planTitle} onBack={() => navigation.goBack()} />
-          <Skeleton.List rows={3} />
-        </View>
-      </SafeAreaView>
-    );
+    return <MembershipSkeleton />;
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={colors.primary} />
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
         }
         showsVerticalScrollIndicator={false}
       >
@@ -164,75 +239,43 @@ export function MembershipScreen() {
         )}
 
         {!hasMembership ? (
-          <ListCard
-            title="Sin membresía"
-            subtitle="Tu entrenador va a asignarte un plan. Contactá a tu entrenador para activar tu membresía."
-            leadingIcon={<MembershipIcon size={20} color={colors.textSecondary} />}
-          />
+          <NoMembershipState onPayPress={handlePay} />
         ) : (
-          <View style={styles.heroCard}>
-            <Text style={styles.planName}>{effectivePlanName}</Text>
-            {effectivePlanPrice != null && (
-              <Text style={styles.planPrice}>{formatCurrency(effectivePlanPrice)}/mes</Text>
-            )}
-            <Text style={styles.statusLabel}>Estado: {getStatusLabel(effectiveStatus)}</Text>
-            <Text style={styles.dateText}>
-              {t.periodPrefix}{formatDate(data?.currentPeriodStart)}{t.periodSep}{formatDate(effectiveDueDate ?? undefined)}
-            </Text>
-            {effectiveDueDate && <Text style={styles.dateText}>{t.duePrefix}{formatDate(effectiveDueDate)}</Text>}
-          </View>
+          <MembershipHeroCard
+            planName={effectivePlanName ?? ''}
+            planPrice={effectivePlanPrice}
+            status={effectiveStatus}
+            periodStart={effectiveCurrentPeriodStart}
+            periodEnd={effectiveCurrentPeriodEnd}
+            dueDate={effectiveDueDate}
+            daysRemaining={daysRemaining}
+          />
         )}
 
-        {/* Payment history */}
         <Text style={styles.sectionEyebrow}>{t.historyTitle}</Text>
-        {payments.length === 0 ? (
-          <ListCard
-            title={t.noPayments}
-            leadingIcon={<CardIcon size={20} color={colors.textSecondary} />}
-          />
-        ) : (
-          <View style={styles.paymentsList}>
-            {payments.map((p) => {
-              const payDate = p.date ?? p.paymentDate ?? p.createdAt ?? '';
-              const txn = p.transactionId ?? p.reference ?? p.id ?? '';
-              const truncatedTxn = txn.length > 12 ? `${txn.slice(0, 12)}…` : txn;
-              return (
-                <ListCard
-                  key={p.id}
-                  title={`${formatCurrency(p.amount)} · ${formatDate(payDate)}`}
-                  subtitle={truncatedTxn || undefined}
-                  leadingIcon={<CardIcon size={20} color={colors.textSecondary} />}
-                />
-              );
-            })}
-          </View>
-        )}
+        <PaymentHistoryList payments={payments} />
 
         <PrimaryButton
-          label={isPayable ? t.payNow : `${t.paidUp}${formatDate(effectiveDueDate ?? undefined)}`}
+          label={isPayable ? t.payNow : `${t.paidUp} ${formatDate(effectiveDueDate ?? undefined)}`}
           onPress={handlePay}
           disabled={!isPayable || isPaying}
-        />      </ScrollView>
+          loading={isPaying}
+        />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  content: { flex: 1, padding: layout.pagePadding },
-  scrollContent: { padding: layout.pagePadding, paddingBottom: 40, gap: spacing.md },
-  heroCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    padding: spacing.md,
-    gap: spacing.xs,
+  scrollContent: {
+    padding: layout.pagePadding,
+    paddingBottom: spacing.lg * 2,
+    gap: spacing.md,
   },
-  planName: { ...typography.h3, color: colors.text },
-  planPrice: { ...typography.title, color: colors.primary, marginTop: 2 },
-  statusLabel: { ...typography.caption, color: colors.textSecondary },
-  dateText: { ...typography.caption, color: colors.textSecondary },
-  sectionEyebrow: { ...typography.overline, color: colors.textSecondary, marginTop: spacing.sm },
-  paymentsList: { gap: spacing.sm },
+  sectionEyebrow: {
+    ...typography.overline,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+  },
 });

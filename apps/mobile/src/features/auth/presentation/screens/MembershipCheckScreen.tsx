@@ -1,227 +1,221 @@
-import { useEffect, useState } from 'react';
-import { useNavigation } from '@react-navigation/native';
-import { View, ActivityIndicator, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { showToast } from '../../../../shared/components/ui/Toast';
-import { useClerkAuth } from '../../hooks/useClerkAuth';
-import { colors, radius, spacing } from '../../../../shared/theme/tokens';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { colors, layout, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
-import { getMembershipStatus, getAvailablePlans } from '../../services/membershipService';
+import { ListCard } from '../../../../shared/components/ui/ListCard';
+import { AlertBanner } from '../../../../shared/components/ui/AlertBanner';
+import { showToast } from '../../../../shared/components/ui/Toast';
+import { useClerkAuth } from '../../hooks/useClerkAuth';
+import { getMembershipStatus, getAvailablePlans, type Plan } from '../../services/membershipService';
+import { texts } from '../../../../shared/i18n/texts';
 
-interface MembershipCheckScreenProps {
-  navigation: any;
-  route: any;
-}
+const t = texts.screens.membershipScreen;
 
-export function MembershipCheckScreen({ navigation }: MembershipCheckScreenProps) {
-  const { user, isLoading, isAuthenticated, error } = useClerkAuth();
-  const [hasMembership, setHasMembership] = useState<boolean | null>(null);
-  const [plans, setPlans] = useState<Array<{ plan: any; daysRemaining?: number }>>([]);
-  const [statusLoading, setStatusLoading] = useState(true);
-  const navigationRef = useNavigation();
+type MembershipNavProp = NativeStackNavigationProp<RootStackParamList, 'Membership'>;
 
-  // Usar una ref para el navigate
-  const nav = navigationRef;
+type Props = {
+  navigation: MembershipNavProp;
+};
+
+export function MembershipCheckScreen({ navigation }: Props) {
+  const { user, isLoading, isAuthenticated } = useClerkAuth();
+  const [status, setStatus] = useState<'loading' | 'active' | 'no_membership' | 'error'>('loading');
+  const [plans, setPlans] = useState<Plan[]>([]);
 
   useEffect(() => {
-    initCheck();
-  }, [isAuthenticated, user?.id]);
-
-  const initCheck = async () => {
     if (!isAuthenticated || !user?.id) {
-      nav.replace('Auth');
+      navigation.replace('Auth');
       return;
     }
+    checkMembership();
+  }, [isAuthenticated, user?.id, navigation]);
 
-    setStatusLoading(true);
+  const checkMembership = useCallback(async () => {
+    setStatus('loading');
+    if (!user?.id) return;
     try {
-      // 1. Verificar estado actual de membership
-      const status = await getMembershipStatus(user.id);
-      
-      if (status.hasActiveMembership) {
-        // Ya tiene membership activa, ir a la app
-        nav.replace('AthleteTabs', { screen: 'Home' });
-        setStatusLoading(false);
+      const membership = await getMembershipStatus(user.id);
+      if (membership.hasActiveMembership) {
+        setStatus('active');
+        navigation.replace('AthleteTabs');
         return;
       }
-
-      // 2. Si no tiene membership, obtener planes disponibles
-      const availablePlans = await getAvailablePlans(user.id);
-      setPlans(availablePlans.map((plan: any) => ({
-        plan,
-        daysRemaining: status.daysRemaining,
-      })));
-      setStatusLoading(false);
-    } catch (err: any) {
+      const available = await getAvailablePlans(user.id);
+      setPlans(available);
+      setStatus('no_membership');
+    } catch (err: unknown) {
       console.error('Error en MembershipCheck:', err);
-      showToast('error', 'Error', err.message || 'No se pudo verificar tu estado');
-      setStatusLoading(false);
+      setStatus('error');
+      showToast('error', 'Error', err instanceof Error ? err.message : 'No se pudo verificar tu estado');
     }
-  };
+  }, [user?.id, navigation]);
 
-  const handlePlanSelect = async (plan: any) => {
-    nav.navigate('MembershipPurchase', { plan });
-  };
-
-  if (isLoading) {
-    return null; // Aún no termina de cargar el auth
-  }
-
-  if (statusLoading) {
+  if (isLoading || !isAuthenticated) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Verificando tu membresía...</Text>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Verificando tu membresía…</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  if (hasMembership === false && plans.length === 0) {
-    // Error state or no plans found
+  if (status === 'error') {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>
-          No se pudieron cargar los planes. Por favor, inténtalo de nuevo.
-        </Text>
-        <PrimaryButton label="Volver a Sign In" onPress={() => nav.replace('Auth')} />
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <AlertBanner
+            tone="error"
+            title="No se pudo verificar tu membresía"
+            message="Intenta de nuevo en unos momentos."
+            actionLabel="Reintentar"
+            onAction={checkMembership}
+          />
+          <PrimaryButton label="Volver a Sign In" onPress={() => navigation.replace('Auth')} variant="outline" />
+        </View>
+      </SafeAreaView>
     );
   }
 
-  // Si ya tiene membership, no deberíamos estar aquí (handled arriba)
-  // Si no tiene, mostramos los planes
+  if (status === 'active') {
+    return null;
+  }
+
   return (
-    <View style={styles.container}>
-      <ScreenHeader title="Selecciona tu plan" />
-      {plans.length === 0 ? (
-        <Text style={styles.emptyText}>
-          No hay planes disponibles en este momento.
-        </Text>
-      ) : (
-        plans.map((item, index) => {
-          const { plan, daysRemaining } = item;
-          const daysText = daysRemaining !== undefined && daysRemaining > 0
-            ? `(${daysRemaining} días restantes)`
-            : '';
-          
-          return (
-            <TouchableOpacity
-              key={index}
-              style={styles.planItem}
-              onPress={() => handlePlanSelect(plan)}
-            >
-              <View style={styles.planHeader}>
-                <Text style={styles.planName}>{plan.name}</Text>
-                {plan.isPopular && (
-                  <Text style={styles.popularBadge}>Popular</Text>
-                )}
-              </View>
-              <View style={styles.planDetails}>
-                <Text style={styles.planDescription}>{plan.description}</Text>
-                {daysText && (
-                  <Text style={styles.daysText}>{daysText}</Text>
-                )}
-              </View>
-              <View style={styles.planPrice}>
-                <Text style={styles.planPriceAmount}>{plan.price}</Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })
-      )}
-      <PrimaryButton
-        label="Yo ya tengo una membresía"
-        variant="outline"
-        onPress={() => nav.replace('Auth')}
-      />
-    </View>
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <ScreenHeader title={t.planTitle} onBack={() => navigation.replace('Auth')} />
+
+        <View style={styles.heroCard}>
+          <Text style={styles.heroTitle}>Elige tu plan</Text>
+          <Text style={styles.heroSubtitle}>
+            Selecciona el plan que mejor se adapte a tu entrenamiento.
+          </Text>
+        </View>
+
+        {plans.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>{t.unavailable}</Text>
+            <PrimaryButton
+              label="Volver a Sign In"
+              onPress={() => navigation.replace('Auth')}
+              variant="outline"
+            />
+          </View>
+        ) : (
+          <View style={styles.plansList}>
+            {plans.map((plan, index) => {
+              const isPopular = plan.isPopular;
+              return (
+                <ListCard
+                  key={plan.id}
+                  title={plan.name}
+                  subtitle={plan.description}
+                  leadingIcon={
+                    <View style={styles.popularBadge}>
+                      {isPopular && <Text style={styles.popularText}>Popular</Text>}
+                    </View>
+                  }
+                  trailing={
+                    <View style={styles.priceWrap}>
+                      <Text style={styles.price}>{plan.price}</Text>
+                    </View>
+                  }
+                  onPress={() => navigation.navigate('MembershipPurchase', { plan })}
+                  last={index === plans.length - 1}
+                />
+              );
+            })}
+          </View>
+        )}
+
+        <PrimaryButton
+          label="Yo ya tengo una membresía"
+          onPress={() => navigation.replace('Auth')}
+          variant="outline"
+        />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.base,
-    padding: 20,
-    justifyContent: 'center',
-  },
-  loadingContainer: {
+  container: { flex: 1, backgroundColor: colors.base },
+  loading: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.base,
+    gap: spacing.md,
   },
   loadingText: {
+    ...typography.body,
     color: colors.textSecondary,
-    marginTop: spacing.sm,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.base,
-    padding: 20,
+    padding: layout.pagePadding,
+    gap: spacing.lg,
+  },
+  scrollContent: {
+    padding: layout.pagePadding,
+    paddingBottom: spacing.lg * 2,
     gap: spacing.md,
   },
-  errorText: {
-    color: colors.error,
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  planItem: {
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: 12,
-    borderWidth: 1,
+  heroCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    padding: spacing.md,
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  heroTitle: {
+    ...typography.h3,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  heroSubtitle: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  plansList: { gap: spacing.sm },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
   },
   emptyText: {
+    ...typography.body,
     color: colors.textSecondary,
-    fontSize: 16,
     textAlign: 'center',
-    marginTop: 20,
-  },
-  planHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  planName: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '600',
   },
   popularBadge: {
-    backgroundColor: colors.primary,
-    color: colors.onPrimary,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-    borderRadius: 4,
-    fontSize: 10,
-    fontWeight: 'bold',
-    marginLeft: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
-  planDetails: {
-    marginBottom: spacing.sm,
-  },
-  planDescription: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    marginBottom: spacing.xs,
-  },
-  daysText: {
-    color: colors.success,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  planPrice: {
-    marginTop: 'auto',
-  },
-  planPriceAmount: {
+  popularText: {
+    ...typography.caption,
     color: colors.primary,
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
+  },
+  priceWrap: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.xs,
+  },
+  price: {
+    ...typography.bodyBold,
+    color: colors.primary,
+    fontWeight: '700',
   },
 });

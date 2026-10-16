@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { colors, fontFamilies } from '../../theme/tokens';
+import { colors, fontFamilies, spacing } from '../../theme/tokens';
 
 type Props = {
   duration: number; // seconds
@@ -9,7 +9,7 @@ type Props = {
   size?: number;
 };
 
-export function RestTimer({ duration, onComplete, size = 160 }: Props) {
+export function RestTimer({ duration, onComplete, size = 200 }: Props) {
   const [remaining, setRemaining] = useState(duration);
   const progress = remaining / duration;
 
@@ -67,14 +67,14 @@ const styles = StyleSheet.create({
   time: {
     position: 'absolute',
     fontFamily: fontFamilies.displayBlack,
-    fontSize: 44,
+    fontSize: 56,
     color: colors.text,
   },
   label: {
     position: 'absolute',
     bottom: '30%',
     fontFamily: fontFamilies.heading,
-    fontSize: 10,
+    fontSize: 12,
     color: colors.textSecondary,
     letterSpacing: 2,
   },

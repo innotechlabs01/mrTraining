@@ -78,6 +78,9 @@ export type RootStackParamList = {
   InviteAccept: { code: string } | undefined;
   AthleteTabs: undefined;
   Membership: undefined;
+  MembershipCheck: { plan?: { id: string; name: string; price: string } } | undefined;
+  MembershipPurchase: { plan?: { id: string; name: string; price: string } } | undefined;
+  MembershipPlansList: undefined;
   Store: undefined;
   WorkoutDetail: { workoutId: string };
   WorkoutExecution: { sessionId: string; workoutId: string };

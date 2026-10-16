@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, typography } from '../../../../../shared/theme/tokens';
+import { colors, spacing, typography, shadows, radius } from '../../../../../shared/theme/tokens';
 import { RestTimer } from '../../../../../shared/components/fitness/RestTimer';
 
 type Props = {
@@ -14,7 +14,7 @@ type Props = {
 export function RestOverlay({ secondsLeft, skipLabel, onComplete, onSkip }: Props) {
   return (
     <View style={styles.overlay}>
-      <RestTimer duration={secondsLeft} onComplete={onComplete} />
+      <RestTimer duration={secondsLeft} onComplete={onComplete} size={180} />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={skipLabel}
@@ -37,14 +37,15 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   skip: {
-    minHeight: 44,
-    minWidth: 44,
+    minHeight: 48,
+    minWidth: 48,
     paddingHorizontal: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.textSecondary,
+    ...shadows.sm,
   },
   skipLabel: {
     ...typography.bodyStrong,

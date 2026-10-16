@@ -141,8 +141,8 @@ const styles = StyleSheet.create({
   headerWrap: { paddingHorizontal: layout.pagePadding },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   iconButton: {
-    width: 36,
-    height: 36,
+    width: 48,
+    height: 48,
     borderRadius: radius.full,
     backgroundColor: colors.surfaceRaised,
     borderWidth: StyleSheet.hairlineWidth,
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   pill: {
-    height: 36,
+    height: 48,
     borderRadius: radius.full,
     paddingHorizontal: 16,
     alignItems: 'center',

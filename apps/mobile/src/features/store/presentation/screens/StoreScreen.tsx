@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { listStore, type StoreProduct } from '../../storeService';
 import { useCart } from '../../application/cartStore';
-import { colors, layout, radius, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, radius, shadows, spacing, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
@@ -202,6 +202,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    padding: layout.heroPadding,
+    ...shadows.xl,
+    variant: 'premium',
     overflow: 'hidden',
   },
   imageArea: {
@@ -224,8 +227,8 @@ const styles = StyleSheet.create({
   stepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xs },
   stepperQty: { ...typography.bodyStrong, color: colors.text, minWidth: 24, textAlign: 'center' },
   stepBtn: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceRaised,
     borderWidth: StyleSheet.hairlineWidth,

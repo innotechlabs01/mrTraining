@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -111,6 +112,78 @@ func (h *MembershipHandler) RenewMembership(c *fiber.Ctx) error {
 	}
 
 	return appresponse.Success(c, fiber.Map{"message": "membership renewed"})
+}
+
+// GetMembershipStatus handles GET /api/v1/athletes/membership/status.
+// Returns the athlete's membership gate status. Always returns 200 with the
+// normalized gate payload, even when no membership exists.
+func (h *MembershipHandler) GetMembershipStatus(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	m, err := h.service.GetMembership(c.Context(), userID)
+	if err != nil {
+		// If no membership found (NotFound), still return 200 with a null
+		// membership (never 404). Any other error is surfaced as-is.
+		if appErr, ok := err.(*errors.AppError); ok && appErr.Status == fiber.StatusNotFound {
+			return appresponse.Success(c, dto.MembershipStatusResponse{
+				HasActiveMembership: false,
+				Status:              "none",
+				IsInGracePeriod:     false,
+				DaysRemaining:       0,
+				ExpiresAt:           "",
+				Membership:          nil,
+				MembershipID:        "",
+			})
+		}
+		return h.handleError(c, err)
+	}
+
+	// Normalize the status
+	// Whitelist: only these statuses are considered active
+	hasActiveMembership := m.Status == "active" || m.Status == "trial" || m.Status == "past_due"
+
+	response := dto.MembershipStatusResponse{
+		HasActiveMembership: hasActiveMembership,
+		Status:              m.Status,
+		IsInGracePeriod:     m.GracePeriodDays > 0,
+		DaysRemaining:       calculateDaysRemaining(m),
+		ExpiresAt:           m.CurrentPeriodEnd,
+		Membership:          &dto.MembershipSummary{},
+		MembershipID:        m.ID,
+	}
+
+	if m != nil {
+		response.Membership = &dto.MembershipSummary{
+			ID:                 m.ID,
+			PlanName:           m.PlanName,
+			PlanPrice:          m.PlanPrice,
+			BillingPeriod:      m.BillingPeriod,
+			CurrentPeriodStart: m.CurrentPeriodStart,
+			CurrentPeriodEnd:   m.CurrentPeriodEnd,
+			PaymentDueDate:     m.PaymentDueDate,
+			AthleteID:          m.AthleteID,
+			CoachID:            m.CoachID,
+		}
+	}
+
+	return appresponse.Success(c, response)
+}
+
+// calculateDaysRemaining calculates the number of days remaining until the period end.
+func calculateDaysRemaining(m *membershipdomain.Membership) int {
+	periodEnd, err := time.Parse("2006-01-02", m.CurrentPeriodEnd)
+	if err != nil {
+		return 0
+	}
+	now := time.Now().UTC()
+	days := int(periodEnd.Sub(now).Hours() / 24)
+	if days < 0 {
+		return 0
+	}
+	return days
 }
 
 // GetPaymentHistory handles GET /memberships/:id/payments.

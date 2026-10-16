@@ -566,3 +566,12 @@ export function PencilIcon({ size = S, color = DefaultColor }: IconProps) {
     </Svg>
   );
 }
+
+export function TicketIcon({ size = S, color = DefaultColor }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="6" width="16" height="12" rx="2" stroke={color} strokeWidth={2} />
+      <Path d="M14.5 8v8" stroke={color} strokeWidth={2} strokeDasharray="2 3" strokeLinecap="round" />
+    </Svg>
+  );
+}

@@ -5,7 +5,7 @@
  * child screens (PersonalData / TrainingPreferences / EmergencyContact).
  * Container owns the profile query, link navigation and sign out.
  */
-import React from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, type CompositeNavigationProp } from '@react-navigation/native';
@@ -32,6 +32,7 @@ import { ProfileHeader } from './ProfileHeader';
 import { ProfileMenu } from './ProfileMenu';
 import { unregisterPushToken } from '../../../../infrastructure/notifications/push';
 import { profileScheduleRaw, scheduleSummary, modalityLabel, useAthleteProfile } from '../../application/useAthleteProfile';
+import { getMembershipStatus } from '../../services/membershipService';
 import { texts } from '../../../../shared/i18n/texts';
 
 const t = texts.screens.profileScreen;
@@ -46,6 +47,14 @@ export function ProfileScreen() {
   const { signOut } = useAuth();
   const { user } = useUser();
   const { data: profile } = useAthleteProfile();
+  const [membershipDays, setMembershipDays] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    getMembershipStatus(user.id).then((membership) => {
+      setMembershipDays(membership.daysRemaining ?? null);
+    }).catch(() => {});
+  }, [user?.id]);
 
   const rootNav = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
   const openMembership = () => rootNav?.navigate('Membership');
@@ -119,27 +128,27 @@ export function ProfileScreen() {
               {
                 key: 'personal',
                 label: t.personalInfoLabel,
-                icon: <UserIcon size={18} color={colors.primary} />,
+                icon: <UserIcon size={18} color={colors.primarySoft} />,
                 onPress: openPersonalData,
               },
               {
                 key: 'modality',
                 label: t.modalityLabel,
-                icon: <BarbellIcon size={18} color={colors.primary} />,
+                icon: <BarbellIcon size={18} color={colors.primarySoft} />,
                 value: profile ? modalityLabel(profile.modality ?? profile.service_type ?? profile.serviceType) : '—',
                 onPress: openTrainingPreferences,
               },
               {
                 key: 'schedule',
                 label: t.scheduleLabel,
-                icon: <ClockIcon size={18} color={colors.primary} />,
+                icon: <ClockIcon size={18} color={colors.primarySoft} />,
                 value: profile ? scheduleSummary(schedule.days, schedule.time) : '—',
                 onPress: openTrainingPreferences,
               },
               {
                 key: 'emergency',
                 label: t.emergencyLabel,
-                icon: <HeartPulseIcon size={18} color={colors.primary} />,
+                icon: <HeartPulseIcon size={18} color={colors.primarySoft} />,
                 value: profile?.emergency_contact ?? undefined,
                 onPress: openEmergencyContact,
               },
@@ -154,15 +163,15 @@ export function ProfileScreen() {
               {
                 key: 'membership',
                 label: t.membershipLabel,
-                icon: <MembershipIcon size={18} color={colors.primary} />,
-                value: profile?.plan?.name ?? undefined,
+                icon: <MembershipIcon size={18} color={colors.primarySoft} />,
+                value: `${profile?.plan?.name ?? ''}${membershipDays != null && membershipDays > 0 ? ` · ${membershipDays} días restantes` : ''}` || undefined,
                 onPress: openMembership,
               },
-              { key: 'store', label: t.storeLabel, icon: <StoreIcon size={18} color={colors.primary} />, onPress: openStore },
-              { key: 'favorites', label: t.favoritesLabel, icon: <StarIcon size={18} color={colors.primary} />, onPress: openFavorites },
-              { key: 'settings', label: t.settingsLabel, icon: <GearIcon size={18} color={colors.primary} />, onPress: openSettings },
-              { key: 'privacy', label: t.privacyLabel, icon: <LockIcon size={18} color={colors.primary} />, onPress: handlePrivacyPolicy },
-              { key: 'help', label: t.helpLabel, icon: <HelpIcon size={18} color={colors.primary} />, onPress: openHelp },
+              { key: 'store', label: t.storeLabel, icon: <StoreIcon size={18} color={colors.primarySoft} />, onPress: openStore },
+              { key: 'favorites', label: t.favoritesLabel, icon: <StarIcon size={18} color={colors.primarySoft} />, onPress: openFavorites },
+              { key: 'settings', label: t.settingsLabel, icon: <GearIcon size={18} color={colors.primarySoft} />, onPress: openSettings },
+              { key: 'privacy', label: t.privacyLabel, icon: <LockIcon size={18} color={colors.primarySoft} />, onPress: handlePrivacyPolicy },
+              { key: 'help', label: t.helpLabel, icon: <HelpIcon size={18} color={colors.primarySoft} />, onPress: openHelp },
             ]}
           />
         </View>
