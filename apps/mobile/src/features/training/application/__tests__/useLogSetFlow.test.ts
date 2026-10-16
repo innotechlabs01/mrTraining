@@ -66,7 +66,7 @@ function makeParams(overrides: Partial<LogSetFlowParams> = {}): LogSetFlowParams
   };
 }
 
-async function runMutation(params: LogSetFlowParams, payload = { weightKg: 80, reps: 10, sec: undefined as number | undefined, rir: 2 }) {
+async function runMutation(params: LogSetFlowParams, payload: { weightKg: number; reps: number; rir: number; sec?: number } = { weightKg: 80, reps: 10, rir: 2 }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const wrapper = ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client: queryClient }, children);
@@ -106,7 +106,7 @@ describe('useLogSetFlow — Go API contract (T-013)', () => {
   });
 
   it('on the last exercise completes the session with durationSeconds', async () => {
-    await runMutation(makeParams({ isLastExercise: true, currentSetIndex: 1 }), { weightKg: 80, reps: 10, sec: undefined, rir: 2 });
+    await runMutation(makeParams({ isLastExercise: true, currentSetIndex: 1 }), { weightKg: 80, reps: 10, rir: 2 });
     expect(mockPost).toHaveBeenCalledWith('/workouts/workout-9/sets', expect.objectContaining({ setIndex: 2 }));
     expect(mockGet).toHaveBeenCalledWith('/workouts/sessions/session-1');
     expect(mockPost).toHaveBeenCalledWith('/workouts/sessions/session-1/complete', { durationSeconds: 300 });

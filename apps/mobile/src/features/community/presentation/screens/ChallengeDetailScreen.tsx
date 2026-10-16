@@ -158,7 +158,7 @@ export function ChallengeDetailScreen() {
           />
 
           {/* Coach Demo Video */}
-          {challenge?.video_url ? (
+          {challenge && challenge.video_url ? (
             <ChallengeVideoDemo
               videoUrl={challenge.video_url}
               challengeId={challenge.id}
@@ -167,8 +167,8 @@ export function ChallengeDetailScreen() {
           ) : (
             <ChallengeVideoDemo
               videoUrl=""
-              challengeId={challenge?.id}
-              challengeTitle={challenge?.title}
+              challengeId={challenge?.id ?? ''}
+              challengeTitle={challenge?.title ?? ''}
             />
           )}
 

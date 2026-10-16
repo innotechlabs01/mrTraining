@@ -198,7 +198,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     padding: spacing.md,
-    variant: 'premium',
     ...shadows.sm,
   },
   pressed: { backgroundColor: colors.surfaceRaised },

@@ -204,7 +204,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: layout.heroPadding,
     ...shadows.xl,
-    variant: 'premium',
     overflow: 'hidden',
   },
   imageArea: {

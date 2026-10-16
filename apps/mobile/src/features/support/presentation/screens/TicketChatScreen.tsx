@@ -1,19 +1,20 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { colors, layout, spacing, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
-import { supportApi, type SupportTicket, type TicketMessage } from '../../api';
+import { supportApi } from '../../api';
+import type { SupportTicket, TicketMessage } from '../../types';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { SendIcon } from '../../../../shared/components/icons';
 
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type Route = { params: { ticketId: string } };
+type Route = RouteProp<RootStackParamList, 'TicketChat'>;
 
 export function TicketChatScreen() {
   const navigation = useNavigation<Nav>();
@@ -62,7 +63,7 @@ export function TicketChatScreen() {
     setNewMessage('');
     setSending(true);
     try {
-      await supportApi.addMessage(ticketId, { body, image_url: undefined });
+      await supportApi.addMessage(ticketId, { body });
       loadData();
     } catch (error) {
       console.error('Send message error:', error);
@@ -102,10 +103,10 @@ export function TicketChatScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScreenHeader as any
+      <ScreenHeader
         title={ticket ? `#${ticket.ticket_number} ${ticket.subject}` : 'Ticket'}
         onBack={() => navigation.goBack()}
-        right={
+        action={
           unreadCount > 0 && (
             <View style={styles.headerBadge}>
               <Text style={styles.badgeText}>{unreadCount}</Text>
@@ -123,7 +124,7 @@ export function TicketChatScreen() {
           data={messages}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => renderMessage(item)}
+          renderItem={renderMessage}
         />
         <View style={styles.inputContainer}>
           <TextInput

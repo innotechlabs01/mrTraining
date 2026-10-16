@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Alert, AppState, ScrollView } from 'react-native';
+import { Pressable, View, Text, StyleSheet, Alert, AppState, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -55,7 +55,7 @@ export function ChallengeExecutionScreen({ route, navigation }: { route: Challen
   const vm = useWorkoutExecution({
     sessionId: attemptId, // Using attemptId as sessionId for challenge
     workoutId: challengeId,
-    navigation,
+    navigation: (navigation as NativeStackNavigationProp<RootStackParamList, 'WorkoutExecution'>),
   });
 
   const handleFinishChallenge = async () => {
@@ -101,7 +101,7 @@ export function ChallengeExecutionScreen({ route, navigation }: { route: Challen
       await queryClient.invalidateQueries({ queryKey: ['challenge', challengeId] });
       await queryClient.invalidateQueries({ queryKey: ['athlete-challenges'] });
 
-      navigation.navigate('ChallengeComplete' as never, { challengeId, attemptId });
+      navigation.navigate('ChallengeComplete', { challengeId, attemptId });
     } catch (err) {
       console.error('Challenge submit error:', err);
       Alert.alert(t.submitErrorTitle, t.submitErrorBody);

@@ -7,6 +7,8 @@ import { FlashList } from '@shopify/flash-list';
 import { colors, layout, spacing, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { Badge } from '../../../../shared/components/ui/Badge';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const BadgeAny = Badge as any;
 import { ListCard } from '../../../../shared/components/ui/ListCard';
 import { supportApi } from '../../api';
 import type { SupportTicket } from '../../types';
@@ -22,6 +24,9 @@ const STATUS_LABELS: Record<string, string> = {
   resolved: 'Resuelto',
   closed: 'Cerrado',
 };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const ListCardAny = ListCard as any;
 
 export function MyTicketsScreen() {
   const navigation = useNavigation<Nav>();
@@ -66,23 +71,22 @@ export function MyTicketsScreen() {
     const unread = unreadCounts[item.id] || 0;
     const statusLabel = STATUS_LABELS[item.status] || item.status;
 
+    const badgeTone: 'neutral' | 'success' | 'warning' = (item.status === 'open' ? 'success' : item.status === 'in_progress' ? 'warning' : 'neutral');
+
     return (
-      <ListCard as any
+      <ListCardAny
         key={item.id}
         title={`#${item.ticket_number} ${item.subject}`}
         subtitle={`${item.category} • ${item.priority}`}
         trailing={
           <View style={styles.trailing}>
-            <Badge
-              variant={item.status === 'open' ? 'success' : item.status === 'in_progress' ? 'info' : 'default'}
-              size="md"
-            >
+            <BadgeAny tone={badgeTone} size="md">
               {statusLabel}
-            </Badge>
+            </BadgeAny>
             {unread > 0 && (
-              <Badge variant="danger" size="md" style={styles.unreadBadge}>
+              <BadgeAny tone="error" size="md" style={styles.unreadBadge}>
                 {unread > 9 ? '9+' : unread}
-              </Badge>
+              </BadgeAny>
             )}
           </View>
         }
@@ -99,7 +103,7 @@ export function MyTicketsScreen() {
         <Text style={styles.meta} numberOfLines={2}>
           {item.category} • {item.priority}
         </Text>
-      </ListCard>
+      </ListCardAny>
     );
   };
 

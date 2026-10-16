@@ -38,12 +38,12 @@ describe('API Client - 401 Token Change Guard', () => {
     mockedAxios.create.mockReturnValue(mockClient);
 
     // Capture the interceptors
-    mockClient.interceptors.request.use.mockImplementation((fn) => {
+    mockClient.interceptors.request.use.mockImplementation((fn: any) => {
       requestInterceptor = fn;
       return 0;
     });
 
-    mockClient.interceptors.response.use.mockImplementation((successFn, errorFn) => {
+    mockClient.interceptors.response.use.mockImplementation((successFn: any, errorFn: any) => {
       responseInterceptorSuccess = successFn;
       responseInterceptorError = errorFn;
       return 0;

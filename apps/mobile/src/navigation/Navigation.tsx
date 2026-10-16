@@ -121,6 +121,7 @@ export type RootStackParamList = {
   Leaderboard: { challengeId: string };
   ChallengeRecording: { challengeId: string; attemptId: string };
   ChallengeExecution: { challengeId: string; attemptId: string };
+  ChallengeComplete: { challengeId: string; attemptId: string };
   CoachChallenges: undefined;
   CreateChallenge: undefined;
   // Alianzas

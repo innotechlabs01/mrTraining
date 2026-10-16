@@ -172,7 +172,7 @@ navigation.navigate('AthleteTabs' as never);
         error: null,
         isAuthenticated: false,
       });
-      navigation.replace('Auth' as never);
+      navigation.replace('Auth');
     } catch (error: any) {
       console.error('Error al cerrar sesión:', error);
     }

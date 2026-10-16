@@ -1,7 +1,7 @@
 # Team Board
 
 ## Done — Fase 1: Limpieza técnica (commiteado eeac974)
-- [x] T-028: Fix tsc baseUrl deprecation (TS5101) — errores 1549→34
+- [x] T-028: Fix tsc baseUrl deprecation (TS5101) — errores 1549→29
 - [x] T-029: Fix web lint unused vars en WorkoutExecution.tsx
 - [x] T-030: Fix duplicate RegisterTrainingRoutes en main.go
 - [x] T-031: Set athlete_id locals en RequireAuth
@@ -15,8 +15,8 @@
 - [x] MembershipGate.tsx: onNoMembership callback; no_membership navega a planes de compra; suspended sigue mostrando PaymentScreen para renovar
 - [x] Navigation.tsx: AthleteTabsWithGate usa useNavigation + onNoMembership → navigation.replace('MembershipCheck')
 
-## In Progress — Fase 4: Alianzas Frontend (backend completo ~9,300 líneas, sin consumidores frontend)
-- [x] T-039 (inicio): Alianzas Mobile — servicio de API creado (apps/mobile/src/features/ally/services/allyService.ts) con createOrder, createReservation, getOperation, listAllyProducts, listAllyServices, createRedemption, redeemToken. Falta: pantallas UI para consumir estos servicios.
+## In Progress — Fase 4: Alianzas Frontend (backend completo ~9,300 líneas)
+- [x] T-039 (mobile): Servicio allyService.ts + pantallas AllyCatalogScreen + AllyOperationsScreen + rutas en Navigation.tsx. Falta: Alianzas Web (T-040).
 - [ ] T-040: Alianzas Web — dashboard coach (CRUD aliados, liquidaciones, comisiones, declaraciones) — no iniciado
 - [ ] T-041: Alianzas QA + review — no iniciado
 
@@ -27,9 +27,9 @@
 - [ ] T-037: T-008 real payment test
 - [ ] T-038: T-007 user device test
 
-## TODO — Fase 5: Deuda técnica
-- [x] T-042: TestTimeout_SlowRequest race fix (test pasa 3/3; race con -race es inherente al middleware, solo tests de unidad)
-- [ ] T-043: Typecheck real — 34 errores de tipo restantes en mobile (deuda documentada)
+## In Progress — Fase 5: Deuda técnica
+- [x] T-042: TestTimeout_SlowRequest race fix (test pasa 3/3; race con -race es inherente al middleware)
+- [ ] T-043: Typecheck real — 29 errores de tipo restantes en mobile (deuda documentada)
 - [ ] T-044: E2E membership gate — BLOQUEADO: no hay credenciales DB/Clerk (T-027 Phase A)
 
 ## QA General (solo al terminar TODAS las fases)

@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   View,
@@ -430,7 +431,9 @@ export function EventDetailScreen({ route, navigation }: Props) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        refreshing={Boolean(isRefetching)}
+        refreshControl={
+          <RefreshControl refreshing={isRefetching} onRefresh={() => {}} />
+        }
         onScrollBeginDrag={() => {
           // Intentionally empty: preserves the existing ScrollView behavior.
         }}
