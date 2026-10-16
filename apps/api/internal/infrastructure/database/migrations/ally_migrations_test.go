@@ -226,6 +226,137 @@ func TestAllyCatalogMigration(t *testing.T) {
 	}
 }
 
+func TestPaymentDeclarationsMigration(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	writeMigration(t, dir, "019_allies.sql", readPhaseBMigration(t, "019_allies.sql"))
+	writeMigration(t, dir, "023_ally_commerce.sql", readPhaseBMigration(t, "023_ally_commerce.sql"))
+	writeMigration(t, dir, "024_ally_payment_declarations.sql", readPhaseBMigration(t, "024_ally_payment_declarations.sql"))
+
+	db := newLocalDB(t)
+	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+		t.Fatalf("pragma foreign_keys: %v", err)
+	}
+	res, err := Apply(ctx, db.DB, dir, io.Discard)
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	applied := map[string]bool{}
+	for _, n := range res.Applied {
+		applied[n] = true
+	}
+	if !applied["024_ally_payment_declarations.sql"] {
+		t.Fatalf("expected 024_ally_payment_declarations.sql applied, got %v", res.Applied)
+	}
+
+	var c int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='ally_payment_declarations'`).Scan(&c); err != nil {
+		t.Fatalf("check table: %v", err)
+	}
+	if c != 1 {
+		t.Fatal("expected table ally_payment_declarations to exist")
+	}
+
+	mustExec(t, db, `INSERT INTO allies (id, legal_name, commercial_name, category, status) VALUES ('a1','Legal','Comercial','gym','active')`)
+	mustExec(t, db, `INSERT INTO coach_ally_relationships (id, coach_id, ally_id, status) VALUES ('r1','coachA','a1','active')`)
+	mustExec(t, db, `INSERT INTO ally_operations (id, kind, relationship_id, ally_id, athlete_id, status) VALUES ('o1','order','r1','a1','ath1','fulfilled')`)
+
+	if _, err := db.Exec(`INSERT INTO ally_payment_declarations (id, operation_id, version, amount_cents, declared_at, status) VALUES ('pd1','o1',1,-100,'2026-10-16 00:00:00','declared')`); err == nil {
+		t.Fatal("expected CHECK amount_cents>=0 to reject negative")
+	}
+
+	if _, err := db.Exec(`INSERT INTO ally_payment_declarations (id, operation_id, version, amount_cents, currency, declared_at, status) VALUES ('pd2','o1',1,100,'USD','2026-10-16 00:00:00','declared')`); err == nil {
+		t.Fatal("expected CHECK currency to reject non-COP")
+	}
+
+	if _, err := db.Exec(`INSERT INTO ally_payment_declarations (id, operation_id, version, amount_cents, declared_at, status) VALUES ('pd3','nope',1,100,'2026-10-16 00:00:00','declared')`); err == nil {
+		t.Fatal("expected FK operation_id to reject unknown operation")
+	}
+
+	mustExec(t, db, `INSERT INTO ally_payment_declarations (id, operation_id, version, amount_cents, currency, declared_at, status) VALUES ('pd4','o1',1,50000,'COP','2026-10-16 00:00:00','declared')`)
+
+	if _, err := db.Exec(`INSERT INTO ally_payment_declarations (id, operation_id, version, amount_cents, currency, declared_at, status) VALUES ('pd5','o1',2,60000,'COP','2026-10-16 01:00:00','declared')`); err == nil {
+		t.Fatal("expected uq_payment_decl_active to reject second active declaration")
+	}
+
+	mustExec(t, db, `INSERT INTO ally_payment_declarations (id, operation_id, version, amount_cents, currency, declared_at, status) VALUES ('pd6','o1',3,70000,'COP','2026-10-16 02:00:00','rejected')`)
+
+	res, err = Apply(ctx, db.DB, dir, io.Discard)
+	if err != nil {
+		t.Fatalf("second apply: %v", err)
+	}
+	if len(res.Applied) != 0 {
+		t.Fatalf("expected 0 applied on second run, got %v", res.Applied)
+	}
+}
+
+func TestCommissionEntriesMigration(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	writeMigration(t, dir, "019_allies.sql", readPhaseBMigration(t, "019_allies.sql"))
+	writeMigration(t, dir, "020_commissions.sql", readPhaseBMigration(t, "020_commissions.sql"))
+	writeMigration(t, dir, "023_ally_commerce.sql", readPhaseBMigration(t, "023_ally_commerce.sql"))
+	writeMigration(t, dir, "024_ally_payment_declarations.sql", readPhaseBMigration(t, "024_ally_payment_declarations.sql"))
+	writeMigration(t, dir, "025_commission_entries.sql", readPhaseBMigration(t, "025_commission_entries.sql"))
+
+	db := newLocalDB(t)
+	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+		t.Fatalf("pragma foreign_keys: %v", err)
+	}
+	res, err := Apply(ctx, db.DB, dir, io.Discard)
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	applied := map[string]bool{}
+	for _, n := range res.Applied {
+		applied[n] = true
+	}
+	if !applied["025_commission_entries.sql"] {
+		t.Fatalf("expected 025_commission_entries.sql applied, got %v", res.Applied)
+	}
+
+	for _, table := range []string{"commission_entries", "financial_adjustments"} {
+		var c int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`, table).Scan(&c); err != nil {
+			t.Fatalf("check table %s: %v", table, err)
+		}
+		if c != 1 {
+			t.Fatalf("expected table %s to exist", table)
+		}
+	}
+
+	mustExec(t, db, `INSERT INTO allies (id, legal_name, commercial_name, category, status) VALUES ('a1','Legal','Comercial','gym','active')`)
+	mustExec(t, db, `INSERT INTO coach_ally_relationships (id, coach_id, ally_id, status) VALUES ('r1','coachA','a1','active')`)
+	mustExec(t, db, `INSERT INTO commission_agreements (id, relationship_id, version, rate_bps, fixed_amount_cents, eligible_base_rule, rounding, currency, valid_from, status) VALUES ('ag1','r1',1,1000,0,'gross_minus_discount_minus_tax','half_up','COP','2026-01-01 00:00:00','accepted')`)
+	mustExec(t, db, `INSERT INTO ally_operations (id, kind, relationship_id, ally_id, athlete_id, status) VALUES ('o1','order','r1','a1','ath1','fulfilled')`)
+
+	if _, err := db.Exec(`INSERT INTO commission_entries (id, operation_id, relationship_id, coach_id, agreement_id, agreement_version, base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at) VALUES ('ce1','o1','r1','coachA','ag1',1,-100,1000,0,0,'COP','accrued','2026-10-16 00:00:00')`); err == nil {
+		t.Fatal("expected CHECK base_cents>=0 to reject negative")
+	}
+
+	if _, err := db.Exec(`INSERT INTO commission_entries (id, operation_id, relationship_id, coach_id, agreement_id, agreement_version, base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at) VALUES ('ce2','o1','r1','coachA','ag1',1,100,200000,0,0,'COP','accrued','2026-10-16 00:00:00')`); err == nil {
+		t.Fatal("expected CHECK rate_bps range to reject out-of-range")
+	}
+
+	if _, err := db.Exec(`INSERT INTO commission_entries (id, operation_id, relationship_id, coach_id, agreement_id, agreement_version, base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at) VALUES ('ce3','o1','r1','coachA','ag1',1,100,1000,0,-50,'COP','accrued','2026-10-16 00:00:00')`); err == nil {
+		t.Fatal("expected CHECK amount_cents>=0 to reject negative")
+	}
+
+	mustExec(t, db, `INSERT INTO commission_entries (id, operation_id, relationship_id, coach_id, agreement_id, agreement_version, base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at) VALUES ('ce4','o1','r1','coachA','ag1',1,10000,1000,0,1000,'COP','accrued','2026-10-16 00:00:00')`)
+
+	if _, err := db.Exec(`INSERT INTO commission_entries (id, operation_id, relationship_id, coach_id, agreement_id, agreement_version, base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at) VALUES ('ce5','o1','r1','coachA','ag1',1,10000,1000,0,1000,'COP','accrued','2026-10-16 00:00:00')`); err == nil {
+		t.Fatal("expected UNIQUE(operation_id) to reject second commission entry")
+	}
+
+	res, err = Apply(ctx, db.DB, dir, io.Discard)
+	if err != nil {
+		t.Fatalf("second apply: %v", err)
+	}
+	if len(res.Applied) != 0 {
+		t.Fatalf("expected 0 applied on second run, got %v", res.Applied)
+	}
+}
+
 func TestAllyCommerceMigration(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
@@ -319,4 +450,3 @@ func TestAllyCommerceMigration(t *testing.T) {
 		t.Fatalf("expected 0 applied on second run, got %v", res.Applied)
 	}
 }
-

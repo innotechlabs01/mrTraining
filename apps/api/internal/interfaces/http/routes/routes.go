@@ -494,3 +494,24 @@ func RegisterAllyOperationsRoutes(api fiber.Router, handler *handlers.AllyOperat
 	api.Post("/ally/redemptions", middleware.RequireAlly(), handler.CreateRedemption)
 	api.Post("/ally/redemptions/:token/redeem", middleware.RequireAlly(), handler.RedeemRedemption)
 }
+
+// RegisterAllyPaymentDeclarationRoutes registers payment declaration routes
+// on the given API group.
+func RegisterAllyPaymentDeclarationRoutes(api fiber.Router, handler *handlers.AllyPaymentDeclarationHandler) {
+	api.Post("/ally/payment-declarations", middleware.RequireAlly(), handler.CreateDeclaration)
+	api.Get("/ally/payment-declarations", middleware.RequireAlly(), handler.ListDeclarations)
+	api.Get("/ally/payment-declarations/:id", middleware.RequireAlly(), handler.GetDeclaration)
+	api.Put("/ally/payment-declarations/:id/review", middleware.RequireAlly(), handler.ReviewDeclaration)
+	api.Post("/ally/payment-declarations/:id/reverse", middleware.RequireAlly(), handler.ReverseDeclaration)
+}
+
+// RegisterCommissionEntryRoutes registers commission entry routes on the
+// given API group.
+func RegisterCommissionEntryRoutes(api fiber.Router, handler *handlers.CommissionEntryHandler) {
+	api.Post("/coach/commission-entries", middleware.RequireCoach(), handler.CreateCommissionEntry)
+	api.Get("/coach/commission-entries", middleware.RequireCoach(), handler.ListCommissionEntries)
+	api.Get("/coach/commission-entries/:id", middleware.RequireCoach(), handler.GetCommissionEntry)
+	api.Post("/coach/commission-entries/:id/reverse", middleware.RequireCoach(), handler.ReverseCommissionEntry)
+	api.Post("/coach/commission-entries/:id/adjustments", middleware.RequireCoach(), handler.CreateFinancialAdjustment)
+	api.Get("/coach/commission-entries/:id/adjustments", middleware.RequireCoach(), handler.ListFinancialAdjustments)
+}

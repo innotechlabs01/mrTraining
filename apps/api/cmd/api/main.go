@@ -25,6 +25,8 @@ import (
 	allyapp "github.com/innotechlabs01/mr-training-api/internal/application/ally"
 	allycatalogapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_catalog"
 	allyopsapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_operations"
+	allypaymentdeclarationapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_payment_declaration"
+	commissionentryapp "github.com/innotechlabs01/mr-training-api/internal/application/commission_entry"
 	commissionapp "github.com/innotechlabs01/mr-training-api/internal/application/commission"
 	formmetricsapp "github.com/innotechlabs01/mr-training-api/internal/application/formmetrics"
 	formrecordingapp "github.com/innotechlabs01/mr-training-api/internal/application/formrecording"
@@ -69,6 +71,8 @@ import (
 	allyinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally"
 	allycataloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_catalog"
 	allyopsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_operations"
+	allypaymentdeclarationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_payment_declaration"
+	commissionentryinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission_entry"
 	commissioninfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission"
 	auditinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
 	formmetricsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formmetrics"
@@ -386,6 +390,22 @@ func main() {
 
 		// Register ally operations routes
 		routes.RegisterAllyOperationsRoutes(api, allyOpsHandler)
+
+		// Wire Ally Payment Declaration domain (Phase E)
+		allyPaymentDeclRepo := allypaymentdeclarationinfrastructure.NewRepository(db.DB)
+		allyPaymentDeclService := allypaymentdeclarationapp.NewService(allyPaymentDeclRepo)
+		allyPaymentDeclHandler := userhttp.NewAllyPaymentDeclarationHandler(allyPaymentDeclService)
+
+		// Register ally payment declaration routes
+		routes.RegisterAllyPaymentDeclarationRoutes(api, allyPaymentDeclHandler)
+
+		// Wire Commission Entry domain (Phase E)
+		commissionEntryRepo := commissionentryinfrastructure.NewRepository(db.DB)
+		commissionEntryService := commissionentryapp.NewService(commissionEntryRepo)
+		commissionEntryHandler := userhttp.NewCommissionEntryHandler(commissionEntryService)
+
+		// Register commission entry routes
+		routes.RegisterCommissionEntryRoutes(api, commissionEntryHandler)
 
     api.Get("/landing", middleware.RequireCoach(), handlers.HandlerGetLanding(db.DB))
     api.Put("/landing", middleware.RequireCoach(), handlers.HandlerPutLanding(db.DB))
