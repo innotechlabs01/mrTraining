@@ -515,3 +515,26 @@ func RegisterCommissionEntryRoutes(api fiber.Router, handler *handlers.Commissio
 	api.Post("/coach/commission-entries/:id/adjustments", middleware.RequireCoach(), handler.CreateFinancialAdjustment)
 	api.Get("/coach/commission-entries/:id/adjustments", middleware.RequireCoach(), handler.ListFinancialAdjustments)
 }
+
+// RegisterSettlementRoutes registers settlement routes on the given API group.
+func RegisterSettlementRoutes(api fiber.Router, handler *handlers.CoachSettlementHandler) {
+	api.Post("/coach/settlements", middleware.RequireCoach(), handler.CreateSettlement)
+	api.Get("/coach/settlements", middleware.RequireCoach(), handler.ListSettlements)
+	api.Get("/coach/settlements/:id", middleware.RequireCoach(), handler.GetSettlement)
+	api.Put("/coach/settlements/:id/status", middleware.RequireCoach(), handler.UpdateSettlementStatus)
+	api.Post("/coach/settlements/:id/void", middleware.RequireCoach(), handler.VoidSettlement)
+	api.Get("/coach/settlements/:id/items", middleware.RequireCoach(), handler.ListSettlementItems)
+}
+
+// RegisterSettlementDocumentRoutes registers settlement document routes.
+func RegisterSettlementDocumentRoutes(api fiber.Router, handler *handlers.CoachSettlementDocumentHandler) {
+	api.Post("/coach/settlements/:id/documents", middleware.RequireCoach(), handler.CreateDocument)
+	api.Get("/coach/settlements/:id/documents", middleware.RequireCoach(), handler.ListDocuments)
+}
+
+// RegisterCoachPaymentRecordRoutes registers coach payment record routes.
+func RegisterCoachPaymentRecordRoutes(api fiber.Router, handler *handlers.CoachPaymentRecordHandler) {
+	api.Post("/coach/payment-records", middleware.RequireCoach(), handler.CreateRecord)
+	api.Post("/coach/payment-records/:id/confirm", middleware.RequireCoach(), handler.ConfirmRecord)
+	api.Get("/coach/payment-records", middleware.RequireCoach(), handler.ListRecords)
+}

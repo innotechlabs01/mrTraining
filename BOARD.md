@@ -36,6 +36,12 @@
 - [ ] T-018: Alianzas Phase E — declaraciones de pago, revisión y comisiones (migración 024 ally_payment_declarations + 025 commission_entries/financial_adjustments, versionado H-03, flujo de revisión confirmed/rejected, cálculo de comisión con rate_bps + fixed_amount_cents, redondeo half_up, overflow check, UNIQUE(operation_id), auditoría en misma tx, pruebas IDOR/concurrencia/idempotencia). R6 resuelto per spec: declared="declarada, no verificada", confirmed=revisión explícita.
 
 ## Done
+- [x] T-018: Alianzas Phase E — declaraciones de pago, revisión y comisiones (commit 166b50a en main, go build/test green). Cerrada, Fase F autorizada.
+- [x] T-019: Alianzas Phase F — liquidaciones mensuales y pagos externos (migración 026 coach_settlements/settlement_items/settlement_documents/coach_payment_records, máquina de estados H-10, job mensual idempotente con APP_TIMEZONE=America/Bogota, pagos externos coach_payment_records H-09, documentos borrador, auditoría H-05, pruebas idempotencia/concurrencia/IDOR/máquina de estados). Commit pendiente. R4 resuelto: APP_TIMEZONE default America/Bogota.
+
+## In Progress
+
+## Done
 - [x] T-003: mobile UI/UX hygiene S1–S5 — spec `2026-10-12-T-003-mobile-uiux-design.md` | S1–S5 + fix loop 1 (096cf7c) | qa PASS | code-reviewer PASS | security PASS | approved by @user 2026-10-12 (PASS WITH LIMITATIONS: validación real en dispositivo pendiente — ticket aparte)
 - [x] T-002: expo-av→expo-video migration — dev PASS → qa PASS → review PASS → security PASS — approved by @user 2026-10-12 — PR #2 merged (fd4524b)
 - [x] T-001: iOS bundle fix (missing expo-localization) — QA PASS — approved by @user 2026-10-12 — PR #1 merged (5b8aa97)

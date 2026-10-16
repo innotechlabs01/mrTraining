@@ -450,3 +450,99 @@ func TestAllyCommerceMigration(t *testing.T) {
 		t.Fatalf("expected 0 applied on second run, got %v", res.Applied)
 	}
 }
+
+// TestSettlementsMigration tests migration 026 (coach_settlements, settlement_items, settlement_documents, coach_payment_records).
+func TestSettlementsMigration(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	writeMigration(t, dir, "019_allies.sql", readPhaseBMigration(t, "019_allies.sql"))
+	writeMigration(t, dir, "020_commissions.sql", readPhaseBMigration(t, "020_commissions.sql"))
+	writeMigration(t, dir, "023_ally_commerce.sql", readPhaseBMigration(t, "023_ally_commerce.sql"))
+	writeMigration(t, dir, "024_ally_payment_declarations.sql", readPhaseBMigration(t, "024_ally_payment_declarations.sql"))
+	writeMigration(t, dir, "025_commission_entries.sql", readPhaseBMigration(t, "025_commission_entries.sql"))
+	writeMigration(t, dir, "026_settlements.sql", readPhaseBMigration(t, "026_settlements.sql"))
+
+	db := newLocalDB(t)
+	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+		t.Fatalf("pragma foreign_keys: %v", err)
+	}
+	res, err := Apply(ctx, db.DB, dir, io.Discard)
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	applied := map[string]bool{}
+	for _, n := range res.Applied {
+		applied[n] = true
+	}
+	if !applied["026_settlements.sql"] {
+		t.Fatalf("expected 026_settlements.sql applied, got %v", res.Applied)
+	}
+
+	// Tables exist.
+	for _, table := range []string{"coach_settlements", "settlement_items", "settlement_documents", "coach_payment_records"} {
+		var c int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`, table).Scan(&c); err != nil {
+			t.Fatalf("check table %s: %v", table, err)
+		}
+		if c != 1 {
+			t.Fatalf("expected table %s to exist", table)
+		}
+	}
+
+	// Seed: coach, ally, relationship, operation, entry.
+	mustExec(t, db, `INSERT INTO allies (id, legal_name, commercial_name, category, status) VALUES ('a1','Legal','Comercial','gym','active')`)
+	mustExec(t, db, `INSERT INTO coach_ally_relationships (id, coach_id, ally_id, status) VALUES ('r1','coachA','a1','active')`)
+	mustExec(t, db, `INSERT INTO commission_agreements (id, relationship_id, version, rate_bps, fixed_amount_cents, eligible_base_rule, rounding, currency, valid_from, status) VALUES ('ag1','r1',1,1000,0,'gross_minus_discount_minus_tax','half_up','COP','2026-01-01 00:00:00','accepted')`)
+	mustExec(t, db, `INSERT INTO ally_operations (id, kind, relationship_id, ally_id, athlete_id, status) VALUES ('o1','order','r1','a1','ath1','fulfilled')`)
+	mustExec(t, db, `INSERT INTO ally_operation_items (id, operation_id, offer_kind, offer_id, name, unit_price_cents, quantity) VALUES ('i1','o1','product','p1','Producto',200000,2)`)
+	mustExec(t, db, `INSERT INTO ally_payment_declarations (id, operation_id, version, amount_cents, currency, declared_at, status) VALUES ('pd1','o1',1,50000,'COP','2026-10-16 00:00:00','declared')`)
+	mustExec(t, db, `INSERT INTO commission_entries (id, operation_id, relationship_id, coach_id, agreement_id, agreement_version, base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at) VALUES ('ce1','o1','r1','coachA','ag1',1,400000,1000,0,40000,'COP','accrued','2026-10-16 00:00:00')`)
+
+	// CHECK: currency must be COP.
+	if _, err := db.Exec(`INSERT INTO coach_settlements (id, coach_id, ally_id, period_start, period_end, period_key, currency, status) VALUES ('s1','coachA','a1','2026-10-01','2026-10-31','2026-10','USD','draft')`); err == nil {
+		t.Fatal("expected CHECK currency='COP' to reject non-COP")
+	}
+
+	// CHECK: status must be valid.
+	if _, err := db.Exec(`INSERT INTO coach_settlements (id, coach_id, ally_id, period_start, period_end, period_key, currency, status) VALUES ('s2','coachA','a1','2026-10-01','2026-10-31','2026-10','COP','bogus')`); err == nil {
+		t.Fatal("expected CHECK status to reject invalid value")
+	}
+
+	// Valid settlement insert.
+	mustExec(t, db, `INSERT INTO coach_settlements (id, coach_id, ally_id, period_start, period_end, period_key, currency, status, operations_count, base_total_cents, commission_gross_cents, adjustments_cents, commission_net_cents) VALUES ('s1','coachA','a1','2026-10-01','2026-10-31','2026-10','COP','draft',1,400000,40000,0,40000)`)
+
+	// UNIQUE(coach_id, ally_id, period_key, currency): duplicate settlement.
+	if _, err := db.Exec(`INSERT INTO coach_settlements (id, coach_id, ally_id, period_start, period_end, period_key, currency, status) VALUES ('s2','coachA','a1','2026-10-01','2026-10-31','2026-10','COP','draft')`); err == nil {
+		t.Fatal("expected UNIQUE(coach_id, ally_id, period_key, currency) to reject duplicate settlement")
+	}
+
+	// Valid settlement item insert.
+	mustExec(t, db, `INSERT INTO settlement_items (id, settlement_id, entry_id, base_cents, rate_bps, amount_cents) VALUES ('si1','s1','ce1',400000,1000,40000)`)
+
+	// UNIQUE(settlement_id, entry_id): duplicate item.
+	if _, err := db.Exec(`INSERT INTO settlement_items (id, settlement_id, entry_id, base_cents, rate_bps, amount_cents) VALUES ('si2','s1','ce1',400000,1000,40000)`); err == nil {
+		t.Fatal("expected UNIQUE(settlement_id, entry_id) to reject duplicate item")
+	}
+
+	// CHECK: amount_cents >= 0.
+	if _, err := db.Exec(`INSERT INTO settlement_items (id, settlement_id, entry_id, base_cents, rate_bps, amount_cents) VALUES ('si3','s1','ce1',400000,1000,-5000)`); err == nil {
+		t.Fatal("expected CHECK amount_cents>=0 to reject negative amount")
+	}
+
+	// Valid payment record insert.
+	mustExec(t, db, `INSERT INTO coach_payment_records (id, settlement_id, coach_id, payer_ally_id, amount_cents, currency, actor_id, actor_type, reference, declared_at, status) VALUES ('cpr1','s1','coachA','a1',40000,'COP','coachA','user','ref-1','2026-10-31 00:00:00','declared')`)
+
+	// CHECK: payment record status must be valid.
+	if _, err := db.Exec(`INSERT INTO coach_payment_records (id, settlement_id, coach_id, payer_ally_id, amount_cents, currency, actor_id, actor_type, reference, declared_at, status) VALUES ('cpr2','s1','coachA','a1',40000,'COP','coachA','user','ref-2','2026-10-31 00:00:00','bogus')`); err == nil {
+		t.Fatal("expected CHECK payment record status to reject invalid value")
+	}
+
+	// Idempotent second run.
+	res, err = Apply(ctx, db.DB, dir, io.Discard)
+	if err != nil {
+		t.Fatalf("second apply: %v", err)
+	}
+	if len(res.Applied) != 0 {
+		t.Fatalf("expected 0 applied on second run, got %v", res.Applied)
+	}
+}

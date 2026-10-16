@@ -26,6 +26,7 @@ import (
 	allycatalogapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_catalog"
 	allyopsapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_operations"
 	allypaymentdeclarationapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_payment_declaration"
+	coachsetapp "github.com/innotechlabs01/mr-training-api/internal/application/coach_settlement"
 	commissionentryapp "github.com/innotechlabs01/mr-training-api/internal/application/commission_entry"
 	commissionapp "github.com/innotechlabs01/mr-training-api/internal/application/commission"
 	formmetricsapp "github.com/innotechlabs01/mr-training-api/internal/application/formmetrics"
@@ -72,6 +73,7 @@ import (
 	allycataloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_catalog"
 	allyopsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_operations"
 	allypaymentdeclarationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_payment_declaration"
+	coachsetinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach_settlement"
 	commissionentryinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission_entry"
 	commissioninfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission"
 	auditinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
@@ -406,6 +408,18 @@ func main() {
 
 		// Register commission entry routes
 		routes.RegisterCommissionEntryRoutes(api, commissionEntryHandler)
+
+		// Wire Coach Settlement domain (Phase F)
+		coachSetRepo := coachsetinfrastructure.NewRepository(db.DB)
+		coachSetService := coachsetapp.NewService(coachSetRepo)
+		coachSetHandler := userhttp.NewCoachSettlementHandler(coachSetService)
+		coachSetDocHandler := userhttp.NewCoachSettlementDocumentHandler(coachSetService)
+		coachPayHandler := userhttp.NewCoachPaymentRecordHandler(coachSetService)
+
+		// Register settlement routes
+		routes.RegisterSettlementRoutes(api, coachSetHandler)
+		routes.RegisterSettlementDocumentRoutes(api, coachSetDocHandler)
+		routes.RegisterCoachPaymentRecordRoutes(api, coachPayHandler)
 
     api.Get("/landing", middleware.RequireCoach(), handlers.HandlerGetLanding(db.DB))
     api.Put("/landing", middleware.RequireCoach(), handlers.HandlerPutLanding(db.DB))
