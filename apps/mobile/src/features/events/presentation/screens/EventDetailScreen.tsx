@@ -161,7 +161,7 @@ function normalizeEventDetail(value: unknown): EventDetailData {
     event: rawEvent as unknown as EventDetailData['event'],
     listItems,
     formFields,
-    responses,
+    responses: responses as any,
     registration: isObject(rawRegistration)
       ? (rawRegistration as unknown as Registration)
       : null,
@@ -430,7 +430,7 @@ export function EventDetailScreen({ route, navigation }: Props) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        refreshing={isRefetching}
+        refreshing={Boolean(isRefetching)}
         onScrollBeginDrag={() => {
           // Intentionally empty: preserves the existing ScrollView behavior.
         }}

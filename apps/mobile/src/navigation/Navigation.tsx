@@ -123,6 +123,9 @@ export type RootStackParamList = {
   ChallengeExecution: { challengeId: string; attemptId: string };
   CoachChallenges: undefined;
   CreateChallenge: undefined;
+  // Alianzas
+  AllyCatalog: undefined;
+  AllyOperations: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -203,6 +206,18 @@ function RootNavigator() {
           <Stack.Screen
             name="Store"
             getComponent={() => require('../features/store/presentation/screens/StoreScreen').StoreScreen}
+          />
+          <Stack.Screen
+            name="AllyCatalog"
+            getComponent={() =>
+              require('../features/ally/presentation/screens/AllyCatalogScreen').AllyCatalogScreen
+            }
+          />
+          <Stack.Screen
+            name="AllyOperations"
+            getComponent={() =>
+              require('../features/ally/presentation/screens/AllyOperationsScreen').AllyOperationsScreen
+            }
           />
           <Stack.Screen name="InviteAccept" component={InviteAcceptScreen} />
           <Stack.Screen

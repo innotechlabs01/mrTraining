@@ -16,9 +16,9 @@
 - [x] Navigation.tsx: AthleteTabsWithGate usa useNavigation + onNoMembership → navigation.replace('MembershipCheck')
 
 ## In Progress — Fase 4: Alianzas Frontend (backend completo ~9,300 líneas, sin consumidores frontend)
-- [ ] T-039: Alianzas Mobile — pantallas aliado (catálogo, operaciones, redenciones QR)
-- [ ] T-040: Alianzas Web — dashboard coach (CRUD aliados, liquidaciones, comisiones, declaraciones)
-- [ ] T-041: Alianzas QA + review
+- [x] T-039 (inicio): Alianzas Mobile — servicio de API creado (apps/mobile/src/features/ally/services/allyService.ts) con createOrder, createReservation, getOperation, listAllyProducts, listAllyServices, createRedemption, redeemToken. Falta: pantallas UI para consumir estos servicios.
+- [ ] T-040: Alianzas Web — dashboard coach (CRUD aliados, liquidaciones, comisiones, declaraciones) — no iniciado
+- [ ] T-041: Alianzas QA + review — no iniciado
 
 ## TODO — Fase 3: QA Device (VALIDACIÓN AL FINAL, per @user — no cambiar de fase hasta terminar Fase 4 y 5)
 - [ ] T-034: T-026 QA device validation

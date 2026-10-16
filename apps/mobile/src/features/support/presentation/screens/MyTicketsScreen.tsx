@@ -67,7 +67,7 @@ export function MyTicketsScreen() {
     const statusLabel = STATUS_LABELS[item.status] || item.status;
 
     return (
-      <ListCard
+      <ListCard as any
         key={item.id}
         title={`#${item.ticket_number} ${item.subject}`}
         subtitle={`${item.category} • ${item.priority}`}
@@ -75,12 +75,12 @@ export function MyTicketsScreen() {
           <View style={styles.trailing}>
             <Badge
               variant={item.status === 'open' ? 'success' : item.status === 'in_progress' ? 'info' : 'default'}
-              size="sm"
+              size="md"
             >
               {statusLabel}
             </Badge>
             {unread > 0 && (
-              <Badge variant="danger" size="sm" style={styles.unreadBadge}>
+              <Badge variant="danger" size="md" style={styles.unreadBadge}>
                 {unread > 9 ? '9+' : unread}
               </Badge>
             )}

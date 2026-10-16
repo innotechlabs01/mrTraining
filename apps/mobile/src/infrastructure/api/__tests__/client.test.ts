@@ -90,7 +90,8 @@ describe('API Client - 401 Token Change Guard', () => {
       if (error.response?.status === 401 && !error.config._retry) {
         error.config._retry = true;
 
-        const failedAuthHeader = error.config.headers?.Authorization;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const failedAuthHeader = (error.config.headers as any)?.Authorization;
         const extractedFailedToken =
           typeof failedAuthHeader === 'string'
             ? failedAuthHeader.replace('Bearer ', '')
@@ -98,7 +99,8 @@ describe('API Client - 401 Token Change Guard', () => {
 
         const token = await refreshClerkToken();
         if (token && token !== extractedFailedToken && error.config.headers) {
-          error.config.headers.Authorization = `Bearer ${token}`;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (error.config.headers as any).Authorization = `Bearer ${token}`;
           await mockClientFn(error.config);
         }
       }
@@ -126,7 +128,8 @@ describe('API Client - 401 Token Change Guard', () => {
       if (error.response?.status === 401 && !error.config._retry) {
         error.config._retry = true;
 
-        const failedAuthHeader = error.config.headers?.Authorization;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const failedAuthHeader = (error.config.headers as any)?.Authorization;
         const extractedFailedToken =
           typeof failedAuthHeader === 'string'
             ? failedAuthHeader.replace('Bearer ', '')
@@ -134,7 +137,8 @@ describe('API Client - 401 Token Change Guard', () => {
 
         const token = await refreshClerkToken();
         if (token && token !== extractedFailedToken && error.config.headers) {
-          error.config.headers.Authorization = `Bearer ${token}`;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (error.config.headers as any).Authorization = `Bearer ${token}`;
           await mockClientFn(error.config);
         }
       }
@@ -155,7 +159,8 @@ describe('API Client - 401 Token Change Guard', () => {
       if (error.response?.status === 401 && !error.config._retry) {
         error.config._retry = true;
 
-        const failedAuthHeader = error.config.headers?.Authorization;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const failedAuthHeader = (error.config.headers as any)?.Authorization;
         const extractedFailedToken =
           typeof failedAuthHeader === 'string'
             ? failedAuthHeader.replace('Bearer ', '')
@@ -163,7 +168,8 @@ describe('API Client - 401 Token Change Guard', () => {
 
         const token = await refreshClerkToken();
         if (token && token !== extractedFailedToken && error.config.headers) {
-          error.config.headers.Authorization = `Bearer ${token}`;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (error.config.headers as any).Authorization = `Bearer ${token}`;
           await mockClientFn(error.config);
         }
       }
@@ -184,7 +190,8 @@ describe('API Client - 401 Token Change Guard', () => {
       if (error.response?.status === 401 && !error.config._retry) {
         error.config._retry = true;
 
-        const failedAuthHeader = error.config.headers?.Authorization;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const failedAuthHeader = (error.config.headers as any)?.Authorization;
         const extractedFailedToken =
           typeof failedAuthHeader === 'string'
             ? failedAuthHeader.replace('Bearer ', '')
@@ -220,7 +227,8 @@ describe('API Client - 401 Token Change Guard', () => {
       if (error.response?.status === 401 && !error.config._retry) {
         error.config._retry = true;
 
-        const failedAuthHeader = error.config.headers?.Authorization;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const failedAuthHeader = (error.config.headers as any)?.Authorization;
         const extractedFailedToken =
           typeof failedAuthHeader === 'string'
             ? failedAuthHeader.replace('Bearer ', '')
@@ -228,7 +236,8 @@ describe('API Client - 401 Token Change Guard', () => {
 
         const token = await refreshClerkToken();
         if (token && token !== extractedFailedToken && error.config.headers) {
-          error.config.headers.Authorization = `Bearer ${token}`;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (error.config.headers as any).Authorization = `Bearer ${token}`;
           await mockClientFn(error.config);
         }
       }
@@ -252,7 +261,8 @@ describe('API Client - 401 Token Change Guard', () => {
       if (error.response?.status === 401 && !error.config._retry) {
         error.config._retry = true;
 
-        const failedAuthHeader = error.config.headers?.Authorization;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const failedAuthHeader = (error.config.headers as any)?.Authorization;
         const extractedFailedToken =
           typeof failedAuthHeader === 'string'
             ? failedAuthHeader.replace('Bearer ', '')
@@ -260,7 +270,8 @@ describe('API Client - 401 Token Change Guard', () => {
 
         const token = await refreshClerkToken();
         if (token && token !== extractedFailedToken && error.config.headers) {
-          error.config.headers.Authorization = `Bearer ${token}`;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (error.config.headers as any).Authorization = `Bearer ${token}`;
           await mockClientFn(error.config);
         }
       }

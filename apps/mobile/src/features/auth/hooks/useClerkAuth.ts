@@ -45,7 +45,7 @@ export function useClerkAuth() {
     error: null,
     isAuthenticated: false,
   });
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // Cargar usuario al montar
   useEffect(() => {
@@ -147,7 +147,7 @@ export function useClerkAuth() {
           isAuthenticated: true,
         });
         
-navigation.navigate('AthleteTabs', { screen: 'Home' });
+navigation.navigate('AthleteTabs' as never);
       } catch (error: any) {
         console.error('Error en signup:', error);
         setState({
@@ -172,7 +172,7 @@ navigation.navigate('AthleteTabs', { screen: 'Home' });
         error: null,
         isAuthenticated: false,
       });
-      navigation.navigate('AuthStack', 'SignIn');
+      navigation.replace('Auth' as never);
     } catch (error: any) {
       console.error('Error al cerrar sesión:', error);
     }

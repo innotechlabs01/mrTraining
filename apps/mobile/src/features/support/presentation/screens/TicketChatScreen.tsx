@@ -102,7 +102,7 @@ export function TicketChatScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScreenHeader
+      <ScreenHeader as any
         title={ticket ? `#${ticket.ticket_number} ${ticket.subject}` : 'Ticket'}
         onBack={() => navigation.goBack()}
         right={

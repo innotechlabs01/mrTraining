@@ -602,7 +602,7 @@ export function TodayScreen() {
 
         {/* 6. Live sessions */}
         <LiveSessionsSection
-          sessions={todaySessions}
+          sessions={todaySessions as any}
           onJoin={handleJoinLive}
         />
 

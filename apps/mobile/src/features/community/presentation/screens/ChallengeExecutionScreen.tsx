@@ -101,7 +101,7 @@ export function ChallengeExecutionScreen({ route, navigation }: { route: Challen
       await queryClient.invalidateQueries({ queryKey: ['challenge', challengeId] });
       await queryClient.invalidateQueries({ queryKey: ['athlete-challenges'] });
 
-      navigation.navigate('ChallengeComplete', { challengeId, attemptId });
+      navigation.navigate('ChallengeComplete' as never, { challengeId, attemptId });
     } catch (err) {
       console.error('Challenge submit error:', err);
       Alert.alert(t.submitErrorTitle, t.submitErrorBody);
@@ -180,14 +180,14 @@ export function ChallengeExecutionScreen({ route, navigation }: { route: Challen
             {challengeStarted && (
               <>
                 {vm.showsResume ? (
-                  <View
+                  <Pressable
                     accessibilityRole="button"
                     onPress={vm.handleResume}
                     style={styles.resumeBanner}
                   >
                     <Text style={styles.resumeLabel}>{t.resumeLabel}</Text>
                     <Text style={styles.resumeHint}>{t.resumeHint}</Text>
-                  </View>
+                  </Pressable>
                 ) : null}
 
                 <ProgressBar progress={vm.computedProgress} />
@@ -298,7 +298,7 @@ export function ChallengeExecutionScreen({ route, navigation }: { route: Challen
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{vm.currentExercise.name}</Text>
-              <View
+              <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={texts.common.close}
                 onPress={() => vm.setDemoVisible(false)}
@@ -306,7 +306,7 @@ export function ChallengeExecutionScreen({ route, navigation }: { route: Challen
                 hitSlop={8}
               >
                 <Text style={styles.modalCloseText}>✕</Text>
-              </View>
+              </Pressable>
             </View>
             <View style={styles.modalVideo}>
               <Text style={styles.modalVideoText}>{t.modalVideoPlaceholder}</Text>
