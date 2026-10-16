@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
   heroImage: { backgroundColor: colors.surfaceRaised },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(11,15,14,0.55)',
   },
   content: { flex: 1, justifyContent: 'space-between', padding: spacing.xl },

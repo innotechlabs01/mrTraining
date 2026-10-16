@@ -29,7 +29,7 @@ export function FramingOverlay({ status }: Props): React.JSX.Element {
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
   },

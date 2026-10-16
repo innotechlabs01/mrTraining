@@ -2,7 +2,7 @@
  * Overlays layered above the video surface: the loading spinner and the
  * tap-to-toggle controls (play/pause + optional record FAB).
  */
-import React from 'react'
+
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { Ionicons } from '@react-native-vector-icons/ionicons'
 import { colors } from '../../theme/tokens'
@@ -48,13 +48,13 @@ export function VideoControlsOverlay({
 
 const styles = StyleSheet.create({
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   controlsOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.3)',

@@ -21,7 +21,7 @@ export const screenStyles = StyleSheet.create({
     backgroundColor: colors.surfaceRaised,
   },
   heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(11,15,14,0.58)',
   },
   heroContent: {

@@ -285,7 +285,7 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
                     </View>
                     {ex.notes ? <Text style={styles.notes}>{ex.notes}</Text> : null}
                     <ExerciseVideoCta
-                      videoUrl={ex.videoUrl}
+                      videoUrl={ex.videoUrl ?? undefined}
                       onWatchDemo={() => {
                         setDemoVideoUrl(ex.videoUrl ?? null);
                         setDemoExerciseId(ex.id);

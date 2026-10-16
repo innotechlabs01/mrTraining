@@ -278,9 +278,6 @@ func main() {
 		// Register membership routes
 		routes.RegisterMembershipRoutes(api, membershipHandler, statusReader)
 
-		// Register training routes
-		routes.RegisterTrainingRoutes(api, trainingHandler, statusReader)
-
 		// Wire Event domain
 		eventRepo := eventinfrastructure.NewRepository(db.DB)
 		eventService := eventapp.NewService(eventRepo)

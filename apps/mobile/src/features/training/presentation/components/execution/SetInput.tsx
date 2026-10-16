@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { StyleSheet, View } from 'react-native';
 import { spacing, radius, typography, colors, shadows } from '../../../../../shared/theme/tokens';
 import { Input } from '../../../../../shared/components/ui/Input';

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, type NativeStackNavigationProp } from '@react-navigation/native';
+import type { RootStackParamList } from '../../../../navigation/Navigation';
 import {
   signInWithPassword,
   registerWithPassword,
@@ -8,6 +9,17 @@ import {
   verifyTokenForBackend,
 } from '../services/clerkApi';
 import { Alert } from 'react-native';
+
+export interface ClerkUser {
+  id: string;
+  email: string;
+  full_name?: string | null;
+  image_url?: string | null;
+  username?: string | null;
+  last_sign_in_at?: string | null;
+  created_at?: string;
+  token?: string;
+}
 
 export interface AuthState {
   user: ClerkUser | null;
@@ -93,7 +105,7 @@ export function useClerkAuth() {
       });
       
       // Después de sign-in exitoso, verificar membresía
-      nav.replace('MembershipCheck');
+      navigation.navigate('MembershipCheck' as never);
     } catch (error: any) {
       console.error('Error en signIn:', error);
       setState({
@@ -104,7 +116,7 @@ export function useClerkAuth() {
       });
       Alert.alert('Error', error.message || 'Credenciales inválidas');
     }
-  }, [navigate]);
+  }, [navigation]);
 
   /** Registro nuevo usuario con email y password */
   const signup = useCallback(
@@ -146,7 +158,7 @@ navigation.navigate('AthleteTabs', { screen: 'Home' });
         Alert.alert('Error', error.message || 'No fue posible registrarse');
       }
     },
-    [navigate],
+    [navigation],
   );
 
   /** Cierra la sesión */
@@ -163,7 +175,7 @@ navigation.navigate('AthleteTabs', { screen: 'Home' });
     } catch (error: any) {
       console.error('Error al cerrar sesión:', error);
     }
-  }, [navigate]);
+  }, [navigation]);
 
   return {
     ...state,

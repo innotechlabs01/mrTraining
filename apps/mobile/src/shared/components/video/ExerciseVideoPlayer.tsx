@@ -5,7 +5,7 @@
  * Uses expo-video for playback and sends metrics on unmount.
  * Overlays and footer blocks live in ExerciseVideoOverlays / ExerciseVideoFooter.
  */
-import React, { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { View, StyleSheet, TouchableOpacity } from 'react-native'
 import { useEvent, useEventListener } from 'expo'
 import { useVideoPlayer, VideoView } from 'expo-video'

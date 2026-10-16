@@ -7,7 +7,7 @@
  *   - Recommendation based on fatigue + recovery
  *   - Activity rings + streak pill
  */
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { colors, layout, radius, spacing, typography } from '../../../../shared/theme/tokens';
@@ -104,7 +104,7 @@ export function AthleteTodaySummary({ athleteId, move, exercise, recovery, strea
         <View style={styles.heroRow}>
           <View style={styles.scoreCol}>
             <View style={styles.scoreRow}>
-              <Text style={styles.score}>—</Text>
+              <Text style={styles.scoreValue}>—</Text>
               <Text style={styles.scoreUnit}>/100</Text>
               <Badge text={t.loadingBadge} tone="neutral" />
             </View>
@@ -170,7 +170,7 @@ export function AthleteTodaySummary({ athleteId, move, exercise, recovery, strea
         <View style={styles.scoreCol}>
           <MetricCard
             size={readinessMetricSize}
-            label={t.readinessLabel}
+            label={readinessLabel}
             value={readinessScore}
             unit="/100"
             tone={readinessTone === 'success' ? 'success' : readinessTone === 'warning' ? 'warning' : readinessTone === 'error' ? 'error' : 'text'}
@@ -228,6 +228,8 @@ const styles = StyleSheet.create({
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xl },
   scoreCol: { flex: 1, gap: spacing.sm },
   scoreRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: spacing.xs },
+  scoreValue: { ...typography.heroMetric, color: colors.text },
+  scoreUnit: { ...typography.caption, color: colors.textSecondary },
   scoreHint: { ...typography.caption, color: colors.textSecondary },
   trendsRow: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.md },
   trendItem: { flex: 1 },

@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
 import { colors, spacing, typography, radius, fontFamilies } from '../../../../../shared/theme/tokens';
 import { MailIcon, UserIcon, LockIcon, TagIcon } from '../../../../../shared/components/icons';

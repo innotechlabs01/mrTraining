@@ -2,7 +2,7 @@
  * UpNextPreview — shows upcoming exercises during workout execution.
  * Helps athletes prepare for what's next with a compact card design.
  */
-import React from 'react';
+
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { colors, radius, spacing, typography, shadows } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';

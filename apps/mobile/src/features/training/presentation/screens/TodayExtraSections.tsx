@@ -3,15 +3,14 @@
  * LiveSessionsSection (red urgent card), ArticlesCarousel (coach posts),
  * StoreCarousel (featured products). Presentational only.
  */
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
-import { colors, spacing, typography, radius, fontFamilies, layout } from '../../../../shared/theme/tokens';
+import { colors, spacing, typography, radius, layout } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { Badge } from '../../../../shared/components/ui/Badge';
 import { SectionHeader } from '../../../../shared/components/ui/SectionHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
-import { PlayIcon, PlusIcon, StoreIcon } from '../../../../shared/components/icons';
+import { PlusIcon, StoreIcon } from '../../../../shared/components/icons';
 import { texts } from '../../../../shared/i18n/texts';
 import type { StoreProduct } from '../../../store/storeService';
 

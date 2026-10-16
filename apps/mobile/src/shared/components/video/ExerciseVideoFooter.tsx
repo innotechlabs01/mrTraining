@@ -2,7 +2,7 @@
  * Footer blocks of the exercise video player: the progress bar with its
  * elapsed/remaining time row, and the title row with the replay shortcut.
  */
-import React from 'react'
+
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { Ionicons } from '@react-native-vector-icons/ionicons'
 import { colors, spacing } from '../../theme/tokens'

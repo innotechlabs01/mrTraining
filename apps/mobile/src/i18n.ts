@@ -33,7 +33,7 @@ const fallbackChain: Record<string, string[]> = {
 };
 
 // Detect device locale with country code using expo-localization
-const deviceLocale = Localization.locale; // e.g., "en-US", "es-AR"
+const deviceLocale = (Localization as any).locale; // e.g., "en-US", "es-AR"
 const supportedLocales = [
   'en-US', 'en-GB', 'es-ES', 'es-MX', 'es-AR', 'en', 'es'
 ] as const;

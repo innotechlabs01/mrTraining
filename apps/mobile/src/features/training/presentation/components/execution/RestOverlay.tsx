@@ -29,7 +29,7 @@ export function RestOverlay({ secondsLeft, skipLabel, onComplete, onSkip }: Prop
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: `${colors.base}E6`,
     alignItems: 'center',
     justifyContent: 'center',

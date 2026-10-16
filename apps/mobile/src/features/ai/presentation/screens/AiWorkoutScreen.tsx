@@ -129,10 +129,10 @@ export function AiWorkoutScreen({ route }: { route: { params: AiWorkoutParams } 
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.base },
-  camera: { ...StyleSheet.absoluteFillObject },
+  camera: { ...StyleSheet.absoluteFill },
   error: { color: colors.text, ...typography.body, padding: spacing.lg },
   countdownWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
   },

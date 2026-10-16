@@ -1,5 +1,5 @@
 
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -860,7 +860,7 @@ const styles = StyleSheet.create({
   eyebrow: {
     ...typography.caption,
     color: colors.textSecondary,
-    fontFamily: fontFamilies.semibold,
+    fontFamily: fontFamilies.bodySemiBold,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
     marginBottom: spacing.xs,
@@ -950,7 +950,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 24,
     lineHeight: 31,
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.bodyBold,
     marginBottom: spacing.md,
   },
 
@@ -990,7 +990,7 @@ const styles = StyleSheet.create({
   viewDetails: {
     ...typography.label,
     color: colors.primary,
-    fontFamily: fontFamilies.semibold,
+    fontFamily: fontFamilies.bodySemiBold,
   },
 
   arrow: {
@@ -1035,7 +1035,7 @@ const styles = StyleSheet.create({
 
   weekDaysText: {
     ...typography.caption,
-    fontFamily: fontFamilies.semibold,
+    fontFamily: fontFamilies.bodySemiBold,
     flexShrink: 1,
   },
 
@@ -1043,7 +1043,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
     lineHeight: 22,
-    fontFamily: fontFamilies.semibold,
+    fontFamily: fontFamilies.bodySemiBold,
     flex: 1,
     marginBottom: spacing.md,
   },
@@ -1085,7 +1085,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 21,
     lineHeight: 27,
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.bodyBold,
   },
 
   calendarSubtitle: {
@@ -1109,7 +1109,7 @@ const styles = StyleSheet.create({
   calendarCountText: {
     color: colors.text,
     fontSize: 14,
-    fontFamily: fontFamilies.semibold,
+    fontFamily: fontFamilies.bodySemiBold,
   },
 
   dayStripContainer: {
@@ -1128,7 +1128,7 @@ const styles = StyleSheet.create({
   selectedDayTitle: {
     color: colors.text,
     fontSize: 17,
-    fontFamily: fontFamilies.semibold,
+    fontFamily: fontFamilies.bodySemiBold,
   },
 
   selectedDaySubtitle: {
@@ -1174,7 +1174,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 17,
     lineHeight: 23,
-    fontFamily: fontFamilies.semibold,
+    fontFamily: fontFamilies.bodySemiBold,
     marginBottom: spacing.md,
   },
 
@@ -1224,7 +1224,7 @@ const styles = StyleSheet.create({
   emptyDayTitle: {
     color: colors.text,
     fontSize: 16,
-    fontFamily: fontFamilies.semibold,
+    fontFamily: fontFamilies.bodySemiBold,
     marginBottom: spacing.xs,
     textAlign: 'center',
   },
@@ -1247,7 +1247,7 @@ const styles = StyleSheet.create({
   loadMoreText: {
     ...typography.label,
     color: colors.primary,
-    fontFamily: fontFamilies.semibold,
+    fontFamily: fontFamilies.bodySemiBold,
   },
 
   loadingContainer: {

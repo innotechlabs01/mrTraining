@@ -105,7 +105,7 @@ function Particle({ progress, angle, distance, size, delay }: ParticleProps) {
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,

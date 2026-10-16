@@ -80,7 +80,7 @@ export function MyTicketsScreen() {
               {statusLabel}
             </Badge>
             {unread > 0 && (
-              <Badge variant="danger" size="xs" style={styles.unreadBadge}>
+              <Badge variant="danger" size="sm" style={styles.unreadBadge}>
                 {unread > 9 ? '9+' : unread}
               </Badge>
             )}

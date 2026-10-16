@@ -2,20 +2,19 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Workout, WorkoutExerciseDetail, WorkoutSet } from '../types'
+import { Workout, WorkoutSet } from '../types'
 import { formatDuration } from '../hooks/helpers'
 import { WORKOUT_GOAL_LABELS } from '../data/_mocks'
 import { cn } from '@/lib/utils'
 import {
-  Play, Pause, RotateCcw, CheckCircle2, Clock, ChevronRight, ChevronLeft,
-  Plus, Minus, Volume2, VolumeX, X, Send, Camera, MessageSquare,
-  Trophy, Flame, Target, Zap
+  CheckCircle2, ChevronRight, ChevronLeft,
+  Plus, Minus, Camera, MessageSquare,
+  Trophy
 } from 'lucide-react'
 
 interface WorkoutExecutionProps {
   workout: Workout
   onComplete?: (data: CompletionData) => void
-  onCancel?: () => void
   className?: string
 }
 
@@ -38,14 +37,11 @@ export interface CompletionData {
 export function WorkoutExecution({
   workout,
   onComplete,
-  onCancel,
   className,
 }: WorkoutExecutionProps) {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
-  const [workoutStartTime] = useState(new Date())
   const [isRunning, setIsRunning] = useState(true)
   const [restTimeRemaining, setRestTimeRemaining] = useState<number | null>(null)
-  const [restTimeTotal, setRestTimeTotal] = useState(0)
   const [elapsedTime, setElapsedTime] = useState(0)
   const [showCompletionModal, setShowCompletionModal] = useState(false)
   const [completionData, setCompletionData] = useState({
@@ -100,7 +96,6 @@ export function WorkoutExecution({
   }, [isRunning, restTimeRemaining])
 
   const startRest = useCallback((seconds: number) => {
-    setRestTimeTotal(seconds)
     setRestTimeRemaining(seconds)
     setIsRunning(false)
   }, [])

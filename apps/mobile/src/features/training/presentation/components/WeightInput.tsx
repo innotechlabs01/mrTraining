@@ -3,9 +3,9 @@
  * Supports quick increment/decrement buttons and manual text input.
  * Validates non-negative values within a reasonable range.
  */
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, radius, spacing, typography, shadows, layout } from '../../../../shared/theme/tokens';
+import { colors, radius, spacing, typography, shadows } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';
 import { texts } from '../../../../shared/i18n/texts';
 
@@ -71,7 +71,7 @@ export function WeightInput({
   return (
     <Card variant="premium" style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.label}>{texts.screens.weightInput.weightLabel}</Text>
+        <Text style={styles.label}>{texts.screens.weightInput.weightA11yPrefix}</Text>
         {hasPrescription ? (
           <Text style={styles.prescribed}>Prescrito: {prescribedWeight} {unit}</Text>
         ) : null}

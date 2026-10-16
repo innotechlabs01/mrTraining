@@ -1,5 +1,23 @@
 # Team Board
 
+## TODO
+- [ ] T-032: T-027 Phase B — Mobile membership gate fail-closed + MercadoPago | Gate nunca bloquea (envelope-parsing bug, fail-open); PaymentScreen usa Polar legacy (no MP); membershipService.ts usa 4 endpoints fantasma (404). Fix: gate fail-closed + PaymentScreen a MP + rewire service.
+- [ ] T-033: T-027 Phase C — QA + code-reviewer + security-hacker |Después de Phase B: qa device validation → code-reviewer → security-hacker → USER GATE.
+- [ ] T-034: T-026 QA device validation | Rediseño UI/UX membresía móvil implementado. Pendiente: QA device real con Maestro.
+- [ ] T-035: T-009 a T-013 QA device validation | 5 tasks en Review pendientes de QA device. Pendiente: validación real con Maestro.
+- [ ] T-036: T-014 DB fix — crear challenge activo | No hay challenge activo en Turso DB para coach-athlete pair. Fix: coach crea + activa challenge en web.
+- [ ] T-037: T-008 real payment test | MercadoPago cart checkout implementado. Pendiente: QA real payment test.
+- [ ] T-038: T-007 user device test | Auth flow refactor completo. Pendiente: qa user device test.
+
+## In Progress — Fase 1: Limpieza técnica (no cambiar de fase hasta completar todo)
+- [x] T-028: Fix tsc baseUrl deprecation (TS5101) — unmask real type errors | `tsconfig.json:9` usa `baseUrl` deprecado → tsc abortaba con 1 error y enmascaraba 1570+ errores reales. Fix: `ignoreDeprecations: "6.0"` + `types: ["jest", "node"]`. Errores reducidos de 1549 → 36 (restantes son errores de tipo reales por archivo, a corregir en deuda técnica T-043).
+- [x] T-029: Fix web lint failures — unused vars en `WorkoutExecution.tsx` | Eliminados imports no usados (WorkoutExerciseDetail, 10 iconos de lucide-react), prop `onCancel` sin usar, estados `workoutStartTime`/`restTimeTotal` sin usar. Lint ahora limpio para este archivo.
+- [x] T-030: Fix duplicate `RegisterTrainingRoutes` en `main.go` | Eliminada segunda llamada en `main.go:282` (la primera queda en línea 270). go build OK, go test OK.
+- [x] T-031: Fix `athlete_id` no seteado en producción | Agregado `AthleteIDKey` constante y `c.Locals("athlete_id", userID)` en `RequireAuth`. go build OK, go test OK.
+
+## QA Final (solo al terminar TODAS las fases)
+- [ ] QA General: Prueba integral end-to-end de todo lo implementado en todas las fases (T-028→T-044). QA valida builds, tests, lint, QA device, Alianzas frontend, T-027 completo. PASS/FAIL con evidencia antes de Done.
+
 ## Review (team pipeline)
 - [ ] T-014: Verify challenge visibility in mobile home tab | **MANUAL VERIFICATION**: Code path confirmed — TodayScreen uses GET /athlete/challenges/active (joins coach_athlete_links, filters status='active' AND expires_at > now), ChallengeHomeCard renders title/exercise_type/countdown, navigation to ChallengeDetailScreen works | **BLOCKER**: No active challenge in Turso DB for linked coach-athlete pair (ch-20261010022004 404 = not in DB) | Coach must create + activate (Play ▶) challenge in web → status='active' + expires_at='2026-10-30T23:59:59Z' | Device QA pending active challenge creation
 

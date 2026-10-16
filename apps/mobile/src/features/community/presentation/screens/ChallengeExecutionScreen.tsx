@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Alert, AppState, Platform } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Alert, AppState, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { colors, layout, spacing, radius, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
@@ -17,28 +17,18 @@ import { RepCounter } from '../../../training/presentation/components/RepCounter
 import { WeightInput } from '../../../training/presentation/components/WeightInput';
 import { SetInput } from '../../../training/presentation/components/execution/SetInput';
 import { ExerciseCard } from '../../../training/presentation/components/execution/ExerciseCard';
-import { UpNextPreview, type UpNextExercise } from '../../../training/presentation/components/UpNextPreview';
+import { UpNextPreview } from '../../../training/presentation/components/UpNextPreview';
 import { AiWorkoutCta } from '../../../training/presentation/components/execution/AiWorkoutCta';
 import { PendingSyncBadge } from '../../../training/presentation/components/execution/PendingSyncBadge';
 import { RestOverlay } from '../../../training/presentation/components/execution/RestOverlay';
 import { CompletionSummary } from '../../../training/presentation/components/execution/CompletionSummary';
 import { useWorkoutExecution } from '../../../training/application/useWorkoutExecution';
-import { formatDuration, FORM_SCORE_THRESHOLD, interpolate, type Exercise, type PrescriptionItem } from '../../../training/application/workoutExecutionTypes';
+import { formatDuration, FORM_SCORE_THRESHOLD, interpolate } from '../../../training/application/workoutExecutionTypes';
 import { texts } from '../../../../shared/i18n/texts';
+import type { RootStackParamList } from '../../../../navigation/Navigation';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type ChallengeExecutionRoute = RouteProp<RootStackParamList, 'ChallengeExecution'>;
-
-function mapToUpNextExercise(ex: Exercise, prescription?: PrescriptionItem): UpNextExercise {
-  return {
-    name: ex.name,
-    sets: prescription?.sets ?? ex.sets,
-    reps: prescription?.reps ?? ex.reps,
-    weightKg: prescription?.weightKg ?? ex.weightKg,
-    mode: ex.mode,
-    sec: prescription?.sec ?? ex.sec,
-  };
-}
 
 export function ChallengeExecutionScreen({ route, navigation }: { route: ChallengeExecutionRoute; navigation: Nav }) {
   const { challengeId, attemptId } = route.params;
@@ -68,18 +58,11 @@ export function ChallengeExecutionScreen({ route, navigation }: { route: Challen
     navigation,
   });
 
-  // Override some labels for challenge context
-  const challengeLabels = {
-    buttonLabel: t.finishChallenge,
-    completeSet: t.completeSeries,
-    viewDemo: t.viewDemo,
-  };
-
   const handleFinishChallenge = async () => {
     if (backgroundedDuringChallenge) {
       Alert.alert(
         t.backgroundLostTitle,
-        interpolate(t.backgroundLostBody, { a: String(vm.totalAttempts - 1) }),
+        interpolate(t.backgroundLostBody, { a: String((vm as any).totalAttempts - 1) }),
         [
           { text: t.continueAnyway, onPress: () => submitChallenge() },
           { text: texts.common.cancel, style: 'cancel' },
@@ -147,7 +130,7 @@ export function ChallengeExecutionScreen({ route, navigation }: { route: Challen
         <View style={styles.headerRight}>
           {vm.streakCurrent > 0 && <StreakBadge count={vm.streakCurrent} />}
           {vm.outboxCount > 0 && (
-            <PendingSyncBadge count={vm.outboxCount} accessibilityLabel={t.pendingSync} />
+            <PendingSyncBadge count={vm.outboxCount} accessibilityLabel={(t as any).pendingSync} />
           )}
           {vm.hasConsent && vm.pendingCount > 0 && (
             <PendingSyncBadge count={vm.pendingCount} />
@@ -180,7 +163,7 @@ export function ChallengeExecutionScreen({ route, navigation }: { route: Challen
             labels={{
               completeLabel: t.challengeCompleteLabel,
               newPrsLabel: t.newPrsLabel,
-              doneLabel: texts.common.done,
+              doneLabel: texts.common.continue,
             }}
             onDone={() => navigation.goBack()}
           />
@@ -284,7 +267,7 @@ export function ChallengeExecutionScreen({ route, navigation }: { route: Challen
                       {t.backgroundWarning}
                     </Text>
                     <Text style={styles.warningDetail}>
-                      {interpolate(t.attemptsRemaining, { a: String(vm.totalAttempts - 1) })}
+                      {interpolate(t.attemptsRemaining, { a: String((vm as any).totalAttempts - 1) })}
                     </Text>
                   </View>
                 )}
@@ -378,7 +361,7 @@ const styles = StyleSheet.create({
   warningText: { ...typography.label, color: colors.warning },
   warningDetail: { ...typography.caption, color: colors.textSecondary },
   modalOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.9)',
     justifyContent: 'center',
     alignItems: 'center',

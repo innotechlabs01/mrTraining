@@ -1,5 +1,5 @@
 
-import React, { useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import {
   View,
   Text,

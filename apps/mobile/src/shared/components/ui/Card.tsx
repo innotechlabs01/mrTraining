@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   error: { borderColor: colors.error },
   empty: { opacity: 0.5 },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.2)',
     alignItems: 'center',
     justifyContent: 'center',

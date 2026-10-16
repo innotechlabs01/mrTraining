@@ -8,7 +8,7 @@
  * 3. Video uploads to Vercel via API
  * 4. Recording saved to DB
  */
-import React, { useState, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native'
 import { Camera, useCameraDevice, useCameraPermission, useMicrophonePermission, CameraRef } from 'react-native-vision-camera'
 import { useVideoOutput } from 'react-native-vision-camera'
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   uploadOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.8)',

@@ -22,6 +22,9 @@ type contextKey string
 const (
 	// UserIDKey is the context key for the authenticated user's ID.
 	UserIDKey contextKey = "user_id"
+	// AthleteIDKey is the context key for the authenticated athlete's ID.
+	// Memberships are keyed by the same ID as the user, so athlete_id mirrors user_id.
+	AthleteIDKey contextKey = "athlete_id"
 	// UserEmailKey is the context key for the authenticated user's email.
 	UserEmailKey contextKey = "user_email"
 	// UserRoleKey is the context key for the authenticated user's role.
@@ -152,6 +155,7 @@ func RequireAuth(clerkSecretKey string) fiber.Handler {
 
 		// Store values in Fiber context for downstream handlers
 		c.Locals(string(UserIDKey), userID)
+		c.Locals(string(AthleteIDKey), userID)
 		c.Locals(string(UserRoleKey), role)
 		c.Locals(string(SessionClaimsKey), claims)
 

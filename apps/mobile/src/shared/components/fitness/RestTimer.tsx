@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { colors, fontFamilies, spacing } from '../../theme/tokens';
+import { colors, spacing, fontFamilies } from '../../theme/tokens';
 
 type Props = {
   duration: number; // seconds

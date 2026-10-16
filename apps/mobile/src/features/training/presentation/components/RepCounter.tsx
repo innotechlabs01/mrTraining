@@ -3,7 +3,7 @@
  * Only counts reps when form score meets a minimum threshold (default 60).
  * Supports manual increment/decrement and override.
  */
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography, shadows, layout } from '../../../../shared/theme/tokens';
 import { Card } from '../../../../shared/components/ui/Card';

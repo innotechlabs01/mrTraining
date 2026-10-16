@@ -4,7 +4,7 @@
  * Wraps ExerciseVideoPlayer (metrics-tracked) in a dark overlay. Dumb component:
  * visibility, AI flag, and navigation are owned by the parent screen.
  */
-import React from 'react';
+
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows, typography } from '../../../../../shared/theme/tokens';

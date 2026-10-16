@@ -1,6 +1,5 @@
-import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, layout, spacing, typography, shadows, radius } from '../../../../../shared/theme/tokens';
+import { colors, spacing, typography, radius } from '../../../../../shared/theme/tokens';
 import { InfoIcon, PlayIcon } from '../../../../../shared/components/icons';
 import type { ScoredQuality } from '../../../../ai/application/FormEngine';
 import { FormVerdictBadge } from './FormVerdictBadge';
