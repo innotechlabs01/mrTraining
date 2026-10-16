@@ -23,6 +23,7 @@ import (
 	eventapp "github.com/innotechlabs01/mr-training-api/internal/application/event"
 	favoriteapp "github.com/innotechlabs01/mr-training-api/internal/application/favorite"
 	allyapp "github.com/innotechlabs01/mr-training-api/internal/application/ally"
+	allycatalogapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_catalog"
 	commissionapp "github.com/innotechlabs01/mr-training-api/internal/application/commission"
 	formmetricsapp "github.com/innotechlabs01/mr-training-api/internal/application/formmetrics"
 	formrecordingapp "github.com/innotechlabs01/mr-training-api/internal/application/formrecording"
@@ -65,6 +66,7 @@ import (
 	eventinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/event"
 	favoriteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/favorite"
 	allyinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally"
+	allycataloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_catalog"
 	commissioninfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission"
 	auditinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
 	formmetricsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formmetrics"
@@ -366,6 +368,14 @@ func main() {
 
 		// Register ally routes
 		routes.RegisterAllyRoutes(api, allyHandler)
+
+		// Wire Ally Catalog domain (Phase C)
+		allyCatalogRepo := allycataloginfrastructure.NewRepository(db.DB)
+		allyCatalogService := allycatalogapp.NewService(allyCatalogRepo)
+		allyCatalogHandler := userhttp.NewAllyCatalogHandler(allyCatalogService)
+
+		// Register ally catalog routes
+		routes.RegisterAllyCatalogRoutes(api, allyCatalogHandler)
 
     api.Get("/landing", middleware.RequireCoach(), handlers.HandlerGetLanding(db.DB))
     api.Put("/landing", middleware.RequireCoach(), handlers.HandlerPutLanding(db.DB))

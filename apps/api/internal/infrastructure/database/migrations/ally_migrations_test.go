@@ -166,3 +166,59 @@ INSERT INTO t (x) VALUES (1);
 		t.Fatalf("second statement mangled: %q", got[1])
 	}
 }
+
+func TestAllyCatalogMigration(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	writeMigration(t, dir, "019_allies.sql", readPhaseBMigration(t, "019_allies.sql"))
+	writeMigration(t, dir, "022_ally_catalog.sql", readPhaseBMigration(t, "022_ally_catalog.sql"))
+
+	db := newLocalDB(t)
+	res, err := Apply(ctx, db.DB, dir, io.Discard)
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	applied := map[string]bool{}
+	for _, n := range res.Applied {
+		applied[n] = true
+	}
+	if !applied["022_ally_catalog.sql"] {
+		t.Fatalf("expected 022_ally_catalog.sql applied, got %v", res.Applied)
+	}
+
+	// Tables exist.
+	for _, table := range []string{"ally_products", "ally_services"} {
+		var c int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`, table).Scan(&c); err != nil {
+			t.Fatalf("check table %s: %v", table, err)
+		}
+		if c != 1 {
+			t.Fatalf("expected table %s to exist", table)
+		}
+	}
+
+	// CHECK: price_cents >= 0 rejects negative.
+	if err := db.QueryRow(`INSERT INTO ally_products (id, ally_id, name, price_cents) VALUES ('p1','a1','x',-1)`).Scan(); err == nil {
+		t.Fatal("expected CHECK price_cents>=0 to reject negative price")
+	}
+
+	// CHECK: currency IN ('COP') rejects other.
+	if err := db.QueryRow(`INSERT INTO ally_products (id, ally_id, name, price_cents, currency) VALUES ('p2','a1','x',0,'USD')`).Scan(); err == nil {
+		t.Fatal("expected CHECK currency to reject non-COP")
+	}
+
+	// FK: ally_id must exist in allies.
+	if err := db.QueryRow(`INSERT INTO ally_products (id, ally_id, name, price_cents) VALUES ('p3','nope','x',0)`).Scan(); err == nil {
+		t.Fatal("expected FK ally_id to reject unknown ally")
+	}
+
+	// Idempotent second run.
+	res, err = Apply(ctx, db.DB, dir, io.Discard)
+	if err != nil {
+		t.Fatalf("second apply: %v", err)
+	}
+	if len(res.Applied) != 0 {
+		t.Fatalf("expected 0 applied on second run, got %v", res.Applied)
+	}
+}
+

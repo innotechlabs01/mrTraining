@@ -465,3 +465,16 @@ func RegisterAllyRoutes(api fiber.Router, handler *handlers.AllyHandler) {
 	// Admin: append-only financial audit trail (read-only).
 	api.Get("/admin/financial-audit", middleware.RequireAdmin(), handler.ListFinancialAudit)
 }
+
+// RegisterAllyCatalogRoutes registers the ally catalog routes (products and
+// services) on the given API group. All routes require the ally role and are
+// scoped to the ally the authenticated user owns or belongs to (ownership is
+// resolved server-side; the client never supplies a trusted ally_id).
+func RegisterAllyCatalogRoutes(api fiber.Router, handler *handlers.AllyCatalogHandler) {
+	api.Get("/ally/products", middleware.RequireAlly(), handler.ListProducts)
+	api.Post("/ally/products", middleware.RequireAlly(), handler.CreateProduct)
+	api.Put("/ally/products/:id", middleware.RequireAlly(), handler.UpdateProduct)
+	api.Get("/ally/services", middleware.RequireAlly(), handler.ListServices)
+	api.Post("/ally/services", middleware.RequireAlly(), handler.CreateService)
+	api.Put("/ally/services/:id", middleware.RequireAlly(), handler.UpdateService)
+}
