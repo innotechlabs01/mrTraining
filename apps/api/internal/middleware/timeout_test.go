@@ -16,8 +16,17 @@ func setupTimeoutTestApp(timeoutSeconds int, handlerDelay time.Duration) *fiber.
 	app.Use(middleware.Timeout(timeoutSeconds))
 
 	app.Get("/test", func(c *fiber.Ctx) error {
-		time.Sleep(handlerDelay)
-		return c.SendStatus(fiber.StatusOK)
+		// Respetar el contexto de timeout: si el middleware ya canceló,
+		// no escribir respuesta (el middleware ya envió 508).
+		select {
+		case <-time.After(handlerDelay):
+			if c.UserContext().Err() != nil {
+				return nil
+			}
+			return c.SendStatus(fiber.StatusOK)
+		case <-c.UserContext().Done():
+			return nil
+		}
 	})
 
 	return app

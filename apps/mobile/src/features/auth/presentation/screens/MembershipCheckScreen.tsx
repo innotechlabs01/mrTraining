@@ -37,13 +37,13 @@ export function MembershipCheckScreen({ navigation }: Props) {
     setStatus('loading');
     if (!user?.id) return;
     try {
-      const membership = await getMembershipStatus(user.id);
+      const membership = await getMembershipStatus();
       if (membership.hasActiveMembership) {
         setStatus('active');
         navigation.replace('AthleteTabs');
         return;
       }
-      const available = await getAvailablePlans(user.id);
+      const available = await getAvailablePlans();
       setPlans(available);
       setStatus('no_membership');
     } catch (err: unknown) {

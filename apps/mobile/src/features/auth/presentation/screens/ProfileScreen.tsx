@@ -51,7 +51,7 @@ export function ProfileScreen() {
 
   useEffect(() => {
     if (!user?.id) return;
-    getMembershipStatus(user.id).then((membership) => {
+    getMembershipStatus().then((membership) => {
       setMembershipDays(membership.daysRemaining ?? null);
     }).catch(() => {});
   }, [user?.id]);

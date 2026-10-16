@@ -17,7 +17,8 @@ const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedRefreshClerkToken = refreshClerkToken as jest.MockedFunction<typeof refreshClerkToken>;
 
 describe('API Client - 401 Token Change Guard', () => {
-  let mockClient: jest.Mocked<AxiosInstance>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let mockClient: any;
   let requestInterceptor: (config: InternalAxiosRequestConfig) => Promise<InternalAxiosRequestConfig>;
   let responseInterceptorSuccess: (response: any) => any;
   let responseInterceptorError: (error: any) => Promise<any>;

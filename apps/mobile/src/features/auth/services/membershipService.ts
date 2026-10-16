@@ -1,13 +1,34 @@
 /**
  * Membership Service
- * 
+ *
  * Servicios para consultar y gestionar la membresía del athlete.
- * 
- * NOTA: Estas APIs ya existen en el Go API (usado por la web).
- * Traemos la misma lógica al mobile para consistencia.
+ * Todos los endpoints consumen el Go API (/api/v1/*) como única fuente de verdad.
+ * El athleteId se resuelve desde el token de Clerk (auth interceptor), no se pasa en la URL.
  */
 
 import { apiClient } from '../../../infrastructure/api/client';
+
+export interface MembershipSummary {
+  id: string;
+  planName: string;
+  planPrice: number;
+  billingPeriod: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  paymentDueDate: string;
+  athleteId: string;
+  coachId: string;
+}
+
+export interface MembershipStatus {
+  hasActiveMembership: boolean;
+  status: 'active' | 'trial' | 'past_due' | 'suspended' | 'no_membership' | 'none';
+  isInGracePeriod: boolean;
+  daysRemaining: number | null;
+  expiresAt: string | null;
+  membership: MembershipSummary | null;
+  membershipId: string;
+}
 
 export interface Plan {
   id: string;
@@ -20,81 +41,77 @@ export interface Plan {
   isPopular?: boolean;
 }
 
-export interface MembershipStatus {
-  hasActiveMembership: boolean;
-  currentPlan: Plan | null;
-  expiresAt: string | null;
-  daysRemaining: number | null;
-  isInGracePeriod: boolean;
-}
-
-/**
- * Obtiene el estado actual de la membresía del athlete
- */
-export async function getMembershipStatus(
-  athleteId: string
-): Promise<MembershipStatus> {
-  const response = await apiClient.get(`/athlete/membership/status/${athleteId}`);
-  return response.data;
-}
-
-/**
- * Obtiene todos los planes disponibles que el coach ha creado
- * en el panel de web. Estos son los mismos planes que ve el usuario
- * en la versión web.
- */
-export async function getAvailablePlans(
-  athleteId: string
-): Promise<Plan[]> {
-  const response = await apiClient.get(`/athlete/membership/plans/${athleteId}`);
-  return response.data;
-}
-
-/**
- * Compra/actualiza la membresía
- * 
- * - Si el usuario ya tiene membership, la actualiza
- * - Si es nuevo, la crea
- * 
- * El response debe contener:
- * - membershipId
- * - expiresAt
- * - planId
- * - status (active, trial, past_due, etc)
- */
-export async function purchaseMembership(
-  athleteId: string,
-  planId: string,
-  paymentMethod?: string
-): Promise<{
-  membershipId: string;
-  expiresAt: string;
-  status: 'active' | 'trial' | 'past_due';
-  message: string;
-}> {
-  const response = await apiClient.post(`/athlete/membership/purchase`, {
-    athleteId,
-    planId,
-    ...(paymentMethod && { paymentMethod }),
-  });
-
-  return response.data;
-}
-
-/**
- * Cancelar la membresía
- */
-export async function cancelMembership(
-  athleteId: string
-): Promise<{
+interface CancelResponse {
   membershipId: string;
   cancelAtPeriodEnd: boolean;
   status: 'active' | 'canceled';
   message: string;
-}> {
-  const response = await apiClient.post(`/athlete/membership/cancel`, {
-    athleteId,
-  });
+}
 
-  return response.data;
+/**
+ * Obtiene el estado actual de la membresía del athlete.
+ * GET /api/v1/athletes/membership/status — sin path param, usa token del auth.
+ */
+export async function getMembershipStatus(): Promise<MembershipStatus> {
+  const { data } = await apiClient.get<MembershipStatus>('/athletes/membership/status');
+  return data;
+}
+
+/**
+ * Obtiene la membresía actual del athlete (GET /api/v1/memberships).
+ * Se adapta a Plan[] para compatibilidad con pantallas de selección de plan.
+ */
+export async function getAvailablePlans(): Promise<Plan[]> {
+  const { data } = await apiClient.get<{ id?: string; plan_name?: string; plan_price?: number; billing_period?: string }>('/memberships');
+
+  if (!data || !data.id) {
+    return [];
+  }
+
+  const planPrice = typeof data.plan_price === 'number' ? data.plan_price : 0;
+  const duration: 'monthly' | 'annual' =
+    data.billing_period === 'annual' || data.billing_period === 'yearly' ? 'annual' : 'monthly';
+
+  return [
+    {
+      id: data.id,
+      name: data.plan_name ?? 'Membresía',
+      description: `Plan ${duration === 'annual' ? 'anual' : 'mensual'}`,
+      price: `$${planPrice.toFixed(2)}/mes`,
+      priceId: data.id,
+      duration,
+      features: [],
+    },
+  ];
+}
+
+/**
+ * Cancelar la membresía.
+ * PUT /api/v1/memberships/:id/cancel
+ */
+export async function cancelMembership(
+  membershipId: string
+): Promise<CancelResponse> {
+  const { data } = await apiClient.put<CancelResponse>(
+    `/memberships/${membershipId}/cancel`
+  );
+  return data;
+}
+
+/**
+ * Inicia la compra de membresía vía MercadoPago.
+ * Crea una preferencia de checkout (POST /payments/membership/preference)
+ * y devuelve el initPoint para abrir en el navegador.
+ */
+export async function purchaseMembership(): Promise<{
+  membershipId: string;
+  planName: string;
+  initPoint: string;
+  total: number;
+  currency: string;
+}> {
+  const { createMembershipPreference } = await import(
+    '../../../features/membership/membershipPayment'
+  );
+  return createMembershipPreference();
 }

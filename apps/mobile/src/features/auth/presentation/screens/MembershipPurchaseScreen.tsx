@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, View, Linking, Alert } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { showToast } from '../../../../shared/components/ui/Toast';
-import { purchaseMembership, getAvailablePlans, type Plan } from '../../services/membershipService';
+import { getAvailablePlans, purchaseMembership, type Plan } from '../../services/membershipService';
 import { useClerkAuth } from '../../hooks/useClerkAuth';
 import { colors, layout, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { ListCard } from '../../../../shared/components/ui/ListCard';
+import { texts } from '../../../../shared/i18n/texts';
+
+const t = texts.screens.membershipScreen;
 
 type MembershipNavProp = NativeStackNavigationProp<RootStackParamList, 'Membership'>;
 
@@ -30,7 +33,7 @@ export function MembershipPurchaseScreen({ navigation }: Props) {
     }
     setIsLoading(true);
     try {
-      const fetched = await getAvailablePlans(user.id);
+      const fetched = await getAvailablePlans();
       if (fetched.length > 0) {
         setSelectedPlan(fetched[0]);
       }
@@ -51,17 +54,16 @@ export function MembershipPurchaseScreen({ navigation }: Props) {
     if (!selectedPlan || !user?.id) return;
     setIsPaying(true);
     try {
-      const result = await purchaseMembership(user.id, selectedPlan.id);
-      if (result.status === 'active') {
-        showToast('success', '¡Éxito!', result.message || 'Membresía activada');
-        navigation.replace('AthleteTabs');
+      const preference = await purchaseMembership();
+      if (preference?.initPoint) {
+        await Linking.openURL(preference.initPoint);
       } else {
-        showToast('warning', 'Atención', result.message || 'Procesando…');
+        showToast('error', t.checkoutFailedTitle, t.checkoutFailedBody);
         setIsPaying(false);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al procesar el pago';
-      showToast('error', 'Error', msg);
+      showToast('error', t.genericErrorTitle, msg);
       setIsPaying(false);
     }
   }, [selectedPlan, user?.id, navigation]);
@@ -111,7 +113,7 @@ export function MembershipPurchaseScreen({ navigation }: Props) {
         </View>
 
         <PrimaryButton
-          label={isPaying ? 'Procesando pago…' : 'Comprar membresía'}
+          label={isPaying ? 'Procesando pago…' : t.payCta}
           onPress={handlePurchase}
           loading={isPaying}
         />

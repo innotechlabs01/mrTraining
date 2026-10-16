@@ -4,10 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, typography } from '../../../shared/theme/tokens';
 import { texts } from '../../../shared/i18n/texts';
+import { LockIcon } from '../../../shared/components/icons';
+import { createMembershipPreference } from '../../../features/membership/membershipPayment';
 
 const t = texts.screens.paymentScreen;
-import { LockIcon } from '../../../shared/components/icons';
-import { createCheckout } from '../../../features/polar/polarService';
 
 type Props = {
   membership: {
@@ -20,8 +20,9 @@ type Props = {
 export function PaymentScreen({ membership }: Props) {
   const queryClient = useQueryClient();
   const [isPaying, setIsPaying] = useState(false);
+  const [preference, setPreference] = useState<{ initPoint: string; total: number; currency: string } | null>(null);
 
-  // Refresh after returning from the external Polar checkout browser.
+  // Refresh membership status after returning from the MercadoPago browser flow.
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
       if (next === 'active') {
@@ -34,14 +35,15 @@ export function PaymentScreen({ membership }: Props) {
   const handlePay = async () => {
     setIsPaying(true);
     try {
-      const res = await createCheckout(membership.athleteId, membership.id);
-      if (res?.url) {
-        await Linking.openURL(res.url);
+      const res = await createMembershipPreference();
+      if (res?.initPoint) {
+        setPreference({ initPoint: res.initPoint, total: res.total, currency: res.currency });
+        await Linking.openURL(res.initPoint);
       } else {
         Alert.alert(t.checkoutFailedTitle, t.checkoutFailedBody);
       }
     } catch (e) {
-      console.error('Failed to start checkout', e);
+      console.error('Failed to start MercadoPago checkout', e);
       Alert.alert(t.genericErrorTitle, t.genericErrorBody);
     } finally {
       setIsPaying(false);
@@ -82,7 +84,11 @@ export function PaymentScreen({ membership }: Props) {
             <Text style={styles.infoValue}>{formatDate(membership.paymentDueDate)}</Text>
           </View>
         </View>
-        <Pressable style={({ pressed }) => [styles.payBtn, pressed && !isPaying && { opacity: 0.8 }, isPaying && { opacity: 0.6 }]} disabled={isPaying} onPress={handlePay}>
+        <Pressable
+          style={({ pressed }) => [styles.payBtn, pressed && !isPaying && { opacity: 0.8 }, isPaying && { opacity: 0.6 }]}
+          disabled={isPaying}
+          onPress={handlePay}
+        >
           <Text style={styles.payText}>{isPaying ? t.processing : t.payAmount.replace('${amount}', String(membership.planPrice))}</Text>
         </Pressable>
       </View>

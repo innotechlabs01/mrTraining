@@ -26,7 +26,7 @@ export function MembershipPlansListScreen({ navigation }: any) {
 
     setIsLoading(true);
     try {
-      const fetchedPlans = await getAvailablePlans(user.id);
+      const fetchedPlans = await getAvailablePlans();
       setPlans(fetchedPlans);
       setIsLoading(false);
     } catch (err: any) {
