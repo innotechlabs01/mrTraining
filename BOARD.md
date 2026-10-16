@@ -31,6 +31,9 @@
 ## In Progress
 - [ ] T-016: Alianzas Phase C — catálogo comercios y servicios (migración 022, ally_products/ally_services, CRUD con ownership ally↔ally, RBAC RequireAlly, pruebas). Invitaciones/accept/perfil pendientes (requieren Clerk Backend API no implementado — decisión abierta).
 
+## Review
+- [ ] T-017: Alianzas Phase D — operaciones, reservas, tickets QR (migración 023, ally_operations/ally_operation_items/ally_redemptions, CRUD con ownership, RBAC RequireAlly/RequireAthlete, redención atómica anti-replay, concurrencia, pruebas IDOR). Implementada y testeada, go build/test green. Commit pendiente. R7 = relationship_id obligatorio + status active al crear (verificado en pruebas). R8 = sin decisión de interfaz móvil; solo mecanismo de dominio/backend implementado (sin lib QR nativa).
+
 ## Done
 - [x] T-003: mobile UI/UX hygiene S1–S5 — spec `2026-10-12-T-003-mobile-uiux-design.md` | S1–S5 + fix loop 1 (096cf7c) | qa PASS | code-reviewer PASS | security PASS | approved by @user 2026-10-12 (PASS WITH LIMITATIONS: validación real en dispositivo pendiente — ticket aparte)
 - [x] T-002: expo-av→expo-video migration — dev PASS → qa PASS → review PASS → security PASS — approved by @user 2026-10-12 — PR #2 merged (fd4524b)

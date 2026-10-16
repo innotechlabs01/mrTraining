@@ -24,6 +24,7 @@ import (
 	favoriteapp "github.com/innotechlabs01/mr-training-api/internal/application/favorite"
 	allyapp "github.com/innotechlabs01/mr-training-api/internal/application/ally"
 	allycatalogapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_catalog"
+	allyopsapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_operations"
 	commissionapp "github.com/innotechlabs01/mr-training-api/internal/application/commission"
 	formmetricsapp "github.com/innotechlabs01/mr-training-api/internal/application/formmetrics"
 	formrecordingapp "github.com/innotechlabs01/mr-training-api/internal/application/formrecording"
@@ -67,6 +68,7 @@ import (
 	favoriteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/favorite"
 	allyinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally"
 	allycataloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_catalog"
+	allyopsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_operations"
 	commissioninfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission"
 	auditinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
 	formmetricsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formmetrics"
@@ -376,6 +378,14 @@ func main() {
 
 		// Register ally catalog routes
 		routes.RegisterAllyCatalogRoutes(api, allyCatalogHandler)
+
+		// Wire Ally Operations domain (Phase D)
+		allyOpsRepo := allyopsinfrastructure.NewRepository(db.DB)
+		allyOpsService := allyopsapp.NewService(allyOpsRepo)
+		allyOpsHandler := userhttp.NewAllyOperationsHandler(allyOpsService)
+
+		// Register ally operations routes
+		routes.RegisterAllyOperationsRoutes(api, allyOpsHandler)
 
     api.Get("/landing", middleware.RequireCoach(), handlers.HandlerGetLanding(db.DB))
     api.Put("/landing", middleware.RequireCoach(), handlers.HandlerPutLanding(db.DB))

@@ -174,6 +174,10 @@ func TestAllyCatalogMigration(t *testing.T) {
 	writeMigration(t, dir, "022_ally_catalog.sql", readPhaseBMigration(t, "022_ally_catalog.sql"))
 
 	db := newLocalDB(t)
+	// Enable foreign key enforcement in SQLite for constraint tests.
+	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+		t.Fatalf("pragma foreign_keys: %v", err)
+	}
 	res, err := Apply(ctx, db.DB, dir, io.Discard)
 	if err != nil {
 		t.Fatalf("apply: %v", err)
@@ -210,6 +214,100 @@ func TestAllyCatalogMigration(t *testing.T) {
 	// FK: ally_id must exist in allies.
 	if err := db.QueryRow(`INSERT INTO ally_products (id, ally_id, name, price_cents) VALUES ('p3','nope','x',0)`).Scan(); err == nil {
 		t.Fatal("expected FK ally_id to reject unknown ally")
+	}
+
+	// Idempotent second run.
+	res, err = Apply(ctx, db.DB, dir, io.Discard)
+	if err != nil {
+		t.Fatalf("second apply: %v", err)
+	}
+	if len(res.Applied) != 0 {
+		t.Fatalf("expected 0 applied on second run, got %v", res.Applied)
+	}
+}
+
+func TestAllyCommerceMigration(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	writeMigration(t, dir, "019_allies.sql", readPhaseBMigration(t, "019_allies.sql"))
+	writeMigration(t, dir, "020_commissions.sql", readPhaseBMigration(t, "020_commissions.sql"))
+	writeMigration(t, dir, "023_ally_commerce.sql", readPhaseBMigration(t, "023_ally_commerce.sql"))
+
+	db := newLocalDB(t)
+	// Enable foreign key enforcement in SQLite for constraint tests.
+	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+		t.Fatalf("pragma foreign_keys: %v", err)
+	}
+	res, err := Apply(ctx, db.DB, dir, io.Discard)
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	applied := map[string]bool{}
+	for _, n := range res.Applied {
+		applied[n] = true
+	}
+	if !applied["023_ally_commerce.sql"] {
+		t.Fatalf("expected 023_ally_commerce.sql applied, got %v", res.Applied)
+	}
+
+	// Tables exist.
+	for _, table := range []string{"ally_operations", "ally_operation_items", "ally_redemptions"} {
+		var c int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`, table).Scan(&c); err != nil {
+			t.Fatalf("check table %s: %v", table, err)
+		}
+		if c != 1 {
+			t.Fatalf("expected table %s to exist", table)
+		}
+	}
+
+	// Seed a relationship for FK tests.
+	mustExec(t, db, `INSERT INTO allies (id, legal_name, commercial_name, category, status) VALUES ('a1','Legal','Comercial','gym','active')`)
+	mustExec(t, db, `INSERT INTO coach_ally_relationships (id, coach_id, ally_id, status) VALUES ('r1','coachA','a1','active')`)
+
+	// CHECK: kind must be order|reservation.
+	if _, err := db.Exec(`INSERT INTO ally_operations (id, kind, relationship_id, ally_id, athlete_id, status) VALUES ('o1','bogus','r1','a1','ath1','created')`); err == nil {
+		t.Fatal("expected CHECK kind to reject invalid value")
+	}
+
+	// CHECK: status must be valid.
+	if _, err := db.Exec(`INSERT INTO ally_operations (id, kind, relationship_id, ally_id, athlete_id, status) VALUES ('o2','order','r1','a1','ath1','bogus')`); err == nil {
+		t.Fatal("expected CHECK status to reject invalid value")
+	}
+
+	// FK: relationship_id must exist.
+	if _, err := db.Exec(`INSERT INTO ally_operations (id, kind, relationship_id, ally_id, athlete_id, status) VALUES ('o3','order','nope','a1','ath1','created')`); err == nil {
+		t.Fatal("expected FK relationship_id to reject unknown relationship")
+	}
+
+	// CHECK: offer_kind must be product|service.
+	if _, err := db.Exec(`INSERT INTO ally_operation_items (id, operation_id, offer_kind, offer_id, name, unit_price_cents, quantity) VALUES ('i1','o1','bogus','p1','x',0,1)`); err == nil {
+		t.Fatal("expected CHECK offer_kind to reject invalid value")
+	}
+
+	// Seed op o4 for unit_price_cents and quantity tests.
+	if _, err := db.Exec(`INSERT INTO ally_operations (id, kind, relationship_id, ally_id, athlete_id, status) VALUES ('o4','order','r1','a1','ath1','created')`); err != nil {
+		t.Fatalf("seed op: %v", err)
+	}
+	// CHECK: unit_price_cents >= 0.
+	if _, err := db.Exec(`INSERT INTO ally_operation_items (id, operation_id, offer_kind, offer_id, name, unit_price_cents, quantity) VALUES ('i2','o4','product','p1','x',-5,1)`); err == nil {
+		t.Fatal("expected CHECK unit_price_cents>=0 to reject negative price")
+	}
+
+	// CHECK: quantity >= 1.
+	if _, err := db.Exec(`INSERT INTO ally_operation_items (id, operation_id, offer_kind, offer_id, name, unit_price_cents, quantity) VALUES ('i3','o4','product','p1','x',0,0)`); err == nil {
+		t.Fatal("expected CHECK quantity>=1 to reject zero quantity")
+	}
+
+	// UNIQUE(token_hash) on redemptions.
+	mustExec(t, db, `INSERT INTO ally_redemptions (id, operation_id, token_hash, expires_at, status) VALUES ('red1','o4','hash1','2026-12-31 23:59:59','issued')`)
+	if _, err := db.Exec(`INSERT INTO ally_redemptions (id, operation_id, token_hash, expires_at, status) VALUES ('red2','o4','hash1','2026-12-31 23:59:59','issued')`); err == nil {
+		t.Fatal("expected UNIQUE(token_hash) to reject duplicate token")
+	}
+
+	// CHECK: redemption status must be valid.
+	if _, err := db.Exec(`INSERT INTO ally_redemptions (id, operation_id, token_hash, expires_at, status) VALUES ('red3','o4','hash3','2026-12-31 23:59:59','bogus')`); err == nil {
+		t.Fatal("expected CHECK redemption status to reject invalid value")
 	}
 
 	// Idempotent second run.

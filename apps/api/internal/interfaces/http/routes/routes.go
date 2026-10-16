@@ -478,3 +478,19 @@ func RegisterAllyCatalogRoutes(api fiber.Router, handler *handlers.AllyCatalogHa
 	api.Post("/ally/services", middleware.RequireAlly(), handler.CreateService)
 	api.Put("/ally/services/:id", middleware.RequireAlly(), handler.UpdateService)
 }
+
+// RegisterAllyOperationsRoutes registers ally operations routes (orders,
+// reservations, redemptions) on the given API group.
+func RegisterAllyOperationsRoutes(api fiber.Router, handler *handlers.AllyOperationsHandler) {
+	// Athlete: create orders and reservations
+	api.Post("/athlete/orders", middleware.RequireAthlete(), handler.CreateOrder)
+	api.Post("/athlete/reservations", middleware.RequireAthlete(), handler.CreateReservation)
+	api.Get("/athlete/operations/:id", middleware.RequireAthlete(), handler.GetOperation)
+
+	// Ally: view operations and manage redemptions
+	api.Get("/ally/operations", middleware.RequireAlly(), handler.ListAllyOperations)
+	api.Post("/ally/operations/:id/items", middleware.RequireAlly(), handler.AddOperationItem)
+	api.Get("/ally/operations/:id/items", middleware.RequireAlly(), handler.ListOperationItems)
+	api.Post("/ally/redemptions", middleware.RequireAlly(), handler.CreateRedemption)
+	api.Post("/ally/redemptions/:token/redeem", middleware.RequireAlly(), handler.RedeemRedemption)
+}
