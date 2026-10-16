@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import * as Linking from 'expo-linking';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { createNativeStackNavigator, NativeStackScreenProps, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ActivityIndicator, View } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import Constants from 'expo-constants';
@@ -130,8 +130,12 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 // --- Wrappers ---
 function AthleteTabsWithGate() {
   const { user } = useUser();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   return (
-    <MembershipGate athleteId={user?.id ?? null}>
+    <MembershipGate
+      athleteId={user?.id ?? null}
+      onNoMembership={() => navigation.replace('MembershipCheck')}
+    >
       <AthleteTabs />
     </MembershipGate>
   );

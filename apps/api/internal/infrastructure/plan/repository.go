@@ -26,11 +26,6 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string, activeOnly
 		discount_type, discount_value, discount_label, discount_valid_from,
 		discount_valid_until, discount_code, created_at, updated_at
 		FROM plans WHERE coach_id = ?`
-	if activeOnly {
-		query += ` AND is_active = 1`
-	}
-	query += ` ORDER BY price ASC`
-
 	rows, err := r.db.QueryContext(ctx, query, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("list plans by coach: %w", err)

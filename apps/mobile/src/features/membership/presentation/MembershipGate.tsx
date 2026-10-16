@@ -50,12 +50,20 @@ function buildMembershipState(
  *
  * Nunca deja pasar sin membresía válida.
  * - loading: muestra ActivityIndicator
- * - no_membership / none: bloquea, muestra PaymentScreen
- * - suspended: bloquea, muestra PaymentScreen
+ * - no_membership / none: bloquea, llama onNoMembership (navegar a planes de compra)
+ * - suspended: bloquea, muestra PaymentScreen (renovar plan existente)
  * - error: bloquea, muestra estado de error
  * - active / trial / past_due: permite acceso (renderiza children)
  */
-export function MembershipGate({ children, athleteId }: { children: React.ReactNode; athleteId: string | null }) {
+export function MembershipGate({
+  children,
+  athleteId,
+  onNoMembership,
+}: {
+  children: React.ReactNode;
+  athleteId: string | null;
+  onNoMembership?: () => void;
+}) {
   const [state, setState] = useState<MembershipState>({ status: 'loading' });
 
   useEffect(() => {
@@ -79,11 +87,18 @@ export function MembershipGate({ children, athleteId }: { children: React.ReactN
             return;
 
           case 'suspended':
+            // Membresía suspendida — bloquear, mostrar PaymentScreen para renovar
+            if (!cancelled) {
+              setState(buildMembershipState(membership.status, membership.membership));
+            }
+            return;
+
           case 'no_membership':
           case 'none':
-            // No membresía válida — bloquear, mostrar PaymentScreen
+            // No hay membresía — bloquear y notificar al padre para navegar a planes de compra
             if (!cancelled) {
-              setState(buildMembershipState(membership.status === 'none' ? 'no_membership' : membership.status, membership.membership));
+              setState({ status: 'no_membership' });
+              onNoMembership?.();
             }
             return;
 
@@ -121,9 +136,8 @@ export function MembershipGate({ children, athleteId }: { children: React.ReactN
     );
   }
 
-  // suspended / no_membership — bloquear, mostrar pantalla de compra.
-  // Siempre bloquear: fail-closed, nunca dejar pasar sin membresía válida.
-  if (state.status === 'suspended' || state.status === 'no_membership') {
+  // suspended — bloquear, mostrar PaymentScreen para renovar plan existente
+  if (state.status === 'suspended') {
     const m: NonNullable<MembershipState['membership']> = state.membership ?? {
       id: '',
       planName: '',
@@ -134,6 +148,11 @@ export function MembershipGate({ children, athleteId }: { children: React.ReactN
       coachId: '',
     };
     return <PaymentScreen membership={m} />;
+  }
+
+  // no_membership — bloquear, navegar a pantalla de planes (ya notificado vía onNoMembership)
+  if (state.status === 'no_membership') {
+    return null;
   }
 
   // active / trial / past_due — permitir acceso

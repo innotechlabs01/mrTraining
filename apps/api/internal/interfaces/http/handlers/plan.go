@@ -58,6 +58,9 @@ func (h *PlanHandler) ListPublicPlans(c *fiber.Ctx) error {
 	})
 }
 
+// ListActivePlans is not yet wired to a mobile-facing endpoint.
+// Use ListPublicPlans(coachId, true) for coach-scoped active plans.
+
 // CreatePlan creates a new plan for the authenticated coach.
 func (h *PlanHandler) CreatePlan(c *fiber.Ctx) error {
 	coachID := middleware.GetUserID(c)

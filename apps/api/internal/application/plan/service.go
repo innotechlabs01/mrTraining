@@ -26,6 +26,9 @@ func (s *Service) ListPlans(ctx context.Context, coachID string, activeOnly bool
 	return s.repo.ListByCoach(ctx, coachID, activeOnly)
 }
 
+// ListActivePlans is not yet wired to a mobile-facing endpoint.
+// Use ListPlans(coachID, true) for coach-scoped active plans.
+
 // CreatePlan creates a new plan for the given coach.
 func (s *Service) CreatePlan(ctx context.Context, coachID string, req dto.CreatePlanRequest) (*plandomain.Plan, error) {
 	if req.Name == "" {

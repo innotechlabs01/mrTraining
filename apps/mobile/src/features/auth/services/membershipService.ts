@@ -58,29 +58,31 @@ export async function getMembershipStatus(): Promise<MembershipStatus> {
 }
 
 /**
- * Obtiene la membresía actual del athlete (GET /api/v1/memberships).
- * Se adapta a Plan[] para compatibilidad con pantallas de selección de plan.
+ * Obtiene los planes disponibles para comprar.
+ * TODO: Conectar a GET /api/v1/athletes/membership/plans cuando exista en el Go API.
+ * Por ahora devuelve planes de ejemplo para que el flujo de membresía funcione.
  */
 export async function getAvailablePlans(): Promise<Plan[]> {
-  const { data } = await apiClient.get<{ id?: string; plan_name?: string; plan_price?: number; billing_period?: string }>('/memberships');
-
-  if (!data || !data.id) {
-    return [];
-  }
-
-  const planPrice = typeof data.plan_price === 'number' ? data.plan_price : 0;
-  const duration: 'monthly' | 'annual' =
-    data.billing_period === 'annual' || data.billing_period === 'yearly' ? 'annual' : 'monthly';
-
   return [
     {
-      id: data.id,
-      name: data.plan_name ?? 'Membresía',
-      description: `Plan ${duration === 'annual' ? 'anual' : 'mensual'}`,
-      price: `$${planPrice.toFixed(2)}/mes`,
-      priceId: data.id,
-      duration,
-      features: [],
+      id: 'plan_monthly',
+      name: 'Mensual',
+      description: 'Acceso completo por 1 mes',
+      price: '$19.99/mes',
+      priceId: 'plan_monthly',
+      duration: 'monthly',
+      features: ['Entrenamientos ilimitados', 'Seguimiento de progreso', 'Soporte prioritario'],
+      isPopular: false,
+    },
+    {
+      id: 'plan_annual',
+      name: 'Anual',
+      description: 'Acceso completo por 1 año (ahorra 20%)',
+      price: '$199.99/año',
+      priceId: 'plan_annual',
+      duration: 'annual',
+      features: ['Entrenamientos ilimitados', 'Seguimiento de progreso', 'Soporte prioritario', 'Descarga de videos'],
+      isPopular: true,
     },
   ];
 }

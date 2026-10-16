@@ -292,9 +292,9 @@ func main() {
 		routes.RegisterPublicEventRoutes(app.Group("/public"), eventHandler)
 
 		// Wire Plan domain
+		trmService := trmapp.NewService()
 		planRepo := planinfrastructure.NewRepository(db.DB)
 		planService := planapp.NewService(planRepo)
-		trmService := trmapp.NewService()
 		planHandler := userhttp.NewPlanHandler(planService, trmService)
 
 		// Register plan routes (coach CRUD under /api/v1, public under /public)
