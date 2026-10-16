@@ -61,3 +61,11 @@ func (s *Service) AcceptInvite(ctx context.Context, code, athleteID string) (*in
 	}
 	return result, nil
 }
+
+// GetCoachIDByAthleteID resolves the coach linked to an athlete via coach_athlete_links.
+func (s *Service) GetCoachIDByAthleteID(ctx context.Context, athleteID string) (string, error) {
+	if strings.TrimSpace(athleteID) == "" {
+		return "", errors.BadRequest("athlete_id is required")
+	}
+	return s.repo.GetCoachIDByAthleteID(ctx, athleteID)
+}

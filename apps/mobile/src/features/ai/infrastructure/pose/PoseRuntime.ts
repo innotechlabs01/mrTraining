@@ -5,5 +5,5 @@ import type { LandmarkFrame } from '../../domain/Landmark';
  * `input` is opaque to engines — the native layer feeds a video frame.
  */
 export interface PoseRuntime {
-  detect(input: unknown): LandmarkFrame | null;
+  detect(input: unknown): Promise<LandmarkFrame | null>;
 }

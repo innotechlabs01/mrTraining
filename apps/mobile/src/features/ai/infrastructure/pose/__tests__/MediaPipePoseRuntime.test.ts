@@ -1,5 +1,5 @@
 import type { PoseRuntime } from '../PoseRuntime';
-import type { Landmark, LandmarkFrame } from '../../domain/Landmark';
+import type { Landmark, LandmarkFrame } from '../../../domain/Landmark';
 import { MediaPipePoseRuntime } from '../MediaPipePoseRuntime';
 
 // Mock react-native-fast-tflite before any test runs

@@ -61,6 +61,21 @@ func (r *Repository) AcceptInvite(ctx context.Context, code, athleteID string) (
 	return &invite.AcceptResult{Success: true, CoachName: coachName}, nil
 }
 
+// GetCoachIDByAthleteID resolves the coach linked to an athlete via coach_athlete_links.
+func (r *Repository) GetCoachIDByAthleteID(ctx context.Context, athleteID string) (string, error) {
+	var coachID string
+	err := r.db.QueryRowContext(ctx,
+		`SELECT coach_id FROM coach_athlete_links WHERE athlete_id = ? AND status = 'active'`,
+		athleteID).Scan(&coachID)
+	if err == sql.ErrNoRows {
+		return "", fmt.Errorf("no active coach link found for athlete")
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to get coach link: %w", err)
+	}
+	return coachID, nil
+}
+
 // ValidateCode checks whether a coach code exists and is active.
 func (r *Repository) ValidateCode(ctx context.Context, code string) (bool, error) {
 	normalized := strings.ToUpper(strings.TrimSpace(code))

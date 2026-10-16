@@ -60,8 +60,8 @@ export function AiWorkoutScreen({ route }: { route: { params: AiWorkoutParams } 
     if (!hasPermission) void requestPermission();
   }, [hasPermission, requestPermission]);
 
-  const handleFrameJS = useCallback((frame: Frame) => {
-    ai.onFrame(frame, Date.now());
+  const handleFrameJS = useCallback(async (frame: Frame) => {
+    await ai.onFrame(frame, Date.now());
     frame.dispose();
   }, [ai]);
   const notifyJS = useMemo(() => runOnJS(handleFrameJS), [handleFrameJS]);

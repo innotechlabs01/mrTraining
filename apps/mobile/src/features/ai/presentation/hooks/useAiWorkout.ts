@@ -139,14 +139,14 @@ export function useAiWorkout(
   const startCountdown = useCallback(() => setIsCounting(true), []);
   const stop = useCallback(() => setIsCounting(false), []);
 
-  const onFrame = useCallback((frame: unknown, nowMs: number) => {
+  const onFrame = useCallback(async (frame: unknown, nowMs: number) => {
     const s = statsRef.current;
     s.js += 1;
 
     if (!eng.scheduler.shouldRun(nowMs)) return;
 
     const t0 = Date.now();
-    const pose: Pose = poseFromFrame(frame, runtime);
+    const pose: Pose = await poseFromFrame(frame, runtime);
     const check: CameraCheck = prepare(pose, def);
     s.latency = Date.now() - t0;
     s.ai += 1;

@@ -1,6 +1,6 @@
 import type { PoseRuntime } from './PoseRuntime';
 import type { Landmark, LandmarkFrame } from '../../domain/Landmark';
-import { loadTensorflowModel } from 'react-native-fast-tflite';
+import { loadTensorflowModel, type ModelSource, type TfliteModel } from 'react-native-fast-tflite';
 
 /**
  * MediaPipe Pose Landmarker runtime backed by TensorFlow Lite BlazePose Lite model.
@@ -18,19 +18,23 @@ import { loadTensorflowModel } from 'react-native-fast-tflite';
  * - Resize from native camera resolution to model's 192x192 via nearest-neighbor JS worklet
  */
 export class MediaPipePoseRuntime implements PoseRuntime {
-  private model: ReturnType<typeof loadTensorflowModel> | null = null;
+  private model: TfliteModel | null = null;
   private initialized = false;
 
   async detect(input: unknown): Promise<LandmarkFrame | null> {
     try {
       // Lazy model initialization on first call
       if (!this.initialized) {
-        this.model = await loadTensorflowModel(
-          // Assets are resolved by Metro from the project's assets/ directory
-          // relative to the project root; the file must be in apps/mobile/assets/
-          'assets/pose_landmark_lite.tflite',
-          []
-        );
+        try {
+          this.model = await loadTensorflowModel(
+            // Assets are resolved by Metro from the project's assets/ directory
+            // relative to the project root; the file must be in apps/mobile/assets/
+            'assets/pose_landmark_lite.tflite' as unknown as ModelSource,
+            []
+          );
+        } catch {
+          this.model = null;
+        }
         this.initialized = true;
       }
 

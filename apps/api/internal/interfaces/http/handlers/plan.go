@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	inviteapp "github.com/innotechlabs01/mr-training-api/internal/application/invite"
 	planapp "github.com/innotechlabs01/mr-training-api/internal/application/plan"
 	trmapp "github.com/innotechlabs01/mr-training-api/internal/application/trm"
 	plandomain "github.com/innotechlabs01/mr-training-api/internal/domain/plan"
@@ -13,13 +14,14 @@ import (
 
 // PlanHandler handles plan-related HTTP requests.
 type PlanHandler struct {
-	service *planapp.Service
-	trm     *trmapp.Service
+	service   *planapp.Service
+	trm       *trmapp.Service
+	inviteApp *inviteapp.Service
 }
 
 // NewPlanHandler creates a new plan handler.
-func NewPlanHandler(service *planapp.Service, trmService *trmapp.Service) *PlanHandler {
-	return &PlanHandler{service: service, trm: trmService}
+func NewPlanHandler(service *planapp.Service, trmService *trmapp.Service, inviteApp *inviteapp.Service) *PlanHandler {
+	return &PlanHandler{service: service, trm: trmService, inviteApp: inviteApp}
 }
 
 // ListPlans returns the authenticated coach's plans (all, including drafts).
@@ -46,6 +48,31 @@ func (h *PlanHandler) ListPublicPlans(c *fiber.Ctx) error {
 	if coachID == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "coach ID is required")
 	}
+	plans, err := h.service.ListPlans(c.Context(), coachID, true)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	return appresponse.Success(c, dto.ListResponse[*dto.PlanResponse]{
+		Data:  toPlanResponses(plans),
+		Total: len(plans),
+		Page:  1,
+		Limit: len(plans),
+	})
+}
+
+// ListActivePlansForAthlete returns all active plans of the coach linked to
+// the authenticated athlete. Resolves coach_id from coach_athlete_links.
+func (h *PlanHandler) ListActivePlansForAthlete(c *fiber.Ctx) error {
+	athleteID := middleware.GetUserID(c)
+	if athleteID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	coachID, err := h.inviteApp.GetCoachIDByAthleteID(c.Context(), athleteID)
+	if err != nil {
+		return appresponse.Error(c, fiber.StatusNotFound, "no active coach link found")
+	}
+
 	plans, err := h.service.ListPlans(c.Context(), coachID, true)
 	if err != nil {
 		return h.handleError(c, err)

@@ -59,32 +59,31 @@ export async function getMembershipStatus(): Promise<MembershipStatus> {
 
 /**
  * Obtiene los planes disponibles para comprar.
- * TODO: Conectar a GET /api/v1/athletes/membership/plans cuando exista en el Go API.
- * Por ahora devuelve planes de ejemplo para que el flujo de membresía funcione.
+ * Usa GET /api/v1/athletes/membership/plans que devuelve los planes activos
+ * del coach vinculado al atleta (resuelto vía coach_athlete_links).
  */
 export async function getAvailablePlans(): Promise<Plan[]> {
-  return [
-    {
-      id: 'plan_monthly',
-      name: 'Mensual',
-      description: 'Acceso completo por 1 mes',
-      price: '$19.99/mes',
-      priceId: 'plan_monthly',
-      duration: 'monthly',
-      features: ['Entrenamientos ilimitados', 'Seguimiento de progreso', 'Soporte prioritario'],
-      isPopular: false,
-    },
-    {
-      id: 'plan_annual',
-      name: 'Anual',
-      description: 'Acceso completo por 1 año (ahorra 20%)',
-      price: '$199.99/año',
-      priceId: 'plan_annual',
-      duration: 'annual',
-      features: ['Entrenamientos ilimitados', 'Seguimiento de progreso', 'Soporte prioritario', 'Descarga de videos'],
-      isPopular: true,
-    },
-  ];
+  const response = await apiClient.get<{ data: PlanDto[] }>('/athletes/membership/plans');
+  const plans = response.data?.data ?? [];
+  return plans.map((p) => ({
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    price: `$${p.price.toFixed(2)}/${p.billing_period === 'annual' ? 'año' : 'mes'}`,
+    priceId: p.id,
+    duration: p.billing_period === 'annual' ? 'annual' : 'monthly',
+    features: [],
+    isPopular: false,
+  }));
+}
+
+interface PlanDto {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+  billing_period: string;
 }
 
 /**

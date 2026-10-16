@@ -10,4 +10,6 @@ type Repository interface {
 	AcceptInvite(ctx context.Context, code, athleteID string) (*AcceptResult, error)
 	// ValidateCode checks whether a code is valid without consuming it.
 	ValidateCode(ctx context.Context, code string) (bool, error)
+	// GetCoachIDByAthleteID resolves the coach linked to an athlete via coach_athlete_links.
+	GetCoachIDByAthleteID(ctx context.Context, athleteID string) (string, error)
 }

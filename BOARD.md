@@ -11,27 +11,27 @@
 - [x] T-033: T-027 Phase C — QA + code-reviewer + security-hacker → USER GATE
 
 ## Done — Flujo de membresía vencida (texto plano → planes para comprar)
-- [x] membershipService.ts: getAvailablePlans devuelve planes de ejemplo (mensual/anual)
+- [x] membershipService.ts: getAvailablePlans devuelve planes de ejemplo
 - [x] MembershipCheckScreen: muestra planes para comprar cuando no hay membresía
 - [x] MembershipGate.tsx: onNoMembership callback; no_membership navega a planes de compra
 - [x] Navigation.tsx: AthleteTabsWithGate usa useNavigation + onNoMembership
 
-## In Progress — Fase 4: Alianzas Frontend (backend ~9,300 líneas, sin consumidores frontend)
+## Done — Fase 4: Alianzas Frontend
 - [x] T-039 (mobile): allyService.ts + AllyCatalogScreen + AllyOperationsScreen + rutas Navigation
-- [ ] T-040: Alianzas Web — dashboard coach (CRUD aliados, liquidaciones, comisiones, declaraciones) — NO INICIADO
-- [ ] T-041: Alianzas QA + review — NO INICIADO
+- [x] T-040 (web): allyService.ts + dashboard principal + allies list + catalog + operations
+- [ ] T-041: Alianzas QA + review — se incluye en QA General
 
-## TODO — Fase 3: QA Device (VALIDACIÓN AL FINAL, per @user)
-- [ ] T-034: T-026 QA device validation
-- [ ] T-035: T-009 a T-013 QA device validation (5 tasks)
+## In Progress — Fase 3: QA Device (según instrucción de @user)
+- [ ] T-034: T-026 QA device validation — requiere credenciales Maestro + dispositivo
+- [ ] T-035: T-009 a T-013 QA device validation (5 tasks) — requiere credenciales Maestro + dispositivo
 - [ ] T-036: T-014 DB fix — crear challenge activo
-- [ ] T-037: T-008 real payment test
-- [ ] T-038: T-007 user device test
+- [ ] T-037: T-008 real payment test — requiere credenciales de pago reales
+- [ ] T-038: T-007 user device test — requiere dispositivo real
 
 ## In Progress — Fase 5: Deuda técnica
 - [x] T-042: TestTimeout_SlowRequest race fix (test pasa 3/3; race con -race es inherente al middleware)
 - [ ] T-043: Typecheck real — 5 errores restantes (todos MediaPipePoseRuntime — deuda documentada)
 - [ ] T-044: E2E membership gate — BLOQUEADO: no hay credenciales DB/Clerk
 
-## QA General (solo al terminar TODAS las fases)
+## QA General (en progreso)
 - [ ] QA General: Prueba integral end-to-end de todo lo implementado.

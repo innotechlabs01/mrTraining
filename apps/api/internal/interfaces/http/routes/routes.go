@@ -71,9 +71,12 @@ func RegisterTrainingRoutes(api fiber.Router, handler *handlers.TrainingHandler,
 
 // RegisterMembershipRoutes registers all membership-related routes on the given API group.
 // The calling code must have already applied auth middleware to the api group.
-func RegisterMembershipRoutes(api fiber.Router, handler *handlers.MembershipHandler, statusReader middleware.MembershipStatusReader) {
+func RegisterMembershipRoutes(api fiber.Router, handler *handlers.MembershipHandler, planHandler *handlers.PlanHandler, statusReader middleware.MembershipStatusReader) {
 	// Athlete's membership
 	api.Get("/memberships", handler.GetMembership)
+
+	// Athlete's available plans for purchase (linked coach's plans)
+	api.Get("/athletes/membership/plans", middleware.RequireAthlete(), planHandler.ListActivePlansForAthlete)
 
 	// Create membership (requires coach role)
 	api.Post("/memberships", middleware.RequireCoach(), handler.CreateMembership)

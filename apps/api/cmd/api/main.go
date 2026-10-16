@@ -275,8 +275,18 @@ func main() {
 		todayHandler := userhttp.NewTodayHandler(todayService)
 		routes.RegisterTodayRoutes(api, todayHandler, statusReader)
 
+		// Wire Invite domain (needed by PlanHandler for athlete membership plans)
+		inviteRepo := inviteinfrastructure.NewRepository(db.DB)
+		inviteService := inviteapp.NewService(inviteRepo)
+
+		// Wire Plan domain
+		trmService := trmapp.NewService()
+		planRepo := planinfrastructure.NewRepository(db.DB)
+		planService := planapp.NewService(planRepo)
+		planHandler := userhttp.NewPlanHandler(planService, trmService, inviteService)
+
 		// Register membership routes
-		routes.RegisterMembershipRoutes(api, membershipHandler, statusReader)
+		routes.RegisterMembershipRoutes(api, membershipHandler, planHandler, statusReader)
 
 		// Wire Event domain
 		eventRepo := eventinfrastructure.NewRepository(db.DB)
@@ -290,12 +300,6 @@ func main() {
 		// prefix so the Clerk RequireAuth group middleware does not intercept
 		// anonymous visitors viewing a public event and confirming attendance.
 		routes.RegisterPublicEventRoutes(app.Group("/public"), eventHandler)
-
-		// Wire Plan domain
-		trmService := trmapp.NewService()
-		planRepo := planinfrastructure.NewRepository(db.DB)
-		planService := planapp.NewService(planRepo)
-		planHandler := userhttp.NewPlanHandler(planService, trmService)
 
 		// Register plan routes (coach CRUD under /api/v1, public under /public)
 		routes.RegisterPlanRoutes(api, planHandler)
@@ -357,8 +361,6 @@ func main() {
 		routes.RegisterOnboardingRoutes(api, onboardingHandler)
 
 		// Wire Invite domain
-		inviteRepo := inviteinfrastructure.NewRepository(db.DB)
-		inviteService := inviteapp.NewService(inviteRepo)
 		inviteHandler := userhttp.NewInviteHandler(inviteService)
 
 		// Register invite routes
