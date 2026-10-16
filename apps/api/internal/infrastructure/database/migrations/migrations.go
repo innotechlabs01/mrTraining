@@ -149,10 +149,15 @@ func appliedSet(ctx context.Context, db *sql.DB) (map[string]bool, error) {
 // semicolons. Semicolons inside single-quoted strings (with '' escaping),
 // -- line comments, and /* */ block comments are ignored, and semicolons
 // inside them do not split the script.
+//
+// Semicolons inside a CREATE TRIGGER body (BEGIN ... END) are also preserved:
+// a trigger is a single statement whose body contains its own semicolons, so
+// naive splitting would corrupt it.
 func SplitStatements(script string) []string {
 	var stmts []string
 	var cur strings.Builder
 	inString := false
+	triggerDepth := 0 // >0 while inside a CREATE TRIGGER BEGIN ... END body
 
 	i := 0
 	for i < len(script) {
@@ -188,7 +193,25 @@ func SplitStatements(script string) []string {
 				i++
 			}
 			i += 2
-		case c == ';':
+		case isWordStart(c):
+			j := i
+			for j < len(script) && isWordPart(script[j]) {
+				j++
+			}
+			word := script[i:j]
+			cur.WriteString(word)
+			switch strings.ToUpper(word) {
+			case "BEGIN":
+				if strings.Contains(strings.ToUpper(cur.String()), "TRIGGER") {
+					triggerDepth++
+				}
+			case "END":
+				if triggerDepth > 0 {
+					triggerDepth--
+				}
+			}
+			i = j
+		case c == ';' && triggerDepth == 0:
 			if s := strings.TrimSpace(cur.String()); s != "" {
 				stmts = append(stmts, s)
 			}
@@ -203,4 +226,14 @@ func SplitStatements(script string) []string {
 		stmts = append(stmts, s)
 	}
 	return stmts
+}
+
+// isWordStart reports whether c can start an SQL identifier/keyword.
+func isWordStart(c byte) bool {
+	return c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
+
+// isWordPart reports whether c can continue an SQL identifier/keyword.
+func isWordPart(c byte) bool {
+	return isWordStart(c) || (c >= '0' && c <= '9')
 }

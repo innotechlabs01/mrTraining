@@ -34,6 +34,12 @@ func RequireAthlete() fiber.Handler {
 	return RequireRole("athlete", "admin", "super_admin")
 }
 
+// RequireAlly returns middleware that requires the ally role.
+// Also allows admin and super_admin roles.
+func RequireAlly() fiber.Handler {
+	return RequireRole("ally", "admin", "super_admin")
+}
+
 // RequireAdmin returns middleware that requires admin or super_admin role.
 func RequireAdmin() fiber.Handler {
 	return RequireRole("admin", "super_admin")

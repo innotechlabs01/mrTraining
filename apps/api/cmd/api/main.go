@@ -22,6 +22,8 @@ import (
 	communityapp "github.com/innotechlabs01/mr-training-api/internal/application/community"
 	eventapp "github.com/innotechlabs01/mr-training-api/internal/application/event"
 	favoriteapp "github.com/innotechlabs01/mr-training-api/internal/application/favorite"
+	allyapp "github.com/innotechlabs01/mr-training-api/internal/application/ally"
+	commissionapp "github.com/innotechlabs01/mr-training-api/internal/application/commission"
 	formmetricsapp "github.com/innotechlabs01/mr-training-api/internal/application/formmetrics"
 	formrecordingapp "github.com/innotechlabs01/mr-training-api/internal/application/formrecording"
 	gamificationapp "github.com/innotechlabs01/mr-training-api/internal/application/gamification"
@@ -62,6 +64,9 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	eventinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/event"
 	favoriteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/favorite"
+	allyinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally"
+	commissioninfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission"
+	auditinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
 	formmetricsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formmetrics"
 	formrecordinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formrecording"
 	firebaseinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/firebase"
@@ -350,6 +355,17 @@ func main() {
 
 		// Register favorite routes
 		routes.RegisterFavoriteRoutes(api, favoriteHandler)
+
+		// Wire Ally domain (Phase B — Alianzas)
+		allyRepo := allyinfrastructure.NewRepository(db.DB)
+		allyService := allyapp.NewService(allyRepo)
+		commissionRepo := commissioninfrastructure.NewRepository(db.DB)
+		commissionService := commissionapp.NewService(commissionRepo)
+		auditRepo := auditinfrastructure.NewRepository(db.DB)
+		allyHandler := userhttp.NewAllyHandler(allyService, commissionService, auditRepo)
+
+		// Register ally routes
+		routes.RegisterAllyRoutes(api, allyHandler)
 
     api.Get("/landing", middleware.RequireCoach(), handlers.HandlerGetLanding(db.DB))
     api.Put("/landing", middleware.RequireCoach(), handlers.HandlerPutLanding(db.DB))

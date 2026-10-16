@@ -445,3 +445,23 @@ func RegisterSupportRoutes(api fiber.Router, handler *handlers.SupportHandler) {
 	api.Post("/tickets/:ticketId/read", middleware.RequireAuth(""), handler.MarkRead)
 	api.Get("/tickets/:ticketId/unread", middleware.RequireAuth(""), handler.GetUnreadCount)
 }
+
+// RegisterAllyRoutes registers the Alianzas (ally network) routes on the given
+// API group. The calling code must have already applied auth middleware.
+// Phase B scope: ally CRUD (coach side + ally self view), commission-agreement
+// creation and the admin financial-audit listing.
+func RegisterAllyRoutes(api fiber.Router, handler *handlers.AllyHandler) {
+	// Coach side: register and view allies for your own relationships.
+	api.Post("/coach/allies", middleware.RequireCoach(), handler.CreateAlly)
+	api.Get("/coach/allies", middleware.RequireCoach(), handler.ListCoachAllies)
+	api.Get("/coach/allies/:id", middleware.RequireCoach(), handler.GetCoachAlly)
+
+	// Coach side: create a new commission-agreement version for one of your allies.
+	api.Put("/coach/allies/:id/commission-agreement", middleware.RequireCoach(), handler.CreateCommissionAgreement)
+
+	// Ally side: view your own allies (owned or member).
+	api.Get("/ally/me", middleware.RequireAlly(), handler.GetMyAlly)
+
+	// Admin: append-only financial audit trail (read-only).
+	api.Get("/admin/financial-audit", middleware.RequireAdmin(), handler.ListFinancialAudit)
+}

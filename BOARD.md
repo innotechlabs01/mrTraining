@@ -26,6 +26,7 @@
 - [x] T-005: Expo SDK 54 → 57 upgrade — project incompatible with Expo Go 57; need full SDK migration including React Native 0.81→0.87, expo packages, config plugins, breaking changes per upgrade guide | architect: incremental 54→55→56→57, nitro stack alignment, Hermes v1 memory fix in 57.0.17+, New Arch mandatory | dev-react-native: **expo@57.0.25 + RN 0.86.3 + Hermes 250829098.0.17**; iOS deployment target 16.4; AppDelegate Swift 6 compatibility; xcodebuild BUILD SUCCEEDED; npm tests 288/288 pass; expo-doctor clean | qa PASS | code-reviewer PASS | security PASS | approved by @user 2026-10-12
 
 ## Review
+- [ ] T-015: Alianzas Phase B — ally network + commission agreements (migrations 019/020/021, RBAC `ally`+`RequireAlly`, coach/ally/athlete IDOR, agreement interval overlap, append-only financial audit) | spec rev.2 approved (§17.0 scope only) | go build ./... && go test ./... green | C–G blocked until their own reviews | awaiting USER GATE for Phase B close
 
 ## Done
 - [x] T-003: mobile UI/UX hygiene S1–S5 — spec `2026-10-12-T-003-mobile-uiux-design.md` | S1–S5 + fix loop 1 (096cf7c) | qa PASS | code-reviewer PASS | security PASS | approved by @user 2026-10-12 (PASS WITH LIMITATIONS: validación real en dispositivo pendiente — ticket aparte)
