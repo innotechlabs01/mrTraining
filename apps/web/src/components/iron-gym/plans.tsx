@@ -137,7 +137,7 @@ export function IronGymPlans() {
                 </div>
 
                 <ul className="mt-6 space-y-3 flex-1">
-                  {plan.features.map((f) => (
+                  {plan.features.map((f: string) => (
                     <li key={f} className="flex items-start gap-3 text-sm">
                       <Check
                         className={`w-4 h-4 mt-0.5 shrink-0 ${
@@ -159,7 +159,7 @@ export function IronGymPlans() {
                     {plan.maxSessionsPerWeek} sesiones/sem
                   </div>
                   <div className="flex flex-wrap gap-1.5 pt-1">
-                    {plan.trainingMode.map((m) => (
+                    {plan.trainingMode.map((m: string) => (
                       <span
                         key={m}
                         className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${

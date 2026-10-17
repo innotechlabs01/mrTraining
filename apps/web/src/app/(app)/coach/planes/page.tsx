@@ -174,7 +174,7 @@ export default function CoachPlanesPage() {
               )}
 
               <div className="space-y-2 flex-1">
-                {plan.features.map((f) => (
+                {plan.features.map((f: string) => (
                   <div key={f} className="flex items-start gap-2">
                     <Check size={12} className="text-green-400 mt-0.5 shrink-0" />
                     <span className="text-xs text-white/50">{f}</span>
@@ -192,7 +192,7 @@ export default function CoachPlanesPage() {
                   {plan.maxSessionsPerWeek} sesiones/sem
                 </div>
                 <div className="flex flex-wrap gap-1.5 pt-1">
-                  {plan.trainingMode.map((m) => (
+                  {plan.trainingMode.map((m: string) => (
                     <span
                       key={m}
                       className={cn(
