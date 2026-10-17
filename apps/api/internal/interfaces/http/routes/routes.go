@@ -94,6 +94,13 @@ func RegisterMembershipRoutes(api fiber.Router, handler *handlers.MembershipHand
 	api.Get("/coaches/memberships", middleware.RequireCoach(), handler.ListMembershipsByCoach)
 }
 
+// RegisterAllyAthleteRoutes registers athlete-facing ally catalog routes.
+// The calling code must have already applied auth middleware to the api group.
+func RegisterAllyAthleteRoutes(api fiber.Router, handler *handlers.AllyCatalogAthleteHandler) {
+	api.Get("/athlete/ally/products", middleware.RequireAthlete(), handler.ListProductsForAthlete)
+	api.Get("/athlete/ally/services", middleware.RequireAthlete(), handler.ListServicesForAthlete)
+}
+
 // RegisterEventRoutes registers all event-related routes on the given API group.
 func RegisterEventRoutes(api fiber.Router, handler *handlers.EventHandler) {
 	// Events (coach)

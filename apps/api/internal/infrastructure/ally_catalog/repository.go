@@ -47,6 +47,19 @@ func (r *Repository) ResolveAllyID(ctx context.Context, userID string) (string, 
 	return allyID, nil
 }
 
+// ResolveAllyIDByCoachID returns the ally owned by the given coach (owner_user_id).
+func (r *Repository) ResolveAllyIDByCoachID(ctx context.Context, coachID string) (string, error) {
+	var allyID string
+	err := r.db.QueryRowContext(ctx, `SELECT id FROM allies WHERE owner_user_id = ? LIMIT 1`, coachID).Scan(&allyID)
+	if err == sql.ErrNoRows {
+		return "", allycatalogdomain.ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve ally for coach: %w", err)
+	}
+	return allyID, nil
+}
+
 // ListProducts returns every product of an ally, optionally active only.
 func (r *Repository) ListProducts(ctx context.Context, allyID string, activeOnly bool) ([]*allycatalogdomain.AllyProduct, error) {
 	query := `

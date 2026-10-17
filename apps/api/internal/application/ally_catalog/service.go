@@ -100,6 +100,32 @@ func (s *Service) ListServices(ctx context.Context, userID string, activeOnly bo
 	return s.repo.ListServices(ctx, allyID, activeOnly)
 }
 
+// ListProductsByCoach returns every active product of the ally owned by the
+// given coach. Used so athletes can browse their linked coach's catalog.
+func (s *Service) ListProductsByCoach(ctx context.Context, coachID string, activeOnly bool) ([]*allycatalogdomain.AllyProduct, error) {
+	if coachID == "" {
+		return nil, apperrors.BadRequest("coach ID is required")
+	}
+	allyID, err := s.repo.ResolveAllyIDByCoachID(ctx, coachID)
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.ListProducts(ctx, allyID, activeOnly)
+}
+
+// ListServicesByCoach returns every active service of the ally owned by the
+// given coach. Used so athletes can browse their linked coach's catalog.
+func (s *Service) ListServicesByCoach(ctx context.Context, coachID string, activeOnly bool) ([]*allycatalogdomain.AllyService, error) {
+	if coachID == "" {
+		return nil, apperrors.BadRequest("coach ID is required")
+	}
+	allyID, err := s.repo.ResolveAllyIDByCoachID(ctx, coachID)
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.ListServices(ctx, allyID, activeOnly)
+}
+
 // CreateService registers a new service for the ally the user owns or belongs to.
 func (s *Service) CreateService(ctx context.Context, userID string, in allycatalogdomain.CreateServiceInput) (*allycatalogdomain.AllyService, error) {
 	if userID == "" {

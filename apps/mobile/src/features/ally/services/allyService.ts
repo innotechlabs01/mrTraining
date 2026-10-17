@@ -108,20 +108,22 @@ export async function getOperation(operationId: string): Promise<AllyOperation> 
 }
 
 /**
- * Lista los productos disponibles de un aliado (GET /ally/products).
- * Requiere rol ally.
+ * Lista los productos disponibles del aliado vinculado al atleta (GET /athlete/ally/products).
+ * Requiere rol athlete. Resuelve el coach vinculado al atleta y devuelve los productos
+ * activos del aliado de ese coach.
  */
 export async function listAllyProducts(): Promise<AllyProduct[]> {
-  const { data } = await apiClient.get<{ data: AllyProduct[] }>('/ally/products');
+  const { data } = await apiClient.get<{ data: AllyProduct[] }>('/athlete/ally/products');
   return data?.data ?? [];
 }
 
 /**
- * Lista los servicios disponibles de un aliado (GET /ally/services).
- * Requiere rol ally.
+ * Lista los servicios disponibles del aliado vinculado al atleta (GET /athlete/ally/services).
+ * Requiere rol athlete. Resuelve el coach vinculado al atleta y devuelve los servicios
+ * activos del aliado de ese coach.
  */
 export async function listAllyServices(): Promise<AllyService[]> {
-  const { data } = await apiClient.get<{ data: AllyService[] }>('/ally/services');
+  const { data } = await apiClient.get<{ data: AllyService[] }>('/athlete/ally/services');
   return data?.data ?? [];
 }
 

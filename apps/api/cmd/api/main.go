@@ -393,6 +393,10 @@ func main() {
 		// Register ally catalog routes
 		routes.RegisterAllyCatalogRoutes(api, allyCatalogHandler)
 
+		// Wire athlete-facing ally catalog routes (products/services of linked coach's ally)
+		allyCatalogAthleteHandler := userhttp.NewAllyCatalogAthleteHandler(allyCatalogService, inviteService)
+		routes.RegisterAllyAthleteRoutes(api, allyCatalogAthleteHandler)
+
 		// Wire Ally Operations domain (Phase D)
 		allyOpsRepo := allyopsinfrastructure.NewRepository(db.DB)
 		allyOpsService := allyopsapp.NewService(allyOpsRepo)
