@@ -33,10 +33,11 @@
 - [ ] T-037: T-008 real payment test — requiere credenciales de pago reales
 - [ ] T-038: T-007 user device test — requiere dispositivo real
 
-## TODO — Fase 4 pendiente (Alianzas)
+## Done — Fase 4: Alianzas Frontend (GAP aliado→atleta cerrado)
+- [x] T-039 (mobile): allyService.ts + AllyCatalogScreen + AllyOperationsScreen + rutas Navigation
+- [x] T-040 (web): allyService.ts + dashboard principal + allies list + catalog + operations
+- [x] GAP aliado→atleta: GET /athlete/ally/products y GET /athlete/ally/services (RequireAthlete) creados en Go API y conectados en mobile
 - [ ] T-041: Alianzas QA + review
-- [ ] Alianzas Web: pantallas para comisiones, liquidaciones, declaraciones de pago (solo se hizo dashboard, allies, catalog, operations)
-- [ ] GAP CRÍTICO: GET /ally/products y GET /ally/services requieren RequireAlly(), no RequireAthlete(). El atleta NO puede ver productos para comprar. Necesita endpoint GET /athlete/ally/products (similar a /athletes/membership/plans)
 
 ## QA General (en progreso)
 - [x] Builds: Go API OK, Mobile tsc OK, Web tsc OK

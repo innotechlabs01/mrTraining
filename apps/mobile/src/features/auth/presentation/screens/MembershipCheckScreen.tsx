@@ -24,6 +24,7 @@ export function MembershipCheckScreen({ navigation }: Props) {
   const { user, isLoading, isAuthenticated } = useClerkAuth();
   const [status, setStatus] = useState<'loading' | 'active' | 'no_membership' | 'error'>('loading');
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [hasCoachLink, setHasCoachLink] = useState(true);
 
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
@@ -43,7 +44,19 @@ export function MembershipCheckScreen({ navigation }: Props) {
         navigation.replace('AthleteTabs');
         return;
       }
-      const available = await getAvailablePlans();
+      // Si no hay membresía activa, intentar cargar planes para comprar.
+      // Si falla (no hay coach vinculado), mostramos estado no_membership con
+      // planes vacíos en lugar de error, para que el usuario vea una pantalla
+      // clara en lugar de "texto plano" sin opciones.
+      let available: Plan[] = [];
+      try {
+        available = await getAvailablePlans();
+        setHasCoachLink(true);
+      } catch {
+        // No hay coach vinculado o el endpoint falló: mostramos vacío
+        available = [];
+        setHasCoachLink(false);
+      }
       setPlans(available);
       setStatus('no_membership');
     } catch (err: unknown) {
@@ -102,12 +115,27 @@ export function MembershipCheckScreen({ navigation }: Props) {
 
         {plans.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>{t.unavailable}</Text>
-            <PrimaryButton
-              label="Volver a Sign In"
-              onPress={() => navigation.replace('Auth')}
-              variant="outline"
-            />
+            {!hasCoachLink ? (
+              <>
+                <Text style={styles.emptyText}>
+                  No tienes un coach asignado aún. Pídele a tu entrenador que te invite para ver los planes disponibles.
+                </Text>
+                <PrimaryButton
+                  label="Tengo un código de coach"
+                  onPress={() => navigation.replace('Auth')}
+                  variant="outline"
+                />
+              </>
+            ) : (
+              <>
+                <Text style={styles.emptyText}>{t.unavailable}</Text>
+                <PrimaryButton
+                  label="Volver a Sign In"
+                  onPress={() => navigation.replace('Auth')}
+                  variant="outline"
+                />
+              </>
+            )}
           </View>
         ) : (
           <View style={styles.plansList}>

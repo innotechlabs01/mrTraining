@@ -361,6 +361,7 @@ export function PlanModal({ open, plan, onClose, onSave }: PlanModalProps) {
                     </div>
                   ))}
                   <button
+                    type="button"
                     onClick={addFeature}
                     className="flex items-center gap-1.5 text-sm text-brand-primary hover:text-brand-primary-hover transition-colors"
                   >
