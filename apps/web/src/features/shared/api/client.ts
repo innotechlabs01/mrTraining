@@ -708,9 +708,9 @@ export const coachingApi = {
 
   // Plans — Go API (primary) with Next.js fallback
   getPlans: <T>() =>
-    // Go API: GET /api/v1/plans (coach plans, all statuses)
+    // Go API: GET /api/v1/plans (coach plans, all statuses) — requires coach auth.
+    // No fallback to Next.js API to avoid leaking plans of other coaches on public pages.
     goFetch<{ data?: GoPlan[] }>('/api/v1/plans')
-      .catch(() => coachingFetch.get<Plan[]>(`${COACHING_BASE}/plans`))
       .then((res) => (Array.isArray(res) ? res : (res.data ?? []).map(mapGoPlan))),
   savePlan: <T>(data: unknown) =>
     // Go API: POST /api/v1/plans
