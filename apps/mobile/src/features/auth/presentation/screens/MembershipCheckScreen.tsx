@@ -53,7 +53,7 @@ export function MembershipCheckScreen({ navigation }: Props) {
         available = await getAvailablePlans();
         setHasCoachLink(true);
       } catch {
-        // No hay coach vinculado o el endpoint falló: mostramos vacío
+        // No hay coach vinculado o el endpoint falló
         available = [];
         setHasCoachLink(false);
       }
@@ -118,7 +118,7 @@ export function MembershipCheckScreen({ navigation }: Props) {
             {!hasCoachLink ? (
               <>
                 <Text style={styles.emptyText}>
-                  No tienes un coach asignado aún. Pídele a tu entrenador que te invite para ver los planes disponibles.
+                  No tienes un coach asignado aún. Pídele a tu entrenador que te registre como su atleta para ver sus planes.
                 </Text>
                 <PrimaryButton
                   label="Tengo un código de coach"
@@ -128,7 +128,9 @@ export function MembershipCheckScreen({ navigation }: Props) {
               </>
             ) : (
               <>
-                <Text style={styles.emptyText}>{t.unavailable}</Text>
+                <Text style={styles.emptyText}>
+                  Tu coach no tiene planes creados aún. Pídele que cree un plan desde la web para que puedas comprarlo.
+                </Text>
                 <PrimaryButton
                   label="Volver a Sign In"
                   onPress={() => navigation.replace('Auth')}

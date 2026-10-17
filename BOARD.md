@@ -37,6 +37,8 @@
 - [x] T-039 (mobile): allyService.ts + AllyCatalogScreen + AllyOperationsScreen + rutas Navigation
 - [x] T-040 (web): allyService.ts + dashboard principal + allies list + catalog + operations
 - [x] GAP aliado→atleta: GET /athlete/ally/products y GET /athlete/ally/services (RequireAthlete) creados en Go API y conectados en mobile
+- [x] PlanModal.tsx: type="button" en botón "Agregar característica" para evitar submit del formulario y cierre del modal
+- [x] MembershipCheckScreen.tsx (mobile): si getAvailablePlans() falla (no hay coach vinculado), mostrar no_membership con planes vacíos en lugar de error; distinguir entre "no hay coach vinculado" y "coach sin planes" con mensajes apropiados
 - [ ] T-041: Alianzas QA + review
 
 ## QA General (en progreso)
