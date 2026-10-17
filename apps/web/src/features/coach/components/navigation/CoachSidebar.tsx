@@ -21,6 +21,7 @@ import {
   Book,
   Flame,
   Globe,
+  Store,
 } from 'lucide-react'
 
 interface NavItemConfig {
@@ -46,6 +47,7 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: 'events', label: 'Eventos', icon: Calendar, href: '/coach/events' },
   { id: 'challenges', label: 'Desafíos', icon: Flame, href: '/coach/challenges' },
   { id: 'planes', label: 'Planes', icon: CreditCard, href: '/coach/planes' },
+  { id: 'aliados', label: 'Aliados', icon: Store, href: '/coach/ally' },
   { id: 'ventas', label: 'Ventas', icon: ShoppingCart, href: '/coach/ventas' },
   { id: 'blog', label: 'Blog', icon: Book, href: '/coach/blog' },
   { id: 'live-sessions', label: 'Sesiones en Vivo', icon: Activity, href: '/coach/live-session' },
