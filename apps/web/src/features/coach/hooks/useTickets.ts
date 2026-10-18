@@ -17,7 +17,8 @@ export function useTickets() {
   const refresh = () => refetch()
 
   const createTicketMutation = useMutation({
-    mutationFn: (ticket: Partial<SupportTicket>) => coachingApi.saveTicket<{ id: string }>(ticket),
+    mutationFn: (ticket: Partial<SupportTicket> & { body?: string; image_url?: string }) =>
+      coachingApi.saveTicket<{ id: string }>(ticket),
     onSuccess: (res, variables) => {
       queryClient.setQueryData<SupportTicket[]>(['tickets'], (prev = []) => [
         ...prev,
@@ -46,7 +47,7 @@ export function useTickets() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['tickets'] }),
   })
 
-  const createTicket = async (ticket: Partial<SupportTicket>) => (await createTicketMutation.mutateAsync(ticket)).id
+  const createTicket = async (ticket: Partial<SupportTicket> & { body?: string; image_url?: string }) => (await createTicketMutation.mutateAsync(ticket)).id
   const updateTicket = async (id: string, ticket: Partial<SupportTicket>) => {
     await updateTicketMutation.mutateAsync({ id, ticket })
   }

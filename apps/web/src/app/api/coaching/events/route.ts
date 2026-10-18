@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { getEvents, saveEvent } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,8 +10,8 @@ export async function GET() {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    // TODO: Implement events fetch from DB
-    return NextResponse.json([]);
+    const events = await getEvents(userId);
+    return NextResponse.json(events);
   } catch (error) {
     console.error('Error fetching events:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -24,8 +25,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const body = await req.json();
-    // TODO: Implement event creation in DB
-    return NextResponse.json({ success: true, data: body });
+    const id = await saveEvent(userId, body ?? {});
+    return NextResponse.json({ success: true, id });
   } catch (error) {
     console.error('Error creating event:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

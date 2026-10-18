@@ -92,7 +92,7 @@ export default function CoachSupportPage() {
       priority: input.priority,
       body: input.body,
       image_url: input.image_url,
-    } as any)
+    } as Partial<SupportTicket> & { body: string; image_url?: string })
     await refresh()
     return ticketId
   }, [createTicketApi, refresh])
@@ -102,12 +102,12 @@ export default function CoachSupportPage() {
   }, [])
 
   const resolveTicket = useCallback(async (ticketId: string) => {
-    await updateTicketApi(ticketId, { status: 'resolved' } as any)
+    await updateTicketApi(ticketId, { status: 'resolved' })
     await refresh()
   }, [updateTicketApi, refresh])
 
   const reopenTicket = useCallback(async (ticketId: string) => {
-    await updateTicketApi(ticketId, { status: 'open' } as any)
+    await updateTicketApi(ticketId, { status: 'open' })
     await refresh()
   }, [updateTicketApi, refresh])
 

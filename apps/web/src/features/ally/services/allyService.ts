@@ -79,6 +79,25 @@ export interface AllyOperation {
   createdAt: string;
 }
 
+/** Mirrors the Go API AllyPaymentDeclarationResponse DTO. */
+export interface AllyPaymentDeclaration {
+  id: string;
+  operation_id: string;
+  version: number;
+  supersedes_id?: string;
+  amount_cents: number;
+  currency: string;
+  method?: string;
+  declared_at: string;
+  reference?: string;
+  evidence_ref?: string;
+  status: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  review_note?: string;
+  created_at: string;
+}
+
 export interface CommissionEntry {
   id: string;
   operationId: string;
@@ -160,8 +179,8 @@ export async function listAllyOperations(): Promise<AllyOperation[]> {
 /**
  * Lista las declaraciones de pago del aliado autenticado.
  */
-export async function listAllyPaymentDeclarations(): Promise<any[]> {
-  return goFetch<any[]>('/ally/payment-declarations', { auth: true });
+export async function listAllyPaymentDeclarations(): Promise<AllyPaymentDeclaration[]> {
+  return goFetch<AllyPaymentDeclaration[]>('/ally/payment-declarations', { auth: true });
 }
 
 /**

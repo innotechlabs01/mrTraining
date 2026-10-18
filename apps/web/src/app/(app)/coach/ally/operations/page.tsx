@@ -109,7 +109,7 @@ export default function AllyOperationsPage() {
               </tr>
             </thead>
             <tbody>
-              {operations.map((op) => <OperationRow op={op} />)}
+              {operations.map((op) => <OperationRow key={op.id} op={op} />)}
             </tbody>
           </table>
         </div>

@@ -21,7 +21,8 @@ export function InviteAthleteModal({ isOpen, onClose }: InviteAthleteModalProps)
     if (isOpen && user) {
       setLoading(true)
       coachApi.getProfile().then((profile) => {
-        setCoachCode((profile as any)?.coach_code || (profile as any)?.coachCode || '')
+        const coachProfile = profile as { coach_code?: string; coachCode?: string } | null
+        setCoachCode(coachProfile?.coach_code || coachProfile?.coachCode || '')
       }).catch(() => {}).finally(() => setLoading(false))
     }
   }, [isOpen, user])

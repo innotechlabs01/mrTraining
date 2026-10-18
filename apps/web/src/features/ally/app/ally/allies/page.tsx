@@ -230,7 +230,7 @@ export default function AlliesPage() {
                   </td>
                 </tr>
               ) : (
-                allies.map((ally) => <AllyRow ally={ally} />)
+                allies.map((ally) => <AllyRow key={ally.id} ally={ally} />)
               )}
             </tbody>
           </table>

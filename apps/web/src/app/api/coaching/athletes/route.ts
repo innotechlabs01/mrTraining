@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { getAthletes, saveAthlete } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,8 +10,8 @@ export async function GET() {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    // TODO: Implement athletes fetch from DB
-    return NextResponse.json([]);
+    const athletes = await getAthletes(userId);
+    return NextResponse.json(athletes);
   } catch (error) {
     console.error('Error fetching athletes:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -24,8 +25,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const body = await req.json();
-    // TODO: Implement athlete creation in DB
-    return NextResponse.json({ success: true, data: body });
+    const id = await saveAthlete(userId, body ?? {});
+    return NextResponse.json({ success: true, id });
   } catch (error) {
     console.error('Error creating athlete:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

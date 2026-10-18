@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { getAthleteById, saveAthlete, deleteAthlete } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,8 +14,11 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const { id } = await params;
-    // TODO: Implement athlete detail fetch from DB
-    return NextResponse.json({ id, name: '', sport: '' });
+    const athlete = await getAthleteById(userId, id);
+    if (!athlete) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    return NextResponse.json(athlete);
   } catch (error) {
     console.error('Error fetching athlete:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -31,8 +35,13 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const { id } = await params;
+    const existing = await getAthleteById(userId, id);
+    if (!existing) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
     const body = await req.json();
-    return NextResponse.json({ success: true, id, data: body });
+    await saveAthlete(userId, { ...(body ?? {}), id });
+    return NextResponse.json({ success: true, id });
   } catch (error) {
     console.error('Error updating athlete:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -49,6 +58,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const { id } = await params;
+    const existing = await getAthleteById(userId, id);
+    if (!existing) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    await deleteAthlete(userId, id);
     return NextResponse.json({ success: true, id });
   } catch (error) {
     console.error('Error deleting athlete:', error);

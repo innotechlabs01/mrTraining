@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { getMessageThreads, createThread, saveMessage } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,8 +10,8 @@ export async function GET() {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    // TODO: Implement message threads fetch from DB
-    return NextResponse.json([]);
+    const threads = await getMessageThreads(userId);
+    return NextResponse.json(threads);
   } catch (error) {
     console.error('Error fetching message threads:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -24,8 +25,8 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const body = await req.json();
-    // TODO: Implement thread creation in DB
-    return NextResponse.json({ success: true, data: body });
+    const threadId = await createThread(userId, body ?? {});
+    return NextResponse.json({ success: true, id: threadId });
   } catch (error) {
     console.error('Error creating message thread:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -39,8 +40,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const body = await req.json();
-    // TODO: Implement message send in DB
-    return NextResponse.json({ success: true, data: body });
+    const { threadId } = (body ?? {}) as { threadId?: string };
+    if (!threadId) {
+      return NextResponse.json({ error: 'threadId is required' }, { status: 400 });
+    }
+    const messageId = await saveMessage(userId, threadId, body);
+    return NextResponse.json({ success: true, id: messageId });
   } catch (error) {
     console.error('Error sending message:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

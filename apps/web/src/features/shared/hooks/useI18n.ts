@@ -45,10 +45,10 @@ export function useI18n(namespace: string = 'common') {
 
   const t = (key: string, params?: Record<string, string | number>): string => {
     const keys = key.split('.');
-    let value: any = translations;
+    let value: unknown = translations;
     for (const k of keys) {
-      if (value && typeof value === 'object' && k in value) {
-        value = value[k];
+      if (value && typeof value === 'object' && k in (value as Translations)) {
+        value = (value as Record<string, unknown>)[k];
       } else {
         return key; // Return key if translation not found
       }
