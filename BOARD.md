@@ -26,7 +26,18 @@
 - [x] T-043: Typecheck real — 1549 → 0 errores (MediaPipePoseRuntime, PoseRuntime async, useAiWorkout, AiWorkoutScreen, useLogSetFlow.test, ChallengeExecutionScreen, ChallengeDetailScreen, EventsScreen, MyTicketsScreen, TicketChatScreen, NutritionScreen, StoreScreen, HistoryScreen, i18n.ts, client.test.ts)
 - [x] T-044: E2E membership gate — BLOQUEADO (sin credenciales DB/Clerk)
 
-## TODO — Fase 3: QA Device (VALIDACIÓN AL FINAL, per @user)
+## Done — Sesión QA unblock (audit fixes)
+- [x] 9 migraciones pendientes aplicadas en Turso (019–026: Alianzas, comisiones, settlements) — dry-run: 0 pending
+- [x] Web tsc: 0 errores (mapper casts + interfaz AssignedWorkoutExercise + helper getClerkToken)
+- [x] jest.config.js: setupFilesAfterSetup typo eliminado (setup fantasma jest-dom no usado — removido)
+- [x] Polar.sh removido de las 3 apps (packages/rutas/handler/deps/envs). Pagos = MercadoPago only
+- [x] coach/[id]/planes "Elegir plan": dead-end 404 → CTA sign-up con contexto de plan
+- [x] Playwright Go API default port 8080 → 9090 (helpers + global-setup)
+- [x] /api/coaching/{athletes,events,time-blocks,messages}: stubs TODO → datos reales vía lib/db
+- [x] Web lint: 0 errores (fixes Alianzas pre-existentes: jsx-key, no-explicit-any, conditional useEffect)
+- [x] Web tests 161/161 + build OK · Go 34 paquetes ok · Mobile 353/353 + tsc 0
+
+## Pendiente QA device (VALIDACIÓN AL FINAL, per @user)
 - [ ] T-034: T-026 QA device validation — requiere credenciales Maestro + dispositivo
 - [ ] T-035: T-009 a T-013 QA device validation (5 tasks) — requiere credenciales Maestro + dispositivo
 - [ ] T-036: T-014 DB fix — crear challenge activo en Turso
@@ -41,9 +52,9 @@
 - [x] MembershipCheckScreen.tsx (mobile): si getAvailablePlans() falla (no hay coach vinculado), mostrar no_membership con planes vacíos en lugar de error; distinguir entre "no hay coach vinculado" y "coach sin planes" con mensajes apropiados
 - [ ] T-041: Alianzas QA + review
 
-## QA General (en progreso)
+## QA General
 - [x] Builds: Go API OK, Mobile tsc OK, Web tsc OK
-- [x] Tests: Go API OK, Mobile jest 353/353 OK
-- [x] Lint: Web lint OK (solo warnings pre-existentes)
+- [x] Tests: Go API OK, Mobile jest 353/353 OK, Web jest 161/161 OK
+- [x] Lint: Web lint 0 errores (errores Alianzas corregidos en esta sesión)
 - [ ] QA device real (Maestro + dispositivo) — pendiente
 - [ ] E2E end-to-end — pendiente
