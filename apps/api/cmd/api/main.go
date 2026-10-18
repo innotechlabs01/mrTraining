@@ -41,7 +41,6 @@ import (
 	membershipapp "github.com/innotechlabs01/mr-training-api/internal/application/membership"
 	notificationapp "github.com/innotechlabs01/mr-training-api/internal/application/notification"
 	onboardingapp "github.com/innotechlabs01/mr-training-api/internal/application/onboarding"
-	polarapp "github.com/innotechlabs01/mr-training-api/internal/application/polar"
 	planapp "github.com/innotechlabs01/mr-training-api/internal/application/plan"
 	productapp "github.com/innotechlabs01/mr-training-api/internal/application/product"
 	runningapp "github.com/innotechlabs01/mr-training-api/internal/application/running"
@@ -90,7 +89,6 @@ import (
 	membershipinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/membership"
 	notificationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/notification"
 	onboardinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/onboarding"
-	polarinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/polar"
 	planinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/plan"
 	supportinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/support"
 	productinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/product"
@@ -456,14 +454,6 @@ func main() {
 
 		// Register blog routes
 		routes.RegisterBlogRoutes(api, blogHandler)
-
-		// Wire Polar domain
-		polarRepo := polarinfrastructure.NewRepository(db.DB)
-		polarService := polarapp.NewService(polarRepo)
-		polarHandler := userhttp.NewPolarHandler(polarService)
-
-		// Register polar routes
-		routes.RegisterPolarRoutes(api, polarHandler)
 
 		// Wire Import domain
 		importRepo := importinfrastructure.NewRepository(db.DB)

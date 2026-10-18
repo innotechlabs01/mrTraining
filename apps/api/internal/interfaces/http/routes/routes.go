@@ -241,12 +241,6 @@ func RegisterBlogRoutes(api fiber.Router, handler *handlers.BlogHandler) {
 	api.Delete("/blog/:id", middleware.RequireCoach(), handler.DeleteArticle)
 }
 
-// RegisterPolarRoutes registers Polar payment routes on the given API group.
-// The calling code must have already applied auth middleware to the api group.
-func RegisterPolarRoutes(api fiber.Router, handler *handlers.PolarHandler) {
-	api.Post("/polar/checkout", middleware.RequireAthlete(), handler.CreateCheckout)
-}
-
 // RegisterImportRoutes registers data import routes on the given API group.
 // The calling code must have already applied auth middleware to the api group.
 func RegisterImportRoutes(api fiber.Router, handler *handlers.ImportHandler) {
