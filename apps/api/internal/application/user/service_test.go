@@ -94,6 +94,7 @@ func TestGetCurrentUser_Coach(t *testing.T) {
 				ID:               userID,
 				Email:            "coach@example.com",
 				Name:             "Jane Coach",
+				CoachCode:        "MR-A7K2",
 				Specializations:  []string{"strength", "conditioning"},
 				ExperienceYears:  5,
 				MaxAthletes:      20,
@@ -115,6 +116,9 @@ func TestGetCurrentUser_Coach(t *testing.T) {
 	}
 	if coach.ExperienceYears != 5 {
 		t.Errorf("expected experience_years 5, got %d", coach.ExperienceYears)
+	}
+	if coach.CoachCode != "MR-A7K2" {
+		t.Errorf("expected coach_code passthrough, got %q", coach.CoachCode)
 	}
 	if athlete != nil {
 		t.Error("expected nil athlete profile for coach")

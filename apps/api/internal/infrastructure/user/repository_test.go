@@ -2,10 +2,15 @@ package user
 
 import (
 	"context"
+	"database/sql"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
+
+	_ "modernc.org/sqlite" // enables the libsql driver's file: fallback
 )
 
 func setupTestDB(t *testing.T) *database.DB {
@@ -93,5 +98,60 @@ func TestRepository_ListAthletesByCoach_Empty(t *testing.T) {
 	}
 	if athletes == nil {
 		t.Fatal("expected empty slice, got nil")
+	}
+}
+
+// TestRepository_GetCoach_BackfillsCoachCode proves the self-heal: a legacy
+// coach row with an empty coach_code gets a unique code generated and persisted
+// on the first read (e.g. the coach's first sign-in).
+// Runs against a local file: SQLite database — no remote services needed.
+func TestRepository_GetCoach_BackfillsCoachCode(t *testing.T) {
+	// Enable the local file: SQLite driver (same fallback the migration runner uses).
+	ctx := context.Background()
+	path := "file://" + filepath.Join(t.TempDir(), "coach_backfill_test.db")
+	sqlDB, err := sql.Open("libsql", path)
+	if err != nil {
+		t.Fatalf("open local db failed: %v", err)
+	}
+	defer func() { _ = sqlDB.Close() }()
+
+	// Minimal coaches schema matching the production columns used below.
+	if _, err := sqlDB.Exec(`CREATE TABLE coaches (
+		id TEXT PRIMARY KEY, email TEXT, name TEXT, avatar_url TEXT,
+		coach_code TEXT, specializations TEXT, certifications TEXT, bio TEXT DEFAULT '',
+		experience_years INTEGER NOT NULL DEFAULT 0, max_athletes INTEGER NOT NULL DEFAULT 0,
+		is_accepting_athletes INTEGER NOT NULL DEFAULT 0, is_active INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT
+	)`); err != nil {
+		t.Fatalf("create coaches table failed: %v", err)
+	}
+
+	repo := NewRepository(sqlDB)
+
+	id := "test-coach-backfill-1"
+	if err := repo.EnsureCoach(ctx, id, id+"@example.com", "Backfill Coach"); err != nil {
+		t.Fatalf("EnsureCoach failed: %v", err)
+	}
+	if _, err := sqlDB.Exec(`UPDATE coaches SET coach_code = '' WHERE id = ?`, id); err != nil {
+		t.Fatalf("clearing coach_code failed: %v", err)
+	}
+
+	coach, err := repo.GetCoach(ctx, id)
+	if err != nil {
+		t.Fatalf("GetCoach failed: %v", err)
+	}
+	if coach.CoachCode == "" {
+		t.Fatal("expected GetCoach to backfill an empty coach_code")
+	}
+	if !strings.HasPrefix(coach.CoachCode, "MR-") {
+		t.Fatalf("expected MR- prefixed code, got %q", coach.CoachCode)
+	}
+
+	// The generated code must be persisted: a second read returns the SAME code.
+	coach2, err := repo.GetCoach(ctx, id)
+	if err != nil {
+		t.Fatalf("second GetCoach failed: %v", err)
+	}
+	if coach2.CoachCode != coach.CoachCode {
+		t.Fatalf("coach_code not stable: first %q, second %q", coach.CoachCode, coach2.CoachCode)
 	}
 }

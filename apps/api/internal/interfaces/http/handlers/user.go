@@ -110,7 +110,11 @@ func (h *UserHandler) ListCoaches(c *fiber.Ctx) error {
 
 	coachResponses := make([]dto.CoachResponse, len(coaches))
 	for i, coach := range coaches {
-		coachResponses[i] = *toCoachResponse(coach)
+		resp := toCoachResponse(coach)
+		// Never expose other coaches' invite codes in the public-ish roster;
+		// each coach only receives their own code via GET /users/me.
+		resp.CoachCode = ""
+		coachResponses[i] = *resp
 	}
 
 	return appresponse.Success(c, dto.ListResponse[dto.CoachResponse]{
@@ -243,6 +247,7 @@ func toCoachResponse(c *userdomain.Coach) *dto.CoachResponse {
 		Email:               c.Email,
 		Name:                c.Name,
 		AvatarURL:           c.AvatarURL,
+		CoachCode:           c.CoachCode,
 		Bio:                 c.Bio,
 		Specializations:     c.Specializations,
 		Certifications:      c.Certifications,

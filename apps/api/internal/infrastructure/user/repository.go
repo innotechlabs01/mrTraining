@@ -100,13 +100,13 @@ func (r *Repository) Update(ctx context.Context, u *user.User) error {
 // GetCoach retrieves the coach profile for a user.
 func (r *Repository) GetCoach(ctx context.Context, userID string) (*user.Coach, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, email, name, avatar_url, specializations, certifications, bio,
+		`SELECT id, email, name, avatar_url, coach_code, specializations, certifications, bio,
 		 experience_years, max_athletes, is_accepting_athletes, is_active, created_at, updated_at
 		 FROM coaches WHERE id = ?`, userID)
 
 	c := &user.Coach{}
-	var avatarURL, specializations, certifications sql.NullString
-	err := row.Scan(&c.ID, &c.Email, &c.Name, &avatarURL, &specializations, &certifications,
+	var avatarURL, specializations, certifications, coachCode sql.NullString
+	err := row.Scan(&c.ID, &c.Email, &c.Name, &avatarURL, &coachCode, &specializations, &certifications,
 		&c.Bio, &c.ExperienceYears, &c.MaxAthletes, &c.IsAcceptingAthletes, &c.IsActive,
 		&c.CreatedAt, &c.UpdatedAt)
 	if err == sql.ErrNoRows {
@@ -118,9 +118,46 @@ func (r *Repository) GetCoach(ctx context.Context, userID string) (*user.Coach, 
 	if avatarURL.Valid {
 		c.AvatarURL = avatarURL.String
 	}
+	if coachCode.Valid {
+		c.CoachCode = coachCode.String
+	}
 	c.Specializations = parseJSONArray(specializations)
 	c.Certifications = parseJSONArray(certifications)
+
+	// Self-heal legacy coach rows created before coach_code provisioning:
+	// generate a unique code and persist it so every coach keeps exactly one
+	// stable invite code after their first sign-in.
+	if c.CoachCode == "" {
+		code, cerr := r.uniqueCoachCode(ctx)
+		if cerr != nil {
+			return c, nil // never break the login read path on backfill failure
+		}
+		_, uerr := r.db.ExecContext(ctx,
+			`UPDATE coaches SET coach_code = ?, updated_at = datetime('now')
+			 WHERE id = ? AND (coach_code IS NULL OR coach_code = '')`,
+			code, userID)
+		if uerr == nil {
+			c.CoachCode = code
+		}
+	}
 	return c, nil
+}
+
+// uniqueCoachCode generates a coach code that is not taken by any active coach.
+func (r *Repository) uniqueCoachCode(ctx context.Context) (string, error) {
+	for attempt := 0; attempt < 20; attempt++ {
+		code := GenerateCoachCode()
+		var one int
+		err := r.db.QueryRowContext(ctx,
+			`SELECT 1 FROM coaches WHERE UPPER(coach_code) = ? AND is_active = 1`, code).Scan(&one)
+		if err == sql.ErrNoRows {
+			return code, nil
+		}
+		if err != nil {
+			return "", fmt.Errorf("check coach code uniqueness: %w", err)
+		}
+	}
+	return "", fmt.Errorf("could not find a unique coach code after 20 attempts")
 }
 
 // GetAthleteProfile retrieves the athlete profile for a user.

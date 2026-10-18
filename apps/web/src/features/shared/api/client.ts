@@ -228,6 +228,8 @@ export const workoutApi = {
 export interface CoachProfile {
   id: string;
   userId: string;
+  coach_code?: string;
+  coachCode?: string;
   specializations: string[];
   certifications: string[];
   certLevel: string;

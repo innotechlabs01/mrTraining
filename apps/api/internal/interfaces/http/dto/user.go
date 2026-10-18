@@ -63,6 +63,7 @@ type CoachResponse struct {
 	Email               string   `json:"email"`
 	Name                string   `json:"name"`
 	AvatarURL           string   `json:"avatar_url,omitempty"`
+	CoachCode           string   `json:"coach_code,omitempty"`
 	Bio                 string   `json:"bio,omitempty"`
 	Specializations     []string `json:"specializations"`
 	Certifications      []string `json:"certifications"`
