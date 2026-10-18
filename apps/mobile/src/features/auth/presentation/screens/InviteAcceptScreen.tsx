@@ -7,7 +7,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { colors, spacing, typography, radius } from '../../../../shared/theme/tokens';
-import { LockIcon, CheckIcon, CloseIcon } from '../../../../shared/components/icons';
+import { CheckIcon, CloseIcon } from '../../../../shared/components/icons';
 import { texts } from '../../../../shared/i18n/texts';
 import { cacheCoachCode, isCodeAccepted } from './coachCodeCache';
 
@@ -99,7 +99,11 @@ export function InviteAcceptScreen() {
         cancelled = true;
       };
     } else if (code && !isSignedIn) {
-      setStatus('needs_auth');
+      // No session yet: hand the invite code straight to the login screen so
+      // the athlete can sign in/sign up with it pre-filled. After a successful
+      // session, useSignInForm.afterSessionActive accepts the invite and the
+      // router lands them on AthleteTabs.
+      navigation.navigate('Auth', { code, mode: 'signin' });
     }
     return undefined;
   }, [code, isSignedIn, acceptInvite, navigation]);
@@ -153,24 +157,6 @@ export function InviteAcceptScreen() {
             <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
             <Text style={styles.title}>{t.connectingTitle}</Text>
             <Text style={styles.subtitle}>{t.connectingSubtitle}</Text>
-          </>
-        )}
-
-        {status === 'needs_auth' && (
-          <>
-            <View style={styles.authIcon}>
-              <LockIcon size={28} color={colors.textSecondary} />
-            </View>
-            <Text style={styles.title}>{t.signInRequiredTitle}</Text>
-            <Text style={styles.subtitle}>
-              {t.signInRequiredSubtitle}
-            </Text>
-            <Pressable
-              style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-              onPress={handleSignIn}
-            >
-              <Text style={styles.buttonText}>{t.signInButton}</Text>
-            </Pressable>
           </>
         )}
 
