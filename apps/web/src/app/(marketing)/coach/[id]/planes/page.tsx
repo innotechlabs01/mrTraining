@@ -126,7 +126,7 @@ export default function CoachPlansLandingPage() {
                   </ul>
 
                   <a
-                    href={`/planes/${plan.id}`}
+                    href={`/sign-up?plan=${plan.name.toLowerCase().replace(/\s+/g, '-')}&coach=${encodeURIComponent(coachId)}`}
                     className="mt-5 w-full inline-flex items-center justify-center px-4 py-2.5 rounded-lg
                                bg-brand-primary text-white text-sm font-medium
                                hover:bg-brand-primary-hover transition-colors

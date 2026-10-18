@@ -4,7 +4,7 @@ async function globalSetup(config: FullConfig) {
   console.log('Global setup: Starting test environment...');
   
   // Verify servers are running
-  const goApiUrl = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:8080';
+  const goApiUrl = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:9090';
   const webApiUrl = 'http://localhost:3000';
   
   try {

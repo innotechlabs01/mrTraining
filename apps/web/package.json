@@ -19,7 +19,6 @@
     "@clerk/nextjs": "^6.38.3",
     "@libsql/client": "^0.17.4",
     "@mapbox/polyline": "^1.2.1",
-    "@polar-sh/sdk": "^0.49.0",
     "@tanstack/react-query": "^5.102.8",
     "@types/leaflet": "^1.9.22",
     "@vercel/blob": "^2.8.0",

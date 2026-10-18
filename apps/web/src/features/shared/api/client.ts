@@ -22,7 +22,6 @@
  *   - /api/athlete/*            — Athlete-specific (workouts, sessions, health, favorites, etc.)
  *   - /api/progress/*           — Progress analytics
  *   - /api/marketing/*          — Marketing (blog, products, plans)
- *   - /api/polar/*              — Payments (Polar.sh)
  */
 import { goClient, goFetch } from '@/lib/api/go-client'
 import type { CoachEvent } from '@/features/coach/types'
