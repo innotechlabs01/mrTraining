@@ -77,9 +77,9 @@ describe('Phase 1 — Coach creates template with exercises', () => {
       name: 'Push Day', description: 'chest + shoulders', goal: 'hypertrophy',
       estimatedDurationMinutes: 50,
       exercises: [
-        { name: 'Bench Press', sets: 4, reps: 8, weightKg: 60, restSeconds: 90, sortOrder: 0, muscleGroups: ['chest'], mode: 'reps' },
-        { name: 'Overhead Press', sets: 3, reps: 10, weightKg: 30, restSeconds: 90, sortOrder: 1, muscleGroups: ['shoulders'], mode: 'reps' },
-        { name: 'Plank', sets: 3, reps: 0, restSeconds: 60, sortOrder: 2, muscleGroups: ['core'], mode: 'time', sec: 60 },
+        { name: 'Bench Press', sets: 4, reps: 8, weightKg: 60, restSeconds: 90, sortOrder: 0, muscleGroups: ['chest'], mode: 'reps', notes: null, libraryExerciseId: null },
+        { name: 'Overhead Press', sets: 3, reps: 10, weightKg: 30, restSeconds: 90, sortOrder: 1, muscleGroups: ['shoulders'], mode: 'reps', notes: null, libraryExerciseId: null },
+        { name: 'Plank', sets: 3, reps: 0, weightKg: null, restSeconds: 60, sortOrder: 2, muscleGroups: ['core'], mode: 'time', sec: 60, notes: null, libraryExerciseId: null },
       ],
     });
     expect(id).toBeTruthy();
@@ -121,7 +121,7 @@ describe('Phase 2 — Coach assigns workout with exercises persisted', () => {
     const detail = await db.getAssignedWorkoutDetail('coach-1', assignedWorkoutId);
     expect(detail).not.toBeNull();
     expect(detail!.exercises).toHaveLength(2);
-    expect(detail!.exercises[0].prog).toBe('linear');
+    expect(detail!.exercises![0].prog).toBe('linear');
   });
 
   it('wrong coach gets null', async () => {
@@ -140,7 +140,7 @@ describe('Phase 3 — Athlete session, sets, complete', () => {
     const wo = list.find(w => w.contentName === 'Push Day')!;
     workoutId = String(wo.id);
     const detail = await db.getAssignedWorkoutDetail('coach-1', workoutId);
-    exIds = Object.fromEntries(detail!.exercises.map(e => [e.name, e.id]));
+    exIds = Object.fromEntries(detail!.exercises!.map(e => [e.name, e.id]));
     const session = await db.createWorkoutSession(workoutId, 'athlete-1');
     sessionId = session.id;
   });
@@ -306,6 +306,6 @@ describe('Phase 8 — Assigned workout GET-by-ID returns exercises', () => {
     const detail = await db.getAssignedWorkoutDetail('coach-1', String(wo.id));
     expect(detail).not.toBeNull();
     expect(detail!.exercises).toHaveLength(2);
-    expect(detail!.exercises[0].prog).toBe('linear');
+    expect(detail!.exercises![0].prog).toBe('linear');
   });
 });

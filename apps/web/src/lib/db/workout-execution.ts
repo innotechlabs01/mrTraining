@@ -140,6 +140,19 @@ export interface AssignedWorkoutExercise {
   sortOrder: number
   muscleGroups: string[]
   libraryExerciseId: string | null
+  /** Enriched fields returned by getAssignedWorkoutDetail (assigned_workout_exercises rows). */
+  prog?: string | null
+  mode?: string | null
+  phase?: string | null
+  supersetGroup?: string | null
+  repsMin?: number | null
+  repsMax?: number | null
+  inc?: number | null
+  sec?: number | null
+  minutes?: number | null
+  speed?: number | null
+  perSide?: number | null
+  bodyPart?: string | null
 }
 
 export async function getAssignedWorkouts(coachId: string): Promise<AssignedWorkout[]> {
@@ -457,8 +470,8 @@ export async function getAthleteTrainingHistory(athleteId: string) {
       // Get prescription weight from first work set
       const workSets = exerciseLogs.filter(l => l.phase === 'work' && !l.skipped)
       const firstWorkSet = workSets[0]
-      const weightKg = firstWorkSet?.weight_kg ?? null
-      
+      const weightKg = firstWorkSet?.weight_kg != null ? Number(firstWorkSet.weight_kg) : null
+
       entries.push({
         id: slug,
         target: {
@@ -466,7 +479,7 @@ export async function getAthleteTrainingHistory(athleteId: string) {
           mode: mode as 'reps' | 'time' | 'cardio',
           phase: phase as 'work' | 'warmup',
           sets: exerciseLogs.filter(l => !l.skipped).length,
-          reps: firstWorkSet?.reps ?? null,
+          reps: firstWorkSet?.reps != null ? Number(firstWorkSet.reps) : undefined,
           weightKg,
           prog: prog as 'linear' | 'double' | 'greyskull' | 'time' | 'off',
           muscleGroups,
@@ -475,13 +488,13 @@ export async function getAthleteTrainingHistory(athleteId: string) {
           completed: Boolean(l.completed),
           skipped: Boolean(l.skipped),
           phase: (l.phase as 'work' | 'warmup') || 'work',
-          weightKg: l.weight_kg,
-          reps: l.reps,
-          sec: l.sec,
-          minutes: l.minutes,
-          speed: l.speed,
-          rir: l.rir,
-          rpe: l.rpe,
+          weightKg: l.weight_kg != null ? Number(l.weight_kg) : null,
+          reps: l.reps != null ? Number(l.reps) : null,
+          sec: l.sec != null ? Number(l.sec) : null,
+          minutes: l.minutes != null ? Number(l.minutes) : null,
+          speed: l.speed != null ? Number(l.speed) : null,
+          rir: l.rir != null ? Number(l.rir) : null,
+          rpe: l.rpe != null ? Number(l.rpe) : null,
         })),
       })
     }

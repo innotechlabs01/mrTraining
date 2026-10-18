@@ -70,6 +70,18 @@ export async function createAuthenticatedContext(
   return { request: authenticatedRequest, token };
 }
 
+/**
+ * Alias used by E2E specs: resolve the signed-in session token via the web
+ * app test endpoint. The server binds the token to the caller's session, so
+ * the shared storageState from auth.setup.ts must carry the Clerk session.
+ */
+export async function getClerkToken(
+  request: APIRequestContext,
+  _user?: TestUser
+): Promise<string> {
+  return getClerkTokenViaAPI(request);
+}
+
 export async function goApiRequest(
   request: APIRequestContext,
   token: string,
