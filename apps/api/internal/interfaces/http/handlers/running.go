@@ -116,7 +116,9 @@ func (h *RunningHandler) GetSession(c *fiber.Ctx) error {
 }
 
 // LogGpsPoint handles POST /running/sessions/:id/live-location.
-// Records a single GPS sample for a running session (live tracking).
+// Records GPS samples for a running session (live tracking). Accepts either a
+// single point (legacy shape) or {session_id, points:[...]} for client-side
+// batching. Points with accuracy >50m are dropped server-side.
 func (h *RunningHandler) LogGpsPoint(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
 	if userID == "" {
@@ -128,43 +130,153 @@ func (h *RunningHandler) LogGpsPoint(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "session ID is required")
 	}
 
-	var req dto.LogGpsPointRequest
+	// Verify session exists and belongs to the user before touching GPS data.
+	session, err := h.service.GetSession(c.Context(), sessionID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	if session.UserID != userID {
+		return appresponse.Error(c, fiber.StatusForbidden, "not allowed to track this session")
+	}
+
+	var batchReq dto.LogGpsBatchRequest
+	if err := c.BodyParser(&batchReq); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if batchReq.SessionID != "" && batchReq.SessionID != sessionID {
+		return appresponse.Error(c, fiber.StatusBadRequest, "session_id mismatch")
+	}
+
+	pointReqs := batchReq.Points
+	if len(pointReqs) == 0 {
+		// Legacy single-point shape: the body itself is one LogGpsPointRequest.
+		var single dto.LogGpsPointRequest
+		if err := c.BodyParser(&single); err != nil {
+			return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+		}
+		if single.SessionID != "" && single.SessionID != sessionID {
+			return appresponse.Error(c, fiber.StatusBadRequest, "session_id mismatch")
+		}
+		pointReqs = []dto.LogGpsPointRequest{single}
+	}
+
+	points := make([]*domain.GpsPoint, 0, len(pointReqs))
+	for _, pr := range pointReqs {
+		if pr.Timestamp == "" {
+			return appresponse.Error(c, fiber.StatusBadRequest, "timestamp is required on every point")
+		}
+		points = append(points, &domain.GpsPoint{
+			SessionID: sessionID,
+			Lat:       pr.Lat,
+			Lng:       pr.Lng,
+			Alt:       pr.Alt,
+			Timestamp: pr.Timestamp,
+			Accuracy:  pr.Accuracy,
+		})
+	}
+
+	saved, err := h.service.SaveGpsPointsBatch(c.Context(), sessionID, points)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, fiber.Map{
+		"received": len(points),
+		"saved":    saved,
+	})
+}
+
+// UpdateSession handles PATCH /running/sessions/:id.
+// Closes a live-tracked run with final totals (distance, duration, pace…).
+func (h *RunningHandler) UpdateSession(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	sessionID := c.Params("id")
+	if sessionID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "session ID is required")
+	}
+
+	session, err := h.service.GetSession(c.Context(), sessionID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	if session.UserID != userID {
+		return appresponse.Error(c, fiber.StatusForbidden, "not allowed to update this session")
+	}
+
+	var req dto.UpdateRunningSessionRequest
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	if req.SessionID == "" {
-		req.SessionID = sessionID
+	if req.Distance != nil {
+		if *req.Distance < 0 {
+			return appresponse.Error(c, fiber.StatusBadRequest, "distance must not be negative")
+		}
+		session.Distance = *req.Distance
 	}
-	if req.SessionID != sessionID {
-		return appresponse.Error(c, fiber.StatusBadRequest, "session_id mismatch")
+	if req.Duration != nil {
+		if *req.Duration < 0 {
+			return appresponse.Error(c, fiber.StatusBadRequest, "duration must not be negative")
+		}
+		session.Duration = *req.Duration
 	}
-	if req.Timestamp == "" {
-		return appresponse.Error(c, fiber.StatusBadRequest, "timestamp is required")
+	if req.Pace != nil {
+		session.Pace = *req.Pace
+	}
+	if req.Calories != nil {
+		session.Calories = *req.Calories
+	}
+	if req.Elevation != nil {
+		session.Elevation = *req.Elevation
+	}
+	if req.HeartRate != nil {
+		session.HeartRate = *req.HeartRate
+	}
+	if req.Cadence != nil {
+		session.Cadence = *req.Cadence
+	}
+	if req.GPSRoute != nil {
+		session.GPSRoute = *req.GPSRoute
 	}
 
-	point := &domain.GpsPoint{
-		SessionID: req.SessionID,
-		Lat:       req.Lat,
-		Lng:       req.Lng,
-		Alt:       req.Alt,
-		Timestamp: req.Timestamp,
-		Accuracy:  req.Accuracy,
-	}
-
-	if err := h.service.SaveGpsPoint(c.Context(), point); err != nil {
+	if err := h.service.UpdateSession(c.Context(), session); err != nil {
 		return h.handleError(c, err)
 	}
 
-	return appresponse.Success(c, dto.GpsPointResponse{
-		ID:        point.ID,
-		SessionID: point.SessionID,
-		Lat:       point.Lat,
-		Lng:       point.Lng,
-		Alt:       point.Alt,
-		Timestamp: point.Timestamp,
-		Accuracy:  point.Accuracy,
-	})
+	return appresponse.Success(c, toSessionResponse(session))
+}
+
+// DeleteSession handles DELETE /running/sessions/:id.
+// Removes a running session owned by the authenticated user.
+func (h *RunningHandler) DeleteSession(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	sessionID := c.Params("id")
+	if sessionID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "session ID is required")
+	}
+
+	session, err := h.service.GetSession(c.Context(), sessionID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	if session.UserID != userID {
+		return appresponse.Error(c, fiber.StatusForbidden, "not allowed to delete this session")
+	}
+
+	if err := h.service.DeleteSession(c.Context(), sessionID); err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, fiber.Map{"message": "session deleted"})
 }
 
 // ListSessions handles GET /running/sessions.

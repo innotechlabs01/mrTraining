@@ -118,6 +118,28 @@ func (r *Repository) CountSessionsByUser(ctx context.Context, userID string, fro
 	return count, nil
 }
 
+// UpdateSession persists final metrics of an existing running session.
+func (r *Repository) UpdateSession(ctx context.Context, s *domain.RunningSession) error {
+	result, err := r.db.ExecContext(ctx,
+		`UPDATE running_sessions
+		 SET date = ?, distance = ?, duration = ?, pace = ?, speed = ?, calories = ?,
+		     elevation = ?, heart_rate = ?, cadence = ?, gps_route = ?
+		 WHERE id = ?`,
+		s.Date, s.Distance, s.Duration, s.Pace, s.Speed, s.Calories,
+		s.Elevation, s.HeartRate, s.Cadence, nullStr(s.GPSRoute), s.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update running session: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return errors.NotFound("RunningSession", s.ID)
+	}
+	return nil
+}
+
 // DeleteSession removes a running session by ID.
 func (r *Repository) DeleteSession(ctx context.Context, id string) error {
 	result, err := r.db.ExecContext(ctx,
@@ -145,6 +167,37 @@ func (r *Repository) SaveGpsPoint(ctx context.Context, p *domain.GpsPoint) error
 		p.ID, p.SessionID, p.Lat, p.Lng, p.Alt, p.Timestamp, p.Accuracy)
 	if err != nil {
 		return fmt.Errorf("failed to save gps point: %w", err)
+	}
+	return nil
+}
+
+// SaveGpsPoints persists a batch of GPS samples in a single transaction.
+// Empty slices are a no-op. All-or-nothing: any failure rolls back.
+func (r *Repository) SaveGpsPoints(ctx context.Context, points []*domain.GpsPoint) error {
+	if len(points) == 0 {
+		return nil
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin gps batch tx: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after commit
+
+	stmt, err := tx.PrepareContext(ctx,
+		`INSERT INTO running_gps_points (id, session_id, lat, lng, alt, timestamp, accuracy)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare gps batch stmt: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, p := range points {
+		if _, err := stmt.ExecContext(ctx, p.ID, p.SessionID, p.Lat, p.Lng, p.Alt, p.Timestamp, p.Accuracy); err != nil {
+			return fmt.Errorf("failed to save gps point in batch: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit gps batch: %w", err)
 	}
 	return nil
 }

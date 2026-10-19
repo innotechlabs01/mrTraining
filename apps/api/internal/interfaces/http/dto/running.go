@@ -67,9 +67,29 @@ type LogGpsPointRequest struct {
 	SessionID string  `json:"session_id"`
 	Lat       float64 `json:"lat"`
 	Lng       float64 `json:"lng"`
-	Alt       float64 `json:"alt,omitempty"`       // meters
-	Timestamp string  `json:"timestamp"`           // RFC3339 UTC
-	Accuracy  float64 `json:"accuracy,omitempty"`  // meters
+	Alt       float64 `json:"alt,omitempty"`      // meters
+	Timestamp string  `json:"timestamp"`          // RFC3339 UTC
+	Accuracy  float64 `json:"accuracy,omitempty"` // meters
+}
+
+// LogGpsBatchRequest is the payload for recording a batch of GPS samples in
+// one live-location request (client-side batching: one POST per 15s/20m).
+type LogGpsBatchRequest struct {
+	SessionID string              `json:"session_id"`
+	Points    []LogGpsPointRequest `json:"points"` // max 100, server-enforced
+}
+
+// UpdateRunningSessionRequest is the payload for closing a live-tracked run
+// with its final totals. All fields optional; only provided fields update.
+type UpdateRunningSessionRequest struct {
+	Distance  *float64 `json:"distance,omitempty"`   // km
+	Duration  *int     `json:"duration,omitempty"`   // seconds
+	Pace      *string  `json:"pace,omitempty"`       // "5:30"; recalculated when omitted
+	Calories  *int     `json:"calories,omitempty"`
+	Elevation *float64 `json:"elevation,omitempty"`  // meters
+	HeartRate *int     `json:"heart_rate,omitempty"`
+	Cadence   *int     `json:"cadence,omitempty"`
+	GPSRoute  *string  `json:"gps_route,omitempty"`  // encoded polyline
 }
 
 // GpsPointResponse represents a single GPS point in API responses.

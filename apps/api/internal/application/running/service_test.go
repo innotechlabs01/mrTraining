@@ -73,6 +73,14 @@ func (m *mockRepository) CountSessionsByUser(_ context.Context, userID string, f
 	return count, nil
 }
 
+func (m *mockRepository) UpdateSession(_ context.Context, s *domain.RunningSession) error {
+	if _, ok := m.sessions[s.ID]; !ok {
+		return nil
+	}
+	m.sessions[s.ID] = s
+	return nil
+}
+
 func (m *mockRepository) DeleteSession(_ context.Context, id string) error {
 	delete(m.sessions, id)
 	return nil
@@ -109,6 +117,13 @@ func (m *mockRepository) DeactivateDeviceConnection(_ context.Context, id string
 
 func (m *mockRepository) SaveGpsPoint(_ context.Context, p *domain.GpsPoint) error {
 	m.gpsPoints[p.SessionID] = append(m.gpsPoints[p.SessionID], p)
+	return nil
+}
+
+func (m *mockRepository) SaveGpsPoints(_ context.Context, points []*domain.GpsPoint) error {
+	for _, p := range points {
+		m.gpsPoints[p.SessionID] = append(m.gpsPoints[p.SessionID], p)
+	}
 	return nil
 }
 
@@ -332,6 +347,105 @@ func TestService_DisconnectDevice(t *testing.T) {
 	c, _ := repo.GetDeviceConnection(ctx, conn.ID)
 	if c.IsActive {
 		t.Error("expected connection to be inactive after disconnect")
+	}
+}
+
+func TestService_SaveGpsPointsBatch(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	ctx := context.Background()
+
+	points := []*domain.GpsPoint{
+		{Lat: -34.60, Lng: -58.38, Timestamp: "2026-10-18T10:00:00Z", Accuracy: 5},
+		{Lat: -34.61, Lng: -58.39, Timestamp: "2026-10-18T10:00:05Z", Accuracy: 80}, // dropped: >50m
+		{Lat: -34.62, Lng: -58.40, Timestamp: "2026-10-18T10:00:10Z"},             // no accuracy: kept
+	}
+
+	saved, err := svc.SaveGpsPointsBatch(ctx, "session-1", points)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if saved != 2 {
+		t.Errorf("expected 2 saved (1 dropped by accuracy), got %d", saved)
+	}
+	if len(repo.gpsPoints["session-1"]) != 2 {
+		t.Errorf("expected 2 persisted points, got %d", len(repo.gpsPoints["session-1"]))
+	}
+}
+
+func TestService_SaveGpsPointsBatch_ExceedsCap(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	ctx := context.Background()
+
+	points := make([]*domain.GpsPoint, 101)
+	for i := range points {
+		points[i] = &domain.GpsPoint{Lat: 1, Lng: 1, Timestamp: "2026-10-18T10:00:00Z"}
+	}
+
+	_, err := svc.SaveGpsPointsBatch(ctx, "session-1", points)
+	if err == nil {
+		t.Fatal("expected error for batch over 100 points")
+	}
+}
+
+func TestService_SaveGpsPointsBatch_AssignsIDs(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	ctx := context.Background()
+
+	points := []*domain.GpsPoint{{Lat: 1, Lng: 1, Timestamp: "2026-10-18T10:00:00Z"}}
+	if _, err := svc.SaveGpsPointsBatch(ctx, "s1", points); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if points[0].ID == "" {
+		t.Error("expected UUID assigned to point")
+	}
+	if points[0].SessionID != "s1" {
+		t.Errorf("expected session_id forced to s1, got %s", points[0].SessionID)
+	}
+}
+
+func TestService_UpdateSession_RecalculatesSpeedAndPace(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	ctx := context.Background()
+
+	session := &domain.RunningSession{ID: "s1", UserID: "user-1", Date: "2026-10-18", Source: "mobile_gps"}
+	if err := repo.SaveSession(ctx, session); err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+
+	distance, duration := 10.0, 3000 // 10km en 50min → 5:00/km, 12 km/h
+	if err := svc.UpdateSession(ctx, &domain.RunningSession{
+		ID: "s1", Date: "2026-10-18", Distance: distance, Duration: duration, GPSRoute: "abc~poly",
+	}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	updated, _ := repo.GetSession(ctx, "s1")
+	if updated.Pace != "5:00" {
+		t.Errorf("expected pace 5:00, got %s", updated.Pace)
+	}
+	if updated.Speed < 11.9 || updated.Speed > 12.1 {
+		t.Errorf("expected speed ~12 km/h, got %f", updated.Speed)
+	}
+	if updated.GPSRoute != "abc~poly" {
+		t.Errorf("expected gps route persisted, got %s", updated.GPSRoute)
+	}
+}
+
+func TestService_DeleteSession(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	ctx := context.Background()
+
+	_ = repo.SaveSession(ctx, &domain.RunningSession{ID: "s1", UserID: "user-1"})
+	if err := svc.DeleteSession(ctx, "s1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := repo.sessions["s1"]; ok {
+		t.Error("expected session removed")
 	}
 }
 

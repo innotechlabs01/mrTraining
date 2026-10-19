@@ -157,10 +157,14 @@ func RegisterNotificationRoutes(api fiber.Router, handler *handlers.Notification
 // The calling code must have already applied auth middleware to the api group.
 func RegisterRunningRoutes(api fiber.Router, handler *handlers.RunningHandler) {
 	// Sessions
-	api.Post("/running/sessions", handler.LogSession)
+	// live-location: clients batch points every ~15s; 60/min leaves headroom
+	// for retries without letting a rogue client flood the GPS table.
+	api.Post("/running/sessions", middleware.RateLimit(30, 60), handler.LogSession)
 	api.Get("/running/sessions", handler.ListSessions)
 	api.Get("/running/sessions/:id", handler.GetSession)
-	api.Post("/running/sessions/:id/live-location", handler.LogGpsPoint)
+	api.Patch("/running/sessions/:id", handler.UpdateSession)
+	api.Delete("/running/sessions/:id", handler.DeleteSession)
+	api.Post("/running/sessions/:id/live-location", middleware.RateLimit(60, 60), handler.LogGpsPoint)
 	api.Get("/running/stats", handler.GetStats)
 
 	// Device connections

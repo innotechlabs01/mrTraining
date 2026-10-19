@@ -166,7 +166,37 @@ func (s *Service) GetSession(ctx context.Context, id string) (*domain.RunningSes
 	return session, nil
 }
 
+// UpdateSession closes a live-tracked run: recalculates speed from final
+// distance/duration, recomputes pace when not supplied, and persists totals.
+// The session must already exist; ownership is enforced at the handler layer.
+func (s *Service) UpdateSession(ctx context.Context, session *domain.RunningSession) error {
+	if session.ID == "" {
+		return fmt.Errorf("session id is required")
+	}
+	if session.Distance > 0 && session.Duration > 0 {
+		session.Speed = (session.Distance / float64(session.Duration)) * 3600 // km/h
+	}
+	if session.Pace == "" && session.Distance > 0 && session.Duration > 0 {
+		session.Pace = formatPace(session.Distance, session.Duration)
+	}
+	if err := s.repo.UpdateSession(ctx, session); err != nil {
+		return fmt.Errorf("update running session: %w", err)
+	}
+	return nil
+}
+
+// DeleteSession removes a running session by ID. Ownership is enforced at the
+// handler layer.
+func (s *Service) DeleteSession(ctx context.Context, id string) error {
+	if err := s.repo.DeleteSession(ctx, id); err != nil {
+		return fmt.Errorf("delete running session: %w", err)
+	}
+	return nil
+}
+
 // SaveGpsPoint persists a single GPS sample for a running session.
+// Points with accuracy worse than maxGpsAccuracyMeters are discarded (urban
+// multipath garbage) — counted in the returned saved slice length.
 func (s *Service) SaveGpsPoint(ctx context.Context, point *domain.GpsPoint) error {
 	if point.ID == "" {
 		point.ID = uuid.New().String()
@@ -178,6 +208,45 @@ func (s *Service) SaveGpsPoint(ctx context.Context, point *domain.GpsPoint) erro
 		return fmt.Errorf("save gps point: %w", err)
 	}
 	return nil
+}
+
+// maxGpsAccuracyMeters: points reporting worse accuracy than this are noise.
+const maxGpsAccuracyMeters = 50.0
+
+// maxGpsBatchPoints: hard cap per live-location request.
+const maxGpsBatchPoints = 100
+
+// SaveGpsPointsBatch persists a batch of GPS samples for a live-tracked session.
+// Invalid points (accuracy > maxGpsAccuracyMeters) are silently dropped;
+// returns how many points were actually saved. Batch size is capped at
+// maxGpsBatchPoints.
+func (s *Service) SaveGpsPointsBatch(ctx context.Context, sessionID string, points []*domain.GpsPoint) (int, error) {
+	if sessionID == "" {
+		return 0, fmt.Errorf("session_id is required")
+	}
+	if len(points) == 0 {
+		return 0, nil
+	}
+	if len(points) > maxGpsBatchPoints {
+		return 0, fmt.Errorf("batch exceeds %d points", maxGpsBatchPoints)
+	}
+
+	valid := make([]*domain.GpsPoint, 0, len(points))
+	for _, p := range points {
+		if p.Accuracy > maxGpsAccuracyMeters {
+			continue
+		}
+		p.SessionID = sessionID
+		if p.ID == "" {
+			p.ID = uuid.New().String()
+		}
+		valid = append(valid, p)
+	}
+
+	if err := s.repo.SaveGpsPoints(ctx, valid); err != nil {
+		return 0, fmt.Errorf("save gps points batch: %w", err)
+	}
+	return len(valid), nil
 }
 
 // ListGpsPointsBySession returns all GPS points for a session ordered by timestamp ascending.

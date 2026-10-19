@@ -21,6 +21,11 @@ type Repository interface {
 	// CountSessionsByUser returns the total number of sessions for a user within an optional date range.
 	CountSessionsByUser(ctx context.Context, userID string, fromDate, toDate string) (int, error)
 
+	// UpdateSession persists final metrics of an existing running session
+	// (used to close a live-tracked run with totals).
+	// Returns ErrNotFound if no session exists with the given ID.
+	UpdateSession(ctx context.Context, session *RunningSession) error
+
 	// DeleteSession removes a running session by ID.
 	// Returns an error if the session does not exist or on database failure.
 	DeleteSession(ctx context.Context, id string) error
@@ -29,6 +34,9 @@ type Repository interface {
 
 	// SaveGpsPoint persists a single GPS sample for a running session.
 	SaveGpsPoint(ctx context.Context, point *GpsPoint) error
+
+	// SaveGpsPoints persists a batch of GPS samples in a single transaction.
+	SaveGpsPoints(ctx context.Context, points []*GpsPoint) error
 
 	// ListGpsPointsBySession returns all GPS points for a session ordered by timestamp ascending.
 	ListGpsPointsBySession(ctx context.Context, sessionID string) ([]*GpsPoint, error)
