@@ -84,6 +84,7 @@ export type RootStackParamList = {
   Store: undefined;
   WorkoutDetail: { workoutId: string };
   WorkoutExecution: { sessionId: string; workoutId: string };
+  RunRecording: undefined;
   AiWorkout: {
     sessionId: string;
     workoutId: string;
@@ -228,6 +229,11 @@ function RootNavigator() {
           <Stack.Screen
             name="WorkoutExecution"
             getComponent={() => require('../features/training/presentation/screens/WorkoutExecutionScreen').WorkoutExecutionScreen}
+            options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="RunRecording"
+            getComponent={() => require('../features/training/presentation/screens/RunRecordingScreen').RunRecordingScreen}
             options={{ presentation: 'modal' }}
           />
           <Stack.Screen

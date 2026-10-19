@@ -26,6 +26,7 @@ const GO_API_PATH_MAP: Record<string, string> = {
   '/athlete/health/sleep': '/health/sleep',
   '/athlete/health/devices': '/health/devices',
   '/athlete/workouts': '/workouts',
+  '/athlete/running': '/running',
   '/athlete/sessions': '/athletes/sessions',
   '/athlete/events': '/athletes/events',
   '/athlete/membership': '/memberships',

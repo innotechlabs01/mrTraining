@@ -301,6 +301,12 @@ export function HistoryScreen() {
           <Text style={styles.subtitle}>
             {t.progressTitle}
           </Text>
+          <Pressable
+            style={styles.runCta}
+            onPress={() => navigation.navigate('RunRecording')}
+          >
+            <Text style={styles.runCtaText}>Grabar carrera con GPS</Text>
+          </Pressable>
         </View>
 
         {showLoading ? (
@@ -671,6 +677,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: layout.pagePadding,
     paddingTop: spacing.lg,
     paddingBottom: 112,
+  },
+  runCta: {
+    marginTop: spacing.sm,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  runCtaText: {
+    color: colors.onPrimary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   pageHeader: {
     marginBottom: spacing.xxl ?? spacing.lg * 3,

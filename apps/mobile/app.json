@@ -33,7 +33,16 @@
       ],
       "expo-video",
       "expo-image",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "MR Training usa tu ubicación para grabar la ruta de tus carreras.",
+          "locationAlwaysAndWhenInUsePermission": "MR Training usa tu ubicación para grabar la ruta de tus carreras, incluso con la app en segundo plano.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true,
