@@ -9,6 +9,7 @@ type Repository interface {
 	UpsertStreak(ctx context.Context, streak *Streak) error
 	LogWorkoutDay(ctx context.Context, day *WorkoutDay) error
 	ListWorkoutDays(ctx context.Context, athleteID string, since string) ([]*WorkoutDay, error)
+	ListAllStreaks(ctx context.Context) ([]*Streak, error)
 
 	// Badges
 	ListBadges(ctx context.Context, athleteID string) ([]*Badge, error)

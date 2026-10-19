@@ -2,11 +2,13 @@
 package handlers
 
 import (
+	"context"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 
+	gamificationapp "github.com/innotechlabs01/mr-training-api/internal/application/gamification"
 	membershipapp "github.com/innotechlabs01/mr-training-api/internal/application/membership"
 	membershipdomain "github.com/innotechlabs01/mr-training-api/internal/domain/membership"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
@@ -18,12 +20,27 @@ import (
 
 // MembershipHandler handles HTTP requests for the membership domain.
 type MembershipHandler struct {
-	service *membershipapp.Service
+	service  *membershipapp.Service
+	gamifSvc *gamificationapp.Service
 }
 
-// NewMembershipHandler creates a new MembershipHandler with the given application service.
-func NewMembershipHandler(service *membershipapp.Service) *MembershipHandler {
-	return &MembershipHandler{service: service}
+// NewMembershipHandler creates a new MembershipHandler with the given
+// application services. gamifSvc may be nil if membership badge checking is
+// not required.
+func NewMembershipHandler(service *membershipapp.Service, gamifSvc *gamificationapp.Service) *MembershipHandler {
+	return &MembershipHandler{service: service, gamifSvc: gamifSvc}
+}
+
+// checkMembershipMilestones evaluates membership milestone badges for the
+// athlete after a membership is created or activated. Best-effort: a failure
+// here must not fail the membership operation.
+func (h *MembershipHandler) checkMembershipMilestones(ctx context.Context, athleteID, startedAt string) {
+	if h.gamifSvc == nil || athleteID == "" || startedAt == "" {
+		return
+	}
+	if _, err := h.gamifSvc.CheckMembershipMilestones(ctx, athleteID, startedAt); err != nil {
+		// Best-effort: never block membership operations on badge evaluation.
+	}
 }
 
 // GetMembership handles GET /memberships.
@@ -70,6 +87,9 @@ func (h *MembershipHandler) CreateMembership(c *fiber.Ctx) error {
 	if err != nil {
 		return h.handleError(c, err)
 	}
+
+	// Evaluate membership milestone badges (1m, 3m, 6m) — best-effort.
+	h.checkMembershipMilestones(c.Context(), m.AthleteID, m.CreatedAt)
 
 	return appresponse.Success(c, toMembershipResponse(m))
 }

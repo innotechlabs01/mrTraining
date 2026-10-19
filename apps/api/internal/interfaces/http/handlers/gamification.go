@@ -96,6 +96,25 @@ func (h *GamificationHandler) LogStreak(c *fiber.Ctx) error {
 	})
 }
 
+// GetTypicalWorkoutTime handles GET /gamification/typical-workout-time.
+// Returns the athlete's most common workout hour (HH:MM) so the mobile app can
+// schedule a local "time to train" reminder.
+func (h *GamificationHandler) GetTypicalWorkoutTime(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	typicalTime, err := h.service.TypicalWorkoutTime(c.Context(), userID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, fiber.Map{
+		"typical_workout_time": typicalTime,
+	})
+}
+
 // GetInactivity handles GET /gamification/inactivity.
 // Returns how many days the athlete has been inactive and whether a
 // retention nudge should be shown (3 days: streak at risk, 7 days: re-engage).

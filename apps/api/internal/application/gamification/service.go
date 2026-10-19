@@ -29,6 +29,10 @@ var badgeDefinitions = map[string]struct {
 	"pr-1":        {"Primera Marca", "Primer récord personal registrado", "pr", "TrophyIcon", 1},
 	"pr-10":       {"Récords Rotos", "10 récords personales alcanzados", "pr", "TrophyIcon", 10},
 	"social-5":    {"Compañero", "5 interacciones en el feed del coach", "social", "ChatIcon", 5},
+	// Membership milestone badges - loyalty/retention.
+	"membership-1m": {"Un Mes", "Un mes entrenando con tu coach", "membership", "AwardIcon", 1},
+	"membership-3m": {"Trimestre", "Tres meses entrenando con tu coach", "membership", "AwardIcon", 3},
+	"membership-6m": {"Semestre", "Seis meses entrenando con tu coach", "membership", "AwardIcon", 6},
 }
 
 // GetBadgeDefinition returns a badge definition by ID.
@@ -216,6 +220,103 @@ func (s *Service) CheckBadges(ctx context.Context, athleteID string, totalWorkou
 	return newBadges, nil
 }
 
+// CheckMembershipMilestones evaluates membership milestone badges based on how
+// many months the athlete has been an active member (computed from startedAt).
+func (s *Service) CheckMembershipMilestones(ctx context.Context, athleteID, startedAt string) ([]*gamification.Badge, error) {
+	if strings.TrimSpace(athleteID) == "" {
+		return nil, fmt.Errorf("athlete ID is required")
+	}
+
+	startTime, err := time.Parse("2006-01-02", startedAt)
+	if err != nil {
+		return nil, fmt.Errorf("invalid started_at date: %w", err)
+	}
+
+	now := time.Now().UTC()
+	monthsActive := int(now.Sub(startTime).Hours() / (24 * 30))
+	if monthsActive < 0 {
+		monthsActive = 0
+	}
+
+	existing, err := s.repo.ListBadges(ctx, athleteID)
+	if err != nil {
+		return nil, err
+	}
+	existingMap := make(map[string]bool)
+	for _, b := range existing {
+		existingMap[b.BadgeID] = true
+	}
+
+	var newBadges []*gamification.Badge
+	unlockedAt := time.Now().UTC().Format(time.RFC3339)
+
+	for badgeID, def := range badgeDefinitions {
+		if existingMap[badgeID] {
+			continue
+		}
+		if def.Category != "membership" {
+			continue
+		}
+		if monthsActive >= def.Threshold {
+			badge := &gamification.Badge{
+				ID:         uuid.New().String(),
+				AthleteID:  athleteID,
+				BadgeID:    badgeID,
+				UnlockedAt: unlockedAt,
+			}
+			if err := s.repo.UpsertBadge(ctx, badge); err != nil {
+				return nil, err
+			}
+			newBadges = append(newBadges, badge)
+		}
+	}
+
+	return newBadges, nil
+}
+
+// TypicalWorkoutTime returns the athlete's most common workout hour of the
+// day (in "HH:MM" 24h format) computed from logged workout days. Used by the
+// mobile app to schedule a "time to train" local reminder. Returns "09:00"
+// when there is no history yet.
+func (s *Service) TypicalWorkoutTime(ctx context.Context, athleteID string) (string, error) {
+	if strings.TrimSpace(athleteID) == "" {
+		return "", fmt.Errorf("athlete ID is required")
+	}
+
+	days, err := s.repo.ListWorkoutDays(ctx, athleteID, "")
+	if err != nil {
+		return "", err
+	}
+
+	hourCounts := make(map[int]int)
+	for _, d := range days {
+		t, err := time.Parse(time.RFC3339, d.CreatedAt)
+		if err != nil {
+			// Fallback: try date-only parse.
+			t, err = time.Parse("2006-01-02", d.CreatedAt)
+			if err != nil {
+				continue
+			}
+		}
+		hourCounts[t.Hour()]++
+	}
+
+	if len(hourCounts) == 0 {
+		return "09:00", nil
+	}
+
+	bestHour := 0
+	bestCount := 0
+	for h, c := range hourCounts {
+		if c > bestCount || (c == bestCount && h < bestHour) {
+			bestHour = h
+			bestCount = c
+		}
+	}
+
+	return fmt.Sprintf("%02d:00", bestHour), nil
+}
+
 // ListPRs returns all personal records for an athlete.
 func (s *Service) ListPRs(ctx context.Context, athleteID string) ([]*gamification.PersonalRecord, error) {
 	if strings.TrimSpace(athleteID) == "" {
@@ -273,6 +374,11 @@ func (s *Service) RecordPR(ctx context.Context, athleteID, exerciseID, exerciseN
 	}
 
 	return existing, false, nil
+}
+
+// ListAllStreaks returns all streak records (used by the inactivity retention job).
+func (s *Service) ListAllStreaks(ctx context.Context) ([]*gamification.Streak, error) {
+	return s.repo.ListAllStreaks(ctx)
 }
 
 // InactivityStatus reports how long an athlete has been inactive and whether

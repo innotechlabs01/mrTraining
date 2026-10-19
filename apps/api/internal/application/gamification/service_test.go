@@ -53,6 +53,14 @@ func (m *mockRepository) ListWorkoutDays(ctx context.Context, athleteID string, 
 	return days, nil
 }
 
+func (m *mockRepository) ListAllStreaks(ctx context.Context) ([]*gamification.Streak, error) {
+	streaks := make([]*gamification.Streak, 0, len(m.streaks))
+	for _, s := range m.streaks {
+		streaks = append(streaks, s)
+	}
+	return streaks, nil
+}
+
 func (m *mockRepository) ListBadges(ctx context.Context, athleteID string) ([]*gamification.Badge, error) {
 	return m.badges[athleteID], nil
 }

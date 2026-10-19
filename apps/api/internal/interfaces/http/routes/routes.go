@@ -293,6 +293,7 @@ func RegisterGamificationRoutes(api fiber.Router, handler *handlers.Gamification
 	// Streaks
 	api.Get("/gamification/streak", middleware.RequireAthlete(), handler.GetStreak)
 	api.Post("/gamification/streak/log", middleware.RequireAthlete(), handler.LogStreak)
+	api.Get("/gamification/typical-workout-time", middleware.RequireAthlete(), handler.GetTypicalWorkoutTime)
 	api.Get("/gamification/inactivity", middleware.RequireAthlete(), handler.GetInactivity)
 
 	// Badges

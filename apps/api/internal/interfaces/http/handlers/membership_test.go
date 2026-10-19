@@ -47,7 +47,7 @@ func (fakeRepoNotFound) RecordPayment(ctx context.Context, p *domainmembership.P
 func newTestMembershipApp(t *testing.T) *fiber.App {
 	t.Helper()
 	svc := membershipapp.NewService(fakeRepoNotFound{})
-	h := handlers.NewMembershipHandler(svc)
+	h := handlers.NewMembershipHandler(svc, nil)
 
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {

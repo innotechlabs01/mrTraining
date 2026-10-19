@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -253,10 +254,14 @@ func main() {
 		trainingService := trainingapp.NewService(trainingExerciseRepo, trainingWorkoutRepo, trainingProgressRepo, trainingSessionRepo)
 		trainingHandler := userhttp.NewTrainingHandler(trainingService)
 
+		// Wire Gamification domain (needed by Membership handler for badge milestones)
+		gamificationRepo := gamificationinfrastructure.NewRepository(db.DB)
+		gamificationService := gamificationapp.NewService(gamificationRepo)
+
 		// Wire Membership domain
 		membershipRepo := membershipinfrastructure.NewRepository(db.DB)
 		membershipService := membershipapp.NewService(membershipRepo)
-		membershipHandler := userhttp.NewMembershipHandler(membershipService)
+		membershipHandler := userhttp.NewMembershipHandler(membershipService, gamificationService)
 
 		// Create the membership status reader for the RequireActiveMiddleware
 		statusReader := middleware.NewMembershipStatusReader(membershipService)
@@ -471,9 +476,7 @@ func main() {
 		// Register video view routes
 		routes.RegisterVideoViewRoutes(api, videoViewHandler)
 
-		// Wire Gamification domain
-		gamificationRepo := gamificationinfrastructure.NewRepository(db.DB)
-		gamificationService := gamificationapp.NewService(gamificationRepo)
+		// Wire Gamification handler (service already wired above for Membership handler)
 		gamificationHandler := userhttp.NewGamificationHandler(gamificationService, notifService)
 
 		// Register gamification routes
@@ -568,6 +571,23 @@ func main() {
 			}
 		}()
 
+		// Background job: daily inactivity retention nudge.
+		// Every 24h, finds athletes who haven't trained in 3+ days and sends
+		// a retention push (3 days: streak at risk, 7 days: re-engage).
+		go func() {
+			ticker := time.NewTicker(24 * time.Hour)
+			defer ticker.Stop()
+			// Initial run on startup
+			if err := runInactivityRetentionJob(context.Background(), gamificationService, notifService); err != nil {
+				logger.S().Warn("initial inactivity retention job failed", zap.Error(err))
+			}
+			for range ticker.C {
+				if err := runInactivityRetentionJob(context.Background(), gamificationService, notifService); err != nil {
+					logger.S().Warn("scheduled inactivity retention job failed", zap.Error(err))
+				}
+			}
+		}()
+
 		// Wire Store domain (athlete-facing)
 		var storeRepoDB *sql.DB
 		if db != nil {
@@ -637,6 +657,62 @@ func main() {
 	}
 
 	log.Info("server stopped")
+}
+
+// runInactivityRetentionJob sends retention pushes to athletes who haven't
+// trained in 3+ days. It notifies at day 3 (streak at risk) and then every
+// 7 days (re-engage) to avoid spamming inactive users.
+func runInactivityRetentionJob(ctx context.Context, gamifSvc *gamificationapp.Service, notifSvc *notificationapp.Service) error {
+	streaks, err := gamifSvc.ListAllStreaks(ctx)
+	if err != nil {
+		return fmt.Errorf("list all streaks: %w", err)
+	}
+
+	today := time.Now().UTC().Format("2006-01-02")
+	todayTime, err := time.Parse("2006-01-02", today)
+	if err != nil {
+		return fmt.Errorf("parse today: %w", err)
+	}
+
+	for _, streak := range streaks {
+		if streak.LastWorkoutDate == nil || *streak.LastWorkoutDate == "" {
+			continue // never trained — no inactivity nudge yet
+		}
+		if streak.CurrentStreak <= 0 {
+			continue // no active streak to protect
+		}
+
+		lastWorkoutTime, err := time.Parse("2006-01-02", *streak.LastWorkoutDate)
+		if err != nil {
+			continue
+		}
+
+		daysInactive := int(todayTime.Sub(lastWorkoutTime).Hours() / 24)
+		if daysInactive < 3 {
+			continue // below retention threshold
+		}
+
+		// Notify at day 3 (streak at risk) and every 7 days thereafter (re-engage),
+		// to avoid spamming inactive users.
+		if daysInactive != 3 && daysInactive%7 != 0 {
+			continue
+		}
+
+		title := "Te extrañamos"
+		if daysInactive >= 7 {
+			title = "Volvé a entrenar"
+		}
+		message := fmt.Sprintf("Llevás %d días sin entrenar. Tu racha está en peligro, no la pierdas.", daysInactive)
+
+		if _, nerr := notifSvc.SendNotification(context.Background(), streak.AthleteID, "inactivity", title, message, ""); nerr != nil {
+			logger.S().Warn("failed to send inactivity retention push",
+				zap.String("athlete_id", streak.AthleteID),
+				zap.Int("days_inactive", daysInactive),
+				zap.Error(nerr))
+		}
+	}
+
+	return nil
 }
 
 // customErrorHandler returns a Fiber error handler that uses structured

@@ -183,6 +183,42 @@ func (r *Repository) UpsertBadge(ctx context.Context, badge *gamification.Badge)
 	return nil
 }
 
+// ListAllStreaks returns all streak records (used by the inactivity retention job).
+func (r *Repository) ListAllStreaks(ctx context.Context) ([]*gamification.Streak, error) {
+	if r.db == nil {
+		return []*gamification.Streak{}, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, athlete_id, current_streak, longest_streak, last_workout_date, created_at, updated_at
+		FROM gamification_streaks
+		ORDER BY athlete_id
+	`)
+	if err != nil {
+		if strings.Contains(err.Error(), "no such table") {
+			return []*gamification.Streak{}, nil
+		}
+		return nil, fmt.Errorf("failed to list all streaks: %w", err)
+	}
+	defer rows.Close()
+
+	var streaks []*gamification.Streak
+	for rows.Next() {
+		var s gamification.Streak
+		var lastWorkoutDate sql.NullString
+		if err := rows.Scan(&s.ID, &s.AthleteID, &s.CurrentStreak, &s.LongestStreak, &lastWorkoutDate, &s.CreatedAt, &s.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan streak: %w", err)
+		}
+		if lastWorkoutDate.Valid {
+			s.LastWorkoutDate = &lastWorkoutDate.String
+		}
+		streaks = append(streaks, &s)
+	}
+	if streaks == nil {
+		streaks = []*gamification.Streak{}
+	}
+	return streaks, nil
+}
+
 // ListPRs returns all personal records for an athlete.
 func (r *Repository) ListPRs(ctx context.Context, athleteID string) ([]*gamification.PersonalRecord, error) {
 	if r.db == nil {
