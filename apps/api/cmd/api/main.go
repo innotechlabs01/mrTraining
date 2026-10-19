@@ -474,7 +474,7 @@ func main() {
 		// Wire Gamification domain
 		gamificationRepo := gamificationinfrastructure.NewRepository(db.DB)
 		gamificationService := gamificationapp.NewService(gamificationRepo)
-		gamificationHandler := userhttp.NewGamificationHandler(gamificationService)
+		gamificationHandler := userhttp.NewGamificationHandler(gamificationService, notifService)
 
 		// Register gamification routes
 		routes.RegisterGamificationRoutes(api, gamificationHandler)

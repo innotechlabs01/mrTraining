@@ -275,6 +275,100 @@ func (s *Service) RecordPR(ctx context.Context, athleteID, exerciseID, exerciseN
 	return existing, false, nil
 }
 
+// InactivityStatus reports how long an athlete has been inactive and whether
+// a retention nudge should be sent.
+type InactivityStatus struct {
+	AthleteID    string `json:"athlete_id"`
+	DaysInactive int    `json:"days_inactive"`
+	// StreakAtRisk is true when the athlete has an active streak that is in
+	// danger of breaking (1-2 days since last workout).
+	StreakAtRisk bool `json:"streak_at_risk"`
+	// ShouldNotify is true when a retention push should be sent
+	// (3 days: streak at risk, 7 days: re-engage).
+	ShouldNotify bool   `json:"should_notify"`
+	Message      string `json:"message"`
+}
+
+// GetInactivityStatus returns the athlete's inactivity status. Days inactive
+// is computed from the last logged workout date; a nil last workout date
+// means the athlete has never trained (treated as very inactive).
+func (s *Service) GetInactivityStatus(ctx context.Context, athleteID string) (*InactivityStatus, error) {
+	if strings.TrimSpace(athleteID) == "" {
+		return nil, fmt.Errorf("athlete ID is required")
+	}
+
+	streak, err := s.GetStreak(ctx, athleteID)
+	if err != nil {
+		return nil, err
+	}
+
+	status := &InactivityStatus{
+		AthleteID:    athleteID,
+		DaysInactive: 0,
+	}
+
+	today := time.Now().UTC().Format("2006-01-02")
+	todayTime, err := time.Parse("2006-01-02", today)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse today: %w", err)
+	}
+
+	if streak.LastWorkoutDate == nil {
+		// Never trained: very inactive, re-engage nudge.
+		status.DaysInactive = 999
+		status.StreakAtRisk = false
+		status.ShouldNotify = true
+		status.Message = "Aún no has completado tu primer entrenamiento. ¡Tu coach te está esperando!"
+		return status, nil
+	}
+
+	lastWorkoutTime, err := time.Parse("2006-01-02", *streak.LastWorkoutDate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse last workout date: %w", err)
+	}
+
+	status.DaysInactive = int(todayTime.Sub(lastWorkoutTime).Hours() / 24)
+
+	// Streak at risk: 1-2 days without training and has an active streak.
+	status.StreakAtRisk = status.DaysInactive >= 1 && status.DaysInactive <= 2 && streak.CurrentStreak > 0
+
+	// Retention nudges: 3 days (streak at risk) or 7 days (re-engage).
+	switch {
+	case status.DaysInactive >= 7:
+		status.ShouldNotify = true
+		status.Message = "Hace una semana que no entrenas. Tu racha está en pausa — volvé y retomala."
+	case status.DaysInactive >= 3:
+		status.ShouldNotify = true
+		status.Message = "Llevás " + itoa(status.DaysInactive) + " días sin entrenar. Tu racha está en peligro, no la pierdas."
+	default:
+		status.ShouldNotify = false
+		status.Message = ""
+	}
+
+	return status, nil
+}
+
+// itoa formats an integer as a string (small helper to avoid strconv import
+// in this file for a single conversion).
+func itoa(i int) string {
+	if i == 0 {
+		return "0"
+	}
+	neg := i < 0
+	if neg {
+		i = -i
+	}
+	buf := make([]byte, 0, 10)
+	for i > 0 {
+		buf = append([]byte{byte('0') + byte(i%10)}, buf...)
+		i /= 10
+	}
+	if neg {
+		buf = append([]byte{'-'}, buf...)
+	}
+	return string(buf)
+}
+
 // calculateStreak computes current and longest streak from sorted date strings.
 func calculateStreak(sortedDates []string) (current, longest int) {
 	if len(sortedDates) == 0 {

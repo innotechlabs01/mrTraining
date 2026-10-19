@@ -209,8 +209,11 @@ func RegisterOnboardingRoutes(api fiber.Router, handler *handlers.OnboardingHand
 // RegisterInviteRoutes registers coach invitation routes on the given API group.
 // The calling code must have already applied auth middleware to the api group.
 func RegisterInviteRoutes(api fiber.Router, handler *handlers.InviteHandler) {
-	api.Post("/invites/accept", handler.AcceptInvite)
-	api.Post("/invites/validate", handler.ValidateInvite)
+	// Invite acceptance/validation are rate-limited and protected against
+	// repeated failures: coach codes (MR-XXXX) have a small search space and
+	// must not be brute-forced.
+	api.Post("/invites/accept", middleware.RateLimit(5, 60), middleware.FailedAttemptLockout(), handler.AcceptInvite)
+	api.Post("/invites/validate", middleware.RateLimit(20, 60), middleware.FailedAttemptLockout(), handler.ValidateInvite)
 }
 
 // RegisterFavoriteRoutes registers athlete favorite routes on the given API group.
@@ -290,6 +293,7 @@ func RegisterGamificationRoutes(api fiber.Router, handler *handlers.Gamification
 	// Streaks
 	api.Get("/gamification/streak", middleware.RequireAthlete(), handler.GetStreak)
 	api.Post("/gamification/streak/log", middleware.RequireAthlete(), handler.LogStreak)
+	api.Get("/gamification/inactivity", middleware.RequireAthlete(), handler.GetInactivity)
 
 	// Badges
 	api.Get("/gamification/badges", middleware.RequireAthlete(), handler.ListBadges)

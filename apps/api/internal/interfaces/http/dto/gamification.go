@@ -45,6 +45,22 @@ type CheckBadgesResponse struct {
 	AllBadges []UserBadgeResponse `json:"all_badges"`
 }
 
+// --- Inactivity / retention ---
+
+// InactivityStatus reports how long an athlete has been inactive and whether
+// a retention nudge should be shown.
+type InactivityStatus struct {
+	AthleteID    string `json:"athlete_id"`
+	DaysInactive int    `json:"days_inactive"`
+	// StreakAtRisk is true when the athlete has an active streak that is in
+	// danger of breaking (1-2 days since last workout).
+	StreakAtRisk bool `json:"streak_at_risk"`
+	// ShouldNotify is true when a retention push should be sent
+	// (3 days: streak at risk, 7 days: re-engage).
+	ShouldNotify bool   `json:"should_notify"`
+	Message      string `json:"message"`
+}
+
 // --- Personal Records ---
 
 // PRResponse represents a personal record in API responses.

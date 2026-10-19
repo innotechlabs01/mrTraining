@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	gamificationapp "github.com/innotechlabs01/mr-training-api/internal/application/gamification"
+	notificationapp "github.com/innotechlabs01/mr-training-api/internal/application/notification"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
@@ -14,12 +15,13 @@ import (
 
 // GamificationHandler handles HTTP requests for the gamification domain.
 type GamificationHandler struct {
-	service *gamificationapp.Service
+	service  *gamificationapp.Service
+	notifSvc *notificationapp.Service
 }
 
 // NewGamificationHandler creates a new GamificationHandler.
-func NewGamificationHandler(service *gamificationapp.Service) *GamificationHandler {
-	return &GamificationHandler{service: service}
+func NewGamificationHandler(service *gamificationapp.Service, notifSvc *notificationapp.Service) *GamificationHandler {
+	return &GamificationHandler{service: service, notifSvc: notifSvc}
 }
 
 // GetStreak handles GET /gamification/streak.
@@ -66,6 +68,23 @@ func (h *GamificationHandler) LogStreak(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
+	// Notify the athlete when a new streak badge is unlocked, so the
+	// achievement is visible instead of silently recorded.
+	newBadges, badgeErr := h.service.CheckBadges(c.Context(), userID, 0, 0, 0)
+	if badgeErr == nil {
+		for _, b := range newBadges {
+			def, ok := gamificationapp.GetBadgeDefinition(b.BadgeID)
+			if ok && def.Category == "streak" && h.notifSvc != nil {
+				title := "Racha de entrenamiento"
+				message := "Desbloqueaste '" + def.Title + "' — " + def.Description
+				if _, nerr := h.notifSvc.SendNotification(c.Context(), userID, "badge", title, message, def.Icon); nerr != nil {
+					// Best-effort: a failed push must not fail the streak log.
+					_ = nerr
+				}
+			}
+		}
+	}
+
 	today := time.Now().UTC().Format("2006-01-02")
 	completedToday := streak.LastWorkoutDate != nil && *streak.LastWorkoutDate == today
 
@@ -75,6 +94,30 @@ func (h *GamificationHandler) LogStreak(c *fiber.Ctx) error {
 		LastWorkoutDate: streak.LastWorkoutDate,
 		CompletedToday:  completedToday,
 	})
+}
+
+// GetInactivity handles GET /gamification/inactivity.
+// Returns how many days the athlete has been inactive and whether a
+// retention nudge should be shown (3 days: streak at risk, 7 days: re-engage).
+func (h *GamificationHandler) GetInactivity(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	status, err := h.service.GetInactivityStatus(c.Context(), userID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	// Best-effort retention push: only when the status explicitly asks for it.
+	if status.ShouldNotify && h.notifSvc != nil {
+		if _, nerr := h.notifSvc.SendNotification(c.Context(), userID, "inactivity", "Te extrañamos", status.Message, ""); nerr != nil {
+			_ = nerr
+		}
+	}
+
+	return appresponse.Success(c, status)
 }
 
 // ListBadges handles GET /gamification/badges.
