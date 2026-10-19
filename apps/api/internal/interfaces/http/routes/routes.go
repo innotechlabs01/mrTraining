@@ -182,6 +182,13 @@ func RegisterRunningRoutes(api fiber.Router, handler *handlers.RunningHandler) {
 	api.Post("/running/providers/garmin/sync", middleware.RateLimit(6, 60), handler.SyncGarmin)
 }
 
+// RegisterCheckinRoutes registers morning readiness check-in routes.
+func RegisterCheckinRoutes(api fiber.Router, handler *handlers.CheckinHandler) {
+	api.Post("/athletes/checkin", middleware.RequireAthlete(), handler.SaveCheckin)
+	api.Get("/athletes/checkin/today", middleware.RequireAthlete(), handler.GetToday)
+	api.Get("/athletes/checkins", middleware.RequireAthlete(), handler.ListRecent)
+}
+
 // RegisterWebhookRoutes registers public provider webhooks (outside the auth
 // middleware group; each handler validates its own signature).
 func RegisterWebhookRoutes(app fiber.Router, garmin *handlers.GarminWebhookHandler) {

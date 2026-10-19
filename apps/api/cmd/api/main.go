@@ -108,9 +108,11 @@ import (
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 
 	analyticsapp "github.com/innotechlabs01/mr-training-api/internal/application/analytics"
+	checkinapp "github.com/innotechlabs01/mr-training-api/internal/application/checkin"
 	importactivityapp "github.com/innotechlabs01/mr-training-api/internal/application/importactivity"
 	trainingaiapp "github.com/innotechlabs01/mr-training-api/internal/application/trainingai"
 	analyticsinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/analytics"
+	checkininfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/checkin"
 	trainingaiinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/trainingai"
 )
 
@@ -376,6 +378,12 @@ func main() {
 		// Garmin webhook (public, own signature check)
 		garminWebhookHandler := userhttp.NewGarminWebhookHandler(runningService, os.Getenv("GARMIN_WEBHOOK_SECRET"))
 		routes.RegisterWebhookRoutes(app, garminWebhookHandler)
+
+		// Wire readiness check-ins (morning 10-second check-in)
+		checkinRepo := checkininfra.NewRepository(db.DB)
+		checkinService := checkinapp.NewService(checkinRepo)
+		checkinHandler := userhttp.NewCheckinHandler(checkinService)
+		routes.RegisterCheckinRoutes(api, checkinHandler)
 
 		// Wire Health domain
 		healthRepo := healthinfrastructure.NewRepository(db.DB)

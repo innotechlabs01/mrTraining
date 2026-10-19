@@ -85,6 +85,7 @@ import {
 import { useCart } from '../../../store/application/cartStore';
 
 import { AthleteTodaySummary } from './AthleteTodaySummary';
+import { MorningCheckinCard } from '../components/MorningCheckinCard';
 import { TodayHeader } from './TodayHeader';
 
 import {
@@ -529,6 +530,9 @@ export function TodayScreen() {
         ) : null}
 
         {/* 3. Readiness, activity and streak */}
+        <View style={styles.checkinWrap}>
+          <MorningCheckinCard />
+        </View>
         <AthleteTodaySummary
           athleteId={user?.id ?? ''}
           move={moveProgress}
@@ -666,6 +670,7 @@ export function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
+  checkinWrap: { marginBottom: spacing.sm },
   container: {
     flex: 1,
     backgroundColor: colors.base,
