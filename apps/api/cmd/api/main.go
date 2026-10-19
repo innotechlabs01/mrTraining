@@ -17,95 +17,98 @@ import (
 	"go.uber.org/zap"
 
 	alertapp "github.com/innotechlabs01/mr-training-api/internal/application/alert"
-	blogapp "github.com/innotechlabs01/mr-training-api/internal/application/blog"
-	coachapp "github.com/innotechlabs01/mr-training-api/internal/application/coach"
-	coachfeedapp "github.com/innotechlabs01/mr-training-api/internal/application/coachfeed"
-	communityapp "github.com/innotechlabs01/mr-training-api/internal/application/community"
-	eventapp "github.com/innotechlabs01/mr-training-api/internal/application/event"
-	favoriteapp "github.com/innotechlabs01/mr-training-api/internal/application/favorite"
 	allyapp "github.com/innotechlabs01/mr-training-api/internal/application/ally"
 	allycatalogapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_catalog"
 	allyopsapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_operations"
 	allypaymentdeclarationapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_payment_declaration"
+	blogapp "github.com/innotechlabs01/mr-training-api/internal/application/blog"
+	challengeapp "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
+	coachapp "github.com/innotechlabs01/mr-training-api/internal/application/coach"
 	coachsetapp "github.com/innotechlabs01/mr-training-api/internal/application/coach_settlement"
-	commissionentryapp "github.com/innotechlabs01/mr-training-api/internal/application/commission_entry"
+	coachfeedapp "github.com/innotechlabs01/mr-training-api/internal/application/coachfeed"
 	commissionapp "github.com/innotechlabs01/mr-training-api/internal/application/commission"
+	commissionentryapp "github.com/innotechlabs01/mr-training-api/internal/application/commission_entry"
+	communityapp "github.com/innotechlabs01/mr-training-api/internal/application/community"
+	eventapp "github.com/innotechlabs01/mr-training-api/internal/application/event"
+	favoriteapp "github.com/innotechlabs01/mr-training-api/internal/application/favorite"
 	formmetricsapp "github.com/innotechlabs01/mr-training-api/internal/application/formmetrics"
 	formrecordingapp "github.com/innotechlabs01/mr-training-api/internal/application/formrecording"
 	gamificationapp "github.com/innotechlabs01/mr-training-api/internal/application/gamification"
-	challengeapp "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
-	routineapp "github.com/innotechlabs01/mr-training-api/internal/application/routine"
-	leaderboardapp "github.com/innotechlabs01/mr-training-api/internal/application/leaderboard"
 	healthapp "github.com/innotechlabs01/mr-training-api/internal/application/health"
 	importapp "github.com/innotechlabs01/mr-training-api/internal/application/import"
 	inviteapp "github.com/innotechlabs01/mr-training-api/internal/application/invite"
+	leaderboardapp "github.com/innotechlabs01/mr-training-api/internal/application/leaderboard"
 	membershipapp "github.com/innotechlabs01/mr-training-api/internal/application/membership"
+	messageapp "github.com/innotechlabs01/mr-training-api/internal/application/message"
 	notificationapp "github.com/innotechlabs01/mr-training-api/internal/application/notification"
 	onboardingapp "github.com/innotechlabs01/mr-training-api/internal/application/onboarding"
+	paymentapp "github.com/innotechlabs01/mr-training-api/internal/application/payment"
 	planapp "github.com/innotechlabs01/mr-training-api/internal/application/plan"
 	productapp "github.com/innotechlabs01/mr-training-api/internal/application/product"
+	routineapp "github.com/innotechlabs01/mr-training-api/internal/application/routine"
 	runningapp "github.com/innotechlabs01/mr-training-api/internal/application/running"
 	storeapp "github.com/innotechlabs01/mr-training-api/internal/application/store"
-	trmapp "github.com/innotechlabs01/mr-training-api/internal/application/trm"
 	supportapp "github.com/innotechlabs01/mr-training-api/internal/application/support"
 	todayapp "github.com/innotechlabs01/mr-training-api/internal/application/today"
 	trainingapp "github.com/innotechlabs01/mr-training-api/internal/application/training"
+	trmapp "github.com/innotechlabs01/mr-training-api/internal/application/trm"
 	userdomain "github.com/innotechlabs01/mr-training-api/internal/application/user"
 	vaapp "github.com/innotechlabs01/mr-training-api/internal/application/videoanalytics"
 	videoviewapp "github.com/innotechlabs01/mr-training-api/internal/application/videoview"
-	messageapp "github.com/innotechlabs01/mr-training-api/internal/application/message"
 	"github.com/innotechlabs01/mr-training-api/internal/config"
-	messagehandlers "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
-	handlers "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
 	handlerpkg "github.com/innotechlabs01/mr-training-api/internal/handlers"
 	alertinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/alert"
-	paymentapp "github.com/innotechlabs01/mr-training-api/internal/application/payment"
-	bloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/blog"
-	cacheinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/cache"
-	coachinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach"
-	coachfeedinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coachfeed"
-	messageinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/message"
-	communityinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/community"
-	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
-	eventinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/event"
-	favoriteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/favorite"
 	allyinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally"
 	allycataloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_catalog"
 	allyopsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_operations"
 	allypaymentdeclarationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_payment_declaration"
-	coachsetinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach_settlement"
-	commissionentryinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission_entry"
-	commissioninfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission"
 	auditinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
+	bloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/blog"
+	cacheinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/cache"
+	challengeinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/challenge"
+	coachinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach"
+	coachsetinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach_settlement"
+	coachfeedinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coachfeed"
+	commissioninfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission"
+	commissionentryinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission_entry"
+	communityinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/community"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
+	eventinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/event"
+	favoriteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/favorite"
+	firebaseinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/firebase"
 	formmetricsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formmetrics"
 	formrecordinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formrecording"
-	firebaseinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/firebase"
-	challengeinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/challenge"
-	routineinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/routine"
 	gamificationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/gamification"
-	leaderboardinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/leaderboard"
 	healthinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/health"
 	importinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/import"
 	inviteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/invite"
+	leaderboardinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/leaderboard"
 	membershipinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/membership"
+	messageinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/message"
 	notificationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/notification"
 	onboardinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/onboarding"
 	planinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/plan"
-	supportinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/support"
 	productinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/product"
+	routineinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/routine"
 	runninginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/running"
 	storeinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/store"
+	supportinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/support"
 	todayinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/today"
 	traininginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/training"
 	userinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/user"
-	videoviewinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/videoview"
 	vainfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/videoanalytics"
+	videoviewinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/videoview"
 	ws "github.com/innotechlabs01/mr-training-api/internal/infrastructure/websocket"
+	handlers "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
+	messagehandlers "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
 	userhttp "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/routes"
 	"github.com/innotechlabs01/mr-training-api/internal/logger"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
+
+	analyticsapp "github.com/innotechlabs01/mr-training-api/internal/application/analytics"
+	analyticsinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/analytics"
 )
 
 // Version is set at build time via ldflags.
@@ -337,6 +340,13 @@ func main() {
 		// Register support routes
 		routes.RegisterSupportRoutes(api, supportHandler)
 
+		// Wire Analytics domain (coach dashboard, fatigue, 1RM, effort).
+		// RegisterAnalyticsRoutes existed but was never called — endpoints 404'd.
+		analyticsRepo := analyticsinfra.NewRepository(db.DB)
+		analyticsService := analyticsapp.NewService(analyticsRepo)
+		analyticsHandler := userhttp.NewAnalyticsHandler(analyticsService)
+		routes.RegisterAnalyticsRoutes(api, analyticsHandler)
+
 		// Wire Running domain
 		runningRepo := runninginfrastructure.NewRepository(db.DB)
 		runningService := runningapp.NewService(runningRepo)
@@ -436,9 +446,9 @@ func main() {
 		routes.RegisterSettlementDocumentRoutes(api, coachSetDocHandler)
 		routes.RegisterCoachPaymentRecordRoutes(api, coachPayHandler)
 
-    api.Get("/landing", middleware.RequireCoach(), handlers.HandlerGetLanding(db.DB))
-    api.Put("/landing", middleware.RequireCoach(), handlers.HandlerPutLanding(db.DB))
-    api.Post("/landing/media", middleware.RequireCoach(), handlers.HandlerUploadLandingMedia())
+		api.Get("/landing", middleware.RequireCoach(), handlers.HandlerGetLanding(db.DB))
+		api.Put("/landing", middleware.RequireCoach(), handlers.HandlerPutLanding(db.DB))
+		api.Post("/landing/media", middleware.RequireCoach(), handlers.HandlerUploadLandingMedia())
 
 		// Public landing content (anonymous visitors of the public site)
 		pub := app.Group("/public")
@@ -605,22 +615,22 @@ func main() {
 		userhttp.RegisterPublicPaymentRoutes(app, paymentHandler)
 		userhttp.RegisterPaymentRoutes(api, paymentHandler)
 
-// Register store routes
-	routes.RegisterStoreRoutes(api, storeHandler)
+		// Register store routes
+		routes.RegisterStoreRoutes(api, storeHandler)
 
-	// Wire Message domain
-	var messageRepoDB *sql.DB
-	if db != nil {
-		messageRepoDB = db.DB
-	}
-	messageRepo := messageinfrastructure.NewRepository(messageRepoDB)
-	messageService := messageapp.NewService(messageRepo)
-	messageHandler := messagehandlers.NewMessageHandler(messageService)
+		// Wire Message domain
+		var messageRepoDB *sql.DB
+		if db != nil {
+			messageRepoDB = db.DB
+		}
+		messageRepo := messageinfrastructure.NewRepository(messageRepoDB)
+		messageService := messageapp.NewService(messageRepo)
+		messageHandler := messagehandlers.NewMessageHandler(messageService)
 
-	// Register message routes
-	routes.RegisterMessageRoutes(api, messageHandler, cfg.ClerkSecretKey)
+		// Register message routes
+		routes.RegisterMessageRoutes(api, messageHandler, cfg.ClerkSecretKey)
 
-	// Wire Athlete Scheduling (availability/appointments)
+		// Wire Athlete Scheduling (availability/appointments)
 		var coachRepoDB *sql.DB
 		if db != nil {
 			coachRepoDB = db.DB
