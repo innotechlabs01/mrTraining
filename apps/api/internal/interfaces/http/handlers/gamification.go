@@ -40,8 +40,8 @@ func (h *GamificationHandler) GetStreak(c *fiber.Ctx) error {
 	completedToday := streak.LastWorkoutDate != nil && *streak.LastWorkoutDate == today
 
 	return appresponse.Success(c, dto.StreakResponse{
-		CurrentStreak:  streak.CurrentStreak,
-		LongestStreak:  streak.LongestStreak,
+		CurrentStreak:   streak.CurrentStreak,
+		LongestStreak:   streak.LongestStreak,
 		LastWorkoutDate: streak.LastWorkoutDate,
 		CompletedToday:  completedToday,
 	})
@@ -89,8 +89,8 @@ func (h *GamificationHandler) LogStreak(c *fiber.Ctx) error {
 	completedToday := streak.LastWorkoutDate != nil && *streak.LastWorkoutDate == today
 
 	return appresponse.Success(c, dto.StreakResponse{
-		CurrentStreak:  streak.CurrentStreak,
-		LongestStreak:  streak.LongestStreak,
+		CurrentStreak:   streak.CurrentStreak,
+		LongestStreak:   streak.LongestStreak,
 		LastWorkoutDate: streak.LastWorkoutDate,
 		CompletedToday:  completedToday,
 	})

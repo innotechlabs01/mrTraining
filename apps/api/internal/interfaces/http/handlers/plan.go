@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/gofiber/fiber/v2"
 	inviteapp "github.com/innotechlabs01/mr-training-api/internal/application/invite"
 	planapp "github.com/innotechlabs01/mr-training-api/internal/application/plan"
 	trmapp "github.com/innotechlabs01/mr-training-api/internal/application/trm"
@@ -9,7 +10,6 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
-	"github.com/gofiber/fiber/v2"
 )
 
 // PlanHandler handles plan-related HTTP requests.

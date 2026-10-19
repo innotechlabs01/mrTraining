@@ -35,12 +35,12 @@ func (h *FavoriteHandler) ListFavorites(c *fiber.Ctx) error {
 	responses := make([]dto.FavoriteResponse, len(favorites))
 	for i, f := range favorites {
 		responses[i] = dto.FavoriteResponse{
-			ID:         f.ID,
-			ItemType:   f.ItemType,
-			ItemID:     f.ItemID,
-			ItemTitle:  f.ItemTitle,
-			ItemMeta:   f.ItemMeta,
-			CreatedAt:  f.CreatedAt,
+			ID:        f.ID,
+			ItemType:  f.ItemType,
+			ItemID:    f.ItemID,
+			ItemTitle: f.ItemTitle,
+			ItemMeta:  f.ItemMeta,
+			CreatedAt: f.CreatedAt,
 		}
 	}
 
@@ -70,12 +70,12 @@ func (h *FavoriteHandler) CreateFavorite(c *fiber.Ctx) error {
 	}
 
 	return appresponse.Success(c, dto.FavoriteResponse{
-		ID:         favorite.ID,
-		ItemType:   favorite.ItemType,
-		ItemID:     favorite.ItemID,
-		ItemTitle:  favorite.ItemTitle,
-		ItemMeta:   favorite.ItemMeta,
-		CreatedAt:  favorite.CreatedAt,
+		ID:        favorite.ID,
+		ItemType:  favorite.ItemType,
+		ItemID:    favorite.ItemID,
+		ItemTitle: favorite.ItemTitle,
+		ItemMeta:  favorite.ItemMeta,
+		CreatedAt: favorite.CreatedAt,
 	})
 }
 

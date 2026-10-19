@@ -107,10 +107,10 @@ func (h *HealthDataHandler) RegisterDevice(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 	d := &health.HealthDevice{
-		Platform:   req.Platform,
-		DeviceName: req.DeviceName,
+		Platform:    req.Platform,
+		DeviceName:  req.DeviceName,
 		DeviceBrand: req.DeviceBrand,
-		IsActive:   true,
+		IsActive:    true,
 	}
 	if err := h.service.RegisterDevice(c.Context(), userID, d); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, err.Error())

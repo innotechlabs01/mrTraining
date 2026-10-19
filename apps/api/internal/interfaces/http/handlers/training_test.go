@@ -16,15 +16,15 @@ import (
 
 // mockTrainingService is a test double for the training service.
 type mockTrainingService struct {
-	exercises    []*training.ExerciseEntry
+	exercises     []*training.ExerciseEntry
 	exerciseTotal int
-	exercise     *training.ExerciseEntry
-	templates    []*training.WorkoutTemplate
-	template     *training.WorkoutTemplate
-	assignments  []*training.AssignedWorkout
-	set          *training.WorkoutSet
-	progress     []*training.ProgressEntry
-	err          error
+	exercise      *training.ExerciseEntry
+	templates     []*training.WorkoutTemplate
+	template      *training.WorkoutTemplate
+	assignments   []*training.AssignedWorkout
+	set           *training.WorkoutSet
+	progress      []*training.ProgressEntry
+	err           error
 }
 
 func (m *mockTrainingService) ListExercises(ctx interface{}, page, limit int, filter training.ExerciseFilter) ([]*training.ExerciseEntry, int, error) {
@@ -310,14 +310,14 @@ func TestWorkoutExerciseResponseCamelCase(t *testing.T) {
 // TestExerciseResponseCamelCase verifies the exercise DTO emits camelCase keys and imageUrl.
 func TestExerciseResponseCamelCase(t *testing.T) {
 	d := dto.ExerciseResponse{
-		ID:            "e1",
-		Name:          "Squat",
-		BodyPart:      "legs",
-		MuscleGroups:  "quads",
-		VideoURL:      "https://videos.example/squat.mp4",
-		ImageURL:      "https://img.example/squat.jpg",
-		CreatedAt:     "2026-01-01T00:00:00Z",
-		UpdatedAt:     "2026-01-02T00:00:00Z",
+		ID:           "e1",
+		Name:         "Squat",
+		BodyPart:     "legs",
+		MuscleGroups: "quads",
+		VideoURL:     "https://videos.example/squat.mp4",
+		ImageURL:     "https://img.example/squat.jpg",
+		CreatedAt:    "2026-01-01T00:00:00Z",
+		UpdatedAt:    "2026-01-02T00:00:00Z",
 	}
 	b, err := json.Marshal(d)
 	if err != nil {

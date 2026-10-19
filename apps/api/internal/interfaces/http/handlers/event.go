@@ -10,8 +10,8 @@ import (
 	eventapp "github.com/innotechlabs01/mr-training-api/internal/application/event"
 	eventdomain "github.com/innotechlabs01/mr-training-api/internal/domain/event"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
-	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/websocket"
+	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )

@@ -23,26 +23,26 @@ func NewOnboardingHandler(service *onboardingapp.Service) *OnboardingHandler {
 func (h *OnboardingHandler) SaveOnboarding(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
 	var req struct {
-		Sports                []string `json:"sports"`
-		Modality              string   `json:"modality"`
-		ExperienceLevel       string   `json:"experienceLevel"`
-		Goal                  string   `json:"goal"`
-		SessionsPerWeek       int      `json:"sessionsPerWeek"`
-		SessionDuration       int      `json:"sessionDuration"`
-		Equipment             string   `json:"equipment"`
-		AthleteRoutineAccepted bool    `json:"athleteRoutineAccepted"`
+		Sports                 []string `json:"sports"`
+		Modality               string   `json:"modality"`
+		ExperienceLevel        string   `json:"experienceLevel"`
+		Goal                   string   `json:"goal"`
+		SessionsPerWeek        int      `json:"sessionsPerWeek"`
+		SessionDuration        int      `json:"sessionDuration"`
+		Equipment              string   `json:"equipment"`
+		AthleteRoutineAccepted bool     `json:"athleteRoutineAccepted"`
 	}
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 	d := &onboarding.OnboardingData{
-		Sports:                req.Sports,
-		Modality:              req.Modality,
-		ExperienceLevel:       req.ExperienceLevel,
-		Goal:                  req.Goal,
-		SessionsPerWeek:       req.SessionsPerWeek,
-		SessionDuration:       req.SessionDuration,
-		Equipment:             req.Equipment,
+		Sports:                 req.Sports,
+		Modality:               req.Modality,
+		ExperienceLevel:        req.ExperienceLevel,
+		Goal:                   req.Goal,
+		SessionsPerWeek:        req.SessionsPerWeek,
+		SessionDuration:        req.SessionDuration,
+		Equipment:              req.Equipment,
 		AthleteRoutineAccepted: req.AthleteRoutineAccepted,
 	}
 	if err := h.service.Save(c.Context(), userID, d); err != nil {

@@ -17,10 +17,10 @@ import (
 
 // mockRepository implements user.Repository for handler tests.
 type mockRepository struct {
-	getByIDFn            func(ctx interface{}, id string) (*userdomain.User, error)
-	getCoachFn           func(ctx interface{}, userID string) (*userdomain.Coach, error)
-	getAthleteProfileFn  func(ctx interface{}, userID string) (*userdomain.AthleteProfile, error)
-	listCoachesFn        func(ctx interface{}) ([]*userdomain.Coach, error)
+	getByIDFn             func(ctx interface{}, id string) (*userdomain.User, error)
+	getCoachFn            func(ctx interface{}, userID string) (*userdomain.Coach, error)
+	getAthleteProfileFn   func(ctx interface{}, userID string) (*userdomain.AthleteProfile, error)
+	listCoachesFn         func(ctx interface{}) ([]*userdomain.Coach, error)
 	listAthletesByCoachFn func(ctx interface{}, coachID string) ([]*userdomain.AthleteProfile, error)
 }
 

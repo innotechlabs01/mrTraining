@@ -40,25 +40,25 @@ func (h *AllyOperationsHandler) CreateOrder(c *fiber.Ctx) error {
 	}
 
 	op, err := h.service.CreateOperation(c.Context(), allyopsdomain.CreateOperationInput{
-		Kind:          "order",
+		Kind:           "order",
 		RelationshipID: req.RelationshipID,
-		AthleteID:     athleteID,
-		ScheduledAt:   req.ScheduledAt,
+		AthleteID:      athleteID,
+		ScheduledAt:    req.ScheduledAt,
 	}, coachID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
 
 	return appresponse.Success(c, dto.AllyOperationResponse{
-		ID:            op.ID,
-		Kind:          op.Kind,
+		ID:             op.ID,
+		Kind:           op.Kind,
 		RelationshipID: op.RelationshipID,
-		AllyID:        op.AllyID,
-		AthleteID:     op.AthleteID,
-		Status:        op.Status,
-		ScheduledAt:   op.ScheduledAt,
-		CreatedAt:     op.CreatedAt,
-		UpdatedAt:     op.UpdatedAt,
+		AllyID:         op.AllyID,
+		AthleteID:      op.AthleteID,
+		Status:         op.Status,
+		ScheduledAt:    op.ScheduledAt,
+		CreatedAt:      op.CreatedAt,
+		UpdatedAt:      op.UpdatedAt,
 	})
 }
 
@@ -84,25 +84,25 @@ func (h *AllyOperationsHandler) CreateReservation(c *fiber.Ctx) error {
 	}
 
 	op, err := h.service.CreateOperation(c.Context(), allyopsdomain.CreateOperationInput{
-		Kind:          "reservation",
+		Kind:           "reservation",
 		RelationshipID: req.RelationshipID,
-		AthleteID:     athleteID,
-		ScheduledAt:   req.ScheduledAt,
+		AthleteID:      athleteID,
+		ScheduledAt:    req.ScheduledAt,
 	}, coachID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
 
 	return appresponse.Success(c, dto.AllyOperationResponse{
-		ID:            op.ID,
-		Kind:          op.Kind,
+		ID:             op.ID,
+		Kind:           op.Kind,
 		RelationshipID: op.RelationshipID,
-		AllyID:        op.AllyID,
-		AthleteID:     op.AthleteID,
-		Status:        op.Status,
-		ScheduledAt:   op.ScheduledAt,
-		CreatedAt:     op.CreatedAt,
-		UpdatedAt:     op.UpdatedAt,
+		AllyID:         op.AllyID,
+		AthleteID:      op.AthleteID,
+		Status:         op.Status,
+		ScheduledAt:    op.ScheduledAt,
+		CreatedAt:      op.CreatedAt,
+		UpdatedAt:      op.UpdatedAt,
 	})
 }
 
@@ -124,18 +124,18 @@ func (h *AllyOperationsHandler) GetOperation(c *fiber.Ctx) error {
 	}
 
 	return appresponse.Success(c, dto.AllyOperationResponse{
-		ID:            op.ID,
-		Kind:          op.Kind,
+		ID:             op.ID,
+		Kind:           op.Kind,
 		RelationshipID: op.RelationshipID,
-		AllyID:        op.AllyID,
-		AthleteID:     op.AthleteID,
-		Status:        op.Status,
-		ScheduledAt:   op.ScheduledAt,
-		ConfirmedAt:   op.ConfirmedAt,
-		CompletedAt:   op.CompletedAt,
-		CancelledAt:   op.CancelledAt,
-		CreatedAt:     op.CreatedAt,
-		UpdatedAt:     op.UpdatedAt,
+		AllyID:         op.AllyID,
+		AthleteID:      op.AthleteID,
+		Status:         op.Status,
+		ScheduledAt:    op.ScheduledAt,
+		ConfirmedAt:    op.ConfirmedAt,
+		CompletedAt:    op.CompletedAt,
+		CancelledAt:    op.CancelledAt,
+		CreatedAt:      op.CreatedAt,
+		UpdatedAt:      op.UpdatedAt,
 	})
 }
 
@@ -154,18 +154,18 @@ func (h *AllyOperationsHandler) ListAllyOperations(c *fiber.Ctx) error {
 	responses := make([]dto.AllyOperationResponse, len(operations))
 	for i, op := range operations {
 		responses[i] = dto.AllyOperationResponse{
-			ID:            op.ID,
-			Kind:          op.Kind,
+			ID:             op.ID,
+			Kind:           op.Kind,
 			RelationshipID: op.RelationshipID,
-			AllyID:        op.AllyID,
-			AthleteID:     op.AthleteID,
-			Status:        op.Status,
-			ScheduledAt:   op.ScheduledAt,
-			ConfirmedAt:   op.ConfirmedAt,
-			CompletedAt:   op.CompletedAt,
-			CancelledAt:   op.CancelledAt,
-			CreatedAt:     op.CreatedAt,
-			UpdatedAt:     op.UpdatedAt,
+			AllyID:         op.AllyID,
+			AthleteID:      op.AthleteID,
+			Status:         op.Status,
+			ScheduledAt:    op.ScheduledAt,
+			ConfirmedAt:    op.ConfirmedAt,
+			CompletedAt:    op.CompletedAt,
+			CancelledAt:    op.CancelledAt,
+			CreatedAt:      op.CreatedAt,
+			UpdatedAt:      op.UpdatedAt,
 		}
 	}
 
@@ -195,25 +195,25 @@ func (h *AllyOperationsHandler) AddOperationItem(c *fiber.Ctx) error {
 	}
 
 	item, err := h.service.CreateOperationItem(c.Context(), allyopsdomain.CreateOperationItemInput{
-		OperationID:  operationID,
-		OfferKind:    req.OfferKind,
-		OfferID:      req.OfferID,
-		Name:         req.Name,
+		OperationID:    operationID,
+		OfferKind:      req.OfferKind,
+		OfferID:        req.OfferID,
+		Name:           req.Name,
 		UnitPriceCents: req.UnitPriceCents,
-		Quantity:     req.Quantity,
+		Quantity:       req.Quantity,
 	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
 
 	return appresponse.Success(c, dto.AllyOperationItemResponse{
-		ID:            item.ID,
-		OperationID:   item.OperationID,
-		OfferKind:     item.OfferKind,
-		OfferID:       item.OfferID,
-		Name:          item.Name,
+		ID:             item.ID,
+		OperationID:    item.OperationID,
+		OfferKind:      item.OfferKind,
+		OfferID:        item.OfferID,
+		Name:           item.Name,
 		UnitPriceCents: item.UnitPriceCents,
-		Quantity:      item.Quantity,
+		Quantity:       item.Quantity,
 	})
 }
 
@@ -232,13 +232,13 @@ func (h *AllyOperationsHandler) ListOperationItems(c *fiber.Ctx) error {
 	responses := make([]dto.AllyOperationItemResponse, len(items))
 	for i, item := range items {
 		responses[i] = dto.AllyOperationItemResponse{
-			ID:            item.ID,
-			OperationID:   item.OperationID,
-			OfferKind:     item.OfferKind,
-			OfferID:       item.OfferID,
-			Name:          item.Name,
+			ID:             item.ID,
+			OperationID:    item.OperationID,
+			OfferKind:      item.OfferKind,
+			OfferID:        item.OfferID,
+			Name:           item.Name,
 			UnitPriceCents: item.UnitPriceCents,
-			Quantity:      item.Quantity,
+			Quantity:       item.Quantity,
 		}
 	}
 

@@ -4,11 +4,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	allyapp "github.com/innotechlabs01/mr-training-api/internal/application/ally"
-	allydomain "github.com/innotechlabs01/mr-training-api/internal/domain/ally"
 	commissionapp "github.com/innotechlabs01/mr-training-api/internal/application/commission"
+	allydomain "github.com/innotechlabs01/mr-training-api/internal/domain/ally"
 	commissiondomain "github.com/innotechlabs01/mr-training-api/internal/domain/commission"
-	auditinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	auditinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
@@ -16,9 +16,9 @@ import (
 
 // AllyHandler handles HTTP requests for the Alianzas (ally) domain.
 type AllyHandler struct {
-	allyService      *allyapp.Service
+	allyService       *allyapp.Service
 	commissionService *commissionapp.Service
-	auditRepo        *auditinfra.Repository
+	auditRepo         *auditinfra.Repository
 }
 
 // NewAllyHandler creates a new AllyHandler.

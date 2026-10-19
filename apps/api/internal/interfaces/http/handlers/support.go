@@ -1,13 +1,13 @@
 package handlers
 
 import (
+	"github.com/gofiber/fiber/v2"
 	supportapp "github.com/innotechlabs01/mr-training-api/internal/application/support"
 	supportdomain "github.com/innotechlabs01/mr-training-api/internal/domain/support"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
-	"github.com/gofiber/fiber/v2"
 )
 
 // SupportHandler handles support ticket HTTP requests.
@@ -70,10 +70,10 @@ func (h *SupportHandler) CreateTicket(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 	ticket, err := h.service.CreateTicket(c.Context(), coachID, supportapp.CreateTicketRequest{
-		Subject:  req.Subject,
-		Body:     req.Body,
-		Category: supportdomain.TicketCategory(req.Category),
-		Priority: supportdomain.TicketPriority(req.Priority),
+		Subject:   req.Subject,
+		Body:      req.Body,
+		Category:  supportdomain.TicketCategory(req.Category),
+		Priority:  supportdomain.TicketPriority(req.Priority),
 		AthleteID: req.AthleteID,
 		ImageURL:  req.ImageURL,
 	})
@@ -112,9 +112,9 @@ func (h *SupportHandler) UpdateTicket(c *fiber.Ctx) error {
 		category = &cat
 	}
 	ticket, err := h.service.UpdateTicket(c.Context(), coachID, id, supportapp.UpdateTicketRequest{
-		Status:    status,
-		Priority:  priority,
-		Category:  category,
+		Status:     status,
+		Priority:   priority,
+		Category:   category,
 		AssignedTo: req.AssignedTo,
 	})
 	if err != nil {
@@ -192,7 +192,7 @@ func (h *SupportHandler) CreateAthleteTicket(c *fiber.Ctx) error {
 		Body:     req.Body,
 		Category: supportdomain.TicketCategory(req.Category),
 		Priority: supportdomain.TicketPriority(req.Priority),
-		ImageURL:  req.ImageURL,
+		ImageURL: req.ImageURL,
 	})
 	if err != nil {
 		return h.handleError(c, err)

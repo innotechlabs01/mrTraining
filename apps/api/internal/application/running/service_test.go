@@ -358,7 +358,7 @@ func TestService_SaveGpsPointsBatch(t *testing.T) {
 	points := []*domain.GpsPoint{
 		{Lat: -34.60, Lng: -58.38, Timestamp: "2026-10-18T10:00:00Z", Accuracy: 5},
 		{Lat: -34.61, Lng: -58.39, Timestamp: "2026-10-18T10:00:05Z", Accuracy: 80}, // dropped: >50m
-		{Lat: -34.62, Lng: -58.40, Timestamp: "2026-10-18T10:00:10Z"},             // no accuracy: kept
+		{Lat: -34.62, Lng: -58.40, Timestamp: "2026-10-18T10:00:10Z"},               // no accuracy: kept
 	}
 
 	saved, err := svc.SaveGpsPointsBatch(ctx, "session-1", points)
@@ -455,11 +455,11 @@ func TestFormatPace(t *testing.T) {
 		duration int
 		expected string
 	}{
-		{5.0, 1500, "5:00"},     // 5km in 25min = 5:00/km
-		{10.0, 3000, "5:00"},    // 10km in 50min = 5:00/km
-		{5.0, 1650, "5:30"},     // 5km in 27:30 = 5:30/km
-		{0, 1500, "0:00"},       // zero distance
-		{5.0, 1200, "4:00"},     // 5km in 20min = 4:00/km
+		{5.0, 1500, "5:00"},  // 5km in 25min = 5:00/km
+		{10.0, 3000, "5:00"}, // 10km in 50min = 5:00/km
+		{5.0, 1650, "5:30"},  // 5km in 27:30 = 5:30/km
+		{0, 1500, "0:00"},    // zero distance
+		{5.0, 1200, "4:00"},  // 5km in 20min = 4:00/km
 	}
 
 	for _, tt := range tests {

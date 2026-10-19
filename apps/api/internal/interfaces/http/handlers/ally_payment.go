@@ -36,13 +36,13 @@ func (h *AllyPaymentDeclarationHandler) CreateDeclaration(c *fiber.Ctx) error {
 	}
 
 	decl, err := h.service.CreatePaymentDeclaration(c.Context(), userID, allypaymentdeclarationdomain.CreatePaymentDeclarationInput{
-		OperationID:  req.OperationID,
-		AmountCents:  req.AmountCents,
-		Currency:     req.Currency,
-		Method:       req.Method,
-		DeclaredAt:   req.DeclaredAt,
-		Reference:    req.Reference,
-		EvidenceRef:  req.EvidenceRef,
+		OperationID: req.OperationID,
+		AmountCents: req.AmountCents,
+		Currency:    req.Currency,
+		Method:      req.Method,
+		DeclaredAt:  req.DeclaredAt,
+		Reference:   req.Reference,
+		EvidenceRef: req.EvidenceRef,
 	})
 	if err != nil {
 		return h.handleError(c, err)
@@ -259,20 +259,20 @@ func (h *CommissionEntryHandler) CreateCommissionEntry(c *fiber.Ctx) error {
 	}
 
 	return appresponse.Success(c, dto.CommissionEntryResponse{
-		ID:                entry.ID,
-		OperationID:       entry.OperationID,
-		RelationshipID:    entry.RelationshipID,
-		CoachID:           entry.CoachID,
-		AgreementID:       entry.AgreementID,
-		AgreementVersion:  entry.AgreementVersion,
-		BaseCents:         entry.BaseCents,
-		RateBps:           entry.RateBps,
-		FixedAmountCents:  entry.FixedAmountCents,
-		AmountCents:       entry.AmountCents,
-		Currency:          entry.Currency,
-		Status:            entry.Status,
-		ComputedAt:        entry.ComputedAt,
-		CreatedAt:         entry.CreatedAt,
+		ID:               entry.ID,
+		OperationID:      entry.OperationID,
+		RelationshipID:   entry.RelationshipID,
+		CoachID:          entry.CoachID,
+		AgreementID:      entry.AgreementID,
+		AgreementVersion: entry.AgreementVersion,
+		BaseCents:        entry.BaseCents,
+		RateBps:          entry.RateBps,
+		FixedAmountCents: entry.FixedAmountCents,
+		AmountCents:      entry.AmountCents,
+		Currency:         entry.Currency,
+		Status:           entry.Status,
+		ComputedAt:       entry.ComputedAt,
+		CreatedAt:        entry.CreatedAt,
 	})
 }
 
@@ -291,20 +291,20 @@ func (h *CommissionEntryHandler) ListCommissionEntries(c *fiber.Ctx) error {
 	responses := make([]dto.CommissionEntryResponse, len(entries))
 	for i, e := range entries {
 		responses[i] = dto.CommissionEntryResponse{
-			ID:                e.ID,
-			OperationID:       e.OperationID,
-			RelationshipID:    e.RelationshipID,
-			CoachID:           e.CoachID,
-			AgreementID:       e.AgreementID,
-			AgreementVersion:  e.AgreementVersion,
-			BaseCents:         e.BaseCents,
-			RateBps:           e.RateBps,
-			FixedAmountCents:  e.FixedAmountCents,
-			AmountCents:       e.AmountCents,
-			Currency:          e.Currency,
-			Status:            e.Status,
-			ComputedAt:        e.ComputedAt,
-			CreatedAt:         e.CreatedAt,
+			ID:               e.ID,
+			OperationID:      e.OperationID,
+			RelationshipID:   e.RelationshipID,
+			CoachID:          e.CoachID,
+			AgreementID:      e.AgreementID,
+			AgreementVersion: e.AgreementVersion,
+			BaseCents:        e.BaseCents,
+			RateBps:          e.RateBps,
+			FixedAmountCents: e.FixedAmountCents,
+			AmountCents:      e.AmountCents,
+			Currency:         e.Currency,
+			Status:           e.Status,
+			ComputedAt:       e.ComputedAt,
+			CreatedAt:        e.CreatedAt,
 		}
 	}
 
@@ -334,20 +334,20 @@ func (h *CommissionEntryHandler) GetCommissionEntry(c *fiber.Ctx) error {
 	}
 
 	return appresponse.Success(c, dto.CommissionEntryResponse{
-		ID:                entry.ID,
-		OperationID:       entry.OperationID,
-		RelationshipID:    entry.RelationshipID,
-		CoachID:           entry.CoachID,
-		AgreementID:       entry.AgreementID,
-		AgreementVersion:  entry.AgreementVersion,
-		BaseCents:         entry.BaseCents,
-		RateBps:           entry.RateBps,
-		FixedAmountCents:  entry.FixedAmountCents,
-		AmountCents:       entry.AmountCents,
-		Currency:          entry.Currency,
-		Status:            entry.Status,
-		ComputedAt:        entry.ComputedAt,
-		CreatedAt:         entry.CreatedAt,
+		ID:               entry.ID,
+		OperationID:      entry.OperationID,
+		RelationshipID:   entry.RelationshipID,
+		CoachID:          entry.CoachID,
+		AgreementID:      entry.AgreementID,
+		AgreementVersion: entry.AgreementVersion,
+		BaseCents:        entry.BaseCents,
+		RateBps:          entry.RateBps,
+		FixedAmountCents: entry.FixedAmountCents,
+		AmountCents:      entry.AmountCents,
+		Currency:         entry.Currency,
+		Status:           entry.Status,
+		ComputedAt:       entry.ComputedAt,
+		CreatedAt:        entry.CreatedAt,
 	})
 }
 
@@ -374,32 +374,32 @@ func (h *CommissionEntryHandler) ReverseCommissionEntry(c *fiber.Ctx) error {
 	}
 
 	adjResp := dto.FinancialAdjustmentResponse{
-		ID:         adjustment.ID,
-		EntryID:    adjustment.EntryID,
+		ID:           adjustment.ID,
+		EntryID:      adjustment.EntryID,
 		SettlementID: adjustment.SettlementID,
-		Kind:        adjustment.Kind,
-		AmountCents: adjustment.AmountCents,
-		Reason:      adjustment.Reason,
-		CreatedBy:   adjustment.CreatedBy,
-		CreatedAt:   adjustment.CreatedAt,
+		Kind:         adjustment.Kind,
+		AmountCents:  adjustment.AmountCents,
+		Reason:       adjustment.Reason,
+		CreatedBy:    adjustment.CreatedBy,
+		CreatedAt:    adjustment.CreatedAt,
 	}
 
 	return appresponse.Success(c, fiber.Map{
 		"entry": dto.CommissionEntryResponse{
-			ID:                entry.ID,
-			OperationID:       entry.OperationID,
-			RelationshipID:    entry.RelationshipID,
-			CoachID:           entry.CoachID,
-			AgreementID:       entry.AgreementID,
-			AgreementVersion:  entry.AgreementVersion,
-			BaseCents:         entry.BaseCents,
-			RateBps:           entry.RateBps,
-			FixedAmountCents:  entry.FixedAmountCents,
-			AmountCents:       entry.AmountCents,
-			Currency:          entry.Currency,
-			Status:            entry.Status,
-			ComputedAt:        entry.ComputedAt,
-			CreatedAt:         entry.CreatedAt,
+			ID:               entry.ID,
+			OperationID:      entry.OperationID,
+			RelationshipID:   entry.RelationshipID,
+			CoachID:          entry.CoachID,
+			AgreementID:      entry.AgreementID,
+			AgreementVersion: entry.AgreementVersion,
+			BaseCents:        entry.BaseCents,
+			RateBps:          entry.RateBps,
+			FixedAmountCents: entry.FixedAmountCents,
+			AmountCents:      entry.AmountCents,
+			Currency:         entry.Currency,
+			Status:           entry.Status,
+			ComputedAt:       entry.ComputedAt,
+			CreatedAt:        entry.CreatedAt,
 		},
 		"adjustment": adjResp,
 	})
@@ -435,14 +435,14 @@ func (h *CommissionEntryHandler) CreateFinancialAdjustment(c *fiber.Ctx) error {
 	}
 
 	return appresponse.Success(c, dto.FinancialAdjustmentResponse{
-		ID:          adj.ID,
-		EntryID:     adj.EntryID,
+		ID:           adj.ID,
+		EntryID:      adj.EntryID,
 		SettlementID: adj.SettlementID,
 		Kind:         adj.Kind,
-		AmountCents: adj.AmountCents,
-		Reason:      adj.Reason,
-		CreatedBy:   adj.CreatedBy,
-		CreatedAt:   adj.CreatedAt,
+		AmountCents:  adj.AmountCents,
+		Reason:       adj.Reason,
+		CreatedBy:    adj.CreatedBy,
+		CreatedAt:    adj.CreatedAt,
 	})
 }
 
@@ -461,14 +461,14 @@ func (h *CommissionEntryHandler) ListFinancialAdjustments(c *fiber.Ctx) error {
 	responses := make([]dto.FinancialAdjustmentResponse, len(adjustments))
 	for i, a := range adjustments {
 		responses[i] = dto.FinancialAdjustmentResponse{
-			ID:          a.ID,
-			EntryID:     a.EntryID,
+			ID:           a.ID,
+			EntryID:      a.EntryID,
 			SettlementID: a.SettlementID,
 			Kind:         a.Kind,
-			AmountCents: a.AmountCents,
-			Reason:      a.Reason,
-			CreatedBy:   a.CreatedBy,
-			CreatedAt:   a.CreatedAt,
+			AmountCents:  a.AmountCents,
+			Reason:       a.Reason,
+			CreatedBy:    a.CreatedBy,
+			CreatedAt:    a.CreatedAt,
 		}
 	}
 

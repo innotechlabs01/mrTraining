@@ -11,9 +11,9 @@ import (
 
 	app "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/challenge"
-	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
-	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/websocket"
+	"github.com/innotechlabs01/mr-training-api/internal/middleware"
+	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
 // ChallengeHandler handles challenge HTTP requests.
