@@ -1679,6 +1679,41 @@ export const logGpsPoint = (sessionId: string, data: {
     body: JSON.stringify({ session_id: sessionId, ...data }),
   })
 
+/** Record a batch of GPS samples (client-side batching, max 100/request). */
+export const logGpsBatch = (
+  sessionId: string,
+  points: { lat: number; lng: number; alt?: number; timestamp: string; accuracy?: number }[]
+) =>
+  goFetch<{ received: number; saved: number }>(
+    `/api/v1/running/sessions/${sessionId}/live-location`,
+    { method: 'POST', body: JSON.stringify({ session_id: sessionId, points }) }
+  )
+
+/** Close a live-tracked run with final totals (recalculates pace/speed server-side). */
+export const updateRunningSession = (
+  id: string,
+  data: {
+    distance?: number
+    duration?: number
+    pace?: string
+    calories?: number
+    elevation?: number
+    heart_rate?: number
+    cadence?: number
+    gps_route?: string
+  }
+) =>
+  goFetch<RunningSession>(`/api/v1/running/sessions/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+
+/** Delete a running session owned by the authenticated user. */
+export const deleteRunningSession = (id: string) =>
+  goFetch<{ message: string }>(`/api/v1/running/sessions/${id}`, {
+    method: 'DELETE',
+  })
+
 // ---- Helpers ----
 
 function buildQuery(params: Record<string, string | number | undefined>): string {

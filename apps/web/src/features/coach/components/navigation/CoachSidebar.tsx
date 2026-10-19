@@ -42,6 +42,7 @@ const NAV_ITEMS: NavItemConfig[] = [
     children: [
       { id: 'training-workouts', label: 'Workouts', href: '/coach/workouts/exercises' },
       { id: 'training-asignar', label: 'Asignar', href: '/coach/training/asignar' },
+      { id: 'training-running', label: 'Running', href: '/running' },
     ],
   },
   { id: 'events', label: 'Eventos', icon: Calendar, href: '/coach/events' },
