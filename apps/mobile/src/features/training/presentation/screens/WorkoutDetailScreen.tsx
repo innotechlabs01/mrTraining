@@ -63,6 +63,21 @@ type PrescriptionExercise = {
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WorkoutDetail'>;
 
+type AIExerciseInsight = {
+  exercise_id: string;
+  name: string;
+  prescribed_sets: number;
+  prescribed_reps: number;
+  suggested_weight_kg: number;
+  suggested_reps: number;
+  target_rir: number;
+  one_rm_kg: number;
+  plateau: boolean;
+  fatigue_score: number;
+  confidence: number;
+  reason: string;
+};
+
 // Phase accent colors — visual grouping (Gestalt continuity).
 function phaseAccent(phase?: string): string {
   const p = (phase ?? '').toLowerCase();
@@ -140,6 +155,24 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
     },
     staleTime: 5 * 60 * 1000,
   });
+
+  // AI suggestions per exercise (workout detail intelligence).
+  const { data: aiInsights } = useQuery({
+    queryKey: ['workout-ai-insights', workoutId],
+    queryFn: async (): Promise<AIExerciseInsight[]> => {
+      const { data } = await apiClient.get(`/athlete/workouts/${workoutId}/ai-insights`);
+      if (Array.isArray(data)) return data as AIExerciseInsight[];
+      return (data as { exercises?: AIExerciseInsight[] } | null)?.exercises ?? [];
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  const aiByExercise = useMemo(() => {
+    const map = new Map<string, AIExerciseInsight>();
+    for (const ins of aiInsights ?? []) map.set(ins.exercise_id, ins);
+    return map;
+  }, [aiInsights]);
 
   // Prefer the prescription endpoint; fall back to the exercises the detail
   // envelope already returned (identical shape) so the workout never reads
@@ -284,6 +317,9 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
                       </View>
                     </View>
                     {ex.notes ? <Text style={styles.notes}>{ex.notes}</Text> : null}
+                    {aiByExercise.get(ex.id) ? (
+                      <AIInsightBlock insight={aiByExercise.get(ex.id)!} />
+                    ) : null}
                     <ExerciseVideoCta
                       videoUrl={ex.videoUrl ?? undefined}
                       onWatchDemo={() => {
@@ -338,6 +374,105 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
 }
 
 // --- Sub-components ---
+
+function AIInsightBlock({ insight }: { insight: AIExerciseInsight }) {
+  const isRecommendation = insight.confidence >= 0.7;
+  return (
+    <View style={aiStyles.wrap}>
+      <View style={aiStyles.headerRow}>
+        <Text style={aiStyles.header}>Sugerencia de IA</Text>
+        <Text style={[aiStyles.badge, !isRecommendation && aiStyles.badgeWeak]}>
+          {isRecommendation ? 'Recomendación' : 'Observación'} · {Math.round(insight.confidence * 100)}%
+        </Text>
+      </View>
+      <View style={aiStyles.grid}>
+        <View style={aiStyles.cell}>
+          <Text style={aiStyles.label}>Carga</Text>
+          <Text style={aiStyles.value}>
+            {insight.suggested_weight_kg > 0 ? `${insight.suggested_weight_kg} kg` : '—'}
+          </Text>
+        </View>
+        <View style={aiStyles.cell}>
+          <Text style={aiStyles.label}>Reps</Text>
+          <Text style={aiStyles.value}>{insight.suggested_reps}</Text>
+        </View>
+        <View style={aiStyles.cell}>
+          <Text style={aiStyles.label}>RIR</Text>
+          <Text style={aiStyles.value}>{insight.target_rir}</Text>
+        </View>
+        <View style={aiStyles.cell}>
+          <Text style={aiStyles.label}>1RM est.</Text>
+          <Text style={aiStyles.value}>
+            {insight.one_rm_kg > 0 ? `${insight.one_rm_kg} kg` : '—'}
+          </Text>
+        </View>
+      </View>
+      <Text style={aiStyles.meta}>
+        Fatiga {Math.round(insight.fatigue_score)}/100{insight.plateau ? ' · Plato detectado' : ''}
+      </Text>
+      <Text style={aiStyles.reason}>{insight.reason}</Text>
+    </View>
+  );
+}
+
+const aiStyles = StyleSheet.create({
+  wrap: {
+    marginTop: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary + '33',
+    backgroundColor: colors.primary + '10',
+    padding: spacing.sm,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  header: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  badge: {
+    color: colors.success,
+    fontSize: 10,
+  },
+  badgeWeak: {
+    color: colors.warning,
+  },
+  grid: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  cell: {
+    flex: 1,
+  },
+  label: {
+    color: colors.textSecondary,
+    fontSize: 10,
+    textTransform: 'uppercase',
+  },
+  value: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  meta: {
+    marginTop: spacing.xs,
+    color: colors.textSecondary,
+    fontSize: 11,
+  },
+  reason: {
+    marginTop: 2,
+    color: colors.textSecondary,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+});
 
 function Chip({ text, icon }: { text: string; icon?: string }) {
   return (

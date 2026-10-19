@@ -1714,6 +1714,73 @@ export const deleteRunningSession = (id: string) =>
     method: 'DELETE',
   })
 
+// ---- Athlete workout detail (Go API) ----
+
+export interface AthleteWorkoutDetailExercise {
+  id: string
+  name: string
+  sets: number
+  reps: number
+  weightKg?: number
+  restSeconds?: number
+  sortOrder: number
+  notes?: string
+  mode?: string
+  phase?: string
+  bodyPart?: string
+  muscleGroups?: string
+  videoUrl?: string
+  imageUrl?: string
+  gpsRoute?: string
+}
+
+export interface AthleteWorkoutDetail {
+  workout: {
+    id: string
+    athleteId: string
+    athleteName?: string
+    contentName: string
+    modality?: string
+    startDate: string
+    endDate: string
+    status: string
+    progress: number
+    coachId?: string
+  }
+  exercises: AthleteWorkoutDetailExercise[]
+}
+
+/** Full detail of an assigned workout for the authenticated athlete. */
+export const getAthleteWorkoutDetail = (workoutId: string) =>
+  goFetch<AthleteWorkoutDetail>(`/api/v1/workouts/${workoutId}`)
+
+// ---- Workout AI insights (Go API) ----
+
+export interface AIExerciseInsight {
+  exercise_id: string
+  name: string
+  prescribed_sets: number
+  prescribed_reps: number
+  suggested_weight_kg: number
+  suggested_reps: number
+  target_rir: number
+  one_rm_kg: number
+  plateau: boolean
+  fatigue_score: number
+  confidence: number
+  reason: string
+}
+
+export interface WorkoutAIInsights {
+  workout_id: string
+  exercises: AIExerciseInsight[]
+  generated_at: string
+}
+
+/** Per-exercise AI suggestions for an assigned workout (athlete-owned). */
+export const getWorkoutAIInsights = (workoutId: string) =>
+  goFetch<WorkoutAIInsights>(`/api/v1/workouts/${workoutId}/ai-insights`)
+
 // ---- Helpers ----
 
 function buildQuery(params: Record<string, string | number | undefined>): string {
