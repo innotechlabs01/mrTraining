@@ -1582,6 +1582,114 @@ export interface PastAssignmentListItem {
   progress: number;
 }
 
+// ---- Running (Go API) ----
+export interface RunningSession {
+  id: string
+  date: string
+  distance: number      // km
+  duration: number      // seconds
+  pace: string          // "5:30" min/km
+  speed: number         // km/h
+  calories: number
+  elevation: number     // meters
+  heartRate: number
+  cadence: number
+  gpsRoute?: string     // encoded polyline
+  source: string        // "manual", "apple_watch", "garmin", "healthkit"
+  createdAt: string
+}
+
+export interface RunningStats {
+  totalSessions: number
+  totalDistance: number   // km
+  totalDuration: number   // seconds
+  totalCalories: number
+  totalElevation: number  // meters
+  avgDistance: number
+  avgDuration: number
+  avgCalories: number
+  avgHeartRate: number
+  avgPace: string         // "5:30"
+}
+
+export interface GpsPoint {
+  id: string
+  sessionId: string
+  lat: number
+  lng: number
+  alt?: number        // meters
+  timestamp: string   // RFC3339 UTC
+  accuracy?: number   // meters
+}
+
+export interface RunningSessionDetail {
+  session: RunningSession
+  gpsPoints: GpsPoint[]
+}
+
+/** Get paginated running sessions for the authenticated user. */
+export const getRunningSessions = (
+  page = 1,
+  limit = 20,
+  fromDate?: string,
+  toDate?: string
+) =>
+  goFetch<{ data: RunningSession[]; total: number; page: number; limit: number }>(
+    `/api/v1/running/sessions${buildQuery({ page, limit, from_date: fromDate, to_date: toDate })}`
+  ).then((res) => res.data)
+
+/** Get a single running session with its GPS points. */
+export const getRunningSession = (id: string) =>
+  goFetch<RunningSessionDetail>(`/api/v1/running/sessions/${id}`)
+
+/** Get aggregated running statistics. */
+export const getRunningStats = (fromDate?: string, toDate?: string) =>
+  goFetch<RunningStats>(
+    `/api/v1/running/stats${buildQuery({ from_date: fromDate, to_date: toDate })}`
+  )
+
+/** Log a new running session. */
+export const logRunningSession = (data: {
+  date: string
+  distance: number
+  duration: number
+  pace?: string
+  calories?: number
+  elevation?: number
+  heartRate?: number
+  cadence?: number
+  gpsRoute?: string
+  source?: string
+}) =>
+  goFetch<{ id: string }>('/api/v1/running/sessions', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+
+/** Record a single GPS sample for live tracking. */
+export const logGpsPoint = (sessionId: string, data: {
+  lat: number
+  lng: number
+  alt?: number
+  timestamp: string
+  accuracy?: number
+}) =>
+  goFetch<GpsPoint>(`/api/v1/running/sessions/${sessionId}/live-location`, {
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId, ...data }),
+  })
+
+// ---- Helpers ----
+
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const qs = new URLSearchParams()
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== '') qs.set(k, String(v))
+  }
+  const s = qs.toString()
+  return s ? `?${s}` : ''
+}
+
 // ---- Re-export Go API client for direct usage ----
 // Use this when you need to call the Go API directly (e.g., for new features).
 // Example: import { goClient, goFetch } from '@/features/shared/api/client'

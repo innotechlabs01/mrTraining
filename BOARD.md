@@ -37,6 +37,15 @@
 - [x] Web lint: 0 errores (fixes Alianzas pre-existentes: jsx-key, no-explicit-any, conditional useEffect)
 - [x] Web tests 161/161 + build OK · Go 34 paquetes ok · Mobile 353/353 + tsc 0
 
+## En ejecución — Plan Mejoras Fitness v2 (spec: docs/superpowers/specs/PLAN_MEJORAS_FITNESS.md)
+- [x] Auditoría de código 2026-10-18: backend GPS running YA HECHO (b2a72a4), web /running NO existe, mobile no graba GPS, Garmin 0%, analytics API = código muerto (no wired en main.go), training-engine web OK
+- [x] Plan v2 escrito: 13 sprints (S0–S12), config GPS estándar, RunningRouteMap fixes, Garmin E2E, IA workout detail
+- [ ] S0: commit working tree (client.ts + RunningRouteMap)
+- [ ] S1–S4: Fase 1 (páginas web /running, live tracking, GPS mobile)
+- [ ] S5–S7: Fase 3 (analytics repo real + ai-insights + workout detail IA)
+- [ ] S8–S9: Fase 2 (Garmin OAuth + webhook + bridge + sync)
+- [ ] S10–S12: Fase 4–5 (retención + App Store)
+
 ## Pendiente QA device (VALIDACIÓN AL FINAL, per @user)
 - [ ] T-034: T-026 QA device validation — requiere credenciales Maestro + dispositivo
 - [ ] T-035: T-009 a T-013 QA device validation (5 tasks) — requiere credenciales Maestro + dispositivo
