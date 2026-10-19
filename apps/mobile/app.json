@@ -37,7 +37,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.innotechlabssas.mrtraining",
+      "bundleIdentifier": "com.innotechlabssas.mrtraining.dev",
       "associatedDomains": [
         "applinks:mobile.innotechlabssas.lat"
       ],
@@ -62,7 +62,7 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.innotechlabssas.mrtraining",
+      "package": "com.innotechlabssas.mrtraining.dev",
       "intentFilters": [
         {
           "action": "android.intent.action.VIEW",
