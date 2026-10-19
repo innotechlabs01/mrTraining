@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -187,6 +188,24 @@ func (h *RunningHandler) LogGpsPoint(c *fiber.Ctx) error {
 	})
 }
 
+// SyncGarmin handles POST /running/providers/garmin/sync.
+// Pulls the last 30 days of Garmin activities for the authenticated athlete.
+func (h *RunningHandler) SyncGarmin(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	to := time.Now().UTC()
+	from := to.AddDate(0, 0, -30)
+	synced, err := h.service.SyncFromProvider(c.Context(), "garmin", userID, from, to)
+	if err != nil {
+		return appresponse.Error(c, fiber.StatusBadGateway, err.Error())
+	}
+
+	return appresponse.Success(c, fiber.Map{"sessions_synced": synced})
+}
+
 // UpdateSession handles PATCH /running/sessions/:id.
 // Closes a live-tracked run with final totals (distance, duration, pace…).
 func (h *RunningHandler) UpdateSession(c *fiber.Ctx) error {
@@ -331,15 +350,15 @@ func (h *RunningHandler) GetStats(c *fiber.Ctx) error {
 
 	return appresponse.Success(c, dto.RunningStatsResponse{
 		TotalSessions:  stats.TotalSessions,
-		TotalDistance:   stats.TotalDistance,
-		TotalDuration:   stats.TotalDuration,
-		TotalCalories:   stats.TotalCalories,
-		TotalElevation:  stats.TotalElevation,
-		AvgDistance:     stats.AvgDistance,
-		AvgDuration:     stats.AvgDuration,
-		AvgCalories:     stats.AvgCalories,
-		AvgHeartRate:    stats.AvgHeartRate,
-		AvgPace:         stats.AvgPace,
+		TotalDistance:  stats.TotalDistance,
+		TotalDuration:  stats.TotalDuration,
+		TotalCalories:  stats.TotalCalories,
+		TotalElevation: stats.TotalElevation,
+		AvgDistance:    stats.AvgDistance,
+		AvgDuration:    stats.AvgDuration,
+		AvgCalories:    stats.AvgCalories,
+		AvgHeartRate:   stats.AvgHeartRate,
+		AvgPace:        stats.AvgPace,
 	})
 }
 

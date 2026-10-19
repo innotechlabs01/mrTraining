@@ -10,10 +10,16 @@ import { secureStorage } from '../storage/mmkv';
 import type { HealthBridge, HealthPlatform } from './types';
 import { HealthKitBridge } from './healthkit-bridge';
 import { HealthConnectBridge } from './healthconnect-bridge';
+import { GarminBridge } from './garmin-bridge';
 
 const LAST_SYNC_KEY = 'health:lastSyncMs';
 
-export function createHealthBridge(): HealthBridge | null {
+export function createHealthBridge(platform?: HealthPlatform): HealthBridge | null {
+  if (platform === 'garmin') return new GarminBridge();
+  if (platform === 'healthkit') return Platform.OS === 'ios' ? new HealthKitBridge() : null;
+  if (platform === 'healthconnect') {
+    return Platform.OS === 'android' ? new HealthConnectBridge() : null;
+  }
   if (Platform.OS === 'ios') return new HealthKitBridge();
   if (Platform.OS === 'android') return new HealthConnectBridge();
   return null;

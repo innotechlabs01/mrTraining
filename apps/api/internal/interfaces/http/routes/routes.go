@@ -179,6 +179,7 @@ func RegisterRunningRoutes(api fiber.Router, handler *handlers.RunningHandler) {
 	// Device connections
 	api.Post("/running/devices", handler.ConnectDevice)
 	api.Delete("/running/devices/:id", handler.DisconnectDevice)
+	api.Post("/running/providers/garmin/sync", middleware.RateLimit(6, 60), handler.SyncGarmin)
 }
 
 // RegisterWebhookRoutes registers public provider webhooks (outside the auth
