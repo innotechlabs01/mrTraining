@@ -6,6 +6,7 @@ package running
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -31,6 +32,38 @@ func NewService(repo domain.Repository) *Service {
 // RegisterProvider adds a wearable provider to the service.
 func (s *Service) RegisterProvider(provider domain.WearableProvider) {
 	s.providers[provider.Name()] = provider
+}
+
+// SyncFromProvider pulls sessions from a registered wearable provider and
+// persists them for the user. Returns how many sessions were imported.
+// Used by the Garmin webhook and scheduled sync jobs.
+func (s *Service) SyncFromProvider(ctx context.Context, providerName, userID string, from, to time.Time) (int, error) {
+	provider, ok := s.providers[providerName]
+	if !ok {
+		return 0, fmt.Errorf("provider %s not registered", providerName)
+	}
+	if !provider.IsAvailable(ctx) {
+		return 0, fmt.Errorf("provider %s not available", providerName)
+	}
+
+	sessions, err := provider.FetchSessions(ctx, userID, from, to)
+	if err != nil {
+		return 0, fmt.Errorf("sync from %s: %w", providerName, err)
+	}
+
+	imported := 0
+	for i := range sessions {
+		session := sessions[i]
+		session.UserID = userID
+		if session.Source == "" {
+			session.Source = providerName
+		}
+		if err := s.LogRunningSession(ctx, &session); err != nil {
+			return imported, fmt.Errorf("save %s session: %w", providerName, err)
+		}
+		imported++
+	}
+	return imported, nil
 }
 
 // LogRunningSession persists a new running session from manual input or synced data.
@@ -272,13 +305,13 @@ func formatPace(distance float64, durationSeconds int) string {
 // RunningStats holds aggregated running statistics for a user.
 type RunningStats struct {
 	TotalSessions  int     `json:"total_sessions"`
-	TotalDistance   float64 `json:"total_distance"`   // km
-	TotalDuration   int     `json:"total_duration"`   // seconds
-	TotalCalories   int     `json:"total_calories"`
-	TotalElevation  float64 `json:"total_elevation"`  // meters
-	AvgDistance     float64 `json:"avg_distance"`     // km
-	AvgDuration     int     `json:"avg_duration"`     // seconds
-	AvgCalories     int     `json:"avg_calories"`
-	AvgHeartRate    int     `json:"avg_heart_rate"`
-	AvgPace         string  `json:"avg_pace"`         // "5:30"
+	TotalDistance  float64 `json:"total_distance"` // km
+	TotalDuration  int     `json:"total_duration"` // seconds
+	TotalCalories  int     `json:"total_calories"`
+	TotalElevation float64 `json:"total_elevation"` // meters
+	AvgDistance    float64 `json:"avg_distance"`    // km
+	AvgDuration    int     `json:"avg_duration"`    // seconds
+	AvgCalories    int     `json:"avg_calories"`
+	AvgHeartRate   int     `json:"avg_heart_rate"`
+	AvgPace        string  `json:"avg_pace"` // "5:30"
 }

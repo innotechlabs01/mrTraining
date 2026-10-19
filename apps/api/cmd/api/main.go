@@ -108,6 +108,7 @@ import (
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 
 	analyticsapp "github.com/innotechlabs01/mr-training-api/internal/application/analytics"
+	importactivityapp "github.com/innotechlabs01/mr-training-api/internal/application/importactivity"
 	trainingaiapp "github.com/innotechlabs01/mr-training-api/internal/application/trainingai"
 	analyticsinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/analytics"
 	trainingaiinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/trainingai"
@@ -362,6 +363,19 @@ func main() {
 
 		// Register running routes
 		routes.RegisterRunningRoutes(api, runningHandler)
+
+		// Activity-file import (GPX/TCX/FIT) → running sessions + GPS points
+		importActivityService := importactivityapp.NewService(runningService)
+		importActivityHandler := userhttp.NewImportActivityHandler(importActivityService)
+		routes.RegisterRunningImportRoutes(api, importActivityHandler)
+
+		// Garmin wearable provider (disabled unless GARMIN_CLIENT_ID/SECRET set)
+		runningTokenStore := runninginfrastructure.NewTokenStore(db.DB)
+		runningService.RegisterProvider(runninginfrastructure.NewGarminProvider(runningTokenStore))
+
+		// Garmin webhook (public, own signature check)
+		garminWebhookHandler := userhttp.NewGarminWebhookHandler(runningService, os.Getenv("GARMIN_WEBHOOK_SECRET"))
+		routes.RegisterWebhookRoutes(app, garminWebhookHandler)
 
 		// Wire Health domain
 		healthRepo := healthinfrastructure.NewRepository(db.DB)

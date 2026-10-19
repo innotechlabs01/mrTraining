@@ -181,6 +181,17 @@ func RegisterRunningRoutes(api fiber.Router, handler *handlers.RunningHandler) {
 	api.Delete("/running/devices/:id", handler.DisconnectDevice)
 }
 
+// RegisterWebhookRoutes registers public provider webhooks (outside the auth
+// middleware group; each handler validates its own signature).
+func RegisterWebhookRoutes(app fiber.Router, garmin *handlers.GarminWebhookHandler) {
+	app.Post("/webhooks/garmin", middleware.RateLimit(120, 60), garmin.Handle)
+}
+
+// RegisterRunningImportRoutes registers activity-file import (GPX/TCX/FIT).
+func RegisterRunningImportRoutes(api fiber.Router, handler *handlers.ImportActivityHandler) {
+	api.Post("/running/import", middleware.RateLimit(10, 60), handler.ImportRunningActivity)
+}
+
 // RegisterHealthRoutes registers all health-related routes on the given API group.
 // The calling code must have already applied auth middleware to the api group.
 func RegisterHealthRoutes(api fiber.Router, handler *handlers.HealthDataHandler) {
