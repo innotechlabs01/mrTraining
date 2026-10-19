@@ -49,6 +49,7 @@
 - [x] S7: web athlete workout detail + mobile sección IA con "Ajustar cargas" (6fade8f)
 - [x] S8: parser GPX/TCX/FIT + import activities + GarminProvider + POST /webhooks/garmin (fdf5580)
 - [x] S9: garmin-bridge mobile + Settings wearables + POST /running/sync/garmin (904bbf2)
+- [x] S9.1: Apple Watch + Garmin como dispositivos reales — migración 030 (running_session_devices: external_id/source/device_name/device_brand + índice único por atleta), POST /running/sessions/import idempotente, device-identity (resuelve QUÉ reloj grabó desde HealthKit sourceRevision / Health Connect metadata.device), HealthKit lee workouts+ruta de Apple Watch, Health Connect lee ExerciseSession+ruta, Settings muestra el reloj detectado con su nombre real (backend 37 paquetes ok + 3 tests de repo SQLite; mobile tsc 0 + 20 tests)
 - [x] S10: check-in matutino (migración 029, GET/POST /checkins, card TodayScreen) (5eb2bb8)
 - [x] S11: trial 7 días (POST /memberships/:id/trial + CTA mobile) (ba2abde)
 - [ ] S12: App Store Connect — BLOQUEADO (requiere cuenta Apple Developer pagada)

@@ -31,6 +31,14 @@
           ]
         }
       ],
+      [
+        "react-native-ble-plx",
+        {
+          "bluetoothAlwaysPermission": "MR Training se conecta por Bluetooth a tu reloj (Garmin, banda de pecho) para leer tu pulso en tiempo real durante las carreras.",
+          "isBackgroundEnabled": false,
+          "neverForLocation": true
+        }
+      ],
       "expo-video",
       "expo-image",
       "expo-localization",
