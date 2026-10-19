@@ -157,6 +157,38 @@ func (s *Service) DisconnectDevice(ctx context.Context, deviceID string) error {
 	return nil
 }
 
+// GetSession retrieves a single running session by ID.
+func (s *Service) GetSession(ctx context.Context, id string) (*domain.RunningSession, error) {
+	session, err := s.repo.GetSession(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get running session: %w", err)
+	}
+	return session, nil
+}
+
+// SaveGpsPoint persists a single GPS sample for a running session.
+func (s *Service) SaveGpsPoint(ctx context.Context, point *domain.GpsPoint) error {
+	if point.ID == "" {
+		point.ID = uuid.New().String()
+	}
+	if point.SessionID == "" {
+		return fmt.Errorf("session_id is required")
+	}
+	if err := s.repo.SaveGpsPoint(ctx, point); err != nil {
+		return fmt.Errorf("save gps point: %w", err)
+	}
+	return nil
+}
+
+// ListGpsPointsBySession returns all GPS points for a session ordered by timestamp ascending.
+func (s *Service) ListGpsPointsBySession(ctx context.Context, sessionID string) ([]*domain.GpsPoint, error) {
+	points, err := s.repo.ListGpsPointsBySession(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("list gps points: %w", err)
+	}
+	return points, nil
+}
+
 // formatPace calculates pace as min/km from distance (km) and duration (seconds).
 func formatPace(distance float64, durationSeconds int) string {
 	if distance <= 0 {

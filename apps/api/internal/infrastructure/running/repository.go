@@ -135,6 +135,44 @@ func (r *Repository) DeleteSession(ctx context.Context, id string) error {
 	return nil
 }
 
+// --- GPS point operations ---
+
+// SaveGpsPoint persists a single GPS sample for a running session.
+func (r *Repository) SaveGpsPoint(ctx context.Context, p *domain.GpsPoint) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO running_gps_points (id, session_id, lat, lng, alt, timestamp, accuracy)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		p.ID, p.SessionID, p.Lat, p.Lng, p.Alt, p.Timestamp, p.Accuracy)
+	if err != nil {
+		return fmt.Errorf("failed to save gps point: %w", err)
+	}
+	return nil
+}
+
+// ListGpsPointsBySession returns all GPS points for a session ordered by timestamp ascending.
+func (r *Repository) ListGpsPointsBySession(ctx context.Context, sessionID string) ([]*domain.GpsPoint, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, session_id, lat, lng, alt, timestamp, accuracy
+		 FROM running_gps_points WHERE session_id = ? ORDER BY timestamp ASC`, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list gps points: %w", err)
+	}
+	defer rows.Close()
+
+	var points []*domain.GpsPoint
+	for rows.Next() {
+		p := &domain.GpsPoint{}
+		if err := rows.Scan(&p.ID, &p.SessionID, &p.Lat, &p.Lng, &p.Alt, &p.Timestamp, &p.Accuracy); err != nil {
+			return nil, fmt.Errorf("failed to scan gps point: %w", err)
+		}
+		points = append(points, p)
+	}
+	if points == nil {
+		points = []*domain.GpsPoint{}
+	}
+	return points, nil
+}
+
 // --- Device connection operations ---
 
 // SaveDeviceConnection stores a device connection record.

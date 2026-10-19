@@ -61,3 +61,30 @@ type DeviceConnectionResponse struct {
 	IsActive    bool   `json:"is_active"`
 	ConnectedAt string `json:"connected_at"`
 }
+
+// LogGpsPointRequest is the payload for recording a single GPS sample of a running session.
+type LogGpsPointRequest struct {
+	SessionID string  `json:"session_id"`
+	Lat       float64 `json:"lat"`
+	Lng       float64 `json:"lng"`
+	Alt       float64 `json:"alt,omitempty"`       // meters
+	Timestamp string  `json:"timestamp"`           // RFC3339 UTC
+	Accuracy  float64 `json:"accuracy,omitempty"`  // meters
+}
+
+// GpsPointResponse represents a single GPS point in API responses.
+type GpsPointResponse struct {
+	ID        string  `json:"id"`
+	SessionID string  `json:"session_id"`
+	Lat       float64 `json:"lat"`
+	Lng       float64 `json:"lng"`
+	Alt       float64 `json:"alt,omitempty"`
+	Timestamp string  `json:"timestamp"`
+	Accuracy  float64 `json:"accuracy,omitempty"`
+}
+
+// RunningSessionDetailResponse represents a running session with its GPS points.
+type RunningSessionDetailResponse struct {
+	RunningSessionResponse
+	GpsPoints []GpsPointResponse `json:"gps_points"`
+}

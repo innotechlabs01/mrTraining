@@ -25,6 +25,14 @@ type Repository interface {
 	// Returns an error if the session does not exist or on database failure.
 	DeleteSession(ctx context.Context, id string) error
 
+	// GPS point operations
+
+	// SaveGpsPoint persists a single GPS sample for a running session.
+	SaveGpsPoint(ctx context.Context, point *GpsPoint) error
+
+	// ListGpsPointsBySession returns all GPS points for a session ordered by timestamp ascending.
+	ListGpsPointsBySession(ctx context.Context, sessionID string) ([]*GpsPoint, error)
+
 	// Device connection operations
 
 	// SaveDeviceConnection stores a device connection record.

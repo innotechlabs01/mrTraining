@@ -11,12 +11,14 @@ import (
 type mockRepository struct {
 	sessions    map[string]*domain.RunningSession
 	connections map[string]*domain.DeviceConnection
+	gpsPoints   map[string][]*domain.GpsPoint // keyed by session_id
 }
 
 func newMockRepository() *mockRepository {
 	return &mockRepository{
 		sessions:    make(map[string]*domain.RunningSession),
 		connections: make(map[string]*domain.DeviceConnection),
+		gpsPoints:   make(map[string][]*domain.GpsPoint),
 	}
 }
 
@@ -103,6 +105,19 @@ func (m *mockRepository) DeactivateDeviceConnection(_ context.Context, id string
 		c.IsActive = false
 	}
 	return nil
+}
+
+func (m *mockRepository) SaveGpsPoint(_ context.Context, p *domain.GpsPoint) error {
+	m.gpsPoints[p.SessionID] = append(m.gpsPoints[p.SessionID], p)
+	return nil
+}
+
+func (m *mockRepository) ListGpsPointsBySession(_ context.Context, sessionID string) ([]*domain.GpsPoint, error) {
+	pts, ok := m.gpsPoints[sessionID]
+	if !ok {
+		return []*domain.GpsPoint{}, nil
+	}
+	return pts, nil
 }
 
 // --- Tests ---

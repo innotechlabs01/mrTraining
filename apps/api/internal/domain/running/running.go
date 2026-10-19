@@ -30,3 +30,16 @@ type DeviceConnection struct {
 	IsActive    bool   `json:"is_active"`
 	ConnectedAt string `json:"connected_at"`
 }
+
+// GpsPoint represents a single GPS sample recorded during a running session.
+// Latitude and longitude are stored as float64 decimal degrees.
+// Timestamp is RFC3339 UTC. Accuracy is in meters.
+type GpsPoint struct {
+	ID        string  `json:"id"`
+	SessionID string  `json:"session_id"`
+	Lat       float64 `json:"lat"`
+	Lng       float64 `json:"lng"`
+	Alt       float64 `json:"alt,omitempty"` // meters
+	Timestamp string  `json:"timestamp"`     // RFC3339 UTC
+	Accuracy  float64 `json:"accuracy,omitempty"` // meters
+}

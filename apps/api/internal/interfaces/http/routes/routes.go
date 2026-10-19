@@ -159,6 +159,8 @@ func RegisterRunningRoutes(api fiber.Router, handler *handlers.RunningHandler) {
 	// Sessions
 	api.Post("/running/sessions", handler.LogSession)
 	api.Get("/running/sessions", handler.ListSessions)
+	api.Get("/running/sessions/:id", handler.GetSession)
+	api.Post("/running/sessions/:id/live-location", handler.LogGpsPoint)
 	api.Get("/running/stats", handler.GetStats)
 
 	// Device connections

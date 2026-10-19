@@ -68,6 +68,105 @@ func (h *RunningHandler) LogSession(c *fiber.Ctx) error {
 	return appresponse.Success(c, toSessionResponse(session))
 }
 
+// GetSession handles GET /running/sessions/:id.
+// Returns a single running session with its GPS points for the authenticated user.
+func (h *RunningHandler) GetSession(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	sessionID := c.Params("id")
+	if sessionID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "session ID is required")
+	}
+
+	session, err := h.service.GetSession(c.Context(), sessionID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	// Verify ownership
+	if session.UserID != userID {
+		return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view this session")
+	}
+
+	points, err := h.service.ListGpsPointsBySession(c.Context(), sessionID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	gpsPoints := make([]dto.GpsPointResponse, len(points))
+	for i, p := range points {
+		gpsPoints[i] = dto.GpsPointResponse{
+			ID:        p.ID,
+			SessionID: p.SessionID,
+			Lat:       p.Lat,
+			Lng:       p.Lng,
+			Alt:       p.Alt,
+			Timestamp: p.Timestamp,
+			Accuracy:  p.Accuracy,
+		}
+	}
+
+	return appresponse.Success(c, dto.RunningSessionDetailResponse{
+		RunningSessionResponse: toSessionResponse(session),
+		GpsPoints:              gpsPoints,
+	})
+}
+
+// LogGpsPoint handles POST /running/sessions/:id/live-location.
+// Records a single GPS sample for a running session (live tracking).
+func (h *RunningHandler) LogGpsPoint(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	sessionID := c.Params("id")
+	if sessionID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "session ID is required")
+	}
+
+	var req dto.LogGpsPointRequest
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if req.SessionID == "" {
+		req.SessionID = sessionID
+	}
+	if req.SessionID != sessionID {
+		return appresponse.Error(c, fiber.StatusBadRequest, "session_id mismatch")
+	}
+	if req.Timestamp == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "timestamp is required")
+	}
+
+	point := &domain.GpsPoint{
+		SessionID: req.SessionID,
+		Lat:       req.Lat,
+		Lng:       req.Lng,
+		Alt:       req.Alt,
+		Timestamp: req.Timestamp,
+		Accuracy:  req.Accuracy,
+	}
+
+	if err := h.service.SaveGpsPoint(c.Context(), point); err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, dto.GpsPointResponse{
+		ID:        point.ID,
+		SessionID: point.SessionID,
+		Lat:       point.Lat,
+		Lng:       point.Lng,
+		Alt:       point.Alt,
+		Timestamp: point.Timestamp,
+		Accuracy:  point.Accuracy,
+	})
+}
+
 // ListSessions handles GET /running/sessions.
 // Returns paginated running history for the authenticated user.
 func (h *RunningHandler) ListSessions(c *fiber.Ctx) error {
