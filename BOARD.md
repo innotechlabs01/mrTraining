@@ -37,14 +37,22 @@
 - [x] Web lint: 0 errores (fixes Alianzas pre-existentes: jsx-key, no-explicit-any, conditional useEffect)
 - [x] Web tests 161/161 + build OK · Go 34 paquetes ok · Mobile 353/353 + tsc 0
 
-## En ejecución — Plan Mejoras Fitness v2 (spec: docs/superpowers/specs/PLAN_MEJORAS_FITNESS.md)
-- [x] Auditoría de código 2026-10-18: backend GPS running YA HECHO (b2a72a4), web /running NO existe, mobile no graba GPS, Garmin 0%, analytics API = código muerto (no wired en main.go), training-engine web OK
+## Done — Plan Mejoras Fitness v2 (spec: docs/superpowers/specs/PLAN_MEJORAS_FITNESS.md)
+- [x] Auditoría de código 2026-10-18: backend GPS running YA HECHO (b2a72a4), web /running NO existía, mobile no grababa GPS, Garmin 0%, analytics API = código muerto, training-engine web OK
 - [x] Plan v2 escrito: 13 sprints (S0–S12), config GPS estándar, RunningRouteMap fixes, Garmin E2E, IA workout detail
-- [ ] S0: commit working tree (client.ts + RunningRouteMap)
-- [ ] S1–S4: Fase 1 (páginas web /running, live tracking, GPS mobile)
-- [ ] S5–S7: Fase 3 (analytics repo real + ai-insights + workout detail IA)
-- [ ] S8–S9: Fase 2 (Garmin OAuth + webhook + bridge + sync)
-- [ ] S10–S12: Fase 4–5 (retención + App Store)
+- [x] S0: commit working tree (client.ts + RunningRouteMap) — c2b4ec0
+- [x] S1–S2: web /running historial + detalle, RunningRouteMap SSR-safe/canvas/fitBounds/thumbnail, LiveRunTracker (b94a519)
+- [x] S3: ciclo de vida sesión API — PATCH/DELETE, batch live-location ≤100, rate limit, filtro accuracy >50m (0f5f56a)
+- [x] S4: mobile RunRecordingScreen GPS offline-first + historial con mapa (2e76ae0)
+- [x] S5: repository analytics SQL real + wire en main.go — /analytics/* ya responden (c39400e)
+- [x] S6: training AI service + GET /workouts/:id/ai-insights (72d81d2)
+- [x] S7: web athlete workout detail + mobile sección IA con "Ajustar cargas" (6fade8f)
+- [x] S8: parser GPX/TCX/FIT + import activities + GarminProvider + POST /webhooks/garmin (fdf5580)
+- [x] S9: garmin-bridge mobile + Settings wearables + POST /running/sync/garmin (904bbf2)
+- [x] S10: check-in matutino (migración 029, GET/POST /checkins, card TodayScreen) (5eb2bb8)
+- [x] S11: trial 7 días (POST /memberships/:id/trial + CTA mobile) (ba2abde)
+- [ ] S12: App Store Connect — BLOQUEADO (requiere cuenta Apple Developer pagada)
+- [ ] Device QA de S4 GPS, S9 Settings, S10 check-in (Maestro + dispositivo) — PASS WITH LIMITATIONS hasta entonces
 
 ## Pendiente QA device (VALIDACIÓN AL FINAL, per @user)
 - [ ] T-034: T-026 QA device validation — requiere credenciales Maestro + dispositivo
@@ -62,8 +70,13 @@
 - [ ] T-041: Alianzas QA + review
 
 ## QA General
-- [x] Builds: Go API OK, Mobile tsc OK, Web tsc OK
-- [x] Tests: Go API OK, Mobile jest 353/353 OK, Web jest 161/161 OK
-- [x] Lint: Web lint 0 errores (errores Alianzas corregidos en esta sesión)
+- [x] Builds: Go `go build ./...` OK, Web `next build` OK, Mobile tsc 0
+- [x] Tests: Go `go test ./...` OK, Mobile jest 353/353 OK, Web jest 161/161 OK
+- [x] Lint: Web lint 0 errores
 - [ ] QA device real (Maestro + dispositivo) — pendiente
 - [ ] E2E end-to-end — pendiente
+
+## Cierre sesión 2026-10-18 (Plan Mejoras Fitness v2)
+- Verificación final completa: Go build+test verdes · Web tsc 0 + lint 0 + jest 161/161 + build OK · Mobile tsc 0 + jest 353/353.
+- Sprints S0–S11 entregados y commiteados; S12 bloqueado por cuenta Apple.
+- Sin validación en dispositivo real: S4/S9/S10 quedan PASS WITH LIMITATIONS.
