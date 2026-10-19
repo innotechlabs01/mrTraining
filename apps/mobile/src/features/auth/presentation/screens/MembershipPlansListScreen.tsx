@@ -3,6 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { showToast } from '../../../../shared/components/ui/Toast';
 import { getAvailablePlans } from '../../services/membershipService';
+import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { useClerkAuth } from '../../hooks/useClerkAuth';
 import { colors, radius, spacing } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
@@ -12,6 +13,7 @@ export function MembershipPlansListScreen({ navigation }: any) {
   const { user } = useClerkAuth();
   const [plans, setPlans] = useState<Array<any>>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [startingTrial, setStartingTrial] = useState(false);
   const navigationRef = useNavigation();
 
   useEffect(() => {
@@ -55,9 +57,27 @@ export function MembershipPlansListScreen({ navigation }: any) {
     );
   }
 
+  const startTrial = async () => {
+    setStartingTrial(true);
+    try {
+      await apiClient.post('/athlete/membership/trial', { days: 7 });
+      showToast('success', 'Prueba iniciada', 'Tenés 7 días de acceso completo.');
+      navigation.replace('MembershipCheck');
+    } catch {
+      showToast('error', 'No se pudo iniciar', 'Ya tenés una membresía activa o no hay coach vinculado.');
+    } finally {
+      setStartingTrial(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScreenHeader title="Mis Planes de Membresía" />
+      <PrimaryButton
+        label={startingTrial ? 'Iniciando prueba…' : 'Probar 7 días gratis'}
+        onPress={() => void startTrial()}
+        disabled={startingTrial}
+      />
       {plans.map((plan: any, index: number) => (
         <TouchableOpacity
           key={index}

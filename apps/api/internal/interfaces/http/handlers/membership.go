@@ -206,6 +206,28 @@ func calculateDaysRemaining(m *membershipdomain.Membership) int {
 	return days
 }
 
+// StartTrial handles POST /memberships/trial (athlete self-service).
+// Creates a time-boxed trial membership (default 7 days, max 30).
+func (h *MembershipHandler) StartTrial(c *fiber.Ctx) error {
+	athleteID := middleware.GetUserID(c)
+	if athleteID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	var req struct {
+		Days int `json:"days"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	m, err := h.service.StartTrial(c.Context(), athleteID, req.Days)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	return appresponse.Success(c, m)
+}
+
 // GetPaymentHistory handles GET /memberships/:id/payments.
 // Returns payment history for the authenticated athlete.
 func (h *MembershipHandler) GetPaymentHistory(c *fiber.Ctx) error {

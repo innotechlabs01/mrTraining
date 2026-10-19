@@ -93,6 +93,9 @@ func RegisterMembershipRoutes(api fiber.Router, handler *handlers.MembershipHand
 	// Cancel membership (requires coach role)
 	api.Put("/memberships/:id/cancel", middleware.RequireCoach(), handler.CancelMembership)
 
+	// Start a trial (athlete self-service, default 7 days)
+	api.Post("/memberships/trial", middleware.RequireAthlete(), middleware.RateLimit(3, 3600), handler.StartTrial)
+
 	// Renew membership (requires coach role)
 	api.Put("/memberships/:id/renew", middleware.RequireCoach(), handler.RenewMembership)
 

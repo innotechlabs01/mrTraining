@@ -43,8 +43,8 @@ type CreateRequest struct {
 	CoachID       string
 	PlanName      string
 	PlanPrice     float64
-	BillingPeriod string  // "monthly" or "yearly", defaults to "monthly"
-	StartDate     string  // ISO date, defaults to today
+	BillingPeriod string // "monthly" or "yearly", defaults to "monthly"
+	StartDate     string // ISO date, defaults to today
 }
 
 // CreateMembership creates a new membership with an initial "active" status
@@ -89,6 +89,63 @@ func (s *Service) CreateMembership(ctx context.Context, req CreateRequest) (*dom
 		return nil, err
 	}
 
+	return m, nil
+}
+
+// StartTrial creates a time-boxed "trial" membership for the athlete using
+// their linked coach/plan (from the most recent membership). One trial at a
+// time: athletes with an active/trial/past_due membership are rejected.
+func (s *Service) StartTrial(ctx context.Context, athleteID string, days int) (*domain.Membership, error) {
+	if athleteID == "" {
+		return nil, errors.BadRequest("athlete_id is required")
+	}
+	if days <= 0 {
+		days = 7
+	}
+	if days > 30 {
+		return nil, errors.BadRequest("trial cannot exceed 30 days")
+	}
+
+	var coachID, planName, billing string
+	existing, err := s.repo.GetByAthleteID(ctx, athleteID)
+	if err == nil && existing != nil {
+		existing.RecalculateStatus()
+		switch existing.Status {
+		case "active", "trial", "past_due":
+			return nil, errors.BadRequest("you already have an active membership")
+		}
+		coachID = existing.CoachID
+		planName = existing.PlanName
+		billing = existing.BillingPeriod
+	}
+	if coachID == "" {
+		return nil, errors.BadRequest("no linked coach found for a trial")
+	}
+	if billing == "" {
+		billing = "monthly"
+	}
+
+	start := time.Now().UTC()
+	startDate := start.Format("2006-01-02")
+	endDate := start.AddDate(0, 0, days).Format("2006-01-02")
+
+	m := &domain.Membership{
+		ID:                 generateID(),
+		AthleteID:          athleteID,
+		CoachID:            coachID,
+		PlanName:           planName + " (prueba)",
+		PlanPrice:          0,
+		BillingPeriod:      billing,
+		Status:             "trial",
+		CurrentPeriodStart: startDate,
+		CurrentPeriodEnd:   endDate,
+		GracePeriodDays:    defaultGracePeriodDays,
+		PaymentDueDate:     endDate,
+	}
+
+	if err := s.repo.Create(ctx, m); err != nil {
+		return nil, err
+	}
 	return m, nil
 }
 
