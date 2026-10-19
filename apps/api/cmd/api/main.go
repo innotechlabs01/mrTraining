@@ -108,7 +108,9 @@ import (
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 
 	analyticsapp "github.com/innotechlabs01/mr-training-api/internal/application/analytics"
+	trainingaiapp "github.com/innotechlabs01/mr-training-api/internal/application/trainingai"
 	analyticsinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/analytics"
+	trainingaiinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/trainingai"
 )
 
 // Version is set at build time via ldflags.
@@ -274,6 +276,12 @@ func main() {
 
 		// Register training routes
 		routes.RegisterTrainingRoutes(api, trainingHandler, statusReader)
+
+		// Wire training AI insights (workout detail suggestions)
+		trainingAIRepo := trainingaiinfra.NewRepository(db.DB)
+		trainingAIService := trainingaiapp.NewService(trainingAIRepo)
+		trainingAIHandler := userhttp.NewTrainingAIHandler(trainingAIService)
+		routes.RegisterTrainingAIRoutes(api, trainingAIHandler, statusReader)
 
 		// Register today routes
 		todayRepo := todayinfrastructure.NewRepository(db.DB)

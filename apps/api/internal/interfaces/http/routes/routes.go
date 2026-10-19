@@ -31,6 +31,15 @@ func RegisterUserRoutes(api fiber.Router, handler *handlers.UserHandler) {
 	api.Put("/athletes/me", middleware.RequireAthlete(), handler.UpdateAthleteProfile)
 }
 
+// RegisterTrainingAIRoutes registers the workout AI-insights endpoint
+// (athlete-scoped; ownership is checked in the handler).
+func RegisterTrainingAIRoutes(api fiber.Router, handler *handlers.TrainingAIHandler, statusReader middleware.MembershipStatusReader) {
+	api.Get("/workouts/:id/ai-insights",
+		middleware.RequireAthlete(),
+		middleware.RequireActiveMembership(statusReader),
+		handler.GetWorkoutInsights)
+}
+
 // RegisterTrainingRoutes registers all training-related routes on the given API group.
 // The calling code must have already applied auth middleware to the api group.
 func RegisterTrainingRoutes(api fiber.Router, handler *handlers.TrainingHandler, statusReader middleware.MembershipStatusReader) {
