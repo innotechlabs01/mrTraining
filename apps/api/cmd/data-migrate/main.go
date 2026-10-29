@@ -34,6 +34,9 @@ const (
 	ModeDryRun     MigrationMode = "dry-run"
 	ModeVerifyOnly MigrationMode = "verify-only"
 	ModeApply      MigrationMode = "apply"
+
+	// defaultMaxRetries is the maximum number of retry attempts for transient errors.
+	defaultMaxRetries = 3
 )
 
 // ColumnInfo describes a column in the destination table.
@@ -365,6 +368,62 @@ func executeBatch(ctx context.Context, db *sql.DB, query string, batch [][]inter
 	return nil
 }
 
+// isTransientError determines whether an error is transient and safe to retry.
+// Schema errors, data validation errors, and constraint violations are NOT transient.
+func isTransientError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	// PostgreSQL connection / transient error indicators (sanitized, no secrets).
+	transientKeywords := []string{
+		"connection refused",
+		"connection reset",
+		"timeout",
+		"temporary failure",
+		"server closed the connection",
+		"no such host",
+		"network is unreachable",
+	}
+	for _, kw := range transientKeywords {
+		if strings.Contains(strings.ToLower(msg), kw) {
+			return true
+		}
+	}
+	return false
+}
+
+// executeBatchWithRetry executes a batch insert with limited retries for transient errors only.
+func executeBatchWithRetry(ctx context.Context, db *sql.DB, query string, batch [][]interface{}, maxRetries int) error {
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			// Incremental backoff: 100ms, 200ms, 400ms, ...
+			backoff := time.Duration(100*attempt) * time.Millisecond
+			timer := time.NewTimer(backoff)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return fmt.Errorf("context cancelled during retry backoff: %w", ctx.Err())
+			case <-timer.C:
+				timer.Stop()
+			}
+		}
+		if err := executeBatch(ctx, db, query, batch); err != nil {
+			lastErr = err
+			if !isTransientError(err) {
+				return err
+			}
+			if attempt == maxRetries {
+				return fmt.Errorf("exhausted %d retries: %w", maxRetries, lastErr)
+			}
+			continue
+		}
+		return nil
+	}
+	return fmt.Errorf("exhausted %d retries: %w", maxRetries, lastErr)
+}
+
 // countRows counts rows in a table.
 func countRows(ctx context.Context, db *sql.DB, table string) (int, error) {
 	var count int
@@ -415,6 +474,11 @@ func MigrateTable(ctx context.Context, src, dst1, dst2 *sql.DB, table string, ba
 	count := 0
 	batch := make([][]interface{}, 0, batchSize)
 	for rows.Next() {
+		// Check context cancellation on each row iteration.
+		if err := ctx.Err(); err != nil {
+			return result, fmt.Errorf("context cancelled: %w", err)
+		}
+
 		values := make([]interface{}, len(srcCols))
 		valuePtrs := make([]interface{}, len(srcCols))
 		for i := range values {
@@ -434,7 +498,7 @@ func MigrateTable(ctx context.Context, src, dst1, dst2 *sql.DB, table string, ba
 
 		batch = append(batch, converted)
 		if len(batch) >= batchSize {
-			if err := executeBatch(ctx, dst1, insertQuery, batch); err != nil {
+			if err := executeBatchWithRetry(ctx, dst1, insertQuery, batch, defaultMaxRetries); err != nil {
 				return result, fmt.Errorf("insert batch local: %w", err)
 			}
 			if dst2 != nil {
@@ -442,7 +506,7 @@ func MigrateTable(ctx context.Context, src, dst1, dst2 *sql.DB, table string, ba
 				for i := range batch[0] {
 					args[i] = batch[0][i]
 				}
-				if _, err := dst2.ExecContext(ctx, insertQuery, args...); err != nil {
+				if err := executeBatchWithRetry(ctx, dst2, insertQuery, [][]interface{}{args}, defaultMaxRetries); err != nil {
 					return result, fmt.Errorf("insert batch qa: %w", err)
 				}
 			}
@@ -455,7 +519,7 @@ func MigrateTable(ctx context.Context, src, dst1, dst2 *sql.DB, table string, ba
 	}
 
 	if len(batch) > 0 {
-		if err := executeBatch(ctx, dst1, insertQuery, batch); err != nil {
+		if err := executeBatchWithRetry(ctx, dst1, insertQuery, batch, defaultMaxRetries); err != nil {
 			return result, fmt.Errorf("insert final batch local: %w", err)
 		}
 		if dst2 != nil {
@@ -463,7 +527,7 @@ func MigrateTable(ctx context.Context, src, dst1, dst2 *sql.DB, table string, ba
 			for i := range batch[0] {
 				args[i] = batch[0][i]
 			}
-			if _, err := dst2.ExecContext(ctx, insertQuery, args...); err != nil {
+			if err := executeBatchWithRetry(ctx, dst2, insertQuery, [][]interface{}{args}, defaultMaxRetries); err != nil {
 				return result, fmt.Errorf("insert final batch qa: %w", err)
 			}
 		}
@@ -538,12 +602,29 @@ func RunMigration(ctx context.Context, src, dst1, dst2 *sql.DB, tableList []stri
 		return stats, nil
 	}
 
+	// Track failed tables so dependent tables are not processed.
+	failedTables := make(map[string]bool)
+
 	for _, table := range plan.OrderedTables {
+		// Skip tables whose dependencies failed.
+		if failedTables[table] {
+			fmt.Printf("  SKIPPED: %s (dependency failed)\n", table)
+			stats.TablesSkipped++
+			continue
+		}
+
+		// Check context cancellation before starting each table.
+		if err := ctx.Err(); err != nil {
+			fmt.Printf("  CANCELLED: %v\n", err)
+			break
+		}
+
 		fmt.Printf("Migrating table: %s...\n", table)
 		result, err := MigrateTable(ctx, src, dst1, dst2, table, batchSize, false)
 		if err != nil {
 			fmt.Printf("  FAILED: %v\n", err)
 			stats.TablesFailed++
+			failedTables[table] = true
 			continue
 		}
 		stats.TablesProcessed++
