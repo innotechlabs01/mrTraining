@@ -2,6 +2,7 @@ package running
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/running"
@@ -9,9 +10,14 @@ import (
 
 // mockRepository is an in-memory implementation of running.Repository for testing.
 type mockRepository struct {
-	sessions    map[string]*domain.RunningSession
-	connections map[string]*domain.DeviceConnection
-	gpsPoints   map[string][]*domain.GpsPoint // keyed by session_id
+	sessions       map[string]*domain.RunningSession
+	sessionDevices map[string]*domain.RunningSession // keyed by user_id|external_id
+	connections    map[string]*domain.DeviceConnection
+	gpsPoints      map[string][]*domain.GpsPoint // keyed by session_id
+	templates      map[string]*domain.RunningWorkoutTemplate
+	segments       map[string][]*domain.RunningWorkoutSegment // keyed by template_id
+	assignments    map[string]*domain.RunningWorkoutAssignment
+	snapshots      map[string]*domain.RunningWorkoutSnapshot  // keyed by session_id
 }
 
 func newMockRepository() *mockRepository {
@@ -19,6 +25,10 @@ func newMockRepository() *mockRepository {
 		sessions:    make(map[string]*domain.RunningSession),
 		connections: make(map[string]*domain.DeviceConnection),
 		gpsPoints:   make(map[string][]*domain.GpsPoint),
+		templates:   make(map[string]*domain.RunningWorkoutTemplate),
+		segments:    make(map[string][]*domain.RunningWorkoutSegment),
+		assignments: make(map[string]*domain.RunningWorkoutAssignment),
+		snapshots:   make(map[string]*domain.RunningWorkoutSnapshot),
 	}
 }
 
@@ -115,6 +125,21 @@ func (m *mockRepository) DeactivateDeviceConnection(_ context.Context, id string
 	return nil
 }
 
+func (m *mockRepository) SaveSessionDevice(_ context.Context, s *domain.RunningSession) error {
+	if m.sessionDevices == nil {
+		m.sessionDevices = make(map[string]*domain.RunningSession)
+	}
+	m.sessionDevices[s.UserID+"|"+s.ExternalID] = s
+	return nil
+}
+
+func (m *mockRepository) GetSessionIDByExternalID(_ context.Context, userID, externalID string) (string, bool, error) {
+	if s, ok := m.sessionDevices[userID+"|"+externalID]; ok {
+		return s.ID, true, nil
+	}
+	return "", false, nil
+}
+
 func (m *mockRepository) SaveGpsPoint(_ context.Context, p *domain.GpsPoint) error {
 	m.gpsPoints[p.SessionID] = append(m.gpsPoints[p.SessionID], p)
 	return nil
@@ -133,6 +158,126 @@ func (m *mockRepository) ListGpsPointsBySession(_ context.Context, sessionID str
 		return []*domain.GpsPoint{}, nil
 	}
 	return pts, nil
+}
+
+// --- Running workout template operations (mock) ---
+
+func (m *mockRepository) SaveTemplate(_ context.Context, t *domain.RunningWorkoutTemplate) error {
+	if t.ID == "" {
+		t.ID = "template-" + fmt.Sprintf("%d", len(m.templates)+1)
+	}
+	m.templates[t.ID] = t
+	return nil
+}
+
+func (m *mockRepository) GetTemplate(_ context.Context, id string) (*domain.RunningWorkoutTemplate, error) {
+	if t, ok := m.templates[id]; ok {
+		return t, nil
+	}
+	return nil, nil
+}
+
+func (m *mockRepository) ListTemplatesByCoach(_ context.Context, coachID string) ([]*domain.RunningWorkoutTemplate, error) {
+	var result []*domain.RunningWorkoutTemplate
+	for _, t := range m.templates {
+		if t.CoachID == coachID {
+			result = append(result, t)
+		}
+	}
+	if result == nil {
+		result = []*domain.RunningWorkoutTemplate{}
+	}
+	return result, nil
+}
+
+func (m *mockRepository) DeleteTemplate(_ context.Context, id string) error {
+	delete(m.templates, id)
+	return nil
+}
+
+// --- Running workout segment operations (mock) ---
+
+func (m *mockRepository) SaveSegment(_ context.Context, s *domain.RunningWorkoutSegment) error {
+	if s.ID == "" {
+		s.ID = "segment-" + fmt.Sprintf("%d", len(m.segments[s.TemplateID])+1)
+	}
+	m.segments[s.TemplateID] = append(m.segments[s.TemplateID], s)
+	return nil
+}
+
+func (m *mockRepository) ListSegmentsByTemplate(_ context.Context, templateID string) ([]*domain.RunningWorkoutSegment, error) {
+	segs, ok := m.segments[templateID]
+	if !ok {
+		return []*domain.RunningWorkoutSegment{}, nil
+	}
+	return segs, nil
+}
+
+// --- Running workout assignment operations (mock) ---
+
+func (m *mockRepository) SaveAssignment(_ context.Context, a *domain.RunningWorkoutAssignment) error {
+	if a.ID == "" {
+		a.ID = "assignment-" + fmt.Sprintf("%d", len(m.assignments)+1)
+	}
+	m.assignments[a.ID] = a
+	return nil
+}
+
+func (m *mockRepository) GetAssignment(_ context.Context, id string) (*domain.RunningWorkoutAssignment, error) {
+	if a, ok := m.assignments[id]; ok {
+		return a, nil
+	}
+	return nil, nil
+}
+
+func (m *mockRepository) ListAssignmentsByAthlete(_ context.Context, athleteID string, status domain.RunningWorkoutAssignmentStatus) ([]*domain.RunningWorkoutAssignment, error) {
+	var result []*domain.RunningWorkoutAssignment
+	for _, a := range m.assignments {
+		if a.AthleteID == athleteID && (status == "" || a.Status == status) {
+			result = append(result, a)
+		}
+	}
+	if result == nil {
+		result = []*domain.RunningWorkoutAssignment{}
+	}
+	return result, nil
+}
+
+func (m *mockRepository) ListAssignmentsByCoach(_ context.Context, coachID string) ([]*domain.RunningWorkoutAssignment, error) {
+	var result []*domain.RunningWorkoutAssignment
+	for _, a := range m.assignments {
+		if a.CoachID == coachID {
+			result = append(result, a)
+		}
+	}
+	if result == nil {
+		result = []*domain.RunningWorkoutAssignment{}
+	}
+	return result, nil
+}
+
+func (m *mockRepository) UpdateAssignmentStatus(_ context.Context, id string, status domain.RunningWorkoutAssignmentStatus) error {
+	if a, ok := m.assignments[id]; ok {
+		a.Status = status
+	}
+	return nil
+}
+
+// --- Running workout snapshot operations (mock) ---
+
+func (m *mockRepository) SaveSnapshot(_ context.Context, s *domain.RunningWorkoutSnapshot) error {
+	if s.ID == "" {
+		s.ID = "snapshot-" + fmt.Sprintf("%d", len(m.snapshots)+1)
+	}
+	m.snapshots[s.SessionID] = s
+	return nil
+}
+
+func (m *mockRepository) GetSnapshotBySession(_ context.Context, sessionID string) (*domain.RunningWorkoutSnapshot, error) {
+	if s, ok := m.snapshots[sessionID]; ok {
+		return s, nil
+	}
+	return nil, nil
 }
 
 // --- Tests ---
@@ -467,5 +612,93 @@ func TestFormatPace(t *testing.T) {
 		if result != tt.expected {
 			t.Errorf("formatPace(%f, %d) = %s, want %s", tt.distance, tt.duration, result, tt.expected)
 		}
+	}
+}
+
+func TestService_ImportDeviceSessions(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	ctx := context.Background()
+
+	imports := []*ImportedSession{
+		{
+			ExternalID: "HK-uuid-1",
+			Session: domain.RunningSession{
+				Date:        "2026-10-17",
+				Distance:    10.0,
+				Duration:    3000,
+				Calories:    620,
+				Source:      domain.SourceAppleWatch,
+				DeviceName:  "Apple Watch de Juan",
+				DeviceBrand: "Apple",
+			},
+			Points: []*domain.GpsPoint{
+				{Lat: -34.60, Lng: -58.38, Timestamp: "2026-10-17T10:00:00Z", Accuracy: 5},
+				{Lat: -34.61, Lng: -58.39, Timestamp: "2026-10-17T10:00:05Z", Accuracy: 90}, // dropped
+			},
+		},
+		{
+			ExternalID: "garmin-998877",
+			Session: domain.RunningSession{
+				Date:        "2026-10-16",
+				Distance:    5.0,
+				Duration:    1500,
+				Source:      domain.SourceGarmin,
+				DeviceName:  "Forerunner 265",
+				DeviceBrand: "Garmin",
+			},
+		},
+		// No external id: cannot be made idempotent, so it is skipped.
+		{Session: domain.RunningSession{Date: "2026-10-15", Distance: 3, Duration: 900, Source: domain.SourceAppleWatch}},
+		// Unknown source: provenance would be invented.
+		{ExternalID: "x", Session: domain.RunningSession{Date: "2026-10-15", Distance: 3, Duration: 900, Source: "manual"}},
+	}
+
+	res, err := svc.ImportDeviceSessions(ctx, "user-1", imports)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Imported != 2 {
+		t.Fatalf("expected 2 imported, got %d", res.Imported)
+	}
+	if res.Skipped != 2 {
+		t.Fatalf("expected 2 skipped, got %d", res.Skipped)
+	}
+
+	first := res.Sessions[0]
+	if first.Pace != "5:00" {
+		t.Errorf("expected pace 5:00, got %q", first.Pace)
+	}
+	if first.Speed != 12 {
+		t.Errorf("expected speed 12, got %f", first.Speed)
+	}
+	if first.DeviceName != "Apple Watch de Juan" || first.DeviceBrand != "Apple" {
+		t.Errorf("device not preserved: %+v", first)
+	}
+	if got := len(repo.gpsPoints[first.ID]); got != 1 {
+		t.Errorf("expected 1 stored GPS point after accuracy filter, got %d", got)
+	}
+
+	// Re-syncing the same window must not duplicate anything.
+	again, err := svc.ImportDeviceSessions(ctx, "user-1", imports)
+	if err != nil {
+		t.Fatalf("unexpected error on re-sync: %v", err)
+	}
+	if again.Imported != 0 || again.Skipped != 4 {
+		t.Fatalf("expected full skip on re-sync, got imported=%d skipped=%d", again.Imported, again.Skipped)
+	}
+	if len(repo.sessions) != 2 {
+		t.Errorf("expected 2 stored sessions, got %d", len(repo.sessions))
+	}
+}
+
+func TestService_ImportDeviceSessions_RejectsOversizedBatch(t *testing.T) {
+	svc := NewService(newMockRepository())
+	imports := make([]*ImportedSession, maxImportedSessions+1)
+	for i := range imports {
+		imports[i] = &ImportedSession{ExternalID: fmt.Sprintf("id-%d", i)}
+	}
+	if _, err := svc.ImportDeviceSessions(context.Background(), "user-1", imports); err == nil {
+		t.Fatal("expected an error for an oversized batch")
 	}
 }

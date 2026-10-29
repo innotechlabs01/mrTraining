@@ -4,10 +4,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"os"
 	"strings"
 	"testing"
-
-	_ "modernc.org/sqlite"
 
 	allyopsdomain "github.com/innotechlabs01/mr-training-api/internal/domain/ally_operations"
 	allyopsinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_operations"
@@ -16,17 +15,15 @@ import (
 
 func newOpsTestDB(t *testing.T) (*database.DB, *Service) {
 	t.Helper()
-	path := t.TempDir() + "/test.db"
-	db, err := database.Connect("file:"+path, "")
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		t.Skip("skipping: DATABASE_URL not set")
+	}
+	db, err := database.Connect(url)
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
-
-	// Enable foreign keys and busy timeout for concurrent write tests.
-	if _, err := db.Exec(`PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000`); err != nil {
-		t.Fatalf("pragma: %v", err)
-	}
 
 	if err := applyOpsMigrations(t, db); err != nil {
 		t.Fatalf("apply migrations: %v", err)

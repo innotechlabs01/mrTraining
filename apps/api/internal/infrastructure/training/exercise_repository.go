@@ -35,7 +35,7 @@ func (r *ExerciseRepository) List(ctx context.Context, filter training.ExerciseF
 	query := `SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
 		 default_sec, video_url, image_url, is_custom, coach_id, created_at, updated_at
-		 FROM exercise_library` + where + ` ORDER BY name LIMIT ? OFFSET ?`
+		 FROM exercise_library` + where + ` ORDER BY name LIMIT $1 OFFSET $2`
 
 	args = append(args, limit, offset)
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -91,7 +91,7 @@ func (r *ExerciseRepository) GetByID(ctx context.Context, id string) (*training.
 		`SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
 		 default_sec, video_url, image_url, is_custom, coach_id, created_at, updated_at
-		 FROM exercise_library WHERE id = ?`, id)
+		 FROM exercise_library WHERE id = $3`, id)
 
 	e := &training.ExerciseEntry{}
 	var bodyPart, equipment, difficulty, category, videoURL, imageURL, coachID sql.NullString
@@ -169,7 +169,7 @@ func (r *ExerciseRepository) Create(ctx context.Context, e *training.ExerciseEnt
 		 (id, slug, name, description, mode, body_part, muscle_groups, secondary_muscles,
 		  equipment, difficulty, category, instructions, default_sec, video_url, image_url,
 		  is_custom, coach_id, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+		 VALUES ($4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW(), NOW())`,
 		e.ID, e.Slug, e.Name, e.Description, e.Mode, bodyPart, e.MuscleGroups,
 		e.SecondaryMuscles, equipment, difficulty, category, e.Instructions,
 		defaultSec, videoURL, imageURL, e.IsCustom, coachID)
@@ -211,11 +211,11 @@ func (r *ExerciseRepository) Update(ctx context.Context, e *training.ExerciseEnt
 
 	res, err := r.db.ExecContext(ctx,
 		`UPDATE exercise_library
-		 SET slug = ?, name = ?, description = ?, mode = ?, body_part = ?, muscle_groups = ?,
-		     secondary_muscles = ?, equipment = ?, difficulty = ?, category = ?, instructions = ?,
-		     default_sec = ?, video_url = ?, image_url = ?, is_custom = ?, coach_id = ?,
-		     updated_at = datetime('now')
-		 WHERE id = ?`,
+		 SET slug = $21, name = $22, description = $23, mode = $24, body_part = $25, muscle_groups = $26,
+		     secondary_muscles = $27, equipment = $28, difficulty = $29, category = $30, instructions = $31,
+		     default_sec = $32, video_url = $33, image_url = $34, is_custom = $35, coach_id = $36,
+		     updated_at = NOW()
+		 WHERE id = $37`,
 		e.Slug, e.Name, e.Description, e.Mode, bodyPart, e.MuscleGroups,
 		e.SecondaryMuscles, equipment, difficulty, category, e.Instructions,
 		defaultSec, videoURL, imageURL, e.IsCustom, coachID, e.ID)
@@ -232,7 +232,7 @@ func (r *ExerciseRepository) Update(ctx context.Context, e *training.ExerciseEnt
 
 // Delete removes an exercise entry by ID.
 func (r *ExerciseRepository) Delete(ctx context.Context, id string) error {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM exercise_library WHERE id = ?`, id)
+	res, err := r.db.ExecContext(ctx, `DELETE FROM exercise_library WHERE id = $38`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete exercise: %w", err)
 	}
@@ -249,29 +249,29 @@ func (r *ExerciseRepository) buildWhereClause(filter training.ExerciseFilter) (s
 
 	// Coach scoping: global exercises + coach's custom exercises
 	if filter.CoachID != "" {
-		conditions = append(conditions, "(is_custom = 0 OR coach_id = ?)")
+		conditions = append(conditions, "(is_custom = 0 OR coach_id = $39)")
 		args = append(args, filter.CoachID)
 	} else {
 		conditions = append(conditions, "is_custom = 0")
 	}
 
 	if filter.BodyPart != "" {
-		conditions = append(conditions, "body_part = ?")
+		conditions = append(conditions, "body_part = $40")
 		args = append(args, filter.BodyPart)
 	}
 
 	if filter.Equipment != "" {
-		conditions = append(conditions, "equipment = ?")
+		conditions = append(conditions, "equipment = $41")
 		args = append(args, filter.Equipment)
 	}
 
 	if filter.Difficulty != "" {
-		conditions = append(conditions, "difficulty = ?")
+		conditions = append(conditions, "difficulty = $42")
 		args = append(args, filter.Difficulty)
 	}
 
 	if filter.Search != "" {
-		conditions = append(conditions, "(name LIKE ? OR description LIKE ?)")
+		conditions = append(conditions, "(name LIKE $43 OR description LIKE $44)")
 		search := "%" + filter.Search + "%"
 		args = append(args, search, search)
 	}

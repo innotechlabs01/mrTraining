@@ -148,6 +148,14 @@ func (m *mockWorkoutRepository) UpdateTemplate(ctx context.Context, template *tr
 	return m.createErr
 }
 
+func (m *mockWorkoutRepository) UpdateWorkoutExerciseActuals(ctx context.Context, workoutID, actualGPSRoute string, actualIntervals []training.RunningInterval) error {
+	return m.createErr
+}
+
+func (m *mockWorkoutRepository) ListSessionsByWorkout(ctx context.Context, workoutID string) ([]*training.WorkoutSession, error) {
+	return nil, m.createErr
+}
+
 // mockProgressRepository is a test double for training.ProgressRepository.
 type mockProgressRepository struct {
 	entries []*training.ProgressEntry

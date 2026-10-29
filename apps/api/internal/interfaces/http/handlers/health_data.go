@@ -25,8 +25,14 @@ func NewHealthDataHandler(service *healthapp.Service) *HealthDataHandler {
 // GetMetrics handles GET /health/metrics.
 func (h *HealthDataHandler) GetMetrics(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
+	targetUserID := userID
+	if middleware.GetUserRole(c) == "coach" {
+		if aid := c.Query("athlete_id"); aid != "" {
+			targetUserID = aid
+		}
+	}
 	days, _ := strconv.Atoi(c.Query("days", "7"))
-	metrics, err := h.service.GetMetrics(c.Context(), userID, days)
+	metrics, err := h.service.GetMetrics(c.Context(), targetUserID, days)
 	if err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
 	}
@@ -57,8 +63,14 @@ func (h *HealthDataHandler) RecordMetric(c *fiber.Ctx) error {
 // GetSleepLogs handles GET /health/sleep.
 func (h *HealthDataHandler) GetSleepLogs(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
+	targetUserID := userID
+	if middleware.GetUserRole(c) == "coach" {
+		if aid := c.Query("athlete_id"); aid != "" {
+			targetUserID = aid
+		}
+	}
 	days, _ := strconv.Atoi(c.Query("days", "7"))
-	logs, err := h.service.GetSleepLogs(c.Context(), userID, days)
+	logs, err := h.service.GetSleepLogs(c.Context(), targetUserID, days)
 	if err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
 	}
@@ -92,7 +104,13 @@ func (h *HealthDataHandler) RecordSleepLog(c *fiber.Ctx) error {
 // GetDevices handles GET /health/devices.
 func (h *HealthDataHandler) GetDevices(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
-	devices, err := h.service.GetDevices(c.Context(), userID)
+	targetUserID := userID
+	if middleware.GetUserRole(c) == "coach" {
+		if aid := c.Query("athlete_id"); aid != "" {
+			targetUserID = aid
+		}
+	}
+	devices, err := h.service.GetDevices(c.Context(), targetUserID)
 	if err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
 	}

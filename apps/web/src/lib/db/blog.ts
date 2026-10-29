@@ -125,9 +125,7 @@ export async function updateBlogPost(id: string, data: Partial<Omit<BlogPost, 'i
   params.push(now)
   params.push(id)
 
-  await safeExecute(
-    db,
-    `UPDATE blog_posts SET ${updates.join(', ')} WHERE id = ?`,
+  await safeExecute(`UPDATE blog_posts SET ${updates.join(', ')} WHERE id = ?`,
     params
   )
   return getBlogPostById(id)

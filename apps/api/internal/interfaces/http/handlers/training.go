@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	trainingapp "github.com/innotechlabs01/mr-training-api/internal/application/training"
+	runningapp "github.com/innotechlabs01/mr-training-api/internal/application/running"
 	trainingdomain "github.com/innotechlabs01/mr-training-api/internal/domain/training"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
@@ -402,6 +404,84 @@ func (h *TrainingHandler) GetWorkoutSession(c *fiber.Ctx) error {
 	return appresponse.Success(c, toWorkoutSessionResponse(session))
 }
 
+// GetCompletedRunningWorkout handles GET /workouts/:id/running-complete.
+// Returns the completed running workout with actual GPS and intervals.
+func (h *TrainingHandler) GetCompletedRunningWorkout(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	workoutID := c.Params("id")
+	if workoutID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "workout ID is required")
+	}
+
+	// Check if user is coach or athlete
+	role := middleware.GetUserRole(c)
+	var targetUserID string
+	if role == "coach" {
+		// Coach can view any athlete's completed running workout
+		// Need to verify the coach owns this workout
+		detail, err := h.service.GetAssignedWorkoutDetail(c.Context(), workoutID)
+		if err != nil {
+			return h.handleError(c, err)
+		}
+		if detail.Workout.CoachID != userID {
+			return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view this workout")
+		}
+		targetUserID = detail.Workout.AthleteID
+	} else {
+		// Athlete can only view their own
+		targetUserID = userID
+	}
+
+	// Get the completed running workout detail
+	detail, err := h.service.GetAssignedWorkoutDetail(c.Context(), workoutID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	// Check if workout has running exercises with actual GPS/intervals
+	runningExercises := make([]interface{}, 0)
+	for _, ex := range detail.Exercises {
+		if ex.GPSRoute != "" || ex.ActualGPSRoute != "" || (ex.ActualIntervals != nil && len(ex.ActualIntervals) > 0) {
+			runningExercises = append(runningExercises, map[string]interface{}{
+				"id":                 ex.ID,
+				"name":               ex.Name,
+				"prescribedGpsRoute": ex.GPSRoute,
+				"prescribedIntervals": ex.Intervals,
+				"actualGpsRoute":     ex.ActualGPSRoute,
+				"actualIntervals":    ex.ActualIntervals,
+			})
+		}
+	}
+
+	return appresponse.Success(c, fiber.Map{
+		"workout_id":         workoutID,
+		"athlete_id":         targetUserID,
+		"workout_name":       detail.Workout.ContentName,
+		"status":             detail.Workout.Status,
+		"completed_at":       getCompletedAt(detail.Session),
+		"duration_seconds":   getDurationSeconds(detail.Session),
+		"running_exercises":  runningExercises,
+	})
+}
+
+func getCompletedAt(s *trainingdomain.WorkoutSession) string {
+	if s != nil && s.CompletedAt != "" {
+		return s.CompletedAt
+	}
+	return ""
+}
+
+func getDurationSeconds(s *trainingdomain.WorkoutSession) int {
+	if s != nil {
+		return s.DurationSeconds
+	}
+	return 0
+}
+
 // CompleteSession handles POST /workouts/sessions/:id/complete.
 // Marks a workout session as completed for the authenticated athlete.
 func (h *TrainingHandler) CompleteSession(c *fiber.Ctx) error {
@@ -423,6 +503,44 @@ func (h *TrainingHandler) CompleteSession(c *fiber.Ctx) error {
 	if err := h.service.CompleteSession(c.Context(), sessionID, userID, req.DurationSeconds); err != nil {
 		return h.handleError(c, err)
 	}
+
+	return appresponse.Success(c, fiber.Map{"ok": true})
+}
+
+
+// CompleteRunningWorkout handles POST /workouts/:id/complete-running.
+// Completes a running workout with actual GPS and interval data.
+func (h *TrainingHandler) CompleteRunningWorkout(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	workoutID := c.Params("id")
+	if workoutID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "workout ID is required")
+	}
+
+	var req dto.CompleteRunningWorkoutRequest
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+	req.WorkoutID = workoutID
+
+	if err := h.service.CompleteRunningWorkout(c.Context(), userID, req); err != nil {
+		return h.handleError(c, err)
+	}
+
+	// Publish live event so any SSE subscriber (coach watching live) is
+	// notified the workout finished. Non-blocking and best-effort.
+	runningapp.DefaultHub.Publish(runningapp.Event{
+		WorkoutID: workoutID,
+		Type:      "workout.completed",
+		Payload: map[string]interface{}{
+			"athlete_id":   userID,
+			"duration_sec": req.DurationSeconds,
+		},
+	})
 
 	return appresponse.Success(c, fiber.Map{"ok": true})
 }
@@ -650,7 +768,23 @@ func toWorkoutExerciseResponse(ex *trainingdomain.WorkoutExercise) *dto.WorkoutE
 		VideoURL:          ex.VideoURL,
 		GPSRoute:          ex.GPSRoute,
 		LibraryExerciseID: ex.LibraryExerciseID,
+		Intervals:         intervalsToResponse(ex.Intervals),
 	}
+}
+
+func intervalsToResponse(intervals []trainingdomain.RunningInterval) []dto.RunningIntervalResponse {
+	resp := make([]dto.RunningIntervalResponse, len(intervals))
+	for i, iv := range intervals {
+		resp[i] = dto.RunningIntervalResponse{
+			Order:       iv.Order,
+			WorkType:    iv.WorkType,
+			WorkValue:   iv.WorkValue,
+			RestSeconds: iv.RestSeconds,
+			PaceTarget:  iv.PaceTarget,
+			Intensity:   iv.Intensity,
+		}
+	}
+	return resp
 }
 
 // toWorkoutDetailResponse converts a domain WorkoutDetail into the {workout, exercises, session}
@@ -791,4 +925,141 @@ func toTrainingSessionResponse(s *trainingdomain.TrainingSession) *dto.TrainingS
 		Status:      s.Status,
 		Notes:       s.Notes,
 	}
+}
+
+// RunningLive handles GET /workouts/:id/running-live.
+// Exposes live running-workout progress as Server-Sent Events so a coach
+// can watch an athlete's running workout in real time without polling.
+// Ownership is enforced on connect: only the workout's coach or the
+// assigned athlete may subscribe.
+func (h *TrainingHandler) RunningLive(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	workoutID := c.Params("id")
+	if workoutID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "workout ID is required")
+	}
+
+	// Ownership check: coach or athlete with access to this workout.
+	detail, err := h.service.GetAssignedWorkoutDetail(c.Context(), workoutID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	if detail.Workout.CoachID != userID && detail.Workout.AthleteID != userID {
+		return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view this workout")
+	}
+
+	role := middleware.GetUserRole(c)
+
+	// SSE headers.
+	c.Set("Content-Type", "text/event-stream")
+	c.Set("Cache-Control", "no-cache, no-transform")
+	c.Set("Connection", "keep-alive")
+	c.Set("X-Accel-Buffering", "no") // disable nginx buffering
+
+	ch := runningapp.DefaultHub.Subscribe(workoutID)
+	defer runningapp.DefaultHub.Unsubscribe(workoutID, ch)
+
+	// Send an initial "connected" event so the client knows the stream is up.
+	initial, _ := marshalSSE("workout.connected", map[string]interface{}{
+		"workout_id": workoutID,
+		"role":       role,
+		"athlete_id": detail.Workout.AthleteID,
+	})
+	if _, werr := c.Write([]byte(initial)); werr != nil {
+		return werr
+	}
+
+	// Stream events until the client disconnects.
+	ctx := c.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case ev := <-ch:
+			data, err := marshalSSE(ev.Type, ev.Payload)
+			if err != nil {
+				continue
+			}
+			if _, werr := c.Write([]byte(data)); werr != nil {
+				return werr
+			}
+		}
+	}
+}
+
+// ReportRunningProgress handles POST /workouts/:id/running-progress.
+// Allows the mobile app to report per-interval progress while a running
+// workout is in progress, so SSE subscribers (coach) receive live updates.
+// This is additive: existing completion flow is untouched.
+func (h *TrainingHandler) ReportRunningProgress(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	workoutID := c.Params("id")
+	if workoutID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "workout ID is required")
+	}
+
+	type ProgressReq struct {
+		IntervalIndex    int     `json:"intervalIndex"`
+		ElapsedSeconds   float64 `json:"elapsedSeconds"`
+		ElapsedDistanceKm float64 `json:"elapsedDistanceKm"`
+		IsOffRoute       bool    `json:"isOffRoute"`
+		Completed        bool    `json:"completed"`
+	}
+	var req ProgressReq
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	// Verify the athlete owns this workout.
+	detail, err := h.service.GetAssignedWorkoutDetail(c.Context(), workoutID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	if detail.Workout.AthleteID != userID {
+		return appresponse.Error(c, fiber.StatusForbidden, "not allowed to report progress for this workout")
+	}
+
+	// Publish live progress event for SSE subscribers (coach).
+	runningapp.DefaultHub.Publish(runningapp.Event{
+		WorkoutID: workoutID,
+		Type:      "workout.progress",
+		Payload: map[string]interface{}{
+			"athlete_id":            userID,
+			"interval_index":        req.IntervalIndex,
+			"elapsed_seconds":       req.ElapsedSeconds,
+			"elapsed_distance_km":   req.ElapsedDistanceKm,
+			"is_off_route":          req.IsOffRoute,
+			"interval_completed":    req.Completed,
+		},
+	})
+
+	return appresponse.Success(c, fiber.Map{"ok": true})
+}
+
+// marshalSSE formats a single Server-Sent Event message.
+func marshalSSE(eventType string, payload map[string]interface{}) ([]byte, error) {
+	var b []byte
+	b = append(b, "event: "...)
+	b = append(b, eventType...)
+	b = append(b, "\n"...)
+
+	if payload != nil {
+		b = append(b, "data: "...)
+		raw, jerr := json.Marshal(payload)
+		if jerr != nil {
+			return nil, jerr
+		}
+		b = append(b, raw...)
+		b = append(b, "\n"...)
+	}
+	b = append(b, "\n"...)
+	return b, nil
 }

@@ -1,5 +1,4 @@
-import { getDB, generateId, safeExecute } from './db'
-import type { Row } from '@libsql/client'
+import { safeExecute, generateId } from './db'
 
 export interface WorkoutTemplate {
   id: string
@@ -39,20 +38,19 @@ export interface TemplateExercise {
 }
 
 export async function listWorkoutTemplates(coachId: string): Promise<WorkoutTemplate[]> {
-  const db = getDB()
-  const result = await db.execute(
-    'SELECT * FROM workout_templates WHERE coach_id = ? ORDER BY created_at DESC',
-    [coachId]
+  const result = await safeExecute(
+    'SELECT * FROM workout_templates WHERE coach_id = $1 ORDER BY created_at DESC',
+    [coachId],
   )
 
   const templates: WorkoutTemplate[] = []
   for (const r of result.rows) {
     const templateId = r.id as string
-    const exercisesResult = await db.execute(
-      'SELECT * FROM workout_template_exercises WHERE template_id = ? ORDER BY sort_order',
-      [templateId]
+    const exercisesResult = await safeExecute(
+      'SELECT * FROM workout_template_exercises WHERE template_id = $1 ORDER BY sort_order',
+      [templateId],
     )
-    const exercises: TemplateExercise[] = exercisesResult.rows.map((ex: Row) => ({
+    const exercises: TemplateExercise[] = exercisesResult.rows.map((ex: Record<string, unknown>) => ({
       name: ex.name as string,
       sets: ex.sets as number,
       reps: ex.reps as number,
@@ -93,20 +91,19 @@ export async function listWorkoutTemplates(coachId: string): Promise<WorkoutTemp
 }
 
 export async function getWorkoutTemplate(coachId: string, templateId: string): Promise<WorkoutTemplate | null> {
-  const db = getDB()
-  const result = await db.execute(
-    'SELECT * FROM workout_templates WHERE id = ? AND coach_id = ?',
-    [templateId, coachId]
+  const result = await safeExecute(
+    'SELECT * FROM workout_templates WHERE id = $1 AND coach_id = $2',
+    [templateId, coachId],
   )
 
   if (result.rows.length === 0) return null
 
   const r = result.rows[0]
-  const exercisesResult = await db.execute(
-    'SELECT * FROM workout_template_exercises WHERE template_id = ? ORDER BY sort_order',
-    [templateId]
+  const exercisesResult = await safeExecute(
+    'SELECT * FROM workout_template_exercises WHERE template_id = $1 ORDER BY sort_order',
+    [templateId],
   )
-  const exercises: TemplateExercise[] = exercisesResult.rows.map((ex: Row) => ({
+  const exercises: TemplateExercise[] = exercisesResult.rows.map((ex: Record<string, unknown>) => ({
     name: ex.name as string,
     sets: ex.sets as number,
     reps: ex.reps as number,
@@ -152,57 +149,53 @@ export async function saveWorkoutTemplate(coachId: string, data: {
   estimatedDurationMinutes: number | null
   exercises: TemplateExercise[]
 }): Promise<string> {
-  const db = getDB()
   const templateId = data.id || generateId()
   const now = new Date().toISOString()
 
-  const existing = await db.execute('SELECT id FROM workout_templates WHERE id = ? AND coach_id = ?', [templateId, coachId])
+  const existing = await safeExecute('SELECT id FROM workout_templates WHERE id = $1 AND coach_id = $2', [templateId, coachId])
 
   if (existing.rows.length > 0) {
     await safeExecute(
-      db,
-      `UPDATE workout_templates SET name=?, description=?, goal=?, estimated_duration_minutes=?, updated_at=? WHERE id=? AND coach_id=?`,
+      `UPDATE workout_templates SET name=$1, description=$2, goal=$3, estimated_duration_minutes=$4, updated_at=$5 WHERE id=$6 AND coach_id=$7`,
       [data.name, data.description, data.goal, data.estimatedDurationMinutes, now, templateId, coachId]
     )
   } else {
     await safeExecute(
-      db,
       `INSERT INTO workout_templates (id, coach_id, name, description, goal, estimated_duration_minutes, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [templateId, coachId, data.name, data.description, data.goal, data.estimatedDurationMinutes, now, now]
     )
   }
 
   // Replace exercises
-  await db.execute('DELETE FROM workout_template_exercises WHERE template_id = ?', [templateId])
+  await safeExecute('DELETE FROM workout_template_exercises WHERE template_id = $1', [templateId])
   for (const ex of data.exercises) {
     await safeExecute(
-      db,
       `INSERT INTO workout_template_exercises (id, template_id, name, sets, reps, weight_kg, rest_seconds, notes, sort_order, muscle_groups, library_exercise_id, mode, phase, superset_group, reps_min, reps_max, prog, inc, sec, minutes, speed, per_side, body_part)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)`,
       [
-        generateId(), 
-        templateId, 
-        ex.name, 
-        ex.sets ?? 0, 
-        ex.reps ?? 0, 
-        ex.weightKg ?? null, 
-        ex.restSeconds ?? null, 
-        ex.notes ?? null, 
+        generateId(),
+        templateId,
+        ex.name,
+        ex.sets ?? 0,
+        ex.reps ?? 0,
+        ex.weightKg ?? null,
+        ex.restSeconds ?? null,
+        ex.notes ?? null,
         ex.sortOrder ?? 0,
-        JSON.stringify(ex.muscleGroups ?? []), 
+        JSON.stringify(ex.muscleGroups ?? []),
         ex.libraryExerciseId ?? null,
-        ex.mode ?? 'reps', 
-        ex.phase ?? 'work', 
+        ex.mode ?? 'reps',
+        ex.phase ?? 'work',
         ex.supersetGroup ?? null,
-        ex.repsMin ?? null, 
-        ex.repsMax ?? null, 
-        ex.prog ?? null, 
+        ex.repsMin ?? null,
+        ex.repsMax ?? null,
+        ex.prog ?? null,
         ex.inc ?? null,
-        ex.sec ?? null, 
-        ex.minutes ?? null, 
-        ex.speed ?? null, 
-        ex.perSide ?? 0, 
+        ex.sec ?? null,
+        ex.minutes ?? null,
+        ex.speed ?? null,
+        ex.perSide ?? 0,
         ex.bodyPart ?? null
       ]
     )
@@ -212,10 +205,9 @@ export async function saveWorkoutTemplate(coachId: string, data: {
 }
 
 export async function deleteWorkoutTemplate(coachId: string, templateId: string): Promise<boolean> {
-  const db = getDB()
-  const result = await db.execute(
-    'DELETE FROM workout_templates WHERE id = ? AND coach_id = ?',
+  const result = await safeExecute(
+    'DELETE FROM workout_templates WHERE id = $1 AND coach_id = $2',
     [templateId, coachId]
   )
-  return result.rowsAffected > 0
+  return (result.rowCount ?? 0) > 0
 }

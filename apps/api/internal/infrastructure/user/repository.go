@@ -25,7 +25,7 @@ func NewRepository(db *sql.DB) *Repository {
 func (r *Repository) GetByID(ctx context.Context, id string) (*user.User, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, email, name, avatar_url, role, is_active, created_at, updated_at
-		 FROM users WHERE id = ?`, id)
+		 FROM users WHERE id = $1`, id)
 
 	u := &user.User{}
 	var avatarURL sql.NullString
@@ -46,7 +46,7 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*user.User, error)
 func (r *Repository) GetByEmail(ctx context.Context, email string) (*user.User, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, email, name, avatar_url, role, is_active, created_at, updated_at
-		 FROM users WHERE email = ?`, email)
+		 FROM users WHERE email = $2`, email)
 
 	u := &user.User{}
 	var avatarURL sql.NullString
@@ -67,7 +67,7 @@ func (r *Repository) GetByEmail(ctx context.Context, email string) (*user.User, 
 func (r *Repository) Create(ctx context.Context, u *user.User) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO users (id, email, name, avatar_url, role, is_active, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+		 VALUES ($3, $4, $5, $6, $7, $8, NOW(), NOW())`,
 		u.ID, u.Email, u.Name, nullString(u.AvatarURL), u.Role, u.IsActive)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE") || strings.Contains(err.Error(), "duplicate") {
@@ -81,8 +81,8 @@ func (r *Repository) Create(ctx context.Context, u *user.User) error {
 // Update modifies an existing user record.
 func (r *Repository) Update(ctx context.Context, u *user.User) error {
 	result, err := r.db.ExecContext(ctx,
-		`UPDATE users SET email = ?, name = ?, avatar_url = ?, role = ?, is_active = ?,
-		 updated_at = datetime('now') WHERE id = ?`,
+		`UPDATE users SET email = $9, name = $10, avatar_url = $11, role = $12, is_active = $13,
+		 updated_at = NOW() WHERE id = $14`,
 		u.Email, u.Name, nullString(u.AvatarURL), u.Role, u.IsActive, u.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
@@ -102,7 +102,7 @@ func (r *Repository) GetCoach(ctx context.Context, userID string) (*user.Coach, 
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, email, name, avatar_url, coach_code, specializations, certifications, bio,
 		 experience_years, max_athletes, is_accepting_athletes, is_active, created_at, updated_at
-		 FROM coaches WHERE id = ?`, userID)
+		 FROM coaches WHERE id = $15`, userID)
 
 	c := &user.Coach{}
 	var avatarURL, specializations, certifications, coachCode sql.NullString
@@ -133,8 +133,8 @@ func (r *Repository) GetCoach(ctx context.Context, userID string) (*user.Coach, 
 			return c, nil // never break the login read path on backfill failure
 		}
 		_, uerr := r.db.ExecContext(ctx,
-			`UPDATE coaches SET coach_code = ?, updated_at = datetime('now')
-			 WHERE id = ? AND (coach_code IS NULL OR coach_code = '')`,
+			`UPDATE coaches SET coach_code = $16, updated_at = NOW()
+			 WHERE id = $17 AND (coach_code IS NULL OR coach_code = '')`,
 			code, userID)
 		if uerr == nil {
 			c.CoachCode = code
@@ -149,7 +149,7 @@ func (r *Repository) uniqueCoachCode(ctx context.Context) (string, error) {
 		code := GenerateCoachCode()
 		var one int
 		err := r.db.QueryRowContext(ctx,
-			`SELECT 1 FROM coaches WHERE UPPER(coach_code) = ? AND is_active = 1`, code).Scan(&one)
+			`SELECT 1 FROM coaches WHERE UPPER(coach_code) = $18 AND is_active = 1`, code).Scan(&one)
 		if err == sql.ErrNoRows {
 			return code, nil
 		}
@@ -166,7 +166,7 @@ func (r *Repository) GetAthleteProfile(ctx context.Context, userID string) (*use
 		`SELECT id, email, name, avatar_url, sport, experience_level, height_cm, weight_kg,
 		 emergency_contact, emergency_phone, modality, schedule_days, schedule_time,
 		 is_active, created_at, updated_at
-		 FROM athlete_profiles WHERE id = ?`, userID)
+		 FROM athlete_profiles WHERE id = $19`, userID)
 
 	ap := &user.AthleteProfile{}
 	var avatarURL, sport, experienceLevel, emergencyContact, emergencyPhone sql.NullString
@@ -210,10 +210,10 @@ func (r *Repository) GetAthleteProfile(ctx context.Context, userID string) (*use
 // UpdateAthleteProfile updates the athlete's extended profile fields.
 func (r *Repository) UpdateAthleteProfile(ctx context.Context, userID string, ap *user.AthleteProfile) error {
 	result, err := r.db.ExecContext(ctx,
-		`UPDATE athlete_profiles SET email = ?, name = ?, avatar_url = ?, sport = ?,
-		 experience_level = ?, height_cm = ?, weight_kg = ?, emergency_contact = ?,
-		 emergency_phone = ?, modality = ?, schedule_days = ?, schedule_time = ?,
-		 updated_at = datetime('now') WHERE id = ?`,
+		`UPDATE athlete_profiles SET email = $20, name = $21, avatar_url = $22, sport = $23,
+		 experience_level = $24, height_cm = $25, weight_kg = $26, emergency_contact = $27,
+		 emergency_phone = $28, modality = $29, schedule_days = $30, schedule_time = $31,
+		 updated_at = NOW() WHERE id = $32`,
 		ap.Email, ap.Name, nullString(ap.AvatarURL), ap.Sport, ap.ExperienceLevel,
 		ap.HeightCm, ap.WeightKg, nullString(ap.EmergencyContact), nullString(ap.EmergencyPhone),
 		ap.Modality, ap.ScheduleDays, ap.ScheduleTime, userID)
@@ -268,7 +268,7 @@ func (r *Repository) ListAthletesByCoach(ctx context.Context, coachID string) ([
 		 ap.is_active, ap.created_at, ap.updated_at
 		 FROM athlete_profiles ap
 		 INNER JOIN coach_athlete_links cal ON ap.id = cal.athlete_id
-		 WHERE cal.coach_id = ? AND cal.status = 'active' AND ap.is_active = 1`, coachID)
+		 WHERE cal.coach_id = $33 AND cal.status = 'active' AND ap.is_active = 1`, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list athletes by coach: %w", err)
 	}

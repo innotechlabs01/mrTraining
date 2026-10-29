@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, Pressable, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -13,6 +13,7 @@ import { getVideoState } from '../components/videoState';
 import { RunningRouteView } from '../components/RunningRouteView';
 import { ExerciseDemoModal } from '../components/execution/ExerciseDemoModal';
 import { extractSessionId } from '../../application/sessionStart';
+import type { RunningInterval } from '../../application/workoutExecutionTypes';
 import { BarbellIcon, PlayIcon, MapPinIcon, ClockIcon } from '../../../../shared/components/icons';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { texts } from '../../../../shared/i18n/texts';
@@ -59,6 +60,7 @@ type PrescriptionExercise = {
   gpsRoute?: string | null;
   bodyPart?: string;
   muscleGroups?: string;
+  intervals?: RunningInterval[];
 };
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WorkoutDetail'>;
@@ -195,6 +197,7 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
     gpsRoute: ex.gpsRoute ?? undefined,
     mode: ex.mode,
     phase: ex.phase,
+    intervals: ex.intervals ?? [],
   }));
 
   const startSessionMutation = useMutation({
@@ -342,6 +345,37 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
                 ))}
               </View>
             ))}
+            {hasExercises && (aiInsights?.length ?? 0) > 0 && (
+              <View style={aiSummaryStyles.wrap}>
+                <Text style={aiSummaryStyles.title}>Sugerencias de IA para este entrenamiento</Text>
+                <FlatList
+                  data={aiInsights}
+                  keyExtractor={(item) => item.exercise_id}
+                  renderItem={({ item }) => (
+                    <View style={aiSummaryStyles.item}>
+                      <View style={aiSummaryStyles.row}>
+                        <Text style={aiSummaryStyles.exerciseName}>{item.name}</Text>
+                        <View style={aiSummaryStyles.metrics}>
+                          <Text style={aiSummaryStyles.suggestedWeight}>{item.suggested_weight_kg > 0 ? item.suggested_weight_kg : 0} kg</Text>
+                          <Text style={aiSummaryStyles.suggestedReps}>{item.suggested_reps} reps</Text>
+                          <Text style={aiSummaryStyles.targetRir}>RIR objetivo: {item.target_rir}</Text>
+                          <Text style={aiSummaryStyles.oneRm}>1RM: {item.one_rm_kg > 0 ? item.one_rm_kg : 0} kg</Text>
+                        </View>
+                      </View>
+                      <View style={aiSummaryStyles.confidenceBar}>
+                        <View style={{
+                          height: '100%',
+                          width: `${item.confidence * 100}%`,
+                          backgroundColor: item.confidence >= 0.7 ? colors.success : colors.warning,
+                          borderRadius: 3,
+                        }} />
+                        {Math.round(item.confidence * 100)}%
+                      </View>
+                    </View>
+                  )}
+                />
+              </View>
+            )}
 
             <View style={styles.cta}>
               <PrimaryButton
@@ -501,6 +535,21 @@ const chipStyles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
   },
+});
+
+// AI summary styles (separate for TypeScript)
+const aiSummaryStyles = StyleSheet.create({
+  wrap: { marginTop: spacing.lg, padding: spacing.md, backgroundColor: colors.surfaceRaised, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
+  title: { ...typography.label, color: colors.primary, marginBottom: spacing.md },
+  item: { gap: spacing.sm },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  exerciseName: { ...typography.bodyStrong, color: colors.text },
+  metrics: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
+  suggestedWeight: { ...typography.caption, color: colors.primary, fontWeight: '600' },
+  suggestedReps: { ...typography.caption, color: colors.text },
+  targetRir: { ...typography.caption, color: colors.warning },
+  oneRm: { ...typography.caption, color: colors.textSecondary },
+  confidenceBar: { marginTop: spacing.xs, height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden' },
 });
 
 const styles = StyleSheet.create({

@@ -69,6 +69,72 @@ func (h *RunningHandler) LogSession(c *fiber.Ctx) error {
 	return appresponse.Success(c, toSessionResponse(session))
 }
 
+// ImportDeviceSessions handles POST /running/sessions/import.
+// Persists runs recorded on a wearable (Apple Watch via HealthKit, Garmin via
+// Health Connect or the API) keeping the device id for idempotency.
+func (h *RunningHandler) ImportDeviceSessions(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	var req dto.ImportDeviceSessionsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+	if len(req.Sessions) == 0 {
+		return appresponse.Error(c, fiber.StatusBadRequest, "sessions is required")
+	}
+
+	imports := make([]*runningapp.ImportedSession, 0, len(req.Sessions))
+	for _, s := range req.Sessions {
+		points := make([]*domain.GpsPoint, 0, len(s.Points))
+		for _, p := range s.Points {
+			points = append(points, &domain.GpsPoint{
+				Lat:       p.Lat,
+				Lng:       p.Lng,
+				Alt:       p.Alt,
+				Timestamp: p.Timestamp,
+				Accuracy:  p.Accuracy,
+			})
+		}
+		imports = append(imports, &runningapp.ImportedSession{
+			ExternalID: s.ExternalID,
+			Session: domain.RunningSession{
+				Date:        s.Date,
+				Distance:    s.Distance,
+				Duration:    s.Duration,
+				Pace:        s.Pace,
+				Calories:    s.Calories,
+				Elevation:   s.Elevation,
+				HeartRate:   s.HeartRate,
+				Cadence:     s.Cadence,
+				GPSRoute:    s.GPSRoute,
+				Source:      s.Source,
+				DeviceName:  s.DeviceName,
+				DeviceBrand: s.DeviceBrand,
+			},
+			Points: points,
+		})
+	}
+
+	result, err := h.service.ImportDeviceSessions(c.Context(), userID, imports)
+	if err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	sessions := make([]dto.RunningSessionResponse, len(result.Sessions))
+	for i, s := range result.Sessions {
+		sessions[i] = toSessionResponse(s)
+	}
+
+	return appresponse.Success(c, dto.ImportDeviceSessionsResponse{
+		Imported: result.Imported,
+		Skipped:  result.Skipped,
+		Sessions: sessions,
+	})
+}
+
 // GetSession handles GET /running/sessions/:id.
 // Returns a single running session with its GPS points for the authenticated user.
 func (h *RunningHandler) GetSession(c *fiber.Ctx) error {
@@ -362,6 +428,143 @@ func (h *RunningHandler) GetStats(c *fiber.Ctx) error {
 	})
 }
 
+// CoachListSessionsByAthlete handles GET /coach/athletes/:id/running/sessions.
+// Returns paginated running sessions of a specific athlete for their coach.
+func (h *RunningHandler) CoachListSessionsByAthlete(c *fiber.Ctx) error {
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	athleteID := c.Params("id")
+	if athleteID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "athlete ID required")
+	}
+	if athleteID == coachID {
+		return appresponse.Error(c, fiber.StatusForbidden, "coach cannot view own sessions through coach endpoint")
+	}
+
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "20"))
+	fromDate := c.Query("from_date", "")
+	toDate := c.Query("to_date", "")
+
+	params := dto.PaginationParams{Page: page, Limit: limit}
+	params.Normalize()
+
+	sessions, total, err := h.service.GetRunningHistoryByAthlete(c.Context(), athleteID, fromDate, toDate, params.Page, params.Limit)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	responses := make([]dto.RunningSessionResponse, len(sessions))
+	for i, s := range sessions {
+		responses[i] = toSessionResponse(s)
+	}
+
+	return appresponse.Success(c, dto.ListResponse[dto.RunningSessionResponse]{
+		Data:  responses,
+		Total: total,
+		Page:  params.Page,
+		Limit: params.Limit,
+	})
+}
+
+// CoachGetStatsByAthlete handles GET /coach/athletes/:id/running/stats.
+// Returns aggregated running statistics of a specific athlete for their coach.
+func (h *RunningHandler) CoachGetStatsByAthlete(c *fiber.Ctx) error {
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	athleteID := c.Params("id")
+	if athleteID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "athlete ID required")
+	}
+	if athleteID == coachID {
+		return appresponse.Error(c, fiber.StatusForbidden, "coach cannot view own stats through coach endpoint")
+	}
+
+	fromDate := c.Query("from_date", "")
+	toDate := c.Query("to_date", "")
+
+	stats, err := h.service.GetRunningStatsByAthlete(c.Context(), athleteID, fromDate, toDate)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, dto.RunningStatsResponse{
+		TotalSessions:  stats.TotalSessions,
+		TotalDistance:  stats.TotalDistance,
+		TotalDuration:  stats.TotalDuration,
+		TotalCalories:  stats.TotalCalories,
+		TotalElevation: stats.TotalElevation,
+		AvgDistance:    stats.AvgDistance,
+		AvgDuration:    stats.AvgDuration,
+		AvgCalories:    stats.AvgCalories,
+		AvgHeartRate:   stats.AvgHeartRate,
+		AvgPace:        stats.AvgPace,
+	})
+}
+
+// CoachGetWeeklyTrendByAthlete handles GET /coach/athletes/:id/running/weekly-trend.
+// Returns weekly aggregated running data for trend charts.
+func (h *RunningHandler) CoachGetWeeklyTrendByAthlete(c *fiber.Ctx) error {
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	athleteID := c.Params("id")
+	if athleteID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "athlete ID required")
+	}
+	if athleteID == coachID {
+		return appresponse.Error(c, fiber.StatusForbidden, "coach cannot view own trend through coach endpoint")
+	}
+
+	fromDate := c.Query("from_date", "")
+	toDate := c.Query("to_date", "")
+
+	trend, err := h.service.GetRunningWeeklyTrendByAthlete(c.Context(), athleteID, fromDate, toDate)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, trend)
+}
+
+// CoachExportSessionsByAthlete handles GET /coach/athletes/:id/running/export.
+// Exports running sessions as CSV or GPX.
+func (h *RunningHandler) CoachExportSessionsByAthlete(c *fiber.Ctx) error {
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	athleteID := c.Params("id")
+	if athleteID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "athlete ID required")
+	}
+	if athleteID == coachID {
+		return appresponse.Error(c, fiber.StatusForbidden, "coach cannot export own sessions through coach endpoint")
+	}
+
+	format := c.Query("format", "csv")
+	if format != "csv" && format != "gpx" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "format must be csv or gpx")
+	}
+
+	fromDate := c.Query("from_date", "")
+	toDate := c.Query("to_date", "")
+
+	data, filename, contentType, err := h.service.ExportRunningSessions(c.Context(), athleteID, format, fromDate, toDate)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	c.Set("Content-Type", contentType)
+	c.Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+	return c.Send(data)
+}
+
 // ConnectDevice handles POST /running/devices.
 // Connects a wearable device for the authenticated user.
 func (h *RunningHandler) ConnectDevice(c *fiber.Ctx) error {
@@ -428,6 +631,10 @@ func toSessionResponse(s *domain.RunningSession) dto.RunningSessionResponse {
 		GPSRoute:  s.GPSRoute,
 		Source:    s.Source,
 		CreatedAt: s.CreatedAt,
+
+		ExternalID:  s.ExternalID,
+		DeviceName:  s.DeviceName,
+		DeviceBrand: s.DeviceBrand,
 	}
 }
 

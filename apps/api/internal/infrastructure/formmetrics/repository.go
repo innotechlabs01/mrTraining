@@ -31,7 +31,7 @@ func (r *Repository) InsertBatch(ctx context.Context, metrics []*domain.FormMetr
 
 	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO form_metrics (id, athlete_id, exercise_id, exercise_name, workout_id, form_score, depth, alignment, tempo, recorded_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`)
 	if err != nil {
 		return fmt.Errorf("prepare: %w", err)
@@ -63,7 +63,7 @@ func (r *Repository) GetByAthlete(ctx context.Context, athleteID string) ([]*dom
 			tempo,
 			recorded_at
 		FROM form_metrics
-		WHERE athlete_id = ?
+		WHERE athlete_id = $11
 		ORDER BY recorded_at DESC
 	`, athleteID)
 	if err != nil {
@@ -144,7 +144,7 @@ func (r *Repository) GetByAthleteAndExercise(ctx context.Context, athleteID stri
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, athlete_id, exercise_id, exercise_name, workout_id, form_score, depth, alignment, tempo, recorded_at
 		FROM form_metrics
-		WHERE athlete_id = ? AND exercise_id = ?
+		WHERE athlete_id = $12 AND exercise_id = $13
 		ORDER BY recorded_at DESC
 	`, athleteID, exerciseID)
 	if err != nil {

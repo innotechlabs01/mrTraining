@@ -26,12 +26,12 @@ func (r *Repository) Save(ctx context.Context, d *onboarding.OnboardingData) err
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO athlete_onboarding (athlete_id, sports, modality, experience_level, goal,
 		 sessions_per_week, session_duration, equipment, athlete_routine_accepted, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
 		 ON CONFLICT(athlete_id) DO UPDATE SET
 		   sports=excluded.sports, modality=excluded.modality, experience_level=excluded.experience_level,
 		   goal=excluded.goal, sessions_per_week=excluded.sessions_per_week,
 		   session_duration=excluded.session_duration, equipment=excluded.equipment,
-		   athlete_routine_accepted=excluded.athlete_routine_accepted, updated_at=datetime('now')`,
+		   athlete_routine_accepted=excluded.athlete_routine_accepted, updated_at=NOW()`,
 		d.AthleteID, string(sportsJSON), d.Modality, d.ExperienceLevel, d.Goal,
 		d.SessionsPerWeek, d.SessionDuration, d.Equipment, d.AthleteRoutineAccepted)
 	if err != nil {
@@ -45,7 +45,7 @@ func (r *Repository) Get(ctx context.Context, athleteID string) (*onboarding.Onb
 	row := r.db.QueryRowContext(ctx,
 		`SELECT athlete_id, sports, modality, experience_level, goal,
 		 sessions_per_week, session_duration, equipment, athlete_routine_accepted
-		 FROM athlete_onboarding WHERE athlete_id = ?`, athleteID)
+		 FROM athlete_onboarding WHERE athlete_id = $10`, athleteID)
 
 	d := &onboarding.OnboardingData{}
 	var sportsJSON string

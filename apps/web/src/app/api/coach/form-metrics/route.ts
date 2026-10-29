@@ -15,9 +15,7 @@ export async function GET(request: NextRequest) {
     const coachId = request.headers.get('x-coach-id') || 'default'
 
     // Get all form metrics for coach's athletes
-    const result = await safeExecute(
-      db,
-      `SELECT
+    const result = await safeExecute(`SELECT
         fm.athlete_id,
         COALESCE(a.name, 'Athlete') as athlete_name,
         fm.exercise_id,

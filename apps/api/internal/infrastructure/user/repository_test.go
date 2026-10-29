@@ -2,26 +2,21 @@ package user
 
 import (
 	"context"
-	"database/sql"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
-
-	_ "modernc.org/sqlite" // enables the libsql driver's file: fallback
 )
 
 func setupTestDB(t *testing.T) *database.DB {
 	t.Helper()
 	url := os.Getenv("DATABASE_URL")
-	token := os.Getenv("TURSO_AUTH_TOKEN")
-	if url == "" || token == "" {
-		t.Skip("skipping: DATABASE_URL and TURSO_AUTH_TOKEN not set")
+	if url == "" {
+		t.Skip("skipping: DATABASE_URL not set")
 	}
 
-	db, err := database.Connect(url, token)
+	db, err := database.Connect(url)
 	if err != nil {
 		t.Fatalf("failed to connect to database: %v", err)
 	}
@@ -106,14 +101,19 @@ func TestRepository_ListAthletesByCoach_Empty(t *testing.T) {
 // on the first read (e.g. the coach's first sign-in).
 // Runs against a local file: SQLite database — no remote services needed.
 func TestRepository_GetCoach_BackfillsCoachCode(t *testing.T) {
-	// Enable the local file: SQLite driver (same fallback the migration runner uses).
+	// Runs against PostgreSQL via DATABASE_URL — no remote services needed.
 	ctx := context.Background()
-	path := "file://" + filepath.Join(t.TempDir(), "coach_backfill_test.db")
-	sqlDB, err := sql.Open("libsql", path)
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		t.Skip("skipping: DATABASE_URL not set")
+	}
+
+	db, err := database.Connect(url)
 	if err != nil {
 		t.Fatalf("open local db failed: %v", err)
 	}
-	defer func() { _ = sqlDB.Close() }()
+	defer db.Close()
+	sqlDB := db.DB
 
 	// Minimal coaches schema matching the production columns used below.
 	if _, err := sqlDB.Exec(`CREATE TABLE coaches (

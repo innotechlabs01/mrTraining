@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -17,6 +17,7 @@ import {
   interpolate,
   type Exercise,
   type PrescriptionItem,
+  type RunningInterval,
 } from '../../application/workoutExecutionTypes';
 import { FormAnalyzer } from '../components/FormAnalyzer';
 import { RepCounter } from '../components/RepCounter';
@@ -31,6 +32,10 @@ import { isPlayableVideoUrl } from '../../../../shared/components/video/isPlayab
 import { PendingSyncBadge } from '../components/execution/PendingSyncBadge';
 import { RestOverlay } from '../components/execution/RestOverlay';
 import { SetInput } from '../components/execution/SetInput';
+import { RunningRouteView } from '../components/RunningRouteView';
+import { IntervalTracker } from '../components/execution/IntervalTracker';
+import { useGpsTracking } from '../../hooks/useGpsTracking';
+import { reportRunningProgress } from '../../../infrastructure/api/client';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WorkoutExecution'>;
 
@@ -49,6 +54,108 @@ export function WorkoutExecutionScreen({ route, navigation }: Props) {
   const { sessionId, workoutId } = route.params;
   const vm = useWorkoutExecution({ sessionId, workoutId, navigation });
   const t = vm.t;
+
+  // GPS tracking for running exercises with route
+  const gpsRoute = vm.currentPrescription?.gpsRoute;
+  const intervals = (vm.currentExercise as Exercise & { intervals?: RunningInterval[] })
+    ?.intervals ?? [];
+  const isRunningExercise =
+    !!gpsRoute &&
+    !!(
+      vm.currentExercise?.mode === 'cardio' ||
+      vm.currentExercise?.name?.toLowerCase().includes('run')
+    );
+  const { isTracking, points, error: gpsError } = useGpsTracking({
+    workoutId: sessionId,
+    exerciseId: vm.currentExercise?.id ?? '',
+    enabled: isRunningExercise,
+  });
+
+  // Interval execution state
+  const [currentIntervalIndex, setCurrentIntervalIndex] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [elapsedDistanceKm, setElapsedDistanceKm] = useState(0);
+  const [intervalCompleted, setIntervalCompleted] = useState(false);
+
+  const currentInterval = intervals[currentIntervalIndex];
+
+  // Auto-advance interval when time/distance target is met
+  useEffect(() => {
+    if (!currentInterval || intervalCompleted) return;
+
+    let reached = false;
+    if (currentInterval.workType === 'time') {
+      reached = elapsedSeconds >= currentInterval.workValue;
+    } else {
+      reached = elapsedDistanceKm >= currentInterval.workValue;
+    }
+
+    if (reached) {
+      setIntervalCompleted(true);
+      if (currentIntervalIndex >= intervals.length - 1) {
+        // Last interval done — let the screen finish normally
+        return;
+      }
+      setCurrentIntervalIndex((i) => i + 1);
+      setElapsedSeconds(0);
+      setElapsedDistanceKm(0);
+      setIntervalCompleted(false);
+    }
+  }, [
+    currentInterval,
+    currentIntervalIndex,
+    elapsedSeconds,
+    elapsedDistanceKm,
+    intervalCompleted,
+    intervals.length,
+  ]);
+
+  // Track elapsed time for time-based intervals
+  useEffect(() => {
+    if (!isTracking || !currentInterval || currentInterval.workType !== 'time') {
+      return;
+    }
+    const t = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [isTracking, currentInterval]);
+
+  // Advance to next interval manually
+  const handleAdvanceInterval = async () => {
+    if (currentIntervalIndex >= intervals.length - 1) return;
+    const current = intervals[currentIntervalIndex];
+    try {
+      await reportRunningProgress({
+        workoutId,
+        intervalIndex: currentIntervalIndex,
+        elapsedSeconds,
+        elapsedDistanceKm,
+        completed: true,
+      })
+    } catch {
+      // best-effort: never block interval advance on network failure
+    }
+    setCurrentIntervalIndex((i) => i + 1)
+    setElapsedSeconds(0)
+    setElapsedDistanceKm(0)
+    setIntervalCompleted(false)
+  }
+
+  // Mark workout complete from interval tracker
+  const handleCompleteFromIntervals = async () => {
+    const current = intervals[currentIntervalIndex]
+    try {
+      await reportRunningProgress({
+        workoutId,
+        intervalIndex: currentIntervalIndex,
+        elapsedSeconds,
+        elapsedDistanceKm,
+        completed: true,
+      })
+    } catch {
+      // best-effort
+    }
+    vm.handleNext()
+  }
 
   // Up-next exercises (next 1-2 exercises).
   const upcomingExercises = useMemo(
@@ -70,6 +177,12 @@ export function WorkoutExecutionScreen({ route, navigation }: Props) {
       <View style={styles.headerRow}>
         <ScreenHeader title={vm.title} onBack={() => navigation.goBack()} />
         <View style={styles.headerRight}>
+          {isRunningExercise && (
+            <View style={styles.gpsStatus}>
+              <View style={[styles.gpsDot, { backgroundColor: isTracking ? '#15AAF2' : '#FF3B30' }]} />
+              <Text style={styles.gpsText}>{isTracking ? 'GPS' : 'GPS OFF'}</Text>
+            </View>
+          )}
           {vm.streakCurrent > 0 && <StreakBadge count={vm.streakCurrent} />}
           {vm.outboxCount > 0 && (
             <PendingSyncBadge count={vm.outboxCount} accessibilityLabel={t.pendingSync} />
@@ -119,6 +232,29 @@ export function WorkoutExecutionScreen({ route, navigation }: Props) {
             ) : null}
 
             <ProgressBar progress={vm.computedProgress} />
+
+            {vm.currentPrescription?.gpsRoute ? (
+              <RunningRouteView
+                key={`route-${vm.currentExercise.id}`}
+                gpsRoute={vm.currentPrescription.gpsRoute}
+                height={280}
+                followUser
+                workoutId={vm.data?.workout.id}
+                exerciseId={vm.currentExercise.id}
+              />
+            ) : null}
+
+            {isRunningExercise && intervals.length > 0 ? (
+              <IntervalTracker
+                intervals={intervals}
+                currentIntervalIndex={currentIntervalIndex}
+                elapsedSeconds={elapsedSeconds}
+                elapsedDistanceKm={elapsedDistanceKm}
+                onComplete={handleCompleteFromIntervals}
+                onAdvance={handleAdvanceInterval}
+                isOffRoute={false}
+              />
+            ) : null}
 
             <ExerciseCard
               name={vm.currentExercise.name}
@@ -233,6 +369,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  gpsStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  gpsDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  gpsText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   resumeBanner: {
     backgroundColor: `${colors.primary}1A`,

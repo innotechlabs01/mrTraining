@@ -3,10 +3,9 @@ package ally_payment_declaration
 import (
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
-
-	_ "modernc.org/sqlite"
 
 	allypaymentdeclarationdomain "github.com/innotechlabs01/mr-training-api/internal/domain/ally_payment_declaration"
 	allypaymentdeclarationinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_payment_declaration"
@@ -15,16 +14,15 @@ import (
 
 func newPaymentDeclarationTestDB(t *testing.T) (*database.DB, *Service) {
 	t.Helper()
-	path := t.TempDir() + "/test.db"
-	db, err := database.Connect("file:"+path, "")
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		t.Skip("skipping: DATABASE_URL not set")
+	}
+	db, err := database.Connect(url)
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
-
-	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
-		t.Fatalf("pragma foreign_keys: %v", err)
-	}
 
 	ddl := `
 CREATE TABLE IF NOT EXISTS allies (

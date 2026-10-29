@@ -19,8 +19,9 @@ func (r *Repository) EnsureUser(ctx context.Context, id, email, name, role strin
 		name = email
 	}
 	_, err := r.db.ExecContext(ctx,
-		`INSERT OR IGNORE INTO users (id, email, name, avatar_url, role, is_active, created_at, updated_at)
-		 VALUES (?, ?, ?, '', ?, 1, datetime('now'), datetime('now'))`,
+		`INSERT INTO users (id, email, name, avatar_url, role, is_active, created_at, updated_at)
+		 VALUES ($1, $2, $3, '', $4, 1, NOW(), NOW())
+		 ON CONFLICT (id) DO NOTHING`,
 		id, email, name, role)
 	if err != nil {
 		return fmt.Errorf("ensure user: %w", err)
@@ -41,8 +42,9 @@ func (r *Repository) EnsureCoach(ctx context.Context, userID, email, name string
 		name = email
 	}
 	_, err := r.db.ExecContext(ctx,
-		`INSERT OR IGNORE INTO coaches (id, email, name, coach_code, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`,
+		`INSERT INTO coaches (id, email, name, coach_code, created_at, updated_at)
+		 VALUES ($5, $6, $7, $8, NOW(), NOW())
+		 ON CONFLICT (id) DO NOTHING`,
 		userID, email, name, GenerateCoachCode())
 	if err != nil {
 		return fmt.Errorf("ensure coach: %w", err)
@@ -62,8 +64,9 @@ func (r *Repository) EnsureAthleteProfile(ctx context.Context, userID, email, na
 		name = email
 	}
 	_, err := r.db.ExecContext(ctx,
-		`INSERT OR IGNORE INTO athlete_profiles (id, email, name, is_active, created_at, updated_at)
-		 VALUES (?, ?, ?, 1, datetime('now'), datetime('now'))`,
+		`INSERT INTO athlete_profiles (id, email, name, is_active, created_at, updated_at)
+		 VALUES ($9, $10, $11, 1, NOW(), NOW())
+		 ON CONFLICT (id) DO NOTHING`,
 		userID, email, name)
 	if err != nil {
 		return fmt.Errorf("ensure athlete profile: %w", err)
@@ -73,12 +76,12 @@ func (r *Repository) EnsureAthleteProfile(ctx context.Context, userID, email, na
 
 // CoachExists reports whether the coach profile row exists for the user.
 func (r *Repository) CoachExists(ctx context.Context, userID string) (bool, error) {
-	return r.rowExists(ctx, "SELECT 1 FROM coaches WHERE id = ?", userID)
+	return r.rowExists(ctx, "SELECT 1 FROM coaches WHERE id = $12", userID)
 }
 
 // AthleteProfileExists reports whether the athlete profile row exists for the user.
 func (r *Repository) AthleteProfileExists(ctx context.Context, userID string) (bool, error) {
-	return r.rowExists(ctx, "SELECT 1 FROM athlete_profiles WHERE id = ?", userID)
+	return r.rowExists(ctx, "SELECT 1 FROM athlete_profiles WHERE id = $13", userID)
 }
 
 func (r *Repository) rowExists(ctx context.Context, query, id string) (bool, error) {

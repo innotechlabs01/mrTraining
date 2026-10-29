@@ -49,7 +49,7 @@ func (r *Repository) CreateCommissionEntry(ctx context.Context, in domain.Create
 		INSERT INTO commission_entries
 			(id, operation_id, relationship_id, coach_id, agreement_id, agreement_version,
 			 base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'accrued', ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'accrued', $12, $13)
 	`, id, in.OperationID, in.RelationshipID, in.CoachID, in.AgreementID, in.AgreementVersion,
 		in.BaseCents, in.RateBps, in.FixedAmountCents, in.AmountCents, currency, computedAt, t)
 	if err != nil {
@@ -99,7 +99,7 @@ func (r *Repository) GetCommissionEntry(ctx context.Context, entryID, coachID st
 	return scanEntry(r.db.QueryRowContext(ctx, `
 		SELECT id, operation_id, relationship_id, coach_id, agreement_id, agreement_version,
 		       base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at, created_at
-		FROM commission_entries WHERE id = ? AND coach_id = ?
+		FROM commission_entries WHERE id = $14 AND coach_id = $15
 	`, entryID, coachID))
 }
 
@@ -108,7 +108,7 @@ func (r *Repository) ListCommissionEntriesByCoach(ctx context.Context, coachID s
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, operation_id, relationship_id, coach_id, agreement_id, agreement_version,
 		       base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at, created_at
-		FROM commission_entries WHERE coach_id = ?
+		FROM commission_entries WHERE coach_id = $16
 		ORDER BY created_at DESC
 	`, coachID)
 	if err != nil {
@@ -125,7 +125,7 @@ func (r *Repository) ListCommissionEntriesByAlly(ctx context.Context, allyID str
 		       ce.base_cents, ce.rate_bps, ce.fixed_amount_cents, ce.amount_cents, ce.currency, ce.status, ce.computed_at, ce.created_at
 		FROM commission_entries ce
 		JOIN coach_ally_relationships car ON ce.relationship_id = car.id
-		WHERE car.ally_id = ?
+		WHERE car.ally_id = $17
 		ORDER BY ce.created_at DESC
 	`, allyID)
 	if err != nil {
@@ -141,7 +141,7 @@ func (r *Repository) GetOpenCommissionEntryByOperation(ctx context.Context, oper
 		SELECT id, operation_id, relationship_id, coach_id, agreement_id, agreement_version,
 		       base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at, created_at
 		FROM commission_entries
-		WHERE operation_id = ? AND status != 'reversed'
+		WHERE operation_id = $18 AND status != 'reversed'
 		ORDER BY created_at DESC
 		LIMIT 1
 	`, operationID))
@@ -158,7 +158,7 @@ func (r *Repository) ReverseCommissionEntry(ctx context.Context, entryID, revers
 	current, err := scanEntry(tx.QueryRowContext(ctx, `
 		SELECT id, operation_id, relationship_id, coach_id, agreement_id, agreement_version,
 		       base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at, created_at
-		FROM commission_entries WHERE id = ?
+		FROM commission_entries WHERE id = $19
 	`, entryID))
 	if err != nil {
 		return nil, nil, err
@@ -171,7 +171,7 @@ func (r *Repository) ReverseCommissionEntry(ctx context.Context, entryID, revers
 	t := time.Now().Format("2006-01-02 15:04:05")
 
 	_, err = tx.ExecContext(ctx, `
-		UPDATE commission_entries SET status = 'reversed' WHERE id = ?
+		UPDATE commission_entries SET status = 'reversed' WHERE id = $20
 	`, entryID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to reverse commission entry: %w", err)
@@ -181,7 +181,7 @@ func (r *Repository) ReverseCommissionEntry(ctx context.Context, entryID, revers
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO financial_adjustments
 			(id, entry_id, kind, amount_cents, reason, created_by, created_at)
-		VALUES (?, ?, 'correction', ?, ?, ?, ?)
+		VALUES ($21, $22, 'correction', $23, $24, $25, $26)
 	`, adjustmentID, entryID, -current.AmountCents, reason, reverserID, t)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to insert financial adjustment: %w", err)
@@ -229,7 +229,7 @@ func (r *Repository) CreateFinancialAdjustment(ctx context.Context, in domain.Cr
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO financial_adjustments
 			(id, entry_id, settlement_id, kind, amount_cents, reason, created_by, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES ($27, $28, $29, $30, $31, $32, $33, $34)
 	`, id, in.EntryID, in.SettlementID, in.Kind, in.AmountCents, in.Reason, in.CreatedBy, t)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert financial adjustment: %w", err)
@@ -266,7 +266,7 @@ func (r *Repository) CreateFinancialAdjustment(ctx context.Context, in domain.Cr
 func (r *Repository) ListFinancialAdjustmentsByEntry(ctx context.Context, entryID string) ([]*domain.FinancialAdjustment, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, entry_id, COALESCE(settlement_id, ''), kind, amount_cents, reason, created_by, created_at
-		FROM financial_adjustments WHERE entry_id = ?
+		FROM financial_adjustments WHERE entry_id = $35
 		ORDER BY created_at DESC
 	`, entryID)
 	if err != nil {
@@ -285,7 +285,7 @@ func (r *Repository) GetOperationForCommission(ctx context.Context, operationID 
 		SELECT o.status, COALESCE(SUM(oi.unit_price_cents * oi.quantity), 0), o.relationship_id
 		FROM ally_operations o
 		LEFT JOIN ally_operation_items oi ON oi.operation_id = o.id
-		WHERE o.id = ?
+		WHERE o.id = $36
 		GROUP BY o.id, o.relationship_id
 	`, operationID).Scan(&status, &grossCents, &relationshipID)
 	if err != nil {
@@ -299,7 +299,7 @@ func (r *Repository) GetActiveDeclarationStatus(ctx context.Context, operationID
 	var status string
 	err := r.db.QueryRowContext(ctx, `
 		SELECT status FROM ally_payment_declarations
-		WHERE operation_id = ? AND status IN ('declared','under_review','confirmed')
+		WHERE operation_id = $37 AND status IN ('declared','under_review','confirmed')
 		ORDER BY version DESC
 		LIMIT 1
 	`, operationID).Scan(&status)
@@ -319,7 +319,7 @@ func (r *Repository) GetActiveAgreement(ctx context.Context, relationshipID stri
 	var version int
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, rate_bps, fixed_amount_cents, version FROM commission_agreements
-		WHERE relationship_id = ? AND valid_to IS NULL AND status = 'accepted'
+		WHERE relationship_id = $38 AND valid_to IS NULL AND status = 'accepted'
 		LIMIT 1
 	`, relationshipID).Scan(&agreementID, &rateBps, &fixedAmountCents, &version)
 	if err != nil {
@@ -343,6 +343,76 @@ func scanEntry(row *sql.Row) (*domain.CommissionEntry, error) {
 		return nil, fmt.Errorf("failed to scan commission entry: %w", err)
 	}
 	return &e, nil
+}
+
+// CreateCommissionEntryDirect inserta una entrada de comisión sin validar
+// precondiciones de estado de operación ni declaración de pago. Usado por el
+// flujo de compra automática de productos de aliado (H-09).
+func (r *Repository) CreateCommissionEntryDirect(ctx context.Context, in domain.CreateCommissionEntryInput, actorID string) (*domain.CommissionEntry, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	id := uuid.New().String()
+	t := time.Now().Format("2006-01-02 15:04:05")
+	computedAt := in.ComputedAt
+	if computedAt == "" {
+		computedAt = t
+	}
+	currency := in.Currency
+	if currency == "" {
+		currency = "COP"
+	}
+
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO commission_entries
+			(id, operation_id, relationship_id, coach_id, agreement_id, agreement_version,
+			 base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at, created_at)
+		VALUES ($39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, 'accrued', $50, $51)
+	`, id, in.OperationID, in.RelationshipID, in.CoachID, in.AgreementID, in.AgreementVersion,
+		in.BaseCents, in.RateBps, in.FixedAmountCents, in.AmountCents, currency, computedAt, t)
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert commission entry: %w", err)
+	}
+
+	ev := auditdomain.NewEvent("commission_entry", "commission_entry.accrued", actorID, map[string]any{
+		"operation_id":        in.OperationID,
+		"relationship_id":     in.RelationshipID,
+		"coach_id":            in.CoachID,
+		"agreement_id":        in.AgreementID,
+		"agreement_version":   in.AgreementVersion,
+		"base_cents":          in.BaseCents,
+		"rate_bps":            in.RateBps,
+		"fixed_amount_cents":  in.FixedAmountCents,
+		"amount_cents":        in.AmountCents,
+		"currency":            currency,
+	})
+	if err := allaudit.InsertTx(ctx, tx, ev); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return &domain.CommissionEntry{
+		ID:                 id,
+		OperationID:        in.OperationID,
+		RelationshipID:     in.RelationshipID,
+		CoachID:            in.CoachID,
+		AgreementID:        in.AgreementID,
+		AgreementVersion:   in.AgreementVersion,
+		BaseCents:          in.BaseCents,
+		RateBps:            in.RateBps,
+		FixedAmountCents:   in.FixedAmountCents,
+		AmountCents:        in.AmountCents,
+		Currency:           currency,
+		Status:             "accrued",
+		ComputedAt:         computedAt,
+		CreatedAt:          t,
+	}, nil
 }
 
 func scanEntries(rows *sql.Rows) ([]*domain.CommissionEntry, error) {

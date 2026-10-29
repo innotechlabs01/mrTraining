@@ -35,7 +35,7 @@ func InsertTx(ctx context.Context, tx *sql.Tx, e auditdomain.Event) error {
 	}
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO financial_audit_events (id, entity, entity_id, action, actor_id, actor_type, payload, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
 	`, e.ID, e.Entity, e.EntityID, e.Action, nullable(e.ActorID), e.ActorType, nullable(e.Payload))
 	if err != nil {
 		return fmt.Errorf("failed to write audit event: %w", err)
@@ -52,7 +52,7 @@ func (r *Repository) ListRecent(ctx context.Context, limit int) ([]*auditdomain.
 		SELECT id, entity, entity_id, action, COALESCE(actor_id, ''), actor_type, COALESCE(payload, ''), created_at
 		FROM financial_audit_events
 		ORDER BY created_at DESC, id DESC
-		LIMIT ?
+		LIMIT $8
 	`, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list audit events: %w", err)

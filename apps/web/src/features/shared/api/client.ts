@@ -23,8 +23,9 @@
  *   - /api/progress/*           — Progress analytics
  *   - /api/marketing/*          — Marketing (blog, products, plans)
  */
-import { goClient, goFetch } from '@/lib/api/go-client'
+import { goClient, goFetch, goFetchBlob } from '@/lib/api/go-client'
 import type { CoachEvent } from '@/features/coach/types'
+import type { EarningsSummary } from '@/features/coach/types'
 import type { Plan } from '@/features/coach/types'
 import type { Product } from '@/features/coach/types'
 import type { Sale } from '@/features/coach/types'
@@ -265,6 +266,44 @@ export const coachApi = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
+
+  // Coach view of athlete's running data
+  getAthleteRunningSessions: (
+    athleteId: string,
+    params: { page?: number; limit?: number; fromDate?: string; toDate?: string } = {}
+  ) =>
+    goFetch<{ data: RunningSession[]; total: number; page: number; limit: number }>(
+      `/api/v1/coach/athletes/${athleteId}/running/sessions${buildQuery({
+        page: params.page,
+        limit: params.limit,
+        from_date: params.fromDate,
+        to_date: params.toDate,
+      })}`
+    ),
+
+  getAthleteRunningStats: (athleteId: string, fromDate?: string, toDate?: string) =>
+    goFetch<RunningStats>(
+      `/api/v1/coach/athletes/${athleteId}/running/stats${buildQuery({ from_date: fromDate, to_date: toDate })}`
+    ),
+
+  getAthleteRunningWeeklyTrend: (athleteId: string, fromDate?: string, toDate?: string) =>
+    goFetch<WeeklyTrendPoint[]>(
+      `/api/v1/coach/athletes/${athleteId}/running/weekly-trend${buildQuery({ from_date: fromDate, to_date: toDate })}`
+    ),
+
+  exportAthleteRunningSessions: (
+    athleteId: string,
+    format: 'csv' | 'gpx',
+    fromDate?: string,
+    toDate?: string
+  ) =>
+    goFetchBlob(
+      `/api/v1/coach/athletes/${athleteId}/running/export${buildQuery({
+        format,
+        from_date: fromDate,
+        to_date: toDate,
+      })}`
+    ),
 };
 
 // ---- Event contract mappers (Go API ↔ CoachEvent) ----
@@ -848,6 +887,47 @@ export const coachingApi = {
     // Go API: DELETE /api/v1/coaches/sales/:id
     goFetch<{ ok: boolean }>(`/api/v1/coaches/sales/${id}`, { method: 'DELETE' }),
 
+  // Coach earnings summary — Go API (primary)
+  // Returns aggregated earnings: own product sales profit + ally commissions.
+  getEarningsSummary: () =>
+    // Go API: GET /api/v1/coach/earnings-summary
+    goFetch<EarningsSummary>('/api/v1/coach/earnings-summary'),
+
+  // Subscribe to live earnings events via Server-Sent Events.
+  // The callback receives parsed SSE events ({ type, payload }).
+  // Safe to call multiple times; each call opens its own EventSource.
+  subscribeEarningsLive: (
+    onEvent: (ev: RunningLiveEvent) => void,
+  ): (() => void) => {
+    if (typeof EventSource === 'undefined') {
+      return () => {}
+    }
+    const es = new EventSource('/api/v1/coach/earnings-live')
+    es.onmessage = (evt: MessageEvent) => {
+      try {
+        const data = JSON.parse(evt.data) as RunningLiveEvent
+        onEvent(data)
+      } catch {
+        // ignore malformed messages
+      }
+    }
+    es.onerror = () => {
+      es.close()
+    }
+    return () => {
+      es.close()
+    }
+  },
+
+  // Ally product purchase — Go API (primary)
+  // Athlete buys an ally product, automatically creating the operation and
+  // accruing the commission for the coach.
+  purchaseAllyProduct: (productId: string, quantity: number = 1) =>
+    goFetch<AllyPurchaseResponse>(
+      `/api/v1/athlete/ally/products/${productId}/purchase`,
+      { method: 'POST', body: JSON.stringify({ quantity }) }
+    ),
+
   // Dashboard (not in Go API yet — Next.js fallback)
   getDashboard: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/dashboard`),
 
@@ -1029,24 +1109,28 @@ export interface SessionAnalysis {
 }
 
 // Training API — Go backend (primary) with Next.js fallback.
-// Go endpoints: /api/v1/progress, /api/v1/exercises
+// Go endpoints: /api/v1/progress, /api/v1/exercises, /athlete/:id/analytics/*
 // Next.js fallback: /api/coach/athletes/:id/*, /api/coach/video-analytics
 export const trainingApi = {
   getTrainingSummary: (athleteId: string, days = 28) =>
-    // Next.js: /api/coach/athletes/:id/training-summary (not in Go API)
-    nextFetch.get<TrainingSummaryResponse>(`/api/coach/athletes/${athleteId}/training-summary?days=${days}`),
+    // Go: GET /athlete/:id/analytics/training-summary
+    goFetch<TrainingSummaryResponse>(`/api/v1/athlete/${athleteId}/analytics/training-summary?days=${days}`)
+      .catch(() => nextFetch.get<TrainingSummaryResponse>(`/api/coach/athletes/${athleteId}/training-summary?days=${days}`)),
 
   getOneRm: (athleteId: string) =>
-    // Next.js: /api/coach/athletes/:id/one-rm (not in Go API)
-    nextFetch.get<OneRmResponse>(`/api/coach/athletes/${athleteId}/one-rm`),
+    // Go: GET /athlete/:id/analytics/one-rm
+    goFetch<OneRmResponse>(`/api/v1/athlete/${athleteId}/analytics/one-rm`)
+      .catch(() => nextFetch.get<OneRmResponse>(`/api/coach/athletes/${athleteId}/one-rm`)),
 
   getFatigueMap: (athleteId: string, days = 7) =>
-    // Next.js: /api/coach/athletes/:id/fatigue-map (not in Go API)
-    nextFetch.get<FatigueMapResponse>(`/api/coach/athletes/${athleteId}/fatigue-map?days=${days}`),
+    // Go: GET /athlete/:id/analytics/fatigue-map
+    goFetch<FatigueMapResponse>(`/api/v1/athlete/${athleteId}/analytics/fatigue-map?days=${days}`)
+      .catch(() => nextFetch.get<FatigueMapResponse>(`/api/coach/athletes/${athleteId}/fatigue-map?days=${days}`)),
 
   getEffort: (athleteId: string, days = 28) =>
-    // Next.js: /api/coach/athletes/:id/effort (not in Go API)
-    nextFetch.get<EffortResponse>(`/api/coach/athletes/${athleteId}/effort?days=${days}`),
+    // Go: GET /athlete/:id/analytics/effort
+    goFetch<EffortResponse>(`/api/v1/athlete/${athleteId}/analytics/effort?days=${days}`)
+      .catch(() => nextFetch.get<EffortResponse>(`/api/coach/athletes/${athleteId}/effort?days=${days}`)),
 
   /** Wearable-derived health signals (HRV/RHR/steps/sleep) for one athlete. */
   getHealth: async (athleteId: string, days = 14): Promise<AthleteHealthResponse> => {
@@ -1066,6 +1150,15 @@ export const trainingApi = {
     const manualReadiness = metrics
       .filter(m => m.metricType === 'readiness' || m.metricType === 'manual_readiness')
       .map(m => ({ value: m.value, recordedAt: m.recordedAt, metricType: m.metricType, source: m.source }));
+    const steps = metrics
+      .filter(m => m.metricType === 'steps')
+      .map(m => ({ value: m.value, recordedAt: m.recordedAt, metricType: m.metricType, source: m.source }));
+    const activeCalories = metrics
+      .filter(m => m.metricType === 'active_calories')
+      .map(m => ({ value: m.value, recordedAt: m.recordedAt, metricType: m.metricType, source: m.source }));
+    const vo2max = metrics
+      .filter(m => m.metricType === 'vo2max')
+      .map(m => ({ value: m.value, recordedAt: m.recordedAt, metricType: m.metricType, source: m.source }));
 
     return {
       metrics,
@@ -1074,6 +1167,9 @@ export const trainingApi = {
       hrv,
       restingHr,
       manualReadiness,
+      steps,
+      activeCalories,
+      vo2max,
       windowDays: days,
     };
   },
@@ -1083,10 +1179,11 @@ export const trainingApi = {
     const params = new URLSearchParams();
     if (from) params.set('from', from);
     if (to) params.set('to', to);
-    // Next.js: /api/coach/athletes/:id/hr-zones (not in Go API)
-    return nextFetch.get<{ hrZones: HRZoneRow; sampleCount: number }>(
-      `/api/coach/athletes/${athleteId}/hr-zones?${params.toString()}`
-    );
+    // Go: GET /athlete/:id/analytics/hr-zones
+    return goFetch<{ hrZones: HRZoneRow; sampleCount: number }>(`/api/v1/athlete/${athleteId}/analytics/hr-zones?${params.toString()}`)
+      .catch(() => nextFetch.get<{ hrZones: HRZoneRow; sampleCount: number }>(
+        `/api/coach/athletes/${athleteId}/hr-zones?${params.toString()}`
+      ));
   },
 
   /** Aggregate video view analytics across all exercises. */
@@ -1445,6 +1542,9 @@ export interface AthleteHealthResponse {
   hrv: HealthSeriesRow[];
   restingHr: HealthSeriesRow[];
   manualReadiness: HealthSeriesRow[];
+  steps: HealthSeriesRow[];
+  activeCalories: HealthSeriesRow[];
+  vo2max: HealthSeriesRow[];
   windowDays: number;
 }
 
@@ -1458,6 +1558,15 @@ export interface WorkoutTemplateSummary {
   estimatedDurationMinutes: number | null;
   exerciseCount: number;
   createdAt: string;
+}
+
+export interface RunningIntervalRow {
+  order: number
+  workType: 'time' | 'distance'
+  workValue: number
+  restSeconds: number
+  paceTarget?: string
+  intensity?: 'easy' | 'tempo' | 'threshold' | 'vo2max'
 }
 
 export interface TemplateExerciseRow {
@@ -1477,6 +1586,8 @@ export interface TemplateExerciseRow {
   libraryExerciseId?: string | null;
   /** Running route as an encoded GPS polyline (lat,lng pairs). */
   gpsRoute?: string | null;
+  /** Running intervals for running workouts. */
+  intervals?: RunningIntervalRow[]
 }
 
 export interface WorkoutTemplateDetail extends WorkoutTemplateSummary {
@@ -1583,6 +1694,14 @@ export interface PastAssignmentListItem {
 }
 
 // ---- Running (Go API) ----
+export interface WeeklyTrendPoint {
+  week: string
+  distance: number
+  sessions: number
+  avgPaceSec: number
+  avgHeartRate: number
+}
+
 export interface RunningSession {
   id: string
   date: string
@@ -1610,6 +1729,15 @@ export interface RunningStats {
   avgCalories: number
   avgHeartRate: number
   avgPace: string         // "5:30"
+}
+
+export interface RunningPRsResponse {
+  bestPace: string     // "5:30" min/km
+  longestRun: number   // km
+  fastest1K: number    // seconds
+  fastest5K: number    // seconds
+  fastest10K: number   // seconds
+  totalRuns: number
 }
 
 export interface GpsPoint {
@@ -1714,6 +1842,100 @@ export const deleteRunningSession = (id: string) =>
     method: 'DELETE',
   })
 
+// ---- Running workout completion (Go API) ----
+
+export interface CompleteRunningWorkoutRequest {
+  workoutId: string
+  durationSeconds: number
+  actualGpsRoute?: string
+  actualIntervals?: RunningInterval[]
+}
+
+export interface RunningInterval {
+  order: number
+  workType: 'time' | 'distance'
+  workValue: number
+  restSeconds: number
+  paceTarget?: string
+  intensity?: 'easy' | 'tempo' | 'threshold' | 'vo2max'
+}
+
+export interface CompletedRunningWorkoutDetail {
+  workout_id: string
+  athlete_id: string
+  workout_name: string
+  status: string
+  completed_at: string
+  duration_seconds: number
+  running_exercises: {
+    id: string
+    name: string
+    prescribedGpsRoute: string
+    prescribedIntervals: RunningInterval[]
+    actualGpsRoute: string
+    actualIntervals: RunningInterval[]
+  }[]
+}
+
+/** Complete a running workout with actual GPS and interval data. */
+export const completeRunningWorkout = (request: CompleteRunningWorkoutRequest) =>
+  goFetch<{ ok: boolean }>(`/api/v1/workouts/${request.workoutId}/complete-running`, {
+    method: 'POST',
+    body: JSON.stringify(request),
+  })
+
+/** Get completed running workout detail with actual GPS and intervals. */
+export const getCompletedRunningWorkout = (workoutId: string) =>
+  goFetch<CompletedRunningWorkoutDetail>(`/api/v1/workouts/${workoutId}/running-complete`)
+
+/** Subscribe to live running-workout progress via Server-Sent Events.
+ *
+ * Returns an unsubscribe function. The callback receives parsed SSE events
+ * ({ type, payload }). Safe to call multiple times; each call opens its own
+ * EventSource. The SSE endpoint enforces ownership (coach or athlete).
+ */
+export type RunningLiveEvent = {
+  type: string
+  payload: Record<string, unknown>
+}
+
+export interface AllyPurchaseResponse {
+  operation_id: string
+  operation_kind: string
+  relationship_id: string
+  ally_id: string
+  commission_entry_id: string
+  commission_cents: number
+  total_cents: number
+  currency: string
+}
+
+export const subscribeRunningLive = (
+  workoutId: string,
+  onEvent: (ev: RunningLiveEvent) => void,
+): (() => void) => {
+  if (typeof EventSource === 'undefined') {
+    // Non-browser environment (SSR): no-op.
+    return () => {}
+  }
+  const url = `/api/v1/workouts/${workoutId}/running-live`
+  const es = new EventSource(url)
+  es.onmessage = (evt: MessageEvent) => {
+    try {
+      const data = JSON.parse(evt.data) as RunningLiveEvent
+      onEvent(data)
+    } catch {
+      // ignore malformed messages
+    }
+  }
+  es.onerror = () => {
+    es.close()
+  }
+  return () => {
+    es.close()
+  }
+}
+
 // ---- Athlete workout detail (Go API) ----
 
 export interface AthleteWorkoutDetailExercise {
@@ -1796,3 +2018,6 @@ function buildQuery(params: Record<string, string | number | undefined>): string
 // Use this when you need to call the Go API directly (e.g., for new features).
 // Example: import { goClient, goFetch } from '@/features/shared/api/client'
 export { goClient, goFetch } from '@/lib/api/go-client'
+
+// Named export for direct import (used in coach earnings page)
+export const subscribeEarningsLive = coachingApi.subscribeEarningsLive

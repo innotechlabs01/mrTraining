@@ -28,7 +28,7 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*eventd
 		`SELECT id, title, date, time, end_time, type, modality, location, description,
 		 status, format, is_public, running_distance_km, running_pace, running_meeting_point,
 		 coach_id, created_at, updated_at
-		 FROM events WHERE coach_id = ? ORDER BY date`, coachID)
+		 FROM events WHERE coach_id = $1 ORDER BY date`, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list events: %w", err)
 	}
@@ -73,7 +73,7 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*eventdomain.Event
 		`SELECT id, title, date, time, end_time, type, modality, location, description,
 		 status, format, is_public, running_distance_km, running_pace, running_meeting_point,
 		 coach_id, created_at, updated_at
-		 FROM events WHERE id = ?`, id)
+		 FROM events WHERE id = $2`, id)
 
 	e, err := scanEventRow(row)
 	if err != nil {
@@ -107,7 +107,7 @@ func (r *Repository) Create(ctx context.Context, e *eventdomain.Event) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO events (id, title, date, time, end_time, type, modality, location, description,
 		 status, format, is_public, running_distance_km, running_pace, running_meeting_point, coach_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 VALUES ($3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
 		e.ID, e.Title, e.Date, e.Time, e.EndTime, e.Type, e.Modality,
 		nullString(e.Location), nullString(e.Description), e.Status,
 		nullString(e.Format), boolToInt(e.IsPublic),
@@ -122,9 +122,9 @@ func (r *Repository) Create(ctx context.Context, e *eventdomain.Event) error {
 // Update modifies an existing event record.
 func (r *Repository) Update(ctx context.Context, e *eventdomain.Event) error {
 	result, err := r.db.ExecContext(ctx,
-		`UPDATE events SET title=?, date=?, time=?, end_time=?, type=?, modality=?, location=?,
-		 description=?, status=?, format=?, is_public=?, running_distance_km=?, running_pace=?,
-		 running_meeting_point=?, updated_at=datetime('now') WHERE id=?`,
+		`UPDATE events SET title=$19, date=$20, time=$21, end_time=$22, type=$23, modality=$24, location=$25,
+		 description=$26, status=$27, format=$28, is_public=$29, running_distance_km=$30, running_pace=$31,
+		 running_meeting_point=$32, updated_at=NOW() WHERE id=$33`,
 		e.Title, e.Date, e.Time, e.EndTime, e.Type, e.Modality,
 		nullString(e.Location), nullString(e.Description), e.Status,
 		nullString(e.Format), boolToInt(e.IsPublic),
@@ -145,7 +145,7 @@ func (r *Repository) Update(ctx context.Context, e *eventdomain.Event) error {
 
 // Delete removes an event record by ID.
 func (r *Repository) Delete(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM events WHERE id = ?`, id)
+	result, err := r.db.ExecContext(ctx, `DELETE FROM events WHERE id = $34`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete event: %w", err)
 	}
@@ -163,7 +163,7 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 func (r *Repository) GetRegistration(ctx context.Context, eventID, athleteID string) (*eventdomain.EventRegistration, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, event_id, athlete_id, status, created_at, updated_at
-		 FROM event_registrations WHERE event_id = ? AND athlete_id = ?`,
+		 FROM event_registrations WHERE event_id = $35 AND athlete_id = $36`,
 		eventID, athleteID)
 
 	reg := &eventdomain.EventRegistration{}
@@ -181,8 +181,8 @@ func (r *Repository) GetRegistration(ctx context.Context, eventID, athleteID str
 func (r *Repository) UpsertRegistration(ctx context.Context, reg *eventdomain.EventRegistration) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO event_registrations (id, event_id, athlete_id, status, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
-		 ON CONFLICT(event_id, athlete_id) DO UPDATE SET status = ?, updated_at = datetime('now')`,
+		 VALUES ($37, $38, $39, $40, NOW(), NOW())
+		 ON CONFLICT(event_id, athlete_id) DO UPDATE SET status = $41, updated_at = NOW()`,
 		reg.ID, reg.EventID, reg.AthleteID, reg.Status, reg.Status)
 	if err != nil {
 		return fmt.Errorf("failed to upsert registration: %w", err)
@@ -198,7 +198,7 @@ func (r *Repository) ListRegistrationsByAthlete(ctx context.Context, athleteID s
 		 e.running_meeting_point, e.coach_id, e.created_at, e.updated_at
 		 FROM events e
 		 INNER JOIN event_registrations er ON e.id = er.event_id
-		 WHERE er.athlete_id = ? AND er.status = 'accepted'
+		 WHERE er.athlete_id = $42 AND er.status = 'accepted'
 		 ORDER BY e.date`, athleteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list registrations: %w", err)
@@ -220,7 +220,7 @@ func (r *Repository) ListRegistrationsByAthlete(ctx context.Context, athleteID s
 func (r *Repository) ListRegistrationsByEvent(ctx context.Context, eventID string) ([]*eventdomain.EventRegistration, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, event_id, athlete_id, status, created_at, updated_at
-		 FROM event_registrations WHERE event_id = ?
+		 FROM event_registrations WHERE event_id = $43
 		 ORDER BY created_at`, eventID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list registrations by event: %w", err)
@@ -243,12 +243,13 @@ func (r *Repository) ListRegistrationsByEvent(ctx context.Context, eventID strin
 
 // SetAthletes replaces the athlete list for an event.
 func (r *Repository) SetAthletes(ctx context.Context, eventID string, athleteIDs []string) error {
-	if _, err := r.db.ExecContext(ctx, `DELETE FROM event_athletes WHERE event_id = ?`, eventID); err != nil {
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM event_athletes WHERE event_id = $44`, eventID); err != nil {
 		return fmt.Errorf("failed to delete event athletes: %w", err)
 	}
 	for _, athleteID := range athleteIDs {
 		if _, err := r.db.ExecContext(ctx,
-			`INSERT OR IGNORE INTO event_athletes (event_id, athlete_id) VALUES (?, ?)`,
+			`INSERT INTO event_athletes (event_id, athlete_id) VALUES ($45, $46)
+			 ON CONFLICT (event_id, athlete_id) DO NOTHING`,
 			eventID, athleteID); err != nil {
 			return fmt.Errorf("failed to insert event athlete: %w", err)
 		}
@@ -258,7 +259,7 @@ func (r *Repository) SetAthletes(ctx context.Context, eventID string, athleteIDs
 
 // SetFormFields replaces the form fields for an event.
 func (r *Repository) SetFormFields(ctx context.Context, eventID string, fields []eventdomain.EventFormField) error {
-	if _, err := r.db.ExecContext(ctx, `DELETE FROM event_form_fields WHERE event_id = ?`, eventID); err != nil {
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM event_form_fields WHERE event_id = $47`, eventID); err != nil {
 		return fmt.Errorf("failed to delete form fields: %w", err)
 	}
 	for _, f := range fields {
@@ -273,7 +274,7 @@ func (r *Repository) SetFormFields(ctx context.Context, eventID string, fields [
 		}
 		if _, err := r.db.ExecContext(ctx,
 			`INSERT INTO event_form_fields (id, event_id, label, kind, options, required, sort_order)
-			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			 VALUES ($48, $49, $50, $51, $52, $53, $54)`,
 			id, eventID, f.Label, f.Kind, nullString(optionsJSON), boolToInt(f.Required), f.SortOrder); err != nil {
 			return fmt.Errorf("failed to insert form field: %w", err)
 		}
@@ -283,12 +284,12 @@ func (r *Repository) SetFormFields(ctx context.Context, eventID string, fields [
 
 // SetListItems replaces the list items for an event.
 func (r *Repository) SetListItems(ctx context.Context, eventID string, items []string) error {
-	if _, err := r.db.ExecContext(ctx, `DELETE FROM event_list_items WHERE event_id = ?`, eventID); err != nil {
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM event_list_items WHERE event_id = $55`, eventID); err != nil {
 		return fmt.Errorf("failed to delete list items: %w", err)
 	}
 	for i, item := range items {
 		if _, err := r.db.ExecContext(ctx,
-			`INSERT INTO event_list_items (id, event_id, item, sort_order) VALUES (?, ?, ?, ?)`,
+			`INSERT INTO event_list_items (id, event_id, item, sort_order) VALUES ($56, $57, $58, $59)`,
 			uuid.New().String(), eventID, item, i); err != nil {
 			return fmt.Errorf("failed to insert list item: %w", err)
 		}
@@ -300,7 +301,7 @@ func (r *Repository) SetListItems(ctx context.Context, eventID string, items []s
 func (r *Repository) GetFormResponses(ctx context.Context, eventID, athleteID string) ([]eventdomain.EventFormResponse, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, event_id, athlete_id, field_id, value
-		 FROM event_form_responses WHERE event_id = ? AND athlete_id = ?`,
+		 FROM event_form_responses WHERE event_id = $60 AND athlete_id = $61`,
 		eventID, athleteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query form responses: %w", err)
@@ -322,7 +323,7 @@ func (r *Repository) GetFormResponses(ctx context.Context, eventID, athleteID st
 func (r *Repository) ListFormResponsesByEvent(ctx context.Context, eventID string) ([]eventdomain.EventFormResponse, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, event_id, athlete_id, field_id, value
-		 FROM event_form_responses WHERE event_id = ?
+		 FROM event_form_responses WHERE event_id = $62
 		 ORDER BY athlete_id, created_at`, eventID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query event form responses: %w", err)
@@ -346,14 +347,14 @@ func (r *Repository) ListFormResponsesByEvent(ctx context.Context, eventID strin
 // SaveFormResponses replaces an athlete's form responses for an event.
 func (r *Repository) SaveFormResponses(ctx context.Context, eventID, athleteID string, responses []eventdomain.EventFormResponse) error {
 	if _, err := r.db.ExecContext(ctx,
-		`DELETE FROM event_form_responses WHERE event_id = ? AND athlete_id = ?`,
+		`DELETE FROM event_form_responses WHERE event_id = $63 AND athlete_id = $64`,
 		eventID, athleteID); err != nil {
 		return fmt.Errorf("failed to delete form responses: %w", err)
 	}
 	for _, resp := range responses {
 		if _, err := r.db.ExecContext(ctx,
 			`INSERT INTO event_form_responses (id, event_id, athlete_id, field_id, value, created_at)
-			 VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+			 VALUES ($65, $66, $67, $68, $69, NOW())`,
 			uuid.New().String(), eventID, athleteID, resp.FieldID, resp.Value); err != nil {
 			return fmt.Errorf("failed to insert form response: %w", err)
 		}
@@ -365,7 +366,7 @@ func (r *Repository) SaveFormResponses(ctx context.Context, eventID, athleteID s
 
 func (r *Repository) getAthleteIDs(ctx context.Context, eventID string) ([]string, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT athlete_id FROM event_athletes WHERE event_id = ?`, eventID)
+		`SELECT athlete_id FROM event_athletes WHERE event_id = $70`, eventID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query event athletes: %w", err)
 	}
@@ -388,7 +389,7 @@ func (r *Repository) getAthleteIDs(ctx context.Context, eventID string) ([]strin
 func (r *Repository) getFormFields(ctx context.Context, eventID string) ([]eventdomain.EventFormField, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, event_id, label, kind, options, required, sort_order
-		 FROM event_form_fields WHERE event_id = ? ORDER BY sort_order`, eventID)
+		 FROM event_form_fields WHERE event_id = $71 ORDER BY sort_order`, eventID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query form fields: %w", err)
 	}
@@ -416,7 +417,7 @@ func (r *Repository) getFormFields(ctx context.Context, eventID string) ([]event
 
 func (r *Repository) getListItems(ctx context.Context, eventID string) ([]string, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT item FROM event_list_items WHERE event_id = ? ORDER BY sort_order`, eventID)
+		`SELECT item FROM event_list_items WHERE event_id = $72 ORDER BY sort_order`, eventID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query list items: %w", err)
 	}
@@ -517,7 +518,7 @@ func (r *Repository) ListByAthleteLinks(ctx context.Context, athleteID string) (
 		 e.coach_id, e.created_at, e.updated_at
 		 FROM events e
 		 INNER JOIN coach_athlete_links cal ON e.coach_id = cal.coach_id
-		 WHERE cal.athlete_id = ?
+		 WHERE cal.athlete_id = $73
 		 ORDER BY e.date`, athleteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list events by athlete links: %w", err)

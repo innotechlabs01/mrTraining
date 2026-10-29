@@ -28,7 +28,7 @@ func (r *Repository) Insert(ctx context.Context, rec *domain.FormRecording) erro
 
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO form_recordings (id, athlete_id, exercise_id, workout_id, form_score, form_metrics, video_url, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`, rec.ID, rec.AthleteID, rec.ExerciseID, nullStr(rec.WorkoutID),
 		rec.FormScore, rec.FormMetrics, rec.VideoURL, rec.CreatedAt)
 	if err != nil {

@@ -24,7 +24,9 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export function SettingsScreen() {
   const navigation = useNavigation<Nav>();
   const [watchStatus, setWatchStatus] = useState<string>('Verificando…');
+  const [watchLastSync, setWatchLastSync] = useState<string | null>(null);
   const [garminStatus, setGarminStatus] = useState<string>('Verificando…');
+  const [garminLastSync, setGarminLastSync] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<'watch' | 'garmin' | null>(null);
   // Devices that actually recorded runs — the names come from the watch
   // metadata, never from a guess about which watch the athlete owns.
@@ -65,6 +67,11 @@ export function SettingsScreen() {
       const connected = garminBridge ? await garminBridge.isAvailable() : false;
       setGarminStatus(connected ? 'Conectado vía Garmin Connect' : 'No conectado');
       if (!connected && garmin) setGarminName(garmin.name);
+
+      // Track last sync timestamps from device metadata
+      const now = new Date().toLocaleString();
+      if (appleWatch) setWatchLastSync(now);
+      if (garmin) setGarminLastSync(now);
     })();
   }, [watchChannel]);
 
@@ -98,11 +105,14 @@ export function SettingsScreen() {
       if (!workouts.ok) {
         Alert.alert('Wearables', 'No se pudo leer los entrenamientos del reloj.');
         setWatchStatus('Error de sincronización');
+        setWatchLastSync(null);
         return;
       }
 
       const appleWatch = workouts.deviceList.find(d => d.source === 'apple_watch');
       if (appleWatch) setWatchName(appleWatch.name);
+      const now = new Date().toLocaleString();
+      setWatchLastSync(now);
       const deviceLabel = workouts.devices.length > 0 ? workouts.devices.join(', ') : 'sin reloj detectado';
       setWatchStatus(`Conectado vía ${watchChannel} · ${deviceLabel}`);
       Alert.alert(
@@ -113,6 +123,7 @@ export function SettingsScreen() {
       );
     } catch {
       Alert.alert('Wearables', 'No se pudo sincronizar. Intentá de nuevo.');
+      setWatchLastSync(null);
     } finally {
       setSyncing(null);
     }
@@ -130,6 +141,8 @@ export function SettingsScreen() {
       // back instead of labelling the row with a made-up name.
       const deviceName = await detectGarminDeviceName();
       if (deviceName) setGarminName(deviceName);
+      const now = new Date().toLocaleString();
+      setGarminLastSync(now);
       setGarminStatus(`Conectado vía Garmin Connect · ${deviceName ?? 'sincronizado'}`);
       Alert.alert(
         'Garmin',
@@ -143,6 +156,7 @@ export function SettingsScreen() {
           ?.message ??
         'No se pudo sincronizar Garmin. Verificá que la cuenta esté conectada.';
       Alert.alert('Garmin', message);
+      setGarminLastSync(null);
     } finally {
       setSyncing(null);
     }
@@ -206,7 +220,13 @@ export function SettingsScreen() {
                 ? `Apple Watch · ${watchName}`
                 : 'Apple Watch'
           }
-          subtitle={watchStatus}
+          subtitle={
+            watchStatus
+              ? watchLastSync
+                ? `${watchStatus} · ${watchLastSync}`
+                : watchStatus
+              : 'Sin datos de sincronización'
+          }
           leadingIcon={<BellIcon size={20} />}
           onPress={() => void handleSyncWatch()}
         />
@@ -218,7 +238,13 @@ export function SettingsScreen() {
                 ? `Garmin · ${garminName}`
                 : 'Garmin'
           }
-          subtitle={garminStatus}
+          subtitle={
+            garminStatus
+              ? garminLastSync
+                ? `${garminStatus} · ${garminLastSync}`
+                : garminStatus
+              : 'Sin datos de sincronización'
+          }
           leadingIcon={<BellIcon size={20} />}
           onPress={() => void handleSyncGarmin()}
         />

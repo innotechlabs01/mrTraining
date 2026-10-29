@@ -1,4 +1,5 @@
 export * from './config'
+export * from './db'
 export * from './athletes'
 export * from './sessions'
 export * from './messages'

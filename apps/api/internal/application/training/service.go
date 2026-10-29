@@ -444,6 +444,51 @@ func (s *Service) CompleteSession(ctx context.Context, sessionID, athleteID stri
 	return nil
 }
 
+
+// CompleteRunningWorkout completes a running workout with actual GPS and interval data.
+func (s *Service) CompleteRunningWorkout(ctx context.Context, athleteID string, req dto.CompleteRunningWorkoutRequest) error {
+	// Verify the workout belongs to the athlete
+	aw, err := s.workoutRepo.GetAssignedWorkout(ctx, req.WorkoutID)
+	if err != nil {
+		return fmt.Errorf("get assigned workout: %w", err)
+	}
+	if aw.AthleteID != athleteID {
+		return fmt.Errorf("workout does not belong to athlete")
+	}
+
+	// Convert intervals
+	intervals := make([]training.RunningInterval, len(req.ActualIntervals))
+	for i, iv := range req.ActualIntervals {
+		intervals[i] = training.RunningInterval{
+			Order:       iv.Order,
+			WorkType:    iv.WorkType,
+			WorkValue:   iv.WorkValue,
+			RestSeconds: iv.RestSeconds,
+			PaceTarget:  iv.PaceTarget,
+			Intensity:   iv.Intensity,
+		}
+	}
+
+	// Update the workout exercises with actual GPS and intervals
+	if err := s.workoutRepo.UpdateWorkoutExerciseActuals(ctx, req.WorkoutID, req.ActualGPSRoute, intervals); err != nil {
+		return fmt.Errorf("update workout exercise actuals: %w", err)
+	}
+
+	// Also complete the session if one exists
+	sessions, err := s.workoutRepo.ListSessionsByWorkout(ctx, req.WorkoutID)
+	if err == nil && len(sessions) > 0 {
+		// Complete the latest in-progress session
+		for _, sess := range sessions {
+			if !sess.Completed {
+				_ = s.workoutRepo.CompleteSession(ctx, sess.ID, athleteID, req.DurationSeconds)
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // GetPrescription returns the exercise prescription for an assigned workout.
 func (s *Service) GetPrescription(ctx context.Context, workoutID string) ([]training.WorkoutExercise, error) {
 	exercises, err := s.workoutRepo.GetPrescription(ctx, workoutID)

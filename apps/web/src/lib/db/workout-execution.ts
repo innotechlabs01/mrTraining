@@ -1,23 +1,21 @@
 /**
- * Workout Execution DB functions — Turso/LibSQL
+ * Workout Execution DB functions — PostgreSQL
  *
  * Provides scheduled workouts, workout history, and analytics.
  */
-import { getDB, generateId, mapRow, safeExecute } from './db'
-import type { Row } from '@libsql/client'
+import { safeExecute, generateId } from './db'
 
 /** Get scheduled workouts for an athlete. */
 export async function getScheduledWorkouts(athleteId: string) {
-  const db = getDB()
-  const result = await db.execute(
+  const result = await safeExecute(
     `SELECT aw.*, wt.name as template_name
      FROM assigned_workouts aw
      LEFT JOIN workout_templates wt ON aw.template_id = wt.id
-     WHERE aw.athlete_id = ?
+     WHERE aw.athlete_id = $1
      ORDER BY aw.scheduled_date DESC`,
     [athleteId],
   )
-  return result.rows.map(mapRow(result.columns)).map((row: Record<string, unknown>) => ({
+  return result.rows.map((row: Record<string, unknown>) => ({
     id: row.id,
     workout: {
       id: row.templateId || row.id,
@@ -38,15 +36,11 @@ export async function getScheduledWorkouts(athleteId: string) {
 
 /** Get workout history for an athlete. */
 export async function getWorkoutHistory(athleteId: string) {
-  const db = getDB()
-  const result = await db.execute(
-    `SELECT * FROM workout_session_logs
-     WHERE athlete_id = ?
-     ORDER BY started_at DESC
-     LIMIT 50`,
+  const result = await safeExecute(
+    'SELECT * FROM workout_session_logs WHERE athlete_id = $1 ORDER BY started_at DESC LIMIT 50',
     [athleteId],
   )
-  return result.rows.map(mapRow(result.columns)).map((row: Record<string, unknown>) => ({
+  return result.rows.map((row: Record<string, unknown>) => ({
     id: row.id,
     workoutId: row.workoutId || '',
     workoutName: row.workoutName || 'Workout',
@@ -66,14 +60,11 @@ export async function getWorkoutHistory(athleteId: string) {
 
 /** Get workout analytics for an athlete. */
 export async function getWorkoutAnalytics(athleteId: string) {
-  const db = getDB()
-
-  // Get all sessions
-  const sessions = await db.execute(
-    'SELECT * FROM workout_sessions WHERE athlete_id = ? ORDER BY date DESC',
+  const sessions = await safeExecute(
+    'SELECT * FROM workout_sessions WHERE athlete_id = $1 ORDER BY date DESC',
     [athleteId],
   )
-  const rows = sessions.rows.map(mapRow(sessions.columns))
+  const rows = sessions.rows
 
   const total = rows.length
   const completed = rows.filter((r: Record<string, unknown>) => r.status === 'completed').length
@@ -140,7 +131,6 @@ export interface AssignedWorkoutExercise {
   sortOrder: number
   muscleGroups: string[]
   libraryExerciseId: string | null
-  /** Enriched fields returned by getAssignedWorkoutDetail (assigned_workout_exercises rows). */
   prog?: string | null
   mode?: string | null
   phase?: string | null
@@ -156,16 +146,15 @@ export interface AssignedWorkoutExercise {
 }
 
 export async function getAssignedWorkouts(coachId: string): Promise<AssignedWorkout[]> {
-  const db = getDB()
-  const result = await db.execute(
+  const result = await safeExecute(
     `SELECT aw.*, ca.name as athlete_name
      FROM assigned_workouts aw
      INNER JOIN coach_athletes ca ON aw.athlete_id = ca.id
-     WHERE ca.coach_id = ?
+     WHERE ca.coach_id = $1
      ORDER BY aw.created_at DESC`,
     [coachId]
   )
-  return result.rows.map((r: Row) => ({
+  return result.rows.map((r: Record<string, unknown>) => ({
     id: r.id as string,
     athleteId: r.athlete_id as string,
     athleteName: r.athlete_name as string,
@@ -181,22 +170,21 @@ export async function getAssignedWorkouts(coachId: string): Promise<AssignedWork
 }
 
 export async function getAssignedWorkoutDetail(coachId: string, workoutId: string): Promise<AssignedWorkout | null> {
-  const db = getDB()
-  const result = await db.execute(
+  const result = await safeExecute(
     `SELECT aw.*, ca.name as athlete_name
      FROM assigned_workouts aw
      INNER JOIN coach_athletes ca ON aw.athlete_id = ca.id
-     WHERE aw.id = ? AND ca.coach_id = ?`,
+     WHERE aw.id = $1 AND ca.coach_id = $2`,
     [workoutId, coachId]
   )
   if (result.rows.length === 0) return null
   const r = result.rows[0]
 
-  const exercisesResult = await db.execute(
-    'SELECT * FROM assigned_workout_exercises WHERE workout_id = ? ORDER BY sort_order',
+  const exercisesResult = await safeExecute(
+    'SELECT * FROM assigned_workout_exercises WHERE workout_id = $1 ORDER BY sort_order',
     [workoutId]
   )
-  const exercises: AssignedWorkoutExercise[] = exercisesResult.rows.map((ex: Row) => ({
+  const exercises: AssignedWorkoutExercise[] = exercisesResult.rows.map((ex: Record<string, unknown>) => ({
     id: ex.id as string,
     workoutId: ex.workout_id as string,
     name: ex.name as string,
@@ -239,25 +227,24 @@ export async function getAssignedWorkoutDetail(coachId: string, workoutId: strin
 }
 
 export async function saveAssignedWorkout(coachId: string, data: Record<string, unknown>): Promise<string> {
-  const db = getDB()
   const workoutId = (data.id as string) || generateId()
   const now = new Date().toISOString()
 
   // Verify the athlete belongs to this coach
   const athleteId = data.athleteId as string
-  const athleteCheck = await db.execute('SELECT id FROM coach_athletes WHERE id = ? AND coach_id = ?', [athleteId, coachId])
+  const athleteCheck = await safeExecute('SELECT id FROM coach_athletes WHERE id = $1 AND coach_id = $2', [athleteId, coachId])
   if (athleteCheck.rows.length === 0) {
     throw new Error('Athlete not found or not assigned to this coach')
   }
 
-  const existing = await db.execute('SELECT id FROM assigned_workouts WHERE id = ?', [workoutId])
+  const existing = await safeExecute('SELECT id FROM assigned_workouts WHERE id = $1', [workoutId])
 
   if (existing.rows.length > 0) {
     await safeExecute(
-      db,
       `UPDATE assigned_workouts SET
-        content_name=?, content_type=?, content_id=?, modality=?, start_date=?, end_date=?, days_of_week=?, status=?, progress=?, updated_at=?
-       WHERE id=?`,
+        content_name=$1, content_type=$2, content_id=$3, modality=$4, start_date=$5, end_date=$6,
+        days_of_week=$7, status=$8, progress=$9, updated_at=$10
+       WHERE id=$11`,
       [
         data.contentName, data.contentType, data.contentId || null, data.modality, data.startDate, data.endDate || null,
         JSON.stringify(data.daysOfWeek || []), data.status, data.progress || 0, now, workoutId
@@ -265,9 +252,8 @@ export async function saveAssignedWorkout(coachId: string, data: Record<string, 
     )
   } else {
     await safeExecute(
-      db,
       `INSERT INTO assigned_workouts (id, athlete_id, athlete_name, content_id, content_name, content_type, modality, start_date, end_date, days_of_week, status, progress, coach_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
       [
         workoutId, athleteId, data.athleteName || '', data.contentId || '', data.contentName, data.contentType, data.modality,
         data.startDate, data.endDate || null, JSON.stringify(data.daysOfWeek || []),
@@ -290,43 +276,38 @@ export async function saveAssignedWorkoutExercises(workoutId: string, items: Arr
   muscleGroups: string[]
   libraryExerciseId: string | null
 }>): Promise<void> {
-  const db = getDB()
-  await db.execute('DELETE FROM assigned_workout_exercises WHERE workout_id = ?', [workoutId])
+  await safeExecute('DELETE FROM assigned_workout_exercises WHERE workout_id = $1', [workoutId])
   for (const item of items) {
     await safeExecute(
-      db,
       `INSERT INTO assigned_workout_exercises (id, workout_id, name, sets, reps, weight_kg, rest_seconds, notes, sort_order, muscle_groups, library_exercise_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
       [generateId(), workoutId, item.name, item.sets, item.reps, item.weightKg, item.restSeconds, item.notes, item.sortOrder, JSON.stringify(item.muscleGroups), item.libraryExerciseId]
     )
   }
 }
 
 export async function deleteAssignedWorkout(coachId: string, workoutId: string): Promise<void> {
-  const db = getDB()
   // Verify the workout belongs to one of the coach's athletes
-  const check = await db.execute(
+  const check = await safeExecute(
     `SELECT aw.id FROM assigned_workouts aw
      INNER JOIN coach_athletes ca ON aw.athlete_id = ca.id
-     WHERE aw.id = ? AND ca.coach_id = ?`,
+     WHERE aw.id = $1 AND ca.coach_id = $2`,
     [workoutId, coachId]
   )
   if (check.rows.length === 0) {
     throw new Error('Workout not found or not assigned to this coach')
   }
-  await db.execute('DELETE FROM assigned_workout_exercises WHERE workout_id = ?', [workoutId])
-  await db.execute('DELETE FROM assigned_workouts WHERE id = ?', [workoutId])
+  await safeExecute('DELETE FROM assigned_workout_exercises WHERE workout_id = $1', [workoutId])
+  await safeExecute('DELETE FROM assigned_workouts WHERE id = $1', [workoutId])
 }
 
 /** Create a new workout session for an athlete. */
 export async function createWorkoutSession(workoutId: string, athleteId: string) {
-  const db = getDB()
   const id = generateId()
   const now = new Date().toISOString()
   await safeExecute(
-    db,
     `INSERT INTO workout_session_logs (id, workout_id, athlete_id, started_at, completed, completed_at, current_exercise_index, duration_seconds)
-     VALUES (?, ?, ?, ?, 0, NULL, 0, 0)`,
+     VALUES ($1, $2, $3, $4, 0, NULL, 0, 0)`,
     [id, workoutId, athleteId, now],
   )
   return { id, workoutId, athleteId, startedAt: now, completed: false, currentExerciseIndex: 0, durationSeconds: 0 }
@@ -334,25 +315,22 @@ export async function createWorkoutSession(workoutId: string, athleteId: string)
 
 /** Complete a workout session and mark progress 100. */
 export async function completeWorkoutSession(sessionId: string) {
-  const db = getDB()
   const now = new Date().toISOString()
   await safeExecute(
-    db,
-    `UPDATE workout_session_logs SET completed = 1, completed_at = ? WHERE id = ?`,
+    `UPDATE workout_session_logs SET completed = true, completed_at = $1 WHERE id = $2`,
     [now, sessionId],
   )
   // Mark progress 100% when session is completed
-  const session = await db.execute('SELECT workout_id FROM workout_session_logs WHERE id = ?', [sessionId])
+  const session = await safeExecute('SELECT workout_id FROM workout_session_logs WHERE id = $1', [sessionId])
   if (session.rows.length > 0) {
     const workoutId = session.rows[0].workout_id as string
-    await safeExecute(db, `UPDATE assigned_workouts SET progress = 100 WHERE id = ?`, [workoutId])
+    await safeExecute(`UPDATE assigned_workouts SET progress = 100 WHERE id = $1`, [workoutId])
   }
 }
 
 /** Get workout detail with progress. */
 export async function getWorkoutDetail(workoutId: string) {
-  const db = getDB()
-  const result = await db.execute('SELECT * FROM assigned_workouts WHERE id = ?', [workoutId])
+  const result = await safeExecute('SELECT * FROM assigned_workouts WHERE id = $1', [workoutId])
   if (result.rows.length === 0) return null
   const w = result.rows[0]
   return {
@@ -382,14 +360,12 @@ export async function logWorkoutSet(
     skipped?: boolean
   } = {}
 ) {
-  const db = getDB()
   const id = generateId()
   const now = new Date().toISOString()
   await safeExecute(
-    db,
-    `INSERT INTO workout_set_logs (id, session_id, exercise_id, set_index, weight_kg, reps, completed, logged_at, phase, rir, rpe, sec, skipped)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, sessionId, exerciseId, setIndex, weightKg, reps, 1, now,
+    `INSERT INTO workout_set_logs (id, session_id, exercise_id, set_index, weight_kg, reps, completed, logged_at, phase, rir, rpe, sec, minutes, speed, skipped)
+     VALUES ($1, $2, $3, $4, $5, $6, 7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+    [id, sessionId, exerciseId, setIndex, weightKg, reps, now,
      options.phase || 'work', options.rir ?? null, options.rpe ?? null, options.sec ?? null, options.skipped ? 1 : 0],
   )
   return { id, sessionId, exerciseId, setIndex, weightKg, reps, ...options, loggedAt: now }
@@ -397,9 +373,8 @@ export async function logWorkoutSet(
 
 /** List all set logs for a session. */
 export async function listSessionSetLogs(sessionId: string) {
-  const db = getDB()
-  const result = await db.execute(
-    'SELECT * FROM workout_set_logs WHERE session_id = ? ORDER BY exercise_id, set_index, logged_at',
+  const result = await safeExecute(
+    'SELECT * FROM workout_set_logs WHERE session_id = $1 ORDER BY exercise_id, set_index, logged_at',
     [sessionId],
   )
   return result.rows.map((r) => ({
@@ -421,17 +396,16 @@ export async function listSessionSetLogs(sessionId: string) {
 
 /** Get training history for an athlete (for engine). */
 export async function getAthleteTrainingHistory(athleteId: string) {
-  const db = getDB()
   // Get all completed sessions for this athlete
-  const sessions = await db.execute(
-    `SELECT * FROM workout_session_logs WHERE athlete_id = ? AND completed = 1 ORDER BY started_at`,
+  const sessions = await safeExecute(
+    `SELECT * FROM workout_session_logs WHERE athlete_id = $1 AND completed = true ORDER BY started_at`,
     [athleteId],
   )
   const history = []
   const exerciseMeta: Record<string, { name: string; mode: string }> = {}
   for (const s of sessions.rows) {
     const startedAt: string = (s.started_at as string) || new Date().toISOString()
-    const logs = await db.execute('SELECT * FROM workout_set_logs WHERE session_id = ? ORDER BY exercise_id, set_index', [s.id])
+    const logs = await safeExecute('SELECT * FROM workout_set_logs WHERE session_id = $1 ORDER BY exercise_id, set_index', [s.id])
     
     // Group logs by exercise_id
     const logsByExercise = new Map<string, typeof logs.rows>()
@@ -447,7 +421,7 @@ export async function getAthleteTrainingHistory(athleteId: string) {
     const entries = []
     for (const [exerciseId, exerciseLogs] of logsByExercise) {
       // Get exercise name from assigned_workout_exercises
-      const exResult = await db.execute('SELECT name, muscle_groups, mode, phase, prog FROM assigned_workout_exercises WHERE id = ?', [exerciseId])
+      const exResult = await safeExecute('SELECT name, muscle_groups, mode, phase, prog FROM assigned_workout_exercises WHERE id = $1', [exerciseId])
       let name = exerciseId
       let muscleGroups: string[] = []
       let mode = 'reps'
@@ -511,9 +485,8 @@ export async function getAthleteTrainingHistory(athleteId: string) {
 
 /** Get active workout session for an athlete and workout. */
 export async function getActiveWorkoutSession(workoutId: string, athleteId: string) {
-  const db = getDB()
-  const result = await db.execute(
-    `SELECT * FROM workout_session_logs WHERE workout_id = ? AND athlete_id = ? AND completed = 0 ORDER BY started_at DESC LIMIT 1`,
+  const result = await safeExecute(
+    `SELECT * FROM workout_session_logs WHERE workout_id = $1 AND athlete_id = $2 AND completed = false ORDER BY started_at DESC LIMIT 1`,
     [workoutId, athleteId],
   )
   if (result.rows.length === 0) return null

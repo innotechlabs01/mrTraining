@@ -49,7 +49,7 @@ func NewTokenStore(db *sql.DB) *TokenStore {
 func (s *TokenStore) Get(ctx context.Context, userID, platform string) (access, refresh, expiresAt string, err error) {
 	row := s.db.QueryRowContext(ctx,
 		`SELECT access_token, COALESCE(refresh_token, ''), COALESCE(expires_at, '')
-		 FROM wearable_oauth_tokens WHERE user_id = ? AND platform = ?`, userID, platform)
+		 FROM wearable_oauth_tokens WHERE user_id = $1 AND platform = $2`, userID, platform)
 	err = row.Scan(&access, &refresh, &expiresAt)
 	return
 }
@@ -58,13 +58,13 @@ func (s *TokenStore) Get(ctx context.Context, userID, platform string) (access, 
 func (s *TokenStore) Save(ctx context.Context, userID, platform, access, refresh, expiresAt, scope string) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO wearable_oauth_tokens (id, user_id, platform, access_token, refresh_token, expires_at, scope)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)
+		 VALUES ($3, $4, $5, $6, $7, $8, $9)
 		 ON CONFLICT(user_id, platform) DO UPDATE SET
 		   access_token = excluded.access_token,
 		   refresh_token = excluded.refresh_token,
 		   expires_at = excluded.expires_at,
 		   scope = excluded.scope,
-		   updated_at = datetime('now')`,
+		   updated_at = NOW()`,
 		uuid.New().String(), userID, platform, access, refresh, nullIfEmpty(expiresAt), nullIfEmpty(scope))
 	if err != nil {
 		return fmt.Errorf("save wearable token: %w", err)
@@ -114,6 +114,7 @@ type garminActivity struct {
 	MaxHR               float64 `json:"maxHeartRateInBeatsPerMinute"`
 	Calories            float64 `json:"activeKilocalories"`
 	AverageCadence      float64 `json:"averageRunCadenceInStepsPerMinute"`
+	DeviceName          string  `json:"deviceName"`
 }
 
 // FetchSessions pulls running activities from Garmin for the date range.
@@ -137,7 +138,7 @@ func (p *GarminProvider) FetchSessions(ctx context.Context, userID string, from,
 	q.Set("uploadEndTimeInSeconds", strconv.FormatInt(to.Unix(), 10))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		p.baseURL+"/wellness-api/rest/activities?"+q.Encode(), nil)
+		p.baseURL+"/wellness-api/rest/activities$10"+q.Encode(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("garmin request: %w", err)
 	}
@@ -167,18 +168,30 @@ func (p *GarminProvider) FetchSessions(ctx context.Context, userID string, from,
 		start := time.Unix(a.StartTimeSeconds, 0).UTC()
 		duration := int(a.DurationSeconds)
 		distance := a.DistanceMeters / 1000
+		deviceName := a.DeviceName
+		if deviceName == "" {
+			deviceName = "Garmin"
+		}
+		// Missing activity ids must not collapse distinct runs into one import.
+		externalID := ""
+		if a.ActivityID != 0 {
+			externalID = strconv.FormatInt(a.ActivityID, 10)
+		}
 		out = append(out, domain.RunningSession{
-			UserID:    userID,
-			Date:      start.Format("2006-01-02"),
-			Distance:  round2(distance),
-			Duration:  duration,
-			Pace:      paceFor(distance, duration),
-			Speed:     speedFor(distance, duration),
-			Calories:  int(a.Calories),
-			Elevation: round2(a.ElevationGainMeters),
-			HeartRate: int(a.AverageHR),
-			Cadence:   int(a.AverageCadence),
-			Source:    "garmin",
+			UserID:      userID,
+			Date:        start.Format("2006-01-02"),
+			Distance:    round2(distance),
+			Duration:    duration,
+			Pace:        paceFor(distance, duration),
+			Speed:       speedFor(distance, duration),
+			Calories:    int(a.Calories),
+			Elevation:   round2(a.ElevationGainMeters),
+			HeartRate:   int(a.AverageHR),
+			Cadence:     int(a.AverageCadence),
+			Source:      domain.SourceGarmin,
+			ExternalID:  externalID,
+			DeviceName:  deviceName,
+			DeviceBrand: "Garmin",
 		})
 	}
 	return out, nil
@@ -198,7 +211,7 @@ func (p *GarminProvider) SyncHealthData(ctx context.Context, userID string) (*do
 	q.Set("uploadEndTimeInSeconds", strconv.FormatInt(end.Unix(), 10))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		p.baseURL+"/wellness-api/rest/dailies?"+q.Encode(), nil)
+		p.baseURL+"/wellness-api/rest/dailies$11"+q.Encode(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("garmin dailies request: %w", err)
 	}

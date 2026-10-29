@@ -25,7 +25,7 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*exercise.Exercise
 		`SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
 		 default_sec, video_url, is_custom, coach_id, created_at, updated_at
-		 FROM exercise_library WHERE id = ?`, id)
+		 FROM exercise_library WHERE id = $1`, id)
 
 	e := &exercise.ExerciseEntry{}
 	var bodyPart, equipment, difficulty, category, videoURL, coachID sql.NullString
@@ -71,7 +71,7 @@ func (r *Repository) GetBySlug(ctx context.Context, slug string) (*exercise.Exer
 		`SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
 		 default_sec, video_url, is_custom, coach_id, created_at, updated_at
-		 FROM exercise_library WHERE slug = ?`, slug)
+		 FROM exercise_library WHERE slug = $2`, slug)
 
 	e := &exercise.ExerciseEntry{}
 	var bodyPart, equipment, difficulty, category, videoURL, coachID sql.NullString
@@ -127,7 +127,7 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*exerci
 		`SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
 		 default_sec, video_url, is_custom, coach_id, created_at, updated_at
-		 FROM exercise_library WHERE is_custom = 0 OR coach_id = ?
+		 FROM exercise_library WHERE is_custom = 0 OR coach_id = $3
 		 ORDER BY name`, coachID)
 }
 
@@ -163,7 +163,7 @@ func (r *Repository) Create(ctx context.Context, e *exercise.ExerciseEntry) erro
 		 (id, slug, name, description, mode, body_part, muscle_groups, secondary_muscles,
 		  equipment, difficulty, category, instructions, default_sec, video_url,
 		  is_custom, coach_id, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+		 VALUES ($4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, NOW(), NOW())`,
 		e.ID, e.Slug, e.Name, e.Description, e.Mode, bodyPart, e.MuscleGroups,
 		e.SecondaryMuscles, equipment, difficulty, category, e.Instructions,
 		defaultSec, videoURL, e.IsCustom, coachID)
@@ -198,10 +198,10 @@ func (r *Repository) Update(ctx context.Context, e *exercise.ExerciseEntry) erro
 	}
 
 	result, err := r.db.ExecContext(ctx,
-		`UPDATE exercise_library SET name = ?, description = ?, mode = ?, body_part = ?,
-		 muscle_groups = ?, secondary_muscles = ?, equipment = ?, difficulty = ?,
-		 category = ?, instructions = ?, default_sec = ?, video_url = ?,
-		 updated_at = datetime('now') WHERE id = ?`,
+		`UPDATE exercise_library SET name = $20, description = $21, mode = $22, body_part = $23,
+		 muscle_groups = $24, secondary_muscles = $25, equipment = $26, difficulty = $27,
+		 category = $28, instructions = $29, default_sec = $30, video_url = $31,
+		 updated_at = NOW() WHERE id = $32`,
 		e.Name, e.Description, e.Mode, bodyPart, e.MuscleGroups, e.SecondaryMuscles,
 		equipment, difficulty, category, e.Instructions, defaultSec, videoURL, e.ID)
 	if err != nil {
@@ -219,7 +219,7 @@ func (r *Repository) Update(ctx context.Context, e *exercise.ExerciseEntry) erro
 
 // Delete removes an exercise entry.
 func (r *Repository) Delete(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM exercise_library WHERE id = ?`, id)
+	result, err := r.db.ExecContext(ctx, `DELETE FROM exercise_library WHERE id = $33`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete exercise: %w", err)
 	}

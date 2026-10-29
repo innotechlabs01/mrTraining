@@ -31,7 +31,15 @@ func (h *GamificationHandler) GetStreak(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	streak, err := h.service.GetStreak(c.Context(), userID)
+	// Coach can query athlete's streak via ?athlete_id=
+	targetUserID := userID
+	if middleware.GetUserRole(c) == "coach" {
+		if aid := c.Query("athlete_id"); aid != "" {
+			targetUserID = aid
+		}
+	}
+
+	streak, err := h.service.GetStreak(c.Context(), targetUserID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -146,7 +154,14 @@ func (h *GamificationHandler) ListBadges(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	badges, err := h.service.ListBadges(c.Context(), userID)
+	targetUserID := userID
+	if middleware.GetUserRole(c) == "coach" {
+		if aid := c.Query("athlete_id"); aid != "" {
+			targetUserID = aid
+		}
+	}
+
+	badges, err := h.service.ListBadges(c.Context(), targetUserID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -262,7 +277,14 @@ func (h *GamificationHandler) ListPRs(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	prs, err := h.service.ListPRs(c.Context(), userID)
+	targetUserID := userID
+	if middleware.GetUserRole(c) == "coach" {
+		if aid := c.Query("athlete_id"); aid != "" {
+			targetUserID = aid
+		}
+	}
+
+	prs, err := h.service.ListPRs(c.Context(), targetUserID)
 	if err != nil {
 		return h.handleError(c, err)
 	}

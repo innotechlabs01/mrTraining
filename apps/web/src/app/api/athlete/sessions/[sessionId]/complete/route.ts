@@ -10,9 +10,7 @@ export async function POST(_req: NextRequest, { params }: { params: { sessionId:
   const db = getDB();
   const completedAt = new Date().toISOString();
 
-  await safeExecute(
-    db,
-    `UPDATE athlete_sessions SET completed_at = ?, status = 'completed' WHERE id = ? AND athlete_clerk_id = ?`,
+  await safeExecute(`UPDATE athlete_sessions SET completed_at = ?, status = 'completed' WHERE id = ? AND athlete_clerk_id = ?`,
     [completedAt, params.sessionId, userId]
   );
 

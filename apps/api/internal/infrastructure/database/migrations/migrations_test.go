@@ -11,12 +11,14 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
-// newTestDB connects to a throwaway local SQLite file (the same file: path
-// the libsql driver delegates to the modernc.org/sqlite driver).
+// newTestDB connects to PostgreSQL via DATABASE_URL. Skips when not configured.
 func newTestDB(t *testing.T) *database.DB {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "test.db")
-	db, err := database.Connect("file:"+path, "")
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		t.Skip("skipping: DATABASE_URL not set for migration runner tests")
+	}
+	db, err := database.Connect(url)
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
@@ -140,7 +142,7 @@ func TestApplyFailureNotMarkedApplied(t *testing.T) {
 
 	// The failed file left no partial table behind (transaction rolled back).
 	var c int
-	if err := db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='broken'").Scan(&c); err != nil {
+	if err := db.QueryRow("SELECT COUNT(*) FROM information_schema.tables WHERE table_name='broken'").Scan(&c); err != nil {
 		t.Fatalf("check broken table: %v", err)
 	}
 	if c != 0 {

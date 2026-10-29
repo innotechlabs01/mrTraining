@@ -6,7 +6,7 @@
  * connection state only: metrics/sleep return empty so the local sync engine
  * never double-writes what the server already imported.
  */
-import type { HealthBridge, HealthMetric, SleepLog } from './types';
+import type { DeviceActivity, HealthBridge, HealthMetric, SleepLog } from './types';
 import { secureStorage } from '../storage/mmkv';
 
 /** Set once the Garmin account is linked (server OAuth callback / manual link). */
@@ -35,6 +35,14 @@ export class GarminBridge implements HealthBridge {
 
   async readLastNightSleep(): Promise<SleepLog | null> {
     return null;
+  }
+
+  /**
+   * Garmin activities are pulled by the Go API (Health API + webhook), not read
+   * from the device: returning them here would import every run twice.
+   */
+  async readWorkoutsSince(_sinceMs: number): Promise<DeviceActivity[]> {
+    return [];
   }
 }
 

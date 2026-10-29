@@ -28,7 +28,7 @@ func (r *Repository) ListPosts(ctx context.Context, limit int, offset int) ([]*d
 		SELECT id, coach_id, coach_name, content, media_type, media_url, like_count, comment_count, created_at, updated_at
 		FROM coach_feed_posts
 		ORDER BY created_at DESC
-		LIMIT ? OFFSET ?
+		LIMIT $1 OFFSET $2
 	`, limit, offset)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
@@ -60,7 +60,7 @@ func (r *Repository) GetPost(ctx context.Context, postID string) (*domain.Post, 
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, coach_id, coach_name, content, media_type, media_url, like_count, comment_count, created_at, updated_at
 		FROM coach_feed_posts
-		WHERE id = ?
+		WHERE id = $3
 	`, postID).Scan(&p.ID, &p.CoachID, &p.CoachName, &p.Content, &p.MediaType, &p.MediaURL, &p.LikeCount, &p.CommentCount, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
@@ -78,7 +78,7 @@ func (r *Repository) CreatePost(ctx context.Context, post *domain.Post) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO coach_feed_posts (id, coach_id, coach_name, content, media_type, media_url, like_count, comment_count, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
+		VALUES ($4, $5, $6, $7, $8, $9, 0, 0, $10, $11)
 	`, post.ID, post.CoachID, post.CoachName, post.Content, post.MediaType, post.MediaURL, now, now)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
@@ -94,7 +94,7 @@ func (r *Repository) DeletePost(ctx context.Context, postID string, coachID stri
 		return fmt.Errorf("database not configured")
 	}
 	_, err := r.db.ExecContext(ctx, `
-		DELETE FROM coach_feed_posts WHERE id = ? AND coach_id = ?
+		DELETE FROM coach_feed_posts WHERE id = $12 AND coach_id = $13
 	`, postID, coachID)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
@@ -112,7 +112,7 @@ func (r *Repository) AddReaction(ctx context.Context, reaction *domain.Reaction)
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO coach_feed_reactions (id, post_id, athlete_id, type, created_at)
-		VALUES (?, ?, ?, ?, ?)
+		VALUES ($14, $15, $16, $17, $18)
 	`, reaction.ID, reaction.PostID, reaction.AthleteID, reaction.Type, now)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
@@ -122,7 +122,7 @@ func (r *Repository) AddReaction(ctx context.Context, reaction *domain.Reaction)
 	}
 	// Update like count
 	_, _ = r.db.ExecContext(ctx, `
-		UPDATE coach_feed_posts SET like_count = like_count + 1, updated_at = ? WHERE id = ?
+		UPDATE coach_feed_posts SET like_count = like_count + 1, updated_at = $19 WHERE id = $20
 	`, now, reaction.PostID)
 	return nil
 }
@@ -132,7 +132,7 @@ func (r *Repository) RemoveReaction(ctx context.Context, postID string, athleteI
 		return fmt.Errorf("database not configured")
 	}
 	_, err := r.db.ExecContext(ctx, `
-		DELETE FROM coach_feed_reactions WHERE post_id = ? AND athlete_id = ?
+		DELETE FROM coach_feed_reactions WHERE post_id = $21 AND athlete_id = $22
 	`, postID, athleteID)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
@@ -143,7 +143,7 @@ func (r *Repository) RemoveReaction(ctx context.Context, postID string, athleteI
 	// Update like count
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, _ = r.db.ExecContext(ctx, `
-		UPDATE coach_feed_posts SET like_count = MAX(0, like_count - 1), updated_at = ? WHERE id = ?
+		UPDATE coach_feed_posts SET like_count = MAX(0, like_count - 1), updated_at = $23 WHERE id = $24
 	`, now, postID)
 	return nil
 }
@@ -155,7 +155,7 @@ func (r *Repository) AddComment(ctx context.Context, comment *domain.Comment) er
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO coach_feed_comments (id, post_id, athlete_id, athlete_name, content, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+		VALUES ($25, $26, $27, $28, $29, $30)
 	`, comment.ID, comment.PostID, comment.AthleteID, comment.AthleteName, comment.Content, now)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
@@ -165,7 +165,7 @@ func (r *Repository) AddComment(ctx context.Context, comment *domain.Comment) er
 	}
 	// Update comment count
 	_, _ = r.db.ExecContext(ctx, `
-		UPDATE coach_feed_posts SET comment_count = comment_count + 1, updated_at = ? WHERE id = ?
+		UPDATE coach_feed_posts SET comment_count = comment_count + 1, updated_at = $31 WHERE id = $32
 	`, now, comment.PostID)
 	return nil
 }
@@ -177,9 +177,9 @@ func (r *Repository) ListComments(ctx context.Context, postID string, limit int,
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, post_id, athlete_id, athlete_name, content, created_at
 		FROM coach_feed_comments
-		WHERE post_id = ?
+		WHERE post_id = $33
 		ORDER BY created_at ASC
-		LIMIT ? OFFSET ?
+		LIMIT $34 OFFSET $35
 	`, postID, limit, offset)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {

@@ -44,6 +44,19 @@ type WorkoutExercise struct {
 	VideoURL          string  `json:"videoUrl,omitempty"`
 	GPSRoute          string  `json:"gpsRoute,omitempty"` // encoded polyline for running routes
 	LibraryExerciseID string  `json:"library_exercise_id,omitempty"`
+	Intervals         []RunningInterval `json:"intervals,omitempty"`
+	ActualGPSRoute    string  `json:"actualGpsRoute,omitempty"` // athlete's actual GPS polyline
+	ActualIntervals   []RunningInterval `json:"actualIntervals,omitempty"` // athlete's actual interval splits
+}
+
+// RunningInterval represents a work/rest interval for running workouts.
+type RunningInterval struct {
+	Order       int     `json:"order"`
+	WorkType    string  `json:"workType"`    // "time" | "distance"
+	WorkValue   float64 `json:"workValue"`   // seconds or km
+	RestSeconds int     `json:"restSeconds"` // rest between intervals
+	PaceTarget  string  `json:"paceTarget,omitempty"`
+	Intensity   string  `json:"intensity,omitempty"`
 }
 
 // WorkoutDetail is the aggregate returned by GET /workouts/:id/detail.

@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { Alert } from 'react-native';
 import { useMutation } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
-import { smartClient as apiClient } from '../../../infrastructure/api/client';
+import { smartClient as apiClient, completeRunningWorkout } from '../../../infrastructure/api/client';
 import { syncIfPossible } from '../../../infrastructure/health';
 import type { UserBadge } from '../../gamification/domain/badgeService';
 import {
@@ -141,19 +141,66 @@ export function useLogSetFlow(p: LogSetFlowParams) {
         // `complete` only fires once `progress` is confirmed; offline it is
         // enqueued as a follow-up item so flush preserves the order.
         const prs = offline ? [] : await collectPrs();
+        
+        // Check if the current exercise is a running exercise with GPS/intervals
+        const currentExercise = p.exercises[p.currentExerciseIndex];
+        const isRunningExercise = currentExercise && currentExercise.gpsRoute && currentExercise.intervals && currentExercise.intervals.length > 0;
+        
         if (!offline) {
           try {
-            await apiClient.post(`/workouts/sessions/${p.sessionId}/complete`, {
-              durationSeconds: p.durationSeconds,
-            });
+            if (isRunningExercise && currentExercise) {
+              // Use the new running workout completion endpoint with GPS and intervals
+              const actualIntervals = currentExercise.intervals.map(iv => ({
+                order: iv.order,
+                workType: iv.workType,
+                workValue: iv.workValue,
+                restSeconds: iv.restSeconds,
+                paceTarget: iv.paceTarget,
+                intensity: iv.intensity,
+              }));
+              
+              await completeRunningWorkout({
+                workoutId: p.workoutId,
+                durationSeconds: p.durationSeconds,
+                actualGpsRoute: currentExercise.actualGpsRoute || '',
+                actualIntervals,
+              });
+            } else {
+              // Regular workout completion
+              await apiClient.post(`/workouts/sessions/${p.sessionId}/complete`, {
+                durationSeconds: p.durationSeconds,
+              });
+            }
           } catch (err) {
             console.error('[WorkoutExecution] complete failed; queued for sync:', err);
-            enqueueSetOutbox([
-              {
-                path: `/workouts/sessions/${p.sessionId}/complete`,
-                body: { durationSeconds: p.durationSeconds },
-              },
-            ]);
+            // Enqueue for offline sync
+            if (isRunningExercise) {
+              enqueueSetOutbox([
+                {
+                  path: `/workouts/${p.workoutId}/complete-running`,
+                  body: {
+                    workoutId: p.workoutId,
+                    durationSeconds: p.durationSeconds,
+                    actualGpsRoute: currentExercise?.actualGpsRoute || '',
+                    actualIntervals: currentExercise?.intervals?.map(iv => ({
+                      order: iv.order,
+                      workType: iv.workType,
+                      workValue: iv.workValue,
+                      restSeconds: iv.restSeconds,
+                      paceTarget: iv.paceTarget,
+                      intensity: iv.intensity,
+                    })) || [],
+                  },
+                },
+              ]);
+            } else {
+              enqueueSetOutbox([
+                {
+                  path: `/workouts/sessions/${p.sessionId}/complete`,
+                  body: { durationSeconds: p.durationSeconds },
+                },
+              ]);
+            }
             offline = true;
           }
         }

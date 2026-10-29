@@ -12,7 +12,7 @@ export async function getPublicProducts(coachId?: string) {
     args.push(coachId)
   }
   sql += ` ORDER BY created_at DESC`
-  const result = await safeExecute(db, sql, args)
+  const result = await safeExecute(sql, args)
   return result.rows.map(r => ({
     id: r.id as string,
     name: r.name as string,
@@ -26,8 +26,7 @@ export async function getPublicProducts(coachId?: string) {
 }
 
 export async function getAllPublicProducts() {
-  const db = getDB()
-  const result = await safeExecute(db,
+  const result = await safeExecute(
     `SELECT p.*, u.name as coach_name
      FROM products p
      INNER JOIN users u ON p.coach_id = u.id

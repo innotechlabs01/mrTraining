@@ -2,6 +2,15 @@ import type { FormMetrics } from '../presentation/components/FormAnalyzer';
 
 export type ExerciseMode = 'reps' | 'time' | 'cardio';
 
+export interface RunningInterval {
+  order: number;
+  workType: 'time' | 'distance';
+  workValue: number;
+  restSeconds: number;
+  paceTarget?: string;
+  intensity?: 'easy' | 'tempo' | 'threshold' | 'vo2max';
+}
+
 export type Exercise = {
   id: string;
   workoutId: string;
@@ -18,6 +27,8 @@ export type Exercise = {
   perSide?: boolean;
   sec?: number | null;
   videoUrl?: string | null;
+  gpsRoute?: string | null;
+  intervals?: RunningInterval[];
 };
 
 export type Workout = {
@@ -40,6 +51,7 @@ export type PrescriptionItem = {
   sec: number | null;
   sets: number | null;
   why: [string, ...unknown[]] | null;
+  gpsRoute?: string;
 };
 
 export type PrescriptionData = {

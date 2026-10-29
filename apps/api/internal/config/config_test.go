@@ -25,7 +25,7 @@ func clearEnv(t *testing.T, keys ...string) {
 }
 
 var configEnvKeys = []string{
-	"APP_ENV", "DATABASE_URL", "TURSO_AUTH_TOKEN", "CLERK_SECRET_KEY",
+	"APP_ENV", "DATABASE_URL", "CLERK_SECRET_KEY",
 	"CORS_ORIGINS", "TRUSTED_PROXIES", "RATE_LIMIT_MAX", "RATE_LIMIT_WINDOW",
 }
 
@@ -53,8 +53,7 @@ func TestLoad_DevelopmentDefaults(t *testing.T) {
 func TestLoad_ProductionRejectsWildcardCORS(t *testing.T) {
 	clearEnv(t, configEnvKeys...)
 	t.Setenv("APP_ENV", "production")
-	t.Setenv("DATABASE_URL", "libsql://db.example.com")
-	t.Setenv("TURSO_AUTH_TOKEN", "token")
+	t.Setenv("DATABASE_URL", "postgres://user:pass@localhost:5432/db?sslmode=disable")
 	t.Setenv("CLERK_SECRET_KEY", "sk_test_x")
 	// CORS_ORIGINS intentionally unset → defaults to "*".
 
@@ -71,8 +70,7 @@ func TestLoad_ProductionRejectsWildcardCORS(t *testing.T) {
 func TestLoad_ProductionAllowsExplicitCORS(t *testing.T) {
 	clearEnv(t, configEnvKeys...)
 	t.Setenv("APP_ENV", "production")
-	t.Setenv("DATABASE_URL", "libsql://db.example.com")
-	t.Setenv("TURSO_AUTH_TOKEN", "token")
+	t.Setenv("DATABASE_URL", "postgres://user:pass@localhost:5432/db?sslmode=disable")
 	t.Setenv("CLERK_SECRET_KEY", "sk_test_x")
 	t.Setenv("CORS_ORIGINS", "https://app.example.com,https://admin.example.com")
 

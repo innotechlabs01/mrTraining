@@ -36,6 +36,11 @@ type Repository interface {
 	// ajuste compensatorio.
 	ReverseCommissionEntry(ctx context.Context, entryID, reverserID, reason string) (*CommissionEntry, *FinancialAdjustment, error)
 
+	// CreateCommissionEntryDirect inserta una entrada de comisión sin validar
+	// precondiciones de estado de operación ni declaración de pago. Usado por
+	// el flujo de compra automática de productos de aliado.
+	CreateCommissionEntryDirect(ctx context.Context, in CreateCommissionEntryInput, actorID string) (*CommissionEntry, error)
+
 	// CreateFinancialAdjustment crea un asiento compensatorio.
 	CreateFinancialAdjustment(ctx context.Context, in CreateFinancialAdjustmentInput, actorID string) (*FinancialAdjustment, error)
 

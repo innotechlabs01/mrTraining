@@ -3,21 +3,19 @@ import { getDB, generateId, mapRow, safeExecute } from './db'
 // ============== Time Blocks ==============
 
 export async function getTimeBlocks(coachId: string) {
-  const db = getDB()
-  const result = await db.execute(
+  const result = await safeExecute(
     'SELECT * FROM time_blocks WHERE coach_id = ? ORDER BY display_order',
     [coachId],
   )
-  return result.rows.map(mapRow(result.columns))
+  return result.rows.map(mapRow(result.fields.map(f => f.name)))
 }
 
 export async function saveTimeBlocks(coachId: string, blocks: Array<{
   id: string; label: string; time: string; endTime: string; icon: string; displayOrder?: number
 }>) {
-  const db = getDB()
-  await db.execute('DELETE FROM time_blocks WHERE coach_id = ?', [coachId])
+  await safeExecute('DELETE FROM time_blocks WHERE coach_id = ?', [coachId])
   for (const b of blocks) {
-    await db.execute(
+    await safeExecute(
       'INSERT INTO time_blocks (id, label, time, end_time, icon, display_order, coach_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [b.id, b.label, b.time, b.endTime, b.icon, b.displayOrder ?? 0, coachId],
     )
@@ -27,8 +25,7 @@ export async function saveTimeBlocks(coachId: string, blocks: Array<{
 // ============== Public Page Config ==============
 
 export async function getPublicPageConfig(coachId: string) {
-  const db = getDB()
-  const result = await db.execute(
+  const result = await safeExecute(
     'SELECT * FROM public_page_config WHERE coach_id = ?',
     [coachId],
   )
@@ -41,18 +38,15 @@ export async function getPublicPageConfig(coachId: string) {
 }
 
 export async function savePublicPageConfig(coachId: string, data: Record<string, unknown>) {
-  const db = getDB()
   const id = generateId()
-  const existing = await db.execute('SELECT id FROM public_page_config WHERE coach_id = ?', [coachId])
+  const existing = await safeExecute('SELECT id FROM public_page_config WHERE coach_id = ?', [coachId])
   if (existing.rows.length > 0) {
     await safeExecute(
-      db,
-      'UPDATE public_page_config SET brand_name=?, tagline=?, welcome_message=?, footer_text=?, updated_at=datetime(\'now\') WHERE coach_id=?',
+      'UPDATE public_page_config SET brand_name=?, tagline=?, welcome_message=?, footer_text=?, updated_at=NOW() WHERE coach_id=?',
       [data.brandName, data.tagline || '', data.welcomeMessage || '', data.footerText, coachId],
     )
   } else {
     await safeExecute(
-      db,
       'INSERT INTO public_page_config (id, coach_id, brand_name, tagline, welcome_message, footer_text) VALUES (?,?,?,?,?,?)',
       [id, coachId, data.brandName, data.tagline || '', data.welcomeMessage || '', data.footerText],
     )

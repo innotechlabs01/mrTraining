@@ -22,7 +22,7 @@ func NewRepository(db *sql.DB) *Repository {
 func (r *Repository) RecordVideoView(ctx context.Context, vv *videoview.VideoView) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO video_views (id, athlete_id, exercise_id, action, progress_pct, watch_duration_seconds, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+		VALUES ($1, $2, $3, $4, $5, $6, NOW())
 	`, vv.ID, vv.AthleteID, vv.ExerciseID, vv.Action, vv.ProgressPct, vv.WatchDuration)
 	if err != nil {
 		return fmt.Errorf("failed to record video view: %w", err)
@@ -39,7 +39,7 @@ func (r *Repository) ListVideoViews(ctx context.Context, athleteID, exerciseID s
 		rows, err = r.db.QueryContext(ctx, `
 			SELECT id, athlete_id, exercise_id, action, progress_pct, watch_duration_seconds, created_at
 			FROM video_views
-			WHERE athlete_id = ? AND exercise_id = ?
+			WHERE athlete_id = $7 AND exercise_id = $8
 			ORDER BY created_at DESC
 			LIMIT 100
 		`, athleteID, exerciseID)
@@ -47,7 +47,7 @@ func (r *Repository) ListVideoViews(ctx context.Context, athleteID, exerciseID s
 		rows, err = r.db.QueryContext(ctx, `
 			SELECT id, athlete_id, exercise_id, action, progress_pct, watch_duration_seconds, created_at
 			FROM video_views
-			WHERE athlete_id = ?
+			WHERE athlete_id = $9
 			ORDER BY created_at DESC
 			LIMIT 100
 		`, athleteID)

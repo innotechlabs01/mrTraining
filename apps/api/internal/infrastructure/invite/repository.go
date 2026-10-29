@@ -24,7 +24,7 @@ func (r *Repository) GetByCode(ctx context.Context, code string) (*invite.Invite
 	normalized := strings.ToUpper(strings.TrimSpace(code))
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, user_id, coach_code, 'active', created_at
-		 FROM coaches WHERE UPPER(coach_code) = ? AND is_active = 1`, normalized)
+		 FROM coaches WHERE UPPER(coach_code) = $1 AND is_active = 1`, normalized)
 
 	inv := &invite.Invite{}
 	err := row.Scan(&inv.ID, &inv.CoachID, &inv.Code, &inv.Status, &inv.CreatedAt)
@@ -47,7 +47,7 @@ func (r *Repository) AcceptInvite(ctx context.Context, code, athleteID string) (
 	// Link coach-athlete (idempotent)
 	_, err = r.db.ExecContext(ctx,
 		`INSERT INTO coach_athlete_links (coach_id, athlete_id, status, is_primary, assigned_at)
-		 VALUES (?, ?, 'active', 0, datetime('now'))
+		 VALUES ($2, $3, 'active', 0, NOW())
 		 ON CONFLICT(coach_id, athlete_id) DO UPDATE SET status='active'`,
 		inv.CoachID, athleteID)
 	if err != nil {
@@ -56,7 +56,7 @@ func (r *Repository) AcceptInvite(ctx context.Context, code, athleteID string) (
 
 	// Resolve coach name for the response
 	var coachName string
-	_ = r.db.QueryRowContext(ctx, `SELECT name FROM coaches WHERE id = ?`, inv.CoachID).Scan(&coachName)
+	_ = r.db.QueryRowContext(ctx, `SELECT name FROM coaches WHERE id = $4`, inv.CoachID).Scan(&coachName)
 
 	return &invite.AcceptResult{Success: true, CoachName: coachName}, nil
 }
@@ -65,7 +65,7 @@ func (r *Repository) AcceptInvite(ctx context.Context, code, athleteID string) (
 func (r *Repository) GetCoachIDByAthleteID(ctx context.Context, athleteID string) (string, error) {
 	var coachID string
 	err := r.db.QueryRowContext(ctx,
-		`SELECT coach_id FROM coach_athlete_links WHERE athlete_id = ? AND status = 'active'`,
+		`SELECT coach_id FROM coach_athlete_links WHERE athlete_id = $5 AND status = 'active'`,
 		athleteID).Scan(&coachID)
 	if err == sql.ErrNoRows {
 		return "", fmt.Errorf("no active coach link found for athlete")
@@ -81,7 +81,7 @@ func (r *Repository) ValidateCode(ctx context.Context, code string) (bool, error
 	normalized := strings.ToUpper(strings.TrimSpace(code))
 	var one int
 	err := r.db.QueryRowContext(ctx,
-		`SELECT 1 FROM coaches WHERE UPPER(coach_code) = ? AND is_active = 1`, normalized).Scan(&one)
+		`SELECT 1 FROM coaches WHERE UPPER(coach_code) = $6 AND is_active = 1`, normalized).Scan(&one)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}

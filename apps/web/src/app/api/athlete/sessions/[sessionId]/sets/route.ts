@@ -15,9 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: { sessionId: 
   }
 
   const db = getDB();
-  await safeExecute(
-    db,
-    `INSERT INTO athlete_session_sets (id, session_id, athlete_clerk_id, exercise_id, set_number, reps, weight, rpe, created_at)
+  await safeExecute(`INSERT INTO athlete_session_sets (id, session_id, athlete_clerk_id, exercise_id, set_number, reps, weight, rpe, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(session_id, exercise_id, set_number) DO UPDATE SET reps=?, weight=?, rpe=?`,
     [crypto.randomUUID(), params.sessionId, userId, exerciseId, setNumber, reps ?? null, weight ?? null, rpe ?? null, reps ?? null, weight ?? null, rpe ?? null]

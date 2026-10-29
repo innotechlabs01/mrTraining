@@ -6,21 +6,20 @@ import (
 )
 
 func TestConnect_MissingURL(t *testing.T) {
-	_, err := Connect("", "")
+	_, err := Connect("")
 	if err == nil {
 		t.Fatal("expected error when connecting with empty URL")
 	}
 }
 
 func TestConnect_WithEnv(t *testing.T) {
-	// Skip if no Turso credentials configured
+	// Skip if no PostgreSQL credentials configured
 	url := os.Getenv("DATABASE_URL")
-	token := os.Getenv("TURSO_AUTH_TOKEN")
-	if url == "" || token == "" {
-		t.Skip("skipping: DATABASE_URL and TURSO_AUTH_TOKEN not set")
+	if url == "" {
+		t.Skip("skipping: DATABASE_URL not set")
 	}
 
-	db, err := Connect(url, token)
+	db, err := Connect(url)
 	if err != nil {
 		t.Fatalf("failed to connect: %v", err)
 	}
@@ -35,13 +34,13 @@ func TestConnect_WithEnv(t *testing.T) {
 func TestConnect_InvalidURL(t *testing.T) {
 	// Connect opens the connection lazily; Ping triggers the actual connection.
 	// Use a scheme the driver doesn't recognize to force an error.
-	db, err := Connect("file:/nonexistent/path/that/does/not/exist.db", "")
+	db, err := Connect("invalid://nonexistent")
 	if err != nil {
 		// Connect itself failed (e.g., bad scheme)
 		return
 	}
 	defer db.Close()
-	// If Connect succeeded, Ping should fail for a nonexistent file
+	// If Connect succeeded, Ping should fail for an invalid URL
 	if err := db.Ping(); err == nil {
 		t.Fatal("expected error when pinging invalid database")
 	}

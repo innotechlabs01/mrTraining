@@ -424,6 +424,27 @@ export interface Sale {
   createdAt: string
 }
 
+// Earnings summary aggregated for the coach dashboard.
+export interface AllyEarningsBreakdown {
+  allyId: string
+  allyName: string
+  commissionCount: number
+  commissionCents: number
+  pendingCents: number
+}
+
+export interface EarningsSummary {
+  totalEarningsCents: number
+  totalEarningsCurrency: string
+  ownSalesCount: number
+  ownSalesTotalCents: number
+  ownProfitCents: number // SUM((unit_price - unit_received) * quantity)
+  commissionCount: number
+  commissionTotalCents: number
+  pendingCents: number
+  byAlly: AllyEarningsBreakdown[]
+}
+
 export type ChallengeStatus = 'draft' | 'active' | 'completed' | 'expired'
 export type ScoringType = 'form_score' | 'total_volume' | 'consistency'
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced'

@@ -78,26 +78,37 @@ type WorkoutTemplateResponse struct {
 	Exercises               []WorkoutExerciseResponse `json:"exercises,omitempty"`
 }
 
+// RunningIntervalResponse represents a running interval in API responses.
+type RunningIntervalResponse struct {
+	Order       int     `json:"order"`
+	WorkType    string  `json:"workType"`     // "time" | "distance"
+	WorkValue   float64 `json:"workValue"`    // seconds or km
+	RestSeconds int     `json:"restSeconds"`
+	PaceTarget  string  `json:"paceTarget,omitempty"`
+	Intensity   string  `json:"intensity,omitempty"`
+}
+
 // WorkoutExerciseResponse represents a workout exercise in API responses.
 type WorkoutExerciseResponse struct {
-	ID                string  `json:"id"`
-	TemplateID        string  `json:"templateId,omitempty"`
-	Name              string  `json:"name"`
-	Sets              int     `json:"sets"`
-	Reps              int     `json:"reps"`
-	WeightKg          float64 `json:"weightKg,omitempty"`
-	RestSeconds       int     `json:"restSeconds,omitempty"`
-	SortOrder         int     `json:"sortOrder"`
-	Notes             string  `json:"notes,omitempty"`
-	Mode              string  `json:"mode"`
-	Phase             string  `json:"phase"`
-	SupersetGroup     string  `json:"supersetGroup,omitempty"`
-	BodyPart          string  `json:"bodyPart,omitempty"`
-	MuscleGroups      string  `json:"muscleGroups,omitempty"`
-	ImageURL          string  `json:"imageUrl,omitempty"`
-	VideoURL          string  `json:"videoUrl,omitempty"`
-	GPSRoute          string  `json:"gpsRoute,omitempty"`
-	LibraryExerciseID string  `json:"libraryExerciseId,omitempty"`
+	ID                string                  `json:"id"`
+	TemplateID        string                  `json:"templateId,omitempty"`
+	Name              string                  `json:"name"`
+	Sets              int                     `json:"sets"`
+	Reps              int                     `json:"reps"`
+	WeightKg          float64                 `json:"weightKg,omitempty"`
+	RestSeconds       int                     `json:"restSeconds,omitempty"`
+	SortOrder         int                     `json:"sortOrder"`
+	Notes             string                  `json:"notes,omitempty"`
+	Mode              string                  `json:"mode"`
+	Phase             string                  `json:"phase"`
+	SupersetGroup     string                  `json:"supersetGroup,omitempty"`
+	BodyPart          string                  `json:"bodyPart,omitempty"`
+	MuscleGroups      string                  `json:"muscleGroups,omitempty"`
+	ImageURL          string                  `json:"imageUrl,omitempty"`
+	VideoURL          string                  `json:"videoUrl,omitempty"`
+	GPSRoute          string                  `json:"gpsRoute,omitempty"`
+	LibraryExerciseID string                  `json:"libraryExerciseId,omitempty"`
+	Intervals         []RunningIntervalResponse `json:"intervals,omitempty"`
 }
 
 // CreateWorkoutTemplateRequest is the payload for creating a workout template.
@@ -129,6 +140,18 @@ type CreateWorkoutExerciseRequest struct {
 	MuscleGroups      string  `json:"muscleGroups"`
 	LibraryExerciseID string  `json:"libraryExerciseId"`
 	GPSRoute          string  `json:"gpsRoute"`
+	// Running intervals (for running workouts)
+	Intervals          []RunningIntervalRequest `json:"intervals,omitempty"`
+}
+
+// RunningIntervalRequest defines a work/rest interval for running workouts.
+type RunningIntervalRequest struct {
+	Order       int     `json:"order"`        // sequence order
+	WorkType    string  `json:"workType"`     // "time" | "distance"
+	WorkValue   float64 `json:"workValue"`    // seconds or km
+	RestSeconds int     `json:"restSeconds"`  // rest between intervals
+	PaceTarget  string  `json:"paceTarget,omitempty"` // "5:30" min/km
+	Intensity   string  `json:"intensity,omitempty"`  // "easy" | "tempo" | "threshold" | "vo2max"
 }
 
 // AssignWorkoutRequest is the payload for assigning a workout to an athlete.
@@ -272,4 +295,17 @@ type WorkoutSessionResponse struct {
 type CompleteSessionRequest struct {
 	// DurationSeconds is the total workout duration in seconds.
 	DurationSeconds int `json:"durationSeconds"`
+}
+
+// CompleteRunningWorkoutRequest is the payload for completing a running workout
+// with actual GPS tracking data and interval splits.
+type CompleteRunningWorkoutRequest struct {
+	// WorkoutID is the assigned workout ID.
+	WorkoutID string `json:"workoutId"`
+	// DurationSeconds is the total workout duration in seconds.
+	DurationSeconds int `json:"durationSeconds"`
+	// ActualGPSRoute is the encoded polyline of the actual GPS path.
+	ActualGPSRoute string `json:"actualGpsRoute,omitempty"`
+	// ActualIntervals are the completed intervals with actual times/splits.
+	ActualIntervals []RunningIntervalRequest `json:"actualIntervals,omitempty"`
 }

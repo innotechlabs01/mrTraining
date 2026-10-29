@@ -1,5 +1,4 @@
-import { getDB, generateId, safeExecute } from './db'
-import type { Row } from '@libsql/client'
+import { safeExecute, generateId } from './db'
 
 export interface ScheduleEvent {
   id: string
@@ -16,12 +15,11 @@ export interface ScheduleEvent {
 }
 
 export async function getScheduleEvents(coachId: string): Promise<ScheduleEvent[]> {
-  const db = getDB()
-  const result = await db.execute(
-    'SELECT * FROM schedule_events WHERE coach_id = ? ORDER BY date, start_time',
+  const result = await safeExecute(
+    'SELECT * FROM schedule_events WHERE coach_id = $1 ORDER BY date, start_time',
     [coachId]
   )
-  return result.rows.map((r: Row) => ({
+  return result.rows.map((r: Record<string, unknown>) => ({
     id: r.id as string,
     coachId: r.coach_id as string,
     title: r.title as string,
@@ -44,14 +42,12 @@ export async function createScheduleEvent(coachId: string, data: {
   endTime: string
   type: string
 }): Promise<ScheduleEvent> {
-  const db = getDB()
   const id = generateId()
   const now = new Date().toISOString()
 
   await safeExecute(
-    db,
     `INSERT INTO schedule_events (id, coach_id, title, description, date, start_time, end_time, type, status, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
     [id, coachId, data.title, data.description || null, data.date, data.startTime, data.endTime, data.type, 'scheduled', now, now]
   )
 
@@ -71,15 +67,12 @@ export async function createScheduleEvent(coachId: string, data: {
 }
 
 export async function updateScheduleEventStatus(id: string, status: string): Promise<void> {
-  const db = getDB()
   await safeExecute(
-    db,
-    'UPDATE schedule_events SET status = ?, updated_at = ? WHERE id = ?',
+    'UPDATE schedule_events SET status = $1, updated_at = $2 WHERE id = $3',
     [status, new Date().toISOString(), id]
   )
 }
 
 export async function deleteScheduleEvent(id: string): Promise<void> {
-  const db = getDB()
-  await db.execute('DELETE FROM schedule_events WHERE id = ?', [id])
+  await safeExecute('DELETE FROM schedule_events WHERE id = $1', [id])
 }

@@ -34,8 +34,8 @@ func (r *ProgressRepository) GetProgress(ctx context.Context, athleteID string, 
 		 COALESCE(SUM(wset.weight_kg * wset.reps), 0) AS total_volume
 		 FROM workout_session_logs wsl
 		 LEFT JOIN workout_set_logs wset ON wset.session_id = wsl.id
-		 WHERE wsl.athlete_id = ?
-		 AND DATE(wsl.started_at) BETWEEN ? AND ?
+		 WHERE wsl.athlete_id = $1
+		 AND DATE(wsl.started_at) BETWEEN $2 AND $3
 		 GROUP BY DATE(wsl.started_at)
 		 ORDER BY date DESC`,
 		athleteID, dateRange.StartDate, dateRange.EndDate)
@@ -93,8 +93,8 @@ func (r *ProgressRepository) GetProgressSummary(ctx context.Context, athleteID s
 		 COALESCE(SUM(wset.weight_kg * wset.reps), 0) AS total_volume
 		 FROM workout_session_logs wsl
 		 LEFT JOIN workout_set_logs wset ON wset.session_id = wsl.id
-		 WHERE wsl.athlete_id = ?
-		 AND DATE(wsl.started_at) BETWEEN ? AND ?`,
+		 WHERE wsl.athlete_id = $4
+		 AND DATE(wsl.started_at) BETWEEN $5 AND $6`,
 		athleteID, dateRange.StartDate, dateRange.EndDate).Scan(&workoutsCompleted, &totalSets, &completedSets, &totalVolume)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query progress summary: %w", err)
@@ -126,9 +126,9 @@ func (r *ProgressRepository) countCompletionStreak(ctx context.Context, athleteI
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT DISTINCT DATE(wsl.started_at) AS date
 		 FROM workout_session_logs wsl
-		 WHERE wsl.athlete_id = ?
+		 WHERE wsl.athlete_id = $7
 		 AND wsl.completed = 1
-		 AND DATE(wsl.started_at) BETWEEN ? AND ?
+		 AND DATE(wsl.started_at) BETWEEN $8 AND $9
 		 ORDER BY date DESC`,
 		athleteID, dateRange.StartDate, dateRange.EndDate)
 	if err != nil {

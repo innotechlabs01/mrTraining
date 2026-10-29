@@ -38,9 +38,7 @@ export async function GET() {
         const { athleteClerkId, exerciseId, reps, weight, loggedAt } = data;
         if (reps && weight && exerciseId) {
           const db = getDB();
-          await safeExecute(
-            db,
-            `INSERT INTO athlete_prs (athlete_clerk_id, exercise_id, reps, weight, volume, logged_at)
+          await safeExecute(`INSERT INTO athlete_prs (athlete_clerk_id, exercise_id, reps, weight, volume, logged_at)
              VALUES (?, ?, ?, ?, ?, ?)
              ON CONFLICT(athlete_clerk_id, exercise_id) DO UPDATE SET
                reps = CASE WHEN ? > reps THEN ? ELSE reps END,
@@ -66,9 +64,7 @@ export async function GET() {
         const data = JSON.parse(Buffer.from(msg.data).toString());
         const { athleteClerkId, sessionId, completedAt } = data;
         const db = getDB();
-        await safeExecute(
-          db,
-          `INSERT INTO athlete_session_stats (athlete_clerk_id, session_id, completed_at, first_seen_at)
+        await safeExecute(`INSERT INTO athlete_session_stats (athlete_clerk_id, session_id, completed_at, first_seen_at)
            VALUES (?, ?, ?, datetime('now'))
            ON CONFLICT(session_id) DO UPDATE SET completed_at = ?`,
           [athleteClerkId, sessionId, completedAt, completedAt]
@@ -89,9 +85,7 @@ export async function GET() {
         const data = JSON.parse(Buffer.from(msg.data).toString());
         const { athleteClerkId, sessionId, totalVolume, durationSeconds, updatedAt } = data;
         const db = getDB();
-        await safeExecute(
-          db,
-          `INSERT INTO athlete_session_progress (athlete_clerk_id, session_id, total_volume, duration_seconds, updated_at)
+        await safeExecute(`INSERT INTO athlete_session_progress (athlete_clerk_id, session_id, total_volume, duration_seconds, updated_at)
            VALUES (?, ?, ?, ?, ?)
            ON CONFLICT(session_id) DO UPDATE SET total_volume = COALESCE(?, total_volume), duration_seconds = COALESCE(?, duration_seconds), updated_at = ?`,
           [athleteClerkId, sessionId, totalVolume ?? null, durationSeconds ?? null, updatedAt, totalVolume ?? null, durationSeconds ?? null, updatedAt]

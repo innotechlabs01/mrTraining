@@ -115,6 +115,50 @@ export async function goFetch<T>(path: string, options: GoRequestOptions = {}): 
 }
 
 /**
+ * Make a request to the Go API backend and return the raw response body.
+ * Use for binary/plain-text endpoints (CSV, GPX, PDF) that goFetch cannot parse as JSON.
+ * Retries once on 401 with a fresh Clerk token (silent token refresh).
+ */
+export async function goFetchBlob(path: string, options: GoRequestOptions = {}): Promise<Blob> {
+  const { auth = true, headers: customHeaders, ...rest } = options;
+
+  const doFetch = async (token: string | null) => {
+    const headers: Record<string, string> = {
+      ...(rest.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(customHeaders as Record<string, string>),
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return fetch(`${GO_API_BASE}${path}`, { ...rest, headers });
+  };
+
+  let response: Response;
+  if (auth) {
+    const token = await getAuthToken();
+    response = await doFetch(token);
+    if (response.status === 401) {
+      const freshToken = await getAuthToken(true);
+      if (freshToken && freshToken !== token) {
+        response = await doFetch(freshToken);
+      }
+    }
+  } else {
+    response = await doFetch(null);
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    const errorMessage = typeof errorData.error === 'string'
+      ? errorData.error
+      : errorData.message || errorData.detail || `Go API error: ${response.status}`;
+    throw new Error(errorMessage);
+  }
+
+  return response.blob();
+}
+
+/**
  * Go API client with convenience methods.
  *
  * Usage:

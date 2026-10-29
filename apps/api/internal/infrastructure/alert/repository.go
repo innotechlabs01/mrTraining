@@ -24,7 +24,7 @@ func (r *Repository) ListAlerts(ctx context.Context, athleteID string) ([]*alert
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, athlete_id, type, severity, title, message, is_read, created_at, dismissed_at
 		FROM athlete_alerts
-		WHERE athlete_id = ?
+		WHERE athlete_id = $1
 		ORDER BY created_at DESC
 	`, athleteID)
 	if err != nil {

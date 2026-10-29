@@ -11,9 +11,7 @@ export async function POST(req: NextRequest, { params }: { params: { sessionId: 
   const { totalVolume, durationSeconds, notes } = body;
 
   const db = getDB();
-  await safeExecute(
-    db,
-    `UPDATE athlete_sessions SET total_volume = COALESCE(?, total_volume), duration_seconds = COALESCE(?, duration_seconds), notes = COALESCE(?, notes) WHERE id = ? AND athlete_clerk_id = ?`,
+  await safeExecute(`UPDATE athlete_sessions SET total_volume = COALESCE(?, total_volume), duration_seconds = COALESCE(?, duration_seconds), notes = COALESCE(?, notes) WHERE id = ? AND athlete_clerk_id = ?`,
     [totalVolume ?? null, durationSeconds ?? null, notes ?? null, params.sessionId, userId]
   );
 

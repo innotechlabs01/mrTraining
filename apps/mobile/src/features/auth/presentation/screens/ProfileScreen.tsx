@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 import { useNavigation, type CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -33,6 +34,7 @@ import { ProfileMenu } from './ProfileMenu';
 import { unregisterPushToken } from '../../../../infrastructure/notifications/push';
 import { profileScheduleRaw, scheduleSummary, modalityLabel, useAthleteProfile } from '../../application/useAthleteProfile';
 import { getMembershipStatus } from '../../services/membershipService';
+import { listStore, type StoreProduct } from '../../../store/storeService';
 import { texts } from '../../../../shared/i18n/texts';
 
 const t = texts.screens.profileScreen;
@@ -48,12 +50,23 @@ export function ProfileScreen() {
   const { user } = useUser();
   const { data: profile } = useAthleteProfile();
   const [membershipDays, setMembershipDays] = useState<number | null>(null);
+  const [storeProducts, setStoreProducts] = useState<StoreProduct[]>([]);
+  const [storeLoading, setStoreLoading] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
     getMembershipStatus().then((membership) => {
       setMembershipDays(membership.daysRemaining ?? null);
     }).catch(() => {});
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setStoreLoading(true);
+    listStore().then((products) => {
+      setStoreProducts(products);
+      setStoreLoading(false);
+    }).catch(() => setStoreLoading(false));
   }, [user?.id]);
 
   const rootNav = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
@@ -187,6 +200,53 @@ export function ProfileScreen() {
             <Text style={styles.signOutText}>{t.signOutLabel}</Text>
           </Pressable>
         </View>
+
+        {/* Tienda del coach — sección inline en el perfil del atleta */}
+        <View style={styles.sectionWrap}>
+          <Text style={styles.groupTitle}>{t.storeTitle}</Text>
+          {storeLoading ? (
+            <View style={styles.storeLoading}>
+              <Text style={styles.captionText}>{t.storeLoadingLabel}</Text>
+            </View>
+          ) : storeProducts.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>{t.storeEmptyLabel}</Text>
+            </View>
+          ) : (
+            <View style={styles.storeGrid}>
+              {storeProducts.map((p) => (
+                <Pressable
+                  key={p.id}
+                  onPress={() => rootNav?.navigate('Store')}
+                  style={styles.storeCard}
+                >
+                  {p.image_url ? (
+                    <Image
+                      source={{ uri: p.image_url }}
+                      style={styles.storeImage}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View style={styles.storeImagePlaceholder}>
+                      <StoreIcon size={24} color={colors.textSecondary} />
+                    </View>
+                  )}
+                  <View style={styles.storeInfo}>
+                    <Text style={styles.storeName} numberOfLines={2}>
+                      {p.name}
+                    </Text>
+                    <Text style={styles.storePrice}>
+                      ${Number(p.price).toFixed(2)}
+                    </Text>
+                    {p.stock !== undefined && p.stock <= 0 && (
+                      <Text style={styles.storeOutOfStock}>{t.storeOutOfStock}</Text>
+                    )}
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -209,4 +269,69 @@ const styles = StyleSheet.create({
     backgroundColor: `${colors.error}14`,
   },
   signOutText: { ...typography.bodyStrong, color: colors.error },
+
+  /* Tienda del coach — sección inline en perfil del atleta */
+  storeLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  captionText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+  },
+  emptyText: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  storeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  storeCard: {
+    width: '48%',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  storeImage: {
+    width: '100%',
+    height: 96,
+  },
+  storeImagePlaceholder: {
+    width: '100%',
+    height: 96,
+    backgroundColor: colors.surfaceRaised,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  storeInfo: {
+    padding: spacing.sm,
+  },
+  storeName: {
+    ...typography.bodyStrong,
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  storePrice: {
+    ...typography.title,
+    color: colors.primary,
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  storeOutOfStock: {
+    ...typography.caption,
+    color: colors.error,
+    fontWeight: '700',
+  },
 });

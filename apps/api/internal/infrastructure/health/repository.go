@@ -21,10 +21,10 @@ func NewRepository(db *sql.DB) *Repository {
 // GetMetrics returns recent health metrics for an athlete.
 func (r *Repository) GetMetrics(ctx context.Context, athleteID string, days int) ([]*health.HealthMetric, error) {
 	query := `SELECT id, athlete_id, metric_type, value, unit, source, source_workout_id, recorded_at, synced_at
-	          FROM athlete_health_metrics WHERE athlete_id = ?`
+	          FROM athlete_health_metrics WHERE athlete_id = $1`
 	args := []interface{}{athleteID}
 	if days > 0 {
-		query += ` AND recorded_at >= datetime('now', ?)`
+		query += ` AND recorded_at >= datetime('now', $2)`
 		args = append(args, fmt.Sprintf("-%d days", days))
 	}
 	query += ` ORDER BY recorded_at DESC`
@@ -53,7 +53,7 @@ func (r *Repository) GetMetrics(ctx context.Context, athleteID string, days int)
 func (r *Repository) RecordMetric(ctx context.Context, m *health.HealthMetric) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO athlete_health_metrics (id, athlete_id, metric_type, value, unit, source, source_workout_id, recorded_at, synced_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+		 VALUES ($3, $4, $5, $6, $7, $8, $9, $10, NOW())`,
 		m.ID, m.AthleteID, m.MetricType, m.Value, m.Unit, m.Source, m.SourceWorkoutID, m.RecordedAt)
 	if err != nil {
 		return fmt.Errorf("failed to record health metric: %w", err)
@@ -64,10 +64,10 @@ func (r *Repository) RecordMetric(ctx context.Context, m *health.HealthMetric) e
 // GetSleepLogs returns recent sleep logs for an athlete.
 func (r *Repository) GetSleepLogs(ctx context.Context, athleteID string, days int) ([]*health.SleepLog, error) {
 	query := `SELECT id, athlete_id, date, total_minutes, deep_minutes, rem_minutes, light_minutes, awake_minutes, efficiency, score, source
-	          FROM athlete_sleep_logs WHERE athlete_id = ?`
+	          FROM athlete_sleep_logs WHERE athlete_id = $11`
 	args := []interface{}{athleteID}
 	if days > 0 {
-		query += ` AND date >= date('now', ?)`
+		query += ` AND date >= date('now', $12)`
 		args = append(args, fmt.Sprintf("-%d days", days))
 	}
 	query += ` ORDER BY date DESC`
@@ -117,7 +117,7 @@ func (r *Repository) GetSleepLogs(ctx context.Context, athleteID string, days in
 func (r *Repository) RecordSleepLog(ctx context.Context, s *health.SleepLog) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO athlete_sleep_logs (id, athlete_id, date, total_minutes, deep_minutes, rem_minutes, light_minutes, awake_minutes, efficiency, score, source)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 VALUES ($13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)`,
 		s.ID, s.AthleteID, s.Date, s.TotalMinutes, s.DeepMinutes, s.RemMinutes, s.LightMinutes, s.AwakeMinutes, s.Efficiency, s.Score, s.Source)
 	if err != nil {
 		return fmt.Errorf("failed to record sleep log: %w", err)
@@ -129,7 +129,7 @@ func (r *Repository) RecordSleepLog(ctx context.Context, s *health.SleepLog) err
 func (r *Repository) GetDevices(ctx context.Context, athleteID string) ([]*health.HealthDevice, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, athlete_id, platform, device_name, device_brand, is_active, last_sync_at, created_at
-		 FROM athlete_health_devices WHERE athlete_id = ? ORDER BY created_at DESC`, athleteID)
+		 FROM athlete_health_devices WHERE athlete_id = $24 ORDER BY created_at DESC`, athleteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get health devices: %w", err)
 	}
@@ -154,8 +154,8 @@ func (r *Repository) GetDevices(ctx context.Context, athleteID string) ([]*healt
 func (r *Repository) RegisterDevice(ctx context.Context, d *health.HealthDevice) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO athlete_health_devices (id, athlete_id, platform, device_name, device_brand, is_active, last_sync_at, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-		 ON CONFLICT(athlete_id, platform) DO UPDATE SET device_name=excluded.device_name, device_brand=excluded.device_brand, is_active=1, last_sync_at=datetime('now')`,
+		 VALUES ($25, $26, $27, $28, $29, $30, $31, NOW())
+		 ON CONFLICT(athlete_id, platform) DO UPDATE SET device_name=excluded.device_name, device_brand=excluded.device_brand, is_active=1, last_sync_at=NOW()`,
 		d.ID, d.AthleteID, d.Platform, d.DeviceName, d.DeviceBrand, d.IsActive, d.LastSyncAt)
 	if err != nil {
 		return fmt.Errorf("failed to register health device: %w", err)
@@ -165,7 +165,7 @@ func (r *Repository) RegisterDevice(ctx context.Context, d *health.HealthDevice)
 
 // RemoveDevice deletes a device.
 func (r *Repository) RemoveDevice(ctx context.Context, deviceID string) error {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM athlete_health_devices WHERE id = ?`, deviceID)
+	res, err := r.db.ExecContext(ctx, `DELETE FROM athlete_health_devices WHERE id = $32`, deviceID)
 	if err != nil {
 		return fmt.Errorf("failed to remove health device: %w", err)
 	}

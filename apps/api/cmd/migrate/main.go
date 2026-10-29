@@ -25,12 +25,12 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "list pending migrations without applying them")
 	flag.Parse()
 
-	url, token := config.DatabaseConnection()
+	url := config.DatabaseConnection()
 	if url == "" {
-		fatal("DATABASE_URL (or TURSO_URL) is required")
+		fatal("DATABASE_URL is required")
 	}
 
-	db, err := database.Connect(url, token)
+	db, err := database.Connect(url)
 	if err != nil {
 		fatal("cannot connect to database: %v", err)
 	}

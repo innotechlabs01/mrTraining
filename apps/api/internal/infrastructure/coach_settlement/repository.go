@@ -31,7 +31,7 @@ func (r *Repository) GetSettlement(ctx context.Context, settlementID, coachID st
 		       operations_count, base_total_cents, commission_gross_cents, adjustments_cents,
 		       commission_net_cents, COALESCE(calculated_at, ''), COALESCE(approved_at, ''),
 		       COALESCE(closed_at, ''), created_at, updated_at
-		FROM coach_settlements WHERE id = ? AND coach_id = ?
+		FROM coach_settlements WHERE id = $1 AND coach_id = $2
 	`, settlementID, coachID), coachID)
 }
 
@@ -42,7 +42,7 @@ func (r *Repository) ListSettlementsByCoach(ctx context.Context, coachID string)
 		       operations_count, base_total_cents, commission_gross_cents, adjustments_cents,
 		       commission_net_cents, COALESCE(calculated_at, ''), COALESCE(approved_at, ''),
 		       COALESCE(closed_at, ''), created_at, updated_at
-		FROM coach_settlements WHERE coach_id = ?
+		FROM coach_settlements WHERE coach_id = $3
 		ORDER BY created_at DESC
 	`, coachID)
 	if err != nil {
@@ -59,7 +59,7 @@ func (r *Repository) ListSettlementsByAlly(ctx context.Context, allyID string) (
 		       operations_count, base_total_cents, commission_gross_cents, adjustments_cents,
 		       commission_net_cents, COALESCE(calculated_at, ''), COALESCE(approved_at, ''),
 		       COALESCE(closed_at, ''), created_at, updated_at
-		FROM coach_settlements WHERE ally_id = ?
+		FROM coach_settlements WHERE ally_id = $4
 		ORDER BY created_at DESC
 	`, allyID)
 	if err != nil {
@@ -105,7 +105,7 @@ func (r *Repository) CreateSettlement(ctx context.Context, in domain.CreateSettl
 			(id, coach_id, ally_id, period_start, period_end, period_key, currency, status,
 			 operations_count, base_total_cents, commission_gross_cents, adjustments_cents,
 			 commission_net_cents, calculated_at, approved_at, closed_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', 0, 0, 0, 0, 0, NULL, NULL, NULL, ?, ?)
+		VALUES ($5, $6, $7, $8, $9, $10, $11, 'draft', 0, 0, 0, 0, 0, NULL, NULL, NULL, $12, $13)
 	`, id, in.CoachID, in.AllyID, in.PeriodStart, in.PeriodEnd, in.PeriodKey, currency, t, t)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert settlement: %w", err)
@@ -154,8 +154,8 @@ func (r *Repository) GetEligibleEntriesForPeriod(ctx context.Context, coachID, a
 		FROM commission_entries ce
 		JOIN ally_operations ao ON ce.operation_id = ao.id
 		WHERE ce.status = 'accrued'
-		  AND ce.coach_id = ?
-		  AND ao.ally_id = ?
+		  AND ce.coach_id = $14
+		  AND ao.ally_id = $15
 		  AND ao.status IN ('fulfilled','attended')
 		  AND EXISTS (
 			SELECT 1 FROM ally_payment_declarations apd
@@ -199,7 +199,7 @@ func (r *Repository) CalculateSettlement(ctx context.Context, settlementID strin
 	var status string
 	var allyID, coachID, periodKey, currency string
 	err = tx.QueryRowContext(ctx, `
-		SELECT status, coach_id, ally_id, period_key, currency FROM coach_settlements WHERE id = ?
+		SELECT status, coach_id, ally_id, period_key, currency FROM coach_settlements WHERE id = $16
 	`, settlementID).Scan(&status, &coachID, &allyID, &periodKey, &currency)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -229,7 +229,7 @@ func (r *Repository) CalculateSettlement(ctx context.Context, settlementID strin
 			INSERT INTO settlement_items
 				(id, settlement_id, entry_id, base_cents, rate_bps, fixed_amount_cents,
 				 amount_cents, released_at, created_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)
+			VALUES ($17, $18, $19, $20, $21, $22, $23, NULL, $24)
 		`, itemID, settlementID, c.EntryID, c.BaseCents, c.RateBps, c.FixedAmountCents,
 			c.AmountCents, t)
 		if err != nil {
@@ -255,10 +255,10 @@ func (r *Repository) CalculateSettlement(ctx context.Context, settlementID strin
 
 	_, err = tx.ExecContext(ctx, `
 		UPDATE coach_settlements
-		SET status = 'calculated', operations_count = ?, base_total_cents = ?,
-		    commission_gross_cents = ?, adjustments_cents = ?, commission_net_cents = ?,
-		    calculated_at = ?, updated_at = ?
-		WHERE id = ?
+		SET status = 'calculated', operations_count = $25, base_total_cents = $26,
+		    commission_gross_cents = $27, adjustments_cents = $28, commission_net_cents = $29,
+		    calculated_at = $30, updated_at = $31
+		WHERE id = $32
 	`, len(items), baseTotalCents, commissionGrossCents, adjustmentsCents,
 		commissionNetCents, t, t, settlementID)
 	if err != nil {
@@ -310,7 +310,7 @@ func (r *Repository) UpdateSettlementStatus(ctx context.Context, settlementID, a
 
 	// Verify valid transition.
 	var currentStatus string
-	err = tx.QueryRowContext(ctx, `SELECT status FROM coach_settlements WHERE id = ?`, settlementID).Scan(&currentStatus)
+	err = tx.QueryRowContext(ctx, `SELECT status FROM coach_settlements WHERE id = $33`, settlementID).Scan(&currentStatus)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrNotFound
@@ -323,9 +323,9 @@ func (r *Repository) UpdateSettlementStatus(ctx context.Context, settlementID, a
 
 	_, err = tx.ExecContext(ctx, `
 		UPDATE coach_settlements
-		SET status = ?, updated_at = ?,
-		    approved_at = CASE WHEN ? = 'approved' THEN ? ELSE approved_at END
-		WHERE id = ?
+		SET status = $34, updated_at = $35,
+		    approved_at = CASE WHEN $36 = 'approved' THEN $37 ELSE approved_at END
+		WHERE id = $38
 	`, status, t, status, t, settlementID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update settlement status: %w", err)
@@ -357,7 +357,7 @@ func (r *Repository) VoidSettlement(ctx context.Context, settlementID, actorID s
 	defer tx.Rollback()
 
 	var currentStatus string
-	err = tx.QueryRowContext(ctx, `SELECT status FROM coach_settlements WHERE id = ?`, settlementID).Scan(&currentStatus)
+	err = tx.QueryRowContext(ctx, `SELECT status FROM coach_settlements WHERE id = $39`, settlementID).Scan(&currentStatus)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrNotFound
@@ -372,7 +372,7 @@ func (r *Repository) VoidSettlement(ctx context.Context, settlementID, actorID s
 
 	// Release settlement items (set released_at) so entries can be re-settled.
 	_, err = tx.ExecContext(ctx, `
-		UPDATE settlement_items SET released_at = ? WHERE settlement_id = ? AND released_at IS NULL
+		UPDATE settlement_items SET released_at = $40 WHERE settlement_id = $41 AND released_at IS NULL
 	`, t, settlementID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to release settlement items: %w", err)
@@ -380,8 +380,8 @@ func (r *Repository) VoidSettlement(ctx context.Context, settlementID, actorID s
 
 	_, err = tx.ExecContext(ctx, `
 		UPDATE coach_settlements
-		SET status = 'void', updated_at = ?
-		WHERE id = ?
+		SET status = 'void', updated_at = $42
+		WHERE id = $43
 	`, t, settlementID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to void settlement: %w", err)
@@ -409,7 +409,7 @@ func (r *Repository) ListSettlementItems(ctx context.Context, settlementID strin
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, settlement_id, entry_id, base_cents, rate_bps, amount_cents,
 		       COALESCE(released_at, ''), created_at
-		FROM settlement_items WHERE settlement_id = ?
+		FROM settlement_items WHERE settlement_id = $44
 		ORDER BY created_at
 	`, settlementID)
 	if err != nil {
@@ -446,7 +446,7 @@ func (r *Repository) CreateSettlementDocument(ctx context.Context, in domain.Cre
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO settlement_documents
 			(id, settlement_id, kind, content_ref, status, version, generated_at, created_at)
-		VALUES (?, ?, ?, ?, 'draft', 1, ?, ?)
+		VALUES ($45, $46, $47, $48, 'draft', 1, $49, $50)
 	`, id, in.SettlementID, in.Kind, in.ContentRef, t, t)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert settlement document: %w", err)
@@ -482,7 +482,7 @@ func (r *Repository) CreateSettlementDocument(ctx context.Context, in domain.Cre
 func (r *Repository) ListSettlementDocuments(ctx context.Context, settlementID string) ([]*domain.SettlementDocument, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, settlement_id, kind, content_ref, status, version, generated_at, COALESCE(sent_at, '')
-		FROM settlement_documents WHERE settlement_id = ?
+		FROM settlement_documents WHERE settlement_id = $51
 		ORDER BY created_at DESC
 	`, settlementID)
 	if err != nil {
@@ -528,7 +528,7 @@ func (r *Repository) CreateCoachPaymentRecord(ctx context.Context, in domain.Cre
 		INSERT INTO coach_payment_records
 			(id, settlement_id, coach_id, payer_ally_id, amount_cents, currency,
 			 actor_id, actor_type, reference, evidence_ref, declared_at, status, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'declared', ?)
+		VALUES ($52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, 'declared', $63)
 	`, id, in.SettlementID, in.CoachID, in.PayerAllyID, in.AmountCents, currency,
 		in.ActorID, in.ActorType, in.Reference, in.EvidenceRef, declaredAt, t)
 	if err != nil {
@@ -578,7 +578,7 @@ func (r *Repository) ConfirmCoachPaymentRecord(ctx context.Context, recordID, ac
 	defer tx.Rollback()
 
 	var currentStatus string
-	err = tx.QueryRowContext(ctx, `SELECT status FROM coach_payment_records WHERE id = ?`, recordID).Scan(&currentStatus)
+	err = tx.QueryRowContext(ctx, `SELECT status FROM coach_payment_records WHERE id = $64`, recordID).Scan(&currentStatus)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrNotFound
@@ -592,7 +592,7 @@ func (r *Repository) ConfirmCoachPaymentRecord(ctx context.Context, recordID, ac
 	_, err = tx.ExecContext(ctx, `
 		UPDATE coach_payment_records
 		SET status = 'confirmed'
-		WHERE id = ? AND status = 'declared'
+		WHERE id = $65 AND status = 'declared'
 	`, recordID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm payment record: %w", err)
@@ -622,11 +622,11 @@ func (r *Repository) ListCoachPaymentRecords(ctx context.Context, coachID string
 		WHERE 1 = 1`
 	args := []any{}
 	if coachID != "" {
-		query += " AND coach_id = ?"
+		query += " AND coach_id = $66"
 		args = append(args, coachID)
 	}
 	if allyID != "" {
-		query += " AND payer_ally_id = ?"
+		query += " AND payer_ally_id = $67"
 		args = append(args, allyID)
 	}
 	query += " ORDER BY created_at DESC"
@@ -656,7 +656,7 @@ func (r *Repository) GetCoachPaymentRecord(ctx context.Context, recordID string,
 	return scanPaymentRecord(r.db.QueryRowContext(ctx, `
 		SELECT id, settlement_id, coach_id, payer_ally_id, amount_cents, currency,
 		       actor_id, actor_type, reference, evidence_ref, declared_at, status, created_at
-		FROM coach_payment_records WHERE id = ?
+		FROM coach_payment_records WHERE id = $68
 	`, recordID))
 }
 
@@ -668,8 +668,8 @@ func (r *Repository) getEligibleEntriesTx(ctx context.Context, tx *sql.Tx, coach
 		FROM commission_entries ce
 		JOIN ally_operations ao ON ce.operation_id = ao.id
 		WHERE ce.status = 'accrued'
-		  AND ce.coach_id = ?
-		  AND ao.ally_id = ?
+		  AND ce.coach_id = $69
+		  AND ao.ally_id = $70
 		  AND ao.status IN ('fulfilled','attended')
 		  AND EXISTS (
 			SELECT 1 FROM ally_payment_declarations apd

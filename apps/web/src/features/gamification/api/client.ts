@@ -32,9 +32,9 @@ export interface PersonalRecord {
 }
 
 export const gamificationApi = {
-  getStreak: () => goFetch<Streak>('/api/v1/gamification/streak'),
+  getStreak: (athleteId?: string) => goFetch<Streak>(`/api/v1/gamification/streak${athleteId ? `?athlete_id=${athleteId}` : ''}`),
 
-  getBadges: () => goFetch<Badge[]>('/api/v1/gamification/badges'),
+  getBadges: (athleteId?: string) => goFetch<Badge[]>(`/api/v1/gamification/badges${athleteId ? `?athlete_id=${athleteId}` : ''}`),
 
   checkBadges: (workoutId: string) =>
     goFetch<Badge[]>('/api/v1/gamification/badges/check', {
@@ -42,7 +42,7 @@ export const gamificationApi = {
       body: JSON.stringify({ workout_id: workoutId }),
     }),
 
-  getPRs: () => goFetch<PersonalRecord[]>('/api/v1/gamification/prs'),
+  getPRs: (athleteId?: string) => goFetch<PersonalRecord[]>(`/api/v1/gamification/prs${athleteId ? `?athlete_id=${athleteId}` : ''}`),
 
   recordPR: (data: { exercise_id: string; exercise_name: string; value: number; unit: string }) =>
     goFetch<PersonalRecord>('/api/v1/gamification/prs/record', {

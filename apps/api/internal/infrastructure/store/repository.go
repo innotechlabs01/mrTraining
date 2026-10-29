@@ -58,7 +58,7 @@ func (r *Repository) GetProduct(ctx context.Context, id string) (*store.Product,
 	if r.db == nil {
 		return nil, fmt.Errorf("database not initialized")
 	}
-	query := "SELECT id, name, description, price, image_url, stock, low_stock_threshold, created_at, updated_at FROM products WHERE id = ? AND is_shop = 1"
+	query := "SELECT id, name, description, price, image_url, stock, low_stock_threshold, created_at, updated_at FROM products WHERE id = $1 AND is_shop = 1"
 	row := r.db.QueryRowContext(ctx, query, id)
 
 	var p store.Product
@@ -85,14 +85,14 @@ func (r *Repository) CreatePurchase(ctx context.Context, purchase *store.Purchas
 	if r.db == nil {
 		return fmt.Errorf("database not initialized")
 	}
-	query := "INSERT INTO store_purchases (id, athlete_id, product_id, quantity, price, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+	query := "INSERT INTO store_purchases (id, athlete_id, product_id, quantity, price, created_at) VALUES ($2, $3, $4, $5, $6, $7)"
 	_, err := r.db.ExecContext(ctx, query, purchase.ID, purchase.AthleteID, purchase.ProductID, purchase.Quantity, purchase.Price, purchase.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to create purchase: %w", err)
 	}
 
 	// Update product stock
-	productQuery := "UPDATE products SET stock = stock - ? WHERE id = ?"
+	productQuery := "UPDATE products SET stock = stock - $8 WHERE id = $9"
 	_, err = r.db.ExecContext(ctx, productQuery, purchase.Quantity, purchase.ProductID)
 	if err != nil {
 		return fmt.Errorf("failed to update product stock: %w", err)
@@ -106,7 +106,7 @@ func (r *Repository) ListPurchasesByAthlete(ctx context.Context, athleteID strin
 	if r.db == nil {
 		return []*store.Purchase{}, nil
 	}
-	query := "SELECT id, athlete_id, product_id, quantity, price, created_at FROM store_purchases WHERE athlete_id = ? ORDER BY created_at DESC"
+	query := "SELECT id, athlete_id, product_id, quantity, price, created_at FROM store_purchases WHERE athlete_id = $10 ORDER BY created_at DESC"
 	rows, err := r.db.QueryContext(ctx, query, athleteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list purchases: %w", err)
@@ -186,7 +186,7 @@ func (r *Repository) CreateOrderWithItems(ctx context.Context, order *store.Orde
 
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO store_orders (id, athlete_id, status, total, currency, created_at)
-		VALUES (?, ?, 'pending', ?, ?, datetime('now'))
+		VALUES ($11, $12, 'pending', $13, $14, NOW())
 	`, order.ID, order.AthleteID, order.Total, order.Currency); err != nil {
 		return fmt.Errorf("failed to insert order: %w", err)
 	}
@@ -194,7 +194,7 @@ func (r *Repository) CreateOrderWithItems(ctx context.Context, order *store.Orde
 	for _, it := range items {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO store_order_items (id, order_id, product_id, product_name, unit_price, quantity, fulfilled)
-			VALUES (?, ?, ?, ?, ?, ?, 0)
+			VALUES ($15, $16, $17, $18, $19, $20, 0)
 		`, it.ID, order.ID, it.ProductID, it.ProductName, it.UnitPrice, it.Quantity); err != nil {
 			return fmt.Errorf("failed to insert order item: %w", err)
 		}
@@ -212,7 +212,7 @@ func (r *Repository) GetOrder(ctx context.Context, orderID string) (*store.Order
 	var externalRef, paidAt sql.NullString
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, athlete_id, status, total, currency, external_ref, created_at, paid_at
-		FROM store_orders WHERE id = ?
+		FROM store_orders WHERE id = $21
 	`, orderID).Scan(&o.ID, &o.AthleteID, &o.Status, &o.Total, &o.Currency, &externalRef, &o.CreatedAt, &paidAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get order: %w", err)
@@ -226,7 +226,7 @@ func (r *Repository) GetOrder(ctx context.Context, orderID string) (*store.Order
 func (r *Repository) GetOrderItems(ctx context.Context, orderID string) ([]*store.OrderItem, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, order_id, product_id, product_name, unit_price, quantity, fulfilled
-		FROM store_order_items WHERE order_id = ? ORDER BY product_name
+		FROM store_order_items WHERE order_id = $22 ORDER BY product_name
 	`, orderID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list order items: %w", err)
@@ -264,7 +264,7 @@ func (r *Repository) FulfillOrder(ctx context.Context, orderID, externalRef stri
 
 	// Inspect the order state first — replayed webhooks must be no-ops.
 	var status string
-	err = tx.QueryRowContext(ctx, `SELECT status FROM store_orders WHERE id = ?`, orderID).Scan(&status)
+	err = tx.QueryRowContext(ctx, `SELECT status FROM store_orders WHERE id = $23`, orderID).Scan(&status)
 	if err != nil {
 		return nil, fmt.Errorf("order not found: %w", err)
 	}
@@ -277,7 +277,7 @@ func (r *Repository) FulfillOrder(ctx context.Context, orderID, externalRef stri
 
 	rows, err := tx.QueryContext(ctx, `
 		SELECT product_id, product_name, unit_price, quantity
-		FROM store_order_items WHERE order_id = ?
+		FROM store_order_items WHERE order_id = $24
 	`, orderID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load order items: %w", err)
@@ -302,7 +302,7 @@ func (r *Repository) FulfillOrder(ctx context.Context, orderID, externalRef stri
 	// Validate existence + stock for every line BEFORE writing anything.
 	for _, l := range lines {
 		var stock int
-		err := tx.QueryRowContext(ctx, `SELECT stock FROM products WHERE id = ?`, l.productID).Scan(&stock)
+		err := tx.QueryRowContext(ctx, `SELECT stock FROM products WHERE id = $25`, l.productID).Scan(&stock)
 		if err != nil {
 			return nil, fmt.Errorf("product %s not found: %w", l.productID, err)
 		}
@@ -317,32 +317,32 @@ func (r *Repository) FulfillOrder(ctx context.Context, orderID, externalRef stri
 	for _, l := range lines {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO store_purchases (id, athlete_id, product_id, quantity, price, created_at)
-			VALUES (?, (SELECT athlete_id FROM store_orders WHERE id = ?), ?, ?, ?, datetime('now'))
+			VALUES ($26, (SELECT athlete_id FROM store_orders WHERE id = $27), $28, $29, $30, NOW())
 		`, purchaseID(orderID, l.productID), orderID, l.productID, l.quantity, l.unitPrice); err != nil {
 			return nil, fmt.Errorf("failed to record purchase: %w", err)
 		}
 		if _, err := tx.ExecContext(ctx, `
-			UPDATE products SET stock = stock - ? WHERE id = ?
+			UPDATE products SET stock = stock - $31 WHERE id = $32
 		`, l.quantity, l.productID); err != nil {
 			return nil, fmt.Errorf("failed to decrement stock: %w", err)
 		}
 		if _, err := tx.ExecContext(ctx, `
-			UPDATE store_order_items SET fulfilled = 1 WHERE order_id = ? AND product_id = ?
+			UPDATE store_order_items SET fulfilled = 1 WHERE order_id = $33 AND product_id = $34
 		`, orderID, l.productID); err != nil {
 			return nil, fmt.Errorf("failed to mark item fulfilled: %w", err)
 		}
 		// Mirror into the sales table for dashboard revenue + ventas page.
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO sales (id, product_id, product_name, brand, quantity, unit_price, unit_received, total, date, coach_id, created_at)
-			VALUES (?, ?, ?, (SELECT COALESCE(brand, '') FROM products WHERE id = ?), ?, ?, 0, ?, date('now'), (SELECT coach_id FROM products WHERE id = ?), datetime('now'))
+			VALUES ($35, $36, $37, (SELECT COALESCE(brand, '') FROM products WHERE id = $38), $39, $40, 0, $41, CURRENT_DATE, (SELECT coach_id FROM products WHERE id = $42), NOW())
 		`, "sls-"+purchaseID(orderID, l.productID), l.productID, l.productName, l.productID, l.quantity, l.unitPrice, l.unitPrice*float64(l.quantity), l.productID); err != nil {
 			return nil, fmt.Errorf("failed to log sale for dashboard: %w", err)
 		}
 	}
 
 	if _, err := tx.ExecContext(ctx, `
-		UPDATE store_orders SET status = 'paid', external_ref = COALESCE(NULLIF(?, ''), external_ref), paid_at = datetime('now')
-		WHERE id = ?
+		UPDATE store_orders SET status = 'paid', external_ref = COALESCE(NULLIF($43, ''), external_ref), paid_at = NOW()
+		WHERE id = $44
 	`, externalRef, orderID); err != nil {
 		return nil, fmt.Errorf("failed to mark order paid: %w", err)
 	}

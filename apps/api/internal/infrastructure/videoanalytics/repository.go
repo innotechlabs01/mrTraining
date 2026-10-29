@@ -26,7 +26,7 @@ func (r *Repository) CreateSession(ctx context.Context, session *domain.SessionA
 	now := time.Now()
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO video_analytics_sessions (id, athlete_id, workout_id, exercise_id, exercise_name, duration_sec, rep_count, avg_form_score, min_form_score, max_form_score, video_url, status, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`, session.ID, session.AthleteID, session.WorkoutID, session.ExerciseID, session.ExerciseName,
 		session.DurationSec, session.RepCount, session.AvgFormScore, session.MinFormScore,
 		session.MaxFormScore, session.VideoURL, session.Status, now, now)
@@ -44,7 +44,7 @@ func (r *Repository) GetSession(ctx context.Context, sessionID string) (*domain.
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, athlete_id, workout_id, exercise_id, exercise_name, duration_sec, rep_count, avg_form_score, min_form_score, max_form_score, video_url, status, created_at, updated_at
 		FROM video_analytics_sessions
-		WHERE id = ?
+		WHERE id = $15
 	`, sessionID).Scan(&s.ID, &s.AthleteID, &s.WorkoutID, &s.ExerciseID, &s.ExerciseName,
 		&s.DurationSec, &s.RepCount, &s.AvgFormScore, &s.MinFormScore,
 		&s.MaxFormScore, &s.VideoURL, &s.Status, &s.CreatedAt, &s.UpdatedAt)
@@ -61,9 +61,9 @@ func (r *Repository) ListSessionsByAthlete(ctx context.Context, athleteID string
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, athlete_id, workout_id, exercise_id, exercise_name, duration_sec, rep_count, avg_form_score, min_form_score, max_form_score, video_url, status, created_at, updated_at
 		FROM video_analytics_sessions
-		WHERE athlete_id = ?
+		WHERE athlete_id = $16
 		ORDER BY created_at DESC
-		LIMIT ? OFFSET ?
+		LIMIT $17 OFFSET $18
 	`, athleteID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)
@@ -90,9 +90,9 @@ func (r *Repository) ListSessionsByExercise(ctx context.Context, athleteID strin
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, athlete_id, workout_id, exercise_id, exercise_name, duration_sec, rep_count, avg_form_score, min_form_score, max_form_score, video_url, status, created_at, updated_at
 		FROM video_analytics_sessions
-		WHERE athlete_id = ? AND exercise_id = ?
+		WHERE athlete_id = $19 AND exercise_id = $20
 		ORDER BY created_at DESC
-		LIMIT ?
+		LIMIT $21
 	`, athleteID, exerciseID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list sessions by exercise: %w", err)
@@ -125,7 +125,7 @@ func (r *Repository) GetSummary(ctx context.Context, athleteID string) (*domain.
 			COALESCE(SUM(duration_sec) / 60, 0) as total_duration_min,
 			COUNT(DISTINCT exercise_id) as exercise_count
 		FROM video_analytics_sessions
-		WHERE athlete_id = ?
+		WHERE athlete_id = $22
 	`, athleteID).Scan(&summary.TotalSessions, &summary.TotalReps, &summary.AvgFormScore,
 		&summary.TotalDurationMin, &summary.ExerciseCount)
 	if err != nil {
@@ -148,7 +148,7 @@ func (r *Repository) GetPerExercise(ctx context.Context, athleteID string) ([]*d
 			COALESCE(MAX(avg_form_score), 0) as best_form_score,
 			COALESCE(AVG(duration_sec), 0) as avg_duration
 		FROM video_analytics_sessions
-		WHERE athlete_id = ?
+		WHERE athlete_id = $23
 		GROUP BY exercise_id, exercise_name
 		ORDER BY total_sessions DESC
 	`, athleteID)

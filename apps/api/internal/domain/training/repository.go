@@ -86,6 +86,13 @@ type WorkoutRepository interface {
 
 	// DeleteTemplate deletes a workout template and its exercises.
 	DeleteTemplate(ctx context.Context, id string) error
+
+	// UpdateWorkoutExerciseActuals updates the actual GPS route and intervals for workout exercises.
+	// This is called when an athlete completes a running workout with GPS tracking data.
+	UpdateWorkoutExerciseActuals(ctx context.Context, workoutID, actualGPSRoute string, actualIntervals []RunningInterval) error
+
+	// ListSessionsByWorkout retrieves all sessions for a given workout.
+	ListSessionsByWorkout(ctx context.Context, workoutID string) ([]*WorkoutSession, error)
 }
 
 // ProgressRepository defines the data access interface for progress tracking.

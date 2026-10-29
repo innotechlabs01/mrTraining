@@ -217,6 +217,9 @@ export const trainingScreensTexts = {
     markerYou: 'Tú',
     locationDenied: 'Permite la ubicación para seguir tu recorrido en el mapa.',
     pointsCaption: '{n} puntos · Sigue la línea en el mapa.',
+    progress: 'Progreso',
+    offRoute: 'Fuera de ruta',
+    offRouteWarning: 'Te has desviado de la ruta. Vuelve al recorrido.',
   },
   trackedVideoPlayer: {
     loadError: 'No se pudo cargar el video',

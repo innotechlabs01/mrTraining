@@ -39,9 +39,7 @@ export async function POST(request: NextRequest) {
     // Insert each metric
     for (const metric of metrics) {
       const id = generateId()
-      await safeExecute(
-        db,
-        `INSERT INTO form_metrics (
+      await safeExecute(`INSERT INTO form_metrics (
           id, athlete_id, exercise_id, exercise_name, workout_id,
           form_score, depth, alignment, tempo, recorded_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,

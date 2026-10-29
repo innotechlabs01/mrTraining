@@ -20,8 +20,7 @@ type Config struct {
 	AppName string // Application name for logging and identification
 
 	// Database
-	DatabaseURL    string // Turso/LibSQL connection URL
-	TursoAuthToken string // Turso authentication token
+	DatabaseURL string // PostgreSQL connection URL (DATABASE_URL)
 
 	// Auth (Clerk)
 	ClerkSecretKey      string // Clerk secret key for backend API calls
@@ -75,8 +74,7 @@ func Load() (*Config, error) {
 		AppPort: getEnv("APP_PORT", "3001"),
 		AppName: getEnv("APP_NAME", "mr-training-api"),
 
-		DatabaseURL:    getEnv("DATABASE_URL", getEnv("TURSO_URL", "")),
-		TursoAuthToken: getEnv("TURSO_AUTH_TOKEN", ""),
+		DatabaseURL: getEnv("DATABASE_URL", ""),
 
 		ClerkSecretKey:      getEnv("CLERK_SECRET_KEY", ""),
 		ClerkPublishableKey: getEnv("CLERK_PUBLISHABLE_KEY", ""),
@@ -110,13 +108,13 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// DatabaseConnection returns the database URL and auth token using the same
-// .env file and precedence as Load (DATABASE_URL, falling back to TURSO_URL).
+// DatabaseConnection returns the database URL using the same
+// .env file and environment variables as Load (DATABASE_URL).
 // CLI tools that only need database access (e.g. cmd/migrate) use this instead
 // of Load so they don't require unrelated production variables.
-func DatabaseConnection() (url, token string) {
+func DatabaseConnection() (url string) {
 	_ = godotenv.Load()
-	return getEnv("DATABASE_URL", getEnv("TURSO_URL", "")), getEnv("TURSO_AUTH_TOKEN", "")
+	return getEnv("DATABASE_URL", "")
 }
 
 // validate checks that all required configuration values are present.
@@ -127,9 +125,6 @@ func (c *Config) validate() error {
 
 		if c.DatabaseURL == "" {
 			missing = append(missing, "DATABASE_URL")
-		}
-		if c.TursoAuthToken == "" {
-			missing = append(missing, "TURSO_AUTH_TOKEN")
 		}
 		if c.ClerkSecretKey == "" {
 			missing = append(missing, "CLERK_SECRET_KEY")

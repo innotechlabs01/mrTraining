@@ -21,6 +21,7 @@ import (
 	allycatalogapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_catalog"
 	allyopsapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_operations"
 	allypaymentdeclarationapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_payment_declaration"
+	allypurchaseapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_purchase"
 	blogapp "github.com/innotechlabs01/mr-training-api/internal/application/blog"
 	challengeapp "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
 	coachapp "github.com/innotechlabs01/mr-training-api/internal/application/coach"
@@ -44,6 +45,7 @@ import (
 	onboardingapp "github.com/innotechlabs01/mr-training-api/internal/application/onboarding"
 	paymentapp "github.com/innotechlabs01/mr-training-api/internal/application/payment"
 	planapp "github.com/innotechlabs01/mr-training-api/internal/application/plan"
+	earningsapp "github.com/innotechlabs01/mr-training-api/internal/application/earnings"
 	productapp "github.com/innotechlabs01/mr-training-api/internal/application/product"
 	routineapp "github.com/innotechlabs01/mr-training-api/internal/application/routine"
 	runningapp "github.com/innotechlabs01/mr-training-api/internal/application/running"
@@ -140,7 +142,7 @@ func main() {
 	// Initialize database connection
 	var db *database.DB
 	if cfg.DatabaseURL != "" {
-		db, err = database.Connect(cfg.DatabaseURL, cfg.TursoAuthToken)
+		db, err = database.Connect(cfg.DatabaseURL)
 		if err != nil {
 			log.Error("failed to connect to database", zap.Error(err))
 			os.Exit(1)
@@ -366,6 +368,10 @@ func main() {
 		// Register running routes
 		routes.RegisterRunningRoutes(api, runningHandler)
 
+		// Register structured running workout routes (templates, assignments, guided sessions)
+		runningWorkoutHandler := userhttp.NewRunningWorkoutHandler(runningService)
+		routes.RegisterRunningWorkoutRoutes(api, runningWorkoutHandler)
+
 		// Activity-file import (GPX/TCX/FIT) → running sessions + GPS points
 		importActivityService := importactivityapp.NewService(runningService)
 		importActivityHandler := userhttp.NewImportActivityHandler(importActivityService)
@@ -463,6 +469,20 @@ func main() {
 
 		// Register commission entry routes
 		routes.RegisterCommissionEntryRoutes(api, commissionEntryHandler)
+
+		// Wire Earnings domain (own sales profit + ally commissions)
+		earningsService := earningsapp.NewService(productRepo, commissionEntryRepo)
+		earningsHandler := userhttp.NewEarningsHandler(earningsService)
+
+		// Register earnings routes
+		routes.RegisterEarningsRoutes(api, earningsHandler)
+
+		// Wire Ally Purchase domain (automatic commission on ally product purchase)
+		allyPurchaseService := allypurchaseapp.NewService(inviteRepo, allyCatalogRepo, allyRepo, allyOpsRepo, commissionEntryRepo, log)
+		allyPurchaseHandler := userhttp.NewAllyPurchaseHandler(allyPurchaseService)
+
+		// Register ally purchase routes
+		routes.RegisterAllyPurchaseRoutes(api, allyPurchaseHandler)
 
 		// Wire Coach Settlement domain (Phase F)
 		coachSetRepo := coachsetinfrastructure.NewRepository(db.DB)

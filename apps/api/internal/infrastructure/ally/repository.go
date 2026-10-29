@@ -38,7 +38,7 @@ func (r *Repository) CreateAllyWithRelationship(ctx context.Context, in allydoma
 	allyID := uuid.New().String()
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO allies (id, owner_user_id, legal_name, commercial_name, category, contact_email, contact_phone, tax_id, status, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', datetime('now'), datetime('now'))
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', NOW(), NOW())
 	`, allyID, nullable(in.OwnerUserID), in.LegalName, in.CommercialName, in.Category, in.ContactEmail, in.ContactPhone, in.TaxID); err != nil {
 		return nil, nil, fmt.Errorf("failed to insert ally: %w", err)
 	}
@@ -46,7 +46,7 @@ func (r *Repository) CreateAllyWithRelationship(ctx context.Context, in allydoma
 	if in.OwnerUserID != "" {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO ally_members (id, ally_id, user_id, role, created_at)
-			VALUES (?, ?, ?, 'owner', datetime('now'))
+			VALUES ($9, $10, $11, 'owner', NOW())
 		`, uuid.New().String(), allyID, in.OwnerUserID); err != nil {
 			return nil, nil, fmt.Errorf("failed to insert ally owner membership: %w", err)
 		}
@@ -55,7 +55,7 @@ func (r *Repository) CreateAllyWithRelationship(ctx context.Context, in allydoma
 	relationshipID := uuid.New().String()
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO coach_ally_relationships (id, coach_id, ally_id, status, attributed_by, invited_at, created_at, updated_at)
-		VALUES (?, ?, ?, 'invited', ?, datetime('now'), datetime('now'), datetime('now'))
+		VALUES ($12, $13, $14, 'invited', $15, NOW(), NOW(), NOW())
 	`, relationshipID, in.CoachID, allyID, in.CoachID); err != nil {
 		return nil, nil, fmt.Errorf("failed to insert coach-ally relationship: %w", err)
 	}
@@ -87,7 +87,7 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*allydo
 		SELECT r.id, r.coach_id, a.id, a.legal_name, a.commercial_name, a.category, r.status
 		FROM coach_ally_relationships r
 		JOIN allies a ON a.id = r.ally_id
-		WHERE r.coach_id = ?
+		WHERE r.coach_id = $16
 		ORDER BY a.commercial_name COLLATE NOCASE
 	`, coachID)
 	if err != nil {
@@ -103,8 +103,8 @@ func (r *Repository) ListByAllyUser(ctx context.Context, userID string) ([]*ally
 		SELECT r.id, r.coach_id, a.id, a.legal_name, a.commercial_name, a.category, r.status
 		FROM coach_ally_relationships r
 		JOIN allies a ON a.id = r.ally_id
-		WHERE a.owner_user_id = ?
-		   OR a.id IN (SELECT ally_id FROM ally_members WHERE user_id = ?)
+		WHERE a.owner_user_id = $17
+		   OR a.id IN (SELECT ally_id FROM ally_members WHERE user_id = $18)
 		ORDER BY a.commercial_name COLLATE NOCASE
 	`, userID, userID)
 	if err != nil {
@@ -120,7 +120,7 @@ func (r *Repository) GetByIDForCoach(ctx context.Context, relationshipID, coachI
 	var allyID string
 	err := r.db.QueryRowContext(ctx, `
 		SELECT ally_id FROM coach_ally_relationships
-		WHERE id = ? AND coach_id = ?
+		WHERE id = $19 AND coach_id = $20
 	`, relationshipID, coachID).Scan(&allyID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -167,7 +167,7 @@ func getAlly(ctx context.Context, q querier, allyID string) (*allydomain.Ally, e
 		SELECT id, COALESCE(owner_user_id, ''), legal_name, commercial_name, category,
 		       COALESCE(contact_email, ''), COALESCE(contact_phone, ''), COALESCE(tax_id, ''),
 		       status, created_at, updated_at
-		FROM allies WHERE id = ?
+		FROM allies WHERE id = $21
 	`, allyID))
 }
 
@@ -192,7 +192,7 @@ func getRelationship(ctx context.Context, q querier, id string) (*allydomain.Rel
 		SELECT id, coach_id, ally_id, status,
 		       COALESCE(attributed_by, ''), COALESCE(invited_at, ''), COALESCE(activated_at, ''), COALESCE(ended_at, ''),
 		       created_at, updated_at
-		FROM coach_ally_relationships WHERE id = ?
+		FROM coach_ally_relationships WHERE id = $22
 	`, id))
 }
 
@@ -217,7 +217,7 @@ func listMembers(ctx context.Context, q interface {
 }, allyID string) ([]*allydomain.AllyMember, error) {
 	rows, err := q.QueryContext(ctx, `
 		SELECT id, ally_id, user_id, role, created_at
-		FROM ally_members WHERE ally_id = ?
+		FROM ally_members WHERE ally_id = $23
 		ORDER BY created_at
 	`, allyID)
 	if err != nil {
@@ -233,6 +233,21 @@ func listMembers(ctx context.Context, q interface {
 		out = append(out, &m)
 	}
 	return out, rows.Err()
+}
+
+// FindActiveRelationship returns the relationship_id when an active
+// coach-ally relationship exists between coachID and allyID.
+func (r *Repository) FindActiveRelationship(ctx context.Context, coachID, allyID string) (string, error) {
+	var relationshipID string
+	err := r.db.QueryRowContext(ctx, `
+		SELECT id FROM coach_ally_relationships
+		WHERE coach_id = $24 AND ally_id = $25 AND status = 'active'
+		LIMIT 1
+	`, coachID, allyID).Scan(&relationshipID)
+	if err != nil {
+		return "", fmt.Errorf("failed to find active relationship: %w", err)
+	}
+	return relationshipID, nil
 }
 
 // nullable converts an empty string to a SQL NULL.

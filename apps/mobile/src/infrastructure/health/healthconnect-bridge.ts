@@ -8,7 +8,9 @@
  *  - Instantaneous records carry .time; interval records carry startTime/endTime
  *  - SleepStageType: AWAKE=1, LIGHT=4, DEEP=5, REM=6
  */
-import type { HealthBridge, HealthMetric, SleepLog } from './types';
+import type { DeviceActivity, HealthBridge, HealthMetric, RoutePoint, SleepLog } from './types';
+import { identifyDevice } from './device-identity';
+import { localDate, round2, routeDistanceKm } from './geo';
 
 type HealthConnectModule = typeof import('react-native-health-connect');
 
@@ -26,7 +28,32 @@ async function hc(): Promise<HealthConnectModule | null> {
 
 const MS_PER_DAY = 86400000;
 
+// ExerciseSession.exerciseType values (Health Connect enums).
+const EXERCISE_RUNNING = 56;
+const EXERCISE_RUNNING_TREADMILL = 57;
+
 const iso = (ms: number) => new Date(ms).toISOString();
+
+/**
+ * Health Connect reports lengths as { value, unit } rather than meters, so a
+ * route recorded on a watch configured in miles must still store meters.
+ */
+function lengthToMeters(length: unknown): number | undefined {
+  const l = length as { value?: number; unit?: string } | undefined;
+  if (typeof l?.value !== 'number') return undefined;
+  switch (l.unit) {
+    case 'kilometers':
+      return l.value * 1000;
+    case 'miles':
+      return l.value * 1609.344;
+    case 'inches':
+      return l.value * 0.0254;
+    case 'feet':
+      return l.value * 0.3048;
+    default:
+      return l.value; // 'meters'
+  }
+}
 
 export class HealthConnectBridge implements HealthBridge {
   readonly platform = 'healthconnect' as const;
@@ -58,6 +85,9 @@ export class HealthConnectBridge implements HealthBridge {
         { accessType: 'read', recordType: 'ActiveCaloriesBurned' },
         { accessType: 'read', recordType: 'Vo2Max' },
         { accessType: 'read', recordType: 'SleepSession' },
+        // Runs recorded by a watch (Garmin syncs into Health Connect on Android).
+        { accessType: 'read', recordType: 'ExerciseSession' },
+        { accessType: 'read', recordType: 'Distance' },
       ]);
       return granted.length > 0;
     } catch {
@@ -143,6 +173,166 @@ export class HealthConnectBridge implements HealthBridge {
     } catch { /* none */ }
 
     return metrics;
+  }
+
+  /**
+   * Reads running exercise sessions from Health Connect with their route.
+   *
+   * This is the Android path for both first-party recording and any watch that
+   * writes into Health Connect (Garmin Connect does). The producing device is
+   * taken from metadata.device / metadata.dataOrigin, so a Garmin run is stored
+   * as Garmin even though Health Connect delivered it.
+   */
+  async readWorkoutsSince(sinceMs: number): Promise<DeviceActivity[]> {
+    const m = await hc();
+    if (!m) return [];
+
+    let sessions: readonly Record<string, unknown>[] = [];
+    try {
+      await m.initialize();
+      const result = await m.readRecords('ExerciseSession', {
+        ...this.range(sinceMs),
+        pageSize: 50,
+        ascendingOrder: true,
+      });
+      sessions = (result.records ?? []) as unknown as readonly Record<string, unknown>[];
+    } catch {
+      return []; // no permission, or nothing recorded in the window
+    }
+
+    const activities: DeviceActivity[] = [];
+    for (const s of sessions) {
+      const activity = await this.toActivity(m, s);
+      if (activity) activities.push(activity);
+    }
+    return activities;
+  }
+
+  private async toActivity(
+    m: HealthConnectModule,
+    s: Record<string, unknown>,
+  ): Promise<DeviceActivity | null> {
+    const exerciseType = typeof s.exerciseType === 'number' ? s.exerciseType : 0;
+    if (exerciseType !== EXERCISE_RUNNING && exerciseType !== EXERCISE_RUNNING_TREADMILL) return null;
+
+    const startTime = typeof s.startTime === 'string' ? s.startTime : '';
+    const endTime = typeof s.endTime === 'string' ? s.endTime : '';
+    const metadata = (s.metadata ?? {}) as {
+      id?: string;
+      dataOrigin?: string;
+      device?: { manufacturer?: string; model?: string };
+    };
+    const externalId = metadata.id ?? '';
+    if (!externalId || !startTime || !endTime) return null;
+
+    const start = Date.parse(startTime);
+    const end = Date.parse(endTime);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+    const durationSec = Math.round((end - start) / 1000);
+
+    const route = await this.readRoute(m, externalId);
+    const distanceKm = await this.distanceKm(m, startTime, endTime, route);
+    if (distanceKm <= 0) return null; // treadmill runs without distance stay out
+
+    const device = metadata.device;
+    const identity = identifyDevice({
+      name: device?.model,
+      bundleIdentifier: metadata.dataOrigin,
+      manufacturer: device?.manufacturer,
+      model: device?.model,
+      platform: 'healthconnect',
+    });
+
+    const heartRate = await this.avgHeartRate(m, startTime, endTime);
+    const calories = await this.activeCalories(m, startTime, endTime);
+
+    return {
+      externalId,
+      source: identity.source,
+      deviceName: identity.name,
+      deviceBrand: identity.brand,
+      date: localDate(new Date(start)),
+      distanceKm: round2(distanceKm),
+      durationSec,
+      calories,
+      heartRate: heartRate || undefined,
+      route,
+    };
+  }
+
+  private async readRoute(m: HealthConnectModule, recordId: string): Promise<RoutePoint[]> {
+    try {
+      const locations = await m.requestExerciseRoute(recordId);
+      const points: RoutePoint[] = [];
+      for (const loc of locations ?? []) {
+        if (typeof loc.latitude !== 'number' || typeof loc.longitude !== 'number') continue;
+        points.push({
+          lat: loc.latitude,
+          lng: loc.longitude,
+          alt: lengthToMeters(loc.altitude),
+          timestamp: loc.time,
+          accuracy: lengthToMeters(loc.horizontalAccuracy),
+        });
+      }
+      return points;
+    } catch {
+      return []; // route consent denied, or no route stored
+    }
+  }
+
+  private async distanceKm(
+    m: HealthConnectModule,
+    startTime: string,
+    endTime: string,
+    route: RoutePoint[],
+  ): Promise<number> {
+    try {
+      const records = await m.readRecords('Distance', {
+        timeRangeFilter: { operator: 'between', startTime, endTime },
+      });
+      const meters = (records.records ?? []).reduce(
+        (sum, r) => sum + (r.distance?.inMeters ?? 0),
+        0,
+      );
+      if (meters > 0) return meters / 1000;
+    } catch {
+      // fall through to the route-derived distance
+    }
+    return routeDistanceKm(route);
+  }
+
+  private async avgHeartRate(
+    m: HealthConnectModule,
+    startTime: string,
+    endTime: string,
+  ): Promise<number> {
+    try {
+      const records = await m.readRecords('HeartRate', {
+        timeRangeFilter: { operator: 'between', startTime, endTime },
+      });
+      const samples = (records.records ?? []).flatMap(r => r.samples ?? []);
+      if (samples.length === 0) return 0;
+      const total = samples.reduce((sum, s) => sum + (s.beatsPerMinute ?? 0), 0);
+      return Math.round(total / samples.length);
+    } catch {
+      return 0;
+    }
+  }
+
+  private async activeCalories(
+    m: HealthConnectModule,
+    startTime: string,
+    endTime: string,
+  ): Promise<number> {
+    try {
+      const records = await m.readRecords('ActiveCaloriesBurned', {
+        timeRangeFilter: { operator: 'between', startTime, endTime },
+      });
+      const total = (records.records ?? []).reduce((sum, r) => sum + (r.energy?.inKilocalories ?? 0), 0);
+      return Math.round(total);
+    } catch {
+      return 0;
+    }
   }
 
   async readLastNightSleep(): Promise<SleepLog | null> {

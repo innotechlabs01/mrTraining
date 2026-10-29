@@ -28,6 +28,35 @@ Si no sabes que regla aplica, lee `apps/rules/MASTER_PROMPT.md` primero.
 | **Mobile / React Native** | `mobile-rules/*` (ver seccion abajo) |
 | **Cualquier cosa** | `MASTER_PROMPT.md` (siempre) |
 
+## REGLA OBLIGATORIA — MIGRACIONES DE BASE DE DATOS (PostgreSQL / Supabase)
+
+**Todo cambio de esquema de base de datos DEBE ir acompañado de su archivo de migración SQL en `apps/api/migrations/postgres/`.** Nunca se aplica un cambio de schema directamente contra la base sin una migración versionada.
+
+| Reglas obligatorias para migraciones |
+|---|
+| 1. Toda nueva tabla, columna, índice, clave foránea o restricción se crea mediante un archivo `.sql` numerado en `apps/api/migrations/postgres/` (formato `NNN_descripcion.sql`). |
+| 2. Las migraciones son incrementales y reproducibles desde una base vacía. |
+| 3. Usar placeholders `$1`, `$2`, ... (PostgreSQL), nunca `?` (SQLite/libSQL). |
+| 4. Usar `NOW()` / `CURRENT_TIMESTAMP`, nunca `datetime('now')`. |
+| 5. Usar `BOOLEAN` (`true`/`false`), nunca `INTEGER 0/1`. |
+| 6. Usar `ON CONFLICT (...) DO NOTHING` / `DO UPDATE SET`, nunca `INSERT OR IGNORE` / `INSERT OR REPLACE`. |
+| 7. Usar `gen_random_uuid()` o UUID generado en aplicación, nunca `hex(randomblob(16))`. |
+| 8. Cada migración se aplica una sola vez y se registra en `schema_migrations`. Nunca se reescribe una migración ya aplicada. |
+| 9. Si se necesita un cambio adicional sobre una tabla ya migrada, se crea un archivo de migración nuevo (ej. `204_1_...`), no se modifica el existente. |
+| 10. Antes de aplicar en QA o Producción, las migraciones deben ejecutarse y verificarse contra una base PostgreSQL local vacía. |
+| 11. Nunca eliminar ni sobrescribir datos sin autorización. Nunca ejecutar operaciones destructivas contra producción durante la auditoría. |
+| 12. Turso/libSQL queda retirado: el único driver de base de datos es `github.com/jackc/pgx/v5` con `database/sql`. |
+
+## REGLA OBLIGATORIA — SIN MIGRACIÓN NO HAY CAMBIO DE SCHEMA
+
+Si un cambio requiere modificar la base de datos (tabla, columna, índice, restricción, FK), el agente debe:
+1. Crear el archivo de migración correspondiente en `apps/api/migrations/postgres/`.
+2. Aplicarlo en la base local de desarrollo (`DATABASE_URL` apuntando a PostgreSQL local).
+3. Verificar que `go build ./...` y los tests correspondientes pasen.
+4. Solo entonces tocar el código Go/TypeScript que dependa de ese esquema.
+
+---
+
 ### Reglas Mobile (React Native)
 
 Cuando trabajes en `apps/mobile/`, React Native, o cualquier feature mobile, activa TODAS estas reglas:

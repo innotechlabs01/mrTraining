@@ -43,6 +43,36 @@ export interface SleepLog {
   recordedAt: string
 }
 
+/** One GPS sample from a watch-recorded workout route. */
+export interface RoutePoint {
+  lat: number;
+  lng: number;
+  alt?: number | undefined;
+  timestamp: string; // ISO
+  accuracy?: number | undefined; // meters
+}
+
+/**
+ * A run recorded on the athlete's watch, ready for POST /running/sessions/import.
+ * `externalId` is the device's own workout id — it is what makes re-syncing the
+ * same window idempotent instead of duplicating runs.
+ */
+export interface DeviceActivity {
+  externalId: string;
+  /** Canonical origin resolved by device-identity, not the raw platform string. */
+  source: import('./device-identity').RecordingSource;
+  deviceName: string;
+  deviceBrand: string;
+  date: string; // YYYY-MM-DD
+  distanceKm: number;
+  durationSec: number;
+  calories: number;
+  elevationM?: number | undefined;
+  heartRate?: number | undefined;
+  cadence?: number | undefined;
+  route: RoutePoint[];
+}
+
 export interface HealthBridge {
   readonly platform: HealthPlatform
   /** Whether this platform exists on the current device (iOS vs Android check). */
@@ -55,6 +85,12 @@ export interface HealthBridge {
   readMetricsSince(sinceMs: number): Promise<HealthMetric[]>
   /** The most recent completed night of sleep, if any. */
   readLastNightSleep(): Promise<SleepLog | null>
+  /**
+   * Runs recorded by the watch since the given epoch ms, with their GPS route
+   * and the device that recorded them. Empty when the platform owns sync
+   * server-side (Garmin) or no workout permission was granted.
+   */
+  readWorkoutsSince(sinceMs: number): Promise<DeviceActivity[]>
 }
 
 export class HealthBridgeUnavailableError extends Error {

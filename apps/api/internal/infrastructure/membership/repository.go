@@ -26,7 +26,7 @@ func (r *Repository) GetByAthleteID(ctx context.Context, athleteID string) (*mem
 		`SELECT id, athlete_id, coach_id, plan_name, plan_price, billing_period,
 		 status, current_period_start, current_period_end, grace_period_days,
 		 payment_due_date, created_at, updated_at
-		 FROM athlete_memberships WHERE athlete_id = ? ORDER BY created_at DESC LIMIT 1`, athleteID)
+		 FROM athlete_memberships WHERE athlete_id = $1 ORDER BY created_at DESC LIMIT 1`, athleteID)
 
 	m := &membership.Membership{}
 	err := row.Scan(&m.ID, &m.AthleteID, &m.CoachID, &m.PlanName, &m.PlanPrice,
@@ -47,7 +47,7 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*membership.Member
 		`SELECT id, athlete_id, coach_id, plan_name, plan_price, billing_period,
 		 status, current_period_start, current_period_end, grace_period_days,
 		 payment_due_date, created_at, updated_at
-		 FROM athlete_memberships WHERE id = ?`, id)
+		 FROM athlete_memberships WHERE id = $2`, id)
 
 	m := &membership.Membership{}
 	err := row.Scan(&m.ID, &m.AthleteID, &m.CoachID, &m.PlanName, &m.PlanPrice,
@@ -69,7 +69,7 @@ func (r *Repository) Create(ctx context.Context, m *membership.Membership) error
 		 (id, athlete_id, coach_id, plan_name, plan_price, billing_period, status,
 		  current_period_start, current_period_end, grace_period_days, payment_due_date,
 		  created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+		 VALUES ($3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())`,
 		m.ID, m.AthleteID, m.CoachID, m.PlanName, m.PlanPrice, m.BillingPeriod,
 		m.Status, m.CurrentPeriodStart, m.CurrentPeriodEnd, m.GracePeriodDays,
 		m.PaymentDueDate)
@@ -86,10 +86,10 @@ func (r *Repository) Create(ctx context.Context, m *membership.Membership) error
 func (r *Repository) Update(ctx context.Context, m *membership.Membership) error {
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE athlete_memberships
-		 SET plan_name = ?, plan_price = ?, billing_period = ?, status = ?,
-		     current_period_start = ?, current_period_end = ?, grace_period_days = ?,
-		     payment_due_date = ?, updated_at = datetime('now')
-		 WHERE id = ?`,
+		 SET plan_name = $14, plan_price = $15, billing_period = $16, status = $17,
+		     current_period_start = $18, current_period_end = $19, grace_period_days = $20,
+		     payment_due_date = $21, updated_at = NOW()
+		 WHERE id = $22`,
 		m.PlanName, m.PlanPrice, m.BillingPeriod, m.Status,
 		m.CurrentPeriodStart, m.CurrentPeriodEnd, m.GracePeriodDays,
 		m.PaymentDueDate, m.ID)
@@ -109,8 +109,8 @@ func (r *Repository) Update(ctx context.Context, m *membership.Membership) error
 // Cancel sets a membership status to "cancelled".
 func (r *Repository) Cancel(ctx context.Context, id string) error {
 	result, err := r.db.ExecContext(ctx,
-		`UPDATE athlete_memberships SET status = 'cancelled', updated_at = datetime('now')
-		 WHERE id = ?`, id)
+		`UPDATE athlete_memberships SET status = 'cancelled', updated_at = NOW()
+		 WHERE id = $23`, id)
 	if err != nil {
 		return fmt.Errorf("failed to cancel membership: %w", err)
 	}
@@ -130,7 +130,7 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*member
 		`SELECT id, athlete_id, coach_id, plan_name, plan_price, billing_period,
 		 status, current_period_start, current_period_end, grace_period_days,
 		 payment_due_date, created_at, updated_at
-		 FROM athlete_memberships WHERE coach_id = ? ORDER BY current_period_end DESC`, coachID)
+		 FROM athlete_memberships WHERE coach_id = $24 ORDER BY current_period_end DESC`, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list memberships by coach: %w", err)
 	}
@@ -159,7 +159,7 @@ func (r *Repository) GetPaymentHistory(ctx context.Context, athleteID string) ([
 		 mp.period_start, mp.period_end, mp.paid_at, mp.created_at
 		 FROM membership_payments mp
 		 JOIN athlete_memberships am ON mp.membership_id = am.id
-		 WHERE am.athlete_id = ?
+		 WHERE am.athlete_id = $25
 		 ORDER BY mp.created_at DESC LIMIT 24`, athleteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get payment history: %w", err)
@@ -195,7 +195,7 @@ func (r *Repository) RecordPayment(ctx context.Context, p *membership.Payment) e
 	if p.PolarOrderID != "" {
 		var existingID string
 		err := r.db.QueryRowContext(ctx,
-			`SELECT id FROM membership_payments WHERE polar_order_id = ? LIMIT 1`,
+			`SELECT id FROM membership_payments WHERE polar_order_id = $26 LIMIT 1`,
 			p.PolarOrderID).Scan(&existingID)
 		if err == nil {
 			// Already recorded — no-op
@@ -213,7 +213,7 @@ func (r *Repository) GetPaymentByExternalID(ctx context.Context, externalID stri
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, membership_id, amount, currency, status, polar_order_id,
 		       period_start, period_end, paid_at, created_at
-		FROM membership_payments WHERE polar_order_id = ? LIMIT 1
+		FROM membership_payments WHERE polar_order_id = $27 LIMIT 1
 	`, externalID).Scan(&p.ID, &p.MembershipID, &p.Amount, &p.Currency, &p.Status,
 		&polarOrderID, &p.PeriodStart, &p.PeriodEnd, &paidAt, &p.CreatedAt)
 	if err != nil {
@@ -229,7 +229,7 @@ func (r *Repository) insertPayment(ctx context.Context, p *membership.Payment) e
 		`INSERT INTO membership_payments
 		 (id, membership_id, amount, currency, status, polar_order_id,
 		  period_start, period_end, paid_at, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+		 VALUES ($28, $29, $30, $31, $32, $33, $34, $35, $36, NOW())`,
 		p.ID, p.MembershipID, p.Amount, p.Currency, p.Status,
 		nullString(p.PolarOrderID), p.PeriodStart, p.PeriodEnd,
 		nullString(p.PaidAt))
@@ -244,9 +244,10 @@ func (r *Repository) insertPayment(ctx context.Context, p *membership.Payment) e
 // Uses the MP payment id as the sales row primary key for idempotency.
 func (r *Repository) RecordMembershipSale(ctx context.Context, saleID string, m *membership.Membership) error {
 	_, err := r.db.ExecContext(ctx, `
-		INSERT OR IGNORE INTO sales
+		INSERT INTO sales
 			(id, product_id, product_name, brand, quantity, unit_price, unit_received, total, date, coach_id, created_at)
-		VALUES (?, '', ?, 'membresia', 1, ?, 0, ?, date('now'), ?, datetime('now'))
+		VALUES ($37, '', $38, 'membresia', 1, $39, 0, $40, CURRENT_DATE, $41, NOW())
+		ON CONFLICT (id) DO NOTHING
 	`, saleID, "Membresía: "+m.PlanName, m.PlanPrice, m.PlanPrice, m.CoachID)
 	if err != nil {
 		return fmt.Errorf("failed to record membership sale: %w", err)

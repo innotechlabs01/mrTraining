@@ -20,7 +20,7 @@ func (r *repository) ListByAthleteID(athleteID string) ([]*domain.Routine, error
 	query := `
 		SELECT id, athlete_id, name, description, exercises, duration_min, created_at, updated_at
 		FROM athlete_routines
-		WHERE athlete_id = ?
+		WHERE athlete_id = $1
 		ORDER BY created_at DESC
 	`
 
@@ -49,7 +49,7 @@ func (r *repository) GetByID(id string) (*domain.Routine, error) {
 	query := `
 		SELECT id, athlete_id, name, description, exercises, duration_min, created_at, updated_at
 		FROM athlete_routines
-		WHERE id = ?
+		WHERE id = $2
 	`
 
 	rt := &domain.Routine{}
@@ -67,7 +67,7 @@ func (r *repository) Create(rt *domain.Routine) error {
 	now := time.Now().UTC()
 	query := `
 		INSERT INTO athlete_routines (id, athlete_id, name, description, exercises, duration_min, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES ($3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	if rt.ID == "" {
@@ -86,8 +86,8 @@ func (r *repository) Create(rt *domain.Routine) error {
 func (r *repository) Update(rt *domain.Routine) error {
 	query := `
 		UPDATE athlete_routines
-		SET name = ?, description = ?, exercises = ?, duration_min = ?, updated_at = ?
-		WHERE id = ? AND athlete_id = ?
+		SET name = $11, description = $12, exercises = $13, duration_min = $14, updated_at = $15
+		WHERE id = $16 AND athlete_id = $17
 	`
 
 	rt.UpdatedAt = time.Now().UTC()
@@ -99,7 +99,7 @@ func (r *repository) Update(rt *domain.Routine) error {
 }
 
 func (r *repository) Delete(id, athleteID string) error {
-	query := `DELETE FROM athlete_routines WHERE id = ? AND athlete_id = ?`
+	query := `DELETE FROM athlete_routines WHERE id = $18 AND athlete_id = $19`
 	_, err := r.db.Exec(query, id, athleteID)
 	return err
 }

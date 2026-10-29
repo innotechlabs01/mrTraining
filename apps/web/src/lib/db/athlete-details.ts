@@ -33,7 +33,7 @@ export async function getAthleteDetail(athleteId: string): Promise<AthleteDetail
   )
   if (athleteResult.rows.length === 0) return null
 
-  const athlete = mapRow(athleteResult.columns)(athleteResult.rows[0]) as Record<string, unknown>
+  const athlete = mapRow(athleteResult.fields.map(f => f.name))(athleteResult.rows[0]) as Record<string, unknown>
 
   // Get membership/plan info
   const membershipResult = await db.execute(
@@ -41,7 +41,7 @@ export async function getAthleteDetail(athleteId: string): Promise<AthleteDetail
     [athleteId, 'active'],
   )
   const membership = membershipResult.rows.length > 0
-    ? mapRow(membershipResult.columns)(membershipResult.rows[0]) as Record<string, unknown>
+    ? mapRow(membershipResult.fields.map(f => f.name))(membershipResult.rows[0]) as Record<string, unknown>
     : null
 
   // Get latest recovery data for readiness
@@ -50,7 +50,7 @@ export async function getAthleteDetail(athleteId: string): Promise<AthleteDetail
     [athleteId],
   )
   const recovery = recoveryResult.rows.length > 0
-    ? mapRow(recoveryResult.columns)(recoveryResult.rows[0]) as Record<string, unknown>
+    ? mapRow(recoveryResult.fields.map(f => f.name))(recoveryResult.rows[0]) as Record<string, unknown>
     : null
 
   // Get weight history from progress
@@ -58,7 +58,7 @@ export async function getAthleteDetail(athleteId: string): Promise<AthleteDetail
     'SELECT * FROM progress WHERE athlete_id = ? ORDER BY date DESC LIMIT 6',
     [athleteId],
   )
-  const weightHistory = progressResult.rows.map(mapRow(progressResult.columns)).map((row: Record<string, unknown>) => ({
+  const weightHistory = progressResult.rows.map(mapRow(progressResult.fields.map(f => f.name))).map((row: Record<string, unknown>) => ({
     date: new Date(row.date as string).toLocaleDateString('es-ES', { month: 'short' }),
     weight: Number(row.weightKg) || 0,
     muscleMass: Number(row.muscleMassKg) || 0,

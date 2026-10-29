@@ -22,6 +22,7 @@ import { templateApi } from '@/features/shared/api/client'
 import type { TemplateExerciseRow } from '@/features/shared/api/client'
 import { InfoTip } from './InfoTip'
 import { RouteMapEditor } from './RouteMapEditor'
+import { RunningIntervalEditor } from './RunningIntervalEditor'
 
 const INTENSITY_LABELS: Record<string, string> = { low: 'Baja', medium: 'Media', high: 'Alta' }
 
@@ -69,6 +70,8 @@ function mapRowToWorkoutExercise(row: TemplateExerciseRow, idx: number): Workout
     rest,
     muscleGroups: mg,
     notes: typeof row.notes === 'string' ? row.notes : undefined,
+    gpsRoute: row.gpsRoute ?? undefined,
+    intervals: row.intervals,
   }
 }
 
@@ -348,6 +351,8 @@ export default function WorkoutBuilder() {
       reps: 10,
       rest: 60,
       muscleGroups: [...ex.muscleGroups],
+      gpsRoute: '',
+      intervals: [],
     }])
   }, [])
 
@@ -368,10 +373,10 @@ export default function WorkoutBuilder() {
     })
   }, [])
 
-  const updateExerciseField = useCallback((id: string, field: string, value: string | number) => {
+  const updateExerciseField = useCallback((id: string, field: string, value: unknown) => {
     setWorkingExercises(prev => prev.map(e => {
       if (e.id !== id) return e
-      if ((field === 'weight' || field === 'rpeTarget') && value === '') {
+      if ((field === 'weight' || field === 'rpeTarget') && (value === '' || value === null || value === undefined)) {
         const { [field]: _, ...rest } = e
         return rest as WorkoutExercise
       }
@@ -761,10 +766,14 @@ export default function WorkoutBuilder() {
                             {we.gpsRoute ? 'Editar ruta de running' : 'Agregar ruta de running'}
                           </button>
                           {routeExerciseId === we.id && (
-                            <div className="mt-2">
+                            <div className="mt-2 space-y-4">
                               <RouteMapEditor
                                 value={we.gpsRoute ?? ''}
                                 onChange={(encoded) => updateExerciseField(we.id, 'gpsRoute', encoded)}
+                              />
+                              <RunningIntervalEditor
+                                intervals={we.intervals ?? []}
+                                onChange={(intervals) => updateExerciseField(we.id, 'intervals', intervals)}
                               />
                             </div>
                           )}

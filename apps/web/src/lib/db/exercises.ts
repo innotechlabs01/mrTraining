@@ -121,7 +121,7 @@ export async function updateExerciseLibrary(
 export async function deleteExerciseLibrary(id: string): Promise<boolean> {
   const db = getDB()
   const result = await db.execute('DELETE FROM exercise_library WHERE id = ?', [id])
-  return result.rowsAffected > 0
+  return (result.rowCount ?? 0) > 0
 }
 
 export async function getExerciseBySlug(slug: string): Promise<ExerciseLibraryItem | null> {

@@ -29,4 +29,8 @@ type Repository interface {
 
 	// ListByAllyUser returns every ally the given user owns or belongs to.
 	ListByAllyUser(ctx context.Context, userID string) ([]*Summary, error)
+
+	// FindActiveRelationship returns the relationship_id when an active
+	// coach-ally relationship exists between coachID and allyID.
+	FindActiveRelationship(ctx context.Context, coachID, allyID string) (string, error)
 }

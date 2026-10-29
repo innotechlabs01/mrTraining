@@ -16,9 +16,7 @@ export async function GET(
     const db = getDB()
 
     // Get all form metrics for this athlete
-    const result = await safeExecute(
-      db,
-      `SELECT
+    const result = await safeExecute(`SELECT
         exercise_id,
         exercise_name,
         form_score,

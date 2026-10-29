@@ -82,6 +82,10 @@ export type RootStackParamList = {
   MembershipPurchase: { plan?: { id: string; name: string; price: string } } | undefined;
   MembershipPlansList: undefined;
   Store: undefined;
+  RunningWorkoutList: undefined;
+  RunningWorkoutDetail: { assignmentId: string } | undefined;
+  RunningExecution: { sessionId: string; workoutId: string } | undefined;
+  RunningSessionSummary: { sessionId: string } | undefined;
   WorkoutDetail: { workoutId: string };
   WorkoutExecution: { sessionId: string; workoutId: string };
   RunRecording: undefined;
@@ -235,6 +239,23 @@ function RootNavigator() {
             name="RunRecording"
             getComponent={() => require('../features/training/presentation/screens/RunRecordingScreen').RunRecordingScreen}
             options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="RunningWorkoutList"
+            getComponent={() => require('../features/training/presentation/screens/RunningWorkoutListScreen').RunningWorkoutListScreen}
+          />
+          <Stack.Screen
+            name="RunningWorkoutDetail"
+            getComponent={() => require('../features/training/presentation/screens/RunningWorkoutDetailScreen').RunningWorkoutDetailScreen}
+          />
+          <Stack.Screen
+            name="RunningExecution"
+            getComponent={() => require('../features/training/presentation/screens/RunningExecutionScreen').RunningExecutionScreen}
+            options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="RunningSessionSummary"
+            getComponent={() => require('../features/training/presentation/screens/RunningSessionSummaryScreen').RunningSessionSummaryScreen}
           />
           <Stack.Screen
             name="AiWorkout"

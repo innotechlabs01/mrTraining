@@ -3,10 +3,9 @@ package commission_entry
 import (
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
-
-	_ "modernc.org/sqlite"
 
 	commissionentrydomain "github.com/innotechlabs01/mr-training-api/internal/domain/commission_entry"
 	commissionentryinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission_entry"
@@ -15,16 +14,15 @@ import (
 
 func newCommissionEntryTestDB(t *testing.T) (*database.DB, *Service) {
 	t.Helper()
-	path := t.TempDir() + "/test.db"
-	db, err := database.Connect("file:"+path, "")
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		t.Skip("skipping: DATABASE_URL not set")
+	}
+	db, err := database.Connect(url)
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
-
-	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
-		t.Fatalf("pragma foreign_keys: %v", err)
-	}
 
 	ddl := `
 CREATE TABLE IF NOT EXISTS allies (
@@ -274,14 +272,14 @@ func TestListCommissionEntriesByCoach(t *testing.T) {
 
 func dbPtr(t *testing.T) *database.DB {
 	t.Helper()
-	path := t.TempDir() + "/direct.db"
-	db, err := database.Connect("file:"+path, "")
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		t.Skip("skipping: DATABASE_URL not set")
+	}
+	db, err := database.Connect(url)
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
-	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
-		t.Fatalf("pragma foreign_keys: %v", err)
-	}
 	return db
 }

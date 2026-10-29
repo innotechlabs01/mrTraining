@@ -15,6 +15,8 @@ type Repository interface {
 
 	// GetProduct returns a product only when it belongs to allyID.
 	GetProduct(ctx context.Context, allyID, productID string) (*AllyProduct, error)
+	// GetProductByID returns a product by ID regardless of which ally owns it.
+	GetProductByID(ctx context.Context, productID string) (*AllyProduct, error)
 
 	// ResolveAllyIDByCoachID returns the ally owned by the given coach (owner_user_id).
 	ResolveAllyIDByCoachID(ctx context.Context, coachID string) (string, error)

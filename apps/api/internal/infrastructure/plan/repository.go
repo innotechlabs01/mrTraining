@@ -25,7 +25,7 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string, activeOnly
 		max_athletes, max_sessions_per_week, is_active, athlete_count, coach_id, trm,
 		discount_type, discount_value, discount_label, discount_valid_from,
 		discount_valid_until, discount_code, created_at, updated_at
-		FROM plans WHERE coach_id = ?`
+		FROM plans WHERE coach_id = $1`
 	rows, err := r.db.QueryContext(ctx, query, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("list plans by coach: %w", err)
@@ -51,7 +51,7 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*plandomain.Plan, 
 		max_athletes, max_sessions_per_week, is_active, athlete_count, coach_id, trm,
 		discount_type, discount_value, discount_label, discount_valid_from,
 		discount_valid_until, discount_code, created_at, updated_at
-		FROM plans WHERE id = ?`, id)
+		FROM plans WHERE id = $2`, id)
 	return scanPlanRow(row)
 }
 
@@ -61,7 +61,7 @@ func (r *Repository) Create(ctx context.Context, p *plandomain.Plan) error {
 		max_athletes, max_sessions_per_week, is_active, athlete_count, coach_id, trm,
 		discount_type, discount_value, discount_label, discount_valid_from,
 		discount_valid_until, discount_code, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+	) VALUES ($3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW(), NOW())`,
 		p.ID, p.Name, p.Description, p.Price, p.Currency, p.BillingPeriod,
 		p.MaxAthletes, p.MaxSessionsPerWeek, boolToInt(p.IsActive), p.AthleteCount, p.CoachID, p.TRM,
 		p.DiscountType, p.DiscountValue, p.DiscountLabel, p.DiscountValidFrom,
@@ -74,12 +74,12 @@ func (r *Repository) Create(ctx context.Context, p *plandomain.Plan) error {
 
 func (r *Repository) Update(ctx context.Context, p *plandomain.Plan) error {
 	result, err := r.db.ExecContext(ctx, `UPDATE plans SET
-		name = ?, description = ?, price = ?, currency = ?, billing_period = ?,
-		max_athletes = ?, max_sessions_per_week = ?, is_active = ?, athlete_count = ?,
-		trm = ?, discount_type = ?, discount_value = ?, discount_label = ?,
-		discount_valid_from = ?, discount_valid_until = ?, discount_code = ?,
-		updated_at = datetime('now')
-		WHERE id = ?`,
+		name = $21, description = $22, price = $23, currency = $24, billing_period = $25,
+		max_athletes = $26, max_sessions_per_week = $27, is_active = $28, athlete_count = $29,
+		trm = $30, discount_type = $31, discount_value = $32, discount_label = $33,
+		discount_valid_from = $34, discount_valid_until = $35, discount_code = $36,
+		updated_at = NOW()
+		WHERE id = $37`,
 		p.Name, p.Description, p.Price, p.Currency, p.BillingPeriod,
 		p.MaxAthletes, p.MaxSessionsPerWeek, boolToInt(p.IsActive), p.AthleteCount,
 		p.TRM, p.DiscountType, p.DiscountValue, p.DiscountLabel,
@@ -95,7 +95,7 @@ func (r *Repository) Update(ctx context.Context, p *plandomain.Plan) error {
 }
 
 func (r *Repository) Delete(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM plans WHERE id = ?`, id)
+	result, err := r.db.ExecContext(ctx, `DELETE FROM plans WHERE id = $38`, id)
 	if err != nil {
 		return fmt.Errorf("delete plan: %w", err)
 	}

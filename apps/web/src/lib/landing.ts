@@ -1,7 +1,4 @@
-import { createClient } from '@libsql/client';
-
-const TURSO_URL = process.env.TURSO_URL;
-const TURSO_AUTH_TOKEN = process.env.TURSO_AUTH_TOKEN;
+import { safeExecute } from './db'
 
 type LandingSection = {
   n?: string;
@@ -164,38 +161,9 @@ const FALLBACK_DATA: LandingData = {
   updatedAt: new Date().toISOString(),
 };
 
-let client: ReturnType<typeof createClient> | null = null;
-
-function getClient() {
-  if (!TURSO_URL) return null;
-  if (client) return client;
-  client = createClient({
-    url: TURSO_URL,
-    authToken: TURSO_AUTH_TOKEN,
-  });
-  return client;
-}
-
-async function ensureTable() {
-  const c = getClient();
-  if (!c) return;
-  await c.execute(`
-    CREATE TABLE IF NOT EXISTS landing_content (
-      id INTEGER PRIMARY KEY,
-      version INTEGER NOT NULL DEFAULT 1,
-      content TEXT NOT NULL,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-}
-
 export async function getLandingContent(): Promise<LandingData> {
-  const c = getClient();
-  if (!c) return FALLBACK_DATA;
-
   try {
-    await ensureTable();
-    const result = await c.execute(
+    const result = await safeExecute(
       'SELECT content, version FROM landing_content ORDER BY version DESC LIMIT 1'
     );
     if (result.rows.length === 0) return FALLBACK_DATA;
@@ -215,17 +183,13 @@ export async function getLandingContent(): Promise<LandingData> {
 export async function updateLandingContent(
   data: Omit<LandingData, 'updatedAt'>
 ): Promise<LandingData> {
-  const c = getClient();
-  if (!c) throw new Error('TURSO_URL not configured');
-
-  await ensureTable();
   const now = new Date().toISOString();
   const payload: LandingData = { ...data, updatedAt: now };
   const version = data.version + 1;
 
-  await c.execute(
-    'INSERT INTO landing_content (version, content, updated_at) VALUES (?, ?, ?)',
-    [version, JSON.stringify(payload), now]
+  await safeExecute(
+    'INSERT INTO landing_content (version, content, updated_at) VALUES ($1, $2, $3)',
+    [version, JSON.stringify(payload), now],
   );
 
   return payload;

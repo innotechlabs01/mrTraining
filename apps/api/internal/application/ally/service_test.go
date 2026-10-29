@@ -9,8 +9,6 @@ import (
 	"runtime"
 	"testing"
 
-	_ "modernc.org/sqlite"
-
 	migrationpkg "github.com/innotechlabs01/mr-training-api/internal/infrastructure/database/migrations"
 	allydomain "github.com/innotechlabs01/mr-training-api/internal/domain/ally"
 	allyinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally"
@@ -61,8 +59,11 @@ func applyMigrations(t *testing.T, db *database.DB) error {
 
 func newAllyTestDB(t *testing.T) (*database.DB, *Service) {
 	t.Helper()
-	path := t.TempDir() + "/test.db"
-	db, err := database.Connect("file:"+path, "")
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		t.Skip("skipping: DATABASE_URL not set")
+	}
+	db, err := database.Connect(url)
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}

@@ -21,6 +21,8 @@ services:
       - key: LOG_LEVEL
         value: info
       # Secrets — valores se cargan en el dashboard de Render (sync: false).
+      - key: DATABASE_URL
+        sync: false
       - key: TURSO_URL
         sync: false
       - key: TURSO_AUTH_TOKEN

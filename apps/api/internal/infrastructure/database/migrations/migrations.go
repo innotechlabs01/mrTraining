@@ -13,8 +13,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-
-	_ "modernc.org/sqlite" // enable file: local SQLite URLs via the libsql driver's file fallback
 )
 
 // trackingTableDDL creates the table that records applied migrations.
@@ -107,16 +105,44 @@ func applyFile(ctx context.Context, db *sql.DB, dir, name string) error {
 
 	for _, stmt := range stmts {
 		if _, err := tx.ExecContext(ctx, stmt); err != nil {
+			if isDuplicateColumn(stmt, err) {
+				// The column already exists: a legacy migration applied
+				// out-of-band (apps/web/migrations) added it first. The intent of
+				// the statement is already satisfied, so keep going instead of
+				// failing the whole migration on schema drift.
+				continue
+			}
 			return fmt.Errorf("migration %s: %w\nstatement: %s", name, err, stmt)
 		}
 	}
-	if _, err := tx.ExecContext(ctx, "INSERT INTO schema_migrations (name) VALUES (?)", name); err != nil {
+	if _, err := tx.ExecContext(ctx, "INSERT INTO schema_migrations (name) VALUES ($1)", name); err != nil {
 		return fmt.Errorf("migration %s: record applied failed: %w", name, err)
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("migration %s: commit failed: %w", name, err)
 	}
 	return nil
+}
+
+// isDuplicateColumn reports whether err means an ALTER TABLE ADD COLUMN
+// statement failed only because the column already existed.
+//
+// This happens when the same column was added by a legacy migration in
+// apps/web/migrations (applied manually, outside this runner) before the Go
+// chain reached the equivalent statement. Treating it as success keeps
+// environments with schema drift and freshly bootstrapped databases on the
+// same code path.
+func isDuplicateColumn(stmt string, err error) bool {
+	if err == nil {
+		return false
+	}
+	if !strings.Contains(strings.ToUpper(stmt), "ADD COLUMN") {
+		return false
+	}
+	// PostgreSQL: "column "x" of relation "y" already exists"
+	// SQLite/libSQL: "duplicate column name: x"
+	errMsg := strings.ToLower(err.Error())
+	return strings.Contains(errMsg, "already exists") || strings.Contains(errMsg, "duplicate column name")
 }
 
 // ensureTrackingTable creates schema_migrations when missing.

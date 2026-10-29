@@ -27,8 +27,11 @@ func allyMigrationsDir() string {
 
 func newLocalDB(t *testing.T) *database.DB {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "test.db")
-	db, err := database.Connect("file:"+path, "")
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		t.Skip("skipping: DATABASE_URL not set")
+	}
+	db, err := database.Connect(url)
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}

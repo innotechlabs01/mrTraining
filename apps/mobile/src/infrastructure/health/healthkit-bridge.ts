@@ -7,7 +7,9 @@
  *  - queryQuantitySamples/queryCategorySamples(id, { filter: { date }, limit }) — limit required
  *  - Sleep values: CategoryValueSleepAnalysis (asleepCore=3, asleepDeep=4, asleepREM=5, awake=2)
  */
-import type { HealthBridge, HealthMetric, SleepLog } from './types';
+import type { DeviceActivity, HealthBridge, HealthMetric, RoutePoint, SleepLog } from './types';
+import { identifyDevice } from './device-identity';
+import { localDate, round2, routeDistanceKm } from './geo';
 
 type HealthkitModule = typeof import('@kingstinct/react-native-healthkit');
 
@@ -24,6 +26,13 @@ async function hk(): Promise<HealthkitModule | null> {
 }
 
 const MS_PER_DAY = 86400000;
+
+/** Reads `quantity` out of a HealthKit Quantity, ignoring absent/NaN values. */
+function quantityOf(q: unknown): number | null {
+  const quantity = (q as { quantity?: number } | undefined)?.quantity;
+  return typeof quantity === 'number' && Number.isFinite(quantity) ? quantity : null;
+}
+
 const READ_TYPES = [
   'HKQuantityTypeIdentifierRestingHeartRate',
   'HKQuantityTypeIdentifierHeartRateVariabilitySDNN',
@@ -31,7 +40,17 @@ const READ_TYPES = [
   'HKQuantityTypeIdentifierActiveEnergyBurned',
   'HKQuantityTypeIdentifierVO2Max',
   'HKCategoryTypeIdentifierSleepAnalysis',
+  'HKQuantityTypeIdentifierHeartRate',
+  // Workouts + their route: this is how an Apple Watch run reaches the app.
+  'HKWorkoutTypeIdentifier',
+  'HKWorkoutRouteTypeIdentifier',
 ] as const;
+
+/** HKWorkoutActivityType.running — kept as a literal so the bridge works even
+ * when the native enum is not exported at runtime. */
+const RUNNING_ACTIVITY_TYPE = 37;
+
+const METERS_PER_KM = 1000;
 
 export class HealthKitBridge implements HealthBridge {
   readonly platform = 'healthkit' as const;
@@ -134,6 +153,144 @@ export class HealthKitBridge implements HealthBridge {
     } catch { /* none */ }
 
     return metrics;
+  }
+
+  /**
+   * Reads running workouts recorded on the Apple Watch (or any device that
+   * writes into HealthKit) together with their GPS route.
+   *
+   * Distance/energy come from the workout totals; heart rate and cadence from
+   * the per-workout statistics when available. The recording device is taken
+   * from sourceRevision/device so a Garmin writing into Apple Health is still
+   * labelled Garmin instead of Apple.
+   */
+  async readWorkoutsSince(sinceMs: number): Promise<DeviceActivity[]> {
+    const m = await hk();
+    if (!m) return [];
+
+    const from = new Date(sinceMs);
+    const now = new Date();
+    let workouts: readonly { [key: string]: unknown }[] = [];
+    try {
+      workouts = (await m.queryWorkoutSamples({
+        filter: {
+          date: { startDate: from, endDate: now },
+          workoutActivityType: RUNNING_ACTIVITY_TYPE as never,
+        },
+        limit: 50,
+        ascending: true,
+      })) as unknown as readonly { [key: string]: unknown }[];
+    } catch {
+      return []; // no workout permission, or nothing recorded in the window
+    }
+
+    const activities: DeviceActivity[] = [];
+    for (const w of workouts) {
+      const activity = await this.toActivity(m, w);
+      if (activity) activities.push(activity);
+    }
+    return activities;
+  }
+
+  private async toActivity(
+    m: HealthkitModule,
+    w: { [key: string]: unknown },
+  ): Promise<DeviceActivity | null> {
+    const uuid = typeof w.uuid === 'string' ? w.uuid : '';
+    const start = w.startDate instanceof Date ? w.startDate : null;
+    const end = w.endDate instanceof Date ? w.endDate : null;
+    if (!uuid || !start || !end) return null;
+
+    const durationSec = Math.round((end.getTime() - start.getTime()) / 1000);
+    if (durationSec <= 0) return null;
+
+    const durationQuantity = w.duration as { quantity?: number } | undefined;
+    const seconds = typeof durationQuantity?.quantity === 'number' && durationQuantity.quantity > 0
+      ? Math.round(durationQuantity.quantity)
+      : durationSec;
+
+    const route = await this.readRoute(w);
+    const distanceMeters = quantityOf(w.totalDistance);
+    const distanceKm = distanceMeters && distanceMeters > 0
+      ? distanceMeters / METERS_PER_KM
+      : routeDistanceKm(route);
+    if (distanceKm <= 0) return null; // treadmill runs without distance stay out
+
+    const sourceRevision = w.sourceRevision as {
+      source?: { name?: string; bundleIdentifier?: string };
+      productType?: string;
+    } | undefined;
+    const device = w.device as { name?: string; manufacturer?: string; model?: string } | undefined;
+
+    const identity = identifyDevice({
+      name: sourceRevision?.source?.name ?? device?.name,
+      bundleIdentifier: sourceRevision?.source?.bundleIdentifier,
+      productType: sourceRevision?.productType,
+      manufacturer: device?.manufacturer,
+      model: device?.model,
+      platform: 'healthkit',
+    });
+
+    const heartRate = await this.avgHeartRate(m, start, end);
+
+    return {
+      externalId: uuid,
+      source: identity.source,
+      deviceName: identity.name,
+      deviceBrand: identity.brand,
+      date: localDate(start),
+      distanceKm: round2(distanceKm),
+      durationSec: seconds,
+      calories: Math.round(quantityOf(w.totalEnergyBurned) ?? 0),
+      heartRate: heartRate || undefined,
+      route,
+    };
+  }
+
+  private async readRoute(w: { [key: string]: unknown }): Promise<RoutePoint[]> {
+    const getRoutes = (w as { getWorkoutRoutes?: () => Promise<readonly { locations?: readonly unknown[] }[]> })
+      .getWorkoutRoutes;
+    if (typeof getRoutes !== 'function') return [];
+    try {
+      const chunks = await getRoutes.call(w);
+      const points: RoutePoint[] = [];
+      for (const chunk of chunks ?? []) {
+        for (const raw of chunk.locations ?? []) {
+          const loc = raw as {
+            latitude?: number;
+            longitude?: number;
+            altitude?: number;
+            date?: Date;
+            horizontalAccuracy?: number;
+          };
+          if (typeof loc.latitude !== 'number' || typeof loc.longitude !== 'number') continue;
+          points.push({
+            lat: loc.latitude,
+            lng: loc.longitude,
+            alt: loc.altitude,
+            timestamp: (loc.date instanceof Date ? loc.date : new Date()).toISOString(),
+            accuracy: loc.horizontalAccuracy,
+          });
+        }
+      }
+      return points;
+    } catch {
+      return [];
+    }
+  }
+
+  private async avgHeartRate(m: HealthkitModule, start: Date, end: Date): Promise<number> {
+    try {
+      const stats = await m.queryStatisticsForQuantity(
+        'HKQuantityTypeIdentifierHeartRate',
+        ['discreteAverage'],
+        { filter: { date: { startDate: start, endDate: end } } },
+      );
+      const avg = stats?.averageQuantity?.quantity;
+      return typeof avg === 'number' ? Math.round(avg) : 0;
+    } catch {
+      return 0;
+    }
   }
 
   async readLastNightSleep(): Promise<SleepLog | null> {

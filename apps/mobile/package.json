@@ -57,6 +57,7 @@
     "react-hook-form": "^7.89.0",
     "react-i18next": "^15.0.0",
     "react-native": "^0.86.3",
+    "react-native-ble-plx": "^3.5.1",
     "react-native-fast-tflite": "^3.0.1",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-health-connect": "^4.1.3",

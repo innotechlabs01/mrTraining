@@ -31,6 +31,12 @@ func RegisterUserRoutes(api fiber.Router, handler *handlers.UserHandler) {
 	api.Put("/athletes/me", middleware.RequireAthlete(), handler.UpdateAthleteProfile)
 }
 
+// RegisterEarningsRoutes registers coach earnings routes on the given API group.
+func RegisterEarningsRoutes(api fiber.Router, handler *handlers.EarningsHandler) {
+	api.Get("/coach/earnings-summary", middleware.RequireCoach(), handler.GetEarningsSummary)
+	api.Get("/coach/earnings-live", middleware.RequireCoach(), handler.EarningsLive)
+}
+
 // RegisterTrainingAIRoutes registers the workout AI-insights endpoint
 // (athlete-scoped; ownership is checked in the handler).
 func RegisterTrainingAIRoutes(api fiber.Router, handler *handlers.TrainingAIHandler, statusReader middleware.MembershipStatusReader) {
@@ -68,6 +74,13 @@ func RegisterTrainingRoutes(api fiber.Router, handler *handlers.TrainingHandler,
 	// Workout sessions (execution)
 	api.Get("/workouts/sessions/:id", middleware.RequireAthlete(), middleware.RequireActiveMembership(statusReader), handler.GetWorkoutSession)
 	api.Post("/workouts/sessions/:id/complete", middleware.RequireAthlete(), middleware.RequireActiveMembership(statusReader), handler.CompleteSession)
+	api.Post("/workouts/:id/complete-running", middleware.RequireAthlete(), middleware.RequireActiveMembership(statusReader), handler.CompleteRunningWorkout)
+	api.Get("/workouts/:id/running-complete", handler.GetCompletedRunningWorkout)
+	// Live running progress (Server-Sent Events). Coach or athlete may
+	// subscribe; ownership is enforced inside the handler.
+	api.Get("/workouts/:id/running-live", handler.RunningLive)
+	// Mobile reports per-interval progress while the workout is in progress.
+	api.Post("/workouts/:id/running-progress", middleware.RequireAthlete(), middleware.RequireActiveMembership(statusReader), handler.ReportRunningProgress)
 
 	// Progress
 	api.Get("/progress", middleware.RequireAthlete(), middleware.RequireActiveMembership(statusReader), handler.GetProgress)
@@ -111,6 +124,12 @@ func RegisterMembershipRoutes(api fiber.Router, handler *handlers.MembershipHand
 func RegisterAllyAthleteRoutes(api fiber.Router, handler *handlers.AllyCatalogAthleteHandler) {
 	api.Get("/athlete/ally/products", middleware.RequireAthlete(), handler.ListProductsForAthlete)
 	api.Get("/athlete/ally/services", middleware.RequireAthlete(), handler.ListServicesForAthlete)
+}
+
+// RegisterAllyPurchaseRoutes registers the ally product purchase route.
+// The calling code must have already applied auth middleware to the api group.
+func RegisterAllyPurchaseRoutes(api fiber.Router, handler *handlers.AllyPurchaseHandler) {
+	api.Post("/athlete/ally/products/:id/purchase", middleware.RequireAthlete(), handler.CreateAllyPurchase)
 }
 
 // RegisterEventRoutes registers all event-related routes on the given API group.
@@ -177,12 +196,42 @@ func RegisterRunningRoutes(api fiber.Router, handler *handlers.RunningHandler) {
 	api.Patch("/running/sessions/:id", handler.UpdateSession)
 	api.Delete("/running/sessions/:id", handler.DeleteSession)
 	api.Post("/running/sessions/:id/live-location", middleware.RateLimit(60, 60), handler.LogGpsPoint)
+	// Device syncs (Apple Watch / Health Connect) push batches; 20/min fits a
+	// full-history backfill without letting a client flood the table.
+	api.Post("/running/sessions/import", middleware.RateLimit(20, 60), handler.ImportDeviceSessions)
 	api.Get("/running/stats", handler.GetStats)
+
+	// Coach scoped — ver running de un atleta específico
+	api.Get("/coach/athletes/:id/running/sessions", middleware.RequireCoach(), handler.CoachListSessionsByAthlete)
+	api.Get("/coach/athletes/:id/running/stats", middleware.RequireCoach(), handler.CoachGetStatsByAthlete)
+	api.Get("/coach/athletes/:id/running/weekly-trend", middleware.RequireCoach(), handler.CoachGetWeeklyTrendByAthlete)
+	api.Get("/coach/athletes/:id/running/export", middleware.RequireCoach(), handler.CoachExportSessionsByAthlete)
 
 	// Device connections
 	api.Post("/running/devices", handler.ConnectDevice)
 	api.Delete("/running/devices/:id", handler.DisconnectDevice)
 	api.Post("/running/providers/garmin/sync", middleware.RateLimit(6, 60), handler.SyncGarmin)
+}
+
+// RegisterRunningWorkoutRoutes registers structured running workout routes
+// (templates, assignments, guided sessions).
+func RegisterRunningWorkoutRoutes(api fiber.Router, handler *handlers.RunningWorkoutHandler) {
+	// Templates — coach-owned
+	api.Post("/running/workouts/templates", middleware.RequireCoach(), handler.CreateTemplate)
+	api.Get("/running/workouts/templates/:id", handler.GetTemplate)
+	api.Get("/running/workouts/templates", handler.ListTemplatesByCoach)
+	api.Delete("/running/workouts/templates/:id", middleware.RequireCoach(), handler.DeleteTemplate)
+
+	// Assignments — coach assigns to athlete
+	api.Post("/running/workouts/assignments", middleware.RequireCoach(), handler.CreateAssignment)
+	api.Get("/running/workouts/assignments/:id", handler.GetAssignment)
+	api.Get("/coach/athletes/:id/running/assignments", middleware.RequireCoach(), handler.ListAssignmentsByAthlete)
+	api.Get("/coach/running/assignments", middleware.RequireCoach(), handler.ListAssignmentsByCoach)
+	api.Patch("/running/workouts/assignments/:id/status", middleware.RequireCoach(), handler.UpdateAssignmentStatus)
+
+	// Sessions — athlete executes
+	api.Post("/running/workouts/sessions/start", middleware.RequireAthlete(), handler.StartSession)
+	api.Post("/running/workouts/sessions/:id/complete", middleware.RequireAthlete(), handler.CompleteSession)
 }
 
 // RegisterCheckinRoutes registers morning readiness check-in routes.
@@ -340,6 +389,7 @@ func RegisterGamificationRoutes(api fiber.Router, handler *handlers.Gamification
 	// Personal Records
 	api.Get("/gamification/prs", middleware.RequireAthlete(), handler.ListPRs)
 	api.Post("/gamification/prs", middleware.RequireAthlete(), handler.RecordPR)
+	api.Post("/gamification/prs/record", middleware.RequireAthlete(), handler.RecordPR)
 }
 
 // RegisterLeaderboardRoutes registers leaderboard-related routes on the given API group.

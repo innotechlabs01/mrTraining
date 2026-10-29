@@ -26,14 +26,14 @@ func (r *Repository) GetDashboard(ctx context.Context, coachID string) (*coachdo
 
 	// Count total athletes
 	err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(DISTINCT athlete_id) FROM coach_athletes WHERE coach_id = ?`, coachID).Scan(&d.TotalAthletes)
+		`SELECT COUNT(DISTINCT athlete_id) FROM coach_athletes WHERE coach_id = $1`, coachID).Scan(&d.TotalAthletes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count athletes: %w", err)
 	}
 
 	// Count active workouts
 	err = r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM assigned_workouts WHERE coach_id = ? AND status = 'active'`, coachID).Scan(&d.ActiveWorkouts)
+		`SELECT COUNT(*) FROM assigned_workouts WHERE coach_id = $2 AND status = 'active'`, coachID).Scan(&d.ActiveWorkouts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count active workouts: %w", err)
 	}
@@ -44,7 +44,7 @@ func (r *Repository) GetDashboard(ctx context.Context, coachID string) (*coachdo
 			(SELECT CAST(COUNT(CASE WHEN completed = 1 THEN 1 END) AS REAL) * 100.0 / NULLIF(COUNT(*), 0)
 			FROM workout_session_logs wsl
 			JOIN assigned_workouts aw ON wsl.workout_id = aw.id
-			WHERE aw.coach_id = ?), 0)`, coachID).Scan(&d.CompletionRate)
+			WHERE aw.coach_id = $3), 0)`, coachID).Scan(&d.CompletionRate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate completion rate: %w", err)
 	}
@@ -52,7 +52,7 @@ func (r *Repository) GetDashboard(ctx context.Context, coachID string) (*coachdo
 	// Count upcoming sessions (appointments in the future)
 	err = r.db.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM coach_appointments
-		 WHERE coach_id = ? AND status = 'scheduled' AND start_time > datetime('now')`, coachID).Scan(&d.UpcomingSessions)
+		 WHERE coach_id = $4 AND status = 'scheduled' AND start_time > NOW()`, coachID).Scan(&d.UpcomingSessions)
 	if err != nil {
 		// Table might not exist yet — return 0
 		d.UpcomingSessions = 0
@@ -63,12 +63,12 @@ func (r *Repository) GetDashboard(ctx context.Context, coachID string) (*coachdo
 
 // GetDailySummary retrieves today's summary for a coach.
 func (r *Repository) GetDailySummary(ctx context.Context, coachID string) (*coachdomain.DailySummary, error) {
-	d := &coachdomain.DailySummary{Date: "date('now')"}
+	d := &coachdomain.DailySummary{Date: "CURRENT_DATE"}
 
 	// Sessions today
 	err := r.db.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM coach_appointments
-		 WHERE coach_id = ? AND date(start_time) = date('now')`, coachID).Scan(&d.SessionsToday)
+		 WHERE coach_id = $5 AND date(start_time) = CURRENT_DATE`, coachID).Scan(&d.SessionsToday)
 	if err != nil {
 		d.SessionsToday = 0
 	}
@@ -76,7 +76,7 @@ func (r *Repository) GetDailySummary(ctx context.Context, coachID string) (*coac
 	// Athletes today
 	err = r.db.QueryRowContext(ctx,
 		`SELECT COUNT(DISTINCT athlete_id) FROM coach_appointments
-		 WHERE coach_id = ? AND date(start_time) = date('now')`, coachID).Scan(&d.AthletesToday)
+		 WHERE coach_id = $6 AND date(start_time) = CURRENT_DATE`, coachID).Scan(&d.AthletesToday)
 	if err != nil {
 		d.AthletesToday = 0
 	}
@@ -84,7 +84,7 @@ func (r *Repository) GetDailySummary(ctx context.Context, coachID string) (*coac
 	// Completed today
 	err = r.db.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM coach_appointments
-		 WHERE coach_id = ? AND date(start_time) = date('now') AND status = 'completed'`, coachID).Scan(&d.CompletedToday)
+		 WHERE coach_id = $7 AND date(start_time) = CURRENT_DATE AND status = 'completed'`, coachID).Scan(&d.CompletedToday)
 	if err != nil {
 		d.CompletedToday = 0
 	}
@@ -97,7 +97,7 @@ func (r *Repository) GetDailySummary(ctx context.Context, coachID string) (*coac
 func (r *Repository) GetTimeBlocks(ctx context.Context, coachID string) ([]*coachdomain.TimeBlock, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, coach_id, title, block_type, start_time, end_time, recurrence, color, created_at, updated_at
-		 FROM coach_time_blocks WHERE coach_id = ?
+		 FROM coach_time_blocks WHERE coach_id = $8
 		 ORDER BY start_time`, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get time blocks: %w", err)
@@ -132,7 +132,7 @@ func (r *Repository) SaveTimeBlocks(ctx context.Context, coachID string, blocks 
 	defer tx.Rollback()
 
 	// Delete existing blocks
-	_, err = tx.ExecContext(ctx, `DELETE FROM coach_time_blocks WHERE coach_id = ?`, coachID)
+	_, err = tx.ExecContext(ctx, `DELETE FROM coach_time_blocks WHERE coach_id = $9`, coachID)
 	if err != nil {
 		return fmt.Errorf("failed to delete time blocks: %w", err)
 	}
@@ -152,7 +152,7 @@ func (r *Repository) SaveTimeBlocks(ctx context.Context, coachID string, blocks 
 
 		_, err = tx.ExecContext(ctx,
 			`INSERT INTO coach_time_blocks (id, coach_id, title, block_type, start_time, end_time, recurrence, color)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			 VALUES ($10, $11, $12, $13, $14, $15, $16, $17)`,
 			b.ID, b.CoachID, b.Title, b.BlockType, b.StartTime, b.EndTime, recurrence, color)
 		if err != nil {
 			return fmt.Errorf("failed to insert time block: %w", err)
@@ -166,7 +166,7 @@ func (r *Repository) SaveTimeBlocks(ctx context.Context, coachID string, blocks 
 func (r *Repository) GetAppointments(ctx context.Context, coachID string) ([]*coachdomain.Appointment, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, coach_id, athlete_id, athlete_name, title, status, start_time, end_time, notes, created_at, updated_at
-		 FROM coach_appointments WHERE coach_id = ?
+		 FROM coach_appointments WHERE coach_id = $18
 		 ORDER BY start_time`, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get appointments: %w", err)
@@ -206,7 +206,7 @@ func (r *Repository) CreateAppointment(ctx context.Context, a *coachdomain.Appoi
 
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO coach_appointments (id, coach_id, athlete_id, athlete_name, title, status, start_time, end_time, notes)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 VALUES ($19, $20, $21, $22, $23, $24, $25, $26, $27)`,
 		a.ID, a.CoachID, a.AthleteID, athleteName, a.Title, a.Status, a.StartTime, a.EndTime, notes)
 	if err != nil {
 		return fmt.Errorf("failed to create appointment: %w", err)
@@ -222,8 +222,8 @@ func (r *Repository) UpdateAppointment(ctx context.Context, id string, a *coachd
 	}
 
 	result, err := r.db.ExecContext(ctx,
-		`UPDATE coach_appointments SET status = ?, notes = ?, updated_at = datetime('now')
-		 WHERE id = ?`, a.Status, notes, id)
+		`UPDATE coach_appointments SET status = $28, notes = $29, updated_at = NOW()
+		 WHERE id = $30`, a.Status, notes, id)
 	if err != nil {
 		return fmt.Errorf("failed to update appointment: %w", err)
 	}
@@ -241,7 +241,7 @@ func (r *Repository) UpdateAppointment(ctx context.Context, id string, a *coachd
 func (r *Repository) GetAvailability(ctx context.Context, coachID string) ([]*coachdomain.CoachAvailability, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, coach_id, day_of_week, start_time, end_time, is_active, created_at
-		 FROM coach_availability WHERE coach_id = ?
+		 FROM coach_availability WHERE coach_id = $31
 		 ORDER BY day_of_week, start_time`, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get availability: %w", err)
@@ -269,7 +269,7 @@ func (r *Repository) SaveAvailability(ctx context.Context, coachID string, slots
 	defer tx.Rollback()
 
 	// Delete existing slots
-	_, err = tx.ExecContext(ctx, `DELETE FROM coach_availability WHERE coach_id = ?`, coachID)
+	_, err = tx.ExecContext(ctx, `DELETE FROM coach_availability WHERE coach_id = $32`, coachID)
 	if err != nil {
 		return fmt.Errorf("failed to delete availability: %w", err)
 	}
@@ -281,7 +281,7 @@ func (r *Repository) SaveAvailability(ctx context.Context, coachID string, slots
 
 		_, err = tx.ExecContext(ctx,
 			`INSERT INTO coach_availability (id, coach_id, day_of_week, start_time, end_time, is_active)
-			 VALUES (?, ?, ?, ?, ?, ?)`,
+			 VALUES ($33, $34, $35, $36, $37, $38)`,
 			s.ID, s.CoachID, s.DayOfWeek, s.StartTime, s.EndTime, s.IsActive)
 		if err != nil {
 			return fmt.Errorf("failed to insert availability: %w", err)

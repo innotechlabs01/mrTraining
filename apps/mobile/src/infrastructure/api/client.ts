@@ -41,6 +41,22 @@ const GO_API_PATH_MAP: Record<string, string> = {
   '/tickets/:id/messages': '/tickets/:id/messages',
   '/tickets/:id/read': '/tickets/:id/read',
   '/tickets/:id/unread': '/tickets/:id/unread',
+  // Coach endpoints for athlete running data
+  '/coach/athletes/:id/running/sessions': '/coach/athletes/:id/running/sessions',
+  '/coach/athletes/:id/running/stats': '/coach/athletes/:id/running/stats',
+  '/coach/athletes/:id/running/weekly-trend': '/coach/athletes/:id/running/weekly-trend',
+  '/coach/athletes/:id/running/export': '/coach/athletes/:id/running/export',
+  // Running workout completion
+  '/workouts/:id/complete-running': '/workouts/:id/complete-running',
+  '/workouts/:id/running-complete': '/workouts/:id/running-complete',
+  // Structured running workouts (templates, assignments, guided sessions)
+  '/running/workouts/templates': '/running/workouts/templates',
+  '/running/workouts/assignments': '/running/workouts/assignments',
+  '/running/workouts/sessions/start': '/running/workouts/sessions/start',
+  '/running/workouts/sessions/:id/complete': '/running/workouts/sessions/:id/complete',
+  '/running/workouts/sessions/:id': '/running/workouts/sessions/:id',
+  '/running/workouts/sessions/:id/live-location': '/running/workouts/sessions/:id/live-location',
+  '/running/workouts/sessions/:id/progress': '/running/workouts/sessions/:id/progress',
 };
 
 // Paths that stay in Next.js (not in Go API)
@@ -195,3 +211,61 @@ setupAuthInterceptor(nextClient);
 const smartClient = createSmartInstance();
 
 export { apiClient, nextClient, smartClient };
+
+// =============================================================================
+// Running Workout Completion
+// =============================================================================
+
+export interface RunningIntervalRequest {
+	order: number
+	workType: 'time' | 'distance'
+	workValue: number
+	restSeconds: number
+	paceTarget?: string
+	intensity?: 'easy' | 'tempo' | 'threshold' | 'vo2max'
+}
+
+export interface CompleteRunningWorkoutRequest {
+	workoutId: string
+	durationSeconds: number
+	actualGpsRoute?: string
+	actualIntervals?: RunningIntervalRequest[]
+}
+
+/**
+ * Completes a running workout with actual GPS tracking data and interval splits.
+ * POST /api/v1/workouts/:id/complete-running
+ */
+export async function completeRunningWorkout(
+	request: CompleteRunningWorkoutRequest
+): Promise<{ ok: boolean }> {
+	const response = await smartClient.post<{ ok: boolean }>(
+		`/workouts/${request.workoutId}/complete-running`,
+		request
+	)
+	return response.data
+}
+
+export interface ReportRunningProgressRequest {
+	workoutId: string
+	intervalIndex: number
+	elapsedSeconds: number
+	elapsedDistanceKm: number
+	isOffRoute?: boolean
+	completed?: boolean
+}
+
+/**
+ * Reports per-interval running progress while a workout is in progress.
+ * POST /api/v1/workouts/:id/running-progress
+ * Used by the mobile app to push live updates to SSE subscribers (coach).
+ */
+export async function reportRunningProgress(
+	request: ReportRunningProgressRequest
+): Promise<{ ok: boolean }> {
+	const response = await smartClient.post<{ ok: boolean }>(
+		`/workouts/${request.workoutId}/running-progress`,
+		request
+	)
+	return response.data
+}

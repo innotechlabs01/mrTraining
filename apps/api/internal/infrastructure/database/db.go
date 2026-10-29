@@ -1,14 +1,14 @@
 // Package database provides the database connection infrastructure for the MR Training API.
-// It wraps database/sql with a Turso/libsql driver and manages connection pooling.
+// It wraps database/sql with a PostgreSQL driver (pgx/v5/stdlib) and manages connection pooling.
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
-	_ "github.com/tursodatabase/libsql-client-go/libsql"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 // DB wraps sql.DB to provide application-level database operations.
@@ -17,40 +17,35 @@ type DB struct {
 	*sql.DB
 }
 
-// Connect establishes a connection to a Turso/libsql database.
-// The url parameter should use the libsql:// protocol for remote databases
-// or file: for local SQLite files. The authToken is required for remote
-// connections and can be empty for local files.
+// Connect establishes a connection to a PostgreSQL database.
+// The url parameter should be a PostgreSQL connection URL (DATABASE_URL),
+// e.g. postgres://user:pass@host:port/dbname?sslmode=disable.
 //
 // Connection pool settings are configured for typical API workloads:
-//   - MaxOpenConns: 10 (conservative for serverless Turso)
+//   - MaxOpenConns: 25
 //   - MaxIdleConns: 5
-//   - ConnMaxLifetime: 5 minutes (Turso connections may expire)
-//   - ConnMaxIdleTime: 3 minutes
-func Connect(url, authToken string) (*DB, error) {
+//   - ConnMaxLifetime: 30 minutes
+//   - ConnMaxIdleTime: 5 minutes
+func Connect(url string) (*DB, error) {
 	if url == "" {
 		return nil, fmt.Errorf("database URL is required")
 	}
 
-	// Build DSN with auth token for remote connections
-	dsn := url
-	if authToken != "" && strings.HasPrefix(url, "libsql://") {
-		dsn = url + "?authToken=" + authToken
-	}
-
-	sqlDB, err := sql.Open("libsql", dsn)
+	sqlDB, err := sql.Open("pgx", url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
 	// Configure connection pool
-	sqlDB.SetMaxOpenConns(10)
+	sqlDB.SetMaxOpenConns(25)
 	sqlDB.SetMaxIdleConns(5)
-	sqlDB.SetConnMaxLifetime(5 * time.Minute)
-	sqlDB.SetConnMaxIdleTime(3 * time.Minute)
+	sqlDB.SetConnMaxLifetime(30 * time.Minute)
+	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
 
-	// Verify the connection is alive
-	if err := sqlDB.Ping(); err != nil {
+	// Verify the connection is alive with a timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := sqlDB.PingContext(ctx); err != nil {
 		sqlDB.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}

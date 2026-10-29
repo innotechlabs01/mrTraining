@@ -22,7 +22,7 @@ func NewRepository(db *sql.DB) *Repository {
 func (r *Repository) CreateImportJob(ctx context.Context, job *importdata.ImportJob) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO import_jobs (id, athlete_id, source, status, workouts_imported, exercises_imported, error_message, created_at, completed_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8)
 	`, job.ID, job.AthleteID, job.Source, job.Status, job.WorkoutsImported, job.ExercisesImported, job.ErrorMessage, job.CompletedAt)
 	if err != nil {
 		return fmt.Errorf("failed to create import job: %w", err)
@@ -37,7 +37,7 @@ func (r *Repository) GetImportJob(ctx context.Context, id string) (*importdata.I
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, athlete_id, source, status, workouts_imported, exercises_imported, error_message, created_at, completed_at
 		FROM import_jobs
-		WHERE id = ?
+		WHERE id = $9
 	`, id).Scan(&job.ID, &job.AthleteID, &job.Source, &job.Status, &job.WorkoutsImported, &job.ExercisesImported, &errorMessage, &job.CreatedAt, &completedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -59,7 +59,7 @@ func (r *Repository) ListImportJobs(ctx context.Context, athleteID string) ([]*i
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, athlete_id, source, status, workouts_imported, exercises_imported, error_message, created_at, completed_at
 		FROM import_jobs
-		WHERE athlete_id = ?
+		WHERE athlete_id = $10
 		ORDER BY created_at DESC
 	`, athleteID)
 	if err != nil {
@@ -89,8 +89,8 @@ func (r *Repository) ListImportJobs(ctx context.Context, athleteID string) ([]*i
 func (r *Repository) UpdateImportJob(ctx context.Context, job *importdata.ImportJob) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE import_jobs
-		SET status = ?, workouts_imported = ?, exercises_imported = ?, error_message = ?, completed_at = ?
-		WHERE id = ?
+		SET status = $11, workouts_imported = $12, exercises_imported = $13, error_message = $14, completed_at = $15
+		WHERE id = $16
 	`, job.Status, job.WorkoutsImported, job.ExercisesImported, job.ErrorMessage, job.CompletedAt, job.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update import job: %w", err)
