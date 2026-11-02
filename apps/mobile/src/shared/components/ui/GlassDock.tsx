@@ -1,0 +1,92 @@
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { colors, fontFamilies, radius, shadows, spacing } from '../../theme/tokens';
+import {
+  HomeIcon,
+  BarbellIcon,
+  CalendarIcon,
+  HeartPulseIcon,
+  UserIcon,
+} from '../icons';
+import { texts } from '../../i18n/texts';
+import { AnimatedPressable } from './AnimatedPressable';
+
+const TAB_META: Record<string, { label: string; Icon: (p: { size: number; color: string }) => React.ReactElement }> = {
+  Today: { label: texts.tabs.today, Icon: HomeIcon },
+  History: { label: texts.tabs.history, Icon: BarbellIcon },
+  Events: { label: texts.tabs.events, Icon: CalendarIcon },
+  Recovery: { label: texts.tabs.recovery, Icon: HeartPulseIcon },
+  Profile: { label: texts.tabs.profile, Icon: UserIcon },
+};
+
+export function GlassDock({ state, descriptors, navigation, insets }: BottomTabBarProps) {
+  return (
+    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+      {state.routes.map((route, idx) => {
+        const meta = TAB_META[route.name] ?? { label: route.name, Icon: HomeIcon };
+        const isFocused = idx === state.index;
+        const label = descriptors[route.key]?.options?.tabBarLabel ?? meta.label;
+        const onPress = () => {
+          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+          if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name as never);
+        };
+        return (
+          <AnimatedPressable
+            key={route.key}
+            onPress={onPress}
+            style={({ pressed }) => [
+              styles.tab,
+              !isFocused && pressed && styles.tabPressed,
+              isFocused && styles.tabFocused,
+            ]}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isFocused }}
+            accessibilityLabel={String(label)}
+            hitSlop={8}
+          >
+            <meta.Icon size={22} color={isFocused ? colors.primary : colors.textSecondary} />
+            <Text style={[styles.label, isFocused && styles.labelFocused]}>{String(label)}</Text>
+          </AnimatedPressable>
+        );
+      })}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  bar: {
+    flexDirection: 'row',
+    // Frosted glass: semi-transparent base with subtle noise
+    backgroundColor: 'rgba(11,15,14,0.82)',
+    // Subtle top border glow for depth
+    borderTopColor: 'rgba(21,170,242,0.08)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    // Frosted glass shadow layers (canonical elevation token)
+    ...shadows.md,
+    shadowOffset: { width: 0, height: -4 },
+  },
+  tab: {
+    flex: 1,
+    minHeight: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    // Subtle active tab highlight
+    borderRadius: radius.md,
+  },
+  // Accent feedback reserved for press only; focused tab uses tonal elevation
+  tabPressed: { opacity: 0.7, backgroundColor: colors.primaryFaint },
+  tabFocused: {
+    backgroundColor: colors.surfaceRaised,
+  },
+  label: {
+    fontFamily: fontFamilies.bodySemiBold,
+    fontSize: 10,
+    letterSpacing: 0.5,
+    color: colors.textSecondary,
+  },
+  labelFocused: { color: colors.primary },
+});

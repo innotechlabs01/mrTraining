@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { X, MapPin, Clock, Users, Check, Pencil, Trash2, Link2, Eye, Copy, Globe } from 'lucide-react';
+import { X, MapPin, Clock, Users, Check, Pencil, Trash2, Link2, Eye, Copy, Globe, BarChart3, Ban, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CoachEvent } from '@/features/coach/types';
+import { isEventExpired } from '@/features/coach/utils/eventExpiry';
 import { EventFormatBody } from './EventFormatBody';
 import { PublicEventView } from './PublicEventView';
 
@@ -50,9 +51,11 @@ interface EventDetailModalProps {
   onEdit: (event: CoachEvent) => void;
   onDelete: (id: string) => void;
   onTogglePublic: (id: string) => void;
+  onCancel?: (event: CoachEvent) => void;
+  onStats?: (event: CoachEvent) => void;
 }
 
-export function EventDetailModal({ event, onClose, onEdit, onDelete, onTogglePublic }: EventDetailModalProps) {
+export function EventDetailModal({ event, onClose, onEdit, onDelete, onTogglePublic, onCancel, onStats }: EventDetailModalProps) {
   const [copied, setCopied] = useState(false);
   const [preview, setPreview] = useState(false);
 
@@ -60,6 +63,8 @@ export function EventDetailModal({ event, onClose, onEdit, onDelete, onTogglePub
   const shareLink = typeof window !== 'undefined' ? `${window.location.origin}/event/${event.id}` : `/event/${event.id}`;
 
   const athleteCount = event.athleteIds.length;
+  const expired = isEventExpired(event);
+  const cancellable = !expired && event.status !== 'cancelled';
 
   const copyLink = async () => {
     try {
@@ -114,8 +119,16 @@ export function EventDetailModal({ event, onClose, onEdit, onDelete, onTogglePub
         </div>
 
         <div className="px-6 py-5 space-y-5">
+          {expired && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs text-red-400">
+              <Lock className="w-3.5 h-3.5 shrink-0" />
+              Evento vencido — solo lectura. No se puede editar ni eliminar.
+            </div>
+          )}
+
           {event.description && <p className="text-sm text-white/60">{event.description}</p>}
 
+          {!expired && (
           <div className="rounded-xl border border-white/10 bg-surface-2 p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -151,19 +164,35 @@ export function EventDetailModal({ event, onClose, onEdit, onDelete, onTogglePub
               </div>
             )}
           </div>
+          )}
 
           <EventFormatBody event={event} />
         </div>
 
         <div className="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-surface-1 border-t border-white/10">
-          <button onClick={() => onDelete(event.id)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-red-500/10 transition-colors">
-            <Trash2 className="w-4 h-4" /> Eliminar
-          </button>
-          <button onClick={() => onEdit(event)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-surface-2 border border-white/10 text-sm text-white hover:border-white/20 transition-colors">
-            <Pencil className="w-4 h-4" /> Editar
-          </button>
+          {expired ? (
+            <button onClick={() => onStats?.(event)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-surface-2 border border-white/10 text-sm text-white hover:border-white/20 transition-colors">
+              <BarChart3 className="w-4 h-4 text-brand-primary" /> Ver resultados
+            </button>
+          ) : (
+            <>
+              {cancellable && (
+                <button onClick={() => onCancel?.(event)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-amber-400 hover:bg-amber-500/10 transition-colors">
+                  <Ban className="w-4 h-4" /> Cancelar
+                </button>
+              )}
+              <button onClick={() => onDelete(event.id)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-red-500/10 transition-colors">
+                <Trash2 className="w-4 h-4" /> Eliminar
+              </button>
+              <button onClick={() => onEdit(event)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-surface-2 border border-white/10 text-sm text-white hover:border-white/20 transition-colors">
+                <Pencil className="w-4 h-4" /> Editar
+              </button>
+            </>
+          )}
         </div>
       </div>
 

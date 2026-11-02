@@ -43,6 +43,15 @@ export interface Exercise {
   createdAt: string
 }
 
+export interface RunningInterval {
+  order: number
+  workType: 'time' | 'distance'
+  workValue: number // seconds or km
+  restSeconds: number
+  paceTarget?: string // "5:30" min/km
+  intensity?: 'easy' | 'tempo' | 'threshold' | 'vo2max'
+}
+
 export interface WorkoutExercise {
   id: string
   exerciseId: string
@@ -56,6 +65,10 @@ export interface WorkoutExercise {
   rest: number
   notes?: string
   muscleGroups: MuscleGroup[]
+  /** Running route as an encoded GPS polyline (lat,lng pairs). */
+  gpsRoute?: string
+  /** Running intervals for running workouts. */
+  intervals?: RunningInterval[]
 }
 
 export interface WorkoutPlan {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Plus, Trash2, ListChecks, FileText, Footprints, Check, Globe } from 'lucide-react';
+import { X, Plus, Trash2, ListChecks, FileText, Footprints, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
   CoachEvent,
@@ -32,13 +32,6 @@ const MODALITIES: { value: TrainingMode; label: string }[] = [
   { value: 'running', label: 'Running' },
 ];
 
-const STATUSES = [
-  { value: 'scheduled', label: 'Programado' },
-  { value: 'confirmed', label: 'Confirmado' },
-  { value: 'completed', label: 'Completado' },
-  { value: 'cancelled', label: 'Cancelado' },
-] as const;
-
 const FIELD_KINDS: { value: EventFormFieldKind; label: string }[] = [
   { value: 'text', label: 'Texto a escribir' },
   { value: 'multiple', label: 'Opciones múltiples' },
@@ -62,7 +55,7 @@ export function EventModal({ open, event, onClose, onSave }: EventModalProps) {
   const [endTime, setEndTime] = useState(event?.endTime ?? '');
   const [type, setType] = useState<CoachEvent['type']>(event?.type ?? 'reunion');
   const [modality, setModality] = useState<TrainingMode>(event?.modality ?? 'presencial');
-  const [status, setStatus] = useState<CoachEvent['status']>(event?.status ?? 'scheduled');
+  const [status] = useState<CoachEvent['status']>(event?.status ?? 'scheduled');
   const [location, setLocation] = useState(event?.location ?? '');
   const [isPublic, setIsPublic] = useState(!!event?.public);
 
@@ -191,12 +184,6 @@ export function EventModal({ open, event, onClose, onSave }: EventModalProps) {
                 <Label>Modalidad</Label>
                 <select value={modality} onChange={(e) => setModality(e.target.value as TrainingMode)} className={inputClass}>
                   {MODALITIES.map((m) => <option key={m.value} value={m.value} className="bg-surface-1">{m.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <Label>Estado</Label>
-                <select value={status} onChange={(e) => setStatus(e.target.value as CoachEvent['status'])} className={inputClass}>
-                  {STATUSES.map((s) => <option key={s.value} value={s.value} className="bg-surface-1">{s.label}</option>)}
                 </select>
               </div>
             </div>

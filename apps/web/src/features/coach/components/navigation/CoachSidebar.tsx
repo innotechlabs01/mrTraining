@@ -10,6 +10,7 @@ import {
   X,
   Clock,
   Circle,
+  DollarSign,
   Home,
   Users,
   Dumbbell,
@@ -19,6 +20,9 @@ import {
   Calendar,
   HelpCircle,
   Book,
+  Flame,
+  Globe,
+  Store,
 } from 'lucide-react'
 
 interface NavItemConfig {
@@ -38,15 +42,19 @@ const NAV_ITEMS: NavItemConfig[] = [
     icon: Dumbbell,
     children: [
       { id: 'training-workouts', label: 'Workouts', href: '/coach/workouts/exercises' },
-      { id: 'training-programs', label: 'Programas', href: '/coach/training/programs' },
       { id: 'training-asignar', label: 'Asignar', href: '/coach/training/asignar' },
+      { id: 'training-running', label: 'Running', href: '/running' },
     ],
   },
   { id: 'events', label: 'Eventos', icon: Calendar, href: '/coach/events' },
+  { id: 'challenges', label: 'Desafíos', icon: Flame, href: '/coach/challenges' },
   { id: 'planes', label: 'Planes', icon: CreditCard, href: '/coach/planes' },
+  { id: 'aliados', label: 'Aliados', icon: Store, href: '/coach/ally' },
   { id: 'ventas', label: 'Ventas', icon: ShoppingCart, href: '/coach/ventas' },
+  { id: 'earnings', label: 'Ganancias', icon: DollarSign, href: '/coach/earnings' },
   { id: 'blog', label: 'Blog', icon: Book, href: '/coach/blog' },
   { id: 'live-sessions', label: 'Sesiones en Vivo', icon: Activity, href: '/coach/live-session' },
+  { id: 'landing', label: 'Landing Page', icon: Globe, href: '/coach/landing' },
   { id: 'support', label: 'Soporte', icon: HelpCircle, href: '/coach/support' },
 ]
 

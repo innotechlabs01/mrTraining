@@ -1,0 +1,147 @@
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Switch, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { smartClient as apiClient } from '../../../../infrastructure/api/client';
+import type { RootStackParamList } from '../../../../navigation/Navigation';
+import { colors, layout, radius, spacing, typography } from '../../../../shared/theme/tokens';
+import { BarbellIcon, BellIcon, ChatIcon, ChartBarIcon, FireIcon } from '../../../../shared/components/icons';
+import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
+import { Skeleton } from '../../../../shared/components/ui/Skeleton';
+import { texts } from '../../../../shared/i18n/texts';
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+type NotificationType = {
+  key: string;
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+};
+
+const NOTIFICATION_TYPES: NotificationType[] = [
+  { key: 'workoutReminders', icon: <BarbellIcon size={18} color={colors.primarySoft} />, label: texts.screens.notificationSettings.remindersLabel, description: texts.screens.notificationSettings.remindersDesc },
+  { key: 'weeklyChallenges', icon: <FireIcon size={18} color={colors.primarySoft} />, label: texts.screens.notificationSettings.challengesLabel, description: texts.screens.notificationSettings.challengesDesc },
+  { key: 'newArticles', icon: <ChartBarIcon size={18} color={colors.primarySoft} />, label: texts.screens.notificationSettings.articlesLabel, description: texts.screens.notificationSettings.articlesDesc },
+  { key: 'communityUpdates', icon: <ChatIcon size={18} color={colors.primarySoft} />, label: texts.screens.notificationSettings.communityLabel, description: texts.screens.notificationSettings.communityDesc },
+  { key: 'progressReports', icon: <BellIcon size={18} color={colors.primarySoft} />, label: texts.screens.notificationSettings.progressLabel, description: texts.screens.notificationSettings.progressDesc },
+];
+
+type Preferences = Record<string, boolean>;
+
+const DEFAULT_PREFERENCES: Preferences = {
+  workoutReminders: true,
+  weeklyChallenges: true,
+  newArticles: false,
+  communityUpdates: true,
+  progressReports: false,
+};
+
+async function fetchPreferences(): Promise<Preferences> {
+  const { data } = await apiClient.get('/athlete/notification-preferences');
+  const payload = (data as any)?.data ?? data;
+  return (payload as Preferences) ?? DEFAULT_PREFERENCES;
+}
+
+async function savePreferences(prefs: Preferences): Promise<void> {
+  await apiClient.put('/athlete/notification-preferences', prefs);
+}
+
+export function NotificationSettingsScreen() {
+  const navigation = useNavigation<Nav>();
+  const queryClient = useQueryClient();
+
+  const { data: serverPrefs, isLoading } = useQuery({
+    queryKey: ['notificationPreferences'],
+    queryFn: fetchPreferences,
+    staleTime: 300_000,
+  });
+
+  const [toggles, setToggles] = useState<Preferences>(DEFAULT_PREFERENCES);
+
+  useEffect(() => {
+    if (serverPrefs) {
+      setToggles(serverPrefs);
+    }
+  }, [serverPrefs]);
+
+  const saveMutation = useMutation({
+    mutationFn: savePreferences,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notificationPreferences'] });
+    },
+    onError: () => {
+      // Revert to server state on error
+      if (serverPrefs) {
+        setToggles(serverPrefs);
+      }
+    },
+  });
+
+  const handleToggle = (key: string) => {
+    const next = { ...toggles, [key]: !toggles[key] };
+    setToggles(next);
+    saveMutation.mutate(next);
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.headerWrap}>
+        <ScreenHeader title={texts.screens.notificationSettings.title} onBack={() => navigation.goBack()} />
+      </View>
+
+      <View style={styles.contentWrap}>
+        {isLoading ? (
+          <Skeleton.List rows={5} height={72} />
+        ) : (
+          NOTIFICATION_TYPES.map((item) => (
+            <View key={item.key} style={styles.row}>
+              <View style={styles.iconCircle}>{item.icon}</View>
+              <View style={styles.rowBody}>
+                <Text style={styles.rowLabel}>{item.label}</Text>
+                <Text style={styles.rowDescription}>{item.description}</Text>
+              </View>
+              <Switch
+                value={toggles[item.key]}
+                onValueChange={() => handleToggle(item.key)}
+                trackColor={{ true: colors.primary, false: colors.surfaceRaised }}
+                thumbColor={colors.text}
+                ios_backgroundColor={colors.surfaceRaised}
+              />
+            </View>
+          ))
+        )}
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.base },
+  headerWrap: { paddingHorizontal: layout.pagePadding },
+  contentWrap: { padding: layout.pagePadding, gap: spacing.md },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceRaised,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rowBody: { flex: 1, gap: 2 },
+  rowLabel: { ...typography.bodyStrong, color: colors.text, fontSize: 15 },
+  rowDescription: { ...typography.caption, color: colors.textSecondary, lineHeight: 16 },
+});

@@ -1,0 +1,14 @@
+appId: com.innotechlabssas.mrtraining
+---
+- launchApp
+- waitForAnimationToEnd
+- waitForAnimationToEnd
+- waitForAnimationToEnd
+- tapOn:
+    text: "Perfil"
+- waitForAnimationToEnd
+- waitForAnimationToEnd
+- waitForAnimationToEnd
+- tapOn:
+    index: 5
+- waitForAnimationToEnd

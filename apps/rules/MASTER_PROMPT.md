@@ -176,9 +176,10 @@ Never skip the design phase. Never jump to code.
 
 ```
 apps/
-├── web/                  # Next.js frontend
-├── mobile/               # Flutter mobile app
-└── api/                  # Go backend
+├── web/                  # Next.js frontend (coach dashboard + landing)
+├── api/                  # Go API (Fiber) — BACKEND PRINCIPAL, fuente de verdad
+├── mobile/               # React Native mobile app (athlete)
+└── rules/                # Archivos de reglas (fuente de verdad de proceso)
 
 packages/
 ├── shared/               # Shared types, DTOs, utilities

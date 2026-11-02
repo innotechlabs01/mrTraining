@@ -1,0 +1,118 @@
+<h2>¿Qué dirección de color sentís más profesional para MR Training?</h2>
+<p class="subtitle">Tres paletas dark-first sobre el mismo mockup del dashboard (readiness + sesión + CTA). Clickeá la que prefieras.</p>
+
+<style>
+  .phone {
+    width: 260px;
+    border-radius: 28px;
+    border: 6px solid #1a1a1a;
+    overflow: hidden;
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    margin: 0 auto;
+  }
+  .phone .status { display:flex; justify-content:space-between; padding:8px 14px 2px; font-size:10px; opacity:.7; }
+  .phone .body { padding: 12px 14px 18px; }
+  .ph-hello { font-size:16px; font-weight:700; margin-bottom:2px; }
+  .ph-sub { font-size:10px; opacity:.55; margin-bottom:12px; }
+  .readiness { border-radius:14px; padding:12px; margin-bottom:10px; }
+  .readiness .lbl { font-size:9px; letter-spacing:1px; text-transform:uppercase; opacity:.6; }
+  .readiness .score { font-size:30px; font-weight:800; line-height:1.1; }
+  .readiness .bar { height:5px; border-radius:3px; background:rgba(255,255,255,.08); margin-top:8px; overflow:hidden; }
+  .readiness .fill { width:78%; height:100%; border-radius:3px; }
+  .session { display:flex; align-items:center; gap:10px; border-radius:12px; padding:10px 12px; margin-bottom:10px; }
+  .session .ico { width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .session .t1 { font-size:11.5px; font-weight:600; }
+  .session .t2 { font-size:9.5px; opacity:.55; }
+  .cta { display:block; text-align:center; padding:12px; border-radius:12px; font-size:12px; font-weight:700; color:#fff; }
+  .tabbar { display:flex; justify-content:space-around; padding:9px 0 13px; font-size:9px; }
+</style>
+
+<div class="cards">
+
+  <div class="card" data-choice="A-brand" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:20px 0;">
+      <div class="phone" style="background:#0A0B0D; color:#F5F5F7;">
+        <div class="status"><span>9:41</span><span>●●●</span></div>
+        <div class="body">
+          <div class="ph-hello">Buen día, Franco</div>
+          <div class="ph-sub">Martes · Semana 4 del bloque</div>
+          <div class="readiness" style="background:#14161A;">
+            <div class="lbl">Readiness</div>
+            <div class="score">82<span style="font-size:14px;opacity:.5">/100</span></div>
+            <div class="bar"><div class="fill" style="background:#FF6B00;"></div></div>
+          </div>
+          <div class="session" style="background:#14161A;">
+            <div class="ico" style="background:#0066FF22; color:#4D94FF;">🏋️</div>
+            <div><div class="t1">Push · Fuerza A</div><div class="t2">18:30 con Coach Mao</div></div>
+          </div>
+          <div class="cta" style="background:#FF6B00;">Empezar entrenamiento</div>
+        </div>
+        <div class="tabbar" style="background:#0A0B0D; border-top:1px solid #1C1E23;"><span style="color:#FF6B00;">● Hoy</span><span style="opacity:.4;">○ Plan</span><span style="opacity:.4;">○ Eventos</span><span style="opacity:.4;">○ Perfil</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Brand puro (reglas actuales)</h3>
+      <p>Naranja #FF6B00 plano + azul #0066FF, superficies #0A0B0D→#14161A. Fiel al design system existente. Sólido y reconocible.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="B-premium" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:20px 0;">
+      <div class="phone" style="background:#101114; color:#F5F5F7;">
+        <div class="status"><span>9:41</span><span>●●●</span></div>
+        <div class="body">
+          <div class="ph-hello">Buen día, Franco</div>
+          <div class="ph-sub">Martes · Semana 4 del bloque</div>
+          <div class="readiness" style="background:linear-gradient(135deg,#1D1712,#16171B);">
+            <div class="lbl">Readiness</div>
+            <div class="score" style="color:#FF8A33;">82<span style="font-size:14px;opacity:.5">/100</span></div>
+            <div class="bar"><div class="fill" style="background:linear-gradient(90deg,#CC5200,#FF8A33);"></div></div>
+          </div>
+          <div class="session" style="background:rgba(255,255,255,.05); backdrop-filter:blur(4px);">
+            <div class="ico" style="background:rgba(255,138,51,.15); color:#FFB27A;">🏋️</div>
+            <div><div class="t1">Push · Fuerza A</div><div class="t2">18:30 con Coach Mao</div></div>
+          </div>
+          <div class="cta" style="background:linear-gradient(135deg,#FF6B00,#FF8A33); box-shadow:0 4px 16px rgba(255,107,0,.35);">Empezar entrenamiento</div>
+        </div>
+        <div class="tabbar" style="background:rgba(255,255,255,.04); backdrop-filter:blur(6px);"><span style="color:#FF8A33;">● Hoy</span><span style="opacity:.4;">○ Plan</span><span style="opacity:.4;">○ Eventos</span><span style="opacity:.4;">○ Perfil</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Ember premium (recomendada)</h3>
+      <p>Gradientes sutiles naranja→ámbar (#FF6B00→#FF8A33), superficies glass/gris cálido #16171B, glow en CTAs. Look tipo Nike Training / premium fitness. Sigue usando el naranja de marca como CTA único.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="C-steel" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:20px 0;">
+      <div class="phone" style="background:#000000; color:#F5F5F7;">
+        <div class="status"><span>9:41</span><span>●●●</span></div>
+        <div class="body">
+          <div class="ph-hello">Buen día, Franco</div>
+          <div class="ph-sub">Martes · Semana 4 del bloque</div>
+          <div class="readiness" style="background:#111214; border:1px solid #232529;">
+            <div class="lbl">Readiness</div>
+            <div class="score">82<span style="font-size:14px;opacity:.5">/100</span></div>
+            <div class="bar"><div class="fill" style="background:#F5F5F7;"></div></div>
+          </div>
+          <div class="session" style="background:#111214; border:1px solid #232529;">
+            <div class="ico" style="background:#232529; color:#F5F5F7;">🏋️</div>
+            <div><div class="t1">Push · Fuerza A</div><div class="t2">18:30 con Coach Mao</div></div>
+          </div>
+          <div class="cta" style="background:#F5F5F7; color:#000;">Empezar entrenamiento</div>
+          <div style="width:24px;height:3px;background:#FF6B00;border-radius:2px;margin:10px auto 0;"></div>
+        </div>
+        <div class="tabbar" style="background:#000; border-top:1px solid #1C1E23;"><span style="color:#fff;">● Hoy</span><span style="opacity:.35;">○ Plan</span><span style="opacity:.35;">○ Eventos</span><span style="opacity:.35;">○ Perfil</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Steel minimalista</h3>
+      <p>Casi monocromo (blanco sobre negro puro), CTA blanco, naranja solo como micro-acento (barras de progreso, indicador activo). Estilo Apple Fitness: ultra sobrio. Nota: se desvía del brand rule de CTA naranja.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:16px;">
+  <p class="subtitle">Podés clickear una y después comentarme ajustes en la terminal (ej: "B pero sin glow").</p>
+</div>

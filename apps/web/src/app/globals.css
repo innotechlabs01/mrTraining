@@ -6,9 +6,14 @@
   :root {
     --color-brand-primary: #15AAF2;
     --color-brand-secondary: #0066FF;
-    --color-success: #00C853;
-    --color-error: #FF3D00;
-    --color-warning: #FFB300;
+    --color-success: #34D399;
+    --color-error: #FF5A5F;
+    --color-warning: #FBBF24;
+    --color-info: #3B9EFF;
+    --color-error-soft: rgba(255, 90, 95, 0.12);
+    --color-success-soft: rgba(52, 211, 153, 0.12);
+    --color-warning-soft: rgba(251, 191, 36, 0.12);
+    --color-info-soft: rgba(59, 158, 255, 0.12);
 
     --font-display: 'Montserrat', system-ui, sans-serif;
     --font-body: 'Inter', system-ui, sans-serif;

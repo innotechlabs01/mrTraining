@@ -1,0 +1,29 @@
+project: mrtraining
+context: |
+  Monorepo pnpm workspace with Next.js web app, React Native mobile app, and Go API backend. Uses Clerk auth, Turso/LibSQL, Redis, NATS.
+strict_tdd: true
+testing:
+  strict_tdd_mode: enabled
+  detected: 2026-08-26
+  test_runner:
+    web: jest 30 with ts-jest jsdom
+    mobile: jest with jest-expo
+    api: go test
+  test_layers:
+    unit: yes
+    integration: yes
+    e2e: no
+  coverage:
+    available: unknown
+  quality_tools:
+    linter: eslint next lint
+    type_checker: typescript
+    formatter: unknown
+phase_rules:
+  proposal: required
+  spec: required
+  design: required
+  tasks: required
+  apply: required
+  verify: required
+  archive: required

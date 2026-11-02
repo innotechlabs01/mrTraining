@@ -1,0 +1,565 @@
+package event
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+
+	"github.com/google/uuid"
+
+	eventdomain "github.com/innotechlabs01/mr-training-api/internal/domain/event"
+	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
+)
+
+// Repository implements event.Repository using database/sql with Turso/libsql.
+type Repository struct {
+	db  *sql.DB
+	exec database.Executor
+}
+
+// NewRepository creates a new event repository with the given database connection.
+// By default, all queries run against the connection pool. Use SetExecutor to
+// inject a *sql.Tx for transactional operations within a UnitOfWork.
+func NewRepository(db *sql.DB) *Repository {
+	return &Repository{db: db, exec: db}
+}
+
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+// When set, all repository queries run against this executor instead of the
+// connection pool.
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries. This allows request-scoped
+// transactional usage without mutating the shared repository instance.
+func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+	return &Repository{
+		db:  r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx (injected by a
+// UnitOfWork) rather than the connection pool.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
+}
+
+// ListByCoach retrieves all events for a given coach, ordered by date.
+func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*eventdomain.Event, error) {
+	rows, err := r.exec.QueryContext(ctx,
+		`SELECT id, title, date, time, end_time, type, modality, location, description,
+		 status, format, is_public, running_distance_km, running_pace, running_meeting_point,
+		 coach_id, created_at, updated_at
+		 FROM events WHERE coach_id = $1 ORDER BY date`, coachID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list events: %w", err)
+	}
+	defer rows.Close()
+
+	var events []*eventdomain.Event
+	for rows.Next() {
+		e, err := scanEvent(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan event: %w", err)
+		}
+
+		// Load athletes
+		athleteIDs, err := r.getAthleteIDs(ctx, e.ID)
+		if err != nil {
+			return nil, err
+		}
+		e.AthleteIDs = athleteIDs
+
+		// Load form fields
+		formFields, err := r.getFormFields(ctx, e.ID)
+		if err != nil {
+			return nil, err
+		}
+		e.FormFields = formFields
+
+		// Load list items
+		listItems, err := r.getListItems(ctx, e.ID)
+		if err != nil {
+			return nil, err
+		}
+		e.ListItems = listItems
+
+		events = append(events, e)
+	}
+	return events, nil
+}
+
+// GetByID retrieves an event by its unique identifier.
+func (r *Repository) GetByID(ctx context.Context, id string) (*eventdomain.Event, error) {
+	row := r.exec.QueryRowContext(ctx,
+		`SELECT id, title, date, time, end_time, type, modality, location, description,
+		 status, format, is_public, running_distance_km, running_pace, running_meeting_point,
+		 coach_id, created_at, updated_at
+		 FROM events WHERE id = $1`, id)
+
+	e, err := scanEventRow(row)
+	if err != nil {
+		return nil, err
+	}
+
+	// Load related data
+	athleteIDs, err := r.getAthleteIDs(ctx, e.ID)
+	if err != nil {
+		return nil, err
+	}
+	e.AthleteIDs = athleteIDs
+
+	formFields, err := r.getFormFields(ctx, e.ID)
+	if err != nil {
+		return nil, err
+	}
+	e.FormFields = formFields
+
+	listItems, err := r.getListItems(ctx, e.ID)
+	if err != nil {
+		return nil, err
+	}
+	e.ListItems = listItems
+
+	return e, nil
+}
+
+// Create inserts a new event record.
+func (r *Repository) Create(ctx context.Context, e *eventdomain.Event) error {
+	_, err := r.exec.ExecContext(ctx,
+		`INSERT INTO events (id, title, date, time, end_time, type, modality, location, description,
+		 status, format, is_public, running_distance_km, running_pace, running_meeting_point, coach_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+		e.ID, e.Title, e.Date, e.Time, e.EndTime, e.Type, e.Modality,
+		nullString(e.Location), nullString(e.Description), e.Status,
+		nullString(e.Format), boolToInt(e.IsPublic),
+		e.RunningDistanceKm, nullString(e.RunningPace), nullString(e.RunningMeetingPoint),
+		e.CoachID)
+	if err != nil {
+		return fmt.Errorf("failed to create event: %w", err)
+	}
+	return nil
+}
+
+// Update modifies an existing event record.
+func (r *Repository) Update(ctx context.Context, e *eventdomain.Event) error {
+	result, err := r.exec.ExecContext(ctx,
+		`UPDATE events SET title=$1, date=$2, time=$3, end_time=$4, type=$5, modality=$6, location=$7,
+		 description=$8, status=$9, format=$10, is_public=$11, running_distance_km=$12, running_pace=$13,
+		 running_meeting_point=$14, updated_at=NOW() WHERE id=$15`,
+		e.Title, e.Date, e.Time, e.EndTime, e.Type, e.Modality,
+		nullString(e.Location), nullString(e.Description), e.Status,
+		nullString(e.Format), boolToInt(e.IsPublic),
+		e.RunningDistanceKm, nullString(e.RunningPace), nullString(e.RunningMeetingPoint),
+		e.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update event: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return errors.NotFound("Event", e.ID)
+	}
+	return nil
+}
+
+// Delete removes an event record by ID.
+func (r *Repository) Delete(ctx context.Context, id string) error {
+	result, err := r.exec.ExecContext(ctx, `DELETE FROM events WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete event: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return errors.NotFound("Event", id)
+	}
+	return nil
+}
+
+// GetRegistration retrieves a specific athlete's registration for an event.
+func (r *Repository) GetRegistration(ctx context.Context, eventID, athleteID string) (*eventdomain.EventRegistration, error) {
+	row := r.exec.QueryRowContext(ctx,
+		`SELECT id, event_id, athlete_id, status, created_at, updated_at
+		 FROM event_registrations WHERE event_id = $1 AND athlete_id = $2`,
+		eventID, athleteID)
+
+	reg := &eventdomain.EventRegistration{}
+	err := row.Scan(&reg.ID, &reg.EventID, &reg.AthleteID, &reg.Status, &reg.CreatedAt, &reg.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, errors.NotFound("Registration", eventID+"/"+athleteID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get registration: %w", err)
+	}
+	return reg, nil
+}
+
+// UpsertRegistration creates or updates an athlete's registration for an event.
+func (r *Repository) UpsertRegistration(ctx context.Context, reg *eventdomain.EventRegistration) error {
+	_, err := r.exec.ExecContext(ctx,
+		`INSERT INTO event_registrations (id, event_id, athlete_id, status, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, NOW(), NOW())
+		 ON CONFLICT(event_id, athlete_id) DO UPDATE SET status = $4, updated_at = NOW()`,
+		reg.ID, reg.EventID, reg.AthleteID, reg.Status)
+	if err != nil {
+		return fmt.Errorf("failed to upsert registration: %w", err)
+	}
+	return nil
+}
+
+// ListRegistrationsByAthlete retrieves all events an athlete is registered for.
+func (r *Repository) ListRegistrationsByAthlete(ctx context.Context, athleteID string) ([]*eventdomain.Event, error) {
+	rows, err := r.exec.QueryContext(ctx,
+		`SELECT e.id, e.title, e.date, e.time, e.end_time, e.type, e.modality, e.location,
+		 e.description, e.status, e.format, e.is_public, e.running_distance_km, e.running_pace,
+		 e.running_meeting_point, e.coach_id, e.created_at, e.updated_at
+		 FROM events e
+		 INNER JOIN event_registrations er ON e.id = er.event_id
+		 WHERE er.athlete_id = $1 AND er.status = 'accepted'
+		 ORDER BY e.date`, athleteID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list registrations: %w", err)
+	}
+	defer rows.Close()
+
+	var events []*eventdomain.Event
+	for rows.Next() {
+		e, err := scanEvent(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan event: %w", err)
+		}
+		events = append(events, e)
+	}
+	return events, nil
+}
+
+// ListRegistrationsByEvent retrieves all registrations for an event, ordered by creation.
+func (r *Repository) ListRegistrationsByEvent(ctx context.Context, eventID string) ([]*eventdomain.EventRegistration, error) {
+	rows, err := r.exec.QueryContext(ctx,
+		`SELECT id, event_id, athlete_id, status, created_at, updated_at
+		 FROM event_registrations WHERE event_id = $1
+		 ORDER BY created_at`, eventID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list registrations by event: %w", err)
+	}
+	defer rows.Close()
+
+	regs := make([]*eventdomain.EventRegistration, 0)
+	for rows.Next() {
+		reg := &eventdomain.EventRegistration{}
+		if err := rows.Scan(&reg.ID, &reg.EventID, &reg.AthleteID, &reg.Status, &reg.CreatedAt, &reg.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan registration: %w", err)
+		}
+		regs = append(regs, reg)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate registrations: %w", err)
+	}
+	return regs, nil
+}
+
+// SetAthletes replaces the athlete list for an event.
+func (r *Repository) SetAthletes(ctx context.Context, eventID string, athleteIDs []string) error {
+	if _, err := r.exec.ExecContext(ctx, `DELETE FROM event_athletes WHERE event_id = $1`, eventID); err != nil {
+		return fmt.Errorf("failed to delete event athletes: %w", err)
+	}
+	for _, athleteID := range athleteIDs {
+		if _, err := r.exec.ExecContext(ctx,
+			`INSERT INTO event_athletes (event_id, athlete_id) VALUES ($1, $2)
+			 ON CONFLICT (event_id, athlete_id) DO NOTHING`,
+			eventID, athleteID); err != nil {
+			return fmt.Errorf("failed to insert event athlete: %w", err)
+		}
+	}
+	return nil
+}
+
+// SetFormFields replaces the form fields for an event.
+func (r *Repository) SetFormFields(ctx context.Context, eventID string, fields []eventdomain.EventFormField) error {
+	if _, err := r.exec.ExecContext(ctx, `DELETE FROM event_form_fields WHERE event_id = $1`, eventID); err != nil {
+		return fmt.Errorf("failed to delete form fields: %w", err)
+	}
+	for _, f := range fields {
+		optionsJSON := ""
+		if len(f.Options) > 0 {
+			b, _ := json.Marshal(f.Options)
+			optionsJSON = string(b)
+		}
+		id := f.ID
+		if id == "" {
+			id = uuid.New().String()
+		}
+		if _, err := r.exec.ExecContext(ctx,
+			`INSERT INTO event_form_fields (id, event_id, label, kind, options, required, sort_order)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+			id, eventID, f.Label, f.Kind, nullString(optionsJSON), boolToInt(f.Required), f.SortOrder); err != nil {
+			return fmt.Errorf("failed to insert form field: %w", err)
+		}
+	}
+	return nil
+}
+
+// SetListItems replaces the list items for an event.
+func (r *Repository) SetListItems(ctx context.Context, eventID string, items []string) error {
+	if _, err := r.exec.ExecContext(ctx, `DELETE FROM event_list_items WHERE event_id = $1`, eventID); err != nil {
+		return fmt.Errorf("failed to delete list items: %w", err)
+	}
+	for i, item := range items {
+		if _, err := r.exec.ExecContext(ctx,
+			`INSERT INTO event_list_items (id, event_id, item, sort_order) VALUES ($1, $2, $3, $4)`,
+			uuid.New().String(), eventID, item, i); err != nil {
+			return fmt.Errorf("failed to insert list item: %w", err)
+		}
+	}
+	return nil
+}
+
+// GetFormResponses retrieves an athlete's form responses for an event.
+func (r *Repository) GetFormResponses(ctx context.Context, eventID, athleteID string) ([]eventdomain.EventFormResponse, error) {
+	rows, err := r.exec.QueryContext(ctx,
+		`SELECT id, event_id, athlete_id, field_id, value
+		 FROM event_form_responses WHERE event_id = $1 AND athlete_id = $2`,
+		eventID, athleteID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query form responses: %w", err)
+	}
+	defer rows.Close()
+
+	var responses []eventdomain.EventFormResponse
+	for rows.Next() {
+		var resp eventdomain.EventFormResponse
+		if err := rows.Scan(&resp.ID, &resp.EventID, &resp.AthleteID, &resp.FieldID, &resp.Value); err != nil {
+			return nil, fmt.Errorf("failed to scan form response: %w", err)
+		}
+		responses = append(responses, resp)
+	}
+	return responses, nil
+}
+
+// ListFormResponsesByEvent retrieves all form responses for an event (coach view).
+func (r *Repository) ListFormResponsesByEvent(ctx context.Context, eventID string) ([]eventdomain.EventFormResponse, error) {
+	rows, err := r.exec.QueryContext(ctx,
+		`SELECT id, event_id, athlete_id, field_id, value
+		 FROM event_form_responses WHERE event_id = $1
+		 ORDER BY athlete_id, created_at`, eventID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query event form responses: %w", err)
+	}
+	defer rows.Close()
+
+	responses := make([]eventdomain.EventFormResponse, 0)
+	for rows.Next() {
+		var resp eventdomain.EventFormResponse
+		if err := rows.Scan(&resp.ID, &resp.EventID, &resp.AthleteID, &resp.FieldID, &resp.Value); err != nil {
+			return nil, fmt.Errorf("failed to scan form response: %w", err)
+		}
+		responses = append(responses, resp)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate form responses: %w", err)
+	}
+	return responses, nil
+}
+
+// SaveFormResponses replaces an athlete's form responses for an event.
+func (r *Repository) SaveFormResponses(ctx context.Context, eventID, athleteID string, responses []eventdomain.EventFormResponse) error {
+	if _, err := r.exec.ExecContext(ctx,
+		`DELETE FROM event_form_responses WHERE event_id = $1 AND athlete_id = $2`,
+		eventID, athleteID); err != nil {
+		return fmt.Errorf("failed to delete form responses: %w", err)
+	}
+	for _, resp := range responses {
+		if _, err := r.exec.ExecContext(ctx,
+			`INSERT INTO event_form_responses (id, event_id, athlete_id, field_id, value, created_at)
+			 VALUES ($1, $2, $3, $4, $5, NOW())`,
+			uuid.New().String(), eventID, athleteID, resp.FieldID, resp.Value); err != nil {
+			return fmt.Errorf("failed to insert form response: %w", err)
+		}
+	}
+	return nil
+}
+
+// --- Private helpers ---
+
+func (r *Repository) getAthleteIDs(ctx context.Context, eventID string) ([]string, error) {
+	rows, err := r.exec.QueryContext(ctx,
+		`SELECT athlete_id FROM event_athletes WHERE event_id = $1`, eventID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query event athletes: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("failed to scan athlete ID: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if ids == nil {
+		ids = []string{}
+	}
+	return ids, nil
+}
+
+func (r *Repository) getFormFields(ctx context.Context, eventID string) ([]eventdomain.EventFormField, error) {
+	rows, err := r.exec.QueryContext(ctx,
+		`SELECT id, event_id, label, kind, options, required, sort_order
+		 FROM event_form_fields WHERE event_id = $1 ORDER BY sort_order`, eventID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query form fields: %w", err)
+	}
+	defer rows.Close()
+
+	var fields []eventdomain.EventFormField
+	for rows.Next() {
+		f := eventdomain.EventFormField{}
+		var options sql.NullString
+		var required int
+		if err := rows.Scan(&f.ID, &f.EventID, &f.Label, &f.Kind, &options, &required, &f.SortOrder); err != nil {
+			return nil, fmt.Errorf("failed to scan form field: %w", err)
+		}
+		if options.Valid && options.String != "" {
+			json.Unmarshal([]byte(options.String), &f.Options)
+		}
+		f.Required = required == 1
+		fields = append(fields, f)
+	}
+	if fields == nil {
+		fields = []eventdomain.EventFormField{}
+	}
+	return fields, nil
+}
+
+func (r *Repository) getListItems(ctx context.Context, eventID string) ([]string, error) {
+	rows, err := r.exec.QueryContext(ctx,
+		`SELECT item FROM event_list_items WHERE event_id = $1 ORDER BY sort_order`, eventID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query list items: %w", err)
+	}
+	defer rows.Close()
+
+	var items []string
+	for rows.Next() {
+		var item string
+		if err := rows.Scan(&item); err != nil {
+			return nil, fmt.Errorf("failed to scan list item: %w", err)
+		}
+		items = append(items, item)
+	}
+	if items == nil {
+		items = []string{}
+	}
+	return items, nil
+}
+
+// scanEvent scans a row into an Event struct.
+type scannable interface {
+	Scan(dest ...interface{}) error
+}
+
+func scanEventFromRow(s scannable) (*eventdomain.Event, error) {
+	e := &eventdomain.Event{}
+	var location, description, format, runningPace, runningMeetingPoint sql.NullString
+	var runningDistanceKm sql.NullFloat64
+	var isPublic int
+
+	err := s.Scan(&e.ID, &e.Title, &e.Date, &e.Time, &e.EndTime, &e.Type, &e.Modality,
+		&location, &description, &e.Status, &format, &isPublic,
+		&runningDistanceKm, &runningPace, &runningMeetingPoint,
+		&e.CoachID, &e.CreatedAt, &e.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	if location.Valid {
+		e.Location = location.String
+	}
+	if description.Valid {
+		e.Description = description.String
+	}
+	if format.Valid {
+		e.Format = format.String
+	}
+	e.IsPublic = isPublic == 1
+	if runningDistanceKm.Valid {
+		e.RunningDistanceKm = &runningDistanceKm.Float64
+	}
+	if runningPace.Valid {
+		e.RunningPace = runningPace.String
+	}
+	if runningMeetingPoint.Valid {
+		e.RunningMeetingPoint = runningMeetingPoint.String
+	}
+
+	return e, nil
+}
+
+func scanEventRow(row *sql.Row) (*eventdomain.Event, error) {
+	e, err := scanEventFromRow(row)
+	if err == sql.ErrNoRows {
+		return nil, errors.NotFound("Event", "")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan event: %w", err)
+	}
+	return e, nil
+}
+
+func scanEvent(rows *sql.Rows) (*eventdomain.Event, error) {
+	return scanEventFromRow(rows)
+}
+
+func nullString(s string) sql.NullString {
+	if s == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: s, Valid: true}
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// ListByAthleteLinks retrieves events from every coach the athlete trains
+// with (coach_athlete_links JOIN), so athletes see their coach's events.
+func (r *Repository) ListByAthleteLinks(ctx context.Context, athleteID string) ([]*eventdomain.Event, error) {
+	rows, err := r.exec.QueryContext(ctx,
+		`SELECT DISTINCT e.id, e.title, e.date, e.time, e.end_time, e.type, e.modality,
+		 e.location, e.description, e.status, e.format, e.is_public,
+		 e.running_distance_km, e.running_pace, e.running_meeting_point,
+		 e.coach_id, e.created_at, e.updated_at
+		 FROM events e
+		 INNER JOIN coach_athlete_links cal ON e.coach_id = cal.coach_id
+		 WHERE cal.athlete_id = $1
+		 ORDER BY e.date`, athleteID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list events by athlete links: %w", err)
+	}
+	defer rows.Close()
+
+	var events []*eventdomain.Event
+	for rows.Next() {
+		e, err := scanEvent(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan event: %w", err)
+		}
+		events = append(events, e)
+	}
+	return events, nil
+}

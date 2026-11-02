@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server';
 import { Webhook } from 'svix';
 import { getDB, generateUniqueCoachCode } from '@/lib/coach-isolation-db';
+import { getCoachByCode, linkCoachAthlete, createAthleteProfile, getUserById, createUser, getAthleteProfileById } from '@/lib/coach-isolation-db';
+import { getAthleteMembership } from '@/lib/db';
 
 const webhookSecret = process.env.CLERK_WEBHOOK_SECRET || '';
 const clerkSecretKey = process.env.CLERK_SECRET_KEY || '';
 
 async function setClerkMetadata(userId: string, metadata: Record<string, unknown>) {
-  if (!clerkSecretKey) return;
+  if (!clerkSecretKey) {
+    console.error('[Webhook] CLERK_SECRET_KEY not set, cannot update metadata');
+    return;
+  }
   try {
-    await fetch(`https://api.clerk.com/v1/users/${userId}/metadata`, {
+    const res = await fetch(`https://api.clerk.com/v1/users/${userId}/metadata`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${clerkSecretKey}`,
@@ -16,9 +21,175 @@ async function setClerkMetadata(userId: string, metadata: Record<string, unknown
       },
       body: JSON.stringify({ public_metadata: metadata }),
     });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error(`[Webhook] Failed to set Clerk metadata for ${userId}:`, err);
+    }
   } catch (err) {
-    console.error('Failed to set Clerk metadata:', err);
+    console.error(`[Webhook] Failed to set Clerk metadata for ${userId}:`, err);
   }
+}
+
+async function ensureCoachSync(userId: string, email: string, name: string, avatar: string) {
+  const db = getDB();
+
+  // Check if user exists in DB
+  const existing = await db.execute({
+    sql: 'SELECT id FROM users WHERE id = ?',
+    args: [userId],
+  });
+
+  if (existing.rows.length === 0) {
+    // New user — create in DB + generate coachCode
+    const coachCode = await generateUniqueCoachCode();
+
+    await db.execute({
+      sql: `INSERT INTO users (id, email, name, avatar_url, role) VALUES (?, ?, ?, ?, 'coach')`,
+      args: [userId, email, name, avatar],
+    });
+
+    await db.execute({
+      sql: `INSERT INTO coaches (id, email, name, avatar_url, coach_code) VALUES (?, ?, ?, ?, ?)`,
+      args: [userId, email, name, avatar, coachCode],
+    });
+
+    await setClerkMetadata(userId, { role: 'coach', coachCode });
+    console.log(`[Webhook] Created coach ${userId} with code ${coachCode}`);
+  } else {
+    // User exists — check if coachCode is in DB
+    const coachResult = await db.execute({
+      sql: 'SELECT coach_code FROM coaches WHERE id = ?',
+      args: [userId],
+    });
+
+    let coachCode = coachResult.rows[0]?.coach_code as string | undefined;
+
+    if (!coachCode) {
+      // coachCode missing in DB — generate and save
+      coachCode = await generateUniqueCoachCode();
+      await db.execute({
+        sql: 'UPDATE coaches SET coach_code = ?, updated_at = datetime(\'now\') WHERE id = ?',
+        args: [coachCode, userId],
+      });
+      console.log(`[Webhook] Generated missing coachCode ${coachCode} for ${userId}`);
+    }
+
+    // Always ensure Clerk metadata has coachCode
+    await setClerkMetadata(userId, { role: 'coach', coachCode });
+  }
+}
+
+async function processAthleteCoachCode(userId: string, email: string, name: string, coachCode: string) {
+  const db = getDB();
+  const normalizedCode = coachCode.trim().toUpperCase();
+  // Normalize display name: ensure we have a real name, fallback to email
+  const displayName = name?.trim() || email;
+
+  // Find coach by code first — validates code before link checks
+  const coach = await getCoachByCode(normalizedCode);
+  if (!coach) {
+    console.error(`[Webhook] Invalid coach code ${normalizedCode} for athlete ${userId} - no coach found`);
+    return;
+  }
+
+  const coachData = coach as Record<string, unknown>;
+  const coachId = coachData.id as string;
+  const coachName = coachData.name as string;
+
+  // Check if already linked to a coach
+  const existingLink = await db.execute({
+    sql: 'SELECT id FROM coach_athlete_links WHERE athlete_id = ? AND status = ?',
+    args: [userId, 'active'],
+  });
+
+  if (existingLink.rows.length > 0) {
+    console.log(`[Webhook] Athlete ${userId} already linked to a coach, ensuring metadata is up to date`);
+    // Ensure Clerk metadata reflects athlete role even when link already exists (covers race where user was first created as coach)
+    await setClerkMetadata(userId, { role: 'athlete', coachCode: normalizedCode, coachId, coachName });
+    return;
+  }
+
+  // Create user record if not exists
+  const existingUser = await getUserById(userId);
+  if (!existingUser) {
+    await createUser({ id: userId, email, name: displayName, role: 'athlete' });
+  } else {
+    const currentName = (existingUser as Record<string, unknown>).name as string;
+    if (displayName !== email && (currentName === email || currentName.includes('@') || !currentName)) {
+      await db.execute({
+        sql: `UPDATE users SET name = ?, updated_at = datetime('now') WHERE id = ?`,
+        args: [displayName, userId],
+      });
+    }
+  }
+
+  // Create athlete profile if not exists
+  const existingProfile = await getAthleteProfileById(userId);
+  if (!existingProfile) {
+    await createAthleteProfile({ id: userId, email, name: displayName });
+  } else {
+    const currentName = (existingProfile as Record<string, unknown>).name as string;
+    if (displayName !== email && (currentName === email || currentName.includes('@') || !currentName)) {
+      await db.execute({
+        sql: `UPDATE athlete_profiles SET name = ?, updated_at = datetime('now') WHERE id = ?`,
+        args: [displayName, userId],
+      });
+    }
+  }
+
+  // Link coach and athlete (normalized model)
+  await linkCoachAthlete(coachId, userId);
+
+  // Create coach_athletes record for dashboard — modality defaults to virtual
+  const existingAthlete = await db.execute(
+    'SELECT id, service_type FROM coach_athletes WHERE id = ? AND coach_id = ?',
+    [userId, coachId],
+  );
+
+  if (existingAthlete.rows.length === 0) {
+    await db.execute(
+      `INSERT INTO coach_athletes (id, name, email, sport, service_type, start_date, coach_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'), ?, datetime('now'), datetime('now'))`,
+      [userId, displayName, email, '', 'virtual', coachId],
+    );
+  } else {
+    const row = existingAthlete.rows[0] as Record<string, unknown>;
+    const st = row.service_type as string;
+    if (!st || st === 'pending' || st === 'linked_via_code' || st === 'self_registered') {
+      await db.execute(
+        `UPDATE coach_athletes SET service_type = ?, name = ?, updated_at = datetime('now') WHERE id = ? AND coach_id = ?`,
+        ['virtual', displayName, userId, coachId],
+      );
+    }
+  }
+
+  // Create 7-day free trial membership if not exists
+  const existingMembership = await getAthleteMembership(userId);
+  if (!existingMembership) {
+    const now = new Date();
+    const startDate = now.toISOString().split('T')[0];
+    const periodEnd = new Date(now);
+    periodEnd.setMonth(periodEnd.getMonth() + 1, 0);
+    periodEnd.setHours(23, 59, 59, 999);
+    const periodEndStr = periodEnd.toISOString().split('T')[0];
+    const graceDays = 5;
+    const dueDate = new Date(periodEnd);
+    dueDate.setDate(dueDate.getDate() + graceDays);
+    const dueDateStr = dueDate.toISOString().split('T')[0];
+
+    const membershipId = crypto.randomUUID();
+    await db.execute(
+      `INSERT INTO athlete_memberships (id, athlete_id, coach_id, plan_name, plan_price, billing_period, status, current_period_start, current_period_end, grace_period_days, payment_due_date)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      [membershipId, userId, coachId, 'Free Trial', 0, 'monthly', 'active', startDate, periodEndStr, graceDays, dueDateStr],
+    );
+  }
+
+  // Ensure Clerk metadata reflects athlete role — overrides prior coach role if user was initially created as coach
+  // Keep coach record intact but role in Clerk must be athlete to drive correct UI/routing
+  await setClerkMetadata(userId, { role: 'athlete', coachCode: normalizedCode, coachId, coachName });
+
+  console.log(`[Webhook] Linked athlete ${userId} to coach ${coachId} via code ${normalizedCode}`);
 }
 
 export async function POST(req: Request) {
@@ -41,63 +212,65 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 400 });
   }
 
-  const db = getDB();
+  const { id, email_addresses, first_name, last_name, image_url, unsafe_metadata } = evt.data;
+  const email = (email_addresses as Array<{ email_address: string }>)[0]?.email_address ?? '';
+  const metadata = (unsafe_metadata as Record<string, unknown>) ?? {};
+  // Build name from Clerk first/last, with unsafeMetadata fallback (mobile sends firstName/lastName there)
+  const metaFirst = (metadata.firstName as string) ?? (metadata.first_name as string) ?? '';
+  const metaLast = (metadata.lastName as string) ?? (metadata.last_name as string) ?? '';
+  const resolvedFirst = ((first_name as string) ?? metaFirst ?? '').trim();
+  const resolvedLast = ((last_name as string) ?? metaLast ?? '').trim();
+  const name = `${resolvedFirst} ${resolvedLast}`.trim() || email;
+  const avatar = (image_url as string) ?? '';
 
-  if (evt.type === 'user.created') {
-    const { id, email_addresses, first_name, last_name, image_url } = evt.data;
-    const email = (email_addresses as Array<{ email_address: string }>)[0]?.email_address ?? '';
-    const name = `${(first_name as string) ?? ''} ${(last_name as string) ?? ''}`.trim() || email;
-    const avatar = (image_url as string) ?? '';
-
-    const existing = await db.execute({
-      sql: 'SELECT id FROM users WHERE id = ?',
-      args: [id as string],
-    });
-
-    if (existing.rows.length === 0) {
-      const coachCode = await generateUniqueCoachCode();
-
-      await db.execute({
-        sql: `INSERT INTO users (id, email, name, avatar_url, role) VALUES (?, ?, ?, ?, 'coach')`,
-        args: [id as string, email, name, avatar],
-      });
-
-      await db.execute({
-        sql: `INSERT INTO coaches (id, email, name, avatar_url, coach_code) VALUES (?, ?, ?, ?, ?)`,
-        args: [id as string, email, name, avatar, coachCode],
-      });
-
-      await setClerkMetadata(id as string, { role: 'coach', coachCode });
+  try {
+    if (evt.type === 'user.created') {
+      // Check if this is an athlete with a coach code
+      const coachCode = metadata.coachCode as string | undefined;
+      if (coachCode) {
+        await processAthleteCoachCode(id as string, email, name, coachCode);
+      } else {
+        // Default: create as coach
+        await ensureCoachSync(id as string, email, name, avatar);
+      }
     }
-  }
 
-  if (evt.type === 'user.updated') {
-    const { id, email_addresses, first_name, last_name, image_url } = evt.data;
-    const email = (email_addresses as Array<{ email_address: string }>)[0]?.email_address ?? '';
-    const name = `${(first_name as string) ?? ''} ${(last_name as string) ?? ''}`.trim() || email;
-    const avatar = (image_url as string) ?? '';
+    if (evt.type === 'user.updated') {
+      const db = getDB();
 
-    await db.execute({
-      sql: `UPDATE users SET email = ?, name = ?, avatar_url = ?, updated_at = datetime('now') WHERE id = ?`,
-      args: [email, name, avatar, id as string],
-    });
+      await db.execute({
+        sql: `UPDATE users SET email = ?, name = ?, avatar_url = ?, updated_at = datetime('now') WHERE id = ?`,
+        args: [email, name, avatar, id as string],
+      });
 
-    await db.execute({
-      sql: `UPDATE coaches SET email = ?, name = ?, avatar_url = ?, updated_at = datetime('now') WHERE id = ?`,
-      args: [email, name, avatar, id as string],
-    });
-  }
+      // Check if this is an athlete with a coach code
+      const coachCode = metadata.coachCode as string | undefined;
+      if (coachCode) {
+        await processAthleteCoachCode(id as string, email, name, coachCode);
+      } else {
+        // Update coach record
+        await db.execute({
+          sql: `UPDATE coaches SET email = ?, name = ?, avatar_url = ?, updated_at = datetime('now') WHERE id = ?`,
+          args: [email, name, avatar, id as string],
+        });
+        await ensureCoachSync(id as string, email, name, avatar);
+      }
+    }
 
-  if (evt.type === 'user.deleted') {
-    const { id } = evt.data;
-    await db.execute({
-      sql: `UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?`,
-      args: [id as string],
-    });
-    await db.execute({
-      sql: `UPDATE coaches SET is_active = 0, updated_at = datetime('now') WHERE id = ?`,
-      args: [id as string],
-    });
+    if (evt.type === 'user.deleted') {
+      const db = getDB();
+      await db.execute({
+        sql: `UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?`,
+        args: [id as string],
+      });
+      await db.execute({
+        sql: `UPDATE coaches SET is_active = 0, updated_at = datetime('now') WHERE id = ?`,
+        args: [id as string],
+      });
+    }
+  } catch (err) {
+    console.error(`[Webhook] Error processing ${evt.type} for ${id}:`, err);
+    return NextResponse.json({ error: 'Processing error' }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });

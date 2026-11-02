@@ -1,0 +1,32 @@
+url: http://localhost:3000
+---
+# Public event RSVP — anonymous visitor opens the share link,
+# fills the coach's dynamic form, and confirms attendance.
+# Note: Maestro `text` is regex; required labels carry a trailing "*" (separate text node).
+# Headless viewport is ~1024x625. Scroll until elements BELOW the target are visible
+# so the targets themselves are in-viewport before tapOn.
+- openLink: http://localhost:3000/event/62d0afed-142b-493d-9a1c-556de006dc54
+- assertVisible: 'Circuito Nocturno 5K'
+- assertVisible: 'Confirmar asistencia'
+- tapOn: 'Confirmar asistencia'
+- assertVisible: 'Tu nombre'
+- assertVisible: 'tu@email.com'
+- assertVisible: 'Categoría'
+- tapOn: 'Tu nombre'
+- inputText: 'Visitante Maestro'
+- tapOn: 'tu@email.com'
+- inputText: 'visitante@correo.com'
+- tapOn: 'Competencia'
+- scrollUntilVisible:
+    element: 'Alergias o medicación'
+    direction: DOWN
+    timeout: 5000
+- tapOn: '^M$'
+- tapOn: 'Escribe tu respuesta'
+- inputText: 'Ninguna'
+- scrollUntilVisible:
+    element: '^Confirmar$'
+    direction: DOWN
+    timeout: 5000
+- tapOn: '^Confirmar$'
+- assertVisible: 'Asistencia confirmada'

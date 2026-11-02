@@ -1,27 +1,24 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import type { AthleteBrief } from '../types'
 import { coachingApi } from '@/features/shared/api/client'
 
 export function useAthletes() {
-  const [athletes, setAthletes] = useState<AthleteBrief[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: athletes = [], isLoading, error: queryError } = useQuery({
+    queryKey: ['athletes'],
+    queryFn: () => coachingApi.getAthletes<AthleteBrief>(),
+    staleTime: 5 * 60_000,
+  })
 
-  useEffect(() => {
-    coachingApi.getAthletes<AthleteBrief[]>()
-      .then(data => setAthletes(data))
-      .catch(() => setError('Failed to load athletes'))
-      .finally(() => setIsLoading(false))
-  }, [])
+  const error = queryError instanceof Error ? queryError.message : queryError ? String(queryError) : null
 
   const athletesWithFlags = athletes.filter(a => a.flag)
   const flaggedAthletes = athletesWithFlags
   const athletesNeedingAttention = athletes.filter(
-    (a) => a.readiness.score < 60 || a.flag?.severity === 'high',
+    (a) => (a.readiness?.score ?? 100) < 60 || a.flag?.severity === 'high',
   )
-  const readinessMap = Object.fromEntries(athletes.map(a => [a.id, a.readiness]))
+  const readinessMap = Object.fromEntries(athletes.map(a => [a.id, a.readiness ?? { score: 100, sleep: 0, hrv: 0, recovery: 0 }]))
   const getAthleteById = (id: string) => athletes.find((a) => a.id === id)
 
   return {

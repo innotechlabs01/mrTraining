@@ -1,0 +1,35 @@
+.editorWrapper :global(.ck-editor__editable) {
+  min-height: 300px;
+  color: white !important;
+  background-color: #141416 !important;
+}
+
+.editorWrapper :global(.ck-editor__editable_inline) {
+  min-height: 300px;
+}
+
+.editorWrapper :global(.ck-toolbar) {
+  background-color: #1a1a1c !important;
+  border-color: #2a2a2c !important;
+}
+
+.editorWrapper :global(.ck-button) {
+  color: white !important;
+}
+
+.editorWrapper :global(.ck-button:hover) {
+  background-color: #2a2a2c !important;
+}
+
+.editorWrapper :global(.ck-dropdown__panel) {
+  background-color: #1a1a1c !important;
+  border-color: #2a2a2c !important;
+}
+
+.editorWrapper :global(.ck-list__item) {
+  color: white !important;
+}
+
+.editorWrapper :global(.ck-list__item:hover) {
+  background-color: #2a2a2c !important;
+}

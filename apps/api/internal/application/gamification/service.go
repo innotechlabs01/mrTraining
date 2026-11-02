@@ -1,0 +1,527 @@
+package gamification
+
+import (
+	"context"
+	"fmt"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/innotechlabs01/mr-training-api/internal/domain/gamification"
+)
+
+// Badge definitions - matching mobile's badgeService.ts
+var badgeDefinitions = map[string]struct {
+	Title       string
+	Description string
+	Category    string
+	Icon        string
+	Threshold   int
+}{
+	"streak-3":    {"Constancia", "3 días seguidos entrenando", "streak", "FireIcon", 3},
+	"streak-7":    {"Semana Perfecta", "7 días seguidos entrenando", "streak", "FireIcon", 7},
+	"streak-14":   {"Imparable", "14 días seguidos entrenando", "streak", "FireIcon", 14},
+	"streak-30":   {"Centurión", "30 días seguidos entrenando", "streak", "FireIcon", 30},
+	"workout-10":  {"Primeros Pasos", "10 entrenamientos completados", "workout", "BarbellIcon", 10},
+	"workout-50":  {"Dedicación", "50 entrenamientos completados", "workout", "BarbellIcon", 50},
+	"workout-100": {"Centenario", "100 entrenamientos completados", "workout", "BarbellIcon", 100},
+	"pr-1":        {"Primera Marca", "Primer récord personal registrado", "pr", "TrophyIcon", 1},
+	"pr-10":       {"Récords Rotos", "10 récords personales alcanzados", "pr", "TrophyIcon", 10},
+	"social-5":    {"Compañero", "5 interacciones en el feed del coach", "social", "ChatIcon", 5},
+	// Membership milestone badges - loyalty/retention.
+	"membership-1m": {"Un Mes", "Un mes entrenando con tu coach", "membership", "AwardIcon", 1},
+	"membership-3m": {"Trimestre", "Tres meses entrenando con tu coach", "membership", "AwardIcon", 3},
+	"membership-6m": {"Semestre", "Seis meses entrenando con tu coach", "membership", "AwardIcon", 6},
+}
+
+// GetBadgeDefinition returns a badge definition by ID.
+func GetBadgeDefinition(id string) (struct {
+	Title       string
+	Description string
+	Category    string
+	Icon        string
+	Threshold   int
+}, bool) {
+	def, ok := badgeDefinitions[id]
+	return def, ok
+}
+
+// Service handles gamification business logic.
+type Service struct {
+	repo gamification.Repository
+}
+
+// NewService creates a new gamification service.
+func NewService(repo gamification.Repository) *Service {
+	return &Service{repo: repo}
+}
+
+// GetStreak returns the athlete's current streak data.
+func (s *Service) GetStreak(ctx context.Context, athleteID string) (*gamification.Streak, error) {
+	if strings.TrimSpace(athleteID) == "" {
+		return nil, fmt.Errorf("athlete ID is required")
+	}
+
+	streak, err := s.repo.GetStreak(ctx, athleteID)
+	if err != nil {
+		return nil, err
+	}
+	if streak == nil {
+		// Return fresh streak for new users
+		return &gamification.Streak{
+			ID:            uuid.New().String(),
+			AthleteID:     athleteID,
+			CurrentStreak: 0,
+			LongestStreak: 0,
+			CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+			UpdatedAt:     time.Now().UTC().Format(time.RFC3339),
+		}, nil
+	}
+	return streak, nil
+}
+
+// LogWorkoutDay records a workout day and updates streak.
+func (s *Service) LogWorkoutDay(ctx context.Context, athleteID, workoutDate string, workoutID *string) (*gamification.Streak, error) {
+	if strings.TrimSpace(athleteID) == "" {
+		return nil, fmt.Errorf("athlete ID is required")
+	}
+	if strings.TrimSpace(workoutDate) == "" {
+		return nil, fmt.Errorf("workout date is required")
+	}
+
+	// Check if already logged today
+	existing, err := s.repo.ListWorkoutDays(ctx, athleteID, workoutDate)
+	if err != nil {
+		return nil, err
+	}
+	for _, day := range existing {
+		if day.WorkoutDate == workoutDate {
+			// Already logged, return current streak
+			return s.GetStreak(ctx, athleteID)
+		}
+	}
+
+	// Log the workout day
+	day := &gamification.WorkoutDay{
+		ID:          uuid.New().String(),
+		AthleteID:   athleteID,
+		WorkoutDate: workoutDate,
+		WorkoutID:   workoutID,
+		CreatedAt:   time.Now().UTC().Format(time.RFC3339),
+	}
+	if err := s.repo.LogWorkoutDay(ctx, day); err != nil {
+		return nil, err
+	}
+
+	// Get all workout days to recalculate streak
+	allDays, err := s.repo.ListWorkoutDays(ctx, athleteID, "")
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate streak
+	dates := make([]string, len(allDays))
+	for i, d := range allDays {
+		dates[i] = d.WorkoutDate
+	}
+	current, longest := calculateStreak(dates)
+
+	// Update streak record
+	streak, err := s.repo.GetStreak(ctx, athleteID)
+	if err != nil {
+		return nil, err
+	}
+	if streak == nil {
+		streak = &gamification.Streak{
+			ID:        uuid.New().String(),
+			AthleteID: athleteID,
+		}
+	}
+	streak.CurrentStreak = current
+	if longest > streak.LongestStreak {
+		streak.LongestStreak = longest
+	}
+	streak.LastWorkoutDate = &workoutDate
+	streak.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+
+	if err := s.repo.UpsertStreak(ctx, streak); err != nil {
+		return nil, err
+	}
+
+	return streak, nil
+}
+
+// ListBadges returns all badges for an athlete.
+func (s *Service) ListBadges(ctx context.Context, athleteID string) ([]*gamification.Badge, error) {
+	if strings.TrimSpace(athleteID) == "" {
+		return nil, fmt.Errorf("athlete ID is required")
+	}
+	return s.repo.ListBadges(ctx, athleteID)
+}
+
+// CheckBadges evaluates badge unlocks and returns newly unlocked badges.
+func (s *Service) CheckBadges(ctx context.Context, athleteID string, totalWorkouts int, totalPRs int, feedInteractions int) ([]*gamification.Badge, error) {
+	if strings.TrimSpace(athleteID) == "" {
+		return nil, fmt.Errorf("athlete ID is required")
+	}
+
+	// Get current streak
+	streak, err := s.GetStreak(ctx, athleteID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get existing badges
+	existing, err := s.repo.ListBadges(ctx, athleteID)
+	if err != nil {
+		return nil, err
+	}
+	existingMap := make(map[string]bool)
+	for _, b := range existing {
+		existingMap[b.BadgeID] = true
+	}
+
+	// Evaluate all badges
+	var newBadges []*gamification.Badge
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	for badgeID, def := range badgeDefinitions {
+		if existingMap[badgeID] {
+			continue // Already unlocked
+		}
+
+		earned := false
+		switch def.Category {
+		case "streak":
+			earned = streak.LongestStreak >= def.Threshold
+		case "workout":
+			earned = totalWorkouts >= def.Threshold
+		case "pr":
+			earned = totalPRs >= def.Threshold
+		case "social":
+			earned = feedInteractions >= def.Threshold
+		}
+
+		if earned {
+			badge := &gamification.Badge{
+				ID:         uuid.New().String(),
+				AthleteID:  athleteID,
+				BadgeID:    badgeID,
+				UnlockedAt: now,
+			}
+			if err := s.repo.UpsertBadge(ctx, badge); err != nil {
+				return nil, err
+			}
+			newBadges = append(newBadges, badge)
+		}
+	}
+
+	return newBadges, nil
+}
+
+// CheckMembershipMilestones evaluates membership milestone badges based on how
+// many months the athlete has been an active member (computed from startedAt).
+func (s *Service) CheckMembershipMilestones(ctx context.Context, athleteID, startedAt string) ([]*gamification.Badge, error) {
+	if strings.TrimSpace(athleteID) == "" {
+		return nil, fmt.Errorf("athlete ID is required")
+	}
+
+	startTime, err := time.Parse("2006-01-02", startedAt)
+	if err != nil {
+		return nil, fmt.Errorf("invalid started_at date: %w", err)
+	}
+
+	now := time.Now().UTC()
+	monthsActive := int(now.Sub(startTime).Hours() / (24 * 30))
+	if monthsActive < 0 {
+		monthsActive = 0
+	}
+
+	existing, err := s.repo.ListBadges(ctx, athleteID)
+	if err != nil {
+		return nil, err
+	}
+	existingMap := make(map[string]bool)
+	for _, b := range existing {
+		existingMap[b.BadgeID] = true
+	}
+
+	var newBadges []*gamification.Badge
+	unlockedAt := time.Now().UTC().Format(time.RFC3339)
+
+	for badgeID, def := range badgeDefinitions {
+		if existingMap[badgeID] {
+			continue
+		}
+		if def.Category != "membership" {
+			continue
+		}
+		if monthsActive >= def.Threshold {
+			badge := &gamification.Badge{
+				ID:         uuid.New().String(),
+				AthleteID:  athleteID,
+				BadgeID:    badgeID,
+				UnlockedAt: unlockedAt,
+			}
+			if err := s.repo.UpsertBadge(ctx, badge); err != nil {
+				return nil, err
+			}
+			newBadges = append(newBadges, badge)
+		}
+	}
+
+	return newBadges, nil
+}
+
+// TypicalWorkoutTime returns the athlete's most common workout hour of the
+// day (in "HH:MM" 24h format) computed from logged workout days. Used by the
+// mobile app to schedule a "time to train" local reminder. Returns "09:00"
+// when there is no history yet.
+func (s *Service) TypicalWorkoutTime(ctx context.Context, athleteID string) (string, error) {
+	if strings.TrimSpace(athleteID) == "" {
+		return "", fmt.Errorf("athlete ID is required")
+	}
+
+	days, err := s.repo.ListWorkoutDays(ctx, athleteID, "")
+	if err != nil {
+		return "", err
+	}
+
+	hourCounts := make(map[int]int)
+	for _, d := range days {
+		t, err := time.Parse(time.RFC3339, d.CreatedAt)
+		if err != nil {
+			// Fallback: try date-only parse.
+			t, err = time.Parse("2006-01-02", d.CreatedAt)
+			if err != nil {
+				continue
+			}
+		}
+		hourCounts[t.Hour()]++
+	}
+
+	if len(hourCounts) == 0 {
+		return "09:00", nil
+	}
+
+	bestHour := 0
+	bestCount := 0
+	for h, c := range hourCounts {
+		if c > bestCount || (c == bestCount && h < bestHour) {
+			bestHour = h
+			bestCount = c
+		}
+	}
+
+	return fmt.Sprintf("%02d:00", bestHour), nil
+}
+
+// ListPRs returns all personal records for an athlete.
+func (s *Service) ListPRs(ctx context.Context, athleteID string) ([]*gamification.PersonalRecord, error) {
+	if strings.TrimSpace(athleteID) == "" {
+		return nil, fmt.Errorf("athlete ID is required")
+	}
+	return s.repo.ListPRs(ctx, athleteID)
+}
+
+// RecordPR records a new personal record attempt.
+func (s *Service) RecordPR(ctx context.Context, athleteID, exerciseID, exerciseName string, value float64, unit string) (*gamification.PersonalRecord, bool, error) {
+	if strings.TrimSpace(athleteID) == "" {
+		return nil, false, fmt.Errorf("athlete ID is required")
+	}
+	if strings.TrimSpace(exerciseID) == "" {
+		return nil, false, fmt.Errorf("exercise ID is required")
+	}
+
+	// Get existing PR
+	existing, err := s.repo.GetPR(ctx, athleteID, exerciseID)
+	if err != nil {
+		return nil, false, err
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	isNewPR := false
+
+	if existing == nil {
+		// First PR for this exercise
+		isNewPR = true
+		pr := &gamification.PersonalRecord{
+			ID:         uuid.New().String(),
+			AthleteID:  athleteID,
+			ExerciseID: exerciseID,
+			BestValue:  value,
+			Unit:       unit,
+			AchievedAt: now,
+		}
+		if err := s.repo.UpsertPR(ctx, pr); err != nil {
+			return nil, false, err
+		}
+		return pr, isNewPR, nil
+	}
+
+	// Check if new value is better
+	if value > existing.BestValue {
+		isNewPR = true
+		prevBest := existing.BestValue
+		existing.PreviousBest = &prevBest
+		existing.BestValue = value
+		existing.AchievedAt = now
+		if err := s.repo.UpsertPR(ctx, existing); err != nil {
+			return nil, false, err
+		}
+		return existing, isNewPR, nil
+	}
+
+	return existing, false, nil
+}
+
+// ListAllStreaks returns all streak records (used by the inactivity retention job).
+func (s *Service) ListAllStreaks(ctx context.Context) ([]*gamification.Streak, error) {
+	return s.repo.ListAllStreaks(ctx)
+}
+
+// InactivityStatus reports how long an athlete has been inactive and whether
+// a retention nudge should be sent.
+type InactivityStatus struct {
+	AthleteID    string `json:"athlete_id"`
+	DaysInactive int    `json:"days_inactive"`
+	// StreakAtRisk is true when the athlete has an active streak that is in
+	// danger of breaking (1-2 days since last workout).
+	StreakAtRisk bool `json:"streak_at_risk"`
+	// ShouldNotify is true when a retention push should be sent
+	// (3 days: streak at risk, 7 days: re-engage).
+	ShouldNotify bool   `json:"should_notify"`
+	Message      string `json:"message"`
+}
+
+// GetInactivityStatus returns the athlete's inactivity status. Days inactive
+// is computed from the last logged workout date; a nil last workout date
+// means the athlete has never trained (treated as very inactive).
+func (s *Service) GetInactivityStatus(ctx context.Context, athleteID string) (*InactivityStatus, error) {
+	if strings.TrimSpace(athleteID) == "" {
+		return nil, fmt.Errorf("athlete ID is required")
+	}
+
+	streak, err := s.GetStreak(ctx, athleteID)
+	if err != nil {
+		return nil, err
+	}
+
+	status := &InactivityStatus{
+		AthleteID:    athleteID,
+		DaysInactive: 0,
+	}
+
+	today := time.Now().UTC().Format("2006-01-02")
+	todayTime, err := time.Parse("2006-01-02", today)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse today: %w", err)
+	}
+
+	if streak.LastWorkoutDate == nil {
+		// Never trained: very inactive, re-engage nudge.
+		status.DaysInactive = 999
+		status.StreakAtRisk = false
+		status.ShouldNotify = true
+		status.Message = "Aún no has completado tu primer entrenamiento. ¡Tu coach te está esperando!"
+		return status, nil
+	}
+
+	lastWorkoutTime, err := time.Parse("2006-01-02", *streak.LastWorkoutDate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse last workout date: %w", err)
+	}
+
+	status.DaysInactive = int(todayTime.Sub(lastWorkoutTime).Hours() / 24)
+
+	// Streak at risk: 1-2 days without training and has an active streak.
+	status.StreakAtRisk = status.DaysInactive >= 1 && status.DaysInactive <= 2 && streak.CurrentStreak > 0
+
+	// Retention nudges: 3 days (streak at risk) or 7 days (re-engage).
+	switch {
+	case status.DaysInactive >= 7:
+		status.ShouldNotify = true
+		status.Message = "Hace una semana que no entrenas. Tu racha está en pausa — volvé y retomala."
+	case status.DaysInactive >= 3:
+		status.ShouldNotify = true
+		status.Message = "Llevás " + itoa(status.DaysInactive) + " días sin entrenar. Tu racha está en peligro, no la pierdas."
+	default:
+		status.ShouldNotify = false
+		status.Message = ""
+	}
+
+	return status, nil
+}
+
+// itoa formats an integer as a string (small helper to avoid strconv import
+// in this file for a single conversion).
+func itoa(i int) string {
+	if i == 0 {
+		return "0"
+	}
+	neg := i < 0
+	if neg {
+		i = -i
+	}
+	buf := make([]byte, 0, 10)
+	for i > 0 {
+		buf = append([]byte{byte('0') + byte(i%10)}, buf...)
+		i /= 10
+	}
+	if neg {
+		buf = append([]byte{'-'}, buf...)
+	}
+	return string(buf)
+}
+
+// calculateStreak computes current and longest streak from sorted date strings.
+func calculateStreak(sortedDates []string) (current, longest int) {
+	if len(sortedDates) == 0 {
+		return 0, 0
+	}
+
+	// Deduplicate and sort
+	seen := make(map[string]bool)
+	unique := make([]string, 0)
+	for _, d := range sortedDates {
+		if !seen[d] {
+			seen[d] = true
+			unique = append(unique, d)
+		}
+	}
+
+	sort.Strings(unique)
+
+	// Calculate longest streak
+	run := 1
+	longest = 1
+	for i := 1; i < len(unique); i++ {
+		prev, _ := time.Parse("2006-01-02", unique[i-1])
+		curr, _ := time.Parse("2006-01-02", unique[i])
+		if curr.Sub(prev) == 24*time.Hour {
+			run++
+		} else {
+			if run > longest {
+				longest = run
+			}
+			run = 1
+		}
+	}
+	if run > longest {
+		longest = run
+	}
+
+	// Calculate current streak (backwards from today)
+	current = 0
+	for i := len(unique) - 1; i >= 0; i-- {
+		expected := time.Now().UTC().Add(-time.Duration(current) * 24 * time.Hour).Format("2006-01-02")
+		if unique[i] == expected {
+			current++
+		} else {
+			break
+		}
+	}
+
+	return current, longest
+}

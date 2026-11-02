@@ -13,32 +13,40 @@ export function formatDuration(minutes: number): string {
 
 export function formatDate(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00')
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return d.toLocaleDateString('es-ES', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 export function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr + 'T12:00:00').getTime()
   const days = Math.floor(diff / 86400000)
-  if (days === 0) return 'today'
-  if (days === 1) return 'yesterday'
-  if (days < 7) return `${days} days ago`
-  return `${Math.floor(days / 7)}w ago`
+  if (days === 0) return 'hoy'
+  if (days === 1) return 'ayer'
+  if (days < 7) return `hace ${days} días`
+  return `hace ${Math.floor(days / 7)} sem`
 }
 
 export const MUSCLE_GROUP_LABELS: Record<string, string> = {
-  chest: 'Chest', back: 'Back', shoulders: 'Shoulders', biceps: 'Biceps',
-  triceps: 'Triceps', legs: 'Legs', glutes: 'Glutes', hamstrings: 'Hamstrings',
-  quads: 'Quads', calves: 'Calves', core: 'Core', forearms: 'Forearms', full_body: 'Full Body',
+  chest: 'Pecho', back: 'Espalda', shoulders: 'Hombros', biceps: 'Bíceps',
+  triceps: 'Tríceps', legs: 'Piernas', glutes: 'Glúteos', hamstrings: 'Isquios',
+  quads: 'Cuádriceps', calves: 'Gemelos', core: 'Core', forearms: 'Antebrazos', full_body: 'Cuerpo completo',
 }
 
 export const EQUIPMENT_LABELS: Record<string, string> = {
-  barbell: 'Barbell', dumbbell: 'Dumbbell', kettlebell: 'Kettlebell',
-  machine: 'Machine', cable: 'Cable', bodyweight: 'Bodyweight',
-  bands: 'Bands', medicine_ball: 'Medicine Ball', ez_bar: 'EZ Bar',
-  smith_machine: 'Smith Machine',
+  barbell: 'Barra', dumbbell: 'Mancuernas', kettlebell: 'Kettlebell',
+  machine: 'Máquina', cable: 'Polea', bodyweight: 'Peso corporal',
+  bands: 'Bandas', medicine_ball: 'Balón medicinal', ez_bar: 'Barra Z',
+  smith_machine: 'Smith',
+}
+
+export const FREQUENCY_LABELS: Record<string, string> = {
+  once: 'Una vez', daily: 'Diaria', weekly: 'Semanal', custom: 'Personalizada',
+}
+
+export const DIFFICULTY_LABELS: Record<string, string> = {
+  beginner: 'Principiante', intermediate: 'Intermedio', advanced: 'Avanzado',
 }
 
 export const GOAL_LABELS: Record<string, string> = {
-  strength: 'Strength', hypertrophy: 'Hypertrophy', endurance: 'Endurance',
-  speed: 'Speed', power: 'Power', mobility: 'Mobility', conditioning: 'Conditioning',
+  strength: 'Fuerza', hypertrophy: 'Hipertrofia', endurance: 'Resistencia',
+  speed: 'Velocidad', power: 'Potencia', mobility: 'Movilidad', conditioning: 'Acondicionamiento',
 }

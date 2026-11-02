@@ -5,7 +5,14 @@ import { ListChecks, FileText, Footprints, CheckCircle2, Check } from 'lucide-re
 import { cn } from '@/lib/utils';
 import type { CoachEvent, EventFormField } from '@/features/coach/types';
 
-export function EventFormatBody({ event }: { event: CoachEvent }) {
+export function EventFormatBody({
+  event,
+  hideRegistrationForm = false,
+}: {
+  event: CoachEvent;
+  /** Skip the registration-form preview (the public page owns the real form via EventRsvp). */
+  hideRegistrationForm?: boolean;
+}) {
   const [checked, setChecked] = useState<Record<number, boolean>>({});
   const [formValues, setFormValues] = useState<Record<string, string | string[]>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -33,7 +40,7 @@ export function EventFormatBody({ event }: { event: CoachEvent }) {
         </Section>
       )}
 
-      {event.format === 'formulario' && (
+      {event.format === 'formulario' && !hideRegistrationForm && (
         <Section icon={<FileText className="w-4 h-4" />} title="Formulario de registro">
           {submitted ? (
             <div className="flex items-center gap-2 text-sm text-green-400 p-3 rounded-lg bg-green-500/10">

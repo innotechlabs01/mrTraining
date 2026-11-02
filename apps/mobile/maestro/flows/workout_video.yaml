@@ -1,0 +1,7 @@
+appId: com.innotechlabssas.mrtraining
+---
+- launchApp
+- waitForAnimationToEnd
+- tapOn:
+    id: "Continuar Test 1"
+- waitForAnimationToEnd

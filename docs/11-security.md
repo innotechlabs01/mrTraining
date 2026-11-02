@@ -50,7 +50,7 @@ MR Training's primary threat actors:
 
 Primary assets requiring protection:
 1. Athlete PII (names, emails, health data, body metrics, performance data)
-2. Payment information (processed by Paddle — card data never touches MR Training servers)
+2. Payment information (processed by Polar — card data never touches MR Training servers)
 3. Authentication credentials (managed by Clerk)
 4. Coach intellectual property (program designs, training methodologies)
 5. Business data (revenue, pricing, customer lists)
@@ -62,7 +62,7 @@ MR Training targets compliance with:
 - **GDPR** — European data protection (athlete data portability, right to deletion, data processing records)
 - **HIPAA** (where applicable for physical therapist integrations) — Protected health information safeguards
 - **OWASP Top 10** — Web application security baseline
-- **PCI DSS** — Indirect compliance (card data handled exclusively by Paddle/Stripe, reducing PCI scope to SAQ-A)
+- **PCI DSS** — Indirect compliance (card data handled exclusively by Polar/Stripe, reducing PCI scope to SAQ-A)
 
 ---
 
@@ -326,12 +326,12 @@ Validation rules:
 ```
 Content-Security-Policy:
   default-src 'self';
-  script-src 'self' 'unsafe-inline' https://js.paddle.com https://clerk.mrtraining.com;
+  script-src 'self' 'unsafe-inline' https://clerk.mrtraining.com;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   img-src 'self' data: https: blob:;
   font-src 'self' https://fonts.gstatic.com;
-  connect-src 'self' https://api.mrtraining.com https://*.clerk.accounts.dev https://api.paddle.com wss://*.mrtraining.com;
-  frame-src 'self' https://paddle.com https://*.clerk.accounts.dev;
+  connect-src 'self' https://api.mrtraining.com https://*.clerk.accounts.dev https://api.polar.sh wss://*.mrtraining.com;
+  frame-src 'self' https://polar.sh https://*.clerk.accounts.dev;
   media-src 'self' blob: https://cdn.mrtraining.com;
   object-src 'none';
   base-uri 'self';
@@ -339,7 +339,7 @@ Content-Security-Policy:
   frame-ancestors 'none';
 ```
 
-CSP is served as a response header and enforced by the browser. `'unsafe-inline'` for scripts is required by Paddle's checkout integration; this is a known, documented exception monitored for removal when Paddle updates their integration.
+CSP is served as a response header and enforced by the browser. Polar's hosted checkout is opened in a separate top-level navigation (system/browser), so it does not require an inline-script exception on our pages. `connect-src` allows `https://api.polar.sh` for the Polar API, and `frame-src` allows `https://polar.sh` for any embedded Polar content.
 
 ### 6.4 Secure Headers
 
@@ -432,7 +432,7 @@ MR Training serves European athletes and coaches; GDPR compliance is mandatory.
 **Data Processing Records:**
 - Data controller: The organization (coach/academy) that collects athlete data
 - Data processor: MR Training Inc. (provides the platform)
-- Sub-processors: Clerk (auth), Paddle (payments), Hetzner (hosting), Cloudflare (CDN), Sentry (error tracking), PostHog (analytics)
+- Sub-processors: Clerk (auth), Polar (payments), Hetzner (hosting), Cloudflare (CDN), Sentry (error tracking), PostHog (analytics)
 - Data Processing Agreement (DPA) available and signed with all sub-processors
 
 **Data Subject Rights:**

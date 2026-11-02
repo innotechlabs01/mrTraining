@@ -1,0 +1,154 @@
+/**
+ * MR Training Design System — mobile tokens.
+ * Unified AthletePro-style single-accent system.
+ * Dark-first. Accent: MR Blue (#15AAF2) — unified with web (rules/01, update 2026).
+ * Canonical source: apps/mobile/src/shared/theme/tokens.ts — dark-first.
+ * Style reference: uxpilot-export AthletePro (UX Pilot) — 13 screens.
+ */
+
+import type { FontVariant } from 'react-native';
+
+export const colors = {
+  base: '#0B0F0E', // App background, deepest layer
+  surface: '#151B19', // Cards, lists, main content surfaces
+  surfaceRaised: '#1C2320', // Elevated rows, inputs, chips, surface2
+  border: '#242B28', // Hairlines, separators (white/5 over base)
+  primary: '#15AAF2', // MR Blue — the single accent (same as web brand-primary)
+  primaryPressed: '#0E93D4', // Pressed state of MR Blue (web primary-hover)
+  primarySoft: '#15AAF21A', // MR Blue @0.10 — selected tints, chips (hex8)
+  primaryFaint: '#15AAF20F', // MR Blue @0.06 — subtle pressed/active feedback (hex8)
+  overlay: '#00000099', // Black @0.6 — scrims over media and modals (hex8)
+  secondary: '#3B9EFF', // Data-viz / macro secondary (carbs), sparingly
+  text: '#FFFFFF', // Primary text (WCAG AA on all surfaces)
+  textSecondary: '#9CA3AF', // Secondary text, captions, placeholders (gray-400)
+  success: '#34D399', // emerald-500
+  warning: '#FBBF24',
+  error: '#FF6B6B', // destructive / errors / logout
+  errorContainer: '#3A1010',
+  info: '#3B9EFF', // alias of secondary — info toasts/banners, sparingly
+  skeletonBase: '#1C2320', // resting skeleton block fill (= surfaceRaised)
+  skeletonHighlight: '#2A3330', // shimmer sweep (≈8% lighter than base)
+  // Light-on-dark semantics (dark-first system)
+  background: '#0B0F0E', // alias for base — root canvas
+  onPrimary: '#0B0F0E', // text/icon on primary accent (dark text — AA on blue)
+  onPrimaryVariant: '#FFFFFF33', // soft container/dim content on an accent surface
+  onSurface: '#FFFFFF', // text on cards/surfaces
+  onSurfaceVariant: '#9CA3AF', // secondary text on surfaces
+  outline: '#242B28', // borders/separators
+  onError: '#FFFFFF', // text on error states
+} as const;
+
+/**
+ * Returns `color` (#RRGGBB) with `opacity` (0-1) as an #RRGGBBAA string.
+ * Use instead of hand-written hex8 literals or `${color}1A` concatenation.
+ */
+export function withAlpha(color: string, opacity: number): string {
+  const clamped = Math.min(1, Math.max(0, opacity));
+  const alpha = Math.round(clamped * 255).toString(16).padStart(2, '0').toUpperCase();
+  return `${color}${alpha}`;
+}
+
+export const fontFamilies = {
+  displayBlack: 'Inter_800ExtraBold',
+  display: 'Inter_800ExtraBold',
+  displayBold: 'Inter_800ExtraBold',
+  heading: 'Inter_700Bold',
+  body: 'Inter_400Regular',
+  bodyMedium: 'Inter_500Medium',
+  bodySemiBold: 'Inter_600SemiBold',
+  bodyBold: 'Inter_700Bold',
+  bodyExtraBold: 'Inter_800ExtraBold',
+} as const;
+
+export const typography = {
+  // Unified type scale (Inter, tracking-tight for display)
+  display: { fontFamily: fontFamilies.display, fontSize: 34, lineHeight: 40, letterSpacing: -0.02, textTransform: 'uppercase' as const },
+  h1: { fontFamily: fontFamilies.displayBold, fontSize: 30, lineHeight: 36, letterSpacing: -0.01, textTransform: 'uppercase' as const },
+  h2: { fontFamily: fontFamilies.displayBold, fontSize: 24, lineHeight: 30, letterSpacing: -0.01, textTransform: 'uppercase' as const },
+  h3: { fontFamily: fontFamilies.heading, fontSize: 20, lineHeight: 26, letterSpacing: 0 },
+  h4: { fontFamily: fontFamilies.heading, fontSize: 17, lineHeight: 22, letterSpacing: 0 },
+  bodyLG: { fontFamily: fontFamilies.body, fontSize: 16, lineHeight: 26, letterSpacing: 0 },
+  body: { fontFamily: fontFamilies.body, fontSize: 16, lineHeight: 22, letterSpacing: 0 },
+  bodySmall: { fontFamily: fontFamilies.body, fontSize: 13, lineHeight: 18, letterSpacing: 0.01 },
+  caption: { fontFamily: fontFamilies.bodyMedium, fontSize: 11, lineHeight: 15, letterSpacing: 0.02 },
+  overline: { fontFamily: fontFamilies.heading, fontSize: 10, lineHeight: 14, letterSpacing: 0.1, textTransform: 'uppercase' as const },
+  // Component-specific aliases
+  title: { fontFamily: fontFamilies.heading, fontSize: 20, lineHeight: 26, letterSpacing: 0 },
+  bodyStrong: { fontFamily: fontFamilies.bodySemiBold, fontSize: 14, lineHeight: 22, letterSpacing: 0 },
+  bodyBold: { fontFamily: fontFamilies.bodyBold, fontSize: 14, lineHeight: 22, letterSpacing: 0 },
+  label: {
+    fontFamily: fontFamilies.heading,
+    fontSize: 13,
+    lineHeight: 16,
+    letterSpacing: 0.08,
+    textTransform: 'uppercase' as const,
+  },
+  statsNumber: { fontFamily: fontFamilies.displayBlack, fontSize: 36, lineHeight: 36, letterSpacing: -0.02 },
+  // v2 metric display scale (big scoreboard numerals, tabular-nums)
+  metricXL: { fontFamily: fontFamilies.displayBlack, fontSize: 56, lineHeight: 56, letterSpacing: -0.03, fontVariant: ['tabular-nums'] as FontVariant[] },
+  metricLG: { fontFamily: fontFamilies.displayBlack, fontSize: 44, lineHeight: 44, letterSpacing: -0.025, fontVariant: ['tabular-nums'] as FontVariant[] },
+  metricMD: { fontFamily: fontFamilies.displayBlack, fontSize: 32, lineHeight: 32, letterSpacing: -0.02, fontVariant: ['tabular-nums'] as FontVariant[] },
+  metricSM: { fontFamily: fontFamilies.displayBlack, fontSize: 24, lineHeight: 28, letterSpacing: -0.015, fontVariant: ['tabular-nums'] as FontVariant[] },
+  // Premium hero variants
+  heroMetric: { fontFamily: fontFamilies.displayBlack, fontSize: 72, lineHeight: 72, letterSpacing: -0.04, fontVariant: ['tabular-nums'] as FontVariant[] },
+  heroMetricSub: { fontFamily: fontFamilies.bodyMedium, fontSize: 14, lineHeight: 20, letterSpacing: 0.02, textTransform: 'uppercase' as const },
+} as const;
+
+export const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
+  xxxl: 64,
+} as const;
+
+export const radius = {
+  sm: 8, // rounded-lg — chips, small containers
+  md: 12, // rounded-xl — buttons, inputs
+  lg: 16, // rounded-2xl — default cards, lists
+  xl: 24, // rounded-3xl — large media cards, premium cards
+  xxl: 32, // rounded-4xl — hero cards, dashboard cards
+  full: 9999,
+} as const;
+
+export const shadows = {
+  sm: { shadowColor: '#000000', shadowOpacity: 0.15, shadowRadius: 8, elevation: 2 },
+  md: { shadowColor: '#000000', shadowOpacity: 0.25, shadowRadius: 16, elevation: 6 },
+  lg: { shadowColor: '#000000', shadowOpacity: 0.35, shadowRadius: 24, elevation: 10 },
+  xl: { shadowColor: '#000000', shadowOpacity: 0.4, shadowRadius: 32, elevation: 14 },
+  glow: { shadowColor: '#15AAF2', shadowOpacity: 0.3, shadowRadius: 20, elevation: 8 },
+  glowStrong: { shadowColor: '#15AAF2', shadowOpacity: 0.5, shadowRadius: 32, elevation: 16 },
+} as const;
+
+/** Layout tokens — local definition for Hermes module shape stability.
+ * Values inlined to match layout.ts source of truth. */
+export const layout = {
+  pagePadding: 24, // spacing.lg
+  cardPadding: 16, // spacing.md
+  heroPadding: 32, // spacing.xl
+  touchTarget: 48,
+  headerHeight: 56,
+  navDockRaise: 20, // FAB center raise (-mt)
+} as const;
+
+/** Skeleton shimmer system — millisecond cycle + default block corner. */
+export const skeleton = {
+  duration: 1400, // ms per shimmer cycle
+  radius: radius.sm,
+} as const;
+
+/** Aggregate export for backward compatibility with existing imports. */
+export const tokens = {
+  colors,
+  typography,
+  spacing,
+  radius,
+  shadows,
+  layout,
+  fontFamilies,
+  skeleton,
+} as const;
+
+export default tokens;

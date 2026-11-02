@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dumbbell, Menu, X } from 'lucide-react';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 const mainLinks = [
   { label: 'Home', href: '#home' },
@@ -89,7 +90,7 @@ export function IronGymNavbar() {
           </a>
         </div>
 
-        {/* Desktop CTAs */}
+{/* Desktop CTAs */}
         <div className="hidden md:flex items-center gap-3">
             <button
              onClick={() => router.push('/sign-in')}
@@ -97,16 +98,17 @@ export function IronGymNavbar() {
            >
              Iniciar sesión
            </button>
-          <a
-            href="#contact-us"
-            onClick={(e) => {
-              e.preventDefault();
-              handleAnchorClick('#contact-us');
-            }}
-            className="px-6 py-3 rounded-md bg-white text-[#212121] text-sm font-semibold hover:bg-gray-100 transition-colors"
-          >
-            Get Started
-          </a>
+           <a
+             href="#contact-us"
+             onClick={(e) => {
+               e.preventDefault();
+               handleAnchorClick('#contact-us');
+             }}
+             className="px-6 py-3 rounded-md bg-white text-[#212121] text-sm font-semibold hover:bg-gray-100 transition-colors"
+           >
+             Get Started
+           </a>
+           <LanguageSwitcher />
         </div>
 
         {/* Mobile hamburger */}
@@ -142,12 +144,12 @@ export function IronGymNavbar() {
               Contact
             </a>
 
-            <div className="flex flex-col gap-3 mt-6">
+<div className="flex flex-col gap-3 mt-6">
               <button
                 onClick={() => { router.push('/sign-in'); setMobileOpen(false); }}
                 className="w-full px-5 py-3 rounded-md border border-white/30 text-white text-sm font-semibold hover:bg-white/10 transition-colors"
               >
-               Iniciar sesión
+                Iniciar sesión
               </button>
               <a
                 href="#contact-us"
@@ -156,6 +158,7 @@ export function IronGymNavbar() {
               >
                 Get Started
               </a>
+              <LanguageSwitcher />
             </div>
           </div>
         </div>

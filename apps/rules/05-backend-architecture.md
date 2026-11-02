@@ -6,6 +6,7 @@
 
 ## Table of Contents
 
+0. [Authoritative Backend — READ FIRST](#0-authoritative-backend--read-first)
 1. [Architecture Overview](#1-architecture-overview)
 2. [Technology Stack](#2-technology-stack)
 3. [Project Structure](#3-project-structure)
@@ -20,6 +21,28 @@
 12. [Background Jobs](#12-background-jobs)
 13. [Rate Limiting](#13-rate-limiting)
 14. [File Upload](#14-file-upload)
+15. [Endpoint Pattern — Next.js Route Handlers](#15-endpoint-pattern--nextjs-route-handlers-mandatory)
+
+---
+
+## 0. Authoritative Backend — READ FIRST
+
+**MR Training uses a dual-backend strategy during migration:**
+
+| Layer | Technology | Status |
+|---|-----------|--------|
+| Primary backend (NEW) | Go 1.25 + Fiber (`apps/api/`) — Clean Architecture + DDD | **Active — all new endpoints go here** |
+| Legacy backend | Next.js 14 API Routes (`apps/web/src/app/api/**/route.ts`) | **Migration source — endpoints being ported to Go** |
+| Database | Turso / libSQL (SQLite-compatible) | Shared between both backends |
+| Go data access | `apps/api/internal/infrastructure/*` (typed repositories) | New |
+| Legacy data access | `apps/web/src/lib/db/` (domain modules) | Legacy, being replaced |
+| Migrations | Versioned SQL in `apps/web/migrations/NNN_name.sql` → moving to `apps/api/migrations/` | Shared |
+| Auth | Clerk — JWT via `Authorization: Bearer` header | Both backends |
+| Payments | Polar.sh | Being ported |
+
+**Rule:** All NEW endpoints MUST be implemented in `apps/api/` (Go + Fiber) following Clean Architecture and DDD. Legacy Next.js routes remain functional during migration — do NOT delete a legacy route until its Go equivalent is tested and the frontend is switched. This document governs BOTH runtimes: Fiber specifics apply to Go, and the *pattern* applies to legacy Route Handlers if a fix is needed there.
+
+**Migration progress:** See `apps/api/` for implemented domains. Check `apps/api/internal/interfaces/http/routes/routes.go` for the current Go route registry.
 
 ---
 
@@ -95,23 +118,23 @@ This structure means a developer working on the training feature opens one direc
 
 | Component | Technology | Version | Purpose |
 |---|---|---|---|
-| Language | Go | 1.22+ | Primary backend language — performance, type safety, excellent concurrency model |
-| HTTP Framework | Fiber | 2.x | High-performance HTTP framework built on fasthttp. Chosen for throughput, middleware ecosystem, and zero-allocation request handling |
-| Database | PostgreSQL | 16+ | Primary relational database (see §04 Database Design) |
-| Database Driver | pgx | 5.x | Low-level PostgreSQL driver with connection pooling, COPY protocol support, and native UUID handling |
-| Migrations | golang-migrate | 4.x | Database schema migrations with embedded SQL files |
-| Cache/Sessions | Redis | 7.x | Distributed cache for session state, rate limit counters, leaderboards, and read-model caching |
-| Message Broker | NATS | 2.10+ | Event bus for inter-service communication, domain event publishing, and integration events. JetStream for persistent, at-least-once delivery |
-| Inter-Service RPC | gRPC | 1.64+ | Internal service-to-service communication (AI engine, notification service, analytics worker) with protobuf contracts |
-| Object Storage | S3-compatible | — | Media uploads, workout videos, progress photos, document attachments. Any S3-compatible provider (AWS S3, Cloudflare R2, MinIO) |
-| Job Queue | asynq | 0.24+ | Background job processing backed by Redis. Supports retry policies, dead letter queues, scheduled/cron jobs, and task deduplication |
-| Structured Logging | zerolog | 1.x | Zero-allocation structured JSON logging with context propagation |
-| Tracing | OpenTelemetry | 1.x | Distributed tracing across HTTP, gRPC, database queries, and message broker operations |
-| Metrics | Prometheus | — | Application metrics (request rates, latencies, error rates, queue depths) exposed via `/metrics` endpoint |
-| API Documentation | OpenAPI 3.1 | — | API spec generated from code annotations and served via Swagger UI at `/docs` |
-| Dependency Injection | wire (Google) | 0.x | Compile-time dependency injection — no runtime reflection, no service locator |
-| Configuration | viper | 1.x | Environment variables, config files, and remote config (Consul/Vault) with hot reloading |
-| Validation | go-playground/validator | 10.x | Struct tag-based request validation integrated with Fiber's body parser |
+| Backend runtime | Go 1.25 + Fiber (`apps/api/`) | — | Primary backend — every new endpoint lives in `apps/api/internal/` |
+| Legacy backend | Next.js API Routes (App Router) | 14.2 | Legacy — endpoints being ported to Go; keep functional during migration |
+| Language (backend) | Go | 1.25+ | Typed, explicit error handling, context.Context |
+| Language (legacy) | TypeScript strict | 5.6+ | Explicit types on remaining legacy handlers |
+| Database | Turso / libSQL | — | SQLite-compatible relational DB (shared between Go and Next.js) |
+| Database Client (Go) | `tursodatabase/libsql-client-go` | 0.0+ | `database/sql` + libsql driver |
+| Database Client (legacy) | `@libsql/client` | 0.17+ | Parameterized SQL via `db.execute(sql, params)`; no ORM |
+| Migrations | Versioned SQL files | NNN_*.sql | `apps/api/migrations/` (new) + `apps/web/migrations/` (legacy) → unified on Turso |
+| Auth | Clerk (`clerk-sdk-go/v2`) | v2 | JWT via `Authorization: Bearer` header in Go |
+| Auth (legacy) | Clerk (`@clerk/nextjs`) | v6 | `auth()` per request in Next.js handlers |
+| Payments | Polar.sh | 0.49+ | Being ported to Go |
+| WebSockets | Fiber + `gofiber/websocket/v2` | — | Realtime in Go (`/ws` endpoint) |
+| Push | Firebase FCM (`firebase.google.com/go/v4`) | — | Push notifications via Go |
+| Validation | `internal/pkg/validator` | — | Validate input before touching data layer; 400 with field details |
+| Testing | Go `testing` + Fiber Test | — | Domain + handler tests in Go |
+
+**Rule of thumb: every new endpoint goes to `apps/api/` (Go).** Fix legacy Next.js routes only if a bug is found there; otherwise port the feature to Go and switch the frontend client to `NEXT_PUBLIC_GO_API_URL`.
 
 ### 2.1 Why Fiber Over Standard Library or gin
 
@@ -1616,8 +1639,115 @@ Profile photos and exercise demonstration thumbnails are always served as the ap
 | Message attachment | JPEG, PNG, WebP, PDF, MP4 | 50 MB |
 | Meal photo | JPEG, PNG, WebP | 10 MB |
 
-The content type is validated at upload URL request time and again by S3's bucket policy (which rejects writes with a content type that doesn't match the expected value). The presigned URL includes a `Content-Type` condition — S3 rejects uploads that don't match. This dual validation prevents type confusion attacks where a client requests a JPEG upload URL and uploads an executable instead.
+## 15. Endpoint Pattern — Next.js Route Handlers (MANDATORY)
+
+Every new API path follows this exact pattern. Existing routes (`api/athlete/*`, `api/coach/*`, `api/polar/*`) are the reference implementations.
+
+### 15.1 File layout
+
+```
+apps/web/src/app/api/
+├── athlete/                     # Athlete-scoped resources (actor = logged-in athlete)
+│   ├── workouts/
+│   │   ├── route.ts             # GET list
+│   │   └── [id]/
+│   │       ├── route.ts         # GET detail
+│   │       └── session/route.ts # POST start/resume session
+│   └── sessions/[sessionId]/
+│       ├── sets/route.ts        # POST log a set
+│       └── complete/route.ts    # POST finish session
+└── coach/                       # Coach-scoped resources (actor = logged-in coach)
+    ├── athletes/route.ts        # GET roster
+    └── athletes/[id]/...        # Per-athlete reads (training summary, 1RM, fatigue...)
+```
+
+- One file per route; export only the HTTP verbs the route supports.
+- Dynamic segments (`[id]`, `[sessionId]`) are read from `ctx.params`.
+- Nesting stays shallow: actor → resource → (dynamic id) → one action level, max.
+
+### 15.2 Handler skeleton
+
+```ts
+import { NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { getAthleteByClerkId } from '@/lib/coaching-db';
+
+export async function GET(_req: Request, ctx: { params: { id: string } }) {
+  try {
+    // 1. AUTH FIRST — always, before any work
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // 2. RESOLVE ACTOR FROM SESSION — never trust IDs from body/query
+    const athlete = await getAthleteByClerkId(userId);
+    if (!athlete) return NextResponse.json({ error: 'Athlete profile not found' }, { status: 404 });
+
+    // 3. OWNERSHIP / TENANT SCOPE — IDOR guard on every nested resource
+    //    e.g. detail.workout.athleteId !== athlete.id -> 404 (never leak existence)
+
+    // 4. VALIDATE INPUT — 400 for invalid JSON / missing fields BEFORE touching DB
+
+    // 5. CALL DATA LAYER — SQL lives in src/lib/coaching-db.ts, not in handlers
+    return NextResponse.json({ /* typed result */ }, { status: 200 });
+  } catch (error) {
+    console.error('Error <action>:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+```
+
+### 15.3 Rules checklist
+
+- **Auth first, always.** `auth()` → `401` before anything else.
+- **Actor from session.** Athletes resolve via `getAthleteByClerkId(userId)`; coaches scope every query by their own `coachId`. Never accept `coachId`/`athleteId` identity from the request body or query string.
+- **Ownership check on every nested resource** (IDOR guard). Out-of-scope returns `404`, never `403` with existence details.
+- **Validate before persisting**: invalid JSON, missing required fields → `400` with a clear message.
+- **Thin handlers**: no SQL and no business logic in route files. Data access lives in `src/lib/coaching-db.ts`; pure business logic lives in `src/features/<feature>/services/` or `src/lib/` and is unit-tested with Jest.
+- **Status codes**: `200` success/read · `201` created · `400` invalid input · `401` unauthenticated · `403` forbidden · `404` missing or out-of-scope · `500` unexpected (with `console.error`).
+- **Responses**: JSON via `NextResponse.json`. Row→camelCase mapping happens once in the data-layer mappers; handlers never leak raw rows.
+- **Naming**: actor-scoped prefixes as established (`api/athlete/...`, `api/coach/...`); kebab-case segments; plural resource nouns.
+- **Migrations are additive first**: `ALTER TABLE ... ADD COLUMN` with defaults; renames/drops require an explicit data plan in the migration file header comment.
+- **Idempotency where it matters**: start-session endpoints return the existing active session instead of duplicating (see `api/athlete/workouts/[id]/session`).
 
 ---
 
-**Document version 1.0 — July 2026. This document is living; it is updated when architecture decisions are made, not when code is written. Every decision documented here must be traceable to a PR or ADR.**
+## 16. Consolidated Endpoint Criteria — Migration to Go (2026-09)
+
+This section is the single source of truth for which endpoints live in Go vs Next.js. It consolidates Slice 1 + Slice 2 decisions and blocks new Next.js routes.
+
+### 16.1 Authoritative registry
+
+| Slice | Go route (Fiber, `/api/v1`) | Method | Auth | Legacy Next.js path replaced | Mobile/Web caller updated |
+|---|---|---|---|---|---|
+| 1 | `/athletes/today` | GET | RequireAthlete | `api/athlete/today` | `TodayScreen`, `AthleteTodaySummary`, `ProgressScreen` |
+| 1 | `/athletes/onboard` | GET/POST | RequireAthlete | `api/athlete/onboard` | `SignInScreen`, onboarding flow |
+| 1 | `/invites/accept`, `/invites/validate` | POST | public/auth | `api/invites/*` | `InviteAcceptScreen` |
+| 1 | `/workouts`, `/workouts/:id`, `/workouts/:id/detail`, `/workouts/:id/prescription` | GET | RequireAthlete | `api/athlete/workouts/*` | `WorkoutListScreen`, `WorkoutDetailScreen`, `web workoutService.getById` |
+| 1 | `/workouts/:id/session`, `/workouts/sessions/:id`, `/workouts/sessions/:id/complete`, `/workouts/:id/sets` | POST/GET | RequireAthlete | `api/athlete/workouts/[id]/session` | `WorkoutExecutionScreen` |
+| 1 | `/exercises`, `/exercises/:id` | GET | auth | `api/exercises/*` | `SearchScreen` |
+| 2 | `/favorites` | GET/POST/DELETE | RequireAthlete | `/athlete/favorites` | `FavoritesScreen`, `SearchScreen` |
+| 2 | `/alerts` | GET | RequireAthlete | `/athlete/alerts` | `TodayScreen`, `push.ts` |
+| 2 | `/blog`, `/blog/:id` | GET | RequireAthlete | `/athlete/community` blog alias | `ArticlesScreen` |
+| 2 | `/polar/checkout` | POST | RequireAthlete | `/polar/checkout` | `MembershipScreen`, `PaymentScreen` |
+| 2 | `/import` | POST | RequireAthlete | `/athlete/import` | `ImportHistoryScreen` |
+| 2 | `/video-views` | POST | RequireAthlete | `/athlete/video-views` | `TrackedVideoPlayer` |
+| 2 | `/athlete/community`, `/athlete/community/messages` | GET/POST | RequireAthlete | `api/athlete/community*` | `CommunityScreen`, `DiscussionForumScreen` |
+| 2 | `/athlete/store`, `/athlete/store/purchase` | GET/POST | RequireAthlete | `api/athlete/store*` | `StoreScreen` |
+| 2 | `/athlete/availability`, `/athlete/appointments` | GET/POST | RequireAthlete | `api/athlete/availability` | `CoachScheduleModal` |
+| Web | `/workout-templates/:id` | PUT | RequireCoach | `api/coach/workout-templates/[id]` | `web client workoutTemplates.update` |
+
+All new endpoints follow the Go DDD vertical slice: `internal/domain/<X>/` (entity + Repository interface), `internal/application/<X>/service.go` (injected repo), `internal/infrastructure/<X>/repository.go` (raw `libsql` with `?`), `internal/interfaces/http/{handlers,dto,routes}`, wired in `cmd/api/main.go`. Response envelope is `appresponse.Success` with `dto.ListResponse[T]` for lists (snake_case JSON, `200` only).
+
+### 16.2 Criteria for creating a new endpoint
+
+1. **Go-first**: Every new path goes to `apps/api/` — never to `apps/web/src/app/api/`. Legacy routes stay until the Go equivalent is tested and the mobile/web caller switched (checked via `go build` + `go test` + mobile `tsc`).
+2. **Actor in path only when legacy-compatible**: New top-level resources use `/favorites`, `/alerts`, `/blog` etc. Athlete-scoped legacy compatibles keep `/athlete/*` prefix (community/store/scheduling) to avoid mobile rewrites.
+3. **Middleware**: `middleware.RequireAthlete()` / `RequireCoach()` per route, `middleware.GetUserID(c)` as string.
+4. **Validation**: `internal/pkg/validator` before touching the repo; `400` with field details.
+5. **Idempotency**: Session/create endpoints return existing active record instead of duplicating.
+6. **No 201**: All successes use `200` via `appresponse.Success`.
+7. **Graceful missing tables**: Repos return empty slices (not 500) when `no such table` — checked via `strings.Contains(err.Error(),"no such table")`.
+
+---
+
+**Document version 1.1 — September 2026. Section 16 added after Slice 2. This document is living; it is updated when architecture decisions are made, not when code is written. Every decision documented here must be traceable to a PR or ADR.**

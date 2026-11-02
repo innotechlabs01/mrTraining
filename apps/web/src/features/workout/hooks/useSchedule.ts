@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { ScheduleEvent, ScheduleStatus } from '../types'
-import { MOCK_SCHEDULE_EVENTS } from '../data/_mocks'
-import { generateId } from './helpers'
+
+const API_BASE = '/api/coaching/schedule'
 
 export function useSchedule() {
   const [events, setEvents] = useState<ScheduleEvent[]>([])
@@ -12,23 +12,45 @@ export function useSchedule() {
 
   useEffect(() => {
     let mounted = true
-    const timer = setTimeout(() => {
-      if (!mounted) return
-      setEvents(MOCK_SCHEDULE_EVENTS)
-      setLoading(false)
-    }, 500)
-    return () => { mounted = false; clearTimeout(timer) }
+    async function load() {
+      try {
+        const res = await fetch(API_BASE)
+        if (!res.ok) throw new Error('Failed to load schedule')
+        const data = await res.json()
+        if (mounted) {
+          setEvents(data)
+          setLoading(false)
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(err instanceof Error ? err.message : 'Unknown error')
+          setLoading(false)
+        }
+      }
+    }
+    load()
+    return () => { mounted = false }
   }, [])
 
   const createEvent = useCallback(async (data: Omit<ScheduleEvent, 'id' | 'createdAt' | 'status'>) => {
-    await new Promise(r => setTimeout(r, 300))
-    const event: ScheduleEvent = { ...data, id: generateId('se'), status: 'draft', createdAt: new Date().toISOString().split('T')[0] }
+    const res = await fetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) throw new Error('Failed to create event')
+    const event = await res.json()
     setEvents(prev => [...prev, event])
     return event
   }, [])
 
   const updateStatus = useCallback(async (id: string, status: ScheduleStatus) => {
-    await new Promise(r => setTimeout(r, 200))
+    const res = await fetch(`${API_BASE}/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    })
+    if (!res.ok) throw new Error('Failed to update status')
     setEvents(prev => prev.map(e => e.id === id ? { ...e, status } : e))
   }, [])
 
