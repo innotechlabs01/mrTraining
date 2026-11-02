@@ -2,69 +2,25 @@
  * RunningWorkoutDetailScreen — pre-run detail for an assigned running workout.
  * Shows segments, targets (pace/HR), and a primary "Start" button.
  */
-import React, { useCallback } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React from 'react';
+import { Alert, View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { colors, spacing, radius, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { texts } from '../../../../shared/i18n/texts';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
+import {
+  useRunningWorkoutAssignment,
+  useRunningWorkoutTemplate,
+  useStartRunningSession,
+} from '../../application/useRunningWorkouts';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-interface RunningAssignmentItem {
-  id: string;
-  template_id: string;
-  athlete_id: string;
-  coach_id: string;
-  scheduled_date: string;
-  status: 'assigned' | 'available' | 'started' | 'completed' | 'skipped' | 'cancelled';
-  athlete_instructions: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface RunningTemplateItem {
-  id: string;
-  coach_id: string;
-  name: string;
-  description: string;
-  type: string;
-  target_pace_min_per_km?: number;
-  target_pace_max_per_km?: number;
-  target_heart_rate_min?: number;
-  target_heart_rate_max?: number;
-  target_cadence?: number;
-  target_distance_km?: number;
-  target_duration_sec?: number;
-  segments: Array<{
-    id: string;
-    template_id: string;
-    order_index: number;
-    type: 'warmup' | 'main' | 'interval' | 'recovery' | 'cooldown';
-    instruction: string;
-    spoken_instruction?: string;
-    target_duration_sec?: number;
-    target_distance_km?: number;
-    target_pace_min_per_km?: number;
-    target_pace_max_per_km?: number;
-    target_heart_rate_min?: number;
-    target_heart_rate_max?: number;
-    repetitions?: number;
-    recovery_sec?: number;
-    completion_criteria: 'time' | 'distance' | 'manual';
-    created_at: string;
-    updated_at: string;
-  }>;
-  created_at: string;
-  updated_at: string;
-}
+type Route = RouteProp<RootStackParamList, 'RunningWorkoutDetail'>;
 
 const tw = texts.screens.runningWorkoutDetail;
 
@@ -81,50 +37,29 @@ function segmentLabel(type: string): string {
 
 export function RunningWorkoutDetailScreen() {
   const navigation = useNavigation<Nav>();
-  const assignmentId = navigation.getParam('assignmentId') as string | undefined;
+  const route = useRoute<Route>();
+  const assignmentId = route.params?.assignmentId ?? '';
 
-  const { data: assignment, isLoading, isError } = useQuery({
-    queryKey: ['running-workout-assignment', assignmentId],
-    queryFn: async (): Promise<RunningAssignmentItem> => {
-      const { data } = await apiClient.get<RunningAssignmentItem>(
-        `/running/workouts/assignments/${assignmentId}`,
-      );
-      return data;
-    },
-    enabled: !!assignmentId,
-  });
-
-  const { data: template, isLoading: templateLoading } = useQuery({
-    queryKey: ['running-workout-template', assignment?.template_id],
-    queryFn: async (): Promise<RunningTemplateItem> => {
-      const { data } = await apiClient.get<RunningTemplateItem>(
-        `/running/workouts/templates/${assignment?.template_id}`,
-      );
-      return data;
-    },
-    enabled: !!assignment?.template_id,
-  });
-
-  const startSession = useMutation({
-    mutationFn: async (assignmentId: string) => {
-      const { data } = await apiClient.post<{ session_id: string }>(
-        '/running/workouts/sessions/start',
-        { assignment_id: assignmentId },
-      );
-      return data;
-    },
-  });
+  const { data: assignment, isLoading, isError, refetch } = useRunningWorkoutAssignment(assignmentId);
+  const { data: template, isLoading: templateLoading } = useRunningWorkoutTemplate(
+    assignment?.template_id ?? '',
+  );
+  const startSession = useStartRunningSession();
 
   const handleStart = () => {
-    if (!assignmentId) return;
-    startSession.mutate(assignmentId, {
-      onSuccess: (res) => {
-        navigation.navigate('RunningExecution', {
-          sessionId: res.session_id,
-          workoutId: assignment!.id,
-        });
+    if (!assignment) return;
+    startSession.mutate(
+      { assignment_id: assignment.id },
+      {
+        onSuccess: (res) => {
+          navigation.navigate('RunningExecution', {
+            sessionId: res.session_id,
+            workoutId: assignment.id,
+          });
+        },
+        onError: () => Alert.alert(tw.errorTitle, tw.startError),
       },
-    });
+    );
   };
 
   if (isLoading || templateLoading) {
@@ -145,6 +80,7 @@ export function RunningWorkoutDetailScreen() {
           title={tw.errorTitle}
           message={tw.errorMessage}
           actionLabel={tw.retry}
+          onAction={() => void refetch()}
         />
       </SafeAreaView>
     );
@@ -153,7 +89,7 @@ export function RunningWorkoutDetailScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScreenHeader title={tw.title} onBack={() => navigation.goBack()} />
-
+      <ScrollView contentContainerStyle={styles.scrollContent}>
       <View style={styles.headerCard}>
         <Text style={styles.templateName}>{template.name}</Text>
         {template.description && (
@@ -163,25 +99,25 @@ export function RunningWorkoutDetailScreen() {
           <Text style={styles.metaLabel}>{tw.typeLabel}</Text>
           <Text style={styles.metaValue}>{template.type}</Text>
         </View>
-        {template.target_distance_km && (
+        {!!template.target_distance_km && (
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>{tw.distanceLabel}</Text>
             <Text style={styles.metaValue}>{template.target_distance_km.toFixed(1)} km</Text>
           </View>
         )}
-        {template.target_duration_sec && (
+        {!!template.target_duration_sec && (
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>{tw.durationLabel}</Text>
             <Text style={styles.metaValue}>{Math.floor(template.target_duration_sec / 60)} min</Text>
           </View>
         )}
-        {template.target_pace_min_per_km && (
+        {!!template.target_pace_min_per_km && (
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>{tw.paceLabel}</Text>
             <Text style={styles.metaValue}>{template.target_pace_min_per_km.toFixed(2)} min/km</Text>
           </View>
         )}
-        {template.target_heart_rate_min && template.target_heart_rate_max && (
+        {!!template.target_heart_rate_min && !!template.target_heart_rate_max && (
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>{tw.hrLabel}</Text>
             <Text style={styles.metaValue}>{template.target_heart_rate_min}–{template.target_heart_rate_max} bpm</Text>
@@ -202,19 +138,19 @@ export function RunningWorkoutDetailScreen() {
               <Text style={styles.segmentSpoken}>{tw.spokenPrefix} {seg.spoken_instruction}</Text>
             )}
             <View style={styles.segmentMeta}>
-              {seg.target_duration_sec && (
+              {!!seg.target_duration_sec && (
                 <View style={styles.metaMini}>
                   <Text style={styles.metaMiniLabel}>{tw.duration}</Text>
                   <Text style={styles.metaMiniValue}>{seg.target_duration_sec}s</Text>
                 </View>
               )}
-              {seg.target_distance_km && (
+              {!!seg.target_distance_km && (
                 <View style={styles.metaMini}>
                   <Text style={styles.metaMiniLabel}>{tw.distance}</Text>
                   <Text style={styles.metaMiniValue}>{seg.target_distance_km.toFixed(2)} km</Text>
                 </View>
               )}
-              {seg.target_pace_min_per_km && (
+              {!!seg.target_pace_min_per_km && (
                 <View style={styles.metaMini}>
                   <Text style={styles.metaMiniLabel}>{tw.pace}</Text>
                   <Text style={styles.metaMiniValue}>{seg.target_pace_min_per_km.toFixed(2)} min/km</Text>
@@ -225,14 +161,16 @@ export function RunningWorkoutDetailScreen() {
         ))}
       </View>
 
-      <View style={styles.bottomSpacer} />
+      </ScrollView>
 
-      <PrimaryButton
-        label={tw.startButton}
-        onPress={handleStart}
-        loading={startSession.isPending}
-        disabled={startSession.isPending}
-      />
+      <View style={styles.footer}>
+        <PrimaryButton
+          label={tw.startButton}
+          onPress={handleStart}
+          loading={startSession.isPending}
+          disabled={startSession.isPending}
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -300,5 +238,6 @@ const styles = StyleSheet.create({
   },
   metaMiniLabel: { ...typography.caption, color: colors.textSecondary },
   metaMiniValue: { ...typography.label, color: colors.text },
-  bottomSpacer: { height: spacing.lg * 2 },
+  scrollContent: { paddingBottom: spacing.lg },
+  footer: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
 });

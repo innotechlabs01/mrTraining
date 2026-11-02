@@ -1,192 +1,105 @@
-/**
- * RunningExecutionScreen — ejecución guiada de sesión de running.
- * Muestra segmento actual, objetivos, métricas en tiempo real con GPS y
- * controles de pausa/reanudar/finalizar. Incluye indicaciones de voz.
- */
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+/** Foreground execution of an assigned running workout. */
+import React, { useEffect, useState } from 'react';
+import { Alert, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, usePreventRemove, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { smartClient as apiClient } from '../../../../infrastructure/api/client';
+import { useQueryClient } from '@tanstack/react-query';
+import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { colors, spacing, radius, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
+import { AlertBanner } from '../../../../shared/components/ui/AlertBanner';
 import { texts } from '../../../../shared/i18n/texts';
-import type { RootStackParamList } from '../../../../navigation/Navigation';
-import { useRunningAudio } from '../application/useRunningAudio';
-import { useGpsTracking } from '../application/useGpsTracking';
-import { useRunningOffline } from '../application/useRunningOffline';
+import { useGuidedRunningSession } from '../../application/useGuidedRunningSession';
+import { useRunningWorkoutAssignment, useRunningWorkoutTemplate, runningWorkoutKeys } from '../../application/useRunningWorkouts';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, 'RunningExecution'>;
+const tw = texts.screens.runningExecution;
 
-export function RunningExecutionScreen({ sessionId, workoutId }: { sessionId: string; workoutId: string }) {
+export function RunningExecutionScreen() {
   const navigation = useNavigation<Nav>();
-  const { speak, isSpeaking } = useRunningAudio();
-  const {
-    isTracking,
-    startTracking,
-    stopTracking,
-    error: gpsError,
-  } = useGpsTracking({
-    workoutId,
-    exerciseId: sessionId,
-    enabled: true,
+  const route = useRoute<Route>();
+  const sessionId = route.params?.sessionId ?? '';
+  const assignmentId = route.params?.workoutId ?? '';
+  const assignment = useRunningWorkoutAssignment(assignmentId);
+  const template = useRunningWorkoutTemplate(assignment.data?.template_id ?? '');
+  const ready = !!sessionId && !!template.data;
+  const run = useGuidedRunningSession(sessionId, ready);
+  const queryClient = useQueryClient();
+  const [saved, setSaved] = useState(false);
+
+  usePreventRemove(ready && !saved, ({ data }) => {
+    if (run.isSaving) return;
+    Alert.alert(tw.leaveTitle, tw.leaveMessage, [
+      { text: tw.stayButton, style: 'cancel' },
+      { text: tw.leaveButton, style: 'destructive', onPress: () => navigation.dispatch(data.action) },
+    ]);
   });
-  const {
-    pendingSessions,
-    syncPendingSessions,
-    syncPendingPoints,
-    isSyncing,
-  } = useRunningOffline();
-
-  const [isPaused, setIsPaused] = useState(false);
-  const [timeElapsed, setTimeElapsed] = useState(0);
-  const [timer, setTimer] = useState<ReturnType<typeof setInterval> | null>(null);
-
-  const formatTime = (seconds: number): string => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const handlePauseResume = () => {
-    setIsPaused((prev) => !prev);
-  };
-
-  const handleFinish = async () => {
-    if (timer) clearInterval(timer);
-    if (isTracking) stopTracking();
-    // Sincronizar puntos pendientes antes de finalizar
-    await syncPendingPoints(sessionId);
-    navigation.navigate('RunningSessionSummary', { sessionId });
-  };
-
-  const announceSegment = useCallback((segmentName: string) => {
-    speak(`Segmento ${segmentName}`);
-  }, [speak]);
 
   useEffect(() => {
-    if (isTracking && !isPaused) {
-      setTimer(setInterval(() => setTimeElapsed((t) => t + 1), 1000));
-    } else if (timer) {
-      clearInterval(timer);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [isTracking, isPaused, timer]);
+    if (saved) navigation.replace('RunningSessionSummary', { sessionId });
+  }, [navigation, saved, sessionId]);
 
-  if (isLoading || templateLoading) {
+  const handleFinish = async () => {
+    if (!await run.finish()) return;
+    void queryClient.invalidateQueries({ queryKey: runningWorkoutKeys.assignments });
+    setSaved(true);
+  };
+
+  if (assignment.isLoading || template.isLoading) {
+    return <SafeAreaView style={styles.container}><EmptyState variant="loading" /></SafeAreaView>;
+  }
+  if (!ready || assignment.isError || template.isError) {
     return (
       <SafeAreaView style={styles.container}>
         <ScreenHeader title={tw.title} onBack={() => navigation.goBack()} />
-        <EmptyState variant="loading" />
+        <EmptyState variant="error" onRetry={() => {
+          void assignment.refetch();
+          void template.refetch();
+        }} />
       </SafeAreaView>
     );
   }
-
-  if (isError || !assignment || !template) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <ScreenHeader title={tw.title} onBack={() => navigation.goBack()} />
-        <EmptyState variant="error" title={tw.errorTitle} message={tw.errorMessage} actionLabel={tw.retry} />
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container}>
       <ScreenHeader title={tw.title} onBack={() => navigation.goBack()} />
-
-      <View style={styles.segmentCard}>
-        <Text style={styles.segmentLabel}>{texts.screens.runningExecution.segmentCurrent}</Text>
-        <Text style={styles.segmentName}>{template.name}</Text>
-        <Text style={styles.segmentInstruction}>
-          {template.description || tw.segmentInstructionPlaceholder}
-        </Text>
-      </View>
-
-      <View style={styles.metricsCard}>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>{texts.screens.runningExecution.timeElapsed}</Text>
-          <Text style={styles.metricValue}>{formatTime(timeElapsed)}</Text>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.card}>
+          <Text style={styles.title}>{template.data?.name}</Text>
+          <Text style={styles.body}>{template.data?.description || assignment.data?.athlete_instructions}</Text>
+          {template.data?.segments.map((segment, index) => (
+            <Text key={segment.id} style={styles.body}>{index + 1}. {segment.instruction}</Text>
+          ))}
         </View>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>{texts.screens.runningExecution.distanceLabel}</Text>
-          <Text style={styles.metricValue}>0.00 km</Text>
+        {run.gpsError && <AlertBanner tone="error" title={tw.noGpsSignal} message={run.gpsError} actionLabel={texts.common.retry} onAction={() => void run.retryGps()} />}
+        {run.saveError && <AlertBanner tone="error" title={tw.syncFailed} message={run.saveError} />}
+        <View style={styles.card}>
+          <Metric label={tw.timeElapsed} value={`${Math.floor(run.durationSeconds / 60)}:${String(run.durationSeconds % 60).padStart(2, '0')}`} />
+          <Metric label={tw.distanceLabel} value={`${run.distanceKm.toFixed(2)} km`} />
+          <Metric label={tw.paceLabel} value={`${run.pace} min/km`} />
         </View>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>{texts.screens.runningExecution.paceLabel}</Text>
-          <Text style={styles.metricValue}>--:-- min/km</Text>
-        </View>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>{texts.screens.runningExecution.hrLabel}</Text>
-          <Text style={styles.metricValue}>-- bpm</Text>
-        </View>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>{texts.screens.runningExecution.cadenceLabel}</Text>
-          <Text style={styles.metricValue}>-- spm</Text>
-        </View>
-      </View>
-
-      <View style={styles.controls}>
         <PrimaryButton
-          label={isPaused ? texts.screens.runningExecution.resumeButton : texts.screens.runningExecution.pauseButton}
-          onPress={handlePauseResume}
-          variant="outline"
-          fullWidth={false}
+          label={run.isPaused ? tw.resumeButton : tw.pauseButton}
+          onPress={run.togglePause} variant="outline" disabled={run.isSaving || !!run.saveError}
         />
-        <PrimaryButton
-          label={texts.screens.runningExecution.finishButton}
-          onPress={handleFinish}
-          variant="ghost"
-          fullWidth={false}
-        />
-      </View>
-
-      <View style={styles.bottomSpacer} />
+        <PrimaryButton label={tw.finishButton} onPress={() => void handleFinish()} loading={run.isSaving} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
+function Metric({ label, value }: { label: string; value: string }) {
+  return <View style={styles.metricRow}><Text style={styles.body}>{label}</Text><Text style={styles.title}>{value}</Text></View>;
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  segmentCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  segmentLabel: { ...typography.caption, color: colors.textSecondary },
-  segmentName: { ...typography.h3, color: colors.text },
-  segmentInstruction: { ...typography.body, color: colors.textSecondary, marginTop: spacing.xs },
-  metricsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: spacing.xs,
-  },
-  metricLabel: { ...typography.caption, color: colors.textSecondary },
-  metricValue: { ...typography.h4, color: colors.text, fontWeight: '600' },
-  controls: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.md,
-  },
-  bottomSpacer: { height: spacing.lg * 2 },
+  content: { padding: spacing.lg, gap: spacing.md },
+  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm, borderWidth: 1, borderColor: colors.border },
+  title: { ...typography.h4, color: colors.text },
+  body: { ...typography.body, color: colors.textSecondary },
+  metricRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: spacing.sm },
 });

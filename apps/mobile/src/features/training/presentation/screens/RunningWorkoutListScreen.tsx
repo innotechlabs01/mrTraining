@@ -4,32 +4,22 @@
  * Primary action: tap an assignment to open its detail.
  */
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable, RefreshControl, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useQuery } from '@tanstack/react-query';
-import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { colors, spacing, radius, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
-import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { texts } from '../../../../shared/i18n/texts';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
+import {
+  useRunningWorkoutAssignments,
+  useRunningWorkoutTemplate,
+  type RunningWorkoutAssignmentDto,
+} from '../../application/useRunningWorkouts';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-interface RunningAssignmentItem {
-  id: string;
-  template_id: string;
-  athlete_id: string;
-  coach_id: string;
-  scheduled_date: string;
-  status: 'assigned' | 'available' | 'started' | 'completed' | 'skipped' | 'cancelled';
-  athlete_instructions: string;
-  created_at: string;
-  updated_at: string;
-}
 
 const tw = texts.screens.runningWorkoutList;
 
@@ -39,7 +29,7 @@ function statusColor(status: string): string {
     case 'available':
       return colors.primary;
     case 'started':
-      return colors.warning ?? colors.primary;
+      return colors.warning;
     case 'completed':
       return colors.success;
     case 'skipped':
@@ -65,16 +55,7 @@ function statusLabel(status: string): string {
 export function RunningWorkoutListScreen() {
   const navigation = useNavigation<Nav>();
 
-  const { data: assignments, isLoading, isError, refetch } = useQuery({
-    queryKey: ['running-workout-assignments'],
-    queryFn: async (): Promise<RunningAssignmentItem[]> => {
-      const { data } = await apiClient.get<RunningAssignmentItem[]>(
-        '/running/workouts/assignments',
-      );
-      return data;
-    },
-    staleTime: 60_000,
-  });
+  const { data: assignments, isLoading, isError, refetch, isRefetching } = useRunningWorkoutAssignments();
 
   const openAssignment = useCallback(
     (assignmentId: string) => navigation.navigate('RunningWorkoutDetail', { assignmentId }),
@@ -120,7 +101,7 @@ export function RunningWorkoutListScreen() {
     );
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateKey(new Date());
   const todayAssignments = assignments.filter((a) =>
     a.scheduled_date.startsWith(today),
   );
@@ -131,7 +112,16 @@ export function RunningWorkoutListScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScreenHeader title={tw.title} onBack={() => navigation.goBack()} />
-
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={() => void refetch()}
+            tintColor={colors.primary}
+          />
+        }
+      >
       {todayAssignments.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{tw.todaySection}</Text>
@@ -167,17 +157,26 @@ export function RunningWorkoutListScreen() {
           onAction={() => navigation.goBack()}
         />
       )}
+      </ScrollView>
     </SafeAreaView>
   );
+}
+
+/** YYYY-MM-DD in the device's local timezone (toISOString would use UTC). */
+function localDateKey(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 
 function PressableAssignment({
   item,
   onPress,
 }: {
-  item: RunningAssignmentItem;
+  item: RunningWorkoutAssignmentDto;
   onPress: () => void;
 }) {
+  const { data: template } = useRunningWorkoutTemplate(item.template_id);
   return (
     <Pressable
       accessibilityRole="button"
@@ -189,7 +188,7 @@ function PressableAssignment({
     >
       <View style={styles.cardContent}>
         <View style={styles.row}>
-          <Text style={styles.itemName}>{item.template_id}</Text>
+          <Text style={styles.itemName}>{template?.name ?? tw.fallbackName}</Text>
           <View style={[styles.statusBadge, { backgroundColor: statusColor(item.status) }]}>
             <Text style={styles.statusText}>{statusLabel(item.status)}</Text>
           </View>
@@ -207,6 +206,7 @@ function PressableAssignment({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { paddingBottom: spacing.xl },
   section: { marginHorizontal: spacing.lg, marginTop: spacing.sm },
   sectionTitle: { ...typography.h4, color: colors.text, marginBottom: spacing.sm },
   card: {
@@ -231,5 +231,4 @@ const styles = StyleSheet.create({
   statusText: { ...typography.caption, color: colors.primary, textTransform: 'uppercase' },
 });
 
-// Touchability is not a real React Native export; kept for type compatibility only.
-declare const Touchability: never;
+
