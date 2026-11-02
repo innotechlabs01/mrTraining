@@ -664,8 +664,12 @@ func (s *Service) CreateTemplate(ctx context.Context, t *domain.RunningWorkoutTe
 	if err := s.repo.SaveTemplate(ctx, t); err != nil {
 		return fmt.Errorf("create template: %w", err)
 	}
-	// Insert Outbox event: template.created
-	if err := s.insertOutboxTemplateCreated(ctx, t.ID, t.CoachID); err != nil {
+	payload := map[string]interface{}{
+		"name":     t.ID,
+		"coach_id": t.CoachID,
+		"version":  t.Version,
+	}
+	if err := s.repo.SaveOutbox(ctx, "template.created", "template", t.ID, t.CoachID, "", payload); err != nil {
 		return fmt.Errorf("insert outbox template.created: %w", err)
 	}
 	return nil
@@ -782,13 +786,13 @@ func (s *Service) CreateAssignment(ctx context.Context, a *domain.RunningWorkout
 	if err := s.repo.SaveAssignment(ctx, a); err != nil {
 		return fmt.Errorf("create assignment: %w", err)
 	}
-	// Insert Outbox event: assignment.created
-	if err := s.insertOutboxAssignmentCreated(ctx, a.ID, a.CoachID, a.AthleteID); err != nil {
-		// Rollback: the assignment was saved, so we need to delete it
-		// Since we can't truly rollback without a transaction marker,
-		// we return an error and document that the consumer must handle
-		// idempotency via event_id. The business operation + Outbox
-		// should ideally be in the same transaction.
+	payload := map[string]interface{}{
+		"coach_id":    a.CoachID,
+		"athlete_id":  a.AthleteID,
+		"template_id": a.TemplateID,
+		"status":      a.Status,
+	}
+	if err := s.repo.SaveOutbox(ctx, "assignment.created", "assignment", a.ID, a.CoachID, a.AthleteID, payload); err != nil {
 		return fmt.Errorf("create assignment and insert outbox: %w", err)
 	}
 	return nil
@@ -966,68 +970,40 @@ func (s *Service) GetSnapshotBySession(ctx context.Context, sessionID string) (*
 }
 
 func (s *Service) insertOutboxTemplateCreated(ctx context.Context, templateID, coachID string) error {
-	if s.db == nil {
-		return nil
-	}
 	payload := map[string]interface{}{
 		"name":     templateID, // simplified; in a real implementation would include full template data
 		"coach_id": coachID,
 		"version":  1,
 	}
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
-		VALUES (gen_random_uuid(), 'template.created', 'template', $1, $2, NULL, $3, NOW(), 'pending', 0, NULL, NULL, NOW())
-	`, templateID, coachID, payload)
-	return err
+	return s.repo.SaveOutbox(ctx, "template.created", "template", templateID, coachID, "", payload)
 }
 
 // insertOutboxAssignmentCreated inserts an assignment.created event into the Outbox table.
 func (s *Service) insertOutboxAssignmentCreated(ctx context.Context, assignmentID, coachID, athleteID string) error {
-	if s.db == nil {
-		return nil
-	}
 	payload := map[string]interface{}{
 		"coach_id":    coachID,
 		"athlete_id":  athleteID,
 		"template_id": assignmentID,
 		"status":      "assigned",
 	}
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
-		VALUES (gen_random_uuid(), 'assignment.created', 'assignment', $1, $2, $3, $4, NOW(), 'pending', 0, NULL, NULL, NOW())
-	`, assignmentID, coachID, athleteID, payload)
-	return err
+	return s.repo.SaveOutbox(ctx, "assignment.created", "assignment", assignmentID, coachID, athleteID, payload)
 }
 
 // insertOutboxWorkoutStarted inserts a workout.started event into the Outbox table.
 func (s *Service) insertOutboxWorkoutStarted(ctx context.Context, sessionID, athleteID, templateID string) error {
-	if s.db == nil {
-		return nil
-	}
 	payload := map[string]interface{}{
 		"athlete_id":  athleteID,
 		"template_id": templateID,
 		"session_id":  sessionID,
 	}
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
-		VALUES (gen_random_uuid(), 'workout.started', 'workout', $1, NULL, $2, $3, NOW(), 'pending', 0, NULL, NULL, NOW())
-	`, sessionID, athleteID, payload)
-	return err
+	return s.repo.SaveOutbox(ctx, "workout.started", "workout", sessionID, "", athleteID, payload)
 }
 
 // insertOutboxWorkoutCompleted inserts a workout.completed event into the Outbox table.
 func (s *Service) insertOutboxWorkoutCompleted(ctx context.Context, sessionID, athleteID string) error {
-	if s.db == nil {
-		return nil
-	}
 	payload := map[string]interface{}{
 		"athlete_id": athleteID,
 		"session_id": sessionID,
 	}
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
-		VALUES (gen_random_uuid(), 'workout.completed', 'workout', $1, NULL, $2, $3, NOW(), 'pending', 0, NULL, NULL, NOW())
-	`, sessionID, athleteID, payload)
-	return err
+	return s.repo.SaveOutbox(ctx, "workout.completed", "workout", sessionID, "", athleteID, payload)
 }
