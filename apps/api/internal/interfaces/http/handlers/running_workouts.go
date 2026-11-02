@@ -387,8 +387,6 @@ func (h *RunningWorkoutHandler) CompleteSession(c *fiber.Ctx) error {
 		ID:        sessionID,
 		UserID:    userID,
 		Date:      existing.Date,
-		Source:    existing.Source,
-		CreatedAt: existing.CreatedAt,
 		Distance:  req.Distance,
 		Duration:  req.Duration,
 		Pace:      req.Pace,
@@ -397,6 +395,8 @@ func (h *RunningWorkoutHandler) CompleteSession(c *fiber.Ctx) error {
 		HeartRate: req.HeartRate,
 		Cadence:   req.Cadence,
 		GPSRoute:  req.GPSRoute,
+		Source:    existing.Source,
+		CreatedAt: existing.CreatedAt,
 	}
 
 	if err := h.service.CompleteSession(c.Context(), sessionID, userID, session); err != nil {

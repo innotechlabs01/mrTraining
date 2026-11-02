@@ -72,3 +72,33 @@ type TRMResponse struct {
 	Value     float64 `json:"value"`
 	VigenciaD string  `json:"vigencia_desde"`
 }
+
+// PlanCatalogItem is an item in the plan catalog for public coach landing.
+type PlanCatalogItem struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	Price       float64 `json:"price"`
+	Currency    string  `json:"currency"`
+	Duration    string  `json:"duration"`
+	Benefits    string  `json:"benefits"`
+	CTAText     string  `json:"cta_text"`
+}
+
+// CoachLandingResponse is the full response of a coach's public landing.
+type CoachLandingResponse struct {
+	Slug         string             `json:"slug"`
+	CoachName    string             `json:"coach_name"`
+	CoachPhoto   string             `json:"coach_photo"`
+	Biography    string             `json:"biography"`
+	Specialities []string           `json:"specialities"`
+	Services     []string           `json:"services"`
+	PlanCatalog  []PlanCatalogItem  `json:"plan_catalog"`
+	CtaText      string             `json:"cta_text"`
+}
+
+// CoachPlansResponse is the response with the list of plans for a coach.
+type CoachPlansResponse struct {
+	Slug   string          `json:"slug"`
+	Plans  []PlanCatalogItem `json:"plans"`
+}

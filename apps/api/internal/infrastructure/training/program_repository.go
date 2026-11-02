@@ -8,21 +8,45 @@ import (
 	"github.com/google/uuid"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/training"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // ProgramRepository implements training.ProgramRepository using database/sql with Turso/libsql.
 type ProgramRepository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewProgramRepository creates a new program repository with the given database connection.
+// By default, all queries run against the connection pool. Use SetExecutor to
+// inject a *sql.Tx for transactional operations within a UnitOfWork.
 func NewProgramRepository(db *sql.DB) *ProgramRepository {
-	return &ProgramRepository{db: db}
+	return &ProgramRepository{db: db, exec: db}
+}
+
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+func (r *ProgramRepository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *ProgramRepository) WithExecutor(exec database.Executor) *ProgramRepository {
+	return &ProgramRepository{
+		db:  r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx.
+func (r *ProgramRepository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // ListByCoach retrieves all programs owned by a coach with their workouts.
 func (r *ProgramRepository) ListByCoach(ctx context.Context, coachID string) ([]*training.Program, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT p.id, p.coach_id, p.name, p.description, p.goal, p.difficulty_level,
 		 p.duration_weeks, p.created_at, p.updated_at,
 		 (SELECT COUNT(*) FROM program_workouts pw WHERE pw.program_id = p.id)
@@ -59,7 +83,7 @@ func (r *ProgramRepository) ListByCoach(ctx context.Context, coachID string) ([]
 
 // GetByID retrieves a program with its ordered workouts.
 func (r *ProgramRepository) GetByID(ctx context.Context, id string) (*training.Program, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, coach_id, name, description, goal, difficulty_level,
 		 duration_weeks, created_at, updated_at
 		 FROM programs WHERE id = $2`, id)
@@ -179,7 +203,7 @@ func (r *ProgramRepository) Delete(ctx context.Context, id string) error {
 // getProgramWorkouts loads the ordered workout references for a program,
 // joining the template name when the template still exists.
 func (r *ProgramRepository) getProgramWorkouts(ctx context.Context, programID string) ([]training.ProgramWorkout, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT pw.template_id, pw.order_index, COALESCE(wt.name, '')
 		 FROM program_workouts pw
 		 LEFT JOIN workout_templates wt ON wt.id = pw.template_id

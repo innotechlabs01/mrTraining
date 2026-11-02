@@ -11,16 +11,40 @@ import (
 	"time"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/analytics"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Repository implements domain.Repository using database/sql (Turso/libsql).
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates an analytics repository with the given database handle.
+// By default, all queries run against the connection pool. Use SetExecutor to
+// inject a *sql.Tx for transactional operations within a UnitOfWork.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+	return &Repository{
+		db:  r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // fatigueHalfLifeHours: exponential decay half-life for accumulated training
@@ -38,7 +62,7 @@ func (r *Repository) GetDashboardSummary(ctx context.Context, coachID string) (*
 	}
 
 	var totalAthletes, activeAthletes7d int
-	err := r.db.QueryRowContext(ctx,
+	err := r.exec.QueryRowContext(ctx,
 		`SELECT COUNT(*),
 		        SUM(CASE WHEN EXISTS (
 		          SELECT 1 FROM workout_session_logs wsl
@@ -56,7 +80,7 @@ func (r *Repository) GetDashboardSummary(ctx context.Context, coachID string) (*
 
 	var sessions30d int
 	var volume30d float64
-	err = r.db.QueryRowContext(ctx,
+	err = r.exec.QueryRowContext(ctx,
 		`SELECT COUNT(DISTINCT wsl.id), COALESCE(SUM(wset.weight_kg * wset.reps), 0)
 		 FROM workout_session_logs wsl
 		 LEFT JOIN workout_set_logs wset ON wset.session_id = wsl.id AND wset.completed = 1
@@ -73,7 +97,7 @@ func (r *Repository) GetDashboardSummary(ctx context.Context, coachID string) (*
 	summary.RosterMetrics["total_volume_30d_kg"] = volume30d
 
 	// Athletes with zero completed sessions in 7 days need a nudge.
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT ca.id, ca.name
 		 FROM coach_athletes ca
 		 WHERE ca.coach_id = $3
@@ -122,7 +146,7 @@ func (r *Repository) GetHRZones(ctx context.Context, athleteID string) ([]domain
 
 	counts := make([]int, len(bounds))
 	var total int
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT value FROM athlete_health_metrics
 		 WHERE athlete_id = $4 AND metric_type = 'heart_rate'
 		   AND DATE(recorded_at) >= DATE('now', '-30 days')`, athleteID)
@@ -171,7 +195,7 @@ func (r *Repository) GetFatigueMap(ctx context.Context, athleteID string) ([]dom
 		load   float64
 	}
 
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT DATE(wsl.started_at) AS d,
 		        COALESCE(SUM(wset.weight_kg * wset.reps), 0) AS load
 		 FROM workout_session_logs wsl
@@ -242,7 +266,7 @@ func pow05(x float64) float64 {
 // GetOneRM returns the best Epley 1RM per exercise from completed sets
 // (1RM = weight * (1 + reps/30)), with the date of the best set.
 func (r *Repository) GetOneRM(ctx context.Context, athleteID string) ([]domain.OneRM, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT wset.exercise_id,
 		        we.name,
 		        MAX(wset.weight_kg * (1 + wset.reps / 30.0)) AS one_rm,
@@ -287,7 +311,7 @@ func (r *Repository) GetOneRM(ctx context.Context, athleteID string) ([]domain.O
 // relative index for comparing periods, not an absolute %1RM).
 func (r *Repository) GetTrainingSummary(ctx context.Context, coachID string) (*domain.TrainingSummary, error) {
 	summary := &domain.TrainingSummary{Period: "last_30_days"}
-	err := r.db.QueryRowContext(ctx,
+	err := r.exec.QueryRowContext(ctx,
 		`SELECT COUNT(DISTINCT wsl.id),
 		        COALESCE(SUM(wset.weight_kg * wset.reps), 0),
 		        COALESCE(AVG(wset.weight_kg), 0)
@@ -309,7 +333,7 @@ func (r *Repository) GetTrainingSummary(ctx context.Context, coachID string) (*d
 // intensity multiplier from the heaviest set relative to the athlete's best
 // lift in that session. RPE is estimated 1-10 from the intensity multiplier.
 func (r *Repository) GetEffort(ctx context.Context, athleteID string) ([]domain.Effort, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT wsl.id,
 		        COALESCE(SUM(wset.weight_kg * wset.reps), 0) AS volume,
 		        COALESCE(MAX(wset.weight_kg), 0) AS top_set,

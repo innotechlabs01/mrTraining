@@ -65,6 +65,9 @@ type Repository interface {
 	// DeactivateDeviceConnection marks a device connection as inactive.
 	DeactivateDeviceConnection(ctx context.Context, id string) error
 
+	// Outbox operations for reliable realtime event delivery
+	SaveOutbox(ctx context.Context, eventType, aggregateType, aggregateID string, coachID, athleteID string, payload map[string]interface{}) error
+
 	// --- Running workout template operations ---
 
 	// SaveTemplate persists a running workout template with its segments.

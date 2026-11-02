@@ -4,6 +4,9 @@ import "context"
 
 // Repository defines the data access interface for the coach domain.
 type Repository interface {
+	// GetBySlug retrieves a coach by slug.
+	GetBySlug(ctx context.Context, slug string) (*Coach, error)
+
 	// Dashboard
 
 	// GetDashboard retrieves aggregated dashboard metrics for a coach.

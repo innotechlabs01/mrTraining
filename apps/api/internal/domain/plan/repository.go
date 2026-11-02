@@ -15,4 +15,6 @@ type Repository interface {
 	Update(ctx context.Context, p *Plan) error
 	// Delete removes a plan. Returns NotFound error if missing.
 	Delete(ctx context.Context, id string) error
+	// ListVersionsByPlan returns all versions for a plan.
+	ListVersionsByPlan(ctx context.Context, planID string) ([]*Version, error)
 }

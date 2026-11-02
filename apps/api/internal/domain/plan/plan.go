@@ -24,3 +24,16 @@ type Plan struct {
 	CreatedAt          string  `json:"created_at"`
 	UpdatedAt          string  `json:"updated_at"`
 }
+
+// Version represents an active version of a plan with pricing and duration.
+type Version struct {
+	ID          string `json:"id"`
+	PlanID      string `json:"plan_id"`
+	PriceCents  int    `json:"price_cents"`
+	Currency    string `json:"currency"`
+	DurationUnit string `json:"duration_unit"` // "week", "month", "quarter", "year"
+	Benefits    string `json:"benefits"`
+	CTAText     string `json:"cta_text"`
+	IsActive    bool   `json:"is_active"`
+	CreatedAt   string `json:"created_at"`
+}

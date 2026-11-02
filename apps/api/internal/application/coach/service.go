@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/innotechlabs01/mr-training-api/internal/domain/coach"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Service implements coach-related business operations.
@@ -17,6 +18,21 @@ type Service struct {
 // NewService creates a new coach application service.
 func NewService(repo coach.Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork)
+// into the underlying repository. Returns a new Service instance with the
+// executor applied, keeping the original instance unchanged for concurrent use.
+func (s *Service) SetExecutor(exec database.Executor) *Service {
+	if repo, ok := s.repo.(interface{ WithExecutor(database.Executor) coach.Repository }); ok {
+		return &Service{repo: repo.WithExecutor(exec)}
+	}
+	return s
+}
+
+// GetBySlug returns a coach by slug.
+func (s *Service) GetBySlug(ctx context.Context, slug string) (*coach.Coach, error) {
+	return s.repo.GetBySlug(ctx, slug)
 }
 
 // GetDashboard returns aggregated dashboard metrics for a coach.

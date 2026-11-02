@@ -322,3 +322,28 @@ func nullString(s string) sql.NullString {
 	}
 	return sql.NullString{String: s, Valid: true}
 }
+
+// IsActiveCoach verifies that the given user ID corresponds to an active coach
+// row in the coaches table. Returns false if no such row exists.
+func (r *Repository) IsActiveCoach(ctx context.Context, userID string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM coaches WHERE id = $1 AND is_active = 1)`, userID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check active coach: %w", err)
+	}
+	return exists, nil
+}
+
+// AthleteHasActiveCoach verifies that an active coach_athlete_links row exists
+// between the athlete and the requested coach. Returns false if no such row exists.
+func (r *Repository) AthleteHasActiveCoach(ctx context.Context, athleteID, coachID string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM coach_athlete_links WHERE coach_id = $1 AND athlete_id = $2 AND status = 'active')`,
+		coachID, athleteID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check coach-athlete relationship: %w", err)
+	}
+	return exists, nil
+}

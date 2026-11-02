@@ -26,6 +26,29 @@ func (s *Service) ListPlans(ctx context.Context, coachID string, activeOnly bool
 	return s.repo.ListByCoach(ctx, coachID, activeOnly)
 }
 
+// ListActivePlansByCoach returns active plans for a coach.
+func (s *Service) ListActivePlansByCoach(ctx context.Context, coachID string) ([]*plandomain.Plan, error) {
+	return s.repo.ListByCoach(ctx, coachID, true)
+}
+
+// GetActiveVersionByPlan returns the active version of a plan.
+func (s *Service) GetActiveVersionByPlan(ctx context.Context, planID string) (*plandomain.Version, error) {
+	versions, err := s.repo.ListVersionsByPlan(ctx, planID)
+	if err != nil {
+		return nil, fmt.Errorf("get active version: %w", err)
+	}
+	if len(versions) == 0 {
+		return nil, fmt.Errorf("no active version found for plan %s", planID)
+	}
+	// Return the first active version
+	for _, v := range versions {
+		if v.IsActive {
+			return v, nil
+		}
+	}
+	return nil, fmt.Errorf("no active version found for plan %s", planID)
+}
+
 // ListActivePlans is not yet wired to a mobile-facing endpoint.
 // Use ListPlans(coachID, true) for coach-scoped active plans.
 

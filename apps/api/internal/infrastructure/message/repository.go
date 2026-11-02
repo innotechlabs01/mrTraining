@@ -10,19 +10,39 @@ import (
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/message"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 type repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new message repository.
+// By default, all queries run against the connection pool. Use SetExecutor to
+// inject a *sql.Tx for transactional operations within a UnitOfWork.
 func NewRepository(db *sql.DB) domain.Repository {
-	return &repository{db: db}
+	return &repository{db: db, exec: db}
+}
+
+func (r *repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+func (r *repository) WithExecutor(exec database.Executor) domain.Repository {
+	return &repository{
+		db:  r.db,
+		exec: exec,
+	}
+}
+
+func (r *repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 func (r *repository) GetThreads(ctx context.Context, userID string) ([]*domain.MessageThread, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, coach_id, athlete_id, athlete_name, subject, last_message, last_sent_at, unread_count, created_at, updated_at
 		FROM message_threads
 		WHERE coach_id = $1 OR athlete_id = $2
@@ -45,7 +65,7 @@ func (r *repository) GetThreads(ctx context.Context, userID string) ([]*domain.M
 }
 
 func (r *repository) GetThread(ctx context.Context, threadID string) (*domain.MessageThread, error) {
-	row := r.db.QueryRowContext(ctx, `
+	row := r.exec.QueryRowContext(ctx, `
 		SELECT id, coach_id, athlete_id, athlete_name, subject, last_message, last_sent_at, unread_count, created_at, updated_at
 		FROM message_threads WHERE id = $3
 	`, threadID)
@@ -67,7 +87,7 @@ func (r *repository) CreateThread(ctx context.Context, thread *domain.MessageThr
 	now := time.Now().UTC().Format(time.RFC3339)
 	thread.CreatedAt = now
 	thread.UpdatedAt = now
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO message_threads (id, coach_id, athlete_id, athlete_name, subject, last_message, last_sent_at, unread_count, created_at, updated_at)
 		VALUES ($4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`, thread.ID, thread.CoachID, thread.AthleteID, thread.AthleteName, thread.Subject, thread.LastMessage, thread.LastSentAt, thread.UnreadCount, thread.CreatedAt, thread.UpdatedAt)
@@ -78,7 +98,7 @@ func (r *repository) CreateThread(ctx context.Context, thread *domain.MessageThr
 }
 
 func (r *repository) GetMessages(ctx context.Context, threadID string) ([]*domain.Message, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, thread_id, sender_id, sender_role, content, is_read, created_at
 		FROM messages WHERE thread_id = $14 ORDER BY created_at ASC
 	`, threadID)
@@ -104,7 +124,7 @@ func (r *repository) SendMessage(ctx context.Context, msg *domain.Message) error
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	msg.CreatedAt = now
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO messages (id, thread_id, sender_id, sender_role, content, is_read, created_at)
 		VALUES ($15, $16, $17, $18, $19, $20, $21)
 	`, msg.ID, msg.ThreadID, msg.SenderID, msg.SenderRole, msg.Content, msg.IsRead, msg.CreatedAt)
@@ -112,7 +132,7 @@ func (r *repository) SendMessage(ctx context.Context, msg *domain.Message) error
 		return fmt.Errorf("failed to insert message: %w", err)
 	}
 	// Update thread's last_message and last_sent_at, increment unread for recipient
-	_, err = r.db.ExecContext(ctx, `
+	_, err = r.exec.ExecContext(ctx, `
 		UPDATE message_threads
 		SET last_message = $22, last_sent_at = $23, updated_at = $24,
 			unread_count = unread_count + 1
@@ -122,13 +142,13 @@ func (r *repository) SendMessage(ctx context.Context, msg *domain.Message) error
 }
 
 func (r *repository) MarkThreadRead(ctx context.Context, threadID, userID string) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		UPDATE messages SET is_read = true WHERE thread_id = $26 AND sender_id != $27
 	`, threadID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to mark messages read: %w", err)
 	}
-	_, err = r.db.ExecContext(ctx, `
+	_, err = r.exec.ExecContext(ctx, `
 		UPDATE message_threads SET unread_count = 0 WHERE id = $28
 	`, threadID)
 	return err

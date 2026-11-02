@@ -6,18 +6,36 @@ import (
 	"fmt"
 
 	"github.com/innotechlabs01/mr-training-api/internal/domain/config"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 type repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 func NewRepository(db *sql.DB) config.Repository {
-	return &repository{db: db}
+	return &repository{db: db, exec: db}
+}
+
+func (r *repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+func (r *repository) WithExecutor(exec database.Executor) config.Repository {
+	return &repository{
+		db:  r.db,
+		exec: exec,
+	}
+}
+
+func (r *repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 func (r *repository) GetByCoachID(ctx context.Context, coachID string) (*config.PublicPageConfig, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, coach_id, brand_name, tagline, welcome_message, footer_text, created_at, updated_at
 		 FROM public_page_config WHERE coach_id = $1`, coachID)
 
@@ -43,7 +61,7 @@ func (r *repository) GetByCoachID(ctx context.Context, coachID string) (*config.
 }
 
 func (r *repository) Upsert(ctx context.Context, cfg *config.PublicPageConfig) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO public_page_config (id, coach_id, brand_name, tagline, welcome_message, footer_text, created_at, updated_at)
 		VALUES ($2, $3, $4, $5, $6, $7, NOW(), NOW())
 		ON CONFLICT(coach_id) DO UPDATE SET

@@ -11,22 +11,48 @@ import (
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/coach_settlement"
 	auditdomain "github.com/innotechlabs01/mr-training-api/internal/domain/audit"
-	allaudit "github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Repository implements domain.Repository using libsql/SQLite.
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new settlement repository.
+// By default, all queries run against the connection pool. Use SetExecutor to
+// inject a *sql.Tx for transactional operations within a UnitOfWork.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+// When set, all repository queries run against this executor instead of the
+// connection pool.
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+	return &Repository{
+		db:  r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // GetSettlement returns a settlement only when visible to the caller.
 func (r *Repository) GetSettlement(ctx context.Context, settlementID, coachID string) (*domain.CoachSettlement, error) {
-	return scanSettlement(r.db.QueryRowContext(ctx, `
+	return scanSettlement(r.exec.QueryRowContext(ctx, `
 		SELECT id, coach_id, ally_id, period_start, period_end, period_key, currency, status,
 		       operations_count, base_total_cents, commission_gross_cents, adjustments_cents,
 		       commission_net_cents, COALESCE(calculated_at, ''), COALESCE(approved_at, ''),
@@ -37,7 +63,7 @@ func (r *Repository) GetSettlement(ctx context.Context, settlementID, coachID st
 
 // ListSettlementsByCoach lists settlements where the coach is the beneficiary.
 func (r *Repository) ListSettlementsByCoach(ctx context.Context, coachID string) ([]*domain.CoachSettlement, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, coach_id, ally_id, period_start, period_end, period_key, currency, status,
 		       operations_count, base_total_cents, commission_gross_cents, adjustments_cents,
 		       commission_net_cents, COALESCE(calculated_at, ''), COALESCE(approved_at, ''),
@@ -54,7 +80,7 @@ func (r *Repository) ListSettlementsByCoach(ctx context.Context, coachID string)
 
 // ListSettlementsByAlly lists settlements where the ally is the contractual payer.
 func (r *Repository) ListSettlementsByAlly(ctx context.Context, allyID string) ([]*domain.CoachSettlement, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, coach_id, ally_id, period_start, period_end, period_key, currency, status,
 		       operations_count, base_total_cents, commission_gross_cents, adjustments_cents,
 		       commission_net_cents, COALESCE(calculated_at, ''), COALESCE(approved_at, ''),
@@ -71,7 +97,7 @@ func (r *Repository) ListSettlementsByAlly(ctx context.Context, allyID string) (
 
 // ListSettlementsForAdmin lists all settlements (admin view).
 func (r *Repository) ListSettlementsForAdmin(ctx context.Context) ([]*domain.CoachSettlement, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, coach_id, ally_id, period_start, period_end, period_key, currency, status,
 		       operations_count, base_total_cents, commission_gross_cents, adjustments_cents,
 		       commission_net_cents, COALESCE(calculated_at, ''), COALESCE(approved_at, ''),
@@ -119,7 +145,7 @@ func (r *Repository) CreateSettlement(ctx context.Context, in domain.CreateSettl
 		"currency":      currency,
 		"status":        "draft",
 	})
-	if err := allaudit.InsertTx(ctx, tx, ev); err != nil {
+	if err := audit.InsertTx(ctx, tx, ev); err != nil {
 		return nil, err
 	}
 
@@ -148,7 +174,7 @@ func (r *Repository) CreateSettlement(ctx context.Context, in domain.CreateSettl
 
 // GetEligibleEntriesForPeriod returns commission entries eligible for settlement.
 func (r *Repository) GetEligibleEntriesForPeriod(ctx context.Context, coachID, allyID, periodStart, periodEnd string) ([]*domain.SettlementItemCandidate, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT ce.id, ce.operation_id, ce.relationship_id, ce.base_cents, ce.rate_bps,
 		       ce.fixed_amount_cents, ce.amount_cents, ce.currency, ce.computed_at
 		FROM commission_entries ce
@@ -272,7 +298,7 @@ func (r *Repository) CalculateSettlement(ctx context.Context, settlementID strin
 		"commission_gross_cents": commissionGrossCents,
 		"commission_net_cents":   commissionNetCents,
 	})
-	if err := allaudit.InsertTx(ctx, tx, ev); err != nil {
+	if err := audit.InsertTx(ctx, tx, ev); err != nil {
 		return nil, nil, err
 	}
 
@@ -337,7 +363,7 @@ func (r *Repository) UpdateSettlementStatus(ctx context.Context, settlementID, a
 		"to_status":     status,
 		"note":          note,
 	})
-	if err := allaudit.InsertTx(ctx, tx, ev); err != nil {
+	if err := audit.InsertTx(ctx, tx, ev); err != nil {
 		return nil, err
 	}
 
@@ -393,7 +419,7 @@ func (r *Repository) VoidSettlement(ctx context.Context, settlementID, actorID s
 		"to_status":     domain.StatusVoid,
 		"reason":        reason,
 	})
-	if err := allaudit.InsertTx(ctx, tx, ev); err != nil {
+	if err := audit.InsertTx(ctx, tx, ev); err != nil {
 		return nil, err
 	}
 
@@ -406,7 +432,7 @@ func (r *Repository) VoidSettlement(ctx context.Context, settlementID, actorID s
 
 // ListSettlementItems lists items of a settlement.
 func (r *Repository) ListSettlementItems(ctx context.Context, settlementID string) ([]*domain.SettlementItem, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, settlement_id, entry_id, base_cents, rate_bps, amount_cents,
 		       COALESCE(released_at, ''), created_at
 		FROM settlement_items WHERE settlement_id = $44
@@ -458,7 +484,7 @@ func (r *Repository) CreateSettlementDocument(ctx context.Context, in domain.Cre
 		"kind":          in.Kind,
 		"status":        "draft",
 	})
-	if err := allaudit.InsertTx(ctx, tx, ev); err != nil {
+	if err := audit.InsertTx(ctx, tx, ev); err != nil {
 		return nil, err
 	}
 
@@ -480,7 +506,7 @@ func (r *Repository) CreateSettlementDocument(ctx context.Context, in domain.Cre
 
 // ListSettlementDocuments lists documents of a settlement.
 func (r *Repository) ListSettlementDocuments(ctx context.Context, settlementID string) ([]*domain.SettlementDocument, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, settlement_id, kind, content_ref, status, version, generated_at, COALESCE(sent_at, '')
 		FROM settlement_documents WHERE settlement_id = $51
 		ORDER BY created_at DESC
@@ -544,7 +570,7 @@ func (r *Repository) CreateCoachPaymentRecord(ctx context.Context, in domain.Cre
 		"currency":       currency,
 		"status":         "declared",
 	})
-	if err := allaudit.InsertTx(ctx, tx, ev); err != nil {
+	if err := audit.InsertTx(ctx, tx, ev); err != nil {
 		return nil, err
 	}
 
@@ -602,7 +628,7 @@ func (r *Repository) ConfirmCoachPaymentRecord(ctx context.Context, recordID, ac
 		"record_id": recordID,
 		"status":    domain.PaymentStatusConfirmed,
 	})
-	if err := allaudit.InsertTx(ctx, tx, ev); err != nil {
+	if err := audit.InsertTx(ctx, tx, ev); err != nil {
 		return nil, err
 	}
 
@@ -631,7 +657,7 @@ func (r *Repository) ListCoachPaymentRecords(ctx context.Context, coachID string
 	}
 	query += " ORDER BY created_at DESC"
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.exec.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list payment records: %w", err)
 	}
@@ -653,7 +679,7 @@ func (r *Repository) ListCoachPaymentRecords(ctx context.Context, coachID string
 
 // GetCoachPaymentRecord returns a payment record by ID.
 func (r *Repository) GetCoachPaymentRecord(ctx context.Context, recordID string, actorID string) (*domain.CoachPaymentRecord, error) {
-	return scanPaymentRecord(r.db.QueryRowContext(ctx, `
+	return scanPaymentRecord(r.exec.QueryRowContext(ctx, `
 		SELECT id, settlement_id, coach_id, payer_ally_id, amount_cents, currency,
 		       actor_id, actor_type, reference, evidence_ref, declared_at, status, created_at
 		FROM coach_payment_records WHERE id = $68
