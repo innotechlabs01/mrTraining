@@ -1,0 +1,60 @@
+name: CD - dev (Cloud Run)
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_REGION: us-central1
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REPOSITORY: mr-training
+  SERVICE: mr-training-api-dev
+
+jobs:
+  deploy:
+    name: Deploy API to Cloud Run (dev)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
+
+      - name: Build and push API image
+        working-directory: apps/api
+        run: |
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/api:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Deploy Cloud Run service
+        run: |
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image "$IMAGE" \
+            --region "${{ env.GCP_REGION }}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8080 \
+            --set-env-vars="APP_ENV=development,APP_PORT=8080,LOG_LEVEL=debug,CORS_ORIGINS=*" \
+            --set-secrets="DATABASE_URL=DATABASE_URL_DEV:latest,CLERK_SECRET_KEY=CLERK_SECRET_KEY_DEV:latest,CLERK_PUBLISHABLE_KEY=CLERK_PUBLISHABLE_KEY_DEV:latest" \
+            --min-instances=0 \
+            --max-instances=3
+
+      - name: Smoke test
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE }} --region "${{ env.GCP_REGION }}" --format='value(status.url)')
+          curl -fsS "$URL/health"
