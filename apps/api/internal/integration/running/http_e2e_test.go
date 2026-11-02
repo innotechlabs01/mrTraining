@@ -32,7 +32,7 @@ func setupE2EApp(t *testing.T) (*fiber.App, *runningapp.Service, *runninginfra.R
 
 	db := newTestDB(t)
 	repo := runninginfra.NewRepository(db.DB)
-	svc := runningapp.NewService(repo)
+	svc := runningapp.NewService(repo, nil)
 	handler := handlers.NewRunningWorkoutHandler(svc)
 
 	app := fiber.New()
@@ -233,7 +233,7 @@ func TestHTTP_GetTemplate(t *testing.T) {
 		t.Fatalf("failed to create template: %v", err)
 	}
 
-	resp, err := doJSONRequest(t, app, "GET", "/api/v1/running/workouts/templates/"+template.ID, nil, nil)
+	resp, err := doJSONRequest(t, app, "GET", "/api/v1/running/workouts/templates/"+template.ID, nil, coachTestAuth(coachID))
 	if err != nil {
 		t.Fatalf("failed to execute request: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestHTTP_UpdateTemplate(t *testing.T) {
 	}
 
 	// Verify via HTTP GET
-	resp, err := doJSONRequest(t, app, "GET", "/api/v1/running/workouts/templates/"+template.ID, nil, nil)
+	resp, err := doJSONRequest(t, app, "GET", "/api/v1/running/workouts/templates/"+template.ID, nil, coachTestAuth(coachID))
 	if err != nil {
 		t.Fatalf("failed to execute request: %v", err)
 	}

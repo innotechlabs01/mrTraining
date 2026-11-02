@@ -11,7 +11,7 @@ import { WelcomeScreen } from '../features/auth/presentation/screens/WelcomeScre
 import { SignInScreen } from '../features/auth/presentation/screens/SignInScreen';
 import { InviteAcceptScreen } from '../features/auth/presentation/screens/InviteAcceptScreen';
 import { OnboardingScreen, OnboardingData } from '../features/auth/presentation/screens/OnboardingScreen';
-import { MembershipGate } from '../features/membership/presentation/MembershipGate';
+import { AccessGate } from '../features/subscription/presentation/AccessGate';
 import { AthleteTabs } from './AthleteTabs';
 import { darkTheme } from '../shared/theme/navigationTheme';
 
@@ -138,15 +138,10 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 // --- Wrappers ---
 function AthleteTabsWithGate() {
-  const { user } = useUser();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   return (
-    <MembershipGate
-      athleteId={user?.id ?? null}
-      onNoMembership={() => navigation.replace('MembershipCheck')}
-    >
+    <AccessGate>
       <AthleteTabs />
-    </MembershipGate>
+    </AccessGate>
   );
 }
 

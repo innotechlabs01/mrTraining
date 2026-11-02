@@ -377,11 +377,11 @@ func (s *Service) GetRunningStatsByAthlete(ctx context.Context, athleteID string
 
 // WeeklyTrendPoint represents a single week of running data for charts.
 type WeeklyTrendPoint struct {
-	Week           string  `json:"week"`
-	Distance       float64 `json:"distance"`        // km
-	Sessions       int     `json:"sessions"`
-	AvgPaceSec     float64 `json:"avg_pace_sec"`    // seconds per km
-	AvgHeartRate   int     `json:"avg_heart_rate"`  // bpm
+	Week         string  `json:"week"`
+	Distance     float64 `json:"distance"` // km
+	Sessions     int     `json:"sessions"`
+	AvgPaceSec   float64 `json:"avg_pace_sec"`   // seconds per km
+	AvgHeartRate int     `json:"avg_heart_rate"` // bpm
 }
 
 // GetRunningWeeklyTrendByAthlete returns weekly aggregated running data for an athlete.
@@ -689,7 +689,48 @@ func (s *Service) ListTemplatesByCoach(ctx context.Context, coachID string) ([]*
 	return templates, nil
 }
 
-// DeleteTemplate soft-deletes a template.
+// UpdateTemplate updates template mutable fields and persistence.
+func (s *Service) UpdateTemplate(ctx context.Context, id, name, description string, ttype domain.RunningWorkoutTemplateType, targetPaceMin, targetPaceMax *float64, targetHRMin, targetHRMax, targetCadence *int, targetDistance *float64, targetDuration *int) error {
+	t, err := s.repo.GetTemplate(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get template: %w", err)
+	}
+	if name != "" {
+		t.Name = name
+	}
+	if description != "" {
+		t.Description = description
+	}
+	if ttype != "" {
+		t.Type = ttype
+	}
+	if targetPaceMin != nil {
+		t.TargetPaceMinPerKm = targetPaceMin
+	}
+	if targetPaceMax != nil {
+		t.TargetPaceMaxPerKm = targetPaceMax
+	}
+	if targetHRMin != nil {
+		t.TargetHeartRateMin = targetHRMin
+	}
+	if targetHRMax != nil {
+		t.TargetHeartRateMax = targetHRMax
+	}
+	if targetCadence != nil {
+		t.TargetCadence = targetCadence
+	}
+	if targetDistance != nil {
+		t.TargetDistanceKm = targetDistance
+	}
+	if targetDuration != nil {
+		t.TargetDurationSec = targetDuration
+	}
+	if err := s.repo.SaveTemplate(ctx, t); err != nil {
+		return fmt.Errorf("update template: %w", err)
+	}
+	return nil
+}
+
 func (s *Service) DeleteTemplate(ctx context.Context, id string) error {
 	if err := s.repo.DeleteTemplate(ctx, id); err != nil {
 		return fmt.Errorf("delete template: %w", err)
@@ -713,6 +754,31 @@ func (s *Service) CreateAssignment(ctx context.Context, a *domain.RunningWorkout
 	if a.Status == "" {
 		a.Status = domain.AssignmentStatusAssigned
 	}
+	if a.ID == "" {
+		a.ID = uuid.New().String()
+	}
+	// Validate template exists and belongs to the coach.
+	template, err := s.repo.GetTemplate(ctx, a.TemplateID)
+	if err != nil {
+		return fmt.Errorf("get template: %w", err)
+	}
+	if template == nil {
+		return fmt.Errorf("template not found: %s", a.TemplateID)
+	}
+	if template.CoachID != a.CoachID {
+		return fmt.Errorf("coach %s does not own template %s", a.CoachID, a.TemplateID)
+	}
+	// Prevent duplicate active assignment for same athlete+template.
+	for _, status := range []domain.RunningWorkoutAssignmentStatus{domain.AssignmentStatusAssigned, domain.AssignmentStatusStarted} {
+		existing, err := s.repo.ListAssignmentsByAthlete(ctx, a.AthleteID, status)
+		if err == nil {
+			for _, aa := range existing {
+				if aa.TemplateID == a.TemplateID {
+					return fmt.Errorf("duplicate active assignment for athlete %s and template %s", a.AthleteID, a.TemplateID)
+				}
+			}
+		}
+	}
 	if err := s.repo.SaveAssignment(ctx, a); err != nil {
 		return fmt.Errorf("create assignment: %w", err)
 	}
@@ -729,10 +795,32 @@ func (s *Service) CreateAssignment(ctx context.Context, a *domain.RunningWorkout
 }
 
 // GetAssignment retrieves an assignment by ID.
-func (s *Service) GetAssignment(ctx context.Context, id string) (*domain.RunningWorkoutAssignment, error) {
+// AssignTemplate is an alias used by tests/older callers.
+func (s *Service) AssignTemplate(ctx context.Context, a *domain.RunningWorkoutAssignment) error {
+	return s.CreateAssignment(ctx, a)
+}
+
+// GetAssignment retrieves an assignment by ID. Optional principal info can be
+// provided to enforce ownership (coach/athlete).
+func (s *Service) GetAssignment(ctx context.Context, id string, principal ...string) (*domain.RunningWorkoutAssignment, error) {
 	a, err := s.repo.GetAssignment(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get assignment: %w", err)
+	}
+	if len(principal) >= 2 {
+		userID, role := principal[0], principal[1]
+		switch role {
+		case "coach":
+			if a.CoachID != userID {
+				return nil, apperrors.Forbidden("not allowed to read this assignment")
+			}
+		case "athlete":
+			if a.AthleteID != userID {
+				return nil, apperrors.Forbidden("not allowed to read this assignment")
+			}
+		default:
+			return nil, apperrors.Forbidden("not allowed to read this assignment")
+		}
 	}
 	return a, nil
 }
@@ -839,6 +927,12 @@ func (s *Service) CompleteSession(ctx context.Context, sessionID, athleteID stri
 	if err != nil && !(errors.As(err, &appErr) && appErr.Code == "NOT_FOUND") {
 		return fmt.Errorf("get running snapshot: %w", err)
 	}
+	// Guard against duplicate completion for linked assignments.
+	if snapshot != nil {
+		if assignment, err := s.repo.GetAssignment(ctx, snapshot.AssignmentID); err == nil && assignment != nil && assignment.Status == domain.AssignmentStatusCompleted {
+			return fmt.Errorf("session already completed")
+		}
+	}
 	// Keep server identity, date, source and device metadata, never payload values.
 	updated := *existing
 	updated.Distance, updated.Duration, updated.Pace = session.Distance, session.Duration, session.Pace
@@ -861,11 +955,24 @@ func (s *Service) CompleteSession(ctx context.Context, sessionID, athleteID stri
 }
 
 // insertOutboxTemplateCreated inserts a template.created event into the Outbox table.
+// FinishSession finalizes a session without full metrics payload.
+func (s *Service) FinishSession(ctx context.Context, sessionID, athleteID string) error {
+	return s.CompleteSession(ctx, sessionID, athleteID, &domain.RunningSession{})
+}
+
+// GetSnapshotBySession delegates to repository.
+func (s *Service) GetSnapshotBySession(ctx context.Context, sessionID string) (*domain.RunningWorkoutSnapshot, error) {
+	return s.repo.GetSnapshotBySession(ctx, sessionID)
+}
+
 func (s *Service) insertOutboxTemplateCreated(ctx context.Context, templateID, coachID string) error {
+	if s.db == nil {
+		return nil
+	}
 	payload := map[string]interface{}{
-		"name":        templateID, // simplified; in a real implementation would include full template data
-		"coach_id":    coachID,
-		"version":     1,
+		"name":     templateID, // simplified; in a real implementation would include full template data
+		"coach_id": coachID,
+		"version":  1,
 	}
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
@@ -876,11 +983,14 @@ func (s *Service) insertOutboxTemplateCreated(ctx context.Context, templateID, c
 
 // insertOutboxAssignmentCreated inserts an assignment.created event into the Outbox table.
 func (s *Service) insertOutboxAssignmentCreated(ctx context.Context, assignmentID, coachID, athleteID string) error {
+	if s.db == nil {
+		return nil
+	}
 	payload := map[string]interface{}{
-		"coach_id":  coachID,
-		"athlete_id": athleteID,
+		"coach_id":    coachID,
+		"athlete_id":  athleteID,
 		"template_id": assignmentID,
-		"status":    "assigned",
+		"status":      "assigned",
 	}
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
@@ -891,10 +1001,13 @@ func (s *Service) insertOutboxAssignmentCreated(ctx context.Context, assignmentI
 
 // insertOutboxWorkoutStarted inserts a workout.started event into the Outbox table.
 func (s *Service) insertOutboxWorkoutStarted(ctx context.Context, sessionID, athleteID, templateID string) error {
+	if s.db == nil {
+		return nil
+	}
 	payload := map[string]interface{}{
-		"athlete_id":   athleteID,
-		"template_id":  templateID,
-		"session_id":   sessionID,
+		"athlete_id":  athleteID,
+		"template_id": templateID,
+		"session_id":  sessionID,
 	}
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
@@ -905,6 +1018,9 @@ func (s *Service) insertOutboxWorkoutStarted(ctx context.Context, sessionID, ath
 
 // insertOutboxWorkoutCompleted inserts a workout.completed event into the Outbox table.
 func (s *Service) insertOutboxWorkoutCompleted(ctx context.Context, sessionID, athleteID string) error {
+	if s.db == nil {
+		return nil
+	}
 	payload := map[string]interface{}{
 		"athlete_id": athleteID,
 		"session_id": sessionID,

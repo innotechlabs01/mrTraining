@@ -1,47 +1,97 @@
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useQuery } from '@tanstack/react-query';
-import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import type { RootStackParamList } from '../../../../navigation/Navigation';
-import { colors, layout, radius, shadows, spacing, typography } from '../../../../shared/theme/tokens';
-import { BellIcon, ChartBarIcon, SearchIcon } from '../../../../shared/components/icons';
-import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
-import { useAnalyticsSummary, usePerExerciseAnalytics } from '../../../training/hooks/useVideoAnalytics';
-import { useWeeklyLeaderboard } from '../../../gamification/hooks/useLeaderboard';
-import { SegmentedFilter } from '../../../../shared/components/ui/SegmentedFilter';
-import { SectionHeader } from '../../../../shared/components/ui/SectionHeader';
-import { ProgressSummary } from '../components/ProgressSummary';
-import { texts } from '../../../../shared/i18n/texts';
+import React from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useQuery } from "@tanstack/react-query";
+import { useUser } from "@clerk/clerk-expo";
+import { smartClient as apiClient } from "../../../../infrastructure/api/client";
+import {
+  AthleteMetricsResponseListSchema,
+  parseAthleteResponse,
+  type AthleteMetric,
+} from "../../../../infrastructure/api/athleteSchemas";
+import type { RootStackParamList } from "../../../../navigation/Navigation";
+import {
+  colors,
+  layout,
+  radius,
+  shadows,
+  spacing,
+  typography,
+} from "../../../../shared/theme/tokens";
+import {
+  BellIcon,
+  ChartBarIcon,
+  SearchIcon,
+} from "../../../../shared/components/icons";
+import { ScreenHeader } from "../../../../shared/components/ui/ScreenHeader";
+import { EmptyState } from "../../../../shared/components/ui/EmptyState";
+import {
+  useAnalyticsSummary,
+  usePerExerciseAnalytics,
+} from "../../../training/hooks/useVideoAnalytics";
+import { useWeeklyLeaderboard } from "../../../gamification/hooks/useLeaderboard";
+import { SegmentedFilter } from "../../../../shared/components/ui/SegmentedFilter";
+import { SectionHeader } from "../../../../shared/components/ui/SectionHeader";
+import { ProgressSummary } from "../components/ProgressSummary";
+import { texts } from "../../../../shared/i18n/texts";
 
 const t = texts.screens.progressScreen;
 
 type TodayData = {
   readiness: { sleep: number; hrv: number; recovery: number; score: number };
-  todaySessions: Array<{ id: string; name: string; time: string; endTime: string; location: string; status: string }>;
-  activeWorkouts: Array<{ id: string; contentName: string; modality: string; status: string; progress: number }>;
+  todaySessions: Array<{
+    id: string;
+    name: string;
+    time: string;
+    endTime: string;
+    location: string;
+    status: string;
+  }>;
+  activeWorkouts: Array<{
+    id: string;
+    contentName: string;
+    modality: string;
+    status: string;
+    progress: number;
+  }>;
 };
 
-type Nav = NativeStackNavigationProp<RootStackParamList, 'Progress'>;
+type Nav = NativeStackNavigationProp<RootStackParamList, "Progress">;
 
 const PERIODS = [
-  { key: 'week', label: t.rangeWeek },
-  { key: 'month', label: t.rangeMonth },
-  { key: 'year', label: t.rangeYear },
+  { key: "week", label: t.rangeWeek },
+  { key: "month", label: t.rangeMonth },
+  { key: "year", label: t.rangeYear },
 ];
 
 export function ProgressScreen() {
   const navigation = useNavigation<Nav>();
-  const [period, setPeriod] = React.useState('week');
+  const { user } = useUser();
+  const athleteId = user?.id ?? "";
+  const [period, setPeriod] = React.useState("week");
 
   const { data: today, isLoading } = useQuery({
-    queryKey: ['athlete-today'],
+    queryKey: ["athlete-today"],
     queryFn: async () => {
-      const { data } = await apiClient.get('/athlete/today');
+      const { data } = await apiClient.get("/athlete/today");
       return data as TodayData;
     },
+    staleTime: 60_000,
+  });
+
+  const { data: metrics, isLoading: metricsLoading } = useQuery({
+    queryKey: ["athlete-metrics", athleteId],
+    queryFn: async () => {
+      const { data } = await apiClient.get(`/athletes/${athleteId}/metrics`);
+      const response = parseAthleteResponse(
+        AthleteMetricsResponseListSchema,
+        data,
+      );
+      return response.data;
+    },
+    enabled: athleteId.length > 0,
     staleTime: 60_000,
   });
 
@@ -57,10 +107,18 @@ export function ProgressScreen() {
           onBack={() => navigation.goBack()}
           action={
             <View style={styles.headerRight}>
-              <Pressable accessibilityLabel={texts.common.search} onPress={() => navigation.navigate('Search')} style={styles.iconButton}>
+              <Pressable
+                accessibilityLabel={texts.common.search}
+                onPress={() => navigation.navigate("Search")}
+                style={styles.iconButton}
+              >
                 <SearchIcon size={18} color={colors.textSecondary} />
               </Pressable>
-              <Pressable accessibilityLabel={texts.common.notifications} onPress={() => navigation.navigate('Notifications')} style={styles.iconButton}>
+              <Pressable
+                accessibilityLabel={texts.common.notifications}
+                onPress={() => navigation.navigate("Notifications")}
+                style={styles.iconButton}
+              >
                 <BellIcon size={18} color={colors.textSecondary} />
               </Pressable>
             </View>
@@ -68,26 +126,73 @@ export function ProgressScreen() {
         />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <SegmentedFilter options={PERIODS} value={period} onChange={setPeriod} />
-        <SectionHeader title={t.summaryTab} icon={<ChartBarIcon size={18} color={colors.textSecondary} />} />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <SegmentedFilter
+          options={PERIODS}
+          value={period}
+          onChange={setPeriod}
+        />
+        <SectionHeader
+          title={t.summaryTab}
+          icon={<ChartBarIcon size={18} color={colors.textSecondary} />}
+        />
         <ProgressSummary data={today} loading={isLoading} />
+
+        {/* Athlete metrics from Go API /athletes/:id/metrics */}
+        {metricsLoading ? (
+          <View style={styles.metricRowPlaceholder} />
+        ) : (metrics ?? []).length > 0 ? (
+          <>
+            <SectionHeader
+              title={t.metricsTab}
+              icon={<ChartBarIcon size={18} color={colors.textSecondary} />}
+            />
+            <View style={styles.statsRow}>
+              {(metrics ?? []).map((m) => (
+                <View key={m.metric_date ?? ""} style={styles.statCard}>
+                  <Text style={styles.statValue}>
+                    {m.weight_kg != null ? `${m.weight_kg} kg` : "—"}
+                  </Text>
+                  <Text style={styles.statLabel}>{t.weight}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        ) : (
+          <EmptyState
+            variant="empty"
+            title={t.metricsEmptyTitle}
+            message={t.metricsEmptyMessage}
+          />
+        )}
 
         {/* Video Analytics Summary */}
         {analyticsSummary && (
           <>
-            <SectionHeader title={t.videoTab} icon={<ChartBarIcon size={18} color={colors.textSecondary} />} />
+            <SectionHeader
+              title={t.videoTab}
+              icon={<ChartBarIcon size={18} color={colors.textSecondary} />}
+            />
             <View style={styles.statsRow}>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{analyticsSummary.total_sessions}</Text>
+                <Text style={styles.statValue}>
+                  {analyticsSummary.total_sessions}
+                </Text>
                 <Text style={styles.statLabel}>{t.sessions}</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{analyticsSummary.total_reps}</Text>
+                <Text style={styles.statValue}>
+                  {analyticsSummary.total_reps}
+                </Text>
                 <Text style={styles.statLabel}>{t.totalReps}</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{analyticsSummary.avg_form_score.toFixed(1)}</Text>
+                <Text style={styles.statValue}>
+                  {analyticsSummary.avg_form_score.toFixed(1)}
+                </Text>
                 <Text style={styles.statLabel}>{t.avgForm}</Text>
               </View>
             </View>
@@ -97,14 +202,25 @@ export function ProgressScreen() {
         {/* Per Exercise Analytics */}
         {exerciseAnalytics && exerciseAnalytics.length > 0 && (
           <>
-            <SectionHeader title={t.byExercise} icon={<ChartBarIcon size={18} color={colors.textSecondary} />} />
+            <SectionHeader
+              title={t.byExercise}
+              icon={<ChartBarIcon size={18} color={colors.textSecondary} />}
+            />
             {exerciseAnalytics.map((exercise) => (
               <View key={exercise.exercise_id} style={styles.exerciseCard}>
-                <Text style={styles.exerciseName}>{exercise.exercise_name}</Text>
+                <Text style={styles.exerciseName}>
+                  {exercise.exercise_name}
+                </Text>
                 <View style={styles.exerciseStats}>
-                  <Text style={styles.exerciseStat}>{exercise.total_sessions} {t.statSessions}</Text>
-                  <Text style={styles.exerciseStat}>{exercise.avg_form_score.toFixed(1)} {t.statForm}</Text>
-                  <Text style={styles.exerciseStat}>{exercise.total_reps} {t.statReps}</Text>
+                  <Text style={styles.exerciseStat}>
+                    {exercise.total_sessions} {t.statSessions}
+                  </Text>
+                  <Text style={styles.exerciseStat}>
+                    {exercise.avg_form_score.toFixed(1)} {t.statForm}
+                  </Text>
+                  <Text style={styles.exerciseStat}>
+                    {exercise.total_reps} {t.statReps}
+                  </Text>
                 </View>
               </View>
             ))}
@@ -114,10 +230,18 @@ export function ProgressScreen() {
         {/* Weekly Leaderboard */}
         {weeklyLeaderboard && weeklyLeaderboard.length > 0 && (
           <>
-            <SectionHeader title={t.weeklyLeaderboard} icon={<ChartBarIcon size={18} color={colors.textSecondary} />} />
+            <SectionHeader
+              title={t.weeklyLeaderboard}
+              icon={<ChartBarIcon size={18} color={colors.textSecondary} />}
+            />
             {weeklyLeaderboard.slice(0, 5).map((entry, index) => (
-              <View key={`${entry.athlete_id}-${entry.week_start}`} style={styles.leaderboardRow}>
-                <Text style={[styles.rank, index === 0 && styles.rankFirst]}>{index + 1}</Text>
+              <View
+                key={`${entry.athlete_id}-${entry.week_start}`}
+                style={styles.leaderboardRow}
+              >
+                <Text style={[styles.rank, index === 0 && styles.rankFirst]}>
+                  {index + 1}
+                </Text>
                 <Text style={styles.athleteName}>{entry.athlete_name}</Text>
                 <Text style={styles.points}>{entry.points} pts</Text>
               </View>
@@ -132,7 +256,7 @@ export function ProgressScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
   headerWrap: { paddingHorizontal: layout.pagePadding },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   iconButton: {
     width: 48,
     height: 48,
@@ -140,13 +264,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceRaised,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     ...shadows.sm,
   },
   content: { padding: layout.pagePadding, paddingBottom: 48, gap: spacing.md },
+  metricRowPlaceholder: { height: 88 },
   statsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.sm,
   },
   statCard: {
@@ -154,12 +279,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceRaised,
     borderRadius: radius.md,
     padding: spacing.md,
-    alignItems: 'center',
+    alignItems: "center",
   },
   statValue: {
     ...typography.h3,
     color: colors.primary,
-    fontVariant: ['tabular-nums'],
+    fontVariant: ["tabular-nums"],
   },
   statLabel: {
     ...typography.caption,
@@ -178,17 +303,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   exerciseStats: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.md,
   },
   exerciseStat: {
     ...typography.caption,
     color: colors.textSecondary,
-    fontVariant: ['tabular-nums'],
+    fontVariant: ["tabular-nums"],
   },
   leaderboardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.surfaceRaised,
     borderRadius: radius.md,
     padding: spacing.md,
@@ -198,7 +323,7 @@ const styles = StyleSheet.create({
     ...typography.bodyBold,
     color: colors.textSecondary,
     width: 24,
-    fontVariant: ['tabular-nums'],
+    fontVariant: ["tabular-nums"],
   },
   rankFirst: {
     color: colors.primary,
@@ -211,6 +336,6 @@ const styles = StyleSheet.create({
   points: {
     ...typography.bodyBold,
     color: colors.primary,
-    fontVariant: ['tabular-nums'],
+    fontVariant: ["tabular-nums"],
   },
 });

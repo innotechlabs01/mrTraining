@@ -25,6 +25,7 @@
  */
 import { goClient, goFetch, goFetchBlob } from '@/lib/api/go-client'
 import type { CoachEvent } from '@/features/coach/types'
+import type { CoachLandingResponse } from '@/features/coach/types'
 import type { EarningsSummary } from '@/features/coach/types'
 import type { Plan } from '@/features/coach/types'
 import type { Product } from '@/features/coach/types'
@@ -776,6 +777,11 @@ export const coachingApi = {
       .then((res) => (Array.isArray(res) ? res : (res.data ?? []).map(mapGoPlan))),
   getTRM: <T>() =>
     goFetch<T>(`/public/trm`, { auth: false }),
+
+  // Public coach landing page — no auth
+  // GET /public/coach/:slug  (coach profile + plan catalog)
+  getPublicCoachPage: (slug: string) =>
+    goFetch<CoachLandingResponse>(`/public/coach/${slug}`, { auth: false }),
 
   // Tickets (Support) — Go API (primary) with Next.js fallback
   getTickets: <T>() =>

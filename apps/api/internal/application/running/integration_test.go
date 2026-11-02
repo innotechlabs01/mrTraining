@@ -7,9 +7,9 @@ import (
 	"time"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/running"
+	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/running"
-	"github.com/innotechlabs01/mr-training-api/internal/errors"
 )
 
 func newTestDB(t *testing.T) *database.DB {
@@ -31,7 +31,7 @@ func TestIntegration_CreateTemplate_PostgreSQL(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo)
+	svc := NewService(repo, nil)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
@@ -72,7 +72,7 @@ func TestIntegration_AssignTemplate_PostgreSQL(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo)
+	svc := NewService(repo, nil)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
@@ -88,11 +88,11 @@ func TestIntegration_AssignTemplate_PostgreSQL(t *testing.T) {
 	}
 
 	assignment := &domain.RunningWorkoutAssignment{
-		TemplateID:      template.ID,
-		AthleteID:       "athlete-integration-1",
-		CoachID:         "coach-integration-2",
-		ScheduledDate:   now.Add(24 * time.Hour),
-		Status:          domain.AssignmentStatusAssigned,
+		TemplateID:          template.ID,
+		AthleteID:           "athlete-integration-1",
+		CoachID:             "coach-integration-2",
+		ScheduledDate:       now.Add(24 * time.Hour),
+		Status:              domain.AssignmentStatusAssigned,
 		AthleteInstructions: "Run easy today",
 	}
 	if err := svc.AssignTemplate(ctx, assignment); err != nil {
@@ -120,7 +120,7 @@ func TestIntegration_AssignTemplate_UnauthorizedCoach(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo)
+	svc := NewService(repo, nil)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
@@ -137,10 +137,10 @@ func TestIntegration_AssignTemplate_UnauthorizedCoach(t *testing.T) {
 
 	// Try to assign with different coach
 	assignment := &domain.RunningWorkoutAssignment{
-		TemplateID:    template.ID,
-		AthleteID:     "athlete-integration-2",
-		CoachID:       "coach-other",
-		Status:        domain.AssignmentStatusAssigned,
+		TemplateID: template.ID,
+		AthleteID:  "athlete-integration-2",
+		CoachID:    "coach-other",
+		Status:     domain.AssignmentStatusAssigned,
 	}
 	err := svc.AssignTemplate(ctx, assignment)
 	if err == nil {
@@ -153,7 +153,7 @@ func TestIntegration_StartSession_PostgreSQL(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo)
+	svc := NewService(repo, nil)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
@@ -169,11 +169,11 @@ func TestIntegration_StartSession_PostgreSQL(t *testing.T) {
 	}
 
 	assignment := &domain.RunningWorkoutAssignment{
-		TemplateID:  template.ID,
-		AthleteID:   "athlete-integration-3",
-		CoachID:     "coach-integration-4",
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-integration-3",
+		CoachID:       "coach-integration-4",
 		ScheduledDate: now.Add(24 * time.Hour),
-		Status:      domain.AssignmentStatusAssigned,
+		Status:        domain.AssignmentStatusAssigned,
 	}
 	if err := svc.AssignTemplate(ctx, assignment); err != nil {
 		t.Fatalf("unexpected error assigning template: %v", err)
@@ -208,27 +208,27 @@ func TestIntegration_ImmutableSnapshot_PostgreSQL(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo)
+	svc := NewService(repo, nil)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
-		CoachID:   "coach-integration-5",
-		Name:      "Original Template",
+		CoachID:     "coach-integration-5",
+		Name:        "Original Template",
 		Description: "Original",
-		Version:   1,
-		CreatedAt: now,
-		UpdatedAt: now,
+		Version:     1,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 	if err := svc.CreateTemplate(ctx, template); err != nil {
 		t.Fatalf("unexpected error creating template: %v", err)
 	}
 
 	assignment := &domain.RunningWorkoutAssignment{
-		TemplateID:  template.ID,
-		AthleteID:   "athlete-integration-4",
-		CoachID:     "coach-integration-5",
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-integration-4",
+		CoachID:       "coach-integration-5",
 		ScheduledDate: now.Add(24 * time.Hour),
-		Status:      domain.AssignmentStatusAssigned,
+		Status:        domain.AssignmentStatusAssigned,
 	}
 	if err := svc.AssignTemplate(ctx, assignment); err != nil {
 		t.Fatalf("unexpected error assigning template: %v", err)
@@ -266,7 +266,7 @@ func TestIntegration_FinishSession_PostgreSQL(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo)
+	svc := NewService(repo, nil)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
@@ -282,11 +282,11 @@ func TestIntegration_FinishSession_PostgreSQL(t *testing.T) {
 	}
 
 	assignment := &domain.RunningWorkoutAssignment{
-		TemplateID:  template.ID,
-		AthleteID:   "athlete-integration-5",
-		CoachID:     "coach-integration-6",
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-integration-5",
+		CoachID:       "coach-integration-6",
 		ScheduledDate: now.Add(24 * time.Hour),
-		Status:      domain.AssignmentStatusAssigned,
+		Status:        domain.AssignmentStatusAssigned,
 	}
 	if err := svc.AssignTemplate(ctx, assignment); err != nil {
 		t.Fatalf("unexpected error assigning template: %v", err)
@@ -318,7 +318,7 @@ func TestIntegration_FinishSession_Idempotent(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo)
+	svc := NewService(repo, nil)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
@@ -334,11 +334,11 @@ func TestIntegration_FinishSession_Idempotent(t *testing.T) {
 	}
 
 	assignment := &domain.RunningWorkoutAssignment{
-		TemplateID:  template.ID,
-		AthleteID:   "athlete-integration-6",
-		CoachID:     "coach-integration-7",
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-integration-6",
+		CoachID:       "coach-integration-7",
 		ScheduledDate: now.Add(24 * time.Hour),
-		Status:      domain.AssignmentStatusAssigned,
+		Status:        domain.AssignmentStatusAssigned,
 	}
 	if err := svc.AssignTemplate(ctx, assignment); err != nil {
 		t.Fatalf("unexpected error assigning template: %v", err)
@@ -366,7 +366,7 @@ func TestIntegration_CrossCoachAthleteAccess(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo)
+	svc := NewService(repo, nil)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
@@ -381,11 +381,11 @@ func TestIntegration_CrossCoachAthleteAccess(t *testing.T) {
 	}
 
 	assignment := &domain.RunningWorkoutAssignment{
-		TemplateID:  template.ID,
-		AthleteID:   "athlete-integration-7",
-		CoachID:     "coach-integration-8",
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-integration-7",
+		CoachID:       "coach-integration-8",
 		ScheduledDate: now.Add(24 * time.Hour),
-		Status:      domain.AssignmentStatusAssigned,
+		Status:        domain.AssignmentStatusAssigned,
 	}
 	if err := svc.AssignTemplate(ctx, assignment); err != nil {
 		t.Fatalf("unexpected error assigning template: %v", err)
