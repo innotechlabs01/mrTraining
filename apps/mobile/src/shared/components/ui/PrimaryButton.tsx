@@ -1,6 +1,7 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '../../theme/tokens';
+import { AnimatedPressable } from './AnimatedPressable';
 
 type Variant = 'primary' | 'ghost' | 'outline' | 'subtle';
 type Size = 'md' | 'lg';
@@ -34,7 +35,7 @@ export function PrimaryButton({
 }: Props) {
   const isActive = disabled || loading || error;
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityState={{ disabled: isActive, busy: loading }}
       accessibilityLabel={label}
@@ -60,7 +61,7 @@ export function PrimaryButton({
           </Text>
         </View>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 

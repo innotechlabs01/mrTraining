@@ -43,7 +43,7 @@ describe('AnimatedPressable', () => {
   });
 
   it('preserves a function style and passes the pressed state through', () => {
-    const styleFn = jest.fn(() => ({ opacity: 0.7 }));
+    const styleFn = jest.fn((_state: { pressed: boolean }) => ({ opacity: 0.7 }));
     const { getByTestId } = render(
       <AnimatedPressable testID="tap" style={styleFn}>
         <Text>TAP ME</Text>
