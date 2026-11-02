@@ -2,14 +2,14 @@ package middleware_test
 
 import (
 	"context"
-	"fmt"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,9 +22,9 @@ func setAthleteID(t *testing.T, athleteID string) fiber.Handler {
 
 // fakeMembershipReader implements middleware.MembershipStatusReader for testing.
 type fakeMembershipReader struct {
-	status     string
-	hasActive  bool
-	err        error
+	status    string
+	hasActive bool
+	err       error
 }
 
 func (f *fakeMembershipReader) GetMembershipStatus(ctx context.Context, athleteID string) (string, bool, error) {
@@ -122,7 +122,7 @@ func TestRequireActiveMembership_CancelledStatus_Returns403(t *testing.T) {
 
 func TestRequireActiveMembership_NoMembership_Returns403(t *testing.T) {
 	// Reader reports no membership via AppError - middleware should 403, not pass through
-	reader := &fakeMembershipReader{status: "", hasActive: false, err: &errors.AppError{"membership not found", "membership not found", fiber.StatusForbidden}}
+	reader := &fakeMembershipReader{status: "", hasActive: false, err: &errors.AppError{Code: "MEMBERSHIP_REQUIRED", Message: "membership not found", Status: fiber.StatusForbidden}}
 	mw := middleware.RequireActiveMembership(reader)
 
 	app := fiber.New()

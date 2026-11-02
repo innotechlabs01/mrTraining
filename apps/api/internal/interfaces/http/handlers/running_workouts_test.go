@@ -138,7 +138,7 @@ func TestGetTemplate_OwnerCanFetch(t *testing.T) {
 		CoachID: "coach-1",
 		Name:    "Morning Run",
 	}
-	svc := runningapp.NewService(repo)
+	svc := runningapp.NewService(repo, nil)
 
 	app := setupApp("coach-1", svc)
 	req := httptest.NewRequest(http.MethodGet, "/running/workouts/templates/template-1", nil)
@@ -157,7 +157,7 @@ func TestGetTemplate_NonOwnerIsForbidden(t *testing.T) {
 		CoachID: "coach-1",
 		Name:    "Morning Run",
 	}
-	svc := runningapp.NewService(repo)
+	svc := runningapp.NewService(repo, nil)
 
 	// coach-2 tries to fetch coach-1's template
 	app := setupApp("coach-2", svc)
@@ -174,7 +174,7 @@ func TestGetTemplate_NoAuthIsUnauthorized(t *testing.T) {
 		CoachID: "coach-1",
 		Name:    "Morning Run",
 	}
-	svc := runningapp.NewService(repo)
+	svc := runningapp.NewService(repo, nil)
 
 	app := setupApp("", svc)
 	req := httptest.NewRequest(http.MethodGet, "/running/workouts/templates/template-1", nil)
@@ -189,7 +189,7 @@ func TestGetTemplate_AssignedAthleteCanFetch(t *testing.T) {
 	repo.assignments["assignment-1"] = &domain.RunningWorkoutAssignment{
 		ID: "assignment-1", AthleteID: "athlete-1", CoachID: "coach-1", TemplateID: "template-1",
 	}
-	app := setupApp("athlete-1", runningapp.NewService(repo))
+	app := setupApp("athlete-1", runningapp.NewService(repo, nil))
 	resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/running/workouts/templates/template-1", nil))
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -199,7 +199,7 @@ func TestCoachAssignments_DoesNotExposeAnotherCoachsAssignments(t *testing.T) {
 	repo := newMockRunningRepository()
 	repo.assignments["mine"] = &domain.RunningWorkoutAssignment{ID: "mine", AthleteID: "athlete-1", CoachID: "coach-1"}
 	repo.assignments["other"] = &domain.RunningWorkoutAssignment{ID: "other", AthleteID: "athlete-1", CoachID: "coach-2"}
-	app := setupApp("coach-1", runningapp.NewService(repo))
+	app := setupApp("coach-1", runningapp.NewService(repo, nil))
 	resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/coach/athletes/athlete-1/running/assignments", nil))
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -218,7 +218,7 @@ func TestGetAssignment_AthleteCanFetch(t *testing.T) {
 		TemplateID: "template-1",
 		Status:     domain.AssignmentStatusAssigned,
 	}
-	svc := runningapp.NewService(repo)
+	svc := runningapp.NewService(repo, nil)
 
 	app := setupApp("athlete-1", svc)
 	req := httptest.NewRequest(http.MethodGet, "/running/workouts/assignments/assignment-1", nil)
@@ -236,7 +236,7 @@ func TestGetAssignment_CoachCanFetch(t *testing.T) {
 		TemplateID: "template-1",
 		Status:     domain.AssignmentStatusAssigned,
 	}
-	svc := runningapp.NewService(repo)
+	svc := runningapp.NewService(repo, nil)
 
 	app := setupApp("coach-1", svc)
 	req := httptest.NewRequest(http.MethodGet, "/running/workouts/assignments/assignment-1", nil)
@@ -254,7 +254,7 @@ func TestGetAssignment_NonInvolvedUserIsForbidden(t *testing.T) {
 		TemplateID: "template-1",
 		Status:     domain.AssignmentStatusAssigned,
 	}
-	svc := runningapp.NewService(repo)
+	svc := runningapp.NewService(repo, nil)
 
 	// athlete-2 is neither the athlete nor the coach of this assignment
 	app := setupApp("athlete-2", svc)
@@ -273,7 +273,7 @@ func TestGetAssignment_NoAuthIsUnauthorized(t *testing.T) {
 		TemplateID: "template-1",
 		Status:     domain.AssignmentStatusAssigned,
 	}
-	svc := runningapp.NewService(repo)
+	svc := runningapp.NewService(repo, nil)
 
 	app := setupApp("", svc)
 	req := httptest.NewRequest(http.MethodGet, "/running/workouts/assignments/assignment-1", nil)
@@ -293,7 +293,7 @@ func TestCompleteSession_PreservesDateSourceCreatedAt(t *testing.T) {
 		Distance:  0,
 		Duration:  0,
 	}
-	svc := runningapp.NewService(repo)
+	svc := runningapp.NewService(repo, nil)
 
 	app := setupApp("athlete-1", svc)
 	body := map[string]interface{}{
@@ -326,7 +326,7 @@ func TestCompleteSession_RejectsNonOwner(t *testing.T) {
 		Date:   "2026-10-18",
 		Source: domain.SourceManual,
 	}
-	svc := runningapp.NewService(repo)
+	svc := runningapp.NewService(repo, nil)
 
 	// athlete-2 tries to complete athlete-1's session
 	app := setupApp("athlete-2", svc)
@@ -364,7 +364,7 @@ func TestListMyAssignments_ReturnsAuthenticatedAthletesAssignments(t *testing.T)
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
 	}
-	svc := runningapp.NewService(repo)
+	svc := runningapp.NewService(repo, nil)
 
 	app := setupApp("athlete-1", svc)
 	req := httptest.NewRequest(http.MethodGet, "/running/workouts/assignments", nil)
@@ -382,7 +382,7 @@ func TestListMyAssignments_ReturnsAuthenticatedAthletesAssignments(t *testing.T)
 
 func TestListMyAssignments_NoAuthIsUnauthorized(t *testing.T) {
 	repo := newMockRunningRepository()
-	svc := runningapp.NewService(repo)
+	svc := runningapp.NewService(repo, nil)
 
 	app := setupApp("", svc)
 	req := httptest.NewRequest(http.MethodGet, "/running/workouts/assignments", nil)
@@ -403,7 +403,7 @@ func TestListAssignmentsByAthlete_CoachIDParam(t *testing.T) {
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
 	}
-	svc := runningapp.NewService(repo)
+	svc := runningapp.NewService(repo, nil)
 
 	app := setupApp("coach-1", svc)
 	req := httptest.NewRequest(http.MethodGet, "/coach/athletes/athlete-1/running/assignments", nil)
@@ -430,7 +430,7 @@ func TestListAssignmentsByAthlete_CoachCannotListOwnAssignments(t *testing.T) {
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
 	}
-	svc := runningapp.NewService(repo)
+	svc := runningapp.NewService(repo, nil)
 
 	app := setupApp("coach-1", svc)
 	req := httptest.NewRequest(http.MethodGet, "/coach/athletes/coach-1/running/assignments", nil)
