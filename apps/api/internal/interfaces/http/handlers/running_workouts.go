@@ -199,18 +199,34 @@ func (h *RunningWorkoutHandler) GetAssignment(c *fiber.Ctx) error {
 	return appresponse.Success(c, toAssignmentResponse(assignment))
 }
 
-// ListAssignmentsByAthlete handles GET /coach/athletes/:athleteId/running/assignments.
+// ListMyAssignments handles GET /running/workouts/assignments.
+// The authenticated athlete lists their own assigned running workouts,
+// optionally filtered with ?status=.
+func (h *RunningWorkoutHandler) ListMyAssignments(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	return h.respondAssignmentsByAthlete(c, userID)
+}
+
+// ListAssignmentsByAthlete handles GET /coach/athletes/:id/running/assignments.
 func (h *RunningWorkoutHandler) ListAssignmentsByAthlete(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
 	if userID == "" {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	athleteID := c.Params("athleteId")
+	athleteID := c.Params("id")
 	if athleteID == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "athlete id is required")
 	}
 
+	return h.respondAssignmentsByAthlete(c, athleteID)
+}
+
+func (h *RunningWorkoutHandler) respondAssignmentsByAthlete(c *fiber.Ctx, athleteID string) error {
 	status := domain.RunningWorkoutAssignmentStatus(c.Query("status"))
 	assignments, err := h.service.ListAssignmentsByAthlete(c.Context(), athleteID, status)
 	if err != nil {
