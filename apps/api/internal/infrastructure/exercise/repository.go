@@ -48,15 +48,15 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*exercise.Exercise
 	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
-		 default_sec, video_url, is_custom, coach_id, created_at, updated_at
+		 default_sec, video_url, image_url, is_custom, coach_id, created_at, updated_at
 		 FROM exercise_library WHERE id = $1`, id)
 
 	e := &exercise.ExerciseEntry{}
-	var bodyPart, equipment, difficulty, category, videoURL, coachID sql.NullString
+	var bodyPart, equipment, difficulty, category, videoURL, imageURL, coachID sql.NullString
 	var defaultSec sql.NullInt64
 	err := row.Scan(&e.ID, &e.Slug, &e.Name, &e.Description, &e.Mode, &bodyPart,
 		&e.MuscleGroups, &e.SecondaryMuscles, &equipment, &difficulty, &category,
-		&e.Instructions, &defaultSec, &videoURL, &e.IsCustom, &coachID,
+		&e.Instructions, &defaultSec, &videoURL, &imageURL, &e.IsCustom, &coachID,
 		&e.CreatedAt, &e.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, errors.NotFound("Exercise", id)
@@ -79,6 +79,9 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*exercise.Exercise
 	if videoURL.Valid {
 		e.VideoURL = videoURL.String
 	}
+	if imageURL.Valid {
+		e.ImageURL = imageURL.String
+	}
 	if coachID.Valid {
 		e.CoachID = &coachID.String
 	}
@@ -94,15 +97,15 @@ func (r *Repository) GetBySlug(ctx context.Context, slug string) (*exercise.Exer
 	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
-		 default_sec, video_url, is_custom, coach_id, created_at, updated_at
+		 default_sec, video_url, image_url, is_custom, coach_id, created_at, updated_at
 		 FROM exercise_library WHERE slug = $2`, slug)
 
 	e := &exercise.ExerciseEntry{}
-	var bodyPart, equipment, difficulty, category, videoURL, coachID sql.NullString
+	var bodyPart, equipment, difficulty, category, videoURL, imageURL, coachID sql.NullString
 	var defaultSec sql.NullInt64
 	err := row.Scan(&e.ID, &e.Slug, &e.Name, &e.Description, &e.Mode, &bodyPart,
 		&e.MuscleGroups, &e.SecondaryMuscles, &equipment, &difficulty, &category,
-		&e.Instructions, &defaultSec, &videoURL, &e.IsCustom, &coachID,
+		&e.Instructions, &defaultSec, &videoURL, &imageURL, &e.IsCustom, &coachID,
 		&e.CreatedAt, &e.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, errors.NotFound("Exercise", slug)
@@ -125,6 +128,9 @@ func (r *Repository) GetBySlug(ctx context.Context, slug string) (*exercise.Exer
 	if videoURL.Valid {
 		e.VideoURL = videoURL.String
 	}
+	if imageURL.Valid {
+		e.ImageURL = imageURL.String
+	}
 	if coachID.Valid {
 		e.CoachID = &coachID.String
 	}
@@ -140,7 +146,7 @@ func (r *Repository) ListGlobal(ctx context.Context) ([]*exercise.ExerciseEntry,
 	return r.listExercises(ctx,
 		`SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
-		 default_sec, video_url, is_custom, coach_id, created_at, updated_at
+		 default_sec, video_url, image_url, is_custom, coach_id, created_at, updated_at
 		 FROM exercise_library WHERE is_custom = 0
 		 ORDER BY name`)
 }
@@ -150,14 +156,14 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*exerci
 	return r.listExercises(ctx,
 		`SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
-		 default_sec, video_url, is_custom, coach_id, created_at, updated_at
+		 default_sec, video_url, image_url, is_custom, coach_id, created_at, updated_at
 		 FROM exercise_library WHERE is_custom = 0 OR coach_id = $3
 		 ORDER BY name`, coachID)
 }
 
 // Create inserts a new custom exercise entry for a coach.
 func (r *Repository) Create(ctx context.Context, e *exercise.ExerciseEntry) error {
-	var bodyPart, equipment, difficulty, category, videoURL, coachID sql.NullString
+	var bodyPart, equipment, difficulty, category, videoURL, imageURL, coachID sql.NullString
 	if e.BodyPart != "" {
 		bodyPart = sql.NullString{String: e.BodyPart, Valid: true}
 	}
@@ -172,6 +178,9 @@ func (r *Repository) Create(ctx context.Context, e *exercise.ExerciseEntry) erro
 	}
 	if e.VideoURL != "" {
 		videoURL = sql.NullString{String: e.VideoURL, Valid: true}
+	}
+	if e.ImageURL != "" {
+		imageURL = sql.NullString{String: e.ImageURL, Valid: true}
 	}
 	if e.CoachID != nil {
 		coachID = sql.NullString{String: *e.CoachID, Valid: true}
@@ -185,12 +194,12 @@ func (r *Repository) Create(ctx context.Context, e *exercise.ExerciseEntry) erro
 	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO exercise_library
 		 (id, slug, name, description, mode, body_part, muscle_groups, secondary_muscles,
-		  equipment, difficulty, category, instructions, default_sec, video_url,
+		  equipment, difficulty, category, instructions, default_sec, video_url, image_url,
 		  is_custom, coach_id, created_at, updated_at)
-		 VALUES ($4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, NOW(), NOW())`,
+		 VALUES ($4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW(), NOW())`,
 		e.ID, e.Slug, e.Name, e.Description, e.Mode, bodyPart, e.MuscleGroups,
 		e.SecondaryMuscles, equipment, difficulty, category, e.Instructions,
-		defaultSec, videoURL, e.IsCustom, coachID)
+		defaultSec, videoURL, imageURL, e.IsCustom, coachID)
 	if err != nil {
 		return fmt.Errorf("failed to create exercise: %w", err)
 	}
@@ -199,7 +208,7 @@ func (r *Repository) Create(ctx context.Context, e *exercise.ExerciseEntry) erro
 
 // Update modifies an existing exercise entry.
 func (r *Repository) Update(ctx context.Context, e *exercise.ExerciseEntry) error {
-	var bodyPart, equipment, difficulty, category, videoURL sql.NullString
+	var bodyPart, equipment, difficulty, category, videoURL, imageURL sql.NullString
 	if e.BodyPart != "" {
 		bodyPart = sql.NullString{String: e.BodyPart, Valid: true}
 	}
@@ -215,6 +224,9 @@ func (r *Repository) Update(ctx context.Context, e *exercise.ExerciseEntry) erro
 	if e.VideoURL != "" {
 		videoURL = sql.NullString{String: e.VideoURL, Valid: true}
 	}
+	if e.ImageURL != "" {
+		imageURL = sql.NullString{String: e.ImageURL, Valid: true}
+	}
 
 	var defaultSec sql.NullInt64
 	if e.DefaultSec != nil {
@@ -225,9 +237,9 @@ func (r *Repository) Update(ctx context.Context, e *exercise.ExerciseEntry) erro
 		`UPDATE exercise_library SET name = $20, description = $21, mode = $22, body_part = $23,
 		 muscle_groups = $24, secondary_muscles = $25, equipment = $26, difficulty = $27,
 		 category = $28, instructions = $29, default_sec = $30, video_url = $31,
-		 updated_at = NOW() WHERE id = $32`,
+		 image_url = $32, updated_at = NOW() WHERE id = $33`,
 		e.Name, e.Description, e.Mode, bodyPart, e.MuscleGroups, e.SecondaryMuscles,
-		equipment, difficulty, category, e.Instructions, defaultSec, videoURL, e.ID)
+		equipment, difficulty, category, e.Instructions, defaultSec, videoURL, imageURL, e.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update exercise: %w", err)
 	}
@@ -268,11 +280,11 @@ func (r *Repository) listExercises(ctx context.Context, query string, args ...in
 	var exercises []*exercise.ExerciseEntry
 	for rows.Next() {
 		e := &exercise.ExerciseEntry{}
-		var bodyPart, equipment, difficulty, category, videoURL, coachID sql.NullString
+		var bodyPart, equipment, difficulty, category, videoURL, imageURL, coachID sql.NullString
 		var defaultSec sql.NullInt64
 		if err := rows.Scan(&e.ID, &e.Slug, &e.Name, &e.Description, &e.Mode, &bodyPart,
 			&e.MuscleGroups, &e.SecondaryMuscles, &equipment, &difficulty, &category,
-			&e.Instructions, &defaultSec, &videoURL, &e.IsCustom, &coachID,
+			&e.Instructions, &defaultSec, &videoURL, &imageURL, &e.IsCustom, &coachID,
 			&e.CreatedAt, &e.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan exercise: %w", err)
 		}
@@ -290,6 +302,9 @@ func (r *Repository) listExercises(ctx context.Context, query string, args ...in
 		}
 		if videoURL.Valid {
 			e.VideoURL = videoURL.String
+		}
+		if imageURL.Valid {
+			e.ImageURL = imageURL.String
 		}
 		if coachID.Valid {
 			e.CoachID = &coachID.String

@@ -1324,6 +1324,7 @@ export interface ExerciseLibraryEntry {
   instructions: string[];
   defaultSec: number | null;
   videoUrl: string | null;
+  imageUrl: string | null;
   isCustom: boolean;
 }
 
