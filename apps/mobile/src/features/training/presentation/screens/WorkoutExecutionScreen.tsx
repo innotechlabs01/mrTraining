@@ -35,7 +35,7 @@ import { SetInput } from '../components/execution/SetInput';
 import { RunningRouteView } from '../components/RunningRouteView';
 import { IntervalTracker } from '../components/execution/IntervalTracker';
 import { useGpsTracking } from '../../hooks/useGpsTracking';
-import { reportRunningProgress } from '../../../infrastructure/api/client';
+import { reportRunningProgress } from '../../../../infrastructure/api/client';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WorkoutExecution'>;
 

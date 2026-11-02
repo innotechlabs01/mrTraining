@@ -144,13 +144,14 @@ export function useLogSetFlow(p: LogSetFlowParams) {
         
         // Check if the current exercise is a running exercise with GPS/intervals
         const currentExercise = p.exercises[p.currentExerciseIndex];
-        const isRunningExercise = currentExercise && currentExercise.gpsRoute && currentExercise.intervals && currentExercise.intervals.length > 0;
+        const runningIntervals = currentExercise?.intervals ?? [];
+        const isRunningExercise = Boolean(currentExercise?.gpsRoute) && runningIntervals.length > 0;
         
         if (!offline) {
           try {
             if (isRunningExercise && currentExercise) {
               // Use the new running workout completion endpoint with GPS and intervals
-              const actualIntervals = currentExercise.intervals.map(iv => ({
+              const actualIntervals = runningIntervals.map(iv => ({
                 order: iv.order,
                 workType: iv.workType,
                 workValue: iv.workValue,
@@ -182,7 +183,7 @@ export function useLogSetFlow(p: LogSetFlowParams) {
                     workoutId: p.workoutId,
                     durationSeconds: p.durationSeconds,
                     actualGpsRoute: currentExercise?.actualGpsRoute || '',
-                    actualIntervals: currentExercise?.intervals?.map(iv => ({
+                    actualIntervals: runningIntervals.map(iv => ({
                       order: iv.order,
                       workType: iv.workType,
                       workValue: iv.workValue,

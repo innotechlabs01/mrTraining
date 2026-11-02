@@ -2,12 +2,7 @@
  * Hooks for structured running workouts (templates, assignments, guided sessions).
  * Consumes the Go API via smartClient (axios → /api/v1/*).
  */
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  type UseQueryOptions,
-} from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { smartClient } from '../../../infrastructure/api/client';
 
 // --- Types (mirror Go API DTOs) ---
@@ -206,7 +201,7 @@ export function useCompleteRunningSession() {
 }
 
 /** Helper options for common query configurations. */
-export function runningWorkoutQueryOptions(): UseQueryOptions {
+export function runningWorkoutQueryOptions(): { staleTime: number; retry: number } {
   return {
     staleTime: 1000 * 60, // 1 minute
     retry: 1,

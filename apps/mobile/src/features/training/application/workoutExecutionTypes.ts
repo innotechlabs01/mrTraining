@@ -28,6 +28,8 @@ export type Exercise = {
   sec?: number | null;
   videoUrl?: string | null;
   gpsRoute?: string | null;
+  /** Encoded polyline of the route the athlete actually ran. Not populated yet. */
+  actualGpsRoute?: string | null;
   intervals?: RunningInterval[];
 };
 

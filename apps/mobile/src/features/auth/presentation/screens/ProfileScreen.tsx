@@ -256,6 +256,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
   scrollContent: { paddingBottom: spacing.xl },
   sectionWrap: { paddingHorizontal: spacing.md, marginTop: spacing.md },
+  groupTitle: {
+    ...typography.overline,
+    color: colors.textSecondary,
+    marginLeft: spacing.md,
+    marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   pressed: { opacity: 0.8 },
   signOutButton: {
     flexDirection: 'row',
