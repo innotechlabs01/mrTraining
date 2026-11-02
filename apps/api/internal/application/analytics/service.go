@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	analyticsdomain "github.com/innotechlabs01/mr-training-api/internal/domain/analytics"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 type Service struct {
@@ -14,6 +15,14 @@ type Service struct {
 
 func NewService(repo analyticsdomain.Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetExecutor injects a SQL executor into the underlying repository.
+func (s *Service) SetExecutor(exec database.Executor) *Service {
+	if repo, ok := s.repo.(interface{ WithExecutor(database.Executor) analyticsdomain.Repository }); ok {
+		return &Service{repo: repo.WithExecutor(exec)}
+	}
+	return s
 }
 
 func (s *Service) GetDashboardSummary(ctx context.Context, coachID string) (*analyticsdomain.DashboardSummary, error) {

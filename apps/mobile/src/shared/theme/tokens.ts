@@ -38,6 +38,16 @@ export const colors = {
   onError: '#FFFFFF', // text on error states
 } as const;
 
+/**
+ * Returns `color` (#RRGGBB) with `opacity` (0-1) as an #RRGGBBAA string.
+ * Use instead of hand-written hex8 literals or `${color}1A` concatenation.
+ */
+export function withAlpha(color: string, opacity: number): string {
+  const clamped = Math.min(1, Math.max(0, opacity));
+  const alpha = Math.round(clamped * 255).toString(16).padStart(2, '0').toUpperCase();
+  return `${color}${alpha}`;
+}
+
 export const fontFamilies = {
   displayBlack: 'Inter_800ExtraBold',
   display: 'Inter_800ExtraBold',

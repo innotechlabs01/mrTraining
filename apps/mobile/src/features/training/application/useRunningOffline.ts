@@ -3,12 +3,11 @@
  * Permite guardar sesiones activas y puntos GPS pendientes de sincronización
  * cuando no hay conectividad, y reintentarlos cuando se recupere la conexión.
  */
-import { MMKV } from 'react-native-mmkv';
+import { createMMKV } from 'react-native-mmkv';
 import { useCallback, useEffect, useState } from 'react';
 import { smartClient as apiClient } from '../../../infrastructure/api/client';
-import { GpsPoint } from './useGpsTracking';
 
-const storage = new MMKV({ id: 'running-offline' });
+const storage = createMMKV({ id: 'running-offline' });
 
 const PENDING_SESSIONS_KEY = 'pending_sessions';
 const PENDING_POINTS_KEY = 'pending_points';
@@ -101,7 +100,7 @@ export function useRunningOffline(): UseRunningOfflineResult {
 
       for (const point of points) {
         try {
-          await apiClient.post(`/running/workouts/sessions/${sessionId}/live-location`, {
+          await apiClient.post(`/running/sessions/${sessionId}/live-location`, {
             session_id: sessionId,
             lat: point.latitude,
             lng: point.longitude,

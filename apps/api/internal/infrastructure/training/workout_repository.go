@@ -9,21 +9,45 @@ import (
 	"github.com/google/uuid"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/training"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // WorkoutRepository implements training.WorkoutRepository using database/sql with Turso/libsql.
 type WorkoutRepository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewWorkoutRepository creates a new workout repository with the given database connection.
+// By default, all queries run against the connection pool. Use SetExecutor to
+// inject a *sql.Tx for transactional operations within a UnitOfWork.
 func NewWorkoutRepository(db *sql.DB) *WorkoutRepository {
-	return &WorkoutRepository{db: db}
+	return &WorkoutRepository{db: db, exec: db}
+}
+
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+func (r *WorkoutRepository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *WorkoutRepository) WithExecutor(exec database.Executor) *WorkoutRepository {
+	return &WorkoutRepository{
+		db:  r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx.
+func (r *WorkoutRepository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // ListTemplates retrieves all workout templates for a specific coach.
 func (r *WorkoutRepository) ListTemplates(ctx context.Context, coachID string) ([]*training.WorkoutTemplate, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, coach_id, name, description, goal, estimated_duration_minutes,
 		 created_at, updated_at
 		 FROM workout_templates WHERE coach_id = $1
@@ -53,7 +77,7 @@ func (r *WorkoutRepository) ListTemplates(ctx context.Context, coachID string) (
 // GetTemplate retrieves a workout template by its unique identifier,
 // including all associated exercises.
 func (r *WorkoutRepository) GetTemplate(ctx context.Context, id string) (*training.WorkoutTemplate, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, coach_id, name, description, goal, estimated_duration_minutes,
 		 created_at, updated_at
 		 FROM workout_templates WHERE id = $1`, id)
@@ -206,7 +230,7 @@ func (r *WorkoutRepository) AssignWorkout(ctx context.Context, a *training.Assig
 
 // ListAssignedWorkouts retrieves all assigned workouts for an athlete.
 func (r *WorkoutRepository) ListAssignedWorkouts(ctx context.Context, athleteID string) ([]*training.AssignedWorkout, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, athlete_id, athlete_name, content_id, content_type, content_name,
 		 modality, start_date, end_date, days_of_week, status, progress, coach_id,
 		 created_at, updated_at
@@ -244,7 +268,7 @@ func (r *WorkoutRepository) ListAssignedWorkouts(ctx context.Context, athleteID 
 
 // GetAssignedWorkout retrieves a single assigned workout by ID.
 func (r *WorkoutRepository) GetAssignedWorkout(ctx context.Context, id string) (*training.AssignedWorkout, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, athlete_id, athlete_name, content_id, content_type, content_name,
 		 modality, start_date, end_date, days_of_week, status, progress, coach_id,
 		 created_at, updated_at
@@ -364,7 +388,7 @@ func (r *WorkoutRepository) LogWorkoutSet(ctx context.Context, set *training.Wor
 
 // getTemplateExercises retrieves all exercises for a given template ID.
 func (r *WorkoutRepository) getTemplateExercises(ctx context.Context, templateID string) ([]training.WorkoutExercise, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, template_id, name, sets, reps, weight_kg, rest_seconds, sort_order,
 		 notes, mode, phase, superset_group, reps_min, reps_max, prog, inc, sec,
 		 minutes, speed, per_side, body_part, muscle_groups, library_exercise_id, gps_route, intervals
@@ -524,7 +548,7 @@ func (r *WorkoutRepository) GetAssignedWorkoutDetail(ctx context.Context, id str
 
 // findLatestSession returns the most recent in-progress session for a workout, or nil if none.
 func (r *WorkoutRepository) findLatestSession(ctx context.Context, workoutID string) (*training.WorkoutSession, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, workout_id, athlete_id, started_at, completed, completed_at,
 		 current_exercise_index, duration_seconds
 		 FROM workout_session_logs
@@ -549,7 +573,7 @@ func (r *WorkoutRepository) findLatestSession(ctx context.Context, workoutID str
 
 // getAssignedWorkoutExercises retrieves exercises for an assigned workout.
 func (r *WorkoutRepository) getAssignedWorkoutExercises(ctx context.Context, workoutID string) ([]training.WorkoutExercise, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT we.id, we.workout_id, we.name, we.sets, we.reps, we.weight_kg, we.rest_seconds, we.sort_order,
 		 we.notes, we.mode, we.phase, we.superset_group, we.body_part, we.muscle_groups, we.library_exercise_id,
 		 el.image_url, el.video_url, we.gps_route, we.intervals, we.actual_gps_route, we.actual_intervals
@@ -621,7 +645,7 @@ func (r *WorkoutRepository) getAssignedWorkoutExercises(ctx context.Context, wor
 
 // GetWorkoutSession retrieves a workout session by ID.
 func (r *WorkoutRepository) GetWorkoutSession(ctx context.Context, sessionID, athleteID string) (*training.WorkoutSession, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, workout_id, athlete_id, started_at, completed, completed_at,
 		 current_exercise_index, duration_seconds
 		 FROM workout_session_logs WHERE id = $65 AND athlete_id = $66`, sessionID, athleteID)
@@ -650,7 +674,7 @@ func (r *WorkoutRepository) CreateWorkoutSession(ctx context.Context, workoutID,
 		AthleteID: athleteID,
 	}
 
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO workout_session_logs
 		 (id, workout_id, athlete_id, started_at, completed, current_exercise_index, duration_seconds)
 		 VALUES ($67, $68, $69, NOW(), 0, 0, 0)`,
@@ -664,7 +688,7 @@ func (r *WorkoutRepository) CreateWorkoutSession(ctx context.Context, workoutID,
 
 // CompleteSession marks a session as completed with the given duration.
 func (r *WorkoutRepository) CompleteSession(ctx context.Context, sessionID, athleteID string, durationSeconds int) error {
-	result, err := r.db.ExecContext(ctx,
+	result, err := r.exec.ExecContext(ctx,
 		`UPDATE workout_session_logs
 		 SET completed = 1, completed_at = NOW(), duration_seconds = $70
 		 WHERE id = $71 AND athlete_id = $72 AND completed = 0`,
@@ -689,7 +713,7 @@ func (r *WorkoutRepository) GetPrescription(ctx context.Context, workoutID strin
 
 // ListAssignedWorkoutsByCoach retrieves all assigned workouts created by a coach.
 func (r *WorkoutRepository) ListAssignedWorkoutsByCoach(ctx context.Context, coachID string) ([]*training.AssignedWorkout, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, athlete_id, athlete_name, content_id, content_type, content_name,
 		 modality, start_date, end_date, days_of_week, status, progress, coach_id,
 		 created_at, updated_at
@@ -732,7 +756,7 @@ func (r *WorkoutRepository) UpdateAssignedWorkout(ctx context.Context, id string
 		return fmt.Errorf("failed to marshal days_of_week: %w", err)
 	}
 
-	result, err := r.db.ExecContext(ctx,
+	result, err := r.exec.ExecContext(ctx,
 		`UPDATE assigned_workouts
 		 SET modality = $74, start_date = $75, end_date = $76, days_of_week = $77,
 		     status = $78, updated_at = NOW()
@@ -820,7 +844,7 @@ func (r *WorkoutRepository) UpdateWorkoutExerciseActuals(ctx context.Context, wo
 
 	// Update all exercises in this workout with the same GPS route (whole workout route)
 	// and per-exercise intervals
-	_, err = r.db.ExecContext(ctx,
+	_, err = r.exec.ExecContext(ctx,
 		`UPDATE workout_exercises SET actual_gps_route = $84, actual_intervals = $85 WHERE workout_id = $86`,
 		actualGPSRoute, string(intervalsJSON), workoutID)
 	if err != nil {
@@ -831,7 +855,7 @@ func (r *WorkoutRepository) UpdateWorkoutExerciseActuals(ctx context.Context, wo
 
 // ListSessionsByWorkout retrieves all sessions for a given workout.
 func (r *WorkoutRepository) ListSessionsByWorkout(ctx context.Context, workoutID string) ([]*training.WorkoutSession, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, workout_id, athlete_id, started_at, completed, completed_at,
 		 current_exercise_index, duration_seconds
 		 FROM workout_session_logs

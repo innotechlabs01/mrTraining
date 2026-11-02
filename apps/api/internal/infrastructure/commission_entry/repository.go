@@ -11,29 +11,88 @@ import (
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/commission_entry"
 	auditdomain "github.com/innotechlabs01/mr-training-api/internal/domain/audit"
-	allaudit "github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Repository implements domain.Repository using libsql/SQLite.
 // Todas las mutaciones financieras se escriben en la misma transacción que el
 // evento de auditoría (H-05).
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new commission entry repository.
+// By default, all queries run against the connection pool. Use SetExecutor to
+// inject a *sql.Tx for transactional operations within a UnitOfWork.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+// When set, all repository queries run against this executor instead of the
+// connection pool. Methods that open their own transaction (CreateCommissionEntry,
+// ReverseCommissionEntry, CreateFinancialAdjustment, CreateCommissionEntryDirect)
+// detect this and skip internal transaction management.
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries. This allows request-scoped
+// transactional usage without mutating the shared repository instance.
+func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+	return &Repository{
+		db:  r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx (injected by a
+// UnitOfWork) rather than the connection pool.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
+}
+
+// asTx returns the underlying *sql.Tx if the executor is a transaction, or an
+// error otherwise. Used by audit.InsertTx which requires *sql.Tx.
+func asTx(exec database.Executor) (*sql.Tx, error) {
+	tx, ok := exec.(*sql.Tx)
+	if !ok {
+		return nil, fmt.Errorf("expected *sql.Tx executor")
+	}
+	return tx, nil
 }
 
 // CreateCommissionEntry crea una entrada de comisión con auditoría en la misma tx.
 func (r *Repository) CreateCommissionEntry(ctx context.Context, in domain.CreateCommissionEntryInput, actorID string) (*domain.CommissionEntry, error) {
+	// If running inside a UnitOfWork transaction, use the injected executor
+	// and let the caller manage commit/rollback.
+	if r.isTx() {
+		return r.createCommissionEntryTx(ctx, in, actorID, r.exec)
+	}
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
+	result, err := r.createCommissionEntryTx(ctx, in, actorID, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return result, nil
+}
+
+func (r *Repository) createCommissionEntryTx(ctx context.Context, in domain.CreateCommissionEntryInput, actorID string, exec database.Executor) (*domain.CommissionEntry, error) {
 	id := uuid.New().String()
 	t := time.Now().Format("2006-01-02 15:04:05")
 	computedAt := in.ComputedAt
@@ -45,7 +104,7 @@ func (r *Repository) CreateCommissionEntry(ctx context.Context, in domain.Create
 		currency = "COP"
 	}
 
-	_, err = tx.ExecContext(ctx, `
+	_, err := exec.ExecContext(ctx, `
 		INSERT INTO commission_entries
 			(id, operation_id, relationship_id, coach_id, agreement_id, agreement_version,
 			 base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at, created_at)
@@ -68,12 +127,12 @@ func (r *Repository) CreateCommissionEntry(ctx context.Context, in domain.Create
 		"amount_cents":        in.AmountCents,
 		"currency":            currency,
 	})
-	if err := allaudit.InsertTx(ctx, tx, ev); err != nil {
+	tx, err := asTx(exec)
+	if err != nil {
 		return nil, err
 	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("failed to commit: %w", err)
+	if err := audit.InsertTx(ctx, tx, ev); err != nil {
+		return nil, err
 	}
 
 	return &domain.CommissionEntry{
@@ -96,19 +155,19 @@ func (r *Repository) CreateCommissionEntry(ctx context.Context, in domain.Create
 
 // GetCommissionEntry devuelve una entrada solo si pertenece al coach.
 func (r *Repository) GetCommissionEntry(ctx context.Context, entryID, coachID string) (*domain.CommissionEntry, error) {
-	return scanEntry(r.db.QueryRowContext(ctx, `
+	return scanEntry(r.exec.QueryRowContext(ctx, `
 		SELECT id, operation_id, relationship_id, coach_id, agreement_id, agreement_version,
 		       base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at, created_at
-		FROM commission_entries WHERE id = $14 AND coach_id = $15
+		FROM commission_entries WHERE id = $1 AND coach_id = $2
 	`, entryID, coachID))
 }
 
 // ListCommissionEntriesByCoach devuelve todas las entradas de un coach.
 func (r *Repository) ListCommissionEntriesByCoach(ctx context.Context, coachID string) ([]*domain.CommissionEntry, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, operation_id, relationship_id, coach_id, agreement_id, agreement_version,
 		       base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at, created_at
-		FROM commission_entries WHERE coach_id = $16
+		FROM commission_entries WHERE coach_id = $1
 		ORDER BY created_at DESC
 	`, coachID)
 	if err != nil {
@@ -120,12 +179,12 @@ func (r *Repository) ListCommissionEntriesByCoach(ctx context.Context, coachID s
 
 // ListCommissionEntriesByAlly devuelve todas las entradas de un aliado (vía sus relaciones).
 func (r *Repository) ListCommissionEntriesByAlly(ctx context.Context, allyID string) ([]*domain.CommissionEntry, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT ce.id, ce.operation_id, ce.relationship_id, ce.coach_id, ce.agreement_id, ce.agreement_version,
 		       ce.base_cents, ce.rate_bps, ce.fixed_amount_cents, ce.amount_cents, ce.currency, ce.status, ce.computed_at, ce.created_at
 		FROM commission_entries ce
 		JOIN coach_ally_relationships car ON ce.relationship_id = car.id
-		WHERE car.ally_id = $17
+		WHERE car.ally_id = $1
 		ORDER BY ce.created_at DESC
 	`, allyID)
 	if err != nil {
@@ -137,11 +196,11 @@ func (r *Repository) ListCommissionEntriesByAlly(ctx context.Context, allyID str
 
 // GetOpenCommissionEntryByOperation devuelve la entrada no reversada de una operación.
 func (r *Repository) GetOpenCommissionEntryByOperation(ctx context.Context, operationID string) (*domain.CommissionEntry, error) {
-	return scanEntry(r.db.QueryRowContext(ctx, `
+	return scanEntry(r.exec.QueryRowContext(ctx, `
 		SELECT id, operation_id, relationship_id, coach_id, agreement_id, agreement_version,
 		       base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at, created_at
 		FROM commission_entries
-		WHERE operation_id = $18 AND status != 'reversed'
+		WHERE operation_id = $1 AND status != 'reversed'
 		ORDER BY created_at DESC
 		LIMIT 1
 	`, operationID))
@@ -149,42 +208,69 @@ func (r *Repository) GetOpenCommissionEntryByOperation(ctx context.Context, oper
 
 // ReverseCommissionEntry revierte una entrada y crea un ajuste compensatorio.
 func (r *Repository) ReverseCommissionEntry(ctx context.Context, entryID, reverserID, reason string) (*domain.CommissionEntry, *domain.FinancialAdjustment, error) {
+	// If running inside a UnitOfWork transaction, use the injected executor.
+	if r.isTx() {
+		res, err := r.reverseCommissionEntryTx(ctx, entryID, reverserID, reason, r.exec)
+		if err != nil {
+			return nil, nil, err
+		}
+		return res.updated, res.adjustment, nil
+	}
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
-	current, err := scanEntry(tx.QueryRowContext(ctx, `
-		SELECT id, operation_id, relationship_id, coach_id, agreement_id, agreement_version,
-		       base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at, created_at
-		FROM commission_entries WHERE id = $19
-	`, entryID))
+	res, err := r.reverseCommissionEntryTx(ctx, entryID, reverserID, reason, tx)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	if err := tx.Commit(); err != nil {
+		return nil, nil, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return res.updated, res.adjustment, nil
+}
+
+type reversalResult struct {
+	updated    *domain.CommissionEntry
+	adjustment *domain.FinancialAdjustment
+}
+
+func (r *Repository) reverseCommissionEntryTx(ctx context.Context, entryID, reverserID, reason string, exec database.Executor) (*reversalResult, error) {
+	current, err := scanEntry(exec.QueryRowContext(ctx, `
+		SELECT id, operation_id, relationship_id, coach_id, agreement_id, agreement_version,
+		       base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at, created_at
+		FROM commission_entries WHERE id = $1
+	`, entryID))
+	if err != nil {
+		return nil, err
+	}
+
 	if current.Status == "reversed" {
-		return nil, nil, fmt.Errorf("entry already reversed")
+		return nil, fmt.Errorf("entry already reversed")
 	}
 
 	t := time.Now().Format("2006-01-02 15:04:05")
 
-	_, err = tx.ExecContext(ctx, `
-		UPDATE commission_entries SET status = 'reversed' WHERE id = $20
+	_, err = exec.ExecContext(ctx, `
+		UPDATE commission_entries SET status = 'reversed' WHERE id = $1
 	`, entryID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to reverse commission entry: %w", err)
+		return nil, fmt.Errorf("failed to reverse commission entry: %w", err)
 	}
 
 	adjustmentID := uuid.New().String()
-	_, err = tx.ExecContext(ctx, `
+	_, err = exec.ExecContext(ctx, `
 		INSERT INTO financial_adjustments
 			(id, entry_id, kind, amount_cents, reason, created_by, created_at)
-		VALUES ($21, $22, 'correction', $23, $24, $25, $26)
+		VALUES ($1, $2, 'correction', $3, $4, $5, $6)
 	`, adjustmentID, entryID, -current.AmountCents, reason, reverserID, t)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to insert financial adjustment: %w", err)
+		return nil, fmt.Errorf("failed to insert financial adjustment: %w", err)
 	}
 
 	ev := auditdomain.NewEvent("commission_entry", "commission_entry.reversed", reverserID, map[string]any{
@@ -193,12 +279,12 @@ func (r *Repository) ReverseCommissionEntry(ctx context.Context, entryID, revers
 		"reversed_by":  reverserID,
 		"amount_cents": -current.AmountCents,
 	})
-	if err := allaudit.InsertTx(ctx, tx, ev); err != nil {
-		return nil, nil, err
+	tx, err := asTx(exec)
+	if err != nil {
+		return nil, err
 	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, nil, fmt.Errorf("failed to commit: %w", err)
+	if err := audit.InsertTx(ctx, tx, ev); err != nil {
+		return nil, err
 	}
 
 	updated := *current
@@ -212,24 +298,42 @@ func (r *Repository) ReverseCommissionEntry(ctx context.Context, entryID, revers
 		CreatedBy:   reverserID,
 		CreatedAt:   t,
 	}
-	return &updated, adjustment, nil
+	return &reversalResult{updated: &updated, adjustment: adjustment}, nil
 }
 
 // CreateFinancialAdjustment crea un asiento compensatorio con auditoría.
 func (r *Repository) CreateFinancialAdjustment(ctx context.Context, in domain.CreateFinancialAdjustmentInput, actorID string) (*domain.FinancialAdjustment, error) {
+	// If running inside a UnitOfWork transaction, use the injected executor.
+	if r.isTx() {
+		return r.createFinancialAdjustmentTx(ctx, in, actorID, r.exec)
+	}
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
+	result, err := r.createFinancialAdjustmentTx(ctx, in, actorID, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return result, nil
+}
+
+func (r *Repository) createFinancialAdjustmentTx(ctx context.Context, in domain.CreateFinancialAdjustmentInput, actorID string, exec database.Executor) (*domain.FinancialAdjustment, error) {
 	id := uuid.New().String()
 	t := time.Now().Format("2006-01-02 15:04:05")
 
-	_, err = tx.ExecContext(ctx, `
+	_, err := exec.ExecContext(ctx, `
 		INSERT INTO financial_adjustments
 			(id, entry_id, settlement_id, kind, amount_cents, reason, created_by, created_at)
-		VALUES ($27, $28, $29, $30, $31, $32, $33, $34)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`, id, in.EntryID, in.SettlementID, in.Kind, in.AmountCents, in.Reason, in.CreatedBy, t)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert financial adjustment: %w", err)
@@ -242,12 +346,12 @@ func (r *Repository) CreateFinancialAdjustment(ctx context.Context, in domain.Cr
 		"reason":       in.Reason,
 		"created_by":   in.CreatedBy,
 	})
-	if err := allaudit.InsertTx(ctx, tx, ev); err != nil {
+	tx, err := asTx(exec)
+	if err != nil {
 		return nil, err
 	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("failed to commit: %w", err)
+	if err := audit.InsertTx(ctx, tx, ev); err != nil {
+		return nil, err
 	}
 
 	return &domain.FinancialAdjustment{
@@ -264,9 +368,9 @@ func (r *Repository) CreateFinancialAdjustment(ctx context.Context, in domain.Cr
 
 // ListFinancialAdjustmentsByEntry devuelve todos los ajustes de una entrada.
 func (r *Repository) ListFinancialAdjustmentsByEntry(ctx context.Context, entryID string) ([]*domain.FinancialAdjustment, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, entry_id, COALESCE(settlement_id, ''), kind, amount_cents, reason, created_by, created_at
-		FROM financial_adjustments WHERE entry_id = $35
+		FROM financial_adjustments WHERE entry_id = $1
 		ORDER BY created_at DESC
 	`, entryID)
 	if err != nil {
@@ -281,11 +385,11 @@ func (r *Repository) GetOperationForCommission(ctx context.Context, operationID 
 	var status string
 	var grossCents int64
 	var relationshipID string
-	err := r.db.QueryRowContext(ctx, `
+	err := r.exec.QueryRowContext(ctx, `
 		SELECT o.status, COALESCE(SUM(oi.unit_price_cents * oi.quantity), 0), o.relationship_id
 		FROM ally_operations o
 		LEFT JOIN ally_operation_items oi ON oi.operation_id = o.id
-		WHERE o.id = $36
+		WHERE o.id = $1
 		GROUP BY o.id, o.relationship_id
 	`, operationID).Scan(&status, &grossCents, &relationshipID)
 	if err != nil {
@@ -297,9 +401,9 @@ func (r *Repository) GetOperationForCommission(ctx context.Context, operationID 
 // GetActiveDeclarationStatus devuelve el estado de la declaración activa de una operación.
 func (r *Repository) GetActiveDeclarationStatus(ctx context.Context, operationID string) (string, error) {
 	var status string
-	err := r.db.QueryRowContext(ctx, `
+	err := r.exec.QueryRowContext(ctx, `
 		SELECT status FROM ally_payment_declarations
-		WHERE operation_id = $37 AND status IN ('declared','under_review','confirmed')
+		WHERE operation_id = $1 AND status IN ('declared','under_review','confirmed')
 		ORDER BY version DESC
 		LIMIT 1
 	`, operationID).Scan(&status)
@@ -317,9 +421,9 @@ func (r *Repository) GetActiveAgreement(ctx context.Context, relationshipID stri
 	var agreementID string
 	var rateBps, fixedAmountCents int64
 	var version int
-	err := r.db.QueryRowContext(ctx, `
+	err := r.exec.QueryRowContext(ctx, `
 		SELECT id, rate_bps, fixed_amount_cents, version FROM commission_agreements
-		WHERE relationship_id = $38 AND valid_to IS NULL AND status = 'accepted'
+		WHERE relationship_id = $1 AND valid_to IS NULL AND status = 'accepted'
 		LIMIT 1
 	`, relationshipID).Scan(&agreementID, &rateBps, &fixedAmountCents, &version)
 	if err != nil {
@@ -329,6 +433,33 @@ func (r *Repository) GetActiveAgreement(ctx context.Context, relationshipID stri
 		return "", 0, 0, 0, fmt.Errorf("failed to get active agreement: %w", err)
 	}
 	return agreementID, rateBps, fixedAmountCents, version, nil
+}
+
+// CreateCommissionEntryDirect inserta una entrada de comisión sin validar
+// precondiciones de estado de operación ni declaración de pago. Usado por el
+// flujo de compra automática de productos de aliado (H-09).
+func (r *Repository) CreateCommissionEntryDirect(ctx context.Context, in domain.CreateCommissionEntryInput, actorID string) (*domain.CommissionEntry, error) {
+	// If running inside a UnitOfWork transaction, use the injected executor.
+	if r.isTx() {
+		return r.createCommissionEntryTx(ctx, in, actorID, r.exec)
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	result, err := r.createCommissionEntryTx(ctx, in, actorID, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return result, nil
 }
 
 func scanEntry(row *sql.Row) (*domain.CommissionEntry, error) {
@@ -343,76 +474,6 @@ func scanEntry(row *sql.Row) (*domain.CommissionEntry, error) {
 		return nil, fmt.Errorf("failed to scan commission entry: %w", err)
 	}
 	return &e, nil
-}
-
-// CreateCommissionEntryDirect inserta una entrada de comisión sin validar
-// precondiciones de estado de operación ni declaración de pago. Usado por el
-// flujo de compra automática de productos de aliado (H-09).
-func (r *Repository) CreateCommissionEntryDirect(ctx context.Context, in domain.CreateCommissionEntryInput, actorID string) (*domain.CommissionEntry, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to begin tx: %w", err)
-	}
-	defer tx.Rollback()
-
-	id := uuid.New().String()
-	t := time.Now().Format("2006-01-02 15:04:05")
-	computedAt := in.ComputedAt
-	if computedAt == "" {
-		computedAt = t
-	}
-	currency := in.Currency
-	if currency == "" {
-		currency = "COP"
-	}
-
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO commission_entries
-			(id, operation_id, relationship_id, coach_id, agreement_id, agreement_version,
-			 base_cents, rate_bps, fixed_amount_cents, amount_cents, currency, status, computed_at, created_at)
-		VALUES ($39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, 'accrued', $50, $51)
-	`, id, in.OperationID, in.RelationshipID, in.CoachID, in.AgreementID, in.AgreementVersion,
-		in.BaseCents, in.RateBps, in.FixedAmountCents, in.AmountCents, currency, computedAt, t)
-	if err != nil {
-		return nil, fmt.Errorf("failed to insert commission entry: %w", err)
-	}
-
-	ev := auditdomain.NewEvent("commission_entry", "commission_entry.accrued", actorID, map[string]any{
-		"operation_id":        in.OperationID,
-		"relationship_id":     in.RelationshipID,
-		"coach_id":            in.CoachID,
-		"agreement_id":        in.AgreementID,
-		"agreement_version":   in.AgreementVersion,
-		"base_cents":          in.BaseCents,
-		"rate_bps":            in.RateBps,
-		"fixed_amount_cents":  in.FixedAmountCents,
-		"amount_cents":        in.AmountCents,
-		"currency":            currency,
-	})
-	if err := allaudit.InsertTx(ctx, tx, ev); err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("failed to commit: %w", err)
-	}
-
-	return &domain.CommissionEntry{
-		ID:                 id,
-		OperationID:        in.OperationID,
-		RelationshipID:     in.RelationshipID,
-		CoachID:            in.CoachID,
-		AgreementID:        in.AgreementID,
-		AgreementVersion:   in.AgreementVersion,
-		BaseCents:          in.BaseCents,
-		RateBps:            in.RateBps,
-		FixedAmountCents:   in.FixedAmountCents,
-		AmountCents:        in.AmountCents,
-		Currency:           currency,
-		Status:             "accrued",
-		ComputedAt:         computedAt,
-		CreatedAt:          t,
-	}, nil
 }
 
 func scanEntries(rows *sql.Rows) ([]*domain.CommissionEntry, error) {

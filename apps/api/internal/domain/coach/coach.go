@@ -59,3 +59,17 @@ type DailySummary struct {
 	CompletedToday    int    `json:"completed_today"`
 	PendingTasks      int    `json:"pending_tasks"`
 }
+
+// Coach represents a coach entity for public API responses.
+type Coach struct {
+	ID               string   `json:"id"`
+	Name             string   `json:"name"`
+	Slug             string   `json:"slug"`
+	PhotoURL         string   `json:"photo_url"`
+	Biography        string   `json:"biography"`
+	Specialities     []string `json:"specialities"`
+	Services         []string `json:"services"`
+	IsActive         bool     `json:"is_active"`
+	CreatedAt        string   `json:"created_at"`
+	UpdatedAt        string   `json:"updated_at"`
+}

@@ -79,14 +79,14 @@ export const DEFAULT_CONFIG: TrackingEngineConfig = {
 export interface SessionPersistedState {
   sessionId: string;
   estado: SessionState;
-  startedAt?: string;
-  pausedAt?: string;
+  startedAt?: string | undefined;
+  pausedAt?: string | undefined;
   resumedAt?: string;
   finishedAt?: string;
   ultimaActualizacion: string;
   metrica: SessionMetrics;
   splits: Split[];
-  ultimoPuntoTimestamp?: string;
+  ultimoPuntoTimestamp?: string | undefined;
   segmentoActual?: number;
   repeticionActual?: number;
   serieActual?: number;
@@ -98,7 +98,7 @@ export interface SessionPersistedState {
 export interface ProcesarPuntoResultado {
   punto: GpsPointValidated;
   metricaActualizada: SessionMetrics;
-  splitGenerado?: Split;
+  splitGenerado?: Split | undefined;
   estado: SessionState;
 }
 

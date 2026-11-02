@@ -702,3 +702,934 @@ func TestService_ImportDeviceSessions_RejectsOversizedBatch(t *testing.T) {
 		t.Fatal("expected an error for an oversized batch")
 	}
 }
+
+<<<<<<< HEAD
+
+// --- Task 7: Running Workout Application Services Tests ---
+
+func TestService_CreateTemplate(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:          "coach-1",
+		Name:             "Test Interval Run",
+		Description:      "A test interval running workout",
+		Type:             domain.TemplateTypeIntervals,
+		TargetDistanceKm: float64Ptr(10.0),
+		TargetDurationSec: intPtr(3600),
+		Version:          1,
+	}
+
+	err := svc.CreateTemplate(ctx, template)
+	if err != nil {
+		t.Fatalf("unexpected error creating template: %v", err)
+	}
+
+	if template.ID == "" {
+		t.Error("expected template ID to be generated")
+	}
+	if template.CoachID != "coach-1" {
+		t.Errorf("expected coach_id=coach-1, got %s", template.CoachID)
+	}
+	if template.Name != "Test Interval Run" {
+		t.Errorf("expected name=Test Interval Run, got %s", template.Name)
+	}
+	if template.Version != 1 {
+		t.Errorf("expected version=1, got %d", template.Version)
+	}
+}
+
+func TestService_UpdateTemplate(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	// Create initial template
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-1",
+		Name:      "Original Name",
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("unexpected error creating template: %v", err)
+	}
+
+	// Update template
+	err := svc.UpdateTemplate(ctx, template.ID, "Updated Name", "Updated Description", domain.TemplateTypeIntervals,
+		nil, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error updating template: %v", err)
+	}
+
+	// Verify update
+	updated, err := svc.GetTemplate(ctx, template.ID)
+	if err != nil {
+		t.Fatalf("unexpected error getting template: %v", err)
+	}
+	if updated.Name != "Updated Name" {
+		t.Errorf("expected name=Updated Name, got %s", updated.Name)
+	}
+	if updated.Description != "Updated Description" {
+		t.Errorf("expected description=Updated Description, got %s", updated.Description)
+	}
+	if updated.Version != 2 {
+		t.Errorf("expected version=2 after update, got %d", updated.Version)
+	}
+}
+
+func TestService_GetTemplate(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-1",
+		Name:      "Test Template",
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("unexpected error creating template: %v", err)
+	}
+
+	retrieved, err := svc.GetTemplate(ctx, template.ID)
+	if err != nil {
+		t.Fatalf("unexpected error getting template: %v", err)
+	}
+	if retrieved.ID != template.ID {
+		t.Errorf("expected template ID %s, got %s", template.ID, retrieved.ID)
+	}
+	if retrieved.CoachID != "coach-1" {
+		t.Errorf("expected coach_id=coach-1, got %s", retrieved.CoachID)
+	}
+}
+
+func TestService_AssignTemplate(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	// Create template first
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-1",
+		Name:      "Template for Assignment",
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("unexpected error creating template: %v", err)
+	}
+
+	// Assign template to athlete
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-1",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+
+	err := svc.AssignTemplate(ctx, assignment)
+	if err != nil {
+		t.Fatalf("unexpected error assigning template: %v", err)
+	}
+
+	if assignment.ID == "" {
+		t.Error("expected assignment ID to be generated")
+	}
+	if assignment.Status != domain.AssignmentStatusAssigned {
+		t.Errorf("expected status=assigned, got %s", assignment.Status)
+	}
+}
+
+func TestService_AssignTemplate_UnauthorizedCoach(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	// Create template owned by coach-1
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-1",
+		Name:      "Template Owned by Coach 1",
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("unexpected error creating template: %v", err)
+	}
+
+	// Try to assign with different coach
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-2",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+
+	err := svc.AssignTemplate(ctx, assignment)
+	if err == nil {
+		t.Fatal("expected error for unauthorized coach assignment")
+	}
+}
+
+func TestService_AssignTemplate_Duplicate(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	// Create template
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-1",
+		Name:      "Template for Duplicate Test",
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("unexpected error creating template: %v", err)
+	}
+
+	// First assignment
+	assignment1 := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-1",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	if err := svc.AssignTemplate(ctx, assignment1); err != nil {
+		t.Fatalf("unexpected error on first assignment: %v", err)
+	}
+
+	// Second assignment same athlete+template should fail
+	assignment2 := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-1",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	err := svc.AssignTemplate(ctx, assignment2)
+	if err == nil {
+		t.Fatal("expected error for duplicate active assignment")
+	}
+}
+
+func TestService_StartSession(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	// Create template
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-1",
+		Name:      "Template for Session Start",
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("unexpected error creating template: %v", err)
+	}
+
+	// Create assignment
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-1",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	if err := svc.AssignTemplate(ctx, assignment); err != nil {
+		t.Fatalf("unexpected error assigning template: %v", err)
+	}
+
+	// Start session
+	session, err := svc.StartSession(ctx, assignment.ID, "athlete-1")
+	if err != nil {
+		t.Fatalf("unexpected error starting session: %v", err)
+	}
+
+	if session.ID == "" {
+		t.Error("expected session ID to be generated")
+	}
+	if session.UserID != "athlete-1" {
+		t.Errorf("expected user_id=athlete-1, got %s", session.UserID)
+	}
+
+	// Verify snapshot was created
+	snapshot, err := svc.GetSnapshotBySession(ctx, session.ID)
+	if err != nil {
+		t.Fatalf("unexpected error getting snapshot: %v", err)
+	}
+	if snapshot.SessionID != session.ID {
+		t.Errorf("expected snapshot session_id=%s, got %s", session.ID, snapshot.SessionID)
+	}
+	if snapshot.AssignmentID != assignment.ID {
+		t.Errorf("expected snapshot assignment_id=%s, got %s", assignment.ID, snapshot.AssignmentID)
+	}
+
+	// Verify assignment status changed to started
+	updatedAssignment, err := svc.GetAssignment(ctx, assignment.ID, "athlete-1", "athlete")
+	if err != nil {
+		t.Fatalf("unexpected error getting assignment: %v", err)
+	}
+	if updatedAssignment.Status != domain.AssignmentStatusStarted {
+		t.Errorf("expected assignment status=started, got %s", updatedAssignment.Status)
+	}
+}
+
+func TestService_StartSession_AlreadyCompleted(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	// Create template and assignment completed
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-1",
+		Name:      "Completed Template",
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("unexpected error creating template: %v", err)
+	}
+
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-1",
+		Status:        domain.AssignmentStatusCompleted,
+	}
+	if err := svc.AssignTemplate(ctx, assignment); err != nil {
+		t.Fatalf("unexpected error assigning template: %v", err)
+	}
+
+	// Try to start session on completed assignment
+	_, err := svc.StartSession(ctx, assignment.ID, "athlete-1")
+	if err == nil {
+		t.Fatal("expected error for already completed assignment")
+	}
+}
+
+func TestService_GetSnapshotBySession(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	// Setup: template, assignment, session with snapshot
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-1",
+		Name:      "Snapshot Test Template",
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("unexpected error creating template: %v", err)
+	}
+
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-1",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	if err := svc.AssignTemplate(ctx, assignment); err != nil {
+		t.Fatalf("unexpected error assigning template: %v", err)
+	}
+
+	session, err := svc.StartSession(ctx, assignment.ID, "athlete-1")
+	if err != nil {
+		t.Fatalf("unexpected error starting session: %v", err)
+	}
+
+	// Get snapshot
+	snapshot, err := svc.GetSnapshotBySession(ctx, session.ID)
+	if err != nil {
+		t.Fatalf("unexpected error getting snapshot: %v", err)
+	}
+	if snapshot.TemplateCopy == "" {
+		t.Error("expected snapshot template_copy to not be empty")
+	}
+}
+
+func TestService_ImmutableSnapshot(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	// Create template
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-1",
+		Name:      "Original Template",
+		Description: "Original description",
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("unexpected error creating template: %v", err)
+	}
+
+	// Create assignment and start session
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-1",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	if err := svc.AssignTemplate(ctx, assignment); err != nil {
+		t.Fatalf("unexpected error assigning template: %v", err)
+	}
+
+	session, err := svc.StartSession(ctx, assignment.ID, "athlete-1")
+	if err != nil {
+		t.Fatalf("unexpected error starting session: %v", err)
+	}
+
+	// Get snapshot before template modification
+	snapshotBefore, err := svc.GetSnapshotBySession(ctx, session.ID)
+	if err != nil {
+		t.Fatalf("unexpected error getting snapshot: %v", err)
+	}
+
+	// Modify template
+	err = svc.UpdateTemplate(ctx, template.ID, "Modified Template", "Modified description", domain.TemplateTypeIntervals,
+		nil, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error updating template: %v", err)
+	}
+
+	// Get snapshot after modification
+	snapshotAfter, err := svc.GetSnapshotBySession(ctx, session.ID)
+	if err != nil {
+		t.Fatalf("unexpected error getting snapshot after update: %v", err)
+	}
+
+	// Snapshot should remain unchanged
+	if snapshotBefore.TemplateCopy != snapshotAfter.TemplateCopy {
+		t.Error("snapshot should be immutable - template modification should not change snapshot")
+	}
+}
+
+func TestService_FinishSession(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	// Setup: template, assignment, session with snapshot
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-1",
+		Name:      "Template for Finish",
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("unexpected error creating template: %v", err)
+	}
+
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-1",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	if err := svc.AssignTemplate(ctx, assignment); err != nil {
+		t.Fatalf("unexpected error assigning template: %v", err)
+	}
+
+	session, err := svc.StartSession(ctx, assignment.ID, "athlete-1")
+	if err != nil {
+		t.Fatalf("unexpected error starting session: %v", err)
+	}
+
+	// Finish session
+	err = svc.FinishSession(ctx, session.ID, "athlete-1")
+	if err != nil {
+		t.Fatalf("unexpected error finishing session: %v", err)
+	}
+
+	// Verify assignment completed
+	updatedAssignment, err := svc.GetAssignment(ctx, assignment.ID, "athlete-1", "athlete")
+	if err != nil {
+		t.Fatalf("unexpected error getting assignment: %v", err)
+	}
+	if updatedAssignment.Status != domain.AssignmentStatusCompleted {
+		t.Errorf("expected assignment status=completed, got %s", updatedAssignment.Status)
+	}
+}
+
+func TestService_FinishSession_Duplicate(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	// Setup
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-1",
+		Name:      "Template for Duplicate Finish",
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("unexpected error creating template: %v", err)
+	}
+
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-1",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	if err := svc.AssignTemplate(ctx, assignment); err != nil {
+		t.Fatalf("unexpected error assigning template: %v", err)
+	}
+
+	session, err := svc.StartSession(ctx, assignment.ID, "athlete-1")
+	if err != nil {
+		t.Fatalf("unexpected error starting session: %v", err)
+	}
+
+	// Finish first time
+	if err := svc.FinishSession(ctx, session.ID, "athlete-1"); err != nil {
+		t.Fatalf("unexpected error on first finish: %v", err)
+	}
+
+	// Finish second time - should fail (already completed)
+	err = svc.FinishSession(ctx, session.ID, "athlete-1")
+	if err == nil {
+		t.Fatal("expected error on duplicate finish")
+	}
+}
+
+func TestService_AccessCrossCoachAthlete(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	// Coach-1 creates template
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-1",
+		Name:      "Cross Access Template",
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("unexpected error creating template: %v", err)
+	}
+
+	// Coach-1 assigns to athlete-1
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-1",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	if err := svc.AssignTemplate(ctx, assignment); err != nil {
+		t.Fatalf("unexpected error assigning template: %v", err)
+	}
+
+	// Session started by athlete-1
+	session, err := svc.StartSession(ctx, assignment.ID, "athlete-1")
+	if err != nil {
+		t.Fatalf("unexpected error starting session: %v", err)
+	}
+
+	// Coach-2 cannot finish athlete-1's session
+	err = svc.FinishSession(ctx, session.ID, "athlete-2")
+	if err == nil {
+		t.Fatal("expected error when athlete-2 tries to finish athlete-1's session")
+	}
+
+	// Verify assignment not completed
+	updatedAssignment, err := svc.GetAssignment(ctx, assignment.ID, "athlete-1", "athlete")
+	if err != nil {
+		t.Fatalf("unexpected error getting assignment: %v", err)
+	}
+	if updatedAssignment.Status == domain.AssignmentStatusCompleted {
+		t.Error("assignment should not be completed by unauthorized athlete")
+	}
+}
+
+func float64Ptr(f float64) *float64 {
+	return &f
+}
+
+func intPtr(i int) *int {
+	return &i
+}
+
+// ============================================================================
+// Fase 3.1: Pruebas de seguridad - Autorización y aislamiento multi-tenant
+// ============================================================================
+
+func TestService_AssignTemplate_CoachOwnsTemplate(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	// Coach A crea su propia plantilla
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-a",
+		Name:      "Template de Coach A",
+		Type:      domain.TemplateTypeFreeRun,
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("no se pudo crear plantilla: %v", err)
+	}
+
+	// Coach A asigna su propia plantilla a atleta-1 (debe tener éxito)
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-a",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	if err := svc.AssignTemplate(ctx, assignment); err != nil {
+		t.Fatalf("coach A debería poder asignar su propia plantilla: %v", err)
+	}
+	if assignment.ID == "" {
+		t.Error("se esperaba que se generara un ID de asignación")
+	}
+}
+
+func TestService_AssignTemplate_CoachDoesNotOwnTemplate(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	// Coach A crea su plantilla
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-a",
+		Name:      "Template de Coach A",
+		Type:      domain.TemplateTypeFreeRun,
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("no se pudo crear plantilla: %v", err)
+	}
+
+	// Coach B intenta asignar la plantilla de Coach A (debe fallar)
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-b",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	err := svc.AssignTemplate(ctx, assignment)
+	if err == nil {
+		t.Fatal("coach B NO debería poder asignar plantilla de coach A")
+	}
+	t.Logf("correctamente rechazado: %v", err)
+
+	// Verificar que no se creó ninguna asignación para coach B
+	assignments, err := repo.ListAssignmentsByCoach(ctx, "coach-b")
+	if err != nil {
+		t.Fatalf("no se pudieron listar asignaciones: %v", err)
+	}
+	if len(assignments) != 0 {
+		t.Error("coach B no debería tener asignaciones de plantilla de coach A")
+	}
+}
+
+func TestService_StartSession_AthleteOwnsAssignment(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-a",
+		Name:      "Template para Sesión",
+		Type:      domain.TemplateTypeFreeRun,
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("no se pudo crear plantilla: %v", err)
+	}
+
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-a",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	if err := svc.AssignTemplate(ctx, assignment); err != nil {
+		t.Fatalf("no se pudo asignar plantilla: %v", err)
+	}
+
+	// Atleta-1 inicia su propia sesión (debe tener éxito)
+	session, err := svc.StartSession(ctx, assignment.ID, "athlete-1")
+	if err != nil {
+		t.Fatalf("atleta-1 debería poder iniciar su propia sesión: %v", err)
+	}
+	if session.ID == "" {
+		t.Error("se esperaba que se generara un ID de sesión")
+	}
+}
+
+func TestService_StartSession_AthleteDoesNotOwnAssignment(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-a",
+		Name:      "Template para Sesión",
+		Type:      domain.TemplateTypeFreeRun,
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("no se pudo crear plantilla: %v", err)
+	}
+
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-a",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	if err := svc.AssignTemplate(ctx, assignment); err != nil {
+		t.Fatalf("no se pudo asignar plantilla: %v", err)
+	}
+
+	// Atleta-2 intenta iniciar la sesión de atleta-1 (debe fallar)
+	_, err := svc.StartSession(ctx, assignment.ID, "athlete-2")
+	if err == nil {
+		t.Fatal("atleta-2 NO debería poder iniciar la sesión de atleta-1")
+	}
+	t.Logf("correctamente rechazado: %v", err)
+}
+
+func TestService_GetAssignment_CoachOwnsTemplate(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-a",
+		Name:      "Template para Consulta",
+		Type:      domain.TemplateTypeFreeRun,
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("no se pudo crear plantilla: %v", err)
+	}
+
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-a",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	if err := svc.AssignTemplate(ctx, assignment); err != nil {
+		t.Fatalf("no se pudo asignar plantilla: %v", err)
+	}
+
+	// Coach A consulta su propia asignación (debe tener éxito)
+	got, err := svc.GetAssignment(ctx, assignment.ID, "coach-a", "coach")
+	if err != nil {
+		t.Fatalf("coach A debería poder consultar su propia asignación: %v", err)
+	}
+	if got.ID != assignment.ID {
+		t.Error("ID de asignación no coincide")
+	}
+}
+
+func TestService_GetAssignment_AthleteOwnsAssignment(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-a",
+		Name:      "Template para Consulta",
+		Type:      domain.TemplateTypeFreeRun,
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("no se pudo crear plantilla: %v", err)
+	}
+
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-a",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	if err := svc.AssignTemplate(ctx, assignment); err != nil {
+		t.Fatalf("no se pudo asignar plantilla: %v", err)
+	}
+
+	// Atleta-1 consulta su propia asignación (debe tener éxito)
+	got, err := svc.GetAssignment(ctx, assignment.ID, "athlete-1", "athlete")
+	if err != nil {
+		t.Fatalf("atleta-1 debería poder consultar su propia asignación: %v", err)
+	}
+	if got.ID != assignment.ID {
+		t.Error("ID de asignación no coincide")
+	}
+}
+
+func TestService_GetAssignment_UnauthorizedCoach(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-a",
+		Name:      "Template para Consulta",
+		Type:      domain.TemplateTypeFreeRun,
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("no se pudo crear plantilla: %v", err)
+	}
+
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-a",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	if err := svc.AssignTemplate(ctx, assignment); err != nil {
+		t.Fatalf("no se pudo asignar plantilla: %v", err)
+	}
+
+	// Coach B consulta asignación de Coach A (debe fallar)
+	_, err := svc.GetAssignment(ctx, assignment.ID, "coach-b", "coach")
+	if err == nil {
+		t.Fatal("coach B NO debería poder consultar asignación de coach A")
+	}
+	t.Logf("correctamente rechazado: %v", err)
+}
+
+func TestService_GetAssignment_UnauthorizedAthlete(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	ctx := context.Background()
+
+	template := &domain.RunningWorkoutTemplate{
+		CoachID:   "coach-a",
+		Name:      "Template para Consulta",
+		Type:      domain.TemplateTypeFreeRun,
+		Version:   1,
+	}
+	if err := svc.CreateTemplate(ctx, template); err != nil {
+		t.Fatalf("no se pudo crear plantilla: %v", err)
+	}
+
+	assignment := &domain.RunningWorkoutAssignment{
+		TemplateID:    template.ID,
+		AthleteID:     "athlete-1",
+		CoachID:       "coach-a",
+		Status:        domain.AssignmentStatusAssigned,
+	}
+	if err := svc.AssignTemplate(ctx, assignment); err != nil {
+		t.Fatalf("no se pudo asignar plantilla: %v", err)
+	}
+
+	// Atleta-2 consulta asignación de atleta-1 (debe fallar)
+	_, err := svc.GetAssignment(ctx, assignment.ID, "athlete-2", "athlete")
+	if err == nil {
+		t.Fatal("atleta-2 NO debería poder consultar asignación de atleta-1")
+	}
+	t.Logf("correctamente rechazado: %v", err)
+}
+=======
+func TestService_CompleteSession_PreservesDateSourceCreatedAt(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	ctx := context.Background()
+
+	// Seed an existing session started via StartSession, which sets Date,
+	// Source and CreatedAt.
+	existing := &domain.RunningSession{
+		ID:        "s-1",
+		UserID:    "athlete-1",
+		Date:      "2026-10-18",
+		Source:    domain.SourceMobileGPS,
+		CreatedAt: "2026-10-18T07:00:00Z",
+		Distance:  0,
+		Duration:  0,
+	}
+	if err := repo.SaveSession(ctx, existing); err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+
+	// Complete with only metric fields; Date/Source/CreatedAt must be preserved.
+	if err := svc.CompleteSession(ctx, "s-1", "athlete-1", &domain.RunningSession{
+		ID:        "s-1",
+		UserID:    "athlete-1",
+		Distance:  10.0,
+		Duration:  3000,
+		Pace:      "5:00",
+		Calories:  600,
+	}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got, err := repo.GetSession(ctx, "s-1")
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+	if got.Date != "2026-10-18" {
+		t.Errorf("expected Date preserved as 2026-10-18, got %q", got.Date)
+	}
+	if got.Source != domain.SourceMobileGPS {
+		t.Errorf("expected Source preserved as mobile_gps, got %q", got.Source)
+	}
+	if got.CreatedAt != "2026-10-18T07:00:00Z" {
+		t.Errorf("expected CreatedAt preserved, got %q", got.CreatedAt)
+	}
+	if got.Distance != 10.0 {
+		t.Errorf("expected Distance updated to 10, got %f", got.Distance)
+	}
+}
+
+func TestService_CompleteSession_RejectsWrongAthlete(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	ctx := context.Background()
+
+	if err := repo.SaveSession(ctx, &domain.RunningSession{
+		ID:     "s-1",
+		UserID: "athlete-1",
+		Date:   "2026-10-18",
+		Source: domain.SourceManual,
+	}); err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+
+	// A different athlete must not complete another athlete's session.
+	// A spoofed payload owner must not replace the owner persisted in storage.
+	err := svc.CompleteSession(ctx, "s-1", "athlete-2", &domain.RunningSession{
+		ID:     "s-1",
+		UserID: "athlete-2",
+		Date:   "2026-10-18",
+		Source: domain.SourceManual,
+		Distance: 5.0,
+		Duration: 1500,
+	})
+	if err == nil {
+		t.Fatal("expected error when athlete-2 completes athlete-1's session")
+	}
+}
+
+func TestService_CompleteSession_CompletesLinkedAssignment(t *testing.T) {
+	repo := newMockRepository()
+	repo.sessions["s-1"] = &domain.RunningSession{ID: "s-1", UserID: "athlete-1"}
+	repo.assignments["a-1"] = &domain.RunningWorkoutAssignment{ID: "a-1", AthleteID: "athlete-1", Status: domain.AssignmentStatusStarted}
+	repo.snapshots["s-1"] = &domain.RunningWorkoutSnapshot{SessionID: "s-1", AssignmentID: "a-1"}
+	err := NewService(repo).CompleteSession(context.Background(), "s-1", "athlete-1", &domain.RunningSession{Distance: 5, Duration: 1500})
+	if err != nil { t.Fatal(err) }
+	if repo.assignments["a-1"].Status != domain.AssignmentStatusCompleted {
+		t.Fatal("linked assignment must become completed")
+	}
+}
+>>>>>>> origin/dev

@@ -221,8 +221,8 @@ export interface RunningIntervalRequest {
 	workType: 'time' | 'distance'
 	workValue: number
 	restSeconds: number
-	paceTarget?: string
-	intensity?: 'easy' | 'tempo' | 'threshold' | 'vo2max'
+	paceTarget?: string | undefined
+	intensity?: 'easy' | 'tempo' | 'threshold' | 'vo2max' | undefined
 }
 
 export interface CompleteRunningWorkoutRequest {

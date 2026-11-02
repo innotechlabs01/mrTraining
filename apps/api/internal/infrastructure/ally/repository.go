@@ -13,16 +13,40 @@ import (
 
 	auditdomain "github.com/innotechlabs01/mr-training-api/internal/domain/audit"
 	allydomain "github.com/innotechlabs01/mr-training-api/internal/domain/ally"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Repository implements ally.Repository using the libsql/SQLite driver.
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new ally repository.
+// By default, all queries run against the connection pool. Use SetExecutor to
+// inject a *sql.Tx for transactional operations within a UnitOfWork.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+	return &Repository{
+		db:  r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // CreateAllyWithRelationship creates the ally, its owner membership (when
@@ -83,7 +107,7 @@ func (r *Repository) CreateAllyWithRelationship(ctx context.Context, in allydoma
 
 // ListByCoach returns every ally related to the given coach.
 func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*allydomain.Summary, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT r.id, r.coach_id, a.id, a.legal_name, a.commercial_name, a.category, r.status
 		FROM coach_ally_relationships r
 		JOIN allies a ON a.id = r.ally_id
@@ -99,7 +123,7 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*allydo
 
 // ListByAllyUser returns every ally the given user owns or belongs to.
 func (r *Repository) ListByAllyUser(ctx context.Context, userID string) ([]*allydomain.Summary, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT r.id, r.coach_id, a.id, a.legal_name, a.commercial_name, a.category, r.status
 		FROM coach_ally_relationships r
 		JOIN allies a ON a.id = r.ally_id
@@ -118,7 +142,7 @@ func (r *Repository) ListByAllyUser(ctx context.Context, userID string) ([]*ally
 // coachID. A relationship owned by another coach is reported as not-found.
 func (r *Repository) GetByIDForCoach(ctx context.Context, relationshipID, coachID string) (*allydomain.Detail, error) {
 	var allyID string
-	err := r.db.QueryRowContext(ctx, `
+	err := r.exec.QueryRowContext(ctx, `
 		SELECT ally_id FROM coach_ally_relationships
 		WHERE id = $19 AND coach_id = $20
 	`, relationshipID, coachID).Scan(&allyID)
@@ -239,7 +263,7 @@ func listMembers(ctx context.Context, q interface {
 // coach-ally relationship exists between coachID and allyID.
 func (r *Repository) FindActiveRelationship(ctx context.Context, coachID, allyID string) (string, error) {
 	var relationshipID string
-	err := r.db.QueryRowContext(ctx, `
+	err := r.exec.QueryRowContext(ctx, `
 		SELECT id FROM coach_ally_relationships
 		WHERE coach_id = $24 AND ally_id = $25 AND status = 'active'
 		LIMIT 1
