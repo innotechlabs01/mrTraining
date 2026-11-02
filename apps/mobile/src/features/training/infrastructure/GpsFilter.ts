@@ -55,8 +55,8 @@ export class GpsFilter {
   private config: GpsFilterConfig;
   private ultimoPuntoValido: GpsPointFiltered | null = null;
 
-  constructor(config: GpsFilterConfig = DEFAULT_GPS_FILTER_CONFIG) {
-    this.config = config;
+  constructor(config: Partial<GpsFilterConfig> = {}) {
+    this.config = { ...DEFAULT_GPS_FILTER_CONFIG, ...config };
   }
 
   filtrar(puntos: GpsPointRaw[]): FiltroResultado {
