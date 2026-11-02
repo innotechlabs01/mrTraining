@@ -6,16 +6,40 @@ import (
 	"database/sql"
 
 	"github.com/innotechlabs01/mr-training-api/internal/domain/store"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Repository defines data access for the athlete store.
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new store repository.
+// By default, all queries run against the connection pool. Use SetExecutor to
+// inject a *sql.Tx for transactional operations within a UnitOfWork.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+	return &Repository{
+		db:  r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // ListProducts returns all products available in the store.
@@ -24,7 +48,7 @@ func (r *Repository) ListProducts(ctx context.Context) ([]*store.Product, error)
 		return []*store.Product{}, nil
 	}
 	query := "SELECT id, name, description, price, image_url, stock, low_stock_threshold, created_at, updated_at FROM products WHERE is_shop = 1"
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.exec.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list products: %w", err)
 	}
@@ -59,7 +83,7 @@ func (r *Repository) GetProduct(ctx context.Context, id string) (*store.Product,
 		return nil, fmt.Errorf("database not initialized")
 	}
 	query := "SELECT id, name, description, price, image_url, stock, low_stock_threshold, created_at, updated_at FROM products WHERE id = $1 AND is_shop = 1"
-	row := r.db.QueryRowContext(ctx, query, id)
+	row := r.exec.QueryRowContext(ctx, query, id)
 
 	var p store.Product
 	var imageURL sql.NullString
@@ -86,14 +110,14 @@ func (r *Repository) CreatePurchase(ctx context.Context, purchase *store.Purchas
 		return fmt.Errorf("database not initialized")
 	}
 	query := "INSERT INTO store_purchases (id, athlete_id, product_id, quantity, price, created_at) VALUES ($2, $3, $4, $5, $6, $7)"
-	_, err := r.db.ExecContext(ctx, query, purchase.ID, purchase.AthleteID, purchase.ProductID, purchase.Quantity, purchase.Price, purchase.CreatedAt)
+	_, err := r.exec.ExecContext(ctx, query, purchase.ID, purchase.AthleteID, purchase.ProductID, purchase.Quantity, purchase.Price, purchase.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to create purchase: %w", err)
 	}
 
 	// Update product stock
 	productQuery := "UPDATE products SET stock = stock - $8 WHERE id = $9"
-	_, err = r.db.ExecContext(ctx, productQuery, purchase.Quantity, purchase.ProductID)
+	_, err = r.exec.ExecContext(ctx, productQuery, purchase.Quantity, purchase.ProductID)
 	if err != nil {
 		return fmt.Errorf("failed to update product stock: %w", err)
 	}
@@ -107,7 +131,7 @@ func (r *Repository) ListPurchasesByAthlete(ctx context.Context, athleteID strin
 		return []*store.Purchase{}, nil
 	}
 	query := "SELECT id, athlete_id, product_id, quantity, price, created_at FROM store_purchases WHERE athlete_id = $10 ORDER BY created_at DESC"
-	rows, err := r.db.QueryContext(ctx, query, athleteID)
+	rows, err := r.exec.QueryContext(ctx, query, athleteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list purchases: %w", err)
 	}
@@ -140,7 +164,7 @@ func (r *Repository) ListPurchases(ctx context.Context) ([]*store.Purchase, erro
 		return []*store.Purchase{}, nil
 	}
 	query := "SELECT id, athlete_id, product_id, quantity, price, created_at FROM store_purchases ORDER BY created_at DESC"
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.exec.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list purchases: %w", err)
 	}
@@ -210,7 +234,7 @@ func (r *Repository) CreateOrderWithItems(ctx context.Context, order *store.Orde
 func (r *Repository) GetOrder(ctx context.Context, orderID string) (*store.Order, error) {
 	var o store.Order
 	var externalRef, paidAt sql.NullString
-	err := r.db.QueryRowContext(ctx, `
+	err := r.exec.QueryRowContext(ctx, `
 		SELECT id, athlete_id, status, total, currency, external_ref, created_at, paid_at
 		FROM store_orders WHERE id = $21
 	`, orderID).Scan(&o.ID, &o.AthleteID, &o.Status, &o.Total, &o.Currency, &externalRef, &o.CreatedAt, &paidAt)
@@ -224,7 +248,7 @@ func (r *Repository) GetOrder(ctx context.Context, orderID string) (*store.Order
 
 // GetOrderItems returns the items of an order.
 func (r *Repository) GetOrderItems(ctx context.Context, orderID string) ([]*store.OrderItem, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, order_id, product_id, product_name, unit_price, quantity, fulfilled
 		FROM store_order_items WHERE order_id = $22 ORDER BY product_name
 	`, orderID)

@@ -8,16 +8,40 @@ import (
 
 	supportdomain "github.com/innotechlabs01/mr-training-api/internal/domain/support"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Repository implements supportdomain.Repository using SQLite/libsql.
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new support ticket repository.
+// By default, all queries run against the connection pool. Use SetExecutor to
+// inject a *sql.Tx for transactional operations within a UnitOfWork.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+	return &Repository{
+		db:  r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 func (r *Repository) ListByCoach(ctx context.Context, coachID string, status *supportdomain.TicketStatus) ([]*supportdomain.SupportTicket, error) {
@@ -30,7 +54,7 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string, status *su
 	}
 	query += ` ORDER BY last_message_at DESC`
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.exec.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list tickets by coach: %w", err)
 	}
@@ -60,7 +84,7 @@ func (r *Repository) ListByAthlete(ctx context.Context, athleteID string, status
 	}
 	query += ` ORDER BY last_message_at DESC`
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.exec.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list tickets by athlete: %w", err)
 	}
@@ -81,13 +105,13 @@ func (r *Repository) ListByAthlete(ctx context.Context, athleteID string, status
 }
 
 func (r *Repository) GetByID(ctx context.Context, id string) (*supportdomain.SupportTicket, error) {
-	row := r.db.QueryRowContext(ctx, `SELECT id, ticket_number, subject, category, priority, status, coach_id, athlete_id, assigned_to, unread_count, last_message_at, created_at, updated_at, resolved_at
+	row := r.exec.QueryRowContext(ctx, `SELECT id, ticket_number, subject, category, priority, status, coach_id, athlete_id, assigned_to, unread_count, last_message_at, created_at, updated_at, resolved_at
 		FROM support_tickets WHERE id = $5`, id)
 	return scanTicketRow(row)
 }
 
 func (r *Repository) Create(ctx context.Context, t *supportdomain.SupportTicket) error {
-	_, err := r.db.ExecContext(ctx, `INSERT INTO support_tickets (
+	_, err := r.exec.ExecContext(ctx, `INSERT INTO support_tickets (
 		id, ticket_number, subject, category, priority, status, coach_id, athlete_id, assigned_to, unread_count, last_message_at, created_at, updated_at
 	) VALUES ($6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())`,
 		t.ID, t.TicketNumber, t.Subject, t.Category, t.Priority, t.Status, t.CoachID, t.AthleteID, t.AssignedTo, t.UnreadCount, t.LastMessageAt)
@@ -98,7 +122,7 @@ func (r *Repository) Create(ctx context.Context, t *supportdomain.SupportTicket)
 }
 
 func (r *Repository) Update(ctx context.Context, t *supportdomain.SupportTicket) error {
-	result, err := r.db.ExecContext(ctx, `UPDATE support_tickets SET
+	result, err := r.exec.ExecContext(ctx, `UPDATE support_tickets SET
 		subject = $17, category = $18, priority = $19, status = $20, athlete_id = $21, assigned_to = $22, unread_count = $23, last_message_at = $24, updated_at = NOW(), resolved_at = $25
 		WHERE id = $26`,
 		t.Subject, t.Category, t.Priority, t.Status, t.AthleteID, t.AssignedTo, t.UnreadCount, t.LastMessageAt, nullString(t.ResolvedAt), t.ID)
@@ -113,7 +137,7 @@ func (r *Repository) Update(ctx context.Context, t *supportdomain.SupportTicket)
 }
 
 func (r *Repository) Delete(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM support_tickets WHERE id = $27`, id)
+	result, err := r.exec.ExecContext(ctx, `DELETE FROM support_tickets WHERE id = $27`, id)
 	if err != nil {
 		return fmt.Errorf("delete ticket: %w", err)
 	}
@@ -125,7 +149,7 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 }
 
 func (r *Repository) ListMessages(ctx context.Context, ticketID string) ([]*supportdomain.TicketMessage, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, ticket_id, author, author_id, body, image_url, read_at, created_at
+	rows, err := r.exec.QueryContext(ctx, `SELECT id, ticket_id, author, author_id, body, image_url, read_at, created_at
 		FROM ticket_messages WHERE ticket_id = $28 ORDER BY created_at ASC`, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("list messages: %w", err)
@@ -147,13 +171,13 @@ func (r *Repository) ListMessages(ctx context.Context, ticketID string) ([]*supp
 }
 
 func (r *Repository) GetMessageByID(ctx context.Context, id string) (*supportdomain.TicketMessage, error) {
-	row := r.db.QueryRowContext(ctx, `SELECT id, ticket_id, author, author_id, body, image_url, read_at, created_at
+	row := r.exec.QueryRowContext(ctx, `SELECT id, ticket_id, author, author_id, body, image_url, read_at, created_at
 		FROM ticket_messages WHERE id = $29`, id)
 	return scanMessageRow(row)
 }
 
 func (r *Repository) CreateMessage(ctx context.Context, m *supportdomain.TicketMessage) error {
-	_, err := r.db.ExecContext(ctx, `INSERT INTO ticket_messages (
+	_, err := r.exec.ExecContext(ctx, `INSERT INTO ticket_messages (
 		id, ticket_id, author, author_id, body, image_url, read_at, created_at
 	) VALUES ($30, $31, $32, $33, $34, $35, $36, NOW())`,
 		m.ID, m.TicketID, m.Author, m.AuthorID, m.Body, m.ImageURL, nullString(m.ReadAt))
@@ -161,7 +185,7 @@ func (r *Repository) CreateMessage(ctx context.Context, m *supportdomain.TicketM
 		return fmt.Errorf("create message: %w", err)
 	}
 	// Update ticket's last_message_at and unread_count
-	_, err = r.db.ExecContext(ctx, `UPDATE support_tickets SET last_message_at = NOW(), unread_count = unread_count + 1, updated_at = NOW() WHERE id = $37`, m.TicketID)
+	_, err = r.exec.ExecContext(ctx, `UPDATE support_tickets SET last_message_at = NOW(), unread_count = unread_count + 1, updated_at = NOW() WHERE id = $37`, m.TicketID)
 	return err
 }
 
@@ -179,12 +203,12 @@ func (r *Repository) MarkMessagesRead(ctx context.Context, ticketID, readerID st
 		otherAuthor = supportdomain.TicketAuthorSupport
 	}
 
-	_, err := r.db.ExecContext(ctx, `UPDATE ticket_messages SET read_at = NOW() WHERE ticket_id = $38 AND author = $39 AND read_at IS NULL`, ticketID, otherAuthor)
+	_, err := r.exec.ExecContext(ctx, `UPDATE ticket_messages SET read_at = NOW() WHERE ticket_id = $38 AND author = $39 AND read_at IS NULL`, ticketID, otherAuthor)
 	if err != nil {
 		return fmt.Errorf("mark messages read: %w", err)
 	}
 	// Reset unread count
-	_, err = r.db.ExecContext(ctx, `UPDATE support_tickets SET unread_count = 0, updated_at = NOW() WHERE id = $40`, ticketID)
+	_, err = r.exec.ExecContext(ctx, `UPDATE support_tickets SET unread_count = 0, updated_at = NOW() WHERE id = $40`, ticketID)
 	return err
 }
 
@@ -202,7 +226,7 @@ func (r *Repository) GetUnreadCount(ctx context.Context, ticketID, readerID stri
 	}
 
 	var count int
-	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ticket_messages WHERE ticket_id = $41 AND author = $42 AND read_at IS NULL`, ticketID, otherAuthor).Scan(&count)
+	err := r.exec.QueryRowContext(ctx, `SELECT COUNT(*) FROM ticket_messages WHERE ticket_id = $41 AND author = $42 AND read_at IS NULL`, ticketID, otherAuthor).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("get unread count: %w", err)
 	}

@@ -12,16 +12,40 @@ import (
 	commissiondomain "github.com/innotechlabs01/mr-training-api/internal/domain/commission"
 	auditdomain "github.com/innotechlabs01/mr-training-api/internal/domain/audit"
 	allaudit "github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Repository implements commission.Repository using the libsql/SQLite driver.
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new commission repository.
+// By default, all queries run against the connection pool. Use SetExecutor to
+// inject a *sql.Tx for transactional operations within a UnitOfWork.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+	return &Repository{
+		db:  r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // CreateAgreementVersion validates ownership, enforces interval ordering
@@ -133,7 +157,7 @@ func (r *Repository) CreateAgreementVersion(ctx context.Context, in commissiondo
 
 // ListByRelationship returns every agreement version, newest first.
 func (r *Repository) ListByRelationship(ctx context.Context, relationshipID string) ([]*commissiondomain.Agreement, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, relationship_id, version, rate_bps, fixed_amount_cents, eligible_base_rule, rounding, currency, valid_from, valid_to, status, COALESCE(accepted_by, ''), COALESCE(accepted_at, ''), created_at
 		FROM commission_agreements
 		WHERE relationship_id = $17
@@ -157,7 +181,7 @@ func (r *Repository) ListByRelationship(ctx context.Context, relationshipID stri
 
 // GetOpenAgreement returns the current open agreement or ErrNotFound.
 func (r *Repository) GetOpenAgreement(ctx context.Context, relationshipID string) (*commissiondomain.Agreement, error) {
-	return scanAgreement(r.db.QueryRowContext(ctx, `
+	return scanAgreement(r.exec.QueryRowContext(ctx, `
 		SELECT id, relationship_id, version, rate_bps, fixed_amount_cents, eligible_base_rule, rounding, currency, valid_from, valid_to, status, COALESCE(accepted_by, ''), COALESCE(accepted_at, ''), created_at
 		FROM commission_agreements
 		WHERE relationship_id = $18 AND valid_to IS NULL

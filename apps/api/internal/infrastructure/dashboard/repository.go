@@ -7,20 +7,38 @@ import (
 	"time"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/dashboard"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 type repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 func NewRepository(db *sql.DB) domain.Repository {
-	return &repository{db: db}
+	return &repository{db: db, exec: db}
+}
+
+func (r *repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+func (r *repository) WithExecutor(exec database.Executor) domain.Repository {
+	return &repository{
+		db:  r.db,
+		exec: exec,
+	}
+}
+
+func (r *repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 func (r *repository) GetSummary(ctx context.Context, coachID string) (*domain.DashboardSummary, error) {
 	// ---- Totals ----
 	var totalAthletes, activeAthletes int
-	err := r.db.QueryRowContext(ctx,
+	err := r.exec.QueryRowContext(ctx,
 		`SELECT COUNT(*), COUNT(CASE WHEN last_activity_at > NOW() - INTERVAL '30 days' THEN 1 END)
 		 FROM athletes WHERE coach_id = $1`, coachID).Scan(&totalAthletes, &activeAthletes)
 	if err != nil {
@@ -29,7 +47,7 @@ func (r *repository) GetSummary(ctx context.Context, coachID string) (*domain.Da
 
 	// Workouts completed / planned (last 30 days)
 	var completed, planned int
-	err = r.db.QueryRowContext(ctx, `
+	err = r.exec.QueryRowContext(ctx, `
 		SELECT
 			COUNT(*) FILTER (WHERE status = 'completed' AND completed_at > NOW() - INTERVAL '30 days'),
 			COUNT(*) FILTER (WHERE status = 'scheduled' AND scheduled_at > NOW())
@@ -40,7 +58,7 @@ func (r *repository) GetSummary(ctx context.Context, coachID string) (*domain.Da
 
 	// Compliance rate (last 30 days)
 	var complianceRate float64
-	_ = r.db.QueryRowContext(ctx, `
+	_ = r.exec.QueryRowContext(ctx, `
 		SELECT COALESCE(
 			100.0 * COUNT(*) FILTER (WHERE status = 'completed') /
 			NULLIF(COUNT(*) FILTER (WHERE status IN ('completed','scheduled')),0), 0)
@@ -49,22 +67,22 @@ func (r *repository) GetSummary(ctx context.Context, coachID string) (*domain.Da
 
 	// Revenue (cents) – sum of successful purchases last 30 days
 	var revenueCents int64
-	_ = r.db.QueryRowContext(ctx, `
+	_ = r.exec.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(price_cents),0)
 		FROM purchases
 		WHERE coach_id = $1 AND status = 'succeeded' AND created_at > NOW() - INTERVAL '30 days'`, coachID).Scan(&revenueCents)
 
 	// Upcoming appointments / events (next 7 days)
 	var upcomingAppts, upcomingEvents int
-	_ = r.db.QueryRowContext(ctx, `
+	_ = r.exec.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM appointments
 		WHERE coach_id = $1 AND start_time BETWEEN NOW() AND NOW() + INTERVAL '7 days'`, coachID).Scan(&upcomingAppts)
-	_ = r.db.QueryRowContext(ctx, `
+	_ = r.exec.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM events
 		WHERE coach_id = $1 AND date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'`, coachID).Scan(&upcomingEvents)
 
 	// Recent activity (last 10 items)
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, type, title, description, athlete_name, occurred_at
 		FROM activity_log
 		WHERE coach_id = $1

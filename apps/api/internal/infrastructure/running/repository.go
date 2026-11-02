@@ -10,23 +10,47 @@ import (
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/running"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/google/uuid"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Repository implements running.Repository using database/sql with Turso/libsql.
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new running repository with the given database connection.
+// By default, all queries run against the connection pool. Use SetExecutor to
+// inject a *sql.Tx for transactional operations within a UnitOfWork.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+	return &Repository{
+		db:  r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // --- Session operations ---
 
 // SaveSession persists a running session record.
 func (r *Repository) SaveSession(ctx context.Context, s *domain.RunningSession) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO running_sessions (id, user_id, date, distance, duration, pace, speed, calories, elevation, heart_rate, cadence, gps_route, source, created_at)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())`,
 		s.ID, s.UserID, s.Date, s.Distance, s.Duration, s.Pace, s.Speed,
@@ -55,7 +79,7 @@ const sessionDeviceJoin = `LEFT JOIN running_session_devices d ON d.session_id =
 
 // GetSession retrieves a session by its unique identifier.
 func (r *Repository) GetSession(ctx context.Context, id string) (*domain.RunningSession, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT `+sessionColumns+`, `+sessionDeviceColumns+`
 		 FROM running_sessions `+sessionDeviceJoin+` WHERE running_sessions.id = $1`, id)
 
@@ -97,7 +121,7 @@ func (r *Repository) ListSessionsByUser(ctx context.Context, userID string, from
 	query += " ORDER BY running_sessions.date DESC LIMIT $18 OFFSET $19"
 	args = append(args, limit, offset)
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.exec.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list running sessions: %w", err)
 	}
@@ -138,7 +162,7 @@ func (r *Repository) CountSessionsByUser(ctx context.Context, userID string, fro
 	}
 
 	var count int
-	err := r.db.QueryRowContext(ctx, query, args...).Scan(&count)
+	err := r.exec.QueryRowContext(ctx, query, args...).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count running sessions: %w", err)
 	}
@@ -147,7 +171,7 @@ func (r *Repository) CountSessionsByUser(ctx context.Context, userID string, fro
 
 // UpdateSession persists final metrics of an existing running session.
 func (r *Repository) UpdateSession(ctx context.Context, s *domain.RunningSession) error {
-	result, err := r.db.ExecContext(ctx,
+	result, err := r.exec.ExecContext(ctx,
 		`UPDATE running_sessions
 		 SET date = $1, distance = $2, duration = $3, pace = $4, speed = $5, calories = $6,
 		     elevation = $7, heart_rate = $8, cadence = $9, gps_route = $10
@@ -169,7 +193,7 @@ func (r *Repository) UpdateSession(ctx context.Context, s *domain.RunningSession
 
 // DeleteSession removes a running session by ID.
 func (r *Repository) DeleteSession(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx,
+	result, err := r.exec.ExecContext(ctx,
 		`DELETE FROM running_sessions WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete running session: %w", err)
@@ -188,7 +212,7 @@ func (r *Repository) DeleteSession(ctx context.Context, id string) error {
 
 // SaveSessionDevice records which wearable wrote a session.
 func (r *Repository) SaveSessionDevice(ctx context.Context, s *domain.RunningSession) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO running_session_devices (session_id, user_id, external_id, source, device_name, device_brand)
 		 VALUES ($1, $2, $3, $4, $5, $6)`,
 		s.ID, s.UserID, s.ExternalID, s.Source, nullStr(s.DeviceName), nullStr(s.DeviceBrand))
@@ -201,7 +225,7 @@ func (r *Repository) SaveSessionDevice(ctx context.Context, s *domain.RunningSes
 // GetSessionIDByExternalID reports whether a device workout was already imported.
 func (r *Repository) GetSessionIDByExternalID(ctx context.Context, userID, externalID string) (string, bool, error) {
 	var sessionID string
-	err := r.db.QueryRowContext(ctx,
+	err := r.exec.QueryRowContext(ctx,
 		`SELECT session_id FROM running_session_devices WHERE user_id = $1 AND external_id = $2`,
 		userID, externalID).Scan(&sessionID)
 	if err == sql.ErrNoRows {
@@ -217,7 +241,7 @@ func (r *Repository) GetSessionIDByExternalID(ctx context.Context, userID, exter
 
 // SaveGpsPoint persists a single GPS sample for a running session.
 func (r *Repository) SaveGpsPoint(ctx context.Context, p *domain.GpsPoint) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO running_gps_points (id, session_id, lat, lng, alt, timestamp, accuracy)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		p.ID, p.SessionID, p.Lat, p.Lng, p.Alt, p.Timestamp, p.Accuracy)
@@ -260,7 +284,7 @@ func (r *Repository) SaveGpsPoints(ctx context.Context, points []*domain.GpsPoin
 
 // ListGpsPointsBySession returns all GPS points for a session ordered by timestamp ascending.
 func (r *Repository) ListGpsPointsBySession(ctx context.Context, sessionID string) ([]*domain.GpsPoint, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, session_id, lat, lng, alt, timestamp, accuracy
 		 FROM running_gps_points WHERE session_id = $1 ORDER BY timestamp ASC`, sessionID)
 	if err != nil {
@@ -286,7 +310,7 @@ func (r *Repository) ListGpsPointsBySession(ctx context.Context, sessionID strin
 
 // SaveDeviceConnection stores a device connection record.
 func (r *Repository) SaveDeviceConnection(ctx context.Context, conn *domain.DeviceConnection) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO device_connections (id, user_id, device_type, is_active, connected_at)
 		 VALUES ($1, $2, $3, $4, NOW())`,
 		conn.ID, conn.UserID, conn.DeviceType, conn.IsActive)
@@ -298,7 +322,7 @@ func (r *Repository) SaveDeviceConnection(ctx context.Context, conn *domain.Devi
 
 // GetDeviceConnection retrieves a device connection by its unique identifier.
 func (r *Repository) GetDeviceConnection(ctx context.Context, id string) (*domain.DeviceConnection, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, user_id, device_type, is_active, connected_at
 		 FROM device_connections WHERE id = $1`, id)
 
@@ -315,7 +339,7 @@ func (r *Repository) GetDeviceConnection(ctx context.Context, id string) (*domai
 
 // ListDeviceConnectionsByUser retrieves all device connections for a user.
 func (r *Repository) ListDeviceConnectionsByUser(ctx context.Context, userID string) ([]*domain.DeviceConnection, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, user_id, device_type, is_active, connected_at
 		 FROM device_connections WHERE user_id = $1 ORDER BY connected_at DESC`, userID)
 	if err != nil {
@@ -336,7 +360,7 @@ func (r *Repository) ListDeviceConnectionsByUser(ctx context.Context, userID str
 
 // DeactivateDeviceConnection marks a device connection as inactive.
 func (r *Repository) DeactivateDeviceConnection(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx,
+	result, err := r.exec.ExecContext(ctx,
 		`UPDATE device_connections SET is_active = 0 WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to deactivate device connection: %w", err)
@@ -368,7 +392,7 @@ func (r *Repository) SaveTemplate(ctx context.Context, t *domain.RunningWorkoutT
 		return fmt.Errorf("marshal segments: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, `
+	_, err = r.exec.ExecContext(ctx, `
 		INSERT INTO running_workout_templates
 			(id, coach_id, name, description, type, target_pace_min_per_km, target_pace_max_per_km,
 			 target_heart_rate_min, target_heart_rate_max, target_cadence, target_distance_km,
@@ -403,7 +427,7 @@ func (r *Repository) SaveTemplate(ctx context.Context, t *domain.RunningWorkoutT
 }
 
 func (r *Repository) GetTemplate(ctx context.Context, id string) (*domain.RunningWorkoutTemplate, error) {
-	row := r.db.QueryRowContext(ctx, `
+	row := r.exec.QueryRowContext(ctx, `
 		SELECT id, coach_id, name, description, type, target_pace_min_per_km, target_pace_max_per_km,
 			target_heart_rate_min, target_heart_rate_max, target_cadence, target_distance_km,
 			target_duration_sec, segments, created_at, updated_at, deleted_at, version
@@ -433,7 +457,7 @@ func (r *Repository) GetTemplate(ctx context.Context, id string) (*domain.Runnin
 }
 
 func (r *Repository) ListTemplatesByCoach(ctx context.Context, coachID string) ([]*domain.RunningWorkoutTemplate, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, coach_id, name, description, type, target_pace_min_per_km, target_pace_max_per_km,
 			target_heart_rate_min, target_heart_rate_max, target_cadence, target_distance_km,
 			target_duration_sec, segments, created_at, updated_at, version
@@ -467,7 +491,7 @@ func (r *Repository) ListTemplatesByCoach(ctx context.Context, coachID string) (
 }
 
 func (r *Repository) DeleteTemplate(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `
+	result, err := r.exec.ExecContext(ctx, `
 		UPDATE running_workout_templates SET deleted_at = $2 WHERE id = $1 AND deleted_at IS NULL`,
 		id, time.Now())
 	if err != nil {
@@ -495,7 +519,7 @@ func (r *Repository) SaveSegment(ctx context.Context, s *domain.RunningWorkoutSe
 	}
 	s.UpdatedAt = now
 
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO running_workout_segments
 			(id, template_id, order_index, type, instruction, spoken_instruction,
 			 target_duration_sec, target_distance_km, target_pace_min_per_km, target_pace_max_per_km,
@@ -534,7 +558,7 @@ func (r *Repository) SaveSegment(ctx context.Context, s *domain.RunningWorkoutSe
 }
 
 func (r *Repository) ListSegmentsByTemplate(ctx context.Context, templateID string) ([]*domain.RunningWorkoutSegment, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, template_id, order_index, type, instruction, spoken_instruction,
 			target_duration_sec, target_distance_km, target_pace_min_per_km, target_pace_max_per_km,
 			target_heart_rate_min, target_heart_rate_max, repetitions, recovery_sec,
@@ -575,7 +599,7 @@ func (r *Repository) SaveAssignment(ctx context.Context, a *domain.RunningWorkou
 	}
 	a.UpdatedAt = now
 
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO running_workout_assignments
 			(id, template_id, athlete_id, coach_id, scheduled_date, status, athlete_instructions,
 			 created_at, updated_at, version)
@@ -600,7 +624,7 @@ func (r *Repository) SaveAssignment(ctx context.Context, a *domain.RunningWorkou
 }
 
 func (r *Repository) GetAssignment(ctx context.Context, id string) (*domain.RunningWorkoutAssignment, error) {
-	row := r.db.QueryRowContext(ctx, `
+	row := r.exec.QueryRowContext(ctx, `
 		SELECT id, template_id, athlete_id, coach_id, scheduled_date, status, athlete_instructions,
 			created_at, updated_at, deleted_at, version
 		 FROM running_workout_assignments WHERE id = $1 AND deleted_at IS NULL`, id)
@@ -634,7 +658,7 @@ func (r *Repository) ListAssignmentsByAthlete(ctx context.Context, athleteID str
 	}
 	query += " ORDER BY scheduled_date DESC"
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.exec.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list running workout assignments by athlete: %w", err)
 	}
@@ -656,7 +680,7 @@ func (r *Repository) ListAssignmentsByAthlete(ctx context.Context, athleteID str
 }
 
 func (r *Repository) ListAssignmentsByCoach(ctx context.Context, coachID string) ([]*domain.RunningWorkoutAssignment, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, template_id, athlete_id, coach_id, scheduled_date, status, athlete_instructions,
 			created_at, updated_at, version
 		 FROM running_workout_assignments WHERE coach_id = $1 AND deleted_at IS NULL
@@ -682,7 +706,7 @@ func (r *Repository) ListAssignmentsByCoach(ctx context.Context, coachID string)
 }
 
 func (r *Repository) UpdateAssignmentStatus(ctx context.Context, id string, status domain.RunningWorkoutAssignmentStatus) error {
-	result, err := r.db.ExecContext(ctx, `
+	result, err := r.exec.ExecContext(ctx, `
 		UPDATE running_workout_assignments SET status = $2, updated_at = $3 WHERE id = $1 AND deleted_at IS NULL`,
 		id, status, time.Now())
 	if err != nil {
@@ -713,7 +737,7 @@ func (r *Repository) SaveSnapshot(ctx context.Context, s *domain.RunningWorkoutS
 		return fmt.Errorf("marshal template copy: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, `
+	_, err = r.exec.ExecContext(ctx, `
 		INSERT INTO running_workout_snapshots
 			(id, assignment_id, session_id, template_copy, captured_at)
 		 VALUES ($1, $2, $3, $4, $5)
@@ -731,7 +755,7 @@ func (r *Repository) SaveSnapshot(ctx context.Context, s *domain.RunningWorkoutS
 }
 
 func (r *Repository) GetSnapshotBySession(ctx context.Context, sessionID string) (*domain.RunningWorkoutSnapshot, error) {
-	row := r.db.QueryRowContext(ctx, `
+	row := r.exec.QueryRowContext(ctx, `
 		SELECT id, assignment_id, session_id, template_copy, captured_at
 		 FROM running_workout_snapshots WHERE session_id = $1`, sessionID)
 
@@ -773,7 +797,7 @@ func (r *Repository) SaveOutbox(ctx context.Context, eventType, aggregateType, a
 		return fmt.Errorf("marshal outbox payload: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, `
+	_, err = r.exec.ExecContext(ctx, `
 		INSERT INTO outbox (event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status)
 		VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'pending')
 	`,
