@@ -1,6 +1,25 @@
 package running
 
-import "context"
+import (
+	"context"
+	"database/sql"
+)
+
+// Executor is the common SQL execution interface compatible with both *sql.DB
+// (standalone mode) and *sql.Tx (transactional mode within a UnitOfWork).
+// Repositories use it for all queries so they can run either against the
+// connection pool or inside a UnitOfWork transaction.
+type Executor interface {
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+}
+
+// Compile-time checks that *sql.DB and *sql.Tx satisfy Executor.
+var (
+	_ Executor = (*sql.DB)(nil)
+	_ Executor = (*sql.Tx)(nil)
+)
 
 // Repository defines the data access interface for the running domain.
 // Implementations can use any data store (Turso, Postgres, in-memory, etc.).
@@ -66,7 +85,13 @@ type Repository interface {
 	DeactivateDeviceConnection(ctx context.Context, id string) error
 
 	// Outbox operations for reliable realtime event delivery
-	SaveOutbox(ctx context.Context, eventType, aggregateType, aggregateID string, coachID, athleteID string, payload map[string]interface{}) error
+	// eventID is the idempotency key (UUID). When empty the repository generates one.
+	SaveOutbox(ctx context.Context, eventID, eventType, aggregateType, aggregateID string, coachID, athleteID string, payload map[string]interface{}) error
+
+	// WithExecutor returns a Repository that runs all queries within the given
+	// SQL executor (e.g. a *sql.Tx from a UnitOfWork), so business operations
+	// and Outbox inserts share the same transaction.
+	WithExecutor(exec Executor) Repository
 
 	// --- Running workout template operations ---
 

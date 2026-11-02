@@ -7,16 +7,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/running"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
-	"github.com/google/uuid"
-	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Repository implements running.Repository using database/sql with Turso/libsql.
 type Repository struct {
-	db  *sql.DB
-	exec database.Executor
+	db   *sql.DB
+	exec domain.Executor
 }
 
 // NewRepository creates a new running repository with the given database connection.
@@ -27,15 +26,15 @@ func NewRepository(db *sql.DB) *Repository {
 }
 
 // SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
-func (r *Repository) SetExecutor(exec database.Executor) {
+func (r *Repository) SetExecutor(exec domain.Executor) {
 	r.exec = exec
 }
 
 // WithExecutor returns a new Repository instance sharing the same connection
 // pool but using the given executor for all queries.
-func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+func (r *Repository) WithExecutor(exec domain.Executor) domain.Repository {
 	return &Repository{
-		db:  r.db,
+		db:   r.db,
 		exec: exec,
 	}
 }
@@ -789,19 +788,22 @@ func nullInt(v *int) sql.NullInt64 {
 }
 
 // SaveOutbox registra un evento en la tabla outbox dentro de la misma
-// transacción que la operación de negocio. Esto garantiza que el evento
-// solo se publique si la operación de negocio confirma exitosamente.
-func (r *Repository) SaveOutbox(ctx context.Context, eventType, aggregateType, aggregateID string, coachID, athleteID string, payload map[string]interface{}) error {
+// transacción que la operación de negocio. El executor debe ser el *sql.Tx
+// de la UnitOfWork para que el evento se confirme junto con el negocio.
+// eventID es la clave de idempotencia (UUID). Cuando está vacía, la base de
+// datos genera una con gen_random_uuid().
+func (r *Repository) SaveOutbox(ctx context.Context, eventID, eventType, aggregateType, aggregateID string, coachID, athleteID string, payload map[string]interface{}) error {
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal outbox payload: %w", err)
 	}
 
 	_, err = r.exec.ExecContext(ctx, `
-		INSERT INTO outbox (event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status)
-		VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'pending')
+		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, next_retry_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), 'pending', NOW())
+		ON CONFLICT (event_id) DO NOTHING
 	`,
-		eventType, aggregateType, aggregateID, coachID, athleteID, payloadJSON)
+		eventID, eventType, aggregateType, aggregateID, coachID, athleteID, payloadJSON)
 	if err != nil {
 		return fmt.Errorf("failed to save outbox event: %w", err)
 	}

@@ -32,6 +32,12 @@ func newMockRepository() *mockRepository {
 	}
 }
 
+// WithExecutor returns the mock itself (tests run without a real database, so
+// the executor is never used).
+func (m *mockRepository) WithExecutor(domain.Executor) domain.Repository {
+	return m
+}
+
 func (m *mockRepository) SaveSession(_ context.Context, s *domain.RunningSession) error {
 	m.sessions[s.ID] = s
 	return nil
@@ -160,7 +166,7 @@ func (m *mockRepository) ListGpsPointsBySession(_ context.Context, sessionID str
 	return pts, nil
 }
 
-func (m *mockRepository) SaveOutbox(_ context.Context, eventType, aggregateType, aggregateID string, coachID, athleteID string, payload map[string]interface{}) error {
+func (m *mockRepository) SaveOutbox(_ context.Context, eventID, eventType, aggregateType, aggregateID string, coachID, athleteID string, payload map[string]interface{}) error {
 	return nil
 }
 

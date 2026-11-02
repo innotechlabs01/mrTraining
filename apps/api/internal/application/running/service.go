@@ -18,6 +18,7 @@ import (
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/running"
 	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Service implements running-related business operations.
@@ -648,6 +649,31 @@ func getISOWeek(dateStr string) string {
 	return fmt.Sprintf("%d-W%02d", year, week)
 }
 
+// runInTx ejecuta fn dentro de una transacción UnitOfWork compartida por la
+// operación de negocio y la inserción de Outbox. Todas las consultas de fn
+// reciben el *sql.Tx de la transacción (vía domain.Executor) para que el
+// evento de Outbox se confirme o revierta junto con el negocio, sin usar un
+// *sql.DB suelto fuera de la transacción.
+//
+// Cuando no hay base de datos configurada (pruebas), se ejecuta sin
+// transacción contra el executor nulo; los mocks de repositorio no tocan el
+// executor, por lo que no hay pánico.
+func (s *Service) runInTx(ctx context.Context, userID, coachID, role string, fn func(domain.Executor) error) error {
+	if s.db == nil {
+		return fn(nil)
+	}
+	uow := database.NewUnitOfWork(s.db)
+	if err := uow.Begin(ctx, userID, coachID, role); err != nil {
+		return fmt.Errorf("begin outbox transaction: %w", err)
+	}
+	defer uow.Rollback(ctx) // no-op si Commit ya se ejecutó
+
+	if err := fn(uow.Tx()); err != nil {
+		return err
+	}
+	return uow.Commit(ctx)
+}
+
 // --- Structured running workout template operations ---
 
 // CreateTemplate creates a new running workout template with its segments.
@@ -661,18 +687,26 @@ func (s *Service) CreateTemplate(ctx context.Context, t *domain.RunningWorkoutTe
 	if t.Type == "" {
 		t.Type = domain.TemplateTypeFreeRun
 	}
-	if err := s.repo.SaveTemplate(ctx, t); err != nil {
-		return fmt.Errorf("create template: %w", err)
-	}
-	payload := map[string]interface{}{
-		"name":     t.ID,
-		"coach_id": t.CoachID,
-		"version":  t.Version,
-	}
-	if err := s.repo.SaveOutbox(ctx, "template.created", "template", t.ID, t.CoachID, "", payload); err != nil {
-		return fmt.Errorf("insert outbox template.created: %w", err)
-	}
-	return nil
+	return s.runInTx(ctx, t.CoachID, t.CoachID, "coach", func(exec domain.Executor) error {
+		var txRepo domain.Repository
+		if exec == nil {
+			txRepo = s.repo
+		} else {
+			txRepo = s.repo.WithExecutor(exec)
+		}
+		if err := txRepo.SaveTemplate(ctx, t); err != nil {
+			return fmt.Errorf("create template: %w", err)
+		}
+		payload := map[string]interface{}{
+			"name":     t.ID,
+			"coach_id": t.CoachID,
+			"version":  t.Version,
+		}
+		if err := txRepo.SaveOutbox(ctx, uuid.NewString(), "template.created", "template", t.ID, t.CoachID, "", payload); err != nil {
+			return fmt.Errorf("insert outbox template.created: %w", err)
+		}
+		return nil
+	})
 }
 
 // GetTemplate retrieves a template by ID with its segments.
@@ -761,41 +795,50 @@ func (s *Service) CreateAssignment(ctx context.Context, a *domain.RunningWorkout
 	if a.ID == "" {
 		a.ID = uuid.New().String()
 	}
-	// Validate template exists and belongs to the coach.
-	template, err := s.repo.GetTemplate(ctx, a.TemplateID)
-	if err != nil {
-		return fmt.Errorf("get template: %w", err)
-	}
-	if template == nil {
-		return fmt.Errorf("template not found: %s", a.TemplateID)
-	}
-	if template.CoachID != a.CoachID {
-		return fmt.Errorf("coach %s does not own template %s", a.CoachID, a.TemplateID)
-	}
-	// Prevent duplicate active assignment for same athlete+template.
-	for _, status := range []domain.RunningWorkoutAssignmentStatus{domain.AssignmentStatusAssigned, domain.AssignmentStatusStarted} {
-		existing, err := s.repo.ListAssignmentsByAthlete(ctx, a.AthleteID, status)
-		if err == nil {
-			for _, aa := range existing {
-				if aa.TemplateID == a.TemplateID {
-					return fmt.Errorf("duplicate active assignment for athlete %s and template %s", a.AthleteID, a.TemplateID)
+	return s.runInTx(ctx, a.CoachID, a.CoachID, "coach", func(exec domain.Executor) error {
+		var txRepo domain.Repository
+		if exec == nil {
+			txRepo = s.repo
+		} else {
+			txRepo = s.repo.WithExecutor(exec)
+		}
+
+		// Validate template exists and belongs to the coach.
+		template, err := txRepo.GetTemplate(ctx, a.TemplateID)
+		if err != nil {
+			return fmt.Errorf("get template: %w", err)
+		}
+		if template == nil {
+			return fmt.Errorf("template not found: %s", a.TemplateID)
+		}
+		if template.CoachID != a.CoachID {
+			return fmt.Errorf("coach %s does not own template %s", a.CoachID, a.TemplateID)
+		}
+		// Prevent duplicate active assignment for same athlete+template.
+		for _, status := range []domain.RunningWorkoutAssignmentStatus{domain.AssignmentStatusAssigned, domain.AssignmentStatusStarted} {
+			existing, err := txRepo.ListAssignmentsByAthlete(ctx, a.AthleteID, status)
+			if err == nil {
+				for _, aa := range existing {
+					if aa.TemplateID == a.TemplateID {
+						return fmt.Errorf("duplicate active assignment for athlete %s and template %s", a.AthleteID, a.TemplateID)
+					}
 				}
 			}
 		}
-	}
-	if err := s.repo.SaveAssignment(ctx, a); err != nil {
-		return fmt.Errorf("create assignment: %w", err)
-	}
-	payload := map[string]interface{}{
-		"coach_id":    a.CoachID,
-		"athlete_id":  a.AthleteID,
-		"template_id": a.TemplateID,
-		"status":      a.Status,
-	}
-	if err := s.repo.SaveOutbox(ctx, "assignment.created", "assignment", a.ID, a.CoachID, a.AthleteID, payload); err != nil {
-		return fmt.Errorf("create assignment and insert outbox: %w", err)
-	}
-	return nil
+		if err := txRepo.SaveAssignment(ctx, a); err != nil {
+			return fmt.Errorf("create assignment: %w", err)
+		}
+		payload := map[string]interface{}{
+			"coach_id":    a.CoachID,
+			"athlete_id":  a.AthleteID,
+			"template_id": a.TemplateID,
+			"status":      a.Status,
+		}
+		if err := txRepo.SaveOutbox(ctx, uuid.NewString(), "assignment.created", "assignment", a.ID, a.CoachID, a.AthleteID, payload); err != nil {
+			return fmt.Errorf("insert outbox assignment.created: %w", err)
+		}
+		return nil
+	})
 }
 
 // GetAssignment retrieves an assignment by ID.
@@ -916,46 +959,62 @@ func (s *Service) StartSession(ctx context.Context, assignmentID, athleteID stri
 
 // CompleteSession finalizes a running session with real metrics.
 func (s *Service) CompleteSession(ctx context.Context, sessionID, athleteID string, session *domain.RunningSession) error {
-	existing, err := s.repo.GetSession(ctx, sessionID)
-	if err != nil {
-		return fmt.Errorf("get running session: %w", err)
-	}
-	if existing.UserID != athleteID {
-		return apperrors.Forbidden("not allowed to complete this session")
-	}
-	if session == nil || session.Duration < 0 || session.Distance < 0 || math.IsNaN(session.Distance) || math.IsInf(session.Distance, 0) {
-		return apperrors.BadRequest("distance and duration must be nonnegative finite values")
-	}
-	snapshot, err := s.repo.GetSnapshotBySession(ctx, sessionID)
-	var appErr *apperrors.AppError
-	if err != nil && !(errors.As(err, &appErr) && appErr.Code == "NOT_FOUND") {
-		return fmt.Errorf("get running snapshot: %w", err)
-	}
-	// Guard against duplicate completion for linked assignments.
-	if snapshot != nil {
-		if assignment, err := s.repo.GetAssignment(ctx, snapshot.AssignmentID); err == nil && assignment != nil && assignment.Status == domain.AssignmentStatusCompleted {
-			return fmt.Errorf("session already completed")
+	// La tabla outbox no está protegida por RLS (no es multi-tenant directa),
+	// por lo que se usa el propio atleta como contexto de usuario y coach
+	// dentro de la transacción UnitOfWork.
+	return s.runInTx(ctx, athleteID, athleteID, "athlete", func(exec domain.Executor) error {
+		var txRepo domain.Repository
+		if exec == nil {
+			txRepo = s.repo
+		} else {
+			txRepo = s.repo.WithExecutor(exec)
 		}
-	}
-	// Keep server identity, date, source and device metadata, never payload values.
-	updated := *existing
-	updated.Distance, updated.Duration, updated.Pace = session.Distance, session.Duration, session.Pace
-	updated.Calories, updated.Elevation = session.Calories, session.Elevation
-	updated.HeartRate, updated.Cadence, updated.GPSRoute = session.HeartRate, session.Cadence, session.GPSRoute
-	if err := s.repo.UpdateSession(ctx, &updated); err != nil {
-		return fmt.Errorf("complete session: %w", err)
-	}
-	// Insert Outbox event: workout.completed
-	if err := s.insertOutboxWorkoutCompleted(ctx, sessionID, athleteID); err != nil {
-		return fmt.Errorf("insert outbox workout.completed: %w", err)
-	}
-	if snapshot != nil {
-		// Both writes are idempotent: a failed status write can be retried safely.
-		if err := s.repo.UpdateAssignmentStatus(ctx, snapshot.AssignmentID, domain.AssignmentStatusCompleted); err != nil {
-			return fmt.Errorf("complete assignment: %w", err)
+
+		existing, err := txRepo.GetSession(ctx, sessionID)
+		if err != nil {
+			return fmt.Errorf("get running session: %w", err)
 		}
-	}
-	return nil
+		if existing.UserID != athleteID {
+			return apperrors.Forbidden("not allowed to complete this session")
+		}
+		if session == nil || session.Duration < 0 || session.Distance < 0 || math.IsNaN(session.Distance) || math.IsInf(session.Distance, 0) {
+			return apperrors.BadRequest("distance and duration must be nonnegative finite values")
+		}
+		snapshot, err := txRepo.GetSnapshotBySession(ctx, sessionID)
+		var appErr *apperrors.AppError
+		if err != nil && !(errors.As(err, &appErr) && appErr.Code == "NOT_FOUND") {
+			return fmt.Errorf("get running snapshot: %w", err)
+		}
+		// Guard against duplicate completion for linked assignments.
+		if snapshot != nil {
+			if assignment, err := txRepo.GetAssignment(ctx, snapshot.AssignmentID); err == nil && assignment != nil && assignment.Status == domain.AssignmentStatusCompleted {
+				return fmt.Errorf("session already completed")
+			}
+		}
+		// Keep server identity, date, source and device metadata, never payload values.
+		updated := *existing
+		updated.Distance, updated.Duration, updated.Pace = session.Distance, session.Duration, session.Pace
+		updated.Calories, updated.Elevation = session.Calories, session.Elevation
+		updated.HeartRate, updated.Cadence, updated.GPSRoute = session.HeartRate, session.Cadence, session.GPSRoute
+		if err := txRepo.UpdateSession(ctx, &updated); err != nil {
+			return fmt.Errorf("complete session: %w", err)
+		}
+		// Insert Outbox event: workout.completed (dentro de la misma transacción).
+		payload := map[string]interface{}{
+			"athlete_id": athleteID,
+			"session_id": sessionID,
+		}
+		if err := txRepo.SaveOutbox(ctx, uuid.NewString(), "workout.completed", "workout", sessionID, "", athleteID, payload); err != nil {
+			return fmt.Errorf("insert outbox workout.completed: %w", err)
+		}
+		if snapshot != nil {
+			// Ambas escrituras son idempotentes: una escritura de estado fallida se puede reintentar con seguridad.
+			if err := txRepo.UpdateAssignmentStatus(ctx, snapshot.AssignmentID, domain.AssignmentStatusCompleted); err != nil {
+				return fmt.Errorf("complete assignment: %w", err)
+			}
+		}
+		return nil
+	})
 }
 
 // insertOutboxTemplateCreated inserts a template.created event into the Outbox table.
@@ -967,43 +1026,4 @@ func (s *Service) FinishSession(ctx context.Context, sessionID, athleteID string
 // GetSnapshotBySession delegates to repository.
 func (s *Service) GetSnapshotBySession(ctx context.Context, sessionID string) (*domain.RunningWorkoutSnapshot, error) {
 	return s.repo.GetSnapshotBySession(ctx, sessionID)
-}
-
-func (s *Service) insertOutboxTemplateCreated(ctx context.Context, templateID, coachID string) error {
-	payload := map[string]interface{}{
-		"name":     templateID, // simplified; in a real implementation would include full template data
-		"coach_id": coachID,
-		"version":  1,
-	}
-	return s.repo.SaveOutbox(ctx, "template.created", "template", templateID, coachID, "", payload)
-}
-
-// insertOutboxAssignmentCreated inserts an assignment.created event into the Outbox table.
-func (s *Service) insertOutboxAssignmentCreated(ctx context.Context, assignmentID, coachID, athleteID string) error {
-	payload := map[string]interface{}{
-		"coach_id":    coachID,
-		"athlete_id":  athleteID,
-		"template_id": assignmentID,
-		"status":      "assigned",
-	}
-	return s.repo.SaveOutbox(ctx, "assignment.created", "assignment", assignmentID, coachID, athleteID, payload)
-}
-
-// insertOutboxWorkoutStarted inserts a workout.started event into the Outbox table.
-func (s *Service) insertOutboxWorkoutStarted(ctx context.Context, sessionID, athleteID, templateID string) error {
-	payload := map[string]interface{}{
-		"athlete_id":  athleteID,
-		"template_id": templateID,
-		"session_id":  sessionID,
-	}
-	return s.repo.SaveOutbox(ctx, "workout.started", "workout", sessionID, "", athleteID, payload)
-}
-
-// insertOutboxWorkoutCompleted inserts a workout.completed event into the Outbox table.
-func (s *Service) insertOutboxWorkoutCompleted(ctx context.Context, sessionID, athleteID string) error {
-	payload := map[string]interface{}{
-		"athlete_id": athleteID,
-		"session_id": sessionID,
-	}
-	return s.repo.SaveOutbox(ctx, "workout.completed", "workout", sessionID, "", athleteID, payload)
 }

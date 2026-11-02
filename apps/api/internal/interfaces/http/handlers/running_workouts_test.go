@@ -38,6 +38,16 @@ func newMockRunningRepository() *mockRunningRepository {
 	}
 }
 
+// WithExecutor returns the mock itself (handler tests run without a real
+// database, so the executor is never used).
+func (m *mockRunningRepository) WithExecutor(domain.Executor) domain.Repository {
+	return m
+}
+
+func (m *mockRunningRepository) SaveOutbox(_ context.Context, eventID, eventType, aggregateType, aggregateID, coachID, athleteID string, payload map[string]interface{}) error {
+	return nil
+}
+
 func (m *mockRunningRepository) GetSession(_ context.Context, id string) (*domain.RunningSession, error) {
 	s, ok := m.sessions[id]
 	if !ok {
