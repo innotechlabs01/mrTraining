@@ -514,6 +514,10 @@ func main() {
 		// Register commission entry routes
 		routes.RegisterCommissionEntryRoutes(api, commissionEntryHandler)
 
+		// Wire Commercial Policy Engine (commission configuration + listing)
+		commissionPolicyHandler := handlers.NewCommissionPolicyHandler(commissionService, commissionEntryService)
+		routes.RegisterPolicyRoutes(api, commissionPolicyHandler)
+
 		// Wire Earnings domain (own sales profit + ally commissions)
 		earningsService := earningsapp.NewService(productRepo, commissionEntryRepo)
 		earningsHandler := userhttp.NewEarningsHandler(earningsService)
