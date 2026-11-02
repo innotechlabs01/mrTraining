@@ -111,6 +111,11 @@ export const screensTexts = {
     syncing: 'Sincronizando…',
     syncComplete: 'Sincronizado',
     syncFailed: 'Error al sincronizar',
+    syncError: 'No se pudo sincronizar la sesión con el servidor.',
+    sessionStarted: 'Sesión iniciada',
+    sessionStartedMessage: 'Tus datos se sincronizan con tu coach mientras corres.',
+    pendingSync: 'Sincronización pendiente',
+    retry: 'Reintentar',
   },
   runningSessionSummary: {
     title: 'Resumen de la sesión',
