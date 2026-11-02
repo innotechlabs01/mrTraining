@@ -35,7 +35,7 @@ import { SetInput } from '../components/execution/SetInput';
 import { RunningRouteView } from '../components/RunningRouteView';
 import { IntervalTracker } from '../components/execution/IntervalTracker';
 import { useGpsTracking } from '../../hooks/useGpsTracking';
-import { reportRunningProgress } from '../../../infrastructure/api/client';
+import { reportRunningProgress } from '../../../../infrastructure/api/client';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WorkoutExecution'>;
 
@@ -179,7 +179,7 @@ export function WorkoutExecutionScreen({ route, navigation }: Props) {
         <View style={styles.headerRight}>
           {isRunningExercise && (
             <View style={styles.gpsStatus}>
-              <View style={[styles.gpsDot, { backgroundColor: isTracking ? '#15AAF2' : '#FF3B30' }]} />
+              <View style={[styles.gpsDot, { backgroundColor: isTracking ? colors.primary : colors.error }]} />
               <Text style={styles.gpsText}>{isTracking ? 'GPS' : 'GPS OFF'}</Text>
             </View>
           )}

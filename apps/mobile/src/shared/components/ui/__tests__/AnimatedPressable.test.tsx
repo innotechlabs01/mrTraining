@@ -43,7 +43,7 @@ describe('AnimatedPressable', () => {
   });
 
   it('preserves a function style and passes the pressed state through', () => {
-    const styleFn = jest.fn(() => ({ opacity: 0.7 }));
+    const styleFn = jest.fn((_state: { pressed: boolean }) => ({ opacity: 0.7 }));
     const { getByTestId } = render(
       <AnimatedPressable testID="tap" style={styleFn}>
         <Text>TAP ME</Text>
@@ -52,5 +52,22 @@ describe('AnimatedPressable', () => {
     expect(getByTestId('tap')).toBeTruthy();
     expect(styleFn).toHaveBeenCalled();
     expect(styleFn.mock.calls[0][0]).toHaveProperty('pressed');
+  });
+
+  it('flips the pressed flag on pressIn and resets it on pressOut', () => {
+    const seen: boolean[] = [];
+    const styleFn = ({ pressed }: { pressed: boolean }) => {
+      seen.push(pressed);
+      return { opacity: pressed ? 0.7 : 1 };
+    };
+    const { getByTestId } = render(
+      <AnimatedPressable testID="tap" style={styleFn}>
+        <Text>TAP ME</Text>
+      </AnimatedPressable>,
+    );
+    fireEvent(getByTestId('tap'), 'pressIn');
+    expect(seen[seen.length - 1]).toBe(true);
+    fireEvent(getByTestId('tap'), 'pressOut');
+    expect(seen[seen.length - 1]).toBe(false);
   });
 });

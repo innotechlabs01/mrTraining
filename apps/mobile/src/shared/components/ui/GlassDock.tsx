@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { colors, fontFamilies, radius, shadows, spacing } from '../../theme/tokens';
 import {
@@ -10,6 +10,7 @@ import {
   UserIcon,
 } from '../icons';
 import { texts } from '../../i18n/texts';
+import { AnimatedPressable } from './AnimatedPressable';
 
 const TAB_META: Record<string, { label: string; Icon: (p: { size: number; color: string }) => React.ReactElement }> = {
   Today: { label: texts.tabs.today, Icon: HomeIcon },
@@ -31,7 +32,7 @@ export function GlassDock({ state, descriptors, navigation, insets }: BottomTabB
           if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name as never);
         };
         return (
-          <Pressable
+          <AnimatedPressable
             key={route.key}
             onPress={onPress}
             style={({ pressed }) => [
@@ -46,7 +47,7 @@ export function GlassDock({ state, descriptors, navigation, insets }: BottomTabB
           >
             <meta.Icon size={22} color={isFocused ? colors.primary : colors.textSecondary} />
             <Text style={[styles.label, isFocused && styles.labelFocused]}>{String(label)}</Text>
-          </Pressable>
+          </AnimatedPressable>
         );
       })}
     </View>

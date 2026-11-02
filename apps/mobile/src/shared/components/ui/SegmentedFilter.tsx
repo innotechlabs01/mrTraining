@@ -12,6 +12,9 @@ type Props = {
   loading?: boolean;
 };
 
+/** Segments are 40pt tall; extend into the track padding to reach the 48pt touch target. */
+const SEGMENT_HIT_SLOP = { top: spacing.xs, bottom: spacing.xs } as const;
+
 /** Discrete segmented control — surfaceRaised track, selected segment on `surface`. */
 export function SegmentedFilter({ options, value, onChange, loading = false }: Props) {
   if (loading) {
@@ -35,6 +38,7 @@ export function SegmentedFilter({ options, value, onChange, loading = false }: P
             accessibilityState={{ selected }}
             accessibilityLabel={o.label}
             onPress={() => onChange(o.key)}
+            hitSlop={SEGMENT_HIT_SLOP}
             style={({ pressed }) => [styles.segment, selected && styles.segmentSelected, pressed && !selected && styles.pressed]}
           >
             <Text style={[styles.label, selected && styles.labelSelected]}>{o.label}</Text>

@@ -52,7 +52,7 @@ class UbicacionMock {
     this.callback = null;
   }
 
-  async simularPunto(punto: any): void {
+  async simularPunto(punto: any): Promise<void> {
     if (this.callback) {
       await this.callback(punto);
     }

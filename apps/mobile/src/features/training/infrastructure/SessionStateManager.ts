@@ -5,10 +5,10 @@
  * de la aplicación (cuando la plataforma lo permita).
  */
 
-import { MMKV } from 'react-native-mmkv';
+import { createMMKV } from 'react-native-mmkv';
 import type { SessionPersistedState } from '../domain/TrackingEngine';
 
-const storage = new MMKV({ id: 'running-session-state' });
+const storage = createMMKV({ id: 'running-session-state' });
 
 const ESTADO_KEY = (sessionId: string) => `running_session_state:${sessionId}`;
 const ULTIMO_TS_KEY = (sessionId: string) => `running_last_ts:${sessionId}`;
@@ -70,7 +70,7 @@ export async function cargarSplitsSesion(sessionId: string): Promise<any[] | nul
  */
 export async function obtenerUltimoTimestamp(sessionId: string): Promise<string | null> {
   try {
-    return storage.getString(ULTIMO_TS_KEY(sessionId));
+    return storage.getString(ULTIMO_TS_KEY(sessionId)) ?? null;
   } catch {
     return null;
   }
@@ -80,10 +80,10 @@ export async function obtenerUltimoTimestamp(sessionId: string): Promise<string 
  * Elimina el estado persistido de una sesión (tras sincronización exitosa).
  */
 export async function limpiarEstadoSesion(sessionId: string): Promise<void> {
-  storage.delete(ESTADO_KEY(sessionId));
-  storage.delete(ULTIMO_TS_KEY(sessionId));
-  storage.delete(METRICA_KEY(sessionId));
-  storage.delete(SPLITS_KEY(sessionId));
+  storage.remove(ESTADO_KEY(sessionId));
+  storage.remove(ULTIMO_TS_KEY(sessionId));
+  storage.remove(METRICA_KEY(sessionId));
+  storage.remove(SPLITS_KEY(sessionId));
 }
 
 /**

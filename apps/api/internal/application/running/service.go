@@ -7,7 +7,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/running"
+	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
 )
 
 // Service implements running-related business operations.
@@ -821,18 +824,38 @@ func (s *Service) StartSession(ctx context.Context, assignmentID, athleteID stri
 
 // CompleteSession finalizes a running session with real metrics.
 func (s *Service) CompleteSession(ctx context.Context, sessionID, athleteID string, session *domain.RunningSession) error {
-	if session.ID == "" {
-		session.ID = sessionID
+	existing, err := s.repo.GetSession(ctx, sessionID)
+	if err != nil {
+		return fmt.Errorf("get running session: %w", err)
 	}
-	if session.UserID != athleteID {
-		return fmt.Errorf("session does not belong to athlete %s", athleteID)
+	if existing.UserID != athleteID {
+		return apperrors.Forbidden("not allowed to complete this session")
 	}
-	if err := s.repo.UpdateSession(ctx, session); err != nil {
+	if session == nil || session.Duration < 0 || session.Distance < 0 || math.IsNaN(session.Distance) || math.IsInf(session.Distance, 0) {
+		return apperrors.BadRequest("distance and duration must be nonnegative finite values")
+	}
+	snapshot, err := s.repo.GetSnapshotBySession(ctx, sessionID)
+	var appErr *apperrors.AppError
+	if err != nil && !(errors.As(err, &appErr) && appErr.Code == "NOT_FOUND") {
+		return fmt.Errorf("get running snapshot: %w", err)
+	}
+	// Keep server identity, date, source and device metadata, never payload values.
+	updated := *existing
+	updated.Distance, updated.Duration, updated.Pace = session.Distance, session.Duration, session.Pace
+	updated.Calories, updated.Elevation = session.Calories, session.Elevation
+	updated.HeartRate, updated.Cadence, updated.GPSRoute = session.HeartRate, session.Cadence, session.GPSRoute
+	if err := s.repo.UpdateSession(ctx, &updated); err != nil {
 		return fmt.Errorf("complete session: %w", err)
 	}
 	// Insert Outbox event: workout.completed
 	if err := s.insertOutboxWorkoutCompleted(ctx, sessionID, athleteID); err != nil {
 		return fmt.Errorf("insert outbox workout.completed: %w", err)
+	}
+	if snapshot != nil {
+		// Both writes are idempotent: a failed status write can be retried safely.
+		if err := s.repo.UpdateAssignmentStatus(ctx, snapshot.AssignmentID, domain.AssignmentStatusCompleted); err != nil {
+			return fmt.Errorf("complete assignment: %w", err)
+		}
 	}
 	return nil
 }

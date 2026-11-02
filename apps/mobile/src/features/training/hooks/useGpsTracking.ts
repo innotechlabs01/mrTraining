@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Location from 'expo-location';
-import { Platform } from 'react-native';
 import { apiClient } from '../../../infrastructure/api/client';
 
 export interface GpsPoint {
@@ -12,130 +11,91 @@ export interface GpsPoint {
 }
 
 interface UseGpsTrackingOptions {
+  /** Server running-session ID, not the workout template ID. */
   workoutId: string;
   exerciseId: string;
   enabled: boolean;
   onPoint?: (point: GpsPoint) => void;
+  upload?: boolean;
 }
 
-interface UseGpsTrackingResult {
-  isTracking: boolean;
-  points: GpsPoint[];
-  startTracking: () => Promise<void>;
-  stopTracking: () => void;
-  error: string | null;
-}
-
+/** Own one subscription per enabled session; never depend on isTracking. */
 export function useGpsTracking({
-  workoutId,
-  exerciseId,
-  enabled,
-  onPoint,
-}: UseGpsTrackingOptions): UseGpsTrackingResult {
+  workoutId, exerciseId, enabled, onPoint, upload = true,
+}: UseGpsTrackingOptions) {
   const [isTracking, setIsTracking] = useState(false);
   const [points, setPoints] = useState<GpsPoint[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const watcherRef = useRef<Location.LocationSubscription | null>(null);
-  const pointsRef = useRef<GpsPoint[]>([]);
+  const watcher = useRef<Location.LocationSubscription | null>(null);
+  const generation = useRef(0);
+  const starting = useRef(false);
+  const onPointRef = useRef(onPoint);
+  onPointRef.current = onPoint;
 
-  const requestPermission = useCallback(async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    return status === 'granted';
+  const stopTracking = useCallback(() => {
+    generation.current += 1;
+    starting.current = false;
+    watcher.current?.remove();
+    watcher.current = null;
+    setIsTracking(false);
   }, []);
 
   const startTracking = useCallback(async () => {
-    if (!enabled) return;
-    const granted = await requestPermission();
-    if (!granted) {
-      setError('Permiso de ubicación denegado');
-      return;
-    }
-
+    if (!enabled || watcher.current || starting.current) return;
+    const attempt = ++generation.current;
+    starting.current = true;
     setError(null);
-    pointsRef.current = [];
-    setPoints([]);
-    setIsTracking(true);
-
-    const sub = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.High,
-        distanceInterval: 10,
-        timeInterval: 5000,
-      },
-      (loc) => {
-        const point: GpsPoint = {
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-          altitude: loc.coords.altitude ?? null,
-          accuracy: loc.coords.accuracy ?? null,
-          timestamp: new Date().toISOString(),
-        };
-        pointsRef.current = [...pointsRef.current, point];
-        setPoints([...pointsRef.current]);
-        onPoint?.(point);
-
-        // Send to API in batches
-        if (pointsRef.current.length % 10 === 0) {
-          sendBatch(pointsRef.current.slice(-10));
-        }
-      }
-    );
-    watcherRef.current = sub;
-
-    // Flush every 30 seconds
-    intervalRef.current = setInterval(() => {
-      if (pointsRef.current.length > 0) {
-        sendBatch(pointsRef.current);
-      }
-    }, 30000);
-  }, [enabled, onPoint, requestPermission]);
-
-  const sendBatch = async (batch: GpsPoint[]) => {
     try {
-      // Use the live-location endpoint for each point
-      for (const point of batch) {
-        await apiClient.post(
-          `/athlete/running/sessions/${workoutId}/live-location`,
-          {
-            session_id: workoutId,
-            lat: point.latitude,
-            lng: point.longitude,
-            alt: point.altitude,
-            timestamp: point.timestamp,
-            accuracy: point.accuracy,
-          }
-        );
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (attempt !== generation.current) return;
+      if (permission.status !== 'granted') {
+        setError('Permiso de ubicación denegado');
+        return;
       }
-    } catch (e) {
-      console.error('Failed to send GPS batch:', e);
+      const subscription = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.High, distanceInterval: 10, timeInterval: 5000 },
+        location => {
+          if (attempt !== generation.current || (location.coords.accuracy ?? Infinity) > 50) return;
+          const point: GpsPoint = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            altitude: location.coords.altitude,
+            accuracy: location.coords.accuracy,
+            timestamp: new Date(location.timestamp).toISOString(),
+          };
+          setPoints(previous => [...previous, point]);
+          onPointRef.current?.(point);
+          if (upload) {
+            // Each sample is sent once. Completion also includes the full route.
+            void apiClient.post(`/running/sessions/${workoutId}/live-location`, {
+              lat: point.latitude, lng: point.longitude, alt: point.altitude,
+              timestamp: point.timestamp, accuracy: point.accuracy,
+            }).catch(() => setError('No se pudo sincronizar la ubicación.'));
+          }
+        },
+      );
+      if (attempt !== generation.current) {
+        subscription.remove();
+        return;
+      }
+      watcher.current = subscription;
+      setIsTracking(true);
+    } catch {
+      if (attempt === generation.current) setError('No se pudo iniciar el GPS.');
+    } finally {
+      if (attempt === generation.current) starting.current = false;
     }
-  };
-
-  const stopTracking = useCallback(async () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    if (watcherRef.current) {
-      watcherRef.current.remove();
-      watcherRef.current = null;
-    }
-    // Flush remaining points
-    if (pointsRef.current.length > 0) {
-      await sendBatch(pointsRef.current);
-    }
-    setIsTracking(false);
-  }, [sendBatch]);
+  }, [enabled, upload, workoutId]);
 
   useEffect(() => {
-    if (enabled && !isTracking) {
-      startTracking();
-    } else if (!enabled && isTracking) {
-      stopTracking();
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (watcherRef.current) watcherRef.current.remove();
-    };
-  }, [enabled, isTracking, startTracking, stopTracking]);
+    setPoints([]);
+  }, [workoutId, exerciseId]);
+
+  useEffect(() => {
+    if (enabled) void startTracking();
+    else stopTracking();
+    return stopTracking;
+  }, [enabled, startTracking, stopTracking]);
 
   return { isTracking, points, startTracking, stopTracking, error };
 }

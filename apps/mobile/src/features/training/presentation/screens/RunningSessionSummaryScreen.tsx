@@ -6,8 +6,9 @@
 import React, { useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useQuery } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { colors, spacing, radius, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
@@ -17,20 +18,23 @@ import { texts } from '../../../../shared/i18n/texts';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, 'RunningSessionSummary'>;
 
+/** Subset of GET /running/sessions/:id (RunningSessionDetailResponse). */
 interface RunningSessionSummaryItem {
-  session_id: string;
-  status: string;
-  distance: number;
-  duration: number;
+  id: string;
+  distance: number; // km
+  duration: number; // seconds
   pace: string;
+  calories: number;
   heart_rate: number;
   cadence: number;
 }
 
 export function RunningSessionSummaryScreen() {
   const navigation = useNavigation<Nav>();
-  const sessionId = navigation.getParam('sessionId') as string | undefined;
+  const route = useRoute<Route>();
+  const sessionId = route.params?.sessionId;
 
   const { data: session, isLoading, isError } = useQuery({
     queryKey: ['running-session-summary', sessionId],

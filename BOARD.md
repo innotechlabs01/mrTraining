@@ -1,5 +1,8 @@
 # Team Board
 
+## Review — Mobile functional recovery (PR #4)
+- [ ] T-045: Restore mobile build and running workflow — implementation: lifecycle-safe GPS, pause-aware elapsed time, real metrics, confirmed completion with user-scoped retry cache, restored routes and backend ownership checks. TypeScript clean; 82 Jest suites / 459 tests passed (investigating cache GC timers); iOS/Android Metro bundles generated. Native iOS build in progress on iPhone 17 Pro simulator. QA → code review → security review pending. No Done without user approval.
+
 ## Done — Fase 1: Limpieza técnica (commiteado eeac974)
 - [x] T-028: Fix tsc baseUrl deprecation (TS5101) — errores 1549→0
 - [x] T-029: Fix web lint unused vars en WorkoutExecution.tsx

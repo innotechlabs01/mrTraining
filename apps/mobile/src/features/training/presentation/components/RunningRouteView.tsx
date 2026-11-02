@@ -14,7 +14,7 @@ import polyline from '@mapbox/polyline';
 import * as Location from 'expo-location';
 import * as Speech from 'expo-speech';
 import * as Haptics from 'expo-haptics';
-import * as ViewShot from 'react-native-view-shot';
+import ViewShot from 'react-native-view-shot';
 import { colors, spacing, typography, radius } from '../../../../shared/theme/tokens';
 import { MapPinIcon } from '../../../../shared/components/icons';
 import { texts } from '../../../../shared/i18n/texts';

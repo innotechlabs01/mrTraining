@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { colors, radius, spacing, typography } from '../../theme/tokens';
 import { Badge } from '../ui/Badge';
+import { AnimatedPressable, PRESS_SCALE } from '../ui/AnimatedPressable';
 import { DumbbellIcon, ClockIcon } from '../icons';
 
 type Difficulty = 'beginner' | 'intermediate' | 'advanced';
@@ -28,8 +29,9 @@ const DIFFICULTY_TONE: Record<Difficulty, 'success' | 'warning' | 'error'> = {
 
 export function WorkoutCard({ name, difficulty, exerciseCount, durationMin, onPress }: Props) {
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
+      pressedScale={onPress ? PRESS_SCALE : 1}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
       accessibilityRole="button"
       accessibilityLabel={`${name}, ${DIFFICULTY_LABEL[difficulty]}, ${exerciseCount} ejercicios, ${durationMin} minutos`}
@@ -50,7 +52,7 @@ export function WorkoutCard({ name, difficulty, exerciseCount, durationMin, onPr
           <Text style={styles.metaText}>{durationMin} min</Text>
         </View>
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 

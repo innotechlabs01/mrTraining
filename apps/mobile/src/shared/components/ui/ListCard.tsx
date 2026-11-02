@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { colors, layout, radius, spacing, typography } from '../../theme/tokens';
 import { ChevronRightIcon } from '../icons';
+import { AnimatedPressable, PRESS_SCALE } from './AnimatedPressable';
 
 type Props = {
   title: string;
@@ -17,9 +18,10 @@ type Props = {
 export function ListCard({ title, subtitle, leadingIcon, trailing, onPress, last = false }: Props) {
   const showChevron = onPress != null && trailing == null;
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole={onPress ? 'button' : undefined}
       onPress={onPress}
+      pressedScale={onPress ? PRESS_SCALE : 1}
       style={({ pressed }) => [styles.row, pressed && onPress && styles.pressed, !last && styles.separator]}
     >
       {leadingIcon ? <View style={styles.leading}>{leadingIcon}</View> : null}
@@ -34,7 +36,7 @@ export function ListCard({ title, subtitle, leadingIcon, trailing, onPress, last
         ) : null}
       </View>
       {trailing ?? (showChevron ? <ChevronRightIcon size={20} color={colors.textSecondary} /> : null)}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 

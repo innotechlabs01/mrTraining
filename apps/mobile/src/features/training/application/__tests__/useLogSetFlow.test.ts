@@ -67,13 +67,22 @@ function makeParams(overrides: Partial<LogSetFlowParams> = {}): LogSetFlowParams
 }
 
 async function runMutation(params: LogSetFlowParams, payload: { weightKg: number; reps: number; rir: number; sec?: number } = { weightKg: 80, reps: 10, rir: 2 }) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  // Each test owns and clears this client; no five-minute GC timers in Jest.
+  const queryClient = new QueryClient({ defaultOptions: {
+    queries: { retry: false, gcTime: Infinity },
+    mutations: { retry: false, gcTime: Infinity },
+  } });
   const wrapper = ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client: queryClient }, children);
-  const { result } = renderHook(() => useLogSetFlow(params), { wrapper });
-  await act(async () => {
-    await result.current.mutateAsync(payload).catch(() => undefined);
-  });
+  const { result, unmount } = renderHook(() => useLogSetFlow(params), { wrapper });
+  try {
+    await act(async () => {
+      await result.current.mutateAsync(payload).catch(() => undefined);
+    });
+  } finally {
+    unmount();
+    queryClient.clear();
+  }
 }
 
 describe('useLogSetFlow — Go API contract (T-013)', () => {

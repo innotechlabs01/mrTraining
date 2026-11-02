@@ -1,16 +1,19 @@
 /**
  * AnimatedPressable — Pressable with native-thread press feedback.
  *
- * The pressed state runs as a Reanimated worklet on the UI thread, so it never
- * re-renders React and never drops frames under load (rules 05-mobile-performance
- * §5). It is strictly additive: the caller's own `style` (static or the
- * `({ pressed }) => …` function form) is preserved, and the spring scale is
- * composed on top. That keeps existing pressed visuals intact.
+ * The spring scale runs as a Reanimated worklet on the UI thread (rules
+ * 05-mobile-performance §5). It is strictly additive: the caller's own `style`
+ * (static or the `({ pressed }) => …` function form) is preserved and the scale
+ * is composed on top, so existing pressed visuals stay intact.
  *
- * Press feedback contract: scale 0.97 (rules 01-mobile-ui-ux §3).
- * Motion is disabled when the OS asks to reduce motion (rule 06 §2, device states).
+ * Reanimated's animated wrapper does not invoke function styles, so the
+ * `pressed` flag is tracked here and the style is resolved to a plain array.
+ * The flag is only tracked when the caller actually passes a function style.
+ *
+ * Press feedback contract: scale 0.97 (rules 01-mobile-ui-ux §3). Motion
+ * follows the OS reduce-motion setting.
  */
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import {
   Pressable,
   type PressableProps,
@@ -42,13 +45,14 @@ type Props = Omit<PressableProps, 'style'> & {
 export const AnimatedPressable = memo(function AnimatedPressable({
   style,
   pressedScale = PRESS_SCALE,
-  disabled,
   onPressIn,
   onPressOut,
   children,
   ...rest
 }: Props) {
   const scale = useSharedValue(1);
+  const [pressed, setPressed] = useState(false);
+  const usesPressedState = typeof style === 'function';
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -57,31 +61,29 @@ export const AnimatedPressable = memo(function AnimatedPressable({
   const handlePressIn = useCallback<NonNullable<PressableProps['onPressIn']>>(
     (event) => {
       scale.value = withSpring(pressedScale, { reduceMotion: ReduceMotion.System });
+      if (usesPressedState) setPressed(true);
       onPressIn?.(event);
     },
-    [scale, pressedScale, onPressIn],
+    [scale, pressedScale, usesPressedState, onPressIn],
   );
 
   const handlePressOut = useCallback<NonNullable<PressableProps['onPressOut']>>(
     (event) => {
       scale.value = withSpring(1, { reduceMotion: ReduceMotion.System });
+      if (usesPressedState) setPressed(false);
       onPressOut?.(event);
     },
-    [scale, onPressOut],
+    [scale, usesPressedState, onPressOut],
   );
 
-  const composedStyle = useCallback<PressableStyle>(
-    (state) => [typeof style === 'function' ? style(state) : style, animatedStyle],
-    [style, animatedStyle],
-  );
+  const resolvedStyle = typeof style === 'function' ? style({ pressed }) : style;
 
   return (
     <AnimatedPressableBase
       {...rest}
-      disabled={disabled}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={composedStyle as StyleProp<ViewStyle>}
+      style={[resolvedStyle, animatedStyle]}
     >
       {children}
     </AnimatedPressableBase>

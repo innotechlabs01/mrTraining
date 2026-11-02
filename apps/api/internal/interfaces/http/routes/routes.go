@@ -224,6 +224,7 @@ func RegisterRunningWorkoutRoutes(api fiber.Router, handler *handlers.RunningWor
 
 	// Assignments — coach assigns to athlete
 	api.Post("/running/workouts/assignments", middleware.RequireCoach(), handler.CreateAssignment)
+	api.Get("/running/workouts/assignments", middleware.RequireAthlete(), handler.ListMyAssignments)
 	api.Get("/running/workouts/assignments/:id", handler.GetAssignment)
 	api.Get("/coach/athletes/:id/running/assignments", middleware.RequireCoach(), handler.ListAssignmentsByAthlete)
 	api.Get("/coach/running/assignments", middleware.RequireCoach(), handler.ListAssignmentsByCoach)

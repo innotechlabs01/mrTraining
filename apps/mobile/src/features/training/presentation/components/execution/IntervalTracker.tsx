@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RunningInterval } from '../../../application/workoutExecutionTypes';
-import { colors, spacing, typography, radius } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, typography, radius } from '../../../../../shared/theme/tokens';
 
 type IntervalTrackerProps = {
   intervals: RunningInterval[];
@@ -173,7 +173,7 @@ export function IntervalTracker({
               <Text style={styles.finishText}>Finalizar entrenamiento</Text>
             </Pressable>
           </View>
-        )}
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -181,7 +181,7 @@ export function IntervalTracker({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
-  content: { padding: spacing.pagePadding, gap: spacing.lg },
+  content: { padding: layout.pagePadding, gap: spacing.lg },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   timeLeft: {
-    ...typography.heading,
+    ...typography.metricMD,
     color: colors.primary,
   },
   timeTotal: {
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   advanceText: {
-    ...typography.button,
+    ...typography.label,
     color: colors.onPrimary,
   },
   nextCard: {
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   finishText: {
-    ...typography.button,
+    ...typography.label,
     color: colors.onPrimary,
   },
 });

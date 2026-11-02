@@ -703,6 +703,7 @@ func TestService_ImportDeviceSessions_RejectsOversizedBatch(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
 
 // --- Task 7: Running Workout Application Services Tests ---
 
@@ -1540,3 +1541,95 @@ func TestService_GetAssignment_UnauthorizedAthlete(t *testing.T) {
 	}
 	t.Logf("correctamente rechazado: %v", err)
 }
+=======
+func TestService_CompleteSession_PreservesDateSourceCreatedAt(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	ctx := context.Background()
+
+	// Seed an existing session started via StartSession, which sets Date,
+	// Source and CreatedAt.
+	existing := &domain.RunningSession{
+		ID:        "s-1",
+		UserID:    "athlete-1",
+		Date:      "2026-10-18",
+		Source:    domain.SourceMobileGPS,
+		CreatedAt: "2026-10-18T07:00:00Z",
+		Distance:  0,
+		Duration:  0,
+	}
+	if err := repo.SaveSession(ctx, existing); err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+
+	// Complete with only metric fields; Date/Source/CreatedAt must be preserved.
+	if err := svc.CompleteSession(ctx, "s-1", "athlete-1", &domain.RunningSession{
+		ID:        "s-1",
+		UserID:    "athlete-1",
+		Distance:  10.0,
+		Duration:  3000,
+		Pace:      "5:00",
+		Calories:  600,
+	}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got, err := repo.GetSession(ctx, "s-1")
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+	if got.Date != "2026-10-18" {
+		t.Errorf("expected Date preserved as 2026-10-18, got %q", got.Date)
+	}
+	if got.Source != domain.SourceMobileGPS {
+		t.Errorf("expected Source preserved as mobile_gps, got %q", got.Source)
+	}
+	if got.CreatedAt != "2026-10-18T07:00:00Z" {
+		t.Errorf("expected CreatedAt preserved, got %q", got.CreatedAt)
+	}
+	if got.Distance != 10.0 {
+		t.Errorf("expected Distance updated to 10, got %f", got.Distance)
+	}
+}
+
+func TestService_CompleteSession_RejectsWrongAthlete(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	ctx := context.Background()
+
+	if err := repo.SaveSession(ctx, &domain.RunningSession{
+		ID:     "s-1",
+		UserID: "athlete-1",
+		Date:   "2026-10-18",
+		Source: domain.SourceManual,
+	}); err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+
+	// A different athlete must not complete another athlete's session.
+	// A spoofed payload owner must not replace the owner persisted in storage.
+	err := svc.CompleteSession(ctx, "s-1", "athlete-2", &domain.RunningSession{
+		ID:     "s-1",
+		UserID: "athlete-2",
+		Date:   "2026-10-18",
+		Source: domain.SourceManual,
+		Distance: 5.0,
+		Duration: 1500,
+	})
+	if err == nil {
+		t.Fatal("expected error when athlete-2 completes athlete-1's session")
+	}
+}
+
+func TestService_CompleteSession_CompletesLinkedAssignment(t *testing.T) {
+	repo := newMockRepository()
+	repo.sessions["s-1"] = &domain.RunningSession{ID: "s-1", UserID: "athlete-1"}
+	repo.assignments["a-1"] = &domain.RunningWorkoutAssignment{ID: "a-1", AthleteID: "athlete-1", Status: domain.AssignmentStatusStarted}
+	repo.snapshots["s-1"] = &domain.RunningWorkoutSnapshot{SessionID: "s-1", AssignmentID: "a-1"}
+	err := NewService(repo).CompleteSession(context.Background(), "s-1", "athlete-1", &domain.RunningSession{Distance: 5, Duration: 1500})
+	if err != nil { t.Fatal(err) }
+	if repo.assignments["a-1"].Status != domain.AssignmentStatusCompleted {
+		t.Fatal("linked assignment must become completed")
+	}
+}
+>>>>>>> origin/dev

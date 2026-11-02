@@ -1,4 +1,4 @@
-import { colors, typography, spacing, radius, shadows, fontFamilies } from '../tokens';
+import { colors, typography, spacing, radius, shadows, fontFamilies, withAlpha } from '../tokens';
 
 describe('tokens', () => {
   it('exposes the AthletePro unified color system', () => {
@@ -44,5 +44,18 @@ describe('tokens', () => {
   it('exposes spacing and radius scales', () => {
     expect(spacing).toMatchObject({ xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48, xxxl: 64 });
     expect(radius).toMatchObject({ sm: 8, md: 12, lg: 16, xl: 24, full: 9999 });
+  });
+});
+
+describe('withAlpha', () => {
+  it('matches the hand-written hex8 values it replaces', () => {
+    expect(withAlpha('#34D399', 0.1)).toBe('#34D3991A');
+    expect(withAlpha('#34D399', 0.2)).toBe('#34D39933');
+    expect(withAlpha(colors.primary, 0.1)).toBe(colors.primarySoft);
+  });
+
+  it('clamps opacity to the 0-1 range', () => {
+    expect(withAlpha('#FFFFFF', -1)).toBe('#FFFFFF00');
+    expect(withAlpha('#FFFFFF', 2)).toBe('#FFFFFFFF');
   });
 });

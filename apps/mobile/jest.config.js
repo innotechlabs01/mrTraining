@@ -16,7 +16,8 @@ module.exports = {
     '^@features/(.*)$': '<rootDir>/src/features/$1',
     '^@infrastructure/(.*)$': '<rootDir>/src/infrastructure/$1',
   },
-  resolver: rnPreset.resolver,
+  // rnPreset.resolver + Reanimated's non-native resolution (see jest.resolver.js).
+  resolver: '<rootDir>/jest.resolver.js',
   transform: {
     '^.+\\.(js|ts|tsx)$': 'babel-jest',
     '^.+\\.(bmp|gif|jpg|jpeg|mp4|png|psd|svg|webp)$': rnPreset.transform[
