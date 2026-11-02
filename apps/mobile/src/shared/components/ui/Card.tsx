@@ -1,0 +1,110 @@
+import React from 'react';
+import { ActivityIndicator, StyleSheet, View, type ViewProps } from 'react-native';
+import { colors, layout, radius, shadows } from '../../theme/tokens';
+import { AnimatedPressable } from './AnimatedPressable';
+
+type Props = ViewProps & {
+  variant?: 'default' | 'elevated' | 'outlined' | 'premium';
+  onPress?: () => void;
+  disabled?: boolean;
+  selected?: boolean;
+  loading?: boolean;
+  error?: boolean;
+  empty?: boolean;
+};
+
+/** Surface container with complete state support. Depth from tonal layering + hairline border. */
+export function Card({
+  style,
+  children,
+  variant = 'default',
+  onPress,
+  disabled = false,
+  selected = false,
+  loading = false,
+  error = false,
+  empty = false,
+  ...rest
+}: Props) {
+  const interactive = onPress != null;
+  const buildStyle = (pressed: boolean) => [
+    styles.card,
+    variant === 'elevated' && styles.elevated,
+    variant === 'outlined' && styles.outlined,
+    interactive && !disabled && !loading && pressed && styles.pressed,
+    disabled && styles.disabled,
+    selected && styles.selected,
+    loading && styles.loading,
+    error && styles.error,
+    empty && styles.empty,
+    style,
+  ];
+  const content = (
+    <>
+      {children}
+      {loading && (
+        <View style={styles.overlay}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      )}
+    </>
+  );
+
+  if (!interactive) {
+    return (
+      <View
+        accessibilityState={{ disabled, selected, busy: loading }}
+        style={buildStyle(false)}
+        {...rest}
+      >
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled, selected, busy: loading }}
+      onPress={onPress}
+      disabled={disabled || loading}
+      style={({ pressed }) => buildStyle(pressed)}
+      {...rest}
+    >
+      {content}
+    </AnimatedPressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: layout.cardPadding,
+    ...shadows.sm,
+  },
+  elevated: { ...shadows.md },
+  outlined: { borderWidth: 1 },
+  premium: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.xxl,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: layout.heroPadding,
+    ...shadows.xl,
+  },
+  pressed: { backgroundColor: colors.surfaceRaised },
+  disabled: { opacity: 0.6 },
+  selected: { borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  loading: { opacity: 0.7 },
+  error: { borderColor: colors.error },
+  empty: { opacity: 0.5 },
+  overlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

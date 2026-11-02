@@ -34,25 +34,21 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# React Native / iOS
-apps/apps/mobile/ios/Pods/
-apps/apps/mobile/ios/build/
-
-# React Native / Android
-apps/apps/mobile/android/.gradle/
-apps/apps/mobile/android/app/build/
-apps/apps/mobile/android/build/
-apps/apps/mobile/android/local.properties
-
-# Expo
-apps/apps/mobile/.expo/
-apps/apps/mobile/dist/
-
 # Local dev databases
 apps/web/local.db
+local.db
 
-# IDE / Agent settings
-apps/apps/mobile/.claude/
+# E2E Maestro credentials (real values — never commit)
+e2e/credentials.env
 
-# Mobile package-lock (we use pnpm for web/backend)
-apps/apps/mobile/package-lock.json
+# Local AI runtime state
+.atl/
+
+# OS artifacts
+.DS_Store
+
+# IDE/Editor
+.idea/
+.vscode/
+*.swp
+*.swo

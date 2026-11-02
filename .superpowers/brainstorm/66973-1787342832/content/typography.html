@@ -1,0 +1,92 @@
+<h2>Última decisión visual: tipografía</h2>
+<p class="subtitle">El mismo dashboard con 3 sistemas tipográficos. Fijate en los números grandes (readiness) y la jerarquía.</p>
+
+<style>
+  .phone {
+    width: 250px;
+    border-radius: 30px;
+    border: 6px solid #1a1a1a;
+    overflow: hidden;
+    margin: 0 auto;
+  }
+</style>
+
+<div class="cards">
+
+  <div class="card" data-choice="A-inter" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:20px 0;">
+      <div class="phone" style="background:#111214; color:#F5F5F7;">
+        <div style="padding:14px 16px; font-family:'Inter',-apple-system,sans-serif;">
+          <div style="font-size:15px;font-weight:700;">Buen día, Franco</div>
+          <div style="font-size:10px;color:#9CA3AF;margin-bottom:12px;">Martes · Semana 4</div>
+          <div style="background:#191B1E;border-radius:14px;padding:13px;margin-bottom:9px;">
+            <div style="font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:#8B8F96;">Readiness</div>
+            <div style="font-size:34px;font-weight:800;color:#C8FF00;line-height:1.15;">82<span style="font-size:14px;color:#8B8F96;">/100</span></div>
+            <div style="height:5px;background:#26292E;border-radius:3px;margin-top:6px;"><div style="width:78%;height:100%;background:#C8FF00;border-radius:3px;"></div></div>
+          </div>
+          <div style="background:#191B1E;border-radius:12px;padding:11px;">
+            <div style="font-size:11px;font-weight:600;">Push · Fuerza A</div>
+            <div style="font-size:9px;color:#9CA3AF;">18:30 · 6 ejercicios · 45 min</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Inter everywhere</h3>
+      <p>Una sola familia (Inter) con pesos 400–800. Números tabulares limpios, máxima legibilidad, cero fricción. Lo usa Linear, GitHub, Vercel. Sobrio y técnico.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="B-display" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:20px 0;">
+      <div class="phone" style="background:#111214; color:#F5F5F7;">
+        <div style="padding:14px 16px; font-family:-apple-system,sans-serif;">
+          <div style="font-size:16px;font-weight:800;letter-spacing:-0.3px;">BUEN DÍA, FRANCO</div>
+          <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#C8FF00;font-weight:700;margin-bottom:12px;">Semana 4 · Bloque fuerza</div>
+          <div style="background:#191B1E;border-radius:14px;padding:13px;margin-bottom:9px;">
+            <div style="font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#8B8F96;">Readiness</div>
+            <div style="font-size:42px;font-weight:900;color:#C8FF00;line-height:1.05;letter-spacing:-2px;">82<span style="font-size:14px;color:#8B8F96;letter-spacing:0;">/100</span></div>
+            <div style="height:5px;background:#26292E;border-radius:3px;margin-top:6px;"><div style="width:78%;height:100%;background:#C8FF00;border-radius:3px;"></div></div>
+          </div>
+          <div style="background:#191B1E;border-radius:12px;padding:11px;">
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">Push · Fuerza A</div>
+            <div style="font-size:9px;color:#9CA3AF;">18:30 · 45 MIN</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Display condensada (gym energy) ⭐ recomendada</h3>
+      <p>Números gigantes estilo scoreboard, labels en mayúsculas con tracking amplio, títulos bold. Energía de cartel de gimnasio / Nike Training. La más "fitness", la que más personalidad le da a MR Training.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="C-mono" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:20px 0;">
+      <div class="phone" style="background:#111214; color:#F5F5F7;">
+        <div style="padding:14px 16px; font-family:'Inter',-apple-system,sans-serif;">
+          <div style="font-size:16px;font-weight:700;">Buen día, Franco</div>
+          <div style="font-size:10px;color:#9CA3AF;margin-bottom:12px;">Martes · Semana 4</div>
+          <div style="background:#191B1E;border-radius:14px;padding:13px;margin-bottom:9px;">
+            <div style="font-family:'SF Mono','JetBrains Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:#8B8F96;">READINESS</div>
+            <div style="font-family:'SF Mono',monospace;font-size:32px;font-weight:700;color:#C8FF00;">82<span style="font-size:14px;color:#8B8F96;">/100</span></div>
+            <div style="height:5px;background:#26292E;border-radius:3px;margin-top:6px;"><div style="width:78%;height:100%;background:#C8FF00;border-radius:3px;"></div></div>
+          </div>
+          <div style="background:#191B1E;border-radius:12px;padding:11px;">
+            <div style="font-size:11px;font-weight:600;">Push · Fuerza A</div>
+            <div style="font-family:'SF Mono',monospace;font-size:9px;color:#9CA3AF;">18:30 · 6 ejercicios</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Mixta con mono para datos</h3>
+      <p>Inter para UI + monospace (JetBrains Mono) para métricas/números. Los datos se leen como telemetría — vibe Whoop/Garmin.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:16px;">
+  <p class="subtitle">Mi recomendación: B si querés personalidad de gym fuerte, A si priorizás sobriedad total, C si te tira el vibe data/performance.</p>
+</div>

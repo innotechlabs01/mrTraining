@@ -15,6 +15,7 @@ import {
   Globe,
   Clock,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 
@@ -48,7 +49,6 @@ export default function BlogPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<BlogPost | null>(null)
   const [search, setSearch] = useState('')
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const filtered = posts.filter(
     (p) =>
@@ -63,10 +63,10 @@ export default function BlogPage() {
   const handleSave = (p: BlogPost) => {
     if (editing) {
       updatePost(editing.id, p)
-      showNotification('success', `Artículo "${p.title}" actualizado`)
+      toast.success(`Artículo "${p.title}" actualizado`)
     } else {
       addPost(p)
-      showNotification('success', `Artículo "${p.title}" creado`)
+      toast.success(`Artículo "${p.title}" creado`)
     }
     setEditing(null)
   }
@@ -79,12 +79,7 @@ export default function BlogPage() {
   const handleDelete = (id: string) => {
     const p = posts.find((p) => p.id === id)
     removePost(id)
-    if (p) showNotification('success', `Artículo "${p.title}" eliminado`)
-  }
-
-  const showNotification = (type: 'success' | 'error', message: string) => {
-    setNotification({ type, message })
-    setTimeout(() => setNotification(null), 3000)
+    if (p) toast.success(`Artículo "${p.title}" eliminado`)
   }
 
   if (!hydrated) {
@@ -99,19 +94,6 @@ export default function BlogPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 space-y-6">
-      {notification && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          className={cn(
-            'fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white',
-            notification.type === 'success' ? 'bg-green-600' : 'bg-red-600',
-          )}
-        >
-          {notification.message}
-        </motion.div>
-      )}
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

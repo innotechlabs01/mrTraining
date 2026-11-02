@@ -1,0 +1,153 @@
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { smartClient as apiClient } from '../../../../infrastructure/api/client';
+import { colors, layout, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
+import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
+import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
+import { texts } from '../../../../shared/i18n/texts';
+
+import type { RootStackParamList } from '../../../../navigation/Navigation';
+
+type MuscleGroup = 'Chest' | 'Back' | 'Shoulders' | 'Arms' | 'Legs' | 'Core';
+type Exercise = { id: string; name: string; sets: string; reps: string };
+const MUSCLE_GROUPS: MuscleGroup[] = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core'];
+
+const t = texts.screens.createRoutineScreen;
+
+const MUSCLE_GROUP_LABELS: Record<MuscleGroup, string> = {
+  Chest: t.muscleGroups.chest,
+  Back: t.muscleGroups.back,
+  Shoulders: t.muscleGroups.shoulders,
+  Arms: t.muscleGroups.arms,
+  Legs: t.muscleGroups.legs,
+  Core: t.muscleGroups.core,
+};
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+function ExerciseRow({ exercise, onUpdate }: { exercise: Exercise; onUpdate: (id: string, field: 'sets' | 'reps', value: string) => void }) {
+  return (
+    <View style={s.exerciseRow}>
+      <Text style={s.exerciseName} numberOfLines={1}>{exercise.name}</Text>
+      <View style={s.exerciseInputs}>
+        {(['sets', 'reps'] as const).map((field) => (
+          <View key={field} style={s.inputGroup}>
+            <Text style={s.inputLabel}>{field.toUpperCase()}</Text>
+            <TextInput
+              value={exercise[field]}
+              onChangeText={(v) => onUpdate(exercise.id, field, v)}
+              keyboardType="numeric"
+              style={s.smallInput}
+            />
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+export function CreateRoutineScreen() {
+  const navigation = useNavigation<Nav>();
+  const queryClient = useQueryClient();
+  const [routineName, setRoutineName] = useState('');
+  const [selectedGroups, setSelectedGroups] = useState<MuscleGroup[]>(['Chest']);
+  const [exercises, setExercises] = useState<Exercise[]>([
+    { id: '1', name: t.defaultExerciseName, sets: '4', reps: '12' },
+  ]);
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      apiClient.post('/athlete/routines', {
+        name: routineName,
+        muscleGroups: selectedGroups,
+        exercises: exercises.map((ex) => ({
+          name: ex.name,
+          sets: parseInt(ex.sets, 10) || 0,
+          reps: parseInt(ex.reps, 10) || 0,
+        })),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['routines'] });
+      navigation.goBack();
+    },
+    onError: () => Alert.alert(t.errorTitle, t.saveFailed),
+  });
+
+  const toggleGroup = (g: MuscleGroup) =>
+    setSelectedGroups((p) => (p.includes(g) ? p.filter((x) => x !== g) : [...p, g]));
+
+  const updateExercise = (id: string, field: 'sets' | 'reps', value: string) =>
+    setExercises((p) => p.map((ex) => (ex.id === id ? { ...ex, [field]: value } : ex)));
+
+  const addExercise = () =>
+    setExercises((p) => [...p, { id: String(p.length + 1), name: t.defaultExerciseName, sets: '3', reps: '10' }]);
+
+  const canSave = routineName.trim().length > 0 && exercises.length > 0 && !saveMutation.isPending;
+
+  return (
+    <SafeAreaView style={s.container}>
+      <View style={s.headerWrap}>
+        <ScreenHeader title={t.headerTitle} onBack={() => navigation.goBack()} />
+      </View>
+
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        <Text style={s.label}>{t.routineNameLabel}</Text>
+        <TextInput value={routineName} onChangeText={setRoutineName} placeholder={t.routineNamePlaceholder} placeholderTextColor={colors.textSecondary} style={s.nameInput} />
+
+        <Text style={s.label}>{t.muscleGroupsLabel}</Text>
+        <View style={s.chipRow}>
+          {MUSCLE_GROUPS.map((group) => {
+            const sel = selectedGroups.includes(group);
+            return (
+              <Pressable key={group} onPress={() => toggleGroup(group)} style={[s.chip, sel ? s.chipSelected : s.chipUnselected]}>
+                <Text style={[s.chipText, sel ? s.chipTextSelected : s.chipTextUnselected]}>{MUSCLE_GROUP_LABELS[group]}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Text style={s.label}>{t.exercisesLabel}</Text>
+        {exercises.map((ex) => (
+          <ExerciseRow key={ex.id} exercise={ex} onUpdate={updateExercise} />
+        ))}
+
+        <Pressable onPress={addExercise} style={s.addExerciseButton}>
+          <Text style={s.addExerciseText}>{t.addExercise}</Text>
+        </Pressable>
+
+        <PrimaryButton
+          label={saveMutation.isPending ? t.saving : t.saveButton}
+          onPress={() => saveMutation.mutate()}
+          disabled={!canSave}
+          loading={saveMutation.isPending}
+        />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.base },
+  headerWrap: { paddingHorizontal: layout.pagePadding },
+  content: { padding: layout.pagePadding, paddingBottom: 32, gap: spacing.md },
+  label: { fontFamily: fontFamilies.bodySemiBold, fontSize: 14, lineHeight: 20, color: colors.text, letterSpacing: 0.05, textTransform: 'uppercase' },
+  nameInput: { height: 48, backgroundColor: colors.surfaceRaised, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, fontFamily: fontFamilies.body, fontSize: 16, color: colors.text },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  chip: { height: 36, borderRadius: radius.full, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipUnselected: { backgroundColor: colors.surface, borderColor: colors.border },
+  chipText: { fontFamily: fontFamilies.bodySemiBold, fontSize: 13, lineHeight: 16 },
+  chipTextSelected: { color: colors.base, fontWeight: '700' },
+  chipTextUnselected: { color: colors.textSecondary },
+  exerciseRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, padding: spacing.sm, gap: spacing.sm },
+  exerciseName: { flex: 1, fontFamily: fontFamilies.bodyMedium, fontSize: 14, color: colors.text },
+  exerciseInputs: { flexDirection: 'row', gap: spacing.sm },
+  inputGroup: { alignItems: 'center', gap: 2 },
+  inputLabel: { fontFamily: fontFamilies.bodyMedium, fontSize: 10, color: colors.textSecondary, textTransform: 'uppercase' },
+  smallInput: { width: 48, height: 36, backgroundColor: colors.surfaceRaised, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, borderRadius: radius.md, textAlign: 'center', fontFamily: fontFamilies.bodyMedium, fontSize: 14, color: colors.text },
+  addExerciseButton: { alignItems: 'center', paddingVertical: spacing.sm },
+  addExerciseText: { fontFamily: fontFamilies.bodySemiBold, fontSize: 14, color: colors.primary },
+});

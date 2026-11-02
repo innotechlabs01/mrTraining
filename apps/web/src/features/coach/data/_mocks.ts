@@ -9,6 +9,7 @@ import type {
   CoachEvent,
   AssignedWorkout,
   SupportTicket,
+  SupportTicketWithMessages,
 } from '../types'
 
 export const MOCK_TIME_BLOCKS: TimeBlock[] = [
@@ -237,52 +238,68 @@ export const MOCK_REVENUE_HISTORY = [
   { month: 'Jul', amount: 13800 },
 ]
 
-export const MOCK_TICKETS: SupportTicket[] = [
+export const MOCK_TICKETS: SupportTicketWithMessages[] = [
   {
     id: 'tk-seed-1',
-    number: 1,
+    ticket_number: 1,
     subject: 'El gráfico de ingresos no se actualiza',
     category: 'problem',
     priority: 'high',
     status: 'open',
-    createdAt: '2026-07-08T09:12:00.000Z',
+    coach_id: 'coach-seed-1',
+    unread_count: 1,
+    last_message_at: '2026-07-08T09:12:00.000Z',
+    created_at: '2026-07-08T09:12:00.000Z',
+    updated_at: '2026-07-08T09:12:00.000Z',
     messages: [
       {
         id: 'msg-seed-1',
+        ticket_id: 'tk-seed-1',
         author: 'coach',
+        author_id: 'coach-seed-1',
         body: 'Desde ayer el dashboard de ingresos muestra los mismos valores aunque confirmé un pago. Adjunto captura del comportamiento.',
-        imageUrl: '',
-        createdAt: '2026-07-08T09:12:00.000Z',
+        image_url: '',
+        created_at: '2026-07-08T09:12:00.000Z',
       },
       {
         id: 'msg-seed-2',
+        ticket_id: 'tk-seed-1',
         author: 'support',
+        author_id: 'support-seed-1',
         body: 'Gracias por el reporte #1. Estamos revisando el cálculo de ingresos del mes; te confirmamos en breve. Mientras tanto, el pago quedó registrado correctamente.',
-        createdAt: '2026-07-08T11:40:00.000Z',
+        created_at: '2026-07-08T11:40:00.000Z',
       },
     ],
   },
   {
     id: 'tk-seed-2',
-    number: 2,
+    ticket_number: 2,
     subject: '¿Cómo comparto el link público de un evento?',
     category: 'question',
     priority: 'low',
     status: 'resolved',
-    createdAt: '2026-07-05T14:03:00.000Z',
-    resolvedAt: '2026-07-05T15:20:00.000Z',
+    coach_id: 'coach-seed-1',
+    unread_count: 0,
+    last_message_at: '2026-07-05T15:20:00.000Z',
+    created_at: '2026-07-05T14:03:00.000Z',
+    updated_at: '2026-07-05T15:20:00.000Z',
+    resolved_at: '2026-07-05T15:20:00.000Z',
     messages: [
       {
         id: 'msg-seed-3',
+        ticket_id: 'tk-seed-2',
         author: 'coach',
+        author_id: 'coach-seed-1',
         body: 'Quiero que mis atletas se inscriban a un evento sin loguearse. ¿Se puede?',
-        createdAt: '2026-07-05T14:03:00.000Z',
+        created_at: '2026-07-05T14:03:00.000Z',
       },
       {
         id: 'msg-seed-4',
+        ticket_id: 'tk-seed-2',
         author: 'support',
+        author_id: 'support-seed-1',
         body: 'Sí. Abre el evento, activa "Hacer público" y copia el enlace que se genera. Cualquiera con el link puede registrarse. Ticket resuelto.',
-        createdAt: '2026-07-05T15:20:00.000Z',
+        created_at: '2026-07-05T15:20:00.000Z',
       },
     ],
   },

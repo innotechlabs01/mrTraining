@@ -1,10 +1,18 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { LIVE_WORKOUT_PLAN, LIVE_MOTIVATIONAL_LINES } from '../data/_mocks'
 import type { CueTone, LiveCoachCue, LiveWorkoutPlan, LivePhase } from '../types'
 
 const TRANSITION_SEC = 8
+
+const MOTIVATIONAL_LINES = [
+  'One rep at a time.',
+  'Champions are built in the off-season.',
+  'Trust the process.',
+  'Your only competition is yesterday\'s you.',
+  'Every set counts.',
+  'Be stronger than your excuses.',
+]
 
 interface CoachMessage {
   text: string
@@ -96,7 +104,7 @@ function advance(prev: LiveState, plan: LiveWorkoutPlan): LiveState {
   }
 
   if (prev.phase === 'rest') {
-    const body = pickCue(exercise.cues, `Set ${prev.setIndex + 1}. Let’s move.`, 'tip')
+    const body = pickCue(exercise.cues, `Set ${prev.setIndex + 1}. Let's move.`, 'tip')
     return {
       ...prev,
       phase: 'work',
@@ -122,17 +130,44 @@ function advance(prev: LiveState, plan: LiveWorkoutPlan): LiveState {
 export function useLiveWorkout(): LiveWorkoutApi {
   const [plan, setPlan] = useState<LiveWorkoutPlan | null>(null)
   const [loading, setLoading] = useState(true)
-  const [state, setState] = useState<LiveState>(() => buildInitial(LIVE_WORKOUT_PLAN))
+  const [state, setState] = useState<LiveState>(() => {
+    // Will be initialized once plan loads
+    return {
+      phase: 'idle',
+      exerciseIndex: 0,
+      pendingExerciseIndex: 0,
+      setIndex: 1,
+      remaining: 0,
+      isRunning: false,
+      elapsed: 0,
+      completedSets: 0,
+      coachMessage: { text: 'Loading workout...', tone: 'motivation' },
+    }
+  })
   const planRef = useRef<LiveWorkoutPlan | null>(null)
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      planRef.current = LIVE_WORKOUT_PLAN
-      setPlan(LIVE_WORKOUT_PLAN)
-      setState(buildInitial(LIVE_WORKOUT_PLAN))
-      setLoading(false)
-    }, 500)
-    return () => clearTimeout(timer)
+    let mounted = true
+    async function load() {
+      try {
+        const res = await fetch('/api/coaching/live-workout')
+        if (!res.ok) throw new Error('Failed to load live workout')
+        const data = await res.json()
+
+        if (mounted && data) {
+          planRef.current = data
+          setPlan(data)
+          setState(buildInitial(data))
+          setLoading(false)
+        } else if (mounted) {
+          setLoading(false)
+        }
+      } catch {
+        if (mounted) setLoading(false)
+      }
+    }
+    load()
+    return () => { mounted = false }
   }, [])
 
   const isActive =
@@ -184,10 +219,10 @@ export function useLiveWorkout(): LiveWorkoutApi {
   useEffect(() => {
     if (state.phase !== 'work' || !state.isRunning) return
     const id = setInterval(() => {
-      motivationRef.current = (motivationRef.current + 1) % LIVE_MOTIVATIONAL_LINES.length
+      motivationRef.current = (motivationRef.current + 1) % MOTIVATIONAL_LINES.length
       setState((prev) => {
         if (prev.phase !== 'work') return prev
-        return { ...prev, coachMessage: { text: LIVE_MOTIVATIONAL_LINES[motivationRef.current], tone: 'motivation' } }
+        return { ...prev, coachMessage: { text: MOTIVATIONAL_LINES[motivationRef.current], tone: 'motivation' } }
       })
     }, 9000)
     return () => clearInterval(id)

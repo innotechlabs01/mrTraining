@@ -57,36 +57,34 @@ The seven-step surface scale provides discrete elevation states without relying 
 
 Light mode is a secondary theme. The design system is authored dark-first; all light mode tokens are derived through an inversion mapping that preserves the same relative luminance steps. The light surface scale is the dark scale inverted around 50% luminance, ensuring equivalent perceptual contrast between adjacent surfaces in both themes.
 
-**Brand Accents**
+**Brand Accent**
 
 | Token | Hex | Usage |
 |---|---|---|
-| `--color-brand-primary` | `#FF6B00` | Electric Orange. Primary CTAs, active states, brand moments. |
-| `--color-brand-secondary` | `#0066FF` | Performance Blue. Links, interactive elements, data series. |
+| `--color-brand-primary` | `#15AAF2` | Blue. The single accent. One primary CTA per screen, active states, progress fills. |
+| `--color-brand-primary-pressed` | `#0E93D4` | Pressed state for Blue elements. |
 
-Never use both accents at equal visual weight. The 80/20 rule governs accent distribution: 80% of a screen's color information should come from neutrals, no more than 20% from accents. When both accents appear in the same view, one must occupy at least 3x the visual area of the other.
-
-Electric Orange is the dominant accent. Performance Blue is used for interaction cues — links, toggles, focus rings, and data visualization. Orange signals action; Blue signals navigation and information.
+Blue is the only brand accent. The 90/10 rule governs distribution: ≥ 90% of a
+screen comes from neutrals, ≤ 10% from Blue. The former Electric Orange /
+Performance Blue dual-accent system is retired (see 01-brand-guidelines.md §4).
 
 **Semantic Colors**
 
 | Token | Hex | Usage |
 |---|---|---|
-| `--color-success` | `#00C853` | Success states, completed actions, positive trends |
-| `--color-warning` | `#FFB300` | Warnings, caution states, in-progress indicators |
-| `--color-error` | `#FF3D00` | Errors, destructive actions, critical alerts |
-| `--color-info` | `#0066FF` | Informational states (aliased to Performance Blue) |
+| `--color-success` | `#34D399` | Success states, completed actions, positive trends |
+| `--color-warning` | `#FBBF24` | Warnings, caution states, in-progress indicators |
+| `--color-error` | `#FF5A5F` | Errors, destructive actions, critical alerts |
 
 Semantic colors must never appear alone. Every success state includes both the green swatch and a check icon. Every error state includes both the red swatch and an alert icon. Every warning includes both amber and a warning icon. Color is reinforcement, never the sole communication channel.
 
-**Text Colors (Dark Mode)**
+**Text Colors (Dark Mode — Default)**
 
-| Token | Hex | Opacity | Role |
-|---|---|---|---|
-| `--color-text-primary` | `#FFFFFF` | 100% | Primary body text, headlines |
-| `--color-text-secondary` | `#C4C4C4` | 77% | Secondary text, metadata, captions |
-| `--color-text-tertiary` | `#8A8A8A` | 54% | Placeholder text, disabled text |
-| `--color-text-inverse` | `#0F0F0F` | — | Text on accent backgrounds |
+| Token | Hex | Role |
+|---|---|---|
+| `--color-text-primary` | `#F5F5F7` | Primary body text, headlines |
+| `--color-text-secondary` | `#9CA3AF` | Secondary text, metadata, captions, placeholders |
+| `--color-text-inverse` | `#111214` | Text on Blue accent backgrounds (always Base, never white) |
 
 **Text Colors (Light Mode)**
 
@@ -99,7 +97,7 @@ Semantic colors must never appear alone. Every success state includes both the g
 
 #### Color Usage Hierarchy
 
-Colors serve three distinct functions in the interface. The surface hierarchy (levels 0 through 6) establishes spatial depth and containment. Semantic colors (success, warning, error) communicate system state and require icon/text pairing. Brand accents (orange, blue) draw attention to primary actions and interactive elements. This three-layer separation ensures that color is never ambiguous — a blue badge signals information, a blue link signals navigation, and a blue data point signals a secondary data series.
+Colors serve three distinct functions in the interface. The surface hierarchy (levels 0 through 6) establishes spatial depth and containment. Semantic colors (success, warning, error) communicate system state and require icon/text pairing. A single brand accent (Blue) draws attention to the primary action — one per screen. This three-layer separation ensures that color is never ambiguous — a semantic-colored badge signals system state, neutral text signals navigation, and a Blue data point signals the emphasized series.
 
 ### 1.2 Typography
 
@@ -246,11 +244,8 @@ Shadows define elevation in the dark interface. Unlike light-mode shadows which 
              0 0 0 1px rgba(255, 255, 255, 0.1),
              0 2px 0 rgba(255, 255, 255, 0.05);
 
-/* Focus ring glow — Electric Orange */
---shadow-focus-orange: 0 0 0 2px rgba(255, 107, 0, 0.4);
-
-/* Focus ring glow — Performance Blue */
---shadow-focus-blue: 0 0 0 2px rgba(0, 102, 255, 0.4);
+/* Focus ring glow — Blue (single accent) */
+--shadow-focus-volt: 0 0 0 2px rgba(200, 255, 0, 0.4);
 ```
 
 In light mode, shadow tokens invert: dark opacity layers give way to traditional light-mode drop shadows with larger blur radii and lower opacity values.
@@ -425,11 +420,11 @@ Buttons are the primary action mechanism. Three variants express action hierarch
 
 | State | Primary | Secondary | Ghost |
 |---|---|---|---|
-| `default` | `#FF6B00` bg | transparent, gray border | transparent |
-| `hover` | `#E85D00` (10% darker) | `--color-surface-4` bg | `--color-surface-3` bg |
-| `active` | `#CC5200` (20% darker) | `--color-surface-5` bg | `--color-surface-4` bg |
-| `focus` | Same as default + `--shadow-focus-orange` | Same as default + `--shadow-focus-blue` | Same as default + `--shadow-focus-blue` |
-| `disabled` | `--color-surface-5` bg, `--color-text-tertiary` text | `--color-text-tertiary` text, border `--color-surface-4` | `--color-text-tertiary` text |
+| `default` | `#15AAF2` bg | transparent, gray border | transparent |
+| `hover` | `#0E93D4` (pressed) | `--color-surface-4` bg | `--color-surface-3` bg |
+| `active` | `#0E93D4` (pressed) | `--color-surface-5` bg | `--color-surface-4` bg |
+| `focus` | Same as default + `--shadow-focus-volt` | Same as default + `--shadow-focus-volt` | Same as default + `--shadow-focus-volt` |
+| `disabled` | `--color-surface-raised` bg, `--color-text-secondary` text | `--color-text-secondary` text, border `--color-surface-4` | `--color-text-secondary` text |
 | `loading` | Replaced with 16px spinner, label hidden | Replaced with 16px spinner, label hidden | Replaced with 16px spinner |
 
 **Key rules:**
@@ -477,8 +472,8 @@ Text inputs, textareas, selects, and search fields share a common input shell.
 |---|---|
 | `default` | Gray border (`--color-surface-6`), dark surface background |
 | `hover` | Border brightens to `--color-text-tertiary` (#8A8A8A) |
-| `focus` | Border `--color-brand-secondary`, `--shadow-focus-blue` (2px ring) |
-| `error` | Border `--color-error`, `--shadow-focus-orange` (substituting orange for error red) |
+| `focus` | Border brightens to `--color-text-secondary`, `--shadow-focus-volt` (2px ring) |
+| `error` | Border `--color-error`, 2px error-tinted ring (`rgba(255, 90, 95, 0.4)`) |
 | `disabled` | Background `--color-surface-1`, text `--color-text-tertiary`, no interaction |
 | `read-only` | No border, transparent background, `--color-text-primary` text |
 
@@ -763,7 +758,7 @@ Tabs organize content into mutually exclusive views within a single context.
 | `default` | `--color-text-secondary` text, no indicator |
 | `hover` | `--color-text-primary` text |
 | `active` | `--color-text-primary` text, `--weight-semibold`, indicator (underline or pill bg) |
-| `focus` | `--shadow-focus-blue` on the tab element |
+| `focus` | `--shadow-focus-volt` on the tab element |
 
 #### Scrollable Tabs
 

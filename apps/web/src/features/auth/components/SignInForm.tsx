@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,9 +17,10 @@ interface SignInFormProps {
   role?: string;
 }
 
-type Step = 'email' | 'code';
+type Step = 'email' | 'password' | 'code';
+type CodeContext = 'first' | 'second';
 
-export function SignInForm({ onSuccess, onBack, role }: SignInFormProps) {
+export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignInFormProps) {
   const searchParams = useSearchParams();
   const { signIn, isLoaded, setActive } = useSignIn();
   const { signOut } = useClerk();
@@ -29,8 +30,26 @@ export function SignInForm({ onSuccess, onBack, role }: SignInFormProps) {
   const plan = searchParams.get('plan');
   const signUpHref = `/sign-up${plan ? `?plan=${plan}` : ''}`;
   const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [codeContext, setCodeContext] = useState<CodeContext>('first');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Resume a pending Device Trust second-factor after a page reload:
+  // without this, refreshing mid-login throws the user back to the start.
+  useEffect(() => {
+    if (!isLoaded || !signIn) return;
+    if (signIn.status === 'needs_second_factor') {
+      const em = signIn.supportedSecondFactors?.find(
+        (f) => f.strategy === 'email_code',
+      );
+      if (em && 'emailAddressId' in em) {
+        if (signIn.identifier) setEmail(signIn.identifier);
+        setCodeContext('second');
+        setStep('code');
+      }
+    }
+  }, [isLoaded, signIn]);
 
   const validateEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
@@ -59,6 +78,12 @@ export function SignInForm({ onSuccess, onBack, role }: SignInFormProps) {
 
     try {
       const result = await signIn.create({ identifier: email });
+      // Password-first: users with a password sign in with it; email code
+      // remains the fallback for accounts without one.
+      if (result.supportedFirstFactors?.some((f) => f.strategy === 'password')) {
+        setStep('password');
+        return;
+      }
       const emailFactor = result.supportedFirstFactors?.find(
         (f) => f.strategy === 'email_code',
       );
@@ -79,6 +104,56 @@ export function SignInForm({ onSuccess, onBack, role }: SignInFormProps) {
     }
   };
 
+  const handlePasswordSubmit = async () => {
+    if (!isLoaded || !signIn || !setActive) return;
+    if (!password) {
+      setError('Ingresa tu contraseña.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const result = await signIn.attemptFirstFactor({
+        strategy: 'password',
+        password,
+      });
+
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId });
+        onSuccess?.();
+      } else if (result.status === 'needs_second_factor') {
+        if (result.createdSessionId) {
+          await setActive({ session: result.createdSessionId });
+          onSuccess?.();
+        } else {
+          // Device Trust: new device sign-ins require extra verification.
+          // Offer the email code second factor instead of a dead-end error.
+          const emailFactor = signIn.supportedSecondFactors?.find(
+            (f) => f.strategy === 'email_code',
+          );
+          if (emailFactor && 'emailAddressId' in emailFactor) {
+            await signIn.prepareSecondFactor({
+              strategy: 'email_code',
+              emailAddressId: emailFactor.emailAddressId,
+            });
+            setCodeContext('second');
+            setStep('code');
+          } else {
+            setError('Se requiere verificación adicional. Revisa tu correo o contacta al administrador.');
+          }
+        }
+      } else {
+        setError('Estado inesperado. Inténtalo de nuevo.');
+      }
+    } catch (err: unknown) {
+      setError(translateClerkError(err, 'Email o contraseña incorrectos.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCodeSubmit = async () => {
     if (!isLoaded || !signIn || !setActive) return;
 
@@ -86,10 +161,10 @@ export function SignInForm({ onSuccess, onBack, role }: SignInFormProps) {
     setError('');
 
     try {
-      const result = await signIn.attemptFirstFactor({
-        strategy: 'email_code',
-        code,
-      });
+      // Device Trust second factor (new device) vs first factor (email sign-in).
+      const result = codeContext === 'second'
+        ? await signIn.attemptSecondFactor({ strategy: 'email_code', code })
+        : await signIn.attemptFirstFactor({ strategy: 'email_code', code });
 
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
@@ -116,15 +191,27 @@ export function SignInForm({ onSuccess, onBack, role }: SignInFormProps) {
     setIsLoading(true);
     setError('');
     try {
-      const emailFactor = signIn.supportedFirstFactors?.find(
-        (f) => f.strategy === 'email_code',
-      );
-      const emailAddressId = emailFactor?.emailAddressId;
-      if (emailAddressId) {
-        await signIn.prepareFirstFactor({
-          strategy: 'email_code',
-          emailAddressId,
-        });
+      if (codeContext === 'second') {
+        const emailFactor = signIn.supportedSecondFactors?.find(
+          (f) => f.strategy === 'email_code',
+        );
+        if (emailFactor && 'emailAddressId' in emailFactor) {
+          await signIn.prepareSecondFactor({
+            strategy: 'email_code',
+            emailAddressId: emailFactor.emailAddressId,
+          });
+        }
+      } else {
+        const emailFactor = signIn.supportedFirstFactors?.find(
+          (f) => f.strategy === 'email_code',
+        );
+        const emailAddressId = emailFactor?.emailAddressId;
+        if (emailAddressId) {
+          await signIn.prepareFirstFactor({
+            strategy: 'email_code',
+            emailAddressId,
+          });
+        }
       }
     } catch (err: unknown) {
       setError(translateClerkError(err, 'No se pudo reenviar el código.'));
@@ -255,7 +342,7 @@ export function SignInForm({ onSuccess, onBack, role }: SignInFormProps) {
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                'Send verification code'
+                'Continuar'
               )}
             </button>
 
@@ -270,6 +357,71 @@ export function SignInForm({ onSuccess, onBack, role }: SignInFormProps) {
               </button>
             )}
           </motion.div>
+        ) : step === 'password' ? (
+          <motion.div
+            key="password"
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            variants={stepVariants}
+            transition={{ duration: 0.25, ease: 'ease-out' }}
+            className="flex flex-col gap-4"
+          >
+            <button
+              type="button"
+              onClick={() => { setStep('email'); setError(''); setPassword(''); }}
+              className="flex items-center gap-2 text-body-sm text-text-secondary transition-colors duration-200 hover:text-text-primary"
+            >
+              <ArrowLeft className="h-4 w-4 shrink-0" />
+              <span className="truncate">{email}</span>
+              <span className="shrink-0 text-brand-primary font-medium">Change</span>
+            </button>
+
+            <div className="relative">
+              <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+                placeholder="Contraseña"
+                autoComplete="current-password"
+                autoFocus
+                className={cn(
+                  'h-12 w-full rounded-md bg-surface-2 pl-10 pr-4 text-body-sm text-text-primary',
+                  'border border-surface-6 placeholder:text-text-secondary/50',
+                  'transition-all duration-200',
+                  'focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/30',
+                )}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={handlePasswordSubmit}
+              disabled={isLoading || !password}
+              className={cn(
+                'flex h-12 w-full items-center justify-center gap-2 rounded-md bg-brand-primary text-body-sm font-semibold text-white',
+                'transition-all duration-200 hover:bg-brand-primary-hover',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0',
+                'disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]',
+              )}
+            >
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                'Iniciar Sesión'
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={onForgotPassword}
+              className="text-body-sm text-brand-primary transition-colors duration-200 hover:text-brand-primary-hover"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </motion.div>
         ) : (
           <motion.div
             key="code"
@@ -282,7 +434,11 @@ export function SignInForm({ onSuccess, onBack, role }: SignInFormProps) {
           >
             <button
               type="button"
-              onClick={handleBackToEmail}
+              onClick={() => {
+                setStep(codeContext === 'second' ? 'password' : 'email');
+                setError('');
+                setCode('');
+              }}
               className="flex items-center gap-2 text-body-sm text-text-secondary transition-colors duration-200 hover:text-text-primary"
             >
               <ArrowLeft className="h-4 w-4 shrink-0" />
@@ -292,7 +448,11 @@ export function SignInForm({ onSuccess, onBack, role }: SignInFormProps) {
 
             <div className="rounded-lg bg-brand-primary/5 border border-brand-primary/20 p-3">
               <p className="text-sm text-text-secondary">
-                Se envió un código de verificación a <strong className="text-text-primary">{email}</strong>. Revisa tu correo.
+                {codeContext === 'second' ? (
+                  <>Nuevo dispositivo detectado. Se envió un código a <strong className="text-text-primary">{email}</strong> para verificarlo.</>
+                ) : (
+                  <>Se envió un código de verificación a <strong className="text-text-primary">{email}</strong>. Revisa tu correo.</>
+                )}
               </p>
             </div>
 

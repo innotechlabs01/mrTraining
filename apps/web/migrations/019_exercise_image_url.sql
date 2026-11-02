@@ -1,0 +1,11 @@
+-- Add image_url to exercise_library for coach-selected exercise gallery images.
+-- Mirrors 015_exercise_video_url.sql. Nullable: global seed exercises start
+-- without an image; coaches add their own via the gallery picker.
+--
+-- Idempotency guard (manual apply, no runner): SQLite has no
+-- `ADD COLUMN IF NOT EXISTS`, so this statement is the guard. Re-applying it is
+-- safe — if image_url already exists, SQLite fails with "duplicate column name:
+-- image_url" and the column is left untouched. A duplicate column can NEVER be
+-- created, so re-running this migration is harmless. Verify with:
+--   PRAGMA table_info('exercise_library');   -- expect exactly one image_url row
+ALTER TABLE exercise_library ADD COLUMN image_url TEXT;

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useUser } from '@clerk/nextjs'
 import { motion } from 'framer-motion'
 import { Search, Flag, ShieldCheck, ShieldAlert, ShieldX, RefreshCw, UserPlus, Copy, Check, Smartphone, Share2, QrCode } from 'lucide-react'
 import { useAthletes } from '@/features/coach/hooks/useAthletes'
@@ -23,9 +25,32 @@ const STATUS_BADGE: Record<string, { label: string; className: string; icon: Rea
   grace_period: { label: 'Por vencer', className: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: ShieldAlert },
   suspended: { label: 'Suspendido', className: 'bg-red-500/10 text-red-400 border-red-500/20', icon: ShieldX },
   cancelled: { label: 'Cancelado', className: 'bg-gray-500/10 text-gray-400 border-gray-500/20', icon: ShieldX },
+  expired: { label: 'Vencido', className: 'bg-red-500/10 text-red-400 border-red-500/20', icon: ShieldX },
+}
+
+// Status at a glance: subtle tinted border + soft background wash per status.
+// Deliberately low-opacity — the card must scan fast without shouting.
+const STATUS_CARD: Record<string, string> = {
+  active: 'border-green-500/40 bg-green-500/[0.04]',
+  grace_period: 'border-amber-500/40 bg-amber-500/[0.04]',
+  suspended: 'border-red-500/40 bg-red-500/[0.04]',
+  expired: 'border-red-500/40 bg-red-500/[0.04]',
+  cancelled: 'border-white/10 bg-surface-1',
+}
+
+function getDisplayName(a: { name: string; email?: string }): string {
+  const n = (a.name || '').trim();
+  if (!n || n.startsWith('user_') || n.includes('@')) {
+    const email = (a as { email?: string }).email ?? '';
+    const local = email.split('@')[0]?.trim();
+    return local || n || 'Athlete';
+  }
+  return n;
 }
 
 export default function CoachUsersPage() {
+  const router = useRouter()
+  const { user } = useUser()
   const { athletes, isLoading } = useAthletes()
   const { openPanel } = useCoachPanel()
   const [search, setSearch] = useState('')
@@ -38,12 +63,21 @@ export default function CoachUsersPage() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    coachingApi.getMemberships<MembershipSummary[]>()
+    coachingApi.getCoachMemberships<MembershipSummary>()
       .then(data => setMemberships(data || []))
       .catch(() => {})
   }, [])
 
+  // Primary source: Clerk publicMetadata.coachCode (set at coach sign-up).
+  // Fallback: /api/coach/profile for accounts whose metadata lacks the code.
+  const clerkCoachCode = (user?.publicMetadata as { coachCode?: string } | undefined)?.coachCode || ''
+
   useEffect(() => {
+    if (clerkCoachCode) {
+      setCoachCode(clerkCoachCode)
+      setCoachLoading(false)
+      return
+    }
     setCoachLoading(true)
     fetch('/api/coach/profile')
       .then(res => res.json())
@@ -53,7 +87,7 @@ export default function CoachUsersPage() {
       })
       .catch(() => {})
       .finally(() => setCoachLoading(false))
-  }, [])
+  }, [clerkCoachCode])
 
   const inviteLink = coachCode
     ? `${process.env.NEXT_PUBLIC_WEB_INVITE_URL || 'https://mr-training.vercel.app/invite'}?code=${coachCode}`
@@ -80,18 +114,14 @@ export default function CoachUsersPage() {
   const getMembership = (athleteId: string) =>
     memberships.find(m => m.athleteId === athleteId)
 
-  const handleCardClick = async (athleteId: string) => {
-    try {
-      const detail = await coachingApi.getAthleteById<Record<string, unknown>>(athleteId)
-      if (detail) openPanel('athlete', detail)
-    } catch {
-      openPanel('athlete', { id: athleteId } as Record<string, unknown>)
-    }
+  const handleCardClick = (athleteId: string) => {
+    router.push(`/coach/users/${athleteId}`)
   }
 
   const filtered = athletes.filter((a) => {
-    const matchName = a.name.toLowerCase().includes(search.toLowerCase())
-    const matchSport = a.sport.toLowerCase().includes(search.toLowerCase())
+    const dn = getDisplayName(a).toLowerCase()
+    const matchName = dn.includes(search.toLowerCase()) || a.name.toLowerCase().includes(search.toLowerCase())
+    const matchSport = a.sport?.toLowerCase().includes(search.toLowerCase()) ?? false
     const textMatch = matchName || matchSport
     if (filterFlagged && !a.flag) return false
     if (statusFilter) {
@@ -241,26 +271,39 @@ export default function CoachUsersPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="w-full text-left rounded-2xl border border-white/5 bg-surface-1 p-4 hover:border-brand-primary/30 hover:bg-surface-2 transition-all group"
+              className={cn(
+                'w-full text-left rounded-2xl border p-4 hover:border-brand-primary/30 hover:bg-surface-2 transition-all group',
+                membership && statusInfo ? STATUS_CARD[membership.status] ?? 'border-white/5 bg-surface-1' : 'border-white/5 bg-surface-1',
+              )}
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-primary/30 to-brand-primary/10 flex items-center justify-center text-sm font-bold text-brand-primary">
-                    {athlete.name.split(' ').map((n) => n[0]).join('')}
+                    {getDisplayName(athlete)
+                      .split(' ')
+                      .map((n) => n[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-white">{athlete.name}</p>
+                    <p className="text-sm font-semibold text-white">{getDisplayName(athlete)}</p>
                     <p className="text-xs text-white/40">{athlete.sport}</p>
                   </div>
                 </div>
-                <div className={cn(
-                  'px-2 py-0.5 rounded-md text-[10px] font-semibold',
-                  athlete.readiness.score >= 80 ? 'bg-green-500/10 text-green-400' :
-                  athlete.readiness.score >= 60 ? 'bg-amber-500/10 text-amber-400' :
-                  'bg-red-500/10 text-red-400',
-                )}>
-                  {athlete.readiness.score}%
-                </div>
+                {(() => {
+                  const s = athlete.readiness?.score ?? 100
+                  return (
+                    <div className={cn(
+                      'px-2 py-0.5 rounded-md text-[10px] font-semibold',
+                      s >= 80 ? 'bg-green-500/10 text-green-400' :
+                      s >= 60 ? 'bg-amber-500/10 text-amber-400' :
+                      'bg-red-500/10 text-red-400',
+                    )}>
+                      {s}%
+                    </div>
+                  )
+                })()}
               </div>
 
               {membership && (
@@ -276,6 +319,12 @@ export default function CoachUsersPage() {
                       {membership.planName} · ${membership.planPrice}/mes
                     </span>
                   </div>
+                </div>
+              )}
+
+              {!membership && (
+                <div className="mt-3 p-2 rounded-lg border border-white/5 bg-white/[0.02]">
+                  <span className="text-[10px] font-semibold text-white/40">Sin membresía</span>
                 </div>
               )}
 

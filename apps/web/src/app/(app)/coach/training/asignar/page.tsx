@@ -1,78 +1,72 @@
 'use client'
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Search, Check, Dumbbell, FileText } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
+import { Search, Check, Dumbbell } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAthletes } from '@/features/coach/hooks/useAthletes'
-import { useAuth } from '@/features/auth/contexts/MockAuthContext'
-import { workoutApi, type Workout } from '@/features/shared/api/client'
-import type { TrainingMode } from '@/features/coach/types'
+import { useUser } from '@clerk/nextjs'
+import {
+  workoutApi,
+  templateApi,
+  type WorkoutTemplateSummary,
+  type PastAssignmentListItem,
+} from '@/features/shared/api/client'
 
-type WorkoutPlan = {
-  id: string
-  name: string
-  focus?: string
-  estimatedDuration?: number
-  coachNote?: string
-  exercises: Array<{ id: string; name: string; sets: number; reps: number; rest: number; completedSets: number; weight?: number }>
-}
-
-type AssignType = 'workout' | 'program'
-
-const MOCK_TODAY_WORKOUT: WorkoutPlan = {
-  id: 'wo-1', name: 'Morning Strength + HIIT Finisher', focus: 'Full Body', estimatedDuration: 55,
-  coachNote: 'Focus on controlled tempo. No rushing.',
-  exercises: [
-    { id: 'ex-bb-1', name: 'Barbell Back Squat', sets: 4, reps: 8, rest: 90, completedSets: 0, weight: 80 },
-    { id: 'ex-bb-2', name: 'Bench Press', sets: 4, reps: 8, rest: 90, completedSets: 0, weight: 60 },
-    { id: 'ex-bb-3', name: 'Pull-Ups', sets: 3, reps: 10, rest: 60, completedSets: 0 },
-    { id: 'ex-bb-4', name: 'HIIT: Burpees', sets: 3, reps: 15, rest: 30, completedSets: 0 },
-  ],
-}
-
-const MOCK_WORKOUT_MAP: Record<string, WorkoutPlan> = {
-  'wk-1': MOCK_TODAY_WORKOUT,
-  'wk-2': { id: 'wo-2', name: 'Flying 30m Sprints', focus: 'Top Speed', estimatedDuration: 45, coachNote: 'Explode out of blocks', exercises: [{ id: 'ex-fast-1', name: 'Dynamic Warmup', sets: 1, reps: 10, rest: 0, completedSets: 0 }, { id: 'ex-fast-2', name: 'A-Skips', sets: 3, reps: 20, rest: 60, completedSets: 0 }, { id: 'ex-fast-3', name: 'Flying 30m Sprints', sets: 5, reps: 1, rest: 120, completedSets: 0 }, { id: 'ex-fast-4', name: 'Block Starts', sets: 5, reps: 1, rest: 90, completedSets: 0 }] },
-  'wk-3': { id: 'wo-3', name: 'Strength & Conditioning', focus: 'Max Strength', estimatedDuration: 75, exercises: [{ id: 'ex-strength-1', name: 'Back Squat', sets: 5, reps: 5, rest: 180, completedSets: 0, weight: 100 }, { id: 'ex-strength-2', name: 'Bench Press', sets: 4, reps: 8, rest: 120, completedSets: 0, weight: 60 }, { id: 'ex-strength-3', name: 'Deadlift', sets: 3, reps: 3, rest: 180, completedSets: 0, weight: 120 }] },
-};
-
-const MOCK_CONTENT = {
-  workout: [
-    { id: 'wk-1', name: 'Dynamic Warmup Circuit' },
-    { id: 'wk-2', name: 'Flying 30m Sprints' },
-    { id: 'wk-3', name: 'Strength & Conditioning' },
-    { id: 'wk-4', name: 'Hill Repeats' },
-    { id: 'wk-5', name: 'Crossfit WOD #47' },
-  ],
-  program: [
-    { id: 'prog-1', name: 'Velocidad - Fase 2' },
-    { id: 'prog-2', name: 'Base Running - Maratón' },
-    { id: 'prog-3', name: 'Full Body HIIT' },
-    { id: 'prog-4', name: 'Técnica de nado' },
-  ],
-}
-
-const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+const DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const DAY_INDEX = [1, 2, 3, 4, 5, 6, 0]
 
-const MODALITIES: { label: string; value: TrainingMode }[] = [
-  { label: 'Virtual', value: 'virtual' },
-  { label: 'Presencial', value: 'presencial' },
-  { label: 'Híbrido', value: 'hibrido' },
-  { label: 'Running', value: 'running' },
-]
+/** Selection ids are prefixed so handleAssign knows which source to hydrate. */
+type ContentSource =
+  | { kind: 'template'; id: string; name: string; description: string }
+  | { kind: 'past'; id: string; name: string; athleteName: string }
+
+function todayStr(offsetDays = 0): string {
+  const d = new Date()
+  d.setDate(d.getDate() + offsetDays)
+  return d.toISOString().split('T')[0]
+}
 
 export default function CoachAsignarPage() {
   const { athletes } = useAthletes()
-  const { user } = useAuth()
+  const { user } = useUser()
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>([])
-  const [assignType, setAssignType] = useState<AssignType>('workout')
   const [selectedContent, setSelectedContent] = useState('')
-  const [modality, setModality] = useState<TrainingMode>('presencial')
   const [selectedDays, setSelectedDays] = useState<number[]>([])
   const [searchAthlete, setSearchAthlete] = useState('')
   const [assigning, setAssigning] = useState(false)
+  const [templates, setTemplates] = useState<WorkoutTemplateSummary[]>([])
+  const [pastAssignments, setPastAssignments] = useState<PastAssignmentListItem[]>([])
+  const [sourcesLoading, setSourcesLoading] = useState(true)
+
+  // Dates: desde starts today (no past dates), hasta starts tomorrow
+  // and never allows going before the day after desde.
+  const [startDate, setStartDate] = useState(todayStr())
+  const [endDate, setEndDate] = useState(todayStr(30))
+
+  const minEnd = useMemo(() => {
+    const d = new Date(startDate + 'T12:00:00')
+    d.setDate(d.getDate() + 1)
+    return d.toISOString().split('T')[0]
+  }, [startDate])
+
+  useEffect(() => {
+    if (endDate < minEnd) setEndDate(minEnd)
+  }, [minEnd, endDate])
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      templateApi.list().catch(() => [] as WorkoutTemplateSummary[]),
+      templateApi.listPastAssignments().catch(() => [] as PastAssignmentListItem[]),
+    ]).then(([tplRes, pastRes]) => {
+      if (cancelled) return
+      setTemplates(Array.isArray(tplRes) ? tplRes : [])
+      setPastAssignments(Array.isArray(pastRes) ? pastRes : [])
+      setSourcesLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [])
 
   const toggleAthlete = (id: string) => {
     setSelectedAthletes((prev) =>
@@ -90,60 +84,54 @@ export default function CoachAsignarPage() {
     a.name.toLowerCase().includes(searchAthlete.toLowerCase()),
   )
 
-  const contentOptions = assignType === 'workout' ? MOCK_CONTENT.workout : MOCK_CONTENT.program
+  // Real sources only: builder-saved templates + the coach's own assignment history.
+  const contentOptions: ContentSource[] = [
+    ...(templates || []).map(t => ({ kind: 'template' as const, id: t.id, name: t.name, description: t.description })),
+    ...pastAssignments
+      .filter(a => a.contentName)
+      .map(a => ({ kind: 'past' as const, id: a.id, name: a.contentName, athleteName: a.athleteName })),
+  ]
+
+  const selectedOption = contentOptions.find(c => `${c.kind}:${c.id}` === selectedContent)
 
   const handleAssign = async () => {
     if (!selectedContent || selectedAthletes.length === 0 || !user) return
     setAssigning(true)
     try {
-      const contentOption = contentOptions.find(c => c.id === selectedContent)
-      const workoutPlan = assignType === 'workout' ? MOCK_WORKOUT_MAP[selectedContent] : undefined
-      
-      // Use the start date from the form or today
-      const startDate = new Date().toISOString().split('T')[0]
-      
       for (const athId of selectedAthletes) {
         const athlete = athletes.find(a => a.id === athId)
-        
-        // Convert the workout plan to the API format
-        const exercises = workoutPlan?.exercises.map((ex, idx) => ({
-          exerciseId: ex.id,
-          section: 'main',
-          sortOrder: idx,
-          notes: '',
-          restSeconds: ex.rest || 0,
-          tempo: '',
-          sets: ex.sets ? Array.isArray(ex.sets) 
-            ? ex.sets.map((s, si: number) => ({
-              setNumber: si + 1,
-              setType: 'normal',
-              prescribedReps: s.reps || null,
-              prescribedWeight: s.weight || null,
-              prescribedRPE: null,
-            }))
-            : [{
-              setNumber: 1,
-              setType: 'normal',
-              prescribedReps: ex.reps || null,
-              prescribedWeight: ex.weight || null,
-              prescribedRPE: null,
-            }]
-          : [],
-        })) || []
-        
+
+        // Go's AssignWorkout expects { templateId, modality, startDate, endDate, daysOfWeek }
+        // and copies the template's exercises (including libraryExerciseId → video). Only
+        // builder-saved templates carry a templateId.
+        const isTemplate = selectedOption?.kind === 'template'
+        if (!isTemplate) {
+          toast.error('Solo se pueden asignar plantillas del Builder')
+          setAssigning(false)
+          return
+        }
+
         await workoutApi.create({
-          name: contentOption?.name || 'Workout',
-          description: workoutPlan?.focus || '',
+          name: selectedOption?.name || 'Workout',
+          description: selectedOption?.description || '',
           sportType: athlete?.sport || 'general',
+          templateId: selectedOption?.id,
           scheduledDate: startDate,
+          startDate,
+          endDate,
+          // Modality is hidden from the UI — send empty instead of a fake default.
+          modality: '',
+          daysOfWeek: selectedDays,
           athleteId: athId,
-          exercises,
         })
       }
-      alert(`Asignado a ${selectedAthletes.length} atleta${selectedAthletes.length > 1 ? 's' : ''}`)
+      toast.success(`Asignado a ${selectedAthletes.length} atleta${selectedAthletes.length > 1 ? 's' : ''}`)
+      setSelectedAthletes([])
+      setSelectedContent('')
+      setSelectedDays([])
     } catch (error) {
       console.error('Failed to assign workout:', error)
-      alert('Error al asignar el workout')
+      toast.error('No se pudo asignar el workout. Inténtalo de nuevo.')
     } finally {
       setAssigning(false)
     }
@@ -151,20 +139,30 @@ export default function CoachAsignarPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-xl font-display font-bold text-white">Asignar</h1>
-        <p className="text-sm text-white/40 mt-1">Asigna workouts o programas a atletas</p>
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-brand-primary/15 flex items-center justify-center shrink-0">
+          <Dumbbell size={20} className="text-brand-primary" />
+        </div>
+        <div>
+          <h1 className="text-xl font-display font-bold text-white">Asignar</h1>
+          <p className="text-sm text-white/40 mt-1">Asigna un workout a uno o varios atletas</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div className="rounded-2xl border border-white/5 bg-surface-1 p-4">
-            <h2 className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-3">Atletas</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-semibold text-white/50 uppercase tracking-wider">Atletas</h2>
+              {selectedAthletes.length > 0 && (
+                <span className="text-xs text-brand-primary font-medium">{selectedAthletes.length} seleccionado{selectedAthletes.length > 1 ? 's' : ''}</span>
+              )}
+            </div>
             <div className="relative mb-3">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
               <input
                 type="text"
-                placeholder="Buscar..."
+                placeholder="Buscar atleta..."
                 value={searchAthlete}
                 onChange={(e) => setSearchAthlete(e.target.value)}
                 className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-surface-0 border border-white/5 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-brand-primary/50"
@@ -185,7 +183,7 @@ export default function CoachAsignarPage() {
                     )}
                   >
                     <div className={cn(
-                      'w-4 h-4 rounded border flex items-center justify-center transition-all',
+                      'w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0',
                       selected ? 'bg-brand-primary border-brand-primary' : 'border-white/20',
                     )}>
                       {selected && <Check size={10} className="text-white" />}
@@ -195,12 +193,12 @@ export default function CoachAsignarPage() {
                   </button>
                 )
               })}
+              {filteredAthletes.length === 0 && (
+                <p className="text-xs text-white/30 text-center py-6">
+                  {athletes.length === 0 ? 'Sin atletas asignados todavía' : 'Sin resultados'}
+                </p>
+              )}
             </div>
-            {selectedAthletes.length > 0 && (
-              <p className="text-xs text-brand-primary mt-2 font-medium">
-                {selectedAthletes.length} seleccionados
-              </p>
-            )}
           </div>
         </div>
 
@@ -209,65 +207,40 @@ export default function CoachAsignarPage() {
             <h2 className="text-xs font-semibold text-white/50 uppercase tracking-wider">Configuración</h2>
 
             <div>
-              <p className="text-xs text-white/40 mb-2">Tipo de asignación</p>
-              <div className="flex gap-2">
-                {([
-                  { label: 'Workout', value: 'workout' as const, icon: Dumbbell },
-                  { label: 'Programa', value: 'program' as const, icon: FileText },
-                ]).map((t) => (
-                  <button
-                    key={t.value}
-                    onClick={() => { setAssignType(t.value); setSelectedContent('') }}
-                    className={cn(
-                      'flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium border transition-all',
-                      assignType === t.value
-                        ? 'border-brand-primary/30 bg-brand-primary/10 text-brand-primary'
-                        : 'border-white/10 text-white/40 hover:border-white/20',
-                    )}
-                  >
-                    <t.icon size={14} />
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
               <p className="text-xs text-white/40 mb-2">Contenido</p>
               <select
                 value={selectedContent}
                 onChange={(e) => setSelectedContent(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-surface-0 border border-white/5 text-xs text-white focus:outline-none focus:border-brand-primary/50"
               >
-                <option value="">Seleccionar {assignType}...</option>
-                {contentOptions.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
+                <option value="">Seleccionar workout…</option>
+                {sourcesLoading ? (
+                  <option value="" disabled>Cargando…</option>
+                ) : contentOptions.length === 0 ? (
+                  <option value="" disabled>Sin plantillas todavía — guarda una desde el Builder</option>
+                ) : (
+                  <>
+                    {templates.length > 0 && (
+                      <optgroup label="Plantillas del Builder">
+                        {templates.map((t) => (
+                          <option key={t.id} value={`template:${t.id}`}>{t.name}{t.exerciseCount ? ` (${t.exerciseCount} ej.)` : ''}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {pastAssignments.filter(a => a.contentName).length > 0 && (
+                      <optgroup label="Entrenamientos pasados">
+                        {pastAssignments.filter(a => a.contentName).map((a) => (
+                          <option key={a.id} value={`past:${a.id}`}>{a.contentName} — {a.athleteName || 'atleta'}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </>
+                )}
               </select>
             </div>
 
             <div>
-              <p className="text-xs text-white/40 mb-2">Modalidad</p>
-              <div className="flex flex-wrap gap-2">
-                {MODALITIES.map((m) => (
-                  <button
-                    key={m.value}
-                    onClick={() => setModality(m.value)}
-                    className={cn(
-                      'px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
-                      modality === m.value
-                        ? 'border-brand-primary/30 bg-brand-primary/10 text-brand-primary'
-                        : 'border-white/10 text-white/40 hover:border-white/20',
-                    )}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs text-white/40 mb-2">Días de la semana</p>
+              <p className="text-xs text-white/40 mb-2">Días de la semana <span className="text-white/25">(opcional)</span></p>
               <div className="flex gap-1.5">
                 {DAYS.map((day, i) => {
                   const idx = DAY_INDEX[i]
@@ -294,14 +267,20 @@ export default function CoachAsignarPage() {
                 <p className="text-xs text-white/40 mb-2">Desde</p>
                 <input
                   type="date"
-                  className="w-full px-3 py-2 rounded-lg bg-surface-0 border border-white/5 text-xs text-white focus:outline-none focus:border-brand-primary/50"
+                  value={startDate}
+                  min={todayStr()}
+                  onChange={(e) => setStartDate(e.target.value || todayStr())}
+                  className="w-full px-3 py-2 rounded-lg bg-surface-0 border border-white/5 text-xs text-white focus:outline-none focus:border-brand-primary/50 [color-scheme:dark]"
                 />
               </div>
               <div className="flex-1">
                 <p className="text-xs text-white/40 mb-2">Hasta</p>
                 <input
                   type="date"
-                  className="w-full px-3 py-2 rounded-lg bg-surface-0 border border-white/5 text-xs text-white focus:outline-none focus:border-brand-primary/50"
+                  value={endDate}
+                  min={minEnd}
+                  onChange={(e) => setEndDate(e.target.value || minEnd)}
+                  className="w-full px-3 py-2 rounded-lg bg-surface-0 border border-white/5 text-xs text-white focus:outline-none focus:border-brand-primary/50 [color-scheme:dark]"
                 />
               </div>
             </div>
@@ -311,12 +290,12 @@ export default function CoachAsignarPage() {
               onClick={handleAssign}
               className={cn(
                 'w-full py-2.5 rounded-lg text-sm font-semibold transition-all',
-                selectedContent && selectedAthletes.length > 0
-                  ? 'bg-brand-primary text-white hover:bg-brand-primary/90'
+                selectedContent && selectedAthletes.length > 0 && !assigning
+                  ? 'bg-brand-primary text-white hover:bg-brand-primary/90 active:scale-[0.98]'
                   : 'bg-white/5 text-white/20 cursor-not-allowed',
               )}
             >
-              {assigning ? 'Asignando...' : `Asignar a ${selectedAthletes.length > 0 ? `${selectedAthletes.length} atleta${selectedAthletes.length > 1 ? 's' : ''}` : 'seleccionar atletas'}`}
+              {assigning ? 'Asignando…' : `Asignar a ${selectedAthletes.length > 0 ? `${selectedAthletes.length} atleta${selectedAthletes.length > 1 ? 's' : ''}` : 'seleccionar atletas'}`}
             </button>
           </div>
         </div>

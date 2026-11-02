@@ -1,0 +1,20 @@
+name: Landing Store & Blog (iOS)
+appId: none
+---
+- openLink: "http://localhost:3000/"
+- extendedWaitUntil:
+    visible: "Plataforma de Coaching"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      text: "proteina"
+    direction: DOWN
+    timeout: 40000
+- assertVisible: "proteina"
+- assertVisible: "Cafe Vainilla"
+- scrollUntilVisible:
+    element:
+      text: "Como perder peso en 10 semanas"
+    direction: DOWN
+    timeout: 40000
+- assertVisible: "Como perder peso en 10 semanas"

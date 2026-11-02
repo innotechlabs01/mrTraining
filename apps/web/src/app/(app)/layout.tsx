@@ -1,7 +1,7 @@
-import { AuthProvider } from '@/features/auth/contexts/MockAuthContext'
+import { ClerkProvider } from '@clerk/nextjs'
 
 export const dynamic = 'force-dynamic'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return <AuthProvider>{children}</AuthProvider>
+  return <ClerkProvider>{children}</ClerkProvider>
 }

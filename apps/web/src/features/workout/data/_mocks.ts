@@ -2,7 +2,7 @@ import type {
   Exercise, ExerciseDetail, Workout, WorkoutPlan, WorkoutTemplate, WorkoutProgram,
   ScheduleEvent, WorkoutSessionRecord, WorkoutStats, WorkoutAnalytics,
   WorkoutExerciseDetail, WorkoutSet, AIWorkoutSuggestion, WorkoutHistoryEntry,
-  PersonalRecord, ScheduledWorkout, MuscleGroup, Equipment, Difficulty,
+  ScheduledWorkout,
   WorkoutGoal, WorkoutType, SetType, RestPeriod, ExerciseCategory
 } from '../types'
 

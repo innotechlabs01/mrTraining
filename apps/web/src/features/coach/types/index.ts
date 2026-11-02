@@ -39,6 +39,9 @@ export interface AthleteBrief {
   name: string
   avatarUrl?: string
   sport: string
+  email?: string
+  phone?: string
+  serviceType?: string
   readiness: AthleteReadiness
   flag?: AthleteFlag
   todaySessionIds: string[]
@@ -185,12 +188,14 @@ export interface PlanDiscount {
   code?: string
 }
 
+export type PlanCurrency = 'COP' | 'USD'
+
 export interface Plan {
   id: string
   name: string
   description: string
   price: number
-  currency: string
+  currency: PlanCurrency
   billingPeriod: 'monthly' | 'quarterly' | 'yearly'
   trainingMode: TrainingMode[]
   maxAthletes: number
@@ -198,6 +203,7 @@ export interface Plan {
   features: string[]
   isActive: boolean
   athleteCount: number
+  trm?: number
   discount?: PlanDiscount | null
 }
 
@@ -234,6 +240,15 @@ export interface CoachEvent {
     pace?: string
   }
   public?: boolean
+}
+
+export interface EventRegistration {
+  id: string
+  eventId: string
+  athleteId: string
+  status: 'accepted' | 'cancelled'
+  createdAt: string
+  updatedAt: string
 }
 
 // ---- Live Sessions (calendar) ----
@@ -304,28 +319,40 @@ export interface NavItem {
 
 // ---- Support / Help desk ----
 
-export type TicketStatus = 'open' | 'resolved'
-export type TicketCategory = 'problem' | 'question' | 'feedback'
-export type TicketPriority = 'low' | 'medium' | 'high'
-export type TicketAuthor = 'coach' | 'support'
+export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
+export type TicketCategory = 'problem' | 'question' | 'feature' | 'billing' | 'technical' | 'other'
+export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent'
+export type TicketAuthor = 'coach' | 'support' | 'athlete'
 
 export interface TicketMessage {
   id: string
+  ticket_id: string
   author: TicketAuthor
+  author_id: string
   body: string
-  imageUrl?: string
-  createdAt: string
+  image_url?: string
+  read_at?: string
+  created_at: string
 }
 
 export interface SupportTicket {
   id: string
-  number: number
+  ticket_number: number
   subject: string
-  category: TicketCategory
-  priority: TicketPriority
-  status: TicketStatus
-  createdAt: string
-  resolvedAt?: string
+  category: string
+  priority: string
+  status: string
+  coach_id: string
+  athlete_id?: string
+  assigned_to?: string
+  unread_count: number
+  last_message_at: string
+  created_at: string
+  updated_at: string
+  resolved_at?: string
+}
+
+export interface SupportTicketWithMessages extends SupportTicket {
   messages: TicketMessage[]
 }
 
@@ -395,4 +422,80 @@ export interface Sale {
   total: number
   date: string // YYYY-MM-DD
   createdAt: string
+}
+
+// Earnings summary aggregated for the coach dashboard.
+export interface AllyEarningsBreakdown {
+  allyId: string
+  allyName: string
+  commissionCount: number
+  commissionCents: number
+  pendingCents: number
+}
+
+export interface EarningsSummary {
+  totalEarningsCents: number
+  totalEarningsCurrency: string
+  ownSalesCount: number
+  ownSalesTotalCents: number
+  ownProfitCents: number // SUM((unit_price - unit_received) * quantity)
+  commissionCount: number
+  commissionTotalCents: number
+  pendingCents: number
+  byAlly: AllyEarningsBreakdown[]
+}
+
+export type ChallengeStatus = 'draft' | 'active' | 'completed' | 'expired'
+export type ScoringType = 'form_score' | 'total_volume' | 'consistency'
+export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced'
+
+export interface ChallengeExercise {
+  id: string
+  challengeId: string
+  exerciseType: string
+  title?: string
+  description?: string
+  videoUrl?: string
+  orderIndex: number
+  targetSets?: number
+  targetReps?: number
+  targetWeightKg?: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Challenge {
+  id: string
+  coachId: string
+  title: string
+  description?: string
+  exerciseType: string // legacy single exercise (deprecated, use Exercises)
+  videoUrl?: string
+  exercises?: ChallengeExercise[] // new: multiple exercises
+  durationMinutes: number
+  calories: number
+  targetSets?: number
+  targetReps?: number
+  scoringType: ScoringType
+  difficultyLevel: DifficultyLevel
+  maxAttempts: number
+  status: ChallengeStatus
+  startDate?: string
+  endDate?: string
+  expiresAt?: string
+  daysLeft?: number
+  isUrgent?: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ChallengeLeaderboardEntry {
+  rank: number
+  athleteId: string
+  athleteName: string
+  avatarUrl?: string
+  score: number
+  attempts: number
+  bestScore: number
+  trend: string
 }

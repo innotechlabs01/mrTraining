@@ -1,0 +1,23 @@
+name: Landing Store & Blog
+appId: none
+---
+- openLink: "http://localhost:3000/"
+- extendedWaitUntil:
+    visible: "Asesoría"
+    timeout: 20000
+- assertVisible: "Iniciar Sesión"
+- scrollUntilVisible:
+    element:
+      text: "Cafe Vainilla"
+    direction: DOWN
+    timeout: 30000
+- assertVisible: "Cafe Vainilla"
+- assertVisible: "proteina"
+- scrollUntilVisible:
+    element:
+      text: "Como perder peso en 10 semanas"
+    direction: DOWN
+    timeout: 30000
+- assertVisible: "Como perder peso en 10 semanas"
+- assertVisible: "Anthony Rivera"
+- takeScreenshot: landing_store_blog

@@ -2,12 +2,14 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { toast } from 'sonner'
 import {
   Search, Plus, MoreVertical, Edit, Trash2, X, AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useExerciseLibrary, MUSCLE_GROUP_LABELS, EQUIPMENT_LABELS } from '@/features/workout'
+import { useExerciseLibrary, MUSCLE_GROUP_LABELS, EQUIPMENT_LABELS, DIFFICULTY_LABELS } from '@/features/workout'
 import type { Exercise, MuscleGroup, Equipment, Difficulty } from '@/features/workout'
+import { exerciseApi } from '@/features/shared/api/client'
 
 const DIFFICULTY_STYLES: Record<Difficulty, string> = {
   beginner: 'text-green-400 bg-green-400/10 border-green-400/20',
@@ -16,7 +18,7 @@ const DIFFICULTY_STYLES: Record<Difficulty, string> = {
 }
 
 const EQUIPMENT_OPTIONS: { value: Equipment | 'all'; label: string }[] = [
-  { value: 'all', label: 'All' },
+  { value: 'all', label: 'Todos' },
   ...Object.entries(EQUIPMENT_LABELS).map(([value, label]) => ({
     value: value as Equipment,
     label,
@@ -24,7 +26,7 @@ const EQUIPMENT_OPTIONS: { value: Equipment | 'all'; label: string }[] = [
 ]
 
 const MUSCLE_OPTIONS: { value: MuscleGroup | 'all'; label: string }[] = [
-  { value: 'all', label: 'All' },
+  { value: 'all', label: 'Todas' },
   ...Object.entries(MUSCLE_GROUP_LABELS).map(([value, label]) => ({
     value: value as MuscleGroup,
     label,
@@ -84,19 +86,19 @@ function DeleteConfirmDialog({
                 <AlertTriangle className="w-5 h-5 text-red-400" />
               </div>
               <div>
-                <h3 className="text-base font-semibold text-white">Delete Exercise</h3>
-                <p className="text-sm text-white/50">This action cannot be undone.</p>
+                <h3 className="text-base font-semibold text-white">Eliminar ejercicio</h3>
+                <p className="text-sm text-white/50">Esta acción no se puede deshacer.</p>
               </div>
             </div>
             <p className="text-sm text-white/60">
-              Are you sure you want to delete <span className="text-white font-medium">&ldquo;{exerciseName}&rdquo;</span>?
+              ¿Seguro que quieres eliminar <span className="text-white font-medium">&ldquo;{exerciseName}&rdquo;</span>?
             </p>
             <div className="flex gap-3 justify-end pt-2">
               <button
                 onClick={onCancel}
                 className="px-4 py-2 rounded-lg text-sm font-medium text-white/60 bg-white/5 hover:bg-white/10 transition-colors"
               >
-                Cancel
+                Cancelar
               </button>
               <button
                 onClick={onConfirm}
@@ -121,7 +123,7 @@ function CreateExerciseModal({
   open: boolean
   exercise: Exercise | null
   onClose: () => void
-  onSave: (data: ExerciseFormData) => Promise<void>
+  onSave: (data: ExerciseFormData) => Promise<boolean | void>
 }) {
   const [form, setForm] = useState<ExerciseFormData>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
@@ -163,9 +165,9 @@ function CreateExerciseModal({
   const handleSave = async () => {
     if (!form.name.trim()) return
     setSaving(true)
-    await onSave(form)
+    const ok = await onSave(form)
     setSaving(false)
-    onClose()
+    if (ok !== false) onClose()
   }
 
   const isEdit = !!exercise
@@ -189,7 +191,7 @@ function CreateExerciseModal({
           >
             <div className="flex items-center justify-between p-5 border-b border-white/5 shrink-0">
               <h3 className="text-lg font-semibold text-white font-display">
-                {isEdit ? 'Edit Exercise' : 'Create Exercise'}
+                {isEdit ? 'Editar ejercicio' : 'Crear ejercicio'}
               </h3>
               <button
                 onClick={onClose}
@@ -201,28 +203,28 @@ function CreateExerciseModal({
 
             <div className="p-5 space-y-4 overflow-y-auto">
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-1.5">Name</label>
+                <label className="block text-xs font-medium text-white/50 mb-1.5">Nombre</label>
                 <input
                   value={form.name}
                   onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                  placeholder="Exercise name"
+                  placeholder="Nombre del ejercicio"
                   className="w-full bg-surface-3 border border-white/10 rounded-lg p-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-orange-500/50 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-1.5">Description</label>
+                <label className="block text-xs font-medium text-white/50 mb-1.5">Descripción</label>
                 <textarea
                   value={form.description}
                   onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-                  placeholder="Brief description"
+                  placeholder="Breve descripción"
                   rows={2}
                   className="w-full bg-surface-3 border border-white/10 rounded-lg p-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-orange-500/50 transition-colors resize-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-1.5">Muscle Groups</label>
+                <label className="block text-xs font-medium text-white/50 mb-1.5">Grupos musculares</label>
                 <div className="flex flex-wrap gap-1.5">
                   {Object.entries(MUSCLE_GROUP_LABELS).map(([value, label]) => {
                     const selected = form.muscleGroups.includes(value as MuscleGroup)
@@ -247,7 +249,7 @@ function CreateExerciseModal({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-white/50 mb-1.5">Equipment</label>
+                  <label className="block text-xs font-medium text-white/50 mb-1.5">Equipo</label>
                   <select
                     value={form.equipment}
                     onChange={e => setForm(p => ({ ...p, equipment: e.target.value as Equipment }))}
@@ -260,7 +262,7 @@ function CreateExerciseModal({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-white/50 mb-1.5">Difficulty</label>
+                  <label className="block text-xs font-medium text-white/50 mb-1.5">Dificultad</label>
                   <div className="flex gap-2">
                     {(['beginner', 'intermediate', 'advanced'] as Difficulty[]).map(d => (
                       <button
@@ -274,7 +276,7 @@ function CreateExerciseModal({
                             : 'bg-white/5 text-white/50 hover:bg-white/10',
                         )}
                       >
-                        {d}
+                        {DIFFICULTY_LABELS[d] ?? d}
                       </button>
                     ))}
                   </div>
@@ -283,12 +285,12 @@ function CreateExerciseModal({
 
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">
-                  Instructions <span className="text-white/30">(comma-separated steps)</span>
+                  Instrucciones <span className="text-white/30">(pasos separados por comas)</span>
                 </label>
                 <textarea
                   value={form.instructions}
                   onChange={e => setForm(p => ({ ...p, instructions: e.target.value }))}
-                  placeholder="Set up bar, Lower to chest, Press up"
+                  placeholder="Prepara la barra, Baja al pecho, Empuja"
                   rows={2}
                   className="w-full bg-surface-3 border border-white/10 rounded-lg p-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-orange-500/50 transition-colors resize-none"
                 />
@@ -296,14 +298,47 @@ function CreateExerciseModal({
 
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">
-                  Video URL <span className="text-white/30">(optional)</span>
+                  URL del video <span className="text-white/30">(opcional)</span>
                 </label>
-                <input
-                  value={form.videoUrl}
-                  onChange={e => setForm(p => ({ ...p, videoUrl: e.target.value }))}
-                  placeholder="https://..."
-                  className="w-full bg-surface-3 border border-white/10 rounded-lg p-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-orange-500/50 transition-colors"
-                />
+                <div className="flex gap-2">
+                  <input
+                    value={form.videoUrl}
+                    onChange={e => setForm(p => ({ ...p, videoUrl: e.target.value }))}
+                    placeholder="https://..."
+                    className="flex-1 bg-surface-3 border border-white/10 rounded-lg p-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-orange-500/50 transition-colors"
+                  />
+                  <label className="flex items-center px-3 rounded-lg bg-white/5 border border-white/10 text-xs text-white/60 hover:bg-white/10 hover:text-white/80 cursor-pointer transition-colors shrink-0">
+                    Subir archivo
+                    <input
+                      type="file"
+                      accept="video/mp4,.mp4"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        e.target.value = ''
+                        if (!file) return
+                        if (!file.type.includes('video/mp4') && !file.name.toLowerCase().endsWith('.mp4')) {
+                          alert('Solo se permiten videos MP4')
+                          return
+                        }
+                        if (file.size > 50 * 1024 * 1024) {
+                          alert('El video supera el máximo de 50 MB')
+                          return
+                        }
+                        try {
+                          // Opción A: id-agnostic upload — works for BOTH create and edit.
+                          const data = await exerciseApi.uploadVideo(file)
+                          if (data?.videoUrl) setForm(p => ({ ...p, videoUrl: data.videoUrl }))
+                          else alert(data?.error || 'No se pudo subir el video')
+                        } catch (err) {
+                          console.error('Video upload failed:', err)
+                          alert('No se pudo subir el video')
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="text-[10px] text-white/30 mt-1">Solo MP4 · máx 50 MB</p>
               </div>
             </div>
 
@@ -312,7 +347,7 @@ function CreateExerciseModal({
                 onClick={onClose}
                 className="px-4 py-2 rounded-lg text-sm font-medium text-white/60 bg-white/5 hover:bg-white/10 transition-colors"
               >
-                Cancel
+                Cancelar
               </button>
               <button
                 onClick={handleSave}
@@ -324,7 +359,7 @@ function CreateExerciseModal({
                     : 'bg-white/5 text-white/30 cursor-not-allowed',
                 )}
               >
-                {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Exercise'}
+                {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear ejercicio'}
               </button>
             </div>
           </motion.div>
@@ -400,14 +435,14 @@ function ExerciseCard({
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white/70 hover:bg-white/5 transition-colors"
                   >
                     <Edit className="w-3.5 h-3.5" />
-                    Edit
+                    Editar
                   </button>
                   <button
                     onClick={() => { onDelete(); setMenuOpen(false) }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:bg-white/5 transition-colors"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    Delete
+                    Eliminar
                   </button>
                 </motion.div>
               )}
@@ -439,7 +474,7 @@ function ExerciseCard({
               DIFFICULTY_STYLES[exercise.difficulty],
             )}
           >
-            {exercise.difficulty}
+            {DIFFICULTY_LABELS[exercise.difficulty] ?? exercise.difficulty}
           </span>
         </div>
       </div>
@@ -497,16 +532,33 @@ export default function ExerciseLibrary() {
       videoUrl: form.videoUrl.trim() || undefined,
     }
 
-    if (editingExercise) {
-      await updateExercise(editingExercise.id, data)
-    } else {
-      await createExercise(data as Omit<Exercise, 'id' | 'createdAt'>)
+    try {
+      if (editingExercise) {
+        await updateExercise(editingExercise.id, data)
+        toast.success('Ejercicio actualizado')
+      } else {
+        await createExercise(data as Omit<Exercise, 'id' | 'createdAt'>)
+        toast.success('Ejercicio creado')
+      }
+      setModalOpen(false)
+      setEditingExercise(null)
+      return true
+    } catch {
+      toast.error(editingExercise
+        ? 'No se pudo actualizar el ejercicio. Inténtalo de nuevo.'
+        : 'No se pudo crear el ejercicio. Inténtalo de nuevo.')
+      return false
     }
   }, [editingExercise, createExercise, updateExercise])
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return
-    await deleteExercise(deleteTarget.id)
+    try {
+      await deleteExercise(deleteTarget.id)
+      toast.success('Ejercicio eliminado')
+    } catch {
+      toast.error('No se pudo eliminar el ejercicio. Inténtalo de nuevo.')
+    }
     setDeleteTarget(null)
   }, [deleteTarget, deleteExercise])
 
@@ -514,9 +566,9 @@ export default function ExerciseLibrary() {
     <div className="p-6 max-w-6xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white font-display">Exercise Library</h1>
+          <h1 className="text-xl font-bold text-white font-display">Biblioteca de ejercicios</h1>
           <p className="text-sm text-white/40 mt-0.5">
-            {exercises.length} exercise{exercises.length !== 1 ? 's' : ''}
+            {exercises.length} {exercises.length !== 1 ? 'ejercicios' : 'ejercicio'}
           </p>
         </div>
         <button
@@ -524,7 +576,7 @@ export default function ExerciseLibrary() {
           className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-lg transition-colors active:scale-[0.97]"
         >
           <Plus className="w-4 h-4" />
-          Create Exercise
+          Crear ejercicio
         </button>
       </div>
 
@@ -533,13 +585,13 @@ export default function ExerciseLibrary() {
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search exercises..."
+          placeholder="Buscar ejercicios..."
           className="w-full bg-surface-2 border border-white/5 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-orange-500/30 transition-colors"
         />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-white/40 mr-1">Muscle:</span>
+        <span className="text-xs font-medium text-white/40 mr-1">Músculo:</span>
         {MUSCLE_OPTIONS.map(opt => (
           <button
             key={opt.value}
@@ -557,7 +609,7 @@ export default function ExerciseLibrary() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-white/40 mr-1">Equipment:</span>
+        <span className="text-xs font-medium text-white/40 mr-1">Equipo:</span>
         {EQUIPMENT_OPTIONS.map(opt => (
           <button
             key={opt.value}
@@ -586,7 +638,7 @@ export default function ExerciseLibrary() {
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <AlertTriangle className="w-10 h-10 text-red-400 mb-3" />
           <p className="text-red-400 text-sm font-medium">{error}</p>
-          <p className="text-xs text-white/40 mt-1">Try refreshing the page.</p>
+          <p className="text-xs text-white/40 mt-1">Intenta refrescar la página.</p>
         </div>
       )}
 
@@ -595,14 +647,14 @@ export default function ExerciseLibrary() {
           <div className="w-14 h-14 rounded-full bg-white/5 flex items-center justify-center mb-4">
             <Search className="w-6 h-6 text-white/30" />
           </div>
-          <p className="text-sm font-medium text-white/60">Build your first exercise</p>
-          <p className="text-xs text-white/40 mt-1 mb-4">Create exercises to start building workouts.</p>
+          <p className="text-sm font-medium text-white/60">Crea tu primer ejercicio</p>
+          <p className="text-xs text-white/40 mt-1 mb-4">Crea ejercicios para empezar a armar entrenamientos.</p>
           <button
             onClick={openCreate}
             className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-lg transition-colors active:scale-[0.97]"
           >
             <Plus className="w-4 h-4" />
-            Create Exercise
+            Crear ejercicio
           </button>
         </div>
       )}

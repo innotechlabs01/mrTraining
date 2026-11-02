@@ -1,18 +1,42 @@
-export const EXPO_PROJECT_ID = 'c4e4a8cc-bcf6-43cd-8d13-33bd46e6fea7';
+const EXPO_HOST = process.env.EXPO_HOST || 'mobile.innotechlabssas.lat';
+const APP_SCHEME = 'mrtraining';
 
-export const EXPO_RUNTIME_VERSION = '1.0.0';
-
-export const EXPO_CHANNEL_NAME = 'development';
-
-export function buildExpoUrl(code: string) {
-  const base = `exp://u.expo.dev/${EXPO_PROJECT_ID}`;
-  const path = '/--/invite';
-  const params = new URLSearchParams({
-    'runtime-version': EXPO_RUNTIME_VERSION,
-    'channel-name': EXPO_CHANNEL_NAME,
-  });
+/**
+ * Build the Expo Go URL for development/testing.
+ * Returns exp:// scheme URL that Expo Go can open directly.
+ */
+export function buildExpoUrl(code: string): string {
+  const params = new URLSearchParams();
   if (code) {
     params.set('code', code);
   }
-  return `${base}${path}?${params.toString()}`;
+  const query = params.toString();
+  return `exp://${EXPO_HOST}${query ? `?${query}` : ''}`;
+}
+
+/**
+ * Build Universal Link URL for iOS.
+ * Works with Development Builds and production App Store builds.
+ * iOS opens the app directly when AASA is configured.
+ */
+export function buildUniversalLink(code: string): string {
+  const params = new URLSearchParams();
+  if (code) {
+    params.set('code', code);
+  }
+  const query = params.toString();
+  return `https://${EXPO_HOST}/invite${query ? `?${query}` : ''}`;
+}
+
+/**
+ * Build Expo Go URL for development/testing
+ * Expo Go needs the /--/ path prefix to route to the correct screen
+ */
+export function buildExpoGoUrl(code: string): string {
+  const params = new URLSearchParams();
+  if (code) {
+    params.set('code', code);
+  }
+  const query = params.toString();
+  return `exp://${EXPO_HOST}/--/invite${query ? `?${query}` : ''}`;
 }

@@ -1,0 +1,133 @@
+<h2>Ronda 2 — Navegación fluida y premium</h2>
+<p class="subtitle">Docks flotantes, vidrio esmerilado, indicadores animados. Mirá los detalles: sombras, blur, glows.</p>
+
+<style>
+  .phone {
+    width: 250px;
+    border-radius: 30px;
+    border: 6px solid #1a1a1a;
+    overflow: hidden;
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    margin: 0 auto;
+    box-shadow: 0 20px 50px rgba(0,0,0,.6);
+  }
+  @keyframes floaty { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+  @keyframes pulseGlow { 0%,100%{box-shadow:0 0 14px rgba(200,255,0,.35)} 50%{box-shadow:0 0 26px rgba(200,255,0,.6)} }
+  .screenbody { padding: 12px 16px 16px; height: 300px; }
+  .ph-hello { font-size:15px; font-weight:700; margin-bottom:10px; }
+  .gcard { border-radius:14px; background:linear-gradient(145deg,#1B1E22,#15171B); padding:11px; margin-bottom:8px; border:1px solid rgba(255,255,255,.05); }
+  .gcard .lbl { font-size:8px; letter-spacing:1.2px; text-transform:uppercase; opacity:.55; }
+  .gcard .score { font-size:26px; font-weight:800; color:#C8FF00; }
+</style>
+
+<div class="cards">
+
+  <div class="card" data-choice="A-floating-dock" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:20px 0;">
+      <div class="phone" style="background:#0D0F11; color:#F5F5F7;">
+        <div class="status"><span>9:41</span><span>●●●</span></div>
+        <div class="screenbody">
+          <div class="ph-hello">Buen día, Franco 👋</div>
+          <div class="gcard"><div class="lbl">Readiness</div><div class="score">82<span style="font-size:13px;opacity:.4">/100</span></div></div>
+          <div class="gcard"><div class="lbl">Próxima sesión · 18:30</div><div style="font-size:12px;font-weight:700;margin-top:3px;">Push · Fuerza A</div></div>
+          <div class="gcard"><div class="lbl">Evento</div><div style="font-size:12px;font-weight:600;margin-top:3px;">Sesión grupal sáb 10:00 <span style="color:#C8FF00;font-size:9px;">· Confirmar</span></div></div>
+        </div>
+        <!-- Floating glass dock -->
+        <div style="position:relative; height:86px;">
+          <div style="position:absolute; left:18px; right:18px; bottom:22px; display:flex; justify-content:space-around; align-items:center; padding:10px 6px; border-radius:24px; background:rgba(28,31,36,.75); backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,.09); animation:pulseGlow 3s infinite;">
+            <div style="text-align:center;"><div style="font-size:17px;">⌂</div><div style="font-size:7.5px;color:#C8FF00;font-weight:700;margin-top:1px;">Hoy</div><div style="width:4px;height:4px;border-radius:50%;background:#C8FF00;margin:3px auto 0;"></div></div>
+            <div style="text-align:center;"><div style="font-size:17px;opacity:.4;">▦</div><div style="font-size:7.5px;opacity:.4;margin-top:1px;">Plan</div></div>
+            <div style="text-align:center;"><div style="font-size:17px;opacity:.4;">📅</div><div style="font-size:7.5px;opacity:.4;margin-top:1px;">Eventos</div></div>
+            <div style="text-align:center;"><div style="font-size:17px;opacity:.4;">👤</div><div style="font-size:7.5px;opacity:.4;margin-top:1px;">Perfil</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Floating Glass Dock ✨</h3>
+      <p>Barra despegada del borde, vidrio esmerilado con blur real, borde luminoso y punto indicador animado bajo el tab activo. Flota sobre el contenido — se siente vivo. El patrón favorito de las apps premiadas 2025–2026.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="B-sliding-pill" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:20px 0;">
+      <div class="phone" style="background:#101214; color:#F5F5F7;">
+        <div class="status"><span>9:41</span><span>●●●</span></div>
+        <div class="screenbody">
+          <div class="ph-hello">Buen día, Franco 👋</div>
+          <div class="gcard"><div class="lbl">Readiness</div><div class="score">82<span style="font-size:13px;opacity:.4">/100</span></div></div>
+          <div class="gcard"><div class="lbl">Próxima sesión · 18:30</div><div style="font-size:12px;font-weight:700;margin-top:3px;">Push · Fuerza A</div></div>
+        </div>
+        <!-- Sliding pill indicator bar -->
+        <div style="padding:0 14px 26px;">
+          <div style="display:flex; background:#17191C; border-radius:18px; padding:5px; border:1px solid #23262B;">
+            <div style="flex:1; text-align:center; background:#C8FF00; color:#111214; border-radius:14px; padding:9px 0; font-size:15px; box-shadow:0 2px 12px rgba(200,255,0,.3);">⌂<div style="font-size:7.5px;font-weight:800;">HOY</div></div>
+            <div style="flex:1; text-align:center; padding:9px 0; font-size:15px; opacity:.4;">▦</div>
+            <div style="flex:1; text-align:center; padding:9px 0; font-size:15px; opacity:.4;">📅</div>
+            <div style="flex:1; text-align:center; padding:9px 0; font-size:15px; opacity:.4;">👤</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Pill deslizante</h3>
+      <p>Un "pastilla" verde iluminada se <b>desliza con física de resorte</b> entre tabs al cambiar de sección. Muy fluido en movimiento, feedback clarísimo de dónde estás. Estilo Airbnb/Notion mobile.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="C-capsule-cta" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:20px 0;">
+      <div class="phone" style="background:#0E1012; color:#F5F5F7;">
+        <div class="status"><span>9:41</span><span>●●●</span></div>
+        <div class="screenbody">
+          <div class="ph-hello">Buen día, Franco 👋</div>
+          <div class="gcard" style="border-color:rgba(200,255,0,.18);"><div class="lbl">Sesión de hoy · lista en</div><div class="score" style="font-size:22px;">18:30</div><div style="margin-top:7px;background:#C8FF00;color:#111214;border-radius:9px;padding:7px;text-align:center;font-size:10px;font-weight:800;animation:pulseGlow 2.5s infinite;">EMPEZAR AHORA →</div></div>
+          <div class="gcard"><div class="lbl">Evento</div><div style="font-size:11.5px;font-weight:600;margin-top:3px;">Sesión grupal sáb 10:00</div></div>
+        </div>
+        <!-- Minimal icon-only capsule -->
+        <div style="padding:0 40px 28px;">
+          <div style="display:flex; justify-content:space-around; align-items:center; padding:11px 4px; border-radius:26px; background:rgba(24,27,31,.85); backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,.08);">
+            <div style="width:34px;height:34px;border-radius:50%;background:#C8FF00;display:flex;align-items:center;justify-content:center;font-size:15px;color:#111214;font-weight:800;">⌂</div>
+            <div style="font-size:16px;opacity:.35;">▦</div>
+            <div style="font-size:16px;opacity:.35;">📅</div>
+            <div style="font-size:16px;opacity:.35;">👤</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Cápsula mínima + CTA protagonista</h3>
+      <p>Solo íconos, sin labels — ultra limpia. El tab activo es un círculo relleno. El protagonismo se lo lleva la tarjeta "Empezar ahora" con glow. Máximo contenido visible, navegación casi invisible.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="D-side-rail" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:20px 0;">
+      <div class="phone" style="background:#101214; color:#F5F5F7; display:flex;">
+        <!-- Side rail -->
+        <div style="width:56px; background:#16181B; border-right:1px solid #23262B; display:flex; flex-direction:column; align-items:center; padding:14px 0; gap:4px;">
+          <div style="color:#C8FF00; font-weight:900; font-size:13px; margin-bottom:12px;">MR</div>
+          <div style="width:38px;height:38px;border-radius:12px;background:#C8FF0018;display:flex;align-items:center;justify-content:center;font-size:16px;color:#C8FF00;border:1px solid rgba(200,255,0,.25);">⌂</div>
+          <div style="width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:16px;opacity:.35;">▦</div>
+          <div style="width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:16px;opacity:.35;">📅</div>
+          <div style="width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:16px;opacity:.35;">🛍</div>
+          <div style="flex:1"></div>
+          <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#2A2E33,#1C1F23);display:flex;align-items:center;justify-content:center;font-size:12px;">👤</div>
+        </div>
+        <div style="flex:1;">
+          <div class="status"><span>9:41</span><span>●●●</span></div>
+          <div class="screenbody" style="padding:12px 12px 16px;">
+            <div class="ph-hello">Hoy</div>
+            <div class="gcard" style="padding:9px;"><div class="lbl">Readiness</div><div class="score" style="font-size:22px;">82</div></div>
+            <div class="gcard" style="padding:9px;"><div class="lbl">18:30</div><div style="font-size:11px;font-weight:700;">Push A</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>D — Rail lateral flotante</h3>
+      <p>Navegación vertical tipo rail (como YouTube desktop o apps tablet), avatar abajo. Diferente a todo lo demás — muy pro pero menos convencional para móvil.</p>
+    </div>
+  </div>
+
+</div>

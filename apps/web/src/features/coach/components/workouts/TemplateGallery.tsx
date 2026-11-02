@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   Trash2, X, AlertTriangle, FileText, Plus, Clock,
   Dumbbell, ExternalLink, Pencil,
@@ -12,6 +13,7 @@ import {
   useWorkoutPlans,
   MUSCLE_GROUP_LABELS,
   GOAL_LABELS,
+  FREQUENCY_LABELS,
   formatDuration,
 } from '@/features/workout'
 import type { WorkoutTemplate } from '@/features/workout'
@@ -32,18 +34,36 @@ function SkeletonCard() {
   )
 }
 
+function ExerciseSkeleton() {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="bg-surface-2 rounded-lg px-3 py-2.5 animate-pulse flex items-center justify-between">
+          <div className="h-4 w-32 bg-white/5 rounded" />
+          <div className="h-3 w-20 bg-white/5 rounded" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function TemplatePreviewModal({
   template,
+  detail,
+  loading,
   open,
   onClose,
 }: {
   template: WorkoutTemplate | null
+  detail: WorkoutTemplate | null
+  loading: boolean
   open: boolean
   onClose: () => void
 }) {
+  const display = detail ?? template
   return (
     <AnimatePresence>
-      {open && template && (
+      {open && display && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -60,8 +80,8 @@ function TemplatePreviewModal({
           >
             <div className="flex items-center justify-between p-5 border-b border-white/5 shrink-0">
               <div>
-                <h3 className="text-lg font-semibold text-white font-display">{template.name}</h3>
-                <p className="text-xs text-white/40 mt-0.5">{template.description}</p>
+                <h3 className="text-lg font-semibold text-white font-display">{display.name}</h3>
+                <p className="text-xs text-white/40 mt-0.5">{display.description}</p>
               </div>
               <button
                 onClick={onClose}
@@ -76,38 +96,46 @@ function TemplatePreviewModal({
                 <span className={cn(
                   'px-2.5 py-1 rounded-lg text-xs font-medium capitalize bg-orange-500/10 text-orange-400',
                 )}>
-                  {GOAL_LABELS[template.goal] ?? template.goal}
+                  {GOAL_LABELS[display.goal] ?? display.goal}
                 </span>
                 <span className="flex items-center gap-1 text-xs text-white/50">
                   <Clock className="w-3 h-3" />
-                  {formatDuration(template.estimatedDuration)}
+                  {formatDuration(display.estimatedDuration)}
                 </span>
                 <span className="flex items-center gap-1 text-xs text-white/50">
                   <Dumbbell className="w-3 h-3" />
-                  {template.exercises.length} exercises
+                  {(detail ?? template)?.exercises.length ?? display.exercises.length} ejercicios
                 </span>
                 <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-white/5 text-white/50 capitalize">
-                  {template.frequency}
+                  {FREQUENCY_LABELS[display.frequency] ?? display.frequency}
                 </span>
               </div>
 
-              <div className="space-y-2">
-                {template.exercises.map((ex, i) => (
-                  <div
-                    key={ex.id}
-                    className="flex items-center justify-between bg-surface-2 rounded-lg px-3 py-2.5"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs text-white/30 font-mono shrink-0">{i + 1}.</span>
-                      <span className="text-sm font-medium text-white truncate">{ex.exerciseName}</span>
-                    </div>
-                    <span className="text-xs text-white/50 shrink-0 ml-3">
-                      {ex.sets}×{ex.reps}
-                      {ex.weight ? ` @ ${ex.weight}kg` : ''} | {ex.rest}s
-                    </span>
-                  </div>
-                ))}
-              </div>
+              {loading ? (
+                <ExerciseSkeleton />
+              ) : (
+                <div className="space-y-2">
+                  {(detail?.exercises ?? template?.exercises ?? display.exercises).length === 0 ? (
+                    <p className="text-xs text-white/40 text-center py-4">Esta plantilla no tiene ejercicios</p>
+                  ) : (
+                    (detail?.exercises ?? template?.exercises ?? display.exercises).map((ex, i) => (
+                      <div
+                        key={ex.id}
+                        className="flex items-center justify-between bg-surface-2 rounded-lg px-3 py-2.5"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-xs text-white/30 font-mono shrink-0">{i + 1}.</span>
+                          <span className="text-sm font-medium text-white truncate">{ex.exerciseName}</span>
+                        </div>
+                        <span className="text-xs text-white/50 shrink-0 ml-3">
+                          {ex.sets}×{ex.reps}
+                          {ex.weight ? ` @ ${ex.weight}kg` : ''} | {ex.rest}s
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-3 p-5 border-t border-white/5 shrink-0">
@@ -115,14 +143,14 @@ function TemplatePreviewModal({
                 onClick={onClose}
                 className="px-4 py-2 rounded-lg text-sm font-medium text-white/60 bg-white/5 hover:bg-white/10 transition-colors"
               >
-                Close
+                Cerrar
               </button>
               <Link
-                href="/coach/workouts/builder"
+                href={`/coach/workouts/builder?templateId=${display.id}`}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-orange-500 hover:bg-orange-600 text-white transition-colors"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                Use in Builder
+                Usar en el creador
               </Link>
             </div>
           </motion.div>
@@ -165,25 +193,25 @@ function DeleteConfirmDialog({
                 <AlertTriangle className="w-5 h-5 text-red-400" />
               </div>
               <div>
-                <h3 className="text-base font-semibold text-white">Delete Template</h3>
-                <p className="text-sm text-white/50">This action cannot be undone.</p>
+                <h3 className="text-base font-semibold text-white">Eliminar plantilla</h3>
+                <p className="text-sm text-white/50">Esta acción no se puede deshacer.</p>
               </div>
             </div>
             <p className="text-sm text-white/60">
-              Are you sure you want to delete <span className="text-white font-medium">&ldquo;{templateName}&rdquo;</span>?
+              ¿Seguro que quieres eliminar <span className="text-white font-medium">&ldquo;{templateName}&rdquo;</span>?
             </p>
             <div className="flex gap-3 justify-end pt-2">
               <button
                 onClick={onCancel}
                 className="px-4 py-2 rounded-lg text-sm font-medium text-white/60 bg-white/5 hover:bg-white/10 transition-colors"
               >
-                Cancel
+                Cancelar
               </button>
               <button
                 onClick={onConfirm}
                 className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-500 hover:bg-red-600 transition-colors"
               >
-                Delete
+                Eliminar
               </button>
             </div>
           </motion.div>
@@ -194,8 +222,11 @@ function DeleteConfirmDialog({
 }
 
 export default function TemplateGallery() {
-  const { templates, loading, error, deleteTemplate } = useWorkoutPlans()
+  const { templates, loading, error, deleteTemplate, getTemplateDetail } = useWorkoutPlans()
+  const router = useRouter()
   const [previewTemplate, setPreviewTemplate] = useState<WorkoutTemplate | null>(null)
+  const [previewDetail, setPreviewDetail] = useState<WorkoutTemplate | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<WorkoutTemplate | null>(null)
 
   const handleDelete = useCallback(async () => {
@@ -204,13 +235,46 @@ export default function TemplateGallery() {
     setDeleteTarget(null)
   }, [deleteTarget, deleteTemplate])
 
+  // Lazily fetch detail when preview opens
+  useEffect(() => {
+    if (!previewTemplate) {
+      setPreviewDetail(null)
+      setDetailLoading(false)
+      return
+    }
+    // If the list already hydrated exercises, prefer that unless empty
+    if (previewTemplate.exercises.length > 0) {
+      setPreviewDetail(previewTemplate)
+      // Still try to refresh in background if we want freshest, but not required. Keep simple.
+      return
+    }
+    let cancelled = false
+    setDetailLoading(true)
+    setPreviewDetail(null)
+    getTemplateDetail(previewTemplate.id)
+      .then((detail) => {
+        if (!cancelled) setPreviewDetail(detail)
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewDetail(previewTemplate)
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [previewTemplate, getTemplateDetail])
+
+  const handleCardClick = useCallback((template: WorkoutTemplate) => {
+    setPreviewTemplate(template)
+  }, [])
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white font-display">Templates</h1>
+          <h1 className="text-xl font-bold text-white font-display">Plantillas</h1>
           <p className="text-sm text-white/40 mt-0.5">
-            {templates.length} template{templates.length !== 1 ? 's' : ''}
+            {templates.length} {templates.length !== 1 ? 'plantillas' : 'plantilla'}
           </p>
         </div>
         <Link
@@ -218,7 +282,7 @@ export default function TemplateGallery() {
           className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-lg transition-colors active:scale-[0.97]"
         >
           <Plus className="w-4 h-4" />
-          New Template
+          Nueva plantilla
         </Link>
       </div>
 
@@ -234,7 +298,7 @@ export default function TemplateGallery() {
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <AlertTriangle className="w-10 h-10 text-red-400 mb-3" />
           <p className="text-red-400 text-sm font-medium">{error}</p>
-          <p className="text-xs text-white/40 mt-1">Try refreshing the page.</p>
+          <p className="text-xs text-white/40 mt-1">Intenta refrescar la página.</p>
         </div>
       )}
 
@@ -243,14 +307,14 @@ export default function TemplateGallery() {
           <div className="w-14 h-14 rounded-full bg-white/5 flex items-center justify-center mb-4">
             <FileText className="w-6 h-6 text-white/30" />
           </div>
-          <p className="text-sm font-medium text-white/60">No templates yet</p>
-          <p className="text-xs text-white/40 mt-1 mb-4">Create your first template from the builder</p>
+          <p className="text-sm font-medium text-white/60">Todavía no hay plantillas</p>
+          <p className="text-xs text-white/40 mt-1 mb-4">Crea tu primera plantilla desde el creador</p>
           <Link
             href="/coach/workouts/builder"
             className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-lg transition-colors active:scale-[0.97]"
           >
             <Plus className="w-4 h-4" />
-            Create your first template
+            Crear tu primera plantilla
           </Link>
         </div>
       )}
@@ -266,7 +330,7 @@ export default function TemplateGallery() {
               layout
             >
               <div
-                onClick={() => setPreviewTemplate(template)}
+                onClick={() => handleCardClick(template)}
                 className="group relative bg-surface-2 rounded-xl border border-white/5 p-5 cursor-pointer hover:border-white/10 hover:bg-surface-3 transition-all"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -279,7 +343,7 @@ export default function TemplateGallery() {
                         {GOAL_LABELS[template.goal] ?? template.goal}
                       </span>
                       <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-white/50 capitalize">
-                        {template.frequency}
+                        {FREQUENCY_LABELS[template.frequency] ?? template.frequency}
                       </span>
                     </div>
                   </div>
@@ -288,7 +352,7 @@ export default function TemplateGallery() {
                 <div className="flex items-center gap-3 mt-3">
                   <span className="flex items-center gap-1 text-xs text-white/50">
                     <Dumbbell className="w-3 h-3" />
-                    {template.exercises.length} exercises
+                    {template.exercises.length} ejercicios
                   </span>
                   <span className="flex items-center gap-1 text-xs text-white/50">
                     <Clock className="w-3 h-3" />
@@ -305,12 +369,19 @@ export default function TemplateGallery() {
                 <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
                   <div className="flex items-center gap-1.5 text-xs text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity">
                     <ExternalLink className="w-3 h-3" />
-                    <span>Use in Builder</span>
+                    <span>Usar en el creador</span>
                   </div>
                   <div
                     className="flex items-center gap-1.5"
                     onClick={(e) => e.stopPropagation()}
                   >
+                    <button
+                      onClick={() => router.push(`/coach/workouts/builder?templateId=${template.id}`)}
+                      className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                      title="Editar plantilla"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
                     <button
                       onClick={() => setDeleteTarget(template)}
                       className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all"
@@ -327,6 +398,8 @@ export default function TemplateGallery() {
 
       <TemplatePreviewModal
         template={previewTemplate}
+        detail={previewDetail}
+        loading={detailLoading}
         open={!!previewTemplate}
         onClose={() => setPreviewTemplate(null)}
       />
