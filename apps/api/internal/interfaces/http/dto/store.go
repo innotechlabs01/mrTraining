@@ -43,9 +43,9 @@ func (r *PurchaseRequest) UnmarshalJSON(data []byte) error {
 // PurchaseResponse represents a purchase in API responses.
 type PurchaseResponse struct {
 	ID        string  `json:"id"`
-	AthleteID string  `json:"athlete_id"`
-	ProductID string  `json:"product_id"`
+	AthleteID string  `json:"athleteId"`
+	ProductID string  `json:"productId"`
 	Quantity  int     `json:"quantity"`
 	Price     float64 `json:"price"`
-	CreatedAt string  `json:"created_at"`
+	CreatedAt string  `json:"createdAt"`
 }

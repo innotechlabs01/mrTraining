@@ -21,12 +21,23 @@ func NewStoreHandler(service *store.Service) *StoreHandler {
 }
 
 // ListStore handles GET /athlete/store.
+// Returns a paginated list of store products.
 func (h *StoreHandler) ListStore(c *fiber.Ctx) error {
 	products, err := h.service.ListProducts(c.Context())
 	if err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
 	}
-	return appresponse.Success(c, products)
+
+	responses := make([]dto.StoreProductResponse, len(products))
+	for i, p := range products {
+		responses[i] = dto.StoreProductResponse{
+			ID:    p.ID,
+			Name:  p.Name,
+			Price: p.Price,
+		}
+	}
+
+	return appresponse.Success(c, responses)
 }
 
 // Purchase handles POST /athlete/store/purchase.
@@ -40,7 +51,14 @@ func (h *StoreHandler) Purchase(c *fiber.Ctx) error {
 	if err != nil {
 		return h.handleError(c, err)
 	}
-	return appresponse.Success(c, purchase)
+	return appresponse.Success(c, dto.PurchaseResponse{
+		ID:        purchase.ID,
+		AthleteID: purchase.AthleteID,
+		ProductID: purchase.ProductID,
+		Quantity:  purchase.Quantity,
+		Price:     purchase.Price,
+		CreatedAt: purchase.CreatedAt,
+	})
 }
 
 func (h *StoreHandler) handleError(c *fiber.Ctx, err error) error {

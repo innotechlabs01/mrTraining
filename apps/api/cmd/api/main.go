@@ -43,6 +43,7 @@ import (
 	leaderboardapp "github.com/innotechlabs01/mr-training-api/internal/application/leaderboard"
 	membershipapp "github.com/innotechlabs01/mr-training-api/internal/application/membership"
 	messageapp "github.com/innotechlabs01/mr-training-api/internal/application/message"
+	nutritionapp "github.com/innotechlabs01/mr-training-api/internal/application/nutrition"
 	notificationapp "github.com/innotechlabs01/mr-training-api/internal/application/notification"
 	onboardingapp "github.com/innotechlabs01/mr-training-api/internal/application/onboarding"
 	paymentapp "github.com/innotechlabs01/mr-training-api/internal/application/payment"
@@ -90,6 +91,7 @@ import (
 	leaderboardinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/leaderboard"
 	membershipinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/membership"
 	messageinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/message"
+	nutritioninfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/nutrition"
 	notificationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/notification"
 	onboardinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/onboarding"
 	planinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/plan"
@@ -714,6 +716,14 @@ func main() {
 
 		// Register store routes
 		routes.RegisterStoreRoutes(api, storeHandler)
+
+		// Wire Nutrition domain
+		nutritionRepo := nutritioninfrastructure.NewRepository(db.DB)
+		nutritionService := nutritionapp.NewService(nutritionRepo)
+		nutritionHandler := userhttp.NewNutritionHandler(nutritionService)
+
+		// Register nutrition routes
+		routes.RegisterNutritionRoutes(api, nutritionHandler)
 
 		// Wire Message domain
 		var messageRepoDB *sql.DB

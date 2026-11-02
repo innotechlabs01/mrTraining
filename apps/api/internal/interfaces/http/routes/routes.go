@@ -372,6 +372,14 @@ func RegisterMessageRoutes(api fiber.Router, handler *handlers.MessageHandler, c
 	api.Patch("/messages/:id/read", authMw, handler.MarkRead)
 }
 
+// RegisterNutritionRoutes registers nutrition routes on the given API group.
+// The calling code must have already applied auth middleware to the api group.
+func RegisterNutritionRoutes(api fiber.Router, handler *handlers.NutritionHandler) {
+	api.Post("/nutrition/entries", middleware.RequireAthlete(), handler.CreateMealLog)
+	api.Get("/nutrition/entries", middleware.RequireAthlete(), handler.ListMealLogs)
+	api.Get("/nutrition/summary", middleware.RequireAthlete(), handler.GetDailyMacros)
+}
+
 // RegisterStoreRoutes registers athlete store routes on the given API group.
 // The calling code must have already applied auth middleware to the api group.
 func RegisterStoreRoutes(api fiber.Router, handler *handlers.StoreHandler) {

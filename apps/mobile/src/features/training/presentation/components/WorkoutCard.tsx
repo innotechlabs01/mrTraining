@@ -8,6 +8,8 @@ import {
   HeartPulseIcon,
   YogaIcon,
   FireIcon,
+  PlayIcon,
+  CheckIcon,
   type IconProps,
 } from '../../../../shared/components/icons';
 
@@ -20,6 +22,15 @@ export type WorkoutItem = {
   startDate: string;
 };
 
+export type StartAction = 'empezar' | 'continuar' | 'done';
+
+function resolveStartAction(status: string, progress: number): StartAction {
+  const s = (status ?? '').toLowerCase();
+  if (s === 'completed') return 'done';
+  if ((progress ?? 0) > 0) return 'continuar';
+  return 'empezar';
+}
+
 const MODALITY_ICONS: Record<string, React.ComponentType<IconProps>> = {
   strength: DumbbellIcon,
   flexibility: YogaIcon,
@@ -31,12 +42,23 @@ const MODALITY_ICONS: Record<string, React.ComponentType<IconProps>> = {
 export const WorkoutCard = React.memo(function WorkoutCard({
   item,
   onPress,
+  onStart,
 }: {
   item: WorkoutItem;
   onPress: (id: string) => void;
+  onStart?: (id: string, action: StartAction) => void;
 }) {
   const ModalityIcon = MODALITY_ICONS[item.modality?.toLowerCase()] ?? DumbbellIcon;
   const progressPct = Math.round((item.progress ?? 0) * 100);
+  const action = resolveStartAction(item.status, item.progress);
+  const hasStartAction = onStart !== undefined && action !== 'done';
+
+  const handleStart = () => {
+    if (hasStartAction) {
+      onStart!(item.id, action);
+    }
+  };
+
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.7 }]}
@@ -64,6 +86,24 @@ export const WorkoutCard = React.memo(function WorkoutCard({
           <StarIcon size={10} color={colors.primary} />
         </View>
       </View>
+      {hasStartAction && (
+        <Pressable
+          style={styles.startButton}
+          onPress={handleStart}
+          accessibilityLabel={action === 'continuar' ? 'Continuar entrenamiento' : 'Empezar entrenamiento'}
+        >
+          {action === 'continuar' ? (
+            <PlayIcon size={16} color={colors.onPrimary} />
+          ) : (
+            <PlayIcon size={16} color={colors.onPrimary} />
+          )}
+        </Pressable>
+      )}
+      {action === 'done' && (
+        <Pressable style={styles.doneButton} disabled>
+          <CheckIcon size={16} color={colors.textSecondary} />
+        </Pressable>
+      )}
     </Pressable>
   );
 });
@@ -78,6 +118,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     overflow: 'hidden',
     minHeight: 84,
+    paddingRight: 12,
   },
   cardLeft: { flex: 1, padding: spacing.md, gap: 6 },
   cardTitle: { ...typography.bodyStrong, color: colors.text, fontSize: 14, lineHeight: 18 },
@@ -107,4 +148,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   star: { color: colors.primary, fontSize: 10, lineHeight: 12 },
+  startButton: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  doneButton: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
 });

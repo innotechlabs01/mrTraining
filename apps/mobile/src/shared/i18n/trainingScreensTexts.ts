@@ -158,6 +158,8 @@ export const trainingScreensTexts = {
     startErrorTitle: 'No se pudo iniciar el entrenamiento',
     startErrorBody: 'Inténtalo de nuevo.',
     startLabel: 'Empezar Entrenamiento',
+    continueLabel: 'Continuar Entrenamiento',
+    doneLabel: 'Completado',
     emptyExercises: 'No hay ejercicios',
     restTag: 's descanso',
     phaseWarmup: 'CALENTAMIENTO',

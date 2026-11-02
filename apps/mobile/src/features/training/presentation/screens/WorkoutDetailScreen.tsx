@@ -135,7 +135,7 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
     queryKey: ['workout-detail', workoutId],
     queryFn: async () => {
       const { data } = await apiClient.get(`/athlete/workouts/${workoutId}`);
-      return data as { workout: Workout; exercises?: any[] };
+      return data as { workout: Workout; exercises?: any[]; session?: any };
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -200,11 +200,20 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
     intervals: ex.intervals ?? [],
   }));
 
+  const workout = workoutData?.workout;
+  const status = (workout?.status ?? '').toLowerCase();
+  const progress = workout?.progress ?? 0;
+  const isCompleted = status === 'completed';
+  const hasInProgress = progress > 0;
+  const shouldStart = !isCompleted && !hasInProgress;
+  const shouldContinue = !isCompleted && hasInProgress;
+  const sessionId = workoutData?.session?.id;
+
   const startSessionMutation = useMutation({
     mutationFn: async () => {
       const { data } = await apiClient.post(`/athlete/workouts/${workoutId}/session`);
-      const sessionId = extractSessionId(data);
-      return { id: sessionId };
+      const id = extractSessionId(data);
+      return { id };
     },
     onSuccess: (session) => {
       navigation.navigate('WorkoutExecution', { sessionId: session.id, workoutId });
@@ -214,6 +223,15 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
       Alert.alert(t.startErrorTitle, t.startErrorBody);
     },
   });
+
+  const handlePrimaryAction = () => {
+    if (isCompleted) return;
+    if (shouldContinue && sessionId) {
+      navigation.navigate('WorkoutExecution', { sessionId, workoutId });
+      return;
+    }
+    startSessionMutation.mutate();
+  };
 
   const isLoading = loading1 || loading2;
   const hasExercises = exercises.length > 0;
@@ -379,9 +397,9 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
 
             <View style={styles.cta}>
               <PrimaryButton
-                label={t.startLabel}
-                onPress={() => startSessionMutation.mutate()}
-                disabled={startSessionMutation.isPending}
+                label={isCompleted ? t.doneLabel : shouldContinue ? t.continueLabel : t.startLabel}
+                onPress={handlePrimaryAction}
+                disabled={startSessionMutation.isPending || isCompleted}
               />
             </View>
           </>

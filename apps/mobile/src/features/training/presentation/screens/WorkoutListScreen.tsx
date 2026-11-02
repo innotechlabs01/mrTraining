@@ -95,9 +95,16 @@ export function WorkoutListScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: WorkoutItem }) => (
-      <WorkoutCard item={item} onPress={openWorkout} />
+      <WorkoutCard
+        item={item}
+        onPress={openWorkout}
+        onStart={(id, action) => {
+          if (action === 'done') return;
+          navigation.navigate('WorkoutDetail', { workoutId: id });
+        }}
+      />
     ),
-    [openWorkout],
+    [openWorkout, navigation],
   );
 
   return (
