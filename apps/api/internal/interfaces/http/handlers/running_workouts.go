@@ -186,6 +186,16 @@ func (h *RunningWorkoutHandler) CreateAssignment(c *fiber.Ctx) error {
 
 // GetAssignment handles GET /running/workouts/assignments/:id.
 func (h *RunningWorkoutHandler) GetAssignment(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	userRole := middleware.GetUserRole(c)
+	if userRole == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user role not found")
+	}
+
 	id := c.Params("id")
 	if id == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "assignment id is required")
@@ -313,6 +323,15 @@ func (h *RunningWorkoutHandler) CompleteSession(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "session id is required")
 	}
 
+	// Load existing session to preserve fields not being updated (date, created_at, etc.)
+	existing, err := h.service.GetSession(c.Context(), sessionID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	if existing.UserID != userID {
+		return appresponse.Error(c, fiber.StatusForbidden, "session does not belong to user")
+	}
+
 	var req dto.CompleteRunningSessionRequest
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
@@ -321,6 +340,7 @@ func (h *RunningWorkoutHandler) CompleteSession(c *fiber.Ctx) error {
 	session := &domain.RunningSession{
 		ID:        sessionID,
 		UserID:    userID,
+		Date:      existing.Date,
 		Distance:  req.Distance,
 		Duration:  req.Duration,
 		Pace:      req.Pace,
@@ -329,6 +349,8 @@ func (h *RunningWorkoutHandler) CompleteSession(c *fiber.Ctx) error {
 		HeartRate: req.HeartRate,
 		Cadence:   req.Cadence,
 		GPSRoute:  req.GPSRoute,
+		Source:    existing.Source,
+		CreatedAt: existing.CreatedAt,
 	}
 
 	if err := h.service.CompleteSession(c.Context(), sessionID, userID, session); err != nil {

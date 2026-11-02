@@ -253,6 +253,12 @@ func main() {
 		userService := userdomain.NewService(userRepo, clerkIdentity)
 		userHandler := userhttp.NewUserHandler(userService)
 
+		// Wire TenantContext resolver for multi-tenant (coach) isolation.
+		// Resolves coach_id from Clerk JWT + coaches table (coach users) or
+		// from X-Coach-ID header + coach_athlete_links (athlete users).
+		tenantResolver := userinfrastructure.NewTenantResolver(userRepo)
+		api.Use(middleware.RequireTenantContext(tenantResolver))
+
 		// Register user routes
 		routes.RegisterUserRoutes(api, userHandler)
 
@@ -272,6 +278,11 @@ func main() {
 		membershipRepo := membershipinfrastructure.NewRepository(db.DB)
 		membershipService := membershipapp.NewService(membershipRepo)
 		membershipHandler := userhttp.NewMembershipHandler(membershipService, gamificationService)
+
+		// Wire Coach domain
+		coachRepo := coachinfrastructure.NewRepository(db.DB)
+		coachService := coachapp.NewService(coachRepo)
+		coachHandler := handlers.NewCoachHandler(coachService, db.DB)
 
 		// Create the membership status reader for the RequireActiveMiddleware
 		statusReader := middleware.NewMembershipStatusReader(membershipService)
@@ -324,6 +335,18 @@ func main() {
 		routes.RegisterPlanRoutes(api, planHandler)
 		routes.RegisterPublicPlanRoutes(app.Group("/public"), planHandler)
 
+		// Coach routes (require tenant context — enforced by RequireTenantContext middleware)
+		coach := api.Group("/coach")
+		coach.Get("/dashboard", coachHandler.GetDashboard)
+		coach.Get("/daily-summary", coachHandler.GetDailySummary)
+		coach.Get("/time-blocks", coachHandler.GetTimeBlocks)
+		coach.Post("/time-blocks", coachHandler.SaveTimeBlocks)
+		coach.Get("/appointments", coachHandler.GetAppointments)
+		coach.Post("/appointments", coachHandler.CreateAppointment)
+		coach.Put("/appointments/:id", coachHandler.UpdateAppointment)
+		coach.Get("/availability", coachHandler.GetAvailability)
+		coach.Post("/availability", coachHandler.SaveAvailability)
+
 		// Wire Product domain
 		productRepo := productinfrastructure.NewRepository(db.DB)
 		productService := productapp.NewService(productRepo)
@@ -362,7 +385,7 @@ func main() {
 
 		// Wire Running domain
 		runningRepo := runninginfrastructure.NewRepository(db.DB)
-		runningService := runningapp.NewService(runningRepo)
+		runningService := runningapp.NewService(runningRepo, db.DB)
 		runningHandler := userhttp.NewRunningHandler(runningService)
 
 		// Register running routes
@@ -680,13 +703,7 @@ func main() {
 		// Register message routes
 		routes.RegisterMessageRoutes(api, messageHandler, cfg.ClerkSecretKey)
 
-		// Wire Athlete Scheduling (availability/appointments)
-		var coachRepoDB *sql.DB
-		if db != nil {
-			coachRepoDB = db.DB
-		}
-		coachRepo := coachinfrastructure.NewRepository(coachRepoDB)
-		coachService := coachapp.NewService(coachRepo)
+		// Wire Athlete Scheduling (availability/appointments) — reuse coachService
 		schedulingHandler := userhttp.NewAthleteSchedulingHandler(coachService)
 		routes.RegisterAthleteSchedulingRoutes(api, schedulingHandler)
 	} else {

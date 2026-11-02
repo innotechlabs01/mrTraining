@@ -57,7 +57,7 @@ const sessionDeviceJoin = `LEFT JOIN running_session_devices d ON d.session_id =
 func (r *Repository) GetSession(ctx context.Context, id string) (*domain.RunningSession, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT `+sessionColumns+`, `+sessionDeviceColumns+`
-		 FROM running_sessions `+sessionDeviceJoin+` WHERE running_sessions.id = $14`, id)
+		 FROM running_sessions `+sessionDeviceJoin+` WHERE running_sessions.id = $1`, id)
 
 	s := &domain.RunningSession{}
 	var gpsRoute, externalID, deviceName, deviceBrand sql.NullString
@@ -125,15 +125,15 @@ func (r *Repository) ListSessionsByUser(ctx context.Context, userID string, from
 
 // CountSessionsByUser returns the total number of sessions for a user within an optional date range.
 func (r *Repository) CountSessionsByUser(ctx context.Context, userID string, fromDate, toDate string) (int, error) {
-	query := `SELECT COUNT(*) FROM running_sessions WHERE user_id = $20`
+	query := `SELECT COUNT(*) FROM running_sessions WHERE user_id = $1`
 	args := []interface{}{userID}
 
 	if fromDate != "" {
-		query += " AND date >= $21"
+		query += " AND date >= $2"
 		args = append(args, fromDate)
 	}
 	if toDate != "" {
-		query += " AND date <= $22"
+		query += " AND date <= $3"
 		args = append(args, toDate)
 	}
 
@@ -149,9 +149,9 @@ func (r *Repository) CountSessionsByUser(ctx context.Context, userID string, fro
 func (r *Repository) UpdateSession(ctx context.Context, s *domain.RunningSession) error {
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE running_sessions
-		 SET date = $23, distance = $24, duration = $25, pace = $26, speed = $27, calories = $28,
-		     elevation = $29, heart_rate = $30, cadence = $31, gps_route = $32
-		 WHERE id = $33`,
+		 SET date = $1, distance = $2, duration = $3, pace = $4, speed = $5, calories = $6,
+		     elevation = $7, heart_rate = $8, cadence = $9, gps_route = $10
+		 WHERE id = $11`,
 		s.Date, s.Distance, s.Duration, s.Pace, s.Speed, s.Calories,
 		s.Elevation, s.HeartRate, s.Cadence, nullStr(s.GPSRoute), s.ID)
 	if err != nil {
@@ -170,7 +170,7 @@ func (r *Repository) UpdateSession(ctx context.Context, s *domain.RunningSession
 // DeleteSession removes a running session by ID.
 func (r *Repository) DeleteSession(ctx context.Context, id string) error {
 	result, err := r.db.ExecContext(ctx,
-		`DELETE FROM running_sessions WHERE id = $34`, id)
+		`DELETE FROM running_sessions WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete running session: %w", err)
 	}
@@ -190,7 +190,7 @@ func (r *Repository) DeleteSession(ctx context.Context, id string) error {
 func (r *Repository) SaveSessionDevice(ctx context.Context, s *domain.RunningSession) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO running_session_devices (session_id, user_id, external_id, source, device_name, device_brand)
-		 VALUES ($35, $36, $37, $38, $39, $40)`,
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
 		s.ID, s.UserID, s.ExternalID, s.Source, nullStr(s.DeviceName), nullStr(s.DeviceBrand))
 	if err != nil {
 		return fmt.Errorf("failed to save running session device: %w", err)
@@ -202,7 +202,7 @@ func (r *Repository) SaveSessionDevice(ctx context.Context, s *domain.RunningSes
 func (r *Repository) GetSessionIDByExternalID(ctx context.Context, userID, externalID string) (string, bool, error) {
 	var sessionID string
 	err := r.db.QueryRowContext(ctx,
-		`SELECT session_id FROM running_session_devices WHERE user_id = $41 AND external_id = $42`,
+		`SELECT session_id FROM running_session_devices WHERE user_id = $1 AND external_id = $2`,
 		userID, externalID).Scan(&sessionID)
 	if err == sql.ErrNoRows {
 		return "", false, nil
@@ -219,7 +219,7 @@ func (r *Repository) GetSessionIDByExternalID(ctx context.Context, userID, exter
 func (r *Repository) SaveGpsPoint(ctx context.Context, p *domain.GpsPoint) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO running_gps_points (id, session_id, lat, lng, alt, timestamp, accuracy)
-		 VALUES ($43, $44, $45, $46, $47, $48, $49)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		p.ID, p.SessionID, p.Lat, p.Lng, p.Alt, p.Timestamp, p.Accuracy)
 	if err != nil {
 		return fmt.Errorf("failed to save gps point: %w", err)
@@ -262,7 +262,7 @@ func (r *Repository) SaveGpsPoints(ctx context.Context, points []*domain.GpsPoin
 func (r *Repository) ListGpsPointsBySession(ctx context.Context, sessionID string) ([]*domain.GpsPoint, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, session_id, lat, lng, alt, timestamp, accuracy
-		 FROM running_gps_points WHERE session_id = $57 ORDER BY timestamp ASC`, sessionID)
+		 FROM running_gps_points WHERE session_id = $1 ORDER BY timestamp ASC`, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list gps points: %w", err)
 	}
@@ -288,7 +288,7 @@ func (r *Repository) ListGpsPointsBySession(ctx context.Context, sessionID strin
 func (r *Repository) SaveDeviceConnection(ctx context.Context, conn *domain.DeviceConnection) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO device_connections (id, user_id, device_type, is_active, connected_at)
-		 VALUES ($58, $59, $60, $61, NOW())`,
+		 VALUES ($1, $2, $3, $4, NOW())`,
 		conn.ID, conn.UserID, conn.DeviceType, conn.IsActive)
 	if err != nil {
 		return fmt.Errorf("failed to save device connection: %w", err)
@@ -300,7 +300,7 @@ func (r *Repository) SaveDeviceConnection(ctx context.Context, conn *domain.Devi
 func (r *Repository) GetDeviceConnection(ctx context.Context, id string) (*domain.DeviceConnection, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, user_id, device_type, is_active, connected_at
-		 FROM device_connections WHERE id = $62`, id)
+		 FROM device_connections WHERE id = $1`, id)
 
 	conn := &domain.DeviceConnection{}
 	err := row.Scan(&conn.ID, &conn.UserID, &conn.DeviceType, &conn.IsActive, &conn.ConnectedAt)
@@ -317,7 +317,7 @@ func (r *Repository) GetDeviceConnection(ctx context.Context, id string) (*domai
 func (r *Repository) ListDeviceConnectionsByUser(ctx context.Context, userID string) ([]*domain.DeviceConnection, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, user_id, device_type, is_active, connected_at
-		 FROM device_connections WHERE user_id = $63 ORDER BY connected_at DESC`, userID)
+		 FROM device_connections WHERE user_id = $1 ORDER BY connected_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list device connections: %w", err)
 	}
@@ -337,7 +337,7 @@ func (r *Repository) ListDeviceConnectionsByUser(ctx context.Context, userID str
 // DeactivateDeviceConnection marks a device connection as inactive.
 func (r *Repository) DeactivateDeviceConnection(ctx context.Context, id string) error {
 	result, err := r.db.ExecContext(ctx,
-		`UPDATE device_connections SET is_active = 0 WHERE id = $64`, id)
+		`UPDATE device_connections SET is_active = 0 WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to deactivate device connection: %w", err)
 	}
@@ -762,6 +762,26 @@ func nullInt(v *int) sql.NullInt64 {
 		return sql.NullInt64{}
 	}
 	return sql.NullInt64{Int64: int64(*v), Valid: true}
+}
+
+// SaveOutbox registra un evento en la tabla outbox dentro de la misma
+// transacción que la operación de negocio. Esto garantiza que el evento
+// solo se publique si la operación de negocio confirma exitosamente.
+func (r *Repository) SaveOutbox(ctx context.Context, eventType, aggregateType, aggregateID string, coachID, athleteID string, payload map[string]interface{}) error {
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal outbox payload: %w", err)
+	}
+
+	_, err = r.db.ExecContext(ctx, `
+		INSERT INTO outbox (event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'pending')
+	`,
+		eventType, aggregateType, aggregateID, coachID, athleteID, payloadJSON)
+	if err != nil {
+		return fmt.Errorf("failed to save outbox event: %w", err)
+	}
+	return nil
 }
 
 // nullStr converts an empty string to sql.NullString with Valid=false.
