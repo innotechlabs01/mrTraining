@@ -80,7 +80,7 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	eventinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/event"
 	favoriteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/favorite"
-	firebaseinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/firebase"
+	expoinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/expo"
 	formmetricsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formmetrics"
 	formrecordinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formrecording"
 	gamificationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/gamification"
@@ -377,12 +377,9 @@ func main() {
 
 		// Wire Notification domain
 		notifRepo := notificationinfrastructure.NewRepository(db.DB)
-		fcmSender, _ := firebaseinfra.NewFCMSender(
-			cfg.FirebaseProjectID,
-			cfg.FirebaseClientEmail,
-			cfg.FirebasePrivateKey,
-		)
-		notifService := notificationapp.NewService(notifRepo, fcmSender)
+		// Mobile uses Expo Push tokens, so delivery goes through the Expo Push API.
+		pushSender := expoinfra.NewSender()
+		notifService := notificationapp.NewService(notifRepo, pushSender)
 		notifHandler := userhttp.NewNotificationHandler(notifService)
 
 		// Register notification routes
