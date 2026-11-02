@@ -1,33 +1,66 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { listMessages, sendMessage, type CommunityMessage } from '../../communityService';
-import { colors, layout, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
-import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
-import { Skeleton } from '../../../../shared/components/ui/Skeleton';
-import { EmptyState } from '../../../../shared/components/ui/EmptyState';
-import { ChatIcon, SendIcon } from '../../../../shared/components/icons';
-import type { RootStackParamList } from '../../../../navigation/Navigation';
-import { texts } from '../../../../shared/i18n/texts';
+import React, { useCallback, useState } from "react";
+import { View, Text, StyleSheet, TextInput, Pressable } from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useUser } from "@clerk/clerk-expo";
+import {
+  listAthleteMessages,
+  sendMessage,
+  type AthleteMessage,
+} from "../../communityService";
+import {
+  colors,
+  layout,
+  spacing,
+  radius,
+  fontFamilies,
+} from "../../../../shared/theme/tokens";
+import { ScreenHeader } from "../../../../shared/components/ui/ScreenHeader";
+import { Skeleton } from "../../../../shared/components/ui/Skeleton";
+import { EmptyState } from "../../../../shared/components/ui/EmptyState";
+import { ChatIcon, SendIcon } from "../../../../shared/components/icons";
+import type { RootStackParamList } from "../../../../navigation/Navigation";
+import { texts } from "../../../../shared/i18n/texts";
 
 const t = texts.screens.discussionForum;
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const MessageRow = React.memo(function MessageRow({ item }: { item: CommunityMessage }) {
+type MessageRowItem = {
+  id: string;
+  userName: string;
+  message: string;
+  createdAt: string;
+};
+
+const toMessageRowItem = (m: AthleteMessage): MessageRowItem => ({
+  id: m.id,
+  userName: m.coach_name ?? "Coach",
+  message: m.last_message ?? "",
+  createdAt: m.created_at,
+});
+
+const MessageRow = React.memo(function MessageRow({
+  item,
+}: {
+  item: MessageRowItem;
+}) {
   return (
     <View style={styles.messageRow}>
       <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{item.userName.charAt(0).toUpperCase()}</Text>
+        <Text style={styles.avatarText}>
+          {item.userName.charAt(0).toUpperCase()}
+        </Text>
       </View>
       <View style={styles.messageBody}>
         <View style={styles.messageHeader}>
           <Text style={styles.messageName}>{item.userName}</Text>
-          <Text style={styles.messageTime}>{formatTimeAgo(item.createdAt)}</Text>
+          <Text style={styles.messageTime}>
+            {formatTimeAgo(item.createdAt)}
+          </Text>
         </View>
         <Text style={styles.messageText}>{item.message}</Text>
       </View>
@@ -35,30 +68,43 @@ const MessageRow = React.memo(function MessageRow({ item }: { item: CommunityMes
   );
 });
 
-function keyExtractor(item: CommunityMessage): string {
+function keyExtractor(item: MessageRowItem): string {
   return item.id;
 }
 
-function renderMessage({ item }: { item: CommunityMessage }) {
+function renderMessage({ item }: { item: MessageRowItem }) {
   return <MessageRow item={item} />;
 }
 
 export function DiscussionForumScreen() {
   const navigation = useNavigation<Nav>();
-  const [inputText, setInputText] = useState('');
+  const { user } = useUser();
+  const athleteId = user?.id ?? "";
+  const [inputText, setInputText] = useState("");
   const queryClient = useQueryClient();
 
-  const { data: messages, isLoading, isError, refetch } = useQuery({
-    queryKey: ['community-messages'],
-    queryFn: () => listMessages('default'),
+  const {
+    data: messages,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ["athlete-messages", athleteId],
+    queryFn: () =>
+      listAthleteMessages(athleteId).then((items) =>
+        items.map(toMessageRowItem),
+      ),
+    enabled: athleteId.length > 0,
     staleTime: 10_000,
   });
 
   const sendMessageMut = useMutation({
-    mutationFn: async (text: string) => sendMessage('default', text),
+    mutationFn: async (text: string) => sendMessage("default", text),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['community-messages'] });
-      setInputText('');
+      queryClient.invalidateQueries({
+        queryKey: ["athlete-messages", athleteId],
+      });
+      setInputText("");
     },
   });
 
@@ -121,7 +167,11 @@ export function DiscussionForumScreen() {
           accessibilityRole="button"
           accessibilityLabel={t.send}
           disabled={!canSend}
-          style={({ pressed }) => [styles.sendButton, pressed && styles.sendButtonPressed, !canSend && styles.sendButtonDisabled]}
+          style={({ pressed }) => [
+            styles.sendButton,
+            pressed && styles.sendButtonPressed,
+            !canSend && styles.sendButtonDisabled,
+          ]}
           onPress={handleSend}
         >
           <SendIcon size={18} color={colors.base} />
@@ -134,8 +184,8 @@ export function DiscussionForumScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.base },
   topicSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
@@ -146,25 +196,50 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: colors.text,
   },
-  messagesContent: { padding: layout.pagePadding, paddingBottom: spacing.lg, gap: spacing.md },
-  messageRow: { flexDirection: 'row', gap: spacing.sm },
+  messagesContent: {
+    padding: layout.pagePadding,
+    paddingBottom: spacing.lg,
+    gap: spacing.md,
+  },
+  messageRow: { flexDirection: "row", gap: spacing.sm },
   avatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  avatarText: { fontFamily: fontFamilies.bodyBold, fontSize: 14, color: colors.base },
+  avatarText: {
+    fontFamily: fontFamilies.bodyBold,
+    fontSize: 14,
+    color: colors.base,
+  },
   messageBody: { flex: 1, gap: 4 },
-  messageHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  messageName: { fontFamily: fontFamilies.bodyMedium, fontSize: 13, color: colors.textSecondary },
-  messageTime: { fontFamily: fontFamilies.bodyMedium, fontSize: 11, color: colors.textSecondary },
-  messageText: { fontFamily: fontFamilies.body, fontSize: 15, lineHeight: 22, color: colors.text },
+  messageHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  messageName: {
+    fontFamily: fontFamilies.bodyMedium,
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  messageTime: {
+    fontFamily: fontFamilies.bodyMedium,
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  messageText: {
+    fontFamily: fontFamilies.body,
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.text,
+  },
   inputBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
     height: 48,
@@ -175,14 +250,19 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
-  inputField: { flex: 1, fontFamily: fontFamilies.body, fontSize: 15, color: colors.text },
+  inputField: {
+    flex: 1,
+    fontFamily: fontFamilies.body,
+    fontSize: 15,
+    color: colors.text,
+  },
   sendButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
     backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 4,
   },
   sendButtonPressed: { backgroundColor: colors.primaryPressed },
@@ -194,7 +274,7 @@ export function formatTimeAgo(dateStr: string): string {
   const then = new Date(dateStr).getTime();
   const diffMs = now - then;
   const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return 'ahora mismo';
+  if (mins < 1) return "ahora mismo";
   if (mins < 60) return `hace ${mins} min`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `hace ${hrs} h`;
