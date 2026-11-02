@@ -1,6 +1,7 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View, type ViewProps } from 'react-native';
+import { ActivityIndicator, StyleSheet, View, type ViewProps } from 'react-native';
 import { colors, layout, radius, shadows } from '../../theme/tokens';
+import { AnimatedPressable } from './AnimatedPressable';
 
 type Props = ViewProps & {
   variant?: 'default' | 'elevated' | 'outlined' | 'premium';
@@ -25,35 +26,53 @@ export function Card({
   empty = false,
   ...rest
 }: Props) {
-  const Component = onPress ? Pressable : View;
-
-  return (
-    <Component
-      accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityState={{ disabled, selected, busy: loading }}
-      onPress={onPress}
-      disabled={disabled || loading}
-      style={({ pressed }) => [
-        styles.card,
-        variant === 'elevated' && styles.elevated,
-        variant === 'outlined' && styles.outlined,
-        onPress && !disabled && !loading && pressed && styles.pressed,
-        disabled && styles.disabled,
-        selected && styles.selected,
-        loading && styles.loading,
-        error && styles.error,
-        empty && styles.empty,
-        style,
-      ]}
-      {...rest}
-    >
+  const interactive = onPress != null;
+  const buildStyle = (pressed: boolean) => [
+    styles.card,
+    variant === 'elevated' && styles.elevated,
+    variant === 'outlined' && styles.outlined,
+    interactive && !disabled && !loading && pressed && styles.pressed,
+    disabled && styles.disabled,
+    selected && styles.selected,
+    loading && styles.loading,
+    error && styles.error,
+    empty && styles.empty,
+    style,
+  ];
+  const content = (
+    <>
       {children}
       {loading && (
         <View style={styles.overlay}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       )}
-    </Component>
+    </>
+  );
+
+  if (!interactive) {
+    return (
+      <View
+        accessibilityState={{ disabled, selected, busy: loading }}
+        style={buildStyle(false)}
+        {...rest}
+      >
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled, selected, busy: loading }}
+      onPress={onPress}
+      disabled={disabled || loading}
+      style={({ pressed }) => buildStyle(pressed)}
+      {...rest}
+    >
+      {content}
+    </AnimatedPressable>
   );
 }
 
