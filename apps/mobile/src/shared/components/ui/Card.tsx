@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   },
   pressed: { backgroundColor: colors.surfaceRaised },
   disabled: { opacity: 0.6 },
-  selected: { borderWidth: 2, borderColor: colors.primary, backgroundColor: `${colors.primary}1A` },
+  selected: { borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.primarySoft },
   loading: { opacity: 0.7 },
   error: { borderColor: colors.error },
   empty: { opacity: 0.5 },

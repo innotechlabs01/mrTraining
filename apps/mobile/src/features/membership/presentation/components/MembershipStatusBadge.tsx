@@ -1,11 +1,20 @@
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import { radius, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, radius, spacing, typography, withAlpha } from '../../../../shared/theme/tokens';
 
-const STATUS_THEME: Record<string, { bg: string; color: string; border: string }> = {
-  active: { bg: '#34D3991A', color: '#34D399', border: '#34D39933' },
-  grace_period: { bg: '#FBBF241A', color: '#FBBF24', border: '#FBBF2433' },
-  suspended: { bg: '#FF6B6B1A', color: '#FF6B6B', border: '#FF6B6B33' },
-  no_membership: { bg: '#9CA3AF1A', color: '#9CA3AF', border: '#9CA3AF33' },
+const BG_OPACITY = 0.1;
+const BORDER_OPACITY = 0.2;
+
+type StatusTheme = { bg: string; color: string; border: string };
+
+function statusTheme(color: string): StatusTheme {
+  return { bg: withAlpha(color, BG_OPACITY), color, border: withAlpha(color, BORDER_OPACITY) };
+}
+
+const STATUS_THEME: Record<string, StatusTheme> = {
+  active: statusTheme(colors.success),
+  grace_period: statusTheme(colors.warning),
+  suspended: statusTheme(colors.error),
+  no_membership: statusTheme(colors.textSecondary),
 };
 
 type Props = {
@@ -25,7 +34,7 @@ export function MembershipStatusBadge({ status, label }: Props) {
   );
 }
 
-function badgeStyle(theme: { bg: string; color: string; border: string }): ViewStyle {
+function badgeStyle(theme: StatusTheme): ViewStyle {
   return {
     flexDirection: 'row',
     alignItems: 'center',

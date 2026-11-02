@@ -41,7 +41,7 @@ function statusColor(status: string): string {
     case 'started':
       return colors.warning ?? colors.primary;
     case 'completed':
-      return colors.success ?? '#00C853';
+      return colors.success;
     case 'skipped':
     case 'cancelled':
       return colors.textSecondary;

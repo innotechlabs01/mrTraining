@@ -69,7 +69,7 @@ const VARIANT_STYLES: Record<Variant, object> = {
   primary: { backgroundColor: colors.primary },
   ghost: { backgroundColor: 'transparent' },
   outline: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border },
-  subtle: { backgroundColor: `${colors.primary}1A` },
+  subtle: { backgroundColor: colors.primarySoft },
 };
 
 const VARIANT_FG: Record<Variant, string> = {
