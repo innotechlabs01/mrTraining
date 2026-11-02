@@ -10,6 +10,17 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 )
 
+// RegisterAthleteRoutes registers athlete-scoped routes on the given API group.
+// Routes: GET /athletes/:id/workouts, /metrics, /messages.
+// The calling code must have already applied auth middleware to the api group.
+// Authorization (athlete self or managing coach) is enforced inside the handler.
+func RegisterAthleteRoutes(api fiber.Router, handler *handlers.AthleteHandler) {
+	athletes := api.Group("/athletes")
+	athletes.Get("/:id/workouts", handler.GetWorkouts)
+	athletes.Get("/:id/metrics", handler.GetMetrics)
+	athletes.Get("/:id/messages", handler.GetMessages)
+}
+
 // RegisterUserRoutes registers all user-related routes on the given API group.
 // The calling code must have already applied auth middleware to the api group.
 func RegisterUserRoutes(api fiber.Router, handler *handlers.UserHandler) {
@@ -522,6 +533,14 @@ func RegisterPublicPlanRoutes(api fiber.Router, handler *handlers.PlanHandler) {
 	api.Get("/trm", handler.GetTRM)
 }
 
+// RegisterPublicCoachLandingRoutes registers unauthenticated public coach
+// landing routes. Lives outside /api/v1 so anonymous visitors can fetch a
+// coach's public profile and plans without a Clerk token.
+func RegisterPublicCoachLandingRoutes(api fiber.Router, handler *handlers.CoachLandingHandler) {
+	api.Get("/coach/:slug", handler.GetCoachLanding)
+	api.Get("/coach/:slug/plans", handler.GetCoachPlans)
+}
+
 // RegisterSupportRoutes registers support ticket routes on the given API group.
 func RegisterSupportRoutes(api fiber.Router, handler *handlers.SupportHandler) {
 	// Coach endpoints
@@ -634,4 +653,16 @@ func RegisterCoachPaymentRecordRoutes(api fiber.Router, handler *handlers.CoachP
 	api.Post("/coach/payment-records", middleware.RequireCoach(), handler.CreateRecord)
 	api.Post("/coach/payment-records/:id/confirm", middleware.RequireCoach(), handler.ConfirmRecord)
 	api.Get("/coach/payment-records", middleware.RequireCoach(), handler.ListRecords)
+}
+
+// RegisterSubscriptionRoutes registers subscription endpoints (subscribe, cancel,
+// list, my subscription) on the auth-protected api group.
+func RegisterSubscriptionRoutes(api fiber.Router, handler *handlers.SubscriptionHandler) {
+	handler.RegisterSubscriptionRoutes(api)
+}
+
+// RegisterMercadoPagoWebhookRoutes registers the public MercadoPago webhook
+// outside the auth group (MP notifications carry no Clerk token).
+func RegisterMercadoPagoWebhookRoutes(app fiber.Router, handler *handlers.SubscriptionHandler) {
+	handler.RegisterMercadoPagoWebhook(app)
 }

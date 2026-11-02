@@ -22,6 +22,7 @@ import (
 	allyopsapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_operations"
 	allypaymentdeclarationapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_payment_declaration"
 	allypurchaseapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_purchase"
+	athleteapp "github.com/innotechlabs01/mr-training-api/internal/application/athlete"
 	blogapp "github.com/innotechlabs01/mr-training-api/internal/application/blog"
 	challengeapp "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
 	coachapp "github.com/innotechlabs01/mr-training-api/internal/application/coach"
@@ -30,6 +31,7 @@ import (
 	commissionapp "github.com/innotechlabs01/mr-training-api/internal/application/commission"
 	commissionentryapp "github.com/innotechlabs01/mr-training-api/internal/application/commission_entry"
 	communityapp "github.com/innotechlabs01/mr-training-api/internal/application/community"
+	earningsapp "github.com/innotechlabs01/mr-training-api/internal/application/earnings"
 	eventapp "github.com/innotechlabs01/mr-training-api/internal/application/event"
 	favoriteapp "github.com/innotechlabs01/mr-training-api/internal/application/favorite"
 	formmetricsapp "github.com/innotechlabs01/mr-training-api/internal/application/formmetrics"
@@ -45,11 +47,11 @@ import (
 	onboardingapp "github.com/innotechlabs01/mr-training-api/internal/application/onboarding"
 	paymentapp "github.com/innotechlabs01/mr-training-api/internal/application/payment"
 	planapp "github.com/innotechlabs01/mr-training-api/internal/application/plan"
-	earningsapp "github.com/innotechlabs01/mr-training-api/internal/application/earnings"
 	productapp "github.com/innotechlabs01/mr-training-api/internal/application/product"
 	routineapp "github.com/innotechlabs01/mr-training-api/internal/application/routine"
 	runningapp "github.com/innotechlabs01/mr-training-api/internal/application/running"
 	storeapp "github.com/innotechlabs01/mr-training-api/internal/application/store"
+	subscriptionapp "github.com/innotechlabs01/mr-training-api/internal/application/subscription"
 	supportapp "github.com/innotechlabs01/mr-training-api/internal/application/support"
 	todayapp "github.com/innotechlabs01/mr-training-api/internal/application/today"
 	trainingapp "github.com/innotechlabs01/mr-training-api/internal/application/training"
@@ -64,6 +66,7 @@ import (
 	allycataloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_catalog"
 	allyopsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_operations"
 	allypaymentdeclarationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_payment_declaration"
+	athleteinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/athlete"
 	auditinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
 	bloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/blog"
 	cacheinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/cache"
@@ -94,6 +97,8 @@ import (
 	routineinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/routine"
 	runninginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/running"
 	storeinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/store"
+	subscriptioninfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/subscription"
+	mercadopagoinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/subscription/mercadopago"
 	supportinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/support"
 	todayinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/today"
 	traininginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/training"
@@ -315,8 +320,20 @@ func main() {
 		planService := planapp.NewService(planRepo)
 		planHandler := userhttp.NewPlanHandler(planService, trmService, inviteService)
 
+		// Wire Coach Landing (public)
+		coachLandingHandler := handlers.NewCoachLandingHandler(coachService, planService)
+
+		// Wire Subscription domain (plans & payments)
+		subRepo := subscriptioninfra.NewRepository(db.DB)
+		mpProvider := mercadopagoinfra.NewAdapter(cfg)
+		subscriptionService := subscriptionapp.NewService(cfg, subRepo, mpProvider, planRepo)
+		subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionService)
+
 		// Register membership routes
 		routes.RegisterMembershipRoutes(api, membershipHandler, planHandler, statusReader)
+
+		// Register subscription routes (subscribe, cancel, list, my subscription)
+		routes.RegisterSubscriptionRoutes(api, subscriptionHandler)
 
 		// Wire Event domain
 		eventRepo := eventinfrastructure.NewRepository(db.DB)
@@ -334,6 +351,9 @@ func main() {
 		// Register plan routes (coach CRUD under /api/v1, public under /public)
 		routes.RegisterPlanRoutes(api, planHandler)
 		routes.RegisterPublicPlanRoutes(app.Group("/public"), planHandler)
+
+		// Public coach landing routes (coach profile + plans, no auth)
+		routes.RegisterPublicCoachLandingRoutes(app.Group("/public"), coachLandingHandler)
 
 		// Coach routes (require tenant context — enforced by RequireTenantContext middleware)
 		coach := api.Group("/coach")
@@ -407,6 +427,10 @@ func main() {
 		// Garmin webhook (public, own signature check)
 		garminWebhookHandler := userhttp.NewGarminWebhookHandler(runningService, os.Getenv("GARMIN_WEBHOOK_SECRET"))
 		routes.RegisterWebhookRoutes(app, garminWebhookHandler)
+
+		// MercadoPago webhook (public, own signature check) — fulfillment of
+		// subscription payments. Mounted outside the /api/v1 auth group.
+		routes.RegisterMercadoPagoWebhookRoutes(app, subscriptionHandler)
 
 		// Wire readiness check-ins (morning 10-second check-in)
 		checkinRepo := checkininfra.NewRepository(db.DB)
@@ -702,6 +726,14 @@ func main() {
 
 		// Register message routes
 		routes.RegisterMessageRoutes(api, messageHandler, cfg.ClerkSecretKey)
+
+		// Wire Athlete domain
+		athleteRepo := athleteinfra.NewRepository(db.DB)
+		athleteService := athleteapp.NewService(athleteRepo)
+		athleteHandler := handlers.NewAthleteHandler(athleteService)
+
+		// Register athlete routes
+		routes.RegisterAthleteRoutes(api, athleteHandler)
 
 		// Wire Athlete Scheduling (availability/appointments) — reuse coachService
 		schedulingHandler := userhttp.NewAthleteSchedulingHandler(coachService)

@@ -22,11 +22,17 @@ export function PaymentScreen({ membership }: Props) {
   const [isPaying, setIsPaying] = useState(false);
   const [preference, setPreference] = useState<{ initPoint: string; total: number; currency: string } | null>(null);
 
-  // Refresh membership status after returning from the MercadoPago browser flow.
+  // Refresh membership and subscription status after returning from the
+  // MercadoPago browser flow. Invalidates both the legacy membership cache
+  // and the new subscription cache so the AccessGate re-evaluates access.
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
       if (next === 'active') {
         queryClient.invalidateQueries({ queryKey: ['athlete-membership'] });
+        queryClient.invalidateQueries({ queryKey: ['athlete-subscription'] });
+        queryClient.invalidateQueries({
+          queryKey: ['athlete-membership-status'],
+        });
       }
     });
     return () => sub.remove();

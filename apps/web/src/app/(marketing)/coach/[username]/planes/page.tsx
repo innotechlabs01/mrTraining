@@ -10,8 +10,8 @@ import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export default function CoachPlansLandingPage() {
-  const params = useParams<{ id: string }>()
-  const coachId = params.id
+  const params = useParams<{ username: string }>()
+  const coachId = params.username
 
   const { data: plans = [], isLoading } = useQuery({
     queryKey: ['public-coach-plans', coachId],

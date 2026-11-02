@@ -39,7 +39,12 @@ export default clerkMiddleware(async (auth, request) => {
   const isApiRoute = path.startsWith('/api');
   const isPrivate = PRIVATE_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
 
-  if (!isApiRoute && isPrivate && !userId) {
+  // Public coach landing page: /coach/:username (single dynamic segment).
+  // Kept public so unauthenticated visitors can view a coach's profile + plans.
+  // Dashboard routes (/coach, /coach/plan/..., /coach/users/...) stay protected.
+  const isPublicCoachPage = /^\/coach\/[^/]+$/.test(path);
+
+  if (!isApiRoute && isPrivate && !userId && !isPublicCoachPage) {
     const signInUrl = new URL('/sign-in', request.url);
     signInUrl.searchParams.set('redirect_url', request.url);
     return NextResponse.redirect(signInUrl);
