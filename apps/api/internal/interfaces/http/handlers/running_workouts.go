@@ -128,6 +128,13 @@ func (h *RunningWorkoutHandler) ListTemplatesByCoach(c *fiber.Ctx) error {
 		coachID = userID
 	}
 
+	// Prevent cross-coach enumeration: a coach may only list their own templates.
+	// A non-self coach_id is rejected unless explicitly supported in a future
+	// administrative flow.
+	if coachID != userID {
+		return appresponse.Error(c, fiber.StatusForbidden, "not allowed to list templates for another coach")
+	}
+
 	templates, err := h.service.ListTemplatesByCoach(c.Context(), coachID)
 	if err != nil {
 		return h.handleError(c, err)
