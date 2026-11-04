@@ -250,18 +250,17 @@ func (h *CommissionEntryHandler) withTx(c *fiber.Ctx, fn func(*commissionentryap
 	userID := middleware.GetUserID(c)
 	coachID := middleware.GetCoachID(c)
 	if userID == "" {
-		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+		return errors.Unauthorized("user not authenticated")
 	}
 	if coachID == "" {
-		return appresponse.Error(c, fiber.StatusForbidden, "coach tenant context is required")
+		return errors.Forbidden("coach tenant context is required")
 	}
 	if h.db == nil {
 		return fn(h.service)
 	}
 	uow := database.NewUnitOfWork(h.db)
-
 	if err := uow.Begin(c.Context(), userID, coachID, middleware.GetUserRole(c)); err != nil {
-		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
+		return errors.New("INTERNAL_ERROR", "failed to begin transaction", 500)
 	}
 	defer uow.Rollback(c.Context())
 	svc := h.service.SetExecutor(uow.Tx())
@@ -269,7 +268,7 @@ func (h *CommissionEntryHandler) withTx(c *fiber.Ctx, fn func(*commissionentryap
 		return err
 	}
 	if err := uow.Commit(c.Context()); err != nil {
-		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to commit transaction")
+		return errors.New("INTERNAL_ERROR", "failed to commit transaction", 500)
 	}
 	return nil
 }
@@ -541,6 +540,9 @@ func (h *CommissionEntryHandler) ListFinancialAdjustments(c *fiber.Ctx) error {
 func (h *CommissionEntryHandler) handleError(c *fiber.Ctx, err error) error {
 	if appErr, ok := err.(*errors.AppError); ok {
 		return appresponse.Error(c, appErr.Status, appErr.Message)
+	}
+	if err != nil && err.Error() == commissionentrydomain.ErrNotFound.Error() {
+		return appresponse.Error(c, fiber.StatusNotFound, "commission entry not found")
 	}
 	return appresponse.Error(c, fiber.StatusInternalServerError, "internal server error")
 }
