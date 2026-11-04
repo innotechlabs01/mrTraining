@@ -373,7 +373,7 @@ func main() {
 		// Wire Event domain
 		eventRepo := eventinfrastructure.NewRepository(db.DB)
 		eventService := eventapp.NewService(eventRepo)
-		eventHandler := userhttp.NewEventHandler(eventService, hub)
+		eventHandler := userhttp.NewEventHandler(eventService, hub, db.DB)
 
 		// Register event routes
 		routes.RegisterEventRoutes(api, eventHandler)

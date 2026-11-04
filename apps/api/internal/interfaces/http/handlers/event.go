@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -10,6 +11,7 @@ import (
 	eventapp "github.com/innotechlabs01/mr-training-api/internal/application/event"
 	eventdomain "github.com/innotechlabs01/mr-training-api/internal/domain/event"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/websocket"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
@@ -20,12 +22,39 @@ import (
 type EventHandler struct {
 	service *eventapp.Service
 	hub     *websocket.Hub
+	db      *sql.DB
 }
 
 // NewEventHandler creates a new EventHandler with the given application service.
-func NewEventHandler(service *eventapp.Service, hub *websocket.Hub) *EventHandler {
-	return &EventHandler{service: service, hub: hub}
+func NewEventHandler(service *eventapp.Service, hub *websocket.Hub, db *sql.DB) *EventHandler {
+	return &EventHandler{service: service, hub: hub, db: db}
 }
+
+// withTx wraps handler work in a UnitOfWork and injects the executor.
+func (h *EventHandler) withTx(c *fiber.Ctx, fn func(*eventapp.Service) error) error {
+	userID := middleware.GetUserID(c)
+	coachID := middleware.GetCoachID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusForbidden, "coach tenant context is required")
+	}
+	uow := database.NewUnitOfWork(h.db)
+	if err := uow.Begin(c.Context(), userID, coachID, middleware.GetUserRole(c)); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
+	}
+	defer uow.Rollback(c.Context())
+	svc := h.service.SetExecutor(uow.Tx())
+	if err := fn(svc); err != nil {
+		return err
+	}
+	if err := uow.Commit(c.Context()); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to commit transaction")
+	}
+	return nil
+}
+
 
 // ListEvents handles GET /events.
 // Returns all events for the authenticated coach.
@@ -248,7 +277,15 @@ func (h *EventHandler) CreateEvent(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnprocessableEntity, "date is required")
 	}
 
-	event, err := h.service.CreateEvent(c.Context(), coachID, req)
+	var event *eventdomain.Event
+	err := h.withTx(c, func(svc *eventapp.Service) error {
+		e, err := svc.CreateEvent(c.Context(), coachID, req)
+		if err != nil {
+			return err
+		}
+		event = e
+		return nil
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
