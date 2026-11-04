@@ -70,3 +70,10 @@ func TestServiceCommissionEntry_ListByCoachIsolated(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, got)
 }
+func TestServiceCommissionEntry_GetOwnAllowed(t *testing.T) {
+	repo := &fakeCommissionRepoCross{entry: &domain.CommissionEntry{ID: "entry-1", CoachID: "coach-a"}}
+	svc := NewService(repo)
+	got, err := svc.GetCommissionEntry(context.Background(), "entry-1", "coach-a")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+}
