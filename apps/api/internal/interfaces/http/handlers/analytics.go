@@ -13,12 +13,13 @@ import (
 )
 
 type AnalyticsHandler struct {
-	service *analyticsapp.Service
-	db      *sql.DB
+	service         *analyticsapp.Service
+	db              *sql.DB
+	tenantResolver  middleware.TenantResolver
 }
 
-func NewAnalyticsHandler(service *analyticsapp.Service, db *sql.DB) *AnalyticsHandler {
-	return &AnalyticsHandler{service: service, db: db}
+func NewAnalyticsHandler(service *analyticsapp.Service, db *sql.DB, tenantResolver middleware.TenantResolver) *AnalyticsHandler {
+	return &AnalyticsHandler{service: service, db: db, tenantResolver: tenantResolver}
 }
 
 func (h *AnalyticsHandler) withTx(c *fiber.Ctx, fn func(*analyticsapp.Service) error) error {
@@ -27,6 +28,10 @@ func (h *AnalyticsHandler) withTx(c *fiber.Ctx, fn func(*analyticsapp.Service) e
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
+	coachID := middleware.GetCoachID(c)
+	if coachID == "" {
+		return fn(h.service)
+	}
 	uow := database.NewUnitOfWork(h.db)
 	if err := uow.Begin(c.Context(), userID, middleware.GetCoachID(c), middleware.GetUserRole(c)); err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
@@ -63,6 +68,14 @@ func (h *AnalyticsHandler) GetHRZones(c *fiber.Ctx) error {
 		if athleteID == "" {
 			return appresponse.Error(c, fiber.StatusBadRequest, "athleteId required")
 		}
+
+		coachID := middleware.GetUserID(c)
+		if h.tenantResolver != nil && coachID != "" {
+			ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, coachID)
+			if err != nil || !ok {
+				return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this athlete")
+			}
+		}
 		zones, err := svc.GetHRZones(c.Context(), athleteID)
 		if err != nil {
 			return err
@@ -77,6 +90,14 @@ func (h *AnalyticsHandler) GetFatigueMap(c *fiber.Ctx) error {
 		if athleteID == "" {
 			return appresponse.Error(c, fiber.StatusBadRequest, "athleteId required")
 		}
+
+		coachID := middleware.GetUserID(c)
+		if h.tenantResolver != nil && coachID != "" {
+			ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, coachID)
+			if err != nil || !ok {
+				return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this athlete")
+			}
+		}
 		fatigue, err := svc.GetFatigueMap(c.Context(), athleteID)
 		if err != nil {
 			return err
@@ -90,6 +111,14 @@ func (h *AnalyticsHandler) GetOneRM(c *fiber.Ctx) error {
 		athleteID := c.Params("athleteId")
 		if athleteID == "" {
 			return appresponse.Error(c, fiber.StatusBadRequest, "athleteId required")
+		}
+
+		coachID := middleware.GetUserID(c)
+		if h.tenantResolver != nil && coachID != "" {
+			ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, coachID)
+			if err != nil || !ok {
+				return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this athlete")
+			}
 		}
 		oneRM, err := svc.GetOneRM(c.Context(), athleteID)
 		if err != nil {
@@ -115,6 +144,14 @@ func (h *AnalyticsHandler) GetEffort(c *fiber.Ctx) error {
 		athleteID := c.Params("athleteId")
 		if athleteID == "" {
 			return appresponse.Error(c, fiber.StatusBadRequest, "athleteId required")
+		}
+
+		coachID := middleware.GetUserID(c)
+		if h.tenantResolver != nil && coachID != "" {
+			ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, coachID)
+			if err != nil || !ok {
+				return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this athlete")
+			}
 		}
 		effort, err := svc.GetEffort(c.Context(), athleteID)
 		if err != nil {

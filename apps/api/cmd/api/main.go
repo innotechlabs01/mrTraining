@@ -441,7 +441,7 @@ func main() {
 		// RegisterAnalyticsRoutes existed but was never called — endpoints 404'd.
 		analyticsRepo := analyticsinfra.NewRepository(db.DB)
 		analyticsService := analyticsapp.NewService(analyticsRepo)
-		analyticsHandler := userhttp.NewAnalyticsHandler(analyticsService, db.DB)
+		analyticsHandler := userhttp.NewAnalyticsHandler(analyticsService, db.DB, tenantResolver)
 		routes.RegisterAnalyticsRoutes(api, analyticsHandler)
 
 		// Wire Running domain
