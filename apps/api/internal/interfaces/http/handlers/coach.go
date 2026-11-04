@@ -39,6 +39,10 @@ func (h *CoachHandler) withTx(c *fiber.Ctx, fn func(*coachapp.Service) error) er
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
+	if h.db == nil {
+		return fn(h.service)
+	}
+
 	uow := database.NewUnitOfWork(h.db)
 	if err := uow.Begin(c.Context(), userID, coachID, middleware.GetUserRole(c)); err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
