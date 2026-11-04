@@ -25,13 +25,14 @@ type MembershipHandler struct {
 	service  *membershipapp.Service
 	gamifSvc *gamificationapp.Service
 	db       *sql.DB
+	tenantResolver middleware.TenantResolver
 }
 
 // NewMembershipHandler creates a new MembershipHandler with the given
 // application services. gamifSvc may be nil if membership badge checking is
 // not required.
-func NewMembershipHandler(service *membershipapp.Service, gamifSvc *gamificationapp.Service, db *sql.DB) *MembershipHandler {
-	return &MembershipHandler{service: service, gamifSvc: gamifSvc, db: db}
+func NewMembershipHandler(service *membershipapp.Service, gamifSvc *gamificationapp.Service, db *sql.DB, tenantResolver middleware.TenantResolver) *MembershipHandler {
+	return &MembershipHandler{service: service, gamifSvc: gamifSvc, db: db, tenantResolver: tenantResolver}
 }
 
 // withTx injects a UnitOfWork transaction into the membership service when
@@ -111,6 +112,14 @@ func (h *MembershipHandler) CreateMembership(c *fiber.Ctx) error {
 
 	if validationErrs := validator.ValidateCreateMembership(&req); len(validationErrs) > 0 {
 		return h.handleValidationError(c, validationErrs)
+	}
+
+	// Coach-athlete relationship must be active before creating a membership.
+	if h.tenantResolver != nil && req.AthleteID != "" {
+		ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), req.AthleteID, coachID)
+		if err != nil || !ok {
+			return appresponse.Error(c, fiber.StatusForbidden, "no active coach-athlete relationship")
+		}
 	}
 
 	m, err := h.service.CreateMembership(c.Context(), membershipapp.CreateRequest{
