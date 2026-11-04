@@ -12,70 +12,115 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 )
 
-type fakeAnalyticsHandlerRepo struct{}
+type fakeAnalyticsHandlerRepoFull struct{}
 
-func (fakeAnalyticsHandlerRepo) GetDashboardSummary(ctx context.Context, coachID string) (*analyticsdomain.DashboardSummary, error) {
+func (fakeAnalyticsHandlerRepoFull) GetDashboardSummary(ctx context.Context, coachID string) (*analyticsdomain.DashboardSummary, error) {
 	return nil, nil
 }
-func (fakeAnalyticsHandlerRepo) GetHRZones(ctx context.Context, athleteID string) ([]analyticsdomain.HRZone, error) {
+func (fakeAnalyticsHandlerRepoFull) GetHRZones(ctx context.Context, athleteID string) ([]analyticsdomain.HRZone, error) {
 	return nil, nil
 }
-func (fakeAnalyticsHandlerRepo) GetFatigueMap(ctx context.Context, athleteID string) ([]analyticsdomain.FatigueMap, error) {
+func (fakeAnalyticsHandlerRepoFull) GetFatigueMap(ctx context.Context, athleteID string) ([]analyticsdomain.FatigueMap, error) {
 	return nil, nil
 }
-func (fakeAnalyticsHandlerRepo) GetOneRM(ctx context.Context, athleteID string) ([]analyticsdomain.OneRM, error) {
+func (fakeAnalyticsHandlerRepoFull) GetOneRM(ctx context.Context, athleteID string) ([]analyticsdomain.OneRM, error) {
 	return nil, nil
 }
-func (fakeAnalyticsHandlerRepo) GetTrainingSummary(ctx context.Context, coachID string) (*analyticsdomain.TrainingSummary, error) {
+func (fakeAnalyticsHandlerRepoFull) GetTrainingSummary(ctx context.Context, coachID string) (*analyticsdomain.TrainingSummary, error) {
 	return nil, nil
 }
-func (fakeAnalyticsHandlerRepo) GetEffort(ctx context.Context, athleteID string) ([]analyticsdomain.Effort, error) {
+func (fakeAnalyticsHandlerRepoFull) GetEffort(ctx context.Context, athleteID string) ([]analyticsdomain.Effort, error) {
 	return nil, nil
 }
 
-type analyticsTenantDeny struct{}
+type analyticsCrossTenantDeny struct{}
 
-func (analyticsTenantDeny) GetActiveCoachID(ctx context.Context, userID string) (string, error) {
+func (analyticsCrossTenantDeny) GetActiveCoachID(ctx context.Context, userID string) (string, error) {
 	return userID, nil
 }
-func (analyticsTenantDeny) AthleteHasActiveCoach(ctx context.Context, athleteID, coachID string) (bool, error) {
+func (analyticsCrossTenantDeny) AthleteHasActiveCoach(ctx context.Context, athleteID, coachID string) (bool, error) {
 	return false, nil
 }
 
-func TestAnalyticsAthleteEndpoints_CrossCoachDenied(t *testing.T) {
-	svc := analyticsapp.NewService(fakeAnalyticsHandlerRepo{})
-	h := &AnalyticsHandler{service: svc, db: nil, tenantResolver: analyticsTenantDeny{}}
+func makeAnalyticsHandler(repo analyticsdomain.Repository, resolver middleware.TenantResolver) *AnalyticsHandler {
+	return &AnalyticsHandler{service: analyticsapp.NewService(repo), db: nil, tenantResolver: resolver}
+}
 
-	app := fiber.New()
-	app.Get("/athlete/:athleteId/analytics/hr-zones", func(c *fiber.Ctx) error {
-		c.Locals(string(middleware.UserIDKey), "coach-a")
-		return h.GetHRZones(c)
-	})
-	req := httptest.NewRequest("GET", "/athlete/athlete-b/analytics/hr-zones", nil)
-	resp, err := app.Test(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != fiber.StatusForbidden {
-		t.Fatalf("expected 403, got %d", resp.StatusCode)
+func TestAnalyticsAthleteSelfAllowed(t *testing.T) {
+	h := makeAnalyticsHandler(fakeAnalyticsHandlerRepoFull{}, analyticsCrossTenantDeny{})
+	for _, ep := range []struct{ name, path string }{
+		{"HRZones", "/athlete/alice/analytics/hr-zones"},
+		{"FatigueMap", "/athlete/alice/analytics/fatigue-map"},
+		{"OneRM", "/athlete/alice/analytics/one-rm"},
+		{"Effort", "/athlete/alice/analytics/effort"},
+	} {
+		t.Run(ep.name, func(t *testing.T) {
+			app := fiber.New()
+			route := "/athlete/:athleteId/analytics/hr-zones"
+			if ep.name == "FatigueMap" { route = "/athlete/:athleteId/analytics/fatigue-map" }
+			if ep.name == "OneRM" { route = "/athlete/:athleteId/analytics/one-rm" }
+			if ep.name == "Effort" { route = "/athlete/:athleteId/analytics/effort" }
+			app.Get(route, func(c *fiber.Ctx) error {
+				c.Locals(string(middleware.UserIDKey), "alice")
+				switch ep.name {
+				case "HRZones":
+					return h.GetHRZones(c)
+				case "FatigueMap":
+					return h.GetFatigueMap(c)
+				case "OneRM":
+					return h.GetOneRM(c)
+				case "Effort":
+					return h.GetEffort(c)
+				}
+				return nil
+			})
+			resp, err := app.Test(httptest.NewRequest("GET", ep.path, nil))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != fiber.StatusOK {
+				t.Fatalf("%s self expected 200, got %d", ep.name, resp.StatusCode)
+			}
+		})
 	}
 }
 
-func TestAnalyticsAthleteEndpoints_SelfAllowed(t *testing.T) {
-	svc := analyticsapp.NewService(fakeAnalyticsHandlerRepo{})
-	h := &AnalyticsHandler{service: svc, db: nil, tenantResolver: analyticsTenantDeny{}}
-
-	app := fiber.New()
-	app.Get("/athlete/:athleteId/analytics/hr-zones", func(c *fiber.Ctx) error {
-		c.Locals(string(middleware.UserIDKey), "athlete-a")
-		return h.GetHRZones(c)
-	})
-	req := httptest.NewRequest("GET", "/athlete/athlete-a/analytics/hr-zones", nil)
-	resp, err := app.Test(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != fiber.StatusOK {
-		t.Fatalf("expected 200, got %d", resp.StatusCode)
+func TestAnalyticsAthleteCrossDenied(t *testing.T) {
+	h := makeAnalyticsHandler(fakeAnalyticsHandlerRepoFull{}, analyticsCrossTenantDeny{})
+	for _, ep := range []struct{ name, path string }{
+		{"HRZones", "/athlete/bob/analytics/hr-zones"},
+		{"FatigueMap", "/athlete/bob/analytics/fatigue-map"},
+		{"OneRM", "/athlete/bob/analytics/one-rm"},
+		{"Effort", "/athlete/bob/analytics/effort"},
+	} {
+		t.Run(ep.name, func(t *testing.T) {
+			app := fiber.New()
+			route := "/athlete/:athleteId/analytics/hr-zones"
+			if ep.name == "FatigueMap" { route = "/athlete/:athleteId/analytics/fatigue-map" }
+			if ep.name == "OneRM" { route = "/athlete/:athleteId/analytics/one-rm" }
+			if ep.name == "Effort" { route = "/athlete/:athleteId/analytics/effort" }
+			app.Get(route, func(c *fiber.Ctx) error {
+				c.Locals(string(middleware.UserIDKey), "coach-a")
+				switch ep.name {
+				case "HRZones":
+					return h.GetHRZones(c)
+				case "FatigueMap":
+					return h.GetFatigueMap(c)
+				case "OneRM":
+					return h.GetOneRM(c)
+				case "Effort":
+					return h.GetEffort(c)
+				}
+				return nil
+			})
+			resp, err := app.Test(httptest.NewRequest("GET", ep.path, nil))
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("%s STATUS=%d", ep.name, resp.StatusCode)
+			if resp.StatusCode != fiber.StatusForbidden {
+				t.Fatalf("%s cross expected 403, got %d", ep.name, resp.StatusCode)
+			}
+		})
 	}
 }
