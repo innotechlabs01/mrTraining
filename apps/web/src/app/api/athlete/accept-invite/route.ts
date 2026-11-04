@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { goFetchServer } from '@/lib/api/go-client';
-import { getCoachByCode, linkCoachAthlete, createAthleteProfile, getUserById, createUser, getAthleteProfileById } from '@/lib/coach-isolation-db';
+
+interface GoAcceptResult {
+  success: boolean;
+  coachId?: string;
+  coachName?: string;
+}
+
+interface GoCurrentUser {
+  user?: { id: string; email: string; name: string; avatar_url: string; role: string };
+}
 
 export async function POST(req: Request) {
   try {
@@ -22,34 +31,31 @@ export async function POST(req: Request) {
 
     const normalizedCode = code.toUpperCase().trim();
 
-    // Accept invite via Go API (validates code + links athlete to coach)
-    const { userId: _, getToken } = await auth();
+    // Accept invite via Go API (validates code, links athlete to coach,
+    // returns coachId + coachName). Replaces getCoachByCode + linkCoachAthlete
+    // from coach-isolation-db (lib/db).
+    const { getToken } = await auth();
     const token = await getToken();
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const coach = await getCoachByCode(normalizedCode);
-    if (!coach) {
+    let coachId = '';
+    let coachName = '';
+    try {
+      const result = await goFetchServer<GoAcceptResult>(
+        `/api/v1/invites/accept`,
+        token,
+        { method: 'POST', body: JSON.stringify({ code: normalizedCode }) },
+      );
+      coachId = result.coachId ?? '';
+      coachName = result.coachName ?? '';
+    } catch {
       return NextResponse.json({ error: 'Invalid or inactive coach code' }, { status: 404 });
     }
 
-    const coachData = coach as Record<string, unknown>;
-    const coachId = coachData.id as string;
-
-    // Accept the invite via Go API
-    await goFetchServer(
-      `/api/v1/invites/accept`,
-      token,
-      { method: 'POST', body: JSON.stringify({ code: normalizedCode }) },
-    );
-
-    // Get Clerk user info for email
-    const existingUser = await getUserById(userId);
-    let email = existingUser
-      ? ((existingUser as Record<string, unknown>).email as string)
-      : userId;
-
+    // Get Clerk user info for email/name (Clerk API, not lib/db).
+    let email = userId;
     let clerkFirstName = (firstName as string | undefined)?.trim() ?? '';
     let clerkLastName = (lastName as string | undefined)?.trim() ?? '';
     if ((!clerkFirstName || !clerkLastName) && process.env.CLERK_SECRET_KEY) {
@@ -77,49 +83,36 @@ export async function POST(req: Request) {
     const fullName =
       `${(clerkFirstName || '').trim()} ${(clerkLastName || '').trim()}`.trim() || email;
 
-    // Create user record if not exists
-    if (!existingUser) {
-      await createUser({
-        id: userId,
-        email,
-        name: fullName,
-        role: 'athlete',
-      });
-    } else {
-      const currentName = (existingUser as Record<string, unknown>).name as string;
-      if (fullName !== email && (currentName === email || currentName.includes('@'))) {
-        // Note: user name update via coach-isolation-db (getDB) — pending full migration
-        const { getDB } = await import('@/lib/coach-isolation-db');
-        const db = getDB();
-        await db.execute({
-          sql: `UPDATE users SET name = ?, updated_at = datetime('now') WHERE id = ?`,
-          args: [fullName, userId],
-        });
-      }
+    // Ensure user + athlete profile exist in Go DB (auto-provisioned by
+    // GET /users/me from Clerk identity when the webhook missed them).
+    // Replaces getUserById / createUser / getAthleteProfileById /
+    // createAthleteProfile from coach-isolation-db (lib/db).
+    let userName = email;
+    let userAvatar = '';
+    try {
+      const me = await goFetchServer<GoCurrentUser>(
+        `/api/v1/users/me`,
+        token,
+      );
+      userName = me.user?.name ?? email;
+      userAvatar = me.user?.avatar_url ?? '';
+    } catch {
+      // If /users/me fails, proceed with Clerk-derived values.
     }
 
-    // Create athlete profile if not exists
-    const existingProfile = await getAthleteProfileById(userId);
-    if (!existingProfile) {
-      await createAthleteProfile({
-        id: userId,
-        email,
-        name: fullName,
-      });
-    } else {
-      const currentName = (existingProfile as Record<string, unknown>).name as string;
-      if (fullName !== email && (currentName === email || currentName.includes('@'))) {
-        const { getDB } = await import('@/lib/coach-isolation-db');
-        const db = getDB();
-        await db.execute({
-          sql: `UPDATE athlete_profiles SET name = ?, updated_at = datetime('now') WHERE id = ?`,
-          args: [fullName, userId],
-        });
+    // Update user name in Go if it's still a placeholder (email) and we have
+    // a real name from Clerk. Replaces direct SQL UPDATE via coach-isolation-db.
+    if (fullName !== email && (userName === email || userName.includes('@'))) {
+      try {
+        await goFetchServer(
+          `/api/v1/users/me`,
+          token,
+          { method: 'PUT', body: JSON.stringify({ name: fullName, avatar_url: userAvatar }) },
+        );
+      } catch {
+        // best effort
       }
     }
-
-    // Link coach and athlete (normalized model)
-    await linkCoachAthlete(coachId, userId);
 
     // Check membership via Go API (replaces getAthleteMembership from lib/db)
     let existingMembership: { data?: unknown } | null = null;
@@ -157,7 +150,7 @@ export async function POST(req: Request) {
               role: 'athlete',
               coachCode: normalizedCode,
               coachId,
-              coachName: coachData.name,
+              coachName,
             },
           }),
         });
@@ -168,7 +161,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      coachName: coachData.name,
+      coachName,
     });
   } catch (error) {
     console.error('Error accepting invite:', error);

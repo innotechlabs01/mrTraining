@@ -82,7 +82,7 @@ func (r *Repository) AcceptInvite(ctx context.Context, code, athleteID string) (
 	var coachName string
 	_ = r.exec.QueryRowContext(ctx, `SELECT name FROM coaches WHERE id = $1`, inv.CoachID).Scan(&coachName)
 
-	return &invite.AcceptResult{Success: true, CoachName: coachName}, nil
+	return &invite.AcceptResult{Success: true, CoachID: inv.CoachID, CoachName: coachName}, nil
 }
 
 // GetCoachIDByAthleteID resolves the coach linked to an athlete via coach_athlete_links.

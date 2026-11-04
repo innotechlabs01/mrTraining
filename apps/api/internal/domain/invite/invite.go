@@ -13,5 +13,6 @@ type Invite struct {
 // AcceptResult is the outcome of accepting an invite.
 type AcceptResult struct {
 	Success   bool   `json:"success"`
+	CoachID   string `json:"coachId,omitempty"`
 	CoachName string `json:"coachName,omitempty"`
 }
