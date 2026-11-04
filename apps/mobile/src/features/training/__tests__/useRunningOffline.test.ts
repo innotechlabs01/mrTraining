@@ -50,7 +50,7 @@ describe('enqueueRunningAction', () => {
     });
     expect(key).toBe('idem-key-1');
     expect(getRunningQueueCount()).toBe(1);
-    const saved = mockStore[0] as { idempotencyKey: string; type: string };
+    const saved = mockStore[0] as { idempotencyKey: string; type: string; createdAt: string };
     expect(saved.idempotencyKey).toBe('idem-key-1');
     expect(saved.type).toBe('start_session');
     expect(saved.createdAt).toBeTruthy();
