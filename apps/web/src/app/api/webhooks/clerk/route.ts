@@ -33,6 +33,11 @@ export async function POST(req: Request) {
       auth: false,
       method: 'POST',
       body: payload,
+      headers: {
+        'svix-id': req.headers.get('svix-id') ?? '',
+        'svix-timestamp': req.headers.get('svix-timestamp') ?? '',
+        'svix-signature': req.headers.get('svix-signature') ?? '',
+      },
     });
     return NextResponse.json(goResp, { status: 200 });
   } catch {
