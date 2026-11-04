@@ -69,9 +69,11 @@ func (h *AnalyticsHandler) GetHRZones(c *fiber.Ctx) error {
 			return appresponse.Error(c, fiber.StatusBadRequest, "athleteId required")
 		}
 
-		coachID := middleware.GetUserID(c)
-		if h.tenantResolver != nil && coachID != "" {
-			ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, coachID)
+		requesterID := middleware.GetUserID(c)
+		// Self-access: an athlete may read their own analytics.
+		// Coach access: only an active coach-athlete relationship authorizes it.
+		if requesterID != athleteID && h.tenantResolver != nil && requesterID != "" {
+			ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, requesterID)
 			if err != nil || !ok {
 				return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this athlete")
 			}
@@ -91,9 +93,11 @@ func (h *AnalyticsHandler) GetFatigueMap(c *fiber.Ctx) error {
 			return appresponse.Error(c, fiber.StatusBadRequest, "athleteId required")
 		}
 
-		coachID := middleware.GetUserID(c)
-		if h.tenantResolver != nil && coachID != "" {
-			ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, coachID)
+		requesterID := middleware.GetUserID(c)
+		// Self-access: an athlete may read their own analytics.
+		// Coach access: only an active coach-athlete relationship authorizes it.
+		if requesterID != athleteID && h.tenantResolver != nil && requesterID != "" {
+			ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, requesterID)
 			if err != nil || !ok {
 				return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this athlete")
 			}
@@ -113,9 +117,11 @@ func (h *AnalyticsHandler) GetOneRM(c *fiber.Ctx) error {
 			return appresponse.Error(c, fiber.StatusBadRequest, "athleteId required")
 		}
 
-		coachID := middleware.GetUserID(c)
-		if h.tenantResolver != nil && coachID != "" {
-			ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, coachID)
+		requesterID := middleware.GetUserID(c)
+		// Self-access: an athlete may read their own analytics.
+		// Coach access: only an active coach-athlete relationship authorizes it.
+		if requesterID != athleteID && h.tenantResolver != nil && requesterID != "" {
+			ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, requesterID)
 			if err != nil || !ok {
 				return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this athlete")
 			}
@@ -146,9 +152,11 @@ func (h *AnalyticsHandler) GetEffort(c *fiber.Ctx) error {
 			return appresponse.Error(c, fiber.StatusBadRequest, "athleteId required")
 		}
 
-		coachID := middleware.GetUserID(c)
-		if h.tenantResolver != nil && coachID != "" {
-			ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, coachID)
+		requesterID := middleware.GetUserID(c)
+		// Self-access: an athlete may read their own analytics.
+		// Coach access: only an active coach-athlete relationship authorizes it.
+		if requesterID != athleteID && h.tenantResolver != nil && requesterID != "" {
+			ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, requesterID)
 			if err != nil || !ok {
 				return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this athlete")
 			}
