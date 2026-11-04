@@ -181,6 +181,13 @@ func RegisterProductRoutes(api fiber.Router, handler *handlers.ProductHandler) {
 	api.Delete("/coaches/sales/:id", middleware.RequireCoach(), handler.DeleteSale)
 }
 
+// RegisterPublicProductRoutes registers unauthenticated public product routes.
+// Lives outside /api/v1 so anonymous landing visitors can fetch shop products
+// without a Clerk token.
+func RegisterPublicProductRoutes(api fiber.Router, handler *handlers.ProductHandler) {
+	api.Get("/products", handler.ListPublicProducts)
+}
+
 // RegisterNotificationRoutes registers all notification-related routes on the given API group.
 // The calling code must have already applied auth middleware to the api group.
 func RegisterNotificationRoutes(api fiber.Router, handler *handlers.NotificationHandler) {
@@ -340,6 +347,14 @@ func RegisterBlogRoutes(api fiber.Router, handler *handlers.BlogHandler) {
 	api.Post("/blog", middleware.RequireCoach(), handler.CreateArticle)
 	api.Put("/blog/:id", middleware.RequireCoach(), handler.UpdateArticle)
 	api.Delete("/blog/:id", middleware.RequireCoach(), handler.DeleteArticle)
+}
+
+// RegisterPublicBlogRoutes registers unauthenticated public blog routes.
+// Lives outside /api/v1 so anonymous landing visitors can fetch published
+// articles without a Clerk token.
+func RegisterPublicBlogRoutes(api fiber.Router, handler *handlers.BlogHandler) {
+	api.Get("/blog", middleware.Cache(time.Hour, "blog"), handler.ListArticles)
+	api.Get("/blog/:slug", middleware.Cache(time.Hour, "blog"), handler.GetArticleBySlug)
 }
 
 // RegisterImportRoutes registers data import routes on the given API group.
@@ -530,6 +545,7 @@ func RegisterPlanRoutes(api fiber.Router, handler *handlers.PlanHandler) {
 // plans and the current TRM without a Clerk token.
 func RegisterPublicPlanRoutes(api fiber.Router, handler *handlers.PlanHandler) {
 	api.Get("/coaches/:coachId/plans", handler.ListPublicPlans)
+	api.Get("/plans", handler.ListAllPublicPlans)
 	api.Get("/trm", handler.GetTRM)
 }
 
@@ -672,4 +688,19 @@ func RegisterSubscriptionRoutes(api fiber.Router, handler *handlers.Subscription
 // outside the auth group (MP notifications carry no Clerk token).
 func RegisterMercadoPagoWebhookRoutes(app fiber.Router, handler *handlers.SubscriptionHandler) {
 	handler.RegisterMercadoPagoWebhook(app)
+}
+
+// RegisterCoachAthleteRoutes registers coach-scoped athlete CRUD routes.
+// Routes: GET/PUT/DELETE /coach/athletes/:id
+func RegisterCoachAthleteRoutes(api fiber.Router, handler *handlers.CoachHandler) {
+	athletes := api.Group("/coach/athletes")
+	athletes.Get("/:id", handler.GetAthleteById)
+	athletes.Put("/:id", handler.SaveAthlete)
+	athletes.Delete("/:id", handler.DeleteAthlete)
+}
+
+// RegisterCoachFormMetricsRoutes registers coach form-metrics aggregate route.
+// Route: GET /coach/form-metrics
+func RegisterCoachFormMetricsRoutes(api fiber.Router, handler *handlers.FormMetricsHandler) {
+	api.Get("/coach/form-metrics", handler.GetCoachFormMetrics)
 }

@@ -380,6 +380,85 @@ func (r *Repository) SaveAvailability(ctx context.Context, coachID string, slots
 	return tx.Commit()
 }
 
+// GetAthleteById retrieves a single coach-linked athlete by ID.
+func (r *Repository) GetAthleteById(ctx context.Context, coachID string, athleteID string) (*coachdomain.CoachAthlete, error) {
+	a := &coachdomain.CoachAthlete{}
+	err := r.exec.QueryRowContext(ctx,
+		`SELECT id, coach_id, name, email, phone, sport, service_type, plan_name, plan_price, plan_billing,
+		 schedule_days, schedule_time, start_date, emergency_contact, readiness_score, flag_type,
+		 flag_severity, flag_message, created_at, updated_at
+		 FROM coach_athletes WHERE id = $1 AND coach_id = $2`,
+		athleteID, coachID).Scan(
+		&a.ID, &a.CoachID, &a.Name, &a.Email, &a.Phone, &a.Sport, &a.ServiceType,
+		&a.PlanName, &a.PlanPrice, &a.PlanBilling, &a.ScheduleDays, &a.ScheduleTime,
+		&a.StartDate, &a.EmergencyContact, &a.ReadinessScore, &a.FlagType,
+		&a.FlagSeverity, &a.FlagMessage, &a.CreatedAt, &a.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get athlete by id: %w", err)
+	}
+	return a, nil
+}
+
+// SaveAthlete creates or updates a coach-linked athlete profile.
+func (r *Repository) SaveAthlete(ctx context.Context, coachID string, a *coachdomain.CoachAthlete) error {
+	var id string
+	err := r.exec.QueryRowContext(ctx,
+		`SELECT id FROM coach_athletes WHERE id = $1 AND coach_id = $2`, a.ID, coachID).Scan(&id)
+	if err == nil {
+		// Update existing
+		_, err = r.exec.ExecContext(ctx,
+			`UPDATE coach_athletes SET name=$1, email=$2, phone=$3, sport=$4, service_type=$5,
+			 plan_name=$6, plan_price=$7, plan_billing=$8, schedule_days=$9, schedule_time=$10,
+			 start_date=$11, emergency_contact=$12, readiness_score=$13, flag_type=$14,
+			 flag_severity=$15, flag_message=$16, updated_at=NOW()
+			 WHERE id=$17 AND coach_id=$18`,
+			a.Name, a.Email, a.Phone, a.Sport, a.ServiceType, a.PlanName, a.PlanPrice,
+			a.PlanBilling, a.ScheduleDays, a.ScheduleTime, a.StartDate, a.EmergencyContact,
+			a.ReadinessScore, a.FlagType, a.FlagSeverity, a.FlagMessage, a.ID, coachID)
+		if err != nil {
+			return fmt.Errorf("failed to update athlete: %w", err)
+		}
+		return nil
+	}
+
+	// Insert new
+	if a.ID == "" {
+		a.ID = uuid.New().String()
+	}
+	_, err = r.exec.ExecContext(ctx,
+		`INSERT INTO coach_athletes (id, coach_id, name, email, phone, sport, service_type, plan_name,
+		 plan_price, plan_billing, schedule_days, schedule_time, start_date, emergency_contact,
+		 readiness_score, flag_type, flag_severity, flag_message, created_at, updated_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,NOW(),NOW())`,
+		a.ID, coachID, a.Name, a.Email, a.Phone, a.Sport, a.ServiceType, a.PlanName,
+		a.PlanPrice, a.PlanBilling, a.ScheduleDays, a.ScheduleTime, a.StartDate,
+		a.EmergencyContact, a.ReadinessScore, a.FlagType, a.FlagSeverity, a.FlagMessage)
+	if err != nil {
+		return fmt.Errorf("failed to create athlete: %w", err)
+	}
+	return nil
+}
+
+// DeleteAthlete removes a coach-linked athlete profile.
+func (r *Repository) DeleteAthlete(ctx context.Context, coachID string, athleteID string) error {
+	result, err := r.exec.ExecContext(ctx,
+		`DELETE FROM coach_athletes WHERE id = $1 AND coach_id = $2`, athleteID, coachID)
+	if err != nil {
+		return fmt.Errorf("failed to delete athlete: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("athlete not found")
+	}
+	return nil
+}
+
 // GetBySlug retrieves a coach by slug.
 func (r *Repository) GetBySlug(ctx context.Context, slug string) (*coachdomain.Coach, error) {
 	d := &coachdomain.Coach{}

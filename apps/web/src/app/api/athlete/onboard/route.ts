@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteMembership } from '@/lib/db';
 import { getUserById, createUser, getAthleteProfileById, createAthleteProfile, getDB } from '@/lib/coach-isolation-db';
 
 export async function POST(req: Request) {
@@ -11,7 +10,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { sport, experienceLevel, goal, sessionsPerWeek, sessionDuration, equipment } = body;
+    const { sport } = body;
 
     // Get email from Clerk user
     const clerkUser = await getUserById(userId);

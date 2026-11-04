@@ -1,16 +1,34 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getCoachAvailability, saveCoachAvailability } from '@/lib/db';
+import { goFetchServer } from '@/lib/api/go-client';
+
+interface AvailabilitySlot {
+  id: string;
+  coach_id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_active: boolean;
+  created_at: string;
+}
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const availability = await getCoachAvailability(userId);
+    const token = await getToken();
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const availability = await goFetchServer<AvailabilitySlot[]>(
+      `/api/v1/coaches/${userId}/availability`,
+      token,
+    );
     return NextResponse.json(availability);
   } catch (error) {
     console.error('Error fetching coach availability:', error);
@@ -20,23 +38,33 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const token = await getToken();
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json();
-    if (!Array.isArray(body)) {
-      return NextResponse.json({ error: 'Expected an array of slots' }, { status: 400 });
+    const slots = Array.isArray(body) ? body : (body?.slots ?? []);
+    if (!Array.isArray(slots)) {
+      return NextResponse.json({ error: 'slots array is required' }, { status: 400 });
     }
-    const slots = body.map((s: { dayOfWeek?: number; startTime?: string; endTime?: string }) => ({
-      dayOfWeek: Number(s?.dayOfWeek),
-      startTime: String(s?.startTime ?? ''),
-      endTime: String(s?.endTime ?? ''),
+
+    const normalized = slots.map((s: { dayOfWeek?: number; startTime?: string; endTime?: string; isActive?: boolean }) => ({
+      day_of_week: Number(s?.dayOfWeek),
+      start_time: String(s?.startTime ?? ''),
+      end_time: String(s?.endTime ?? ''),
+      is_active: s?.isActive ?? true,
     }));
-    if (slots.some((s) => !Number.isFinite(s.dayOfWeek) || !s.startTime || !s.endTime)) {
-      return NextResponse.json({ error: 'Invalid slot' }, { status: 400 });
-    }
-    await saveCoachAvailability(userId, slots);
+
+    await goFetchServer(
+      `/api/v1/coaches/${userId}/availability`,
+      token,
+      { method: 'POST', body: JSON.stringify({ slots: normalized }) },
+    );
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error saving coach availability:', error);

@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { Webhook } from 'svix';
 import { getDB, generateUniqueCoachCode } from '@/lib/coach-isolation-db';
 import { getCoachByCode, linkCoachAthlete, createAthleteProfile, getUserById, createUser, getAthleteProfileById } from '@/lib/coach-isolation-db';
-import { getAthleteMembership } from '@/lib/db';
 
 const webhookSecret = process.env.CLERK_WEBHOOK_SECRET || '';
 const clerkSecretKey = process.env.CLERK_SECRET_KEY || '';
@@ -164,7 +163,11 @@ async function processAthleteCoachCode(userId: string, email: string, name: stri
   }
 
   // Create 7-day free trial membership if not exists
-  const existingMembership = await getAthleteMembership(userId);
+  const membershipResult = await db.execute({
+    sql: 'SELECT id FROM athlete_memberships WHERE athlete_id = ? LIMIT 1',
+    args: [userId],
+  });
+  const existingMembership = membershipResult.rows.length > 0 ? membershipResult.rows[0] : null;
   if (!existingMembership) {
     const now = new Date();
     const startDate = now.toISOString().split('T')[0];

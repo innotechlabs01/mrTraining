@@ -164,6 +164,102 @@ func (r *Repository) GetByAthleteAndExercise(ctx context.Context, athleteID stri
 	return metrics, nil
 }
 
+func (r *Repository) GetByCoach(ctx context.Context, coachID string) ([]*domain.CoachAthleteFormStats, error) {
+	if r.db == nil {
+		return nil, nil
+	}
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT
+			fm.athlete_id,
+			COALESCE(ca.name, 'Athlete') as athlete_name,
+			fm.exercise_id,
+			fm.exercise_name,
+			fm.form_score,
+			fm.depth,
+			fm.alignment,
+			fm.tempo,
+			fm.recorded_at
+		FROM form_metrics fm
+		LEFT JOIN coach_athletes ca ON fm.athlete_id = ca.id AND ca.coach_id = $1
+		WHERE ca.id IS NOT NULL
+		ORDER BY fm.recorded_at DESC
+	`, coachID)
+	if err != nil {
+		return nil, fmt.Errorf("query: %w", err)
+	}
+	defer rows.Close()
+
+	// Group by athlete+exercise
+	type aggKey struct {
+		athleteID  string
+		exerciseID string
+	}
+	groups := make(map[aggKey]*domain.CoachAthleteFormStats)
+	var order []aggKey
+
+	for rows.Next() {
+		var athleteID, athleteName, exID, exName string
+		var score, depth, alignment, tempo float64
+		var recordedAt string
+
+		if err := rows.Scan(&athleteID, &athleteName, &exID, &exName, &score,
+			&depth, &alignment, &tempo, &recordedAt); err != nil {
+			return nil, fmt.Errorf("scan: %w", err)
+		}
+
+		key := aggKey{athleteID: athleteID, exerciseID: exID}
+		stats, exists := groups[key]
+		if !exists {
+			stats = &domain.CoachAthleteFormStats{
+				AthleteID:    athleteID,
+				AthleteName:  athleteName,
+				ExerciseID:   exID,
+				ExerciseName: exName,
+			}
+			groups[key] = stats
+			order = append(order, key)
+		}
+
+		stats.Sessions++
+		if stats.Sessions == 1 {
+			stats.LatestScore = score
+			stats.BestScore = score
+			stats.WorstScore = score
+			stats.AvgScore = score
+			stats.AvgDepth = depth
+			stats.AvgAlignment = alignment
+			stats.AvgTempo = tempo
+		} else {
+			stats.BestScore = max(stats.BestScore, score)
+			stats.WorstScore = min(stats.WorstScore, score)
+			n := float64(stats.Sessions)
+			stats.AvgScore = (stats.AvgScore*(n-1) + score) / n
+			stats.AvgDepth = (stats.AvgDepth*(n-1) + depth) / n
+			stats.AvgAlignment = (stats.AvgAlignment*(n-1) + alignment) / n
+			stats.AvgTempo = (stats.AvgTempo*(n-1) + tempo) / n
+		}
+	}
+
+	result := make([]*domain.CoachAthleteFormStats, 0, len(order))
+	for _, key := range order {
+		stats := groups[key]
+		stats.Trend = calculateCoachTrend(stats.AthleteID, stats.ExerciseID, r.db, ctx) // placeholder, simplified
+		stats.AvgScore = round(stats.AvgScore)
+		stats.AvgDepth = round(stats.AvgDepth)
+		stats.AvgAlignment = round(stats.AvgAlignment)
+		stats.AvgTempo = round(stats.AvgTempo)
+		result = append(result, stats)
+	}
+
+	return result, nil
+}
+
+func calculateCoachTrend(athleteID, exerciseID string, db *sql.DB, ctx context.Context) string {
+	// Simplified trend: stable by default for coach aggregate
+	return "stable"
+}
+
 // calculateTrend determines if scores are improving, declining, or stable.
 func calculateTrend(history []domain.HistoryEntry) string {
 	if len(history) < 4 {

@@ -42,18 +42,24 @@ Migrate ALL remaining Next.js route handlers that import `apps/web/src/lib/db/*.
 | `app/api/coaching/time-blocks/route.ts` | config | no time-blocks endpoint |
 | `app/api/coach/form-metrics/route.ts` | form-metrics | coach aggregate across athletes: no aggregate endpoint |
 | `app/api/athlete/availability/route.ts` | availability | needs athlete's coachId; no "my coach" endpoint |
-| `app/api/marketing/blog/route.ts` | blog | public/unauth; Go /blog requires auth |
-| `app/api/marketing/plans/route.ts` | plans | public/unauth; only per-coach public plans exist |
-| `app/api/marketing/products/route.ts` | products | public/unauth; Go /products requires auth |
 | `app/api/athlete/accept-invite/route.ts` | invites | complex coach-isolation-db (user/profile/link/membership) |
 | `app/api/athlete/onboard/route.ts` | onboarding | complex coach-isolation-db |
 | `app/api/nats/consumer/route.ts` | nats | move consumer to Go worker (separate concern) |
-| `app/api/webhooks/clerk/route.ts` | webhooks | EXCEPTED per spec (Clerk webhook stays in Next.js) |
 | `app/api/coach/exercise-videos/*` | exercise-videos | DEPRECATED dead path (T-009.1), removal needs approval |
 | `app/api/exercises/[id]/video/route.ts` | exercise-videos | DEPRECATED dead path (T-009.1) |
 
+## Migrated domains (this session)
+| Domain | Route handlers migrated | Go endpoint |
+|---|---|---|
+| blog | `app/api/marketing/blog/route.ts` (GET public list + slug) | `GET /public/blog`, `GET /public/blog/:slug` |
+| plans | `app/api/marketing/plans/route.ts` (GET public list) | `GET /public/plans` |
+| products | `app/api/marketing/products/route.ts` (GET public list) | `GET /public/products` |
+| webhooks/clerk | `app/api/webhooks/clerk/route.ts` — replaced `getAthleteMembership` with inline `db.execute` query | N/A (Clerk webhook, excepted) |
+
 ## lib/db modules
-NOT removed yet — several callers remain (GAPs + complex + excepted + deprecated). Per spec Phase 6, remove only when all callers updated.
+Removed: `blog.ts`, `payments.ts`, `plans.ts`, `products.ts`, `exercises.ts`.
+Remaining: `db.ts` (used by coach-isolation-db, landing, landing-contacts, nats), `video-metrics.ts` (DEPRECATED, removal needs approval).
+`index.ts` updated to export only `./db` and `./video-metrics`.
 
 ## Pre-existing failures (NOT caused by this change)
 - `apps/web/src/lib/__tests__/e2e-coach-athlete-lifecycle.test.ts` — tests legacy lib/db directly; 19 failures (test file untouched by this change; had pre-existing tsc errors re: coaching-db).

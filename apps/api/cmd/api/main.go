@@ -367,6 +367,12 @@ func main() {
 		coach.Get("/availability", coachHandler.GetAvailability)
 		coach.Post("/availability", coachHandler.SaveAvailability)
 
+		// Coach-scoped athlete CRUD
+		coachAthletes := api.Group("/coach/athletes")
+		coachAthletes.Get("/:id", coachHandler.GetAthleteById)
+		coachAthletes.Put("/:id", coachHandler.SaveAthlete)
+		coachAthletes.Delete("/:id", coachHandler.DeleteAthlete)
+
 		// Wire Product domain
 		productRepo := productinfrastructure.NewRepository(db.DB)
 		productService := productapp.NewService(productRepo)
@@ -374,6 +380,9 @@ func main() {
 
 		// Register product routes
 		routes.RegisterProductRoutes(api, productHandler)
+
+		// Public product routes (shop catalog, no auth)
+		routes.RegisterPublicProductRoutes(app.Group("/public"), productHandler)
 
 		// Wire Notification domain
 		notifRepo := notificationinfrastructure.NewRepository(db.DB)
@@ -568,6 +577,9 @@ func main() {
 		// Register blog routes
 		routes.RegisterBlogRoutes(api, blogHandler)
 
+		// Public blog routes (published articles, no auth)
+		routes.RegisterPublicBlogRoutes(app.Group("/public"), blogHandler)
+
 		// Wire Import domain
 		importRepo := importinfrastructure.NewRepository(db.DB)
 		importService := importapp.NewService(importRepo)
@@ -629,6 +641,9 @@ func main() {
 
 		// Register form metrics routes
 		routes.RegisterFormMetricsRoutes(api, formmetricsHandler)
+
+		// Coach form-metrics aggregate
+		api.Get("/coach/form-metrics", formmetricsHandler.GetCoachFormMetrics)
 
 		// Wire Form Recording domain
 		formrecordingRepo := formrecordinginfrastructure.NewRepository(db.DB)

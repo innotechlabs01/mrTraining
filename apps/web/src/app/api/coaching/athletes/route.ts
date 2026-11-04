@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { saveAthlete } from '@/lib/db/athletes';
 import { goFetchServer } from '@/lib/api/go-client';
 
 interface GoAthleteProfile {
@@ -52,17 +51,29 @@ export async function GET() {
   }
 }
 
-// POST /api/coaching/athletes — create an athlete.
-// NOTE: no Go create-athlete endpoint exists yet ([GAP] in the contract matrix).
-// Kept on the legacy lib/db path until the API agent adds POST /api/v1/athletes.
+// POST /api/coaching/athletes — create or update an athlete.
 export async function POST(req: Request) {
   try {
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const token = await getToken();
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json();
-    const id = await saveAthlete(userId, body ?? {});
+    const id = (body ?? {}).id as string;
+    if (!id) {
+      return NextResponse.json({ error: 'id is required' }, { status: 400 });
+    }
+
+    await goFetchServer(
+      `/api/v1/coach/athletes/${id}`,
+      token,
+      { method: 'PUT', body: JSON.stringify({ ...(body ?? {}), id }) },
+    );
     return NextResponse.json({ success: true, id });
   } catch (error) {
     console.error('Error creating athlete:', error);

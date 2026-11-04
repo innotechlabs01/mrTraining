@@ -178,6 +178,29 @@ func (r *Repository) DeleteSale(ctx context.Context, saleID string) error {
 	return nil
 }
 
+// ListPublicProducts retrieves all shop products (is_shop = true) across all coaches,
+// ordered by name. Used for public marketing/landing pages.
+func (r *Repository) ListPublicProducts(ctx context.Context) ([]*productdomain.Product, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, name, brand, image_url, price, received, gross, stock, low_stock_threshold,
+		 description, category, is_shop, coach_id, created_at, updated_at
+		 FROM products WHERE is_shop = 1 ORDER BY name`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list public products: %w", err)
+	}
+	defer rows.Close()
+
+	var products []*productdomain.Product
+	for rows.Next() {
+		p, err := scanProduct(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan product: %w", err)
+		}
+		products = append(products, p)
+	}
+	return products, nil
+}
+
 // --- Private helpers ---
 
 type scannable interface {

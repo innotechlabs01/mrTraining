@@ -104,6 +104,15 @@ func (r *Repository) GetArticle(ctx context.Context, id string) (*blog.Article, 
 	return scanArticle(row)
 }
 
+// GetArticleBySlug returns a single published article by slug.
+func (r *Repository) GetArticleBySlug(ctx context.Context, slug string) (*blog.Article, error) {
+	row := r.db.QueryRowContext(ctx, fmt.Sprintf(`
+		SELECT %s %s
+		WHERE p.slug = $1 AND p.is_published = 1
+	`, articleColumns, articleFrom), slug)
+	return scanArticle(row)
+}
+
 // Create inserts a new article.
 func (r *Repository) Create(ctx context.Context, a *blog.Article) error {
 	now := time.Now().UTC().Format(time.RFC3339)

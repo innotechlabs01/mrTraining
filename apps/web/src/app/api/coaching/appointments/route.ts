@@ -1,8 +1,20 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getCoachAppointments, getAthleteAppointment, updateAppointment } from '@/lib/db';
+import { goFetchServer } from '@/lib/api/go-client';
 
-export const dynamic = 'force-dynamic';
+interface Appointment {
+  id: string;
+  coach_id: string;
+  athlete_id: string;
+  athlete_name: string;
+  title: string;
+  status: string;
+  start_time: string;
+  end_time: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
 
 type UpdatableFields = Partial<{
   status: string;
@@ -12,13 +24,23 @@ type UpdatableFields = Partial<{
   endTime?: string;
 }>;
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const appointments = await getCoachAppointments(userId);
+    const token = await getToken();
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const appointments = await goFetchServer<Appointment[]>(
+      `/api/v1/coaches/${userId}/appointments`,
+      token,
+    );
     return NextResponse.json(appointments);
   } catch (error) {
     console.error('Error fetching appointments:', error);
@@ -28,20 +50,26 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   try {
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const token = await getToken();
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { id, ...fields } = (body ?? {}) as { id?: string } & UpdatableFields;
     if (!id) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
-    const existing = await getAthleteAppointment(String(id));
-    if (!existing || existing.coachId !== userId) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    }
-    await updateAppointment(String(id), fields);
+
+    await goFetchServer(
+      `/api/v1/coaches/appointments/${id}`,
+      token,
+      { method: 'PUT', body: JSON.stringify(fields) },
+    );
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating appointment:', error);
