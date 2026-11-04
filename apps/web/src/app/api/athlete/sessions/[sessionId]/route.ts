@@ -1,22 +1,35 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 
-export async function GET(req: NextRequest, { params }: { params: { sessionId: string } }) {
-  const { userId } = await auth()
+const GO = process.env.NEXT_PUBLIC_GO_API_URL || '';
+
+async function goFetchJson(token: string, path: string): Promise<unknown> {
+  const res = await fetch(`${GO}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    throw new Error(`Go API ${path}: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function GET(_req: NextRequest, { params }: { params: { sessionId: string } }) {
+  const { userId, getToken } = await auth();
   if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { sessionId } = params
-
-  // TODO: replace with real fetch from DB
-  const data = {
-    id: sessionId,
-    athleteId: userId,
-    status: 'in_progress',
-    startedAt: new Date().toISOString(),
-    exercises: [],
+  const token = await getToken();
+  if (!token) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  return NextResponse.json(data)
+  try {
+    const data = await goFetchJson(token, `/api/v1/workouts/sessions/${params.sessionId}`);
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error fetching session:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
