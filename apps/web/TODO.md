@@ -50,7 +50,7 @@ Migrate ALL remaining Next.js route handlers that import `apps/web/src/lib/db/*.
 | plans | `app/api/marketing/plans/route.ts` (GET public list) | `GET /public/plans` |
 | products | `app/api/marketing/products/route.ts` (GET public list) | `GET /public/products` |
 | invites | `app/api/athlete/accept-invite/route.ts` (POST accept) — coach isolation logic moved to Go (`/invites/accept`, `/users/me`, PUT `/users/me`) | `POST /api/v1/invites/accept`, `GET /api/v1/users/me`, `PUT /api/v1/users/me` |
-| webhooks/clerk | `app/api/webhooks/clerk/route.ts` — replaced `getAthleteMembership` with inline `db.execute` query | N/A (Clerk webhook, excepted) |
+| webhooks/clerk | `app/api/webhooks/clerk/route.ts` — replaced direct `coach-isolation-db` writes with Go API proxy (`POST /webhooks/clerk`); verifies svix signature, forwards raw payload to Go. No DB imports remain. | `POST /webhooks/clerk` (Go) |
 | allies | `app/api/athlete/allies/route.ts` (GET) | `GET /api/v1/athlete/allies` |
 | athlete/profile | `app/api/athlete/profile/route.ts` (GET, PUT) | `GET /api/v1/users/me`, `PUT /api/v1/athletes/me`, `PUT /api/v1/users/me` |
 | athlete/onboard | `app/api/athlete/onboard/route.ts` (POST) | `POST /api/v1/athletes/onboard` |
@@ -68,7 +68,7 @@ Remaining:
 | Item | Reason | Disposition |
 |------|--------|-------------|
 | `nats/consumer/route.ts` | REMOVED from web. Long-running NATS JetStream consumer did direct SQL (`getDB`/`safeExecute`) — infrastructure concern that belongs in a Go worker, not a Next.js route handler. Direct SQL eliminated from `apps/web`; consumer to be implemented in `apps/api/worker/nats` in a separate cross-repo ticket. | Deleted from web; documented as Go-worker TODO, not a web exception. |
-| `coach-isolation-db.ts` | Still used by Clerk webhook (excepted) + other routes not in this task's scope (`validate-code`, `coach/athletes/invite`). profile, onboard and allies were migrated to Go API in this sweep. | Kept; out of scope for this sweep. |
+| `coach-isolation-db.ts` | Still used by other routes not in this task's scope (`validate-code`, `coach/athletes/invite`). Clerk webhook was migrated to Go API in this sweep. | Kept; out of scope for this sweep (other callers remain). |
 
 
 ## Pre-existing failures (NOT caused by this change)
@@ -83,11 +83,15 @@ apps/web/src/app/api/athlete/allies/route.ts — migrated to Go API (GET /api/v1
 apps/web/src/app/api/athlete/profile/route.ts — migrated to Go API (GET /api/v1/users/me, PUT /api/v1/athletes/me, PUT /api/v1/users/me)
 apps/web/src/app/api/athlete/onboard/route.ts — migrated to Go API (POST /api/v1/athletes/onboard)
 apps/web/src/app/api/marketing/contact/route.ts — migrated to Go API (POST /public/landing/contact)
+apps/web/src/app/api/webhooks/clerk/route.ts — Clerk webhook: replaced direct coach-isolation-db writes with Go API proxy; verifies svix signature, forwards raw payload to Go. No DB imports.
 apps/web/TODO.md (progress tracker)
-apps/api/internal/interfaces/http/handlers/ally.go — added ListAthleteAllies + inviteService dependency
-apps/api/internal/interfaces/http/handlers/landing.go — added HandlerInsertLandingContact
-apps/api/cmd/api/main.go — wired inviteService into AllyHandler; registered GET /api/v1/athlete/allies and POST /public/landing/contact
-apps/api/migrations/postgres/403_landing_contacts.sql — new landing_contacts table
+apps/api/internal/interfaces/http/handlers/clerk_webhook.go — removed direct SQL (softDeleteUser → userService.SoftDeleteUser); constructor now takes interfaces for testability
+apps/api/internal/interfaces/http/handlers/clerk_webhook_test.go — new tests for signature verification, provisioning, soft delete
+apps/api/internal/domain/user/repository.go — added SoftDeleteUser to Repository interface
+apps/api/internal/application/user/service.go — added SoftDeleteUser to application service
+apps/api/internal/application/user/service_test.go — added SoftDeleteUser tests
+apps/api/internal/infrastructure/user/provision.go — implemented SoftDeleteUser in repository
+apps/api/cmd/api/main.go — removed db.DB arg from NewClerkWebhookHandler
 
 ## Removed this session (direct-DB cleanup)
 - `apps/web/src/lib/landing-contacts.ts` — only caller (`app/api/marketing/contact/route.ts`) migrated to Go API; module now unused.
@@ -98,5 +102,4 @@ apps/api/migrations/postgres/403_landing_contacts.sql — new landing_contacts t
 - `apps/web/src/lib/db/index.ts` — dropped `export * from './video-metrics'` (module deleted).
 
 ## Exceptions (direct-DB paths intentionally kept in apps/web)
-- `apps/web/src/lib/db/db.ts` — shared infra, still has live callers (`coach-isolation-db.ts` → Clerk webhook [excepted], `validate-code`, `coach/athletes/invite`; `landing.ts` → landing content route). NOT removed yet because non-allowed callers (`landing.ts`, `coach-isolation-db.ts` via invite/validate-code) still depend on it.
-- `apps/web/src/app/api/webhooks/clerk/route.ts` — Clerk webhook: formally documented exception. Uses `coach-isolation-db.ts` (users, coaches, athlete profiles, coach-athlete links, memberships) plus direct `db.execute` for membership checks. Kept intentionally; migrating it would require Go API equivalents for user/coach provisioning and Clerk metadata sync that do not yet exist.
+- `apps/web/src/lib/db/db.ts` — shared infra, still has live callers (`validate-code`, `coach/athletes/invite`; `landing.ts` → landing content route). NOT removed yet because non-allowed callers (`landing.ts`, `coach-isolation-db.ts` via invite/validate-code) still depend on it.

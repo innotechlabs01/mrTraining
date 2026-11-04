@@ -14,9 +14,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	inviteapp "github.com/innotechlabs01/mr-training-api/internal/application/invite"
-	userapp "github.com/innotechlabs01/mr-training-api/internal/application/user"
-	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
+	"github.com/innotechlabs01/mr-training-api/internal/domain/invite"
+	"github.com/innotechlabs01/mr-training-api/internal/domain/user"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
@@ -27,31 +26,47 @@ type clerkWebhookPayload struct {
 	Data    map[string]interface{} `json:"data"`
 }
 
+// userProvisioner is the subset of the user application service used by the
+// Clerk webhook handler. Kept as an interface so the handler can be tested
+// without a real database.
+type userProvisioner interface {
+	EnsureUser(ctx context.Context, id, email, name, role string) error
+	EnsureCoach(ctx context.Context, userID, email, name string) error
+	EnsureAthleteProfile(ctx context.Context, userID, email, name string) error
+	GetCoachByID(ctx context.Context, userID string) (*user.Coach, error)
+	UpdateUserAvatar(ctx context.Context, userID, avatarURL string) error
+	SoftDeleteUser(ctx context.Context, userID string) error
+}
+
+// inviteLinker is the subset of the invite application service used by the
+// Clerk webhook handler for athlete provisioning via coach code.
+type inviteLinker interface {
+	GetByCode(ctx context.Context, code string) (*invite.Invite, error)
+	AcceptInvite(ctx context.Context, code, athleteID string) (*invite.AcceptResult, error)
+}
+
 // ClerkWebhookHandler handles Clerk webhook events (public endpoint).
 // It verifies the Clerk (svix) signature when CLERK_WEBHOOK_SECRET is set,
 // otherwise trusts the forward from the Next.js proxy. No auth middleware
 // is applied — Clerk webhooks carry no bearer token.
 type ClerkWebhookHandler struct {
-	userService    *userapp.Service
-	inviteService  *inviteapp.Service
+	userService    userProvisioner
+	inviteService  inviteLinker
 	clerkSecretKey string
 	webhookSecret  string
-	db             database.Executor
 }
 
 // NewClerkWebhookHandler creates a new Clerk webhook handler.
 func NewClerkWebhookHandler(
-	userService *userapp.Service,
-	inviteService *inviteapp.Service,
+	userService userProvisioner,
+	inviteService inviteLinker,
 	clerkSecretKey, webhookSecret string,
-	db database.Executor,
 ) *ClerkWebhookHandler {
 	return &ClerkWebhookHandler{
 		userService:    userService,
 		inviteService:  inviteService,
 		clerkSecretKey: clerkSecretKey,
 		webhookSecret:  webhookSecret,
-		db:             db,
 	}
 }
 
@@ -113,7 +128,7 @@ func (h *ClerkWebhookHandler) Handle(c *fiber.Ctx) error {
 		}
 
 	case "user.deleted":
-		if err := h.softDeleteUser(ctx, userID); err != nil {
+		if err := h.userService.SoftDeleteUser(ctx, userID); err != nil {
 			return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
 		}
 
@@ -238,21 +253,6 @@ func (h *ClerkWebhookHandler) provisionAthlete(ctx context.Context, userID, emai
 		})
 	}
 
-	return nil
-}
-
-// softDeleteUser marks the user and their coach profile as inactive.
-func (h *ClerkWebhookHandler) softDeleteUser(ctx context.Context, userID string) error {
-	if _, err := h.db.ExecContext(ctx,
-		`UPDATE users SET is_active = 0, updated_at = NOW() WHERE id = $1`,
-		userID); err != nil {
-		return fmt.Errorf("soft delete user: %w", err)
-	}
-	if _, err := h.db.ExecContext(ctx,
-		`UPDATE coaches SET is_active = 0, updated_at = NOW() WHERE id = $1`,
-		userID); err != nil {
-		return fmt.Errorf("soft delete coach: %w", err)
-	}
 	return nil
 }
 

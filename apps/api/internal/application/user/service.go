@@ -260,3 +260,11 @@ func (s *Service) UpdateUserAvatar(ctx context.Context, userID, avatarURL string
 	}
 	return nil
 }
+
+// SoftDeleteUser marks the user and their coach profile as inactive.
+func (s *Service) SoftDeleteUser(ctx context.Context, userID string) error {
+	if err := s.repo.SoftDeleteUser(ctx, userID); err != nil {
+		return fmt.Errorf("soft delete user: %w", err)
+	}
+	return nil
+}

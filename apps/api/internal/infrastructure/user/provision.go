@@ -74,6 +74,21 @@ func (r *Repository) EnsureAthleteProfile(ctx context.Context, userID, email, na
 	return nil
 }
 
+// SoftDeleteUser marks the user and their coach profile as inactive.
+func (r *Repository) SoftDeleteUser(ctx context.Context, userID string) error {
+	if _, err := r.db.ExecContext(ctx,
+		`UPDATE users SET is_active = 0, updated_at = NOW() WHERE id = $1`,
+		userID); err != nil {
+		return fmt.Errorf("soft delete user: %w", err)
+	}
+	if _, err := r.db.ExecContext(ctx,
+		`UPDATE coaches SET is_active = 0, updated_at = NOW() WHERE id = $1`,
+		userID); err != nil {
+		return fmt.Errorf("soft delete coach: %w", err)
+	}
+	return nil
+}
+
 // CoachExists reports whether the coach profile row exists for the user.
 func (r *Repository) CoachExists(ctx context.Context, userID string) (bool, error) {
 	return r.rowExists(ctx, "SELECT 1 FROM coaches WHERE id = $12", userID)

@@ -497,7 +497,7 @@ func main() {
 		routes.RegisterPublicInviteRoutes(app, inviteHandler)
 
 		// Clerk webhook (public — no auth, validates its own svix signature)
-		clerkWebhookHandler := userhttp.NewClerkWebhookHandler(userService, inviteService, cfg.ClerkSecretKey, cfg.ClerkWebhookSecret, db.DB)
+		clerkWebhookHandler := userhttp.NewClerkWebhookHandler(userService, inviteService, cfg.ClerkSecretKey, cfg.ClerkWebhookSecret)
 		routes.RegisterClerkWebhookRoutes(app, clerkWebhookHandler)
 
 		// Wire Favorite domain
