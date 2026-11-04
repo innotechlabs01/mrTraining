@@ -563,7 +563,7 @@ func main() {
 		// Wire Commission Entry domain (Phase E)
 		commissionEntryRepo := commissionentryinfrastructure.NewRepository(db.DB)
 		commissionEntryService := commissionentryapp.NewService(commissionEntryRepo)
-		commissionEntryHandler := userhttp.NewCommissionEntryHandler(commissionEntryService)
+		commissionEntryHandler := userhttp.NewCommissionEntryHandler(commissionEntryService, db.DB)
 
 		// Register commission entry routes
 		routes.RegisterCommissionEntryRoutes(api, commissionEntryHandler)

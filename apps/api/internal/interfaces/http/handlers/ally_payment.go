@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"database/sql"
+
 	"github.com/gofiber/fiber/v2"
 
 	allypaymentdeclarationapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_payment_declaration"
@@ -8,6 +10,7 @@ import (
 	allypaymentdeclarationdomain "github.com/innotechlabs01/mr-training-api/internal/domain/ally_payment_declaration"
 	commissionentrydomain "github.com/innotechlabs01/mr-training-api/internal/domain/commission_entry"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
@@ -234,11 +237,37 @@ func (h *AllyPaymentDeclarationHandler) handleError(c *fiber.Ctx, err error) err
 // CommissionEntryHandler handles HTTP requests for commission entries.
 type CommissionEntryHandler struct {
 	service *commissionentryapp.Service
+	db      *sql.DB
 }
 
 // NewCommissionEntryHandler creates a new handler.
-func NewCommissionEntryHandler(service *commissionentryapp.Service) *CommissionEntryHandler {
-	return &CommissionEntryHandler{service: service}
+func NewCommissionEntryHandler(service *commissionentryapp.Service, db *sql.DB) *CommissionEntryHandler {
+	return &CommissionEntryHandler{service: service, db: db}
+}
+
+// withTx injects a UnitOfWork into the service when a coach context is available.
+func (h *CommissionEntryHandler) withTx(c *fiber.Ctx, fn func(*commissionentryapp.Service) error) error {
+	userID := middleware.GetUserID(c)
+	coachID := middleware.GetCoachID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusForbidden, "coach tenant context is required")
+	}
+	uow := database.NewUnitOfWork(h.db)
+	if err := uow.Begin(c.Context(), userID, coachID, middleware.GetUserRole(c)); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
+	}
+	defer uow.Rollback(c.Context())
+	svc := h.service.SetExecutor(uow.Tx())
+	if err := fn(svc); err != nil {
+		return err
+	}
+	if err := uow.Commit(c.Context()); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to commit transaction")
+	}
+	return nil
 }
 
 // CreateCommissionEntry handles POST /coach/commission-entries.
@@ -253,7 +282,15 @@ func (h *CommissionEntryHandler) CreateCommissionEntry(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	entry, err := h.service.CreateCommissionEntry(c.Context(), coachID, req.OperationID)
+	var entry *commissionentrydomain.CommissionEntry
+	err := h.withTx(c, func(svc *commissionentryapp.Service) error {
+		e, err := svc.CreateCommissionEntry(c.Context(), coachID, req.OperationID)
+		if err != nil {
+			return err
+		}
+		entry = e
+		return nil
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -283,7 +320,15 @@ func (h *CommissionEntryHandler) ListCommissionEntries(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	entries, err := h.service.ListCommissionEntriesByCoach(c.Context(), coachID)
+	var entries []*commissionentrydomain.CommissionEntry
+	err := h.withTx(c, func(svc *commissionentryapp.Service) error {
+		e, err := svc.ListCommissionEntriesByCoach(c.Context(), coachID)
+		if err != nil {
+			return err
+		}
+		entries = e
+		return nil
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -328,7 +373,15 @@ func (h *CommissionEntryHandler) GetCommissionEntry(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "entry ID is required")
 	}
 
-	entry, err := h.service.GetCommissionEntry(c.Context(), entryID, coachID)
+	var entry *commissionentrydomain.CommissionEntry
+	err := h.withTx(c, func(svc *commissionentryapp.Service) error {
+		e, err := svc.GetCommissionEntry(c.Context(), entryID, coachID)
+		if err != nil {
+			return err
+		}
+		entry = e
+		return nil
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
