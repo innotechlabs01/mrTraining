@@ -621,6 +621,13 @@ func RegisterAllyPaymentDeclarationRoutes(api fiber.Router, handler *handlers.Al
 	api.Post("/ally/payment-declarations/:id/reverse", middleware.RequireAlly(), handler.ReverseDeclaration)
 }
 
+// RegisterPolicyRoutes registers commercial policy engine routes on the given
+// API group. Endpoints: POST /policies/commission, GET /commissions.
+func RegisterPolicyRoutes(api fiber.Router, handler *handlers.CommissionPolicyHandler) {
+	api.Post("/policies/commission", middleware.RequireCoach(), handler.ConfigureCommission)
+	api.Get("/commissions", middleware.RequireCoach(), handler.ListCommissions)
+}
+
 // RegisterCommissionEntryRoutes registers commission entry routes on the
 // given API group.
 func RegisterCommissionEntryRoutes(api fiber.Router, handler *handlers.CommissionEntryHandler) {

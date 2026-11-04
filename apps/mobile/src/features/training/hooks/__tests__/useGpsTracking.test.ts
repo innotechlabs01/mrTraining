@@ -15,7 +15,8 @@ jest.mock('../../../../infrastructure/api/client', () => ({
 
 const permission = jest.mocked(Location.requestForegroundPermissionsAsync);
 const watch = jest.mocked(Location.watchPositionAsync);
-const post = jest.mocked(require('../../../../infrastructure/api/client').apiClient.post);
+const { apiClient } = require('../../../../infrastructure/api/client');
+const post = jest.mocked(apiClient.post);
 const remove = jest.fn();
 
 beforeEach(() => {

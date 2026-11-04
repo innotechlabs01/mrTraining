@@ -64,11 +64,27 @@ export function useRunningSync(): UseRunningSyncResult {
     setIsSyncing(true);
     setStatus('started');
     try {
-      const { data } = await apiClient.post<{ session_id: string; status: string }>(
+      if (!isOnline()) {
+        // Sin conexión: encolar inicio para reenviar al recuperar la conexión.
+        enqueueRunningAction({
+          type: 'start_session',
+          path: '/running/workouts/sessions/start',
+          payload: { assignment_id: assignmentId },
+        });
+        setStatus('running');
+        void speak(AUDIO_STARTED);
+        return null;
+      }
+      const response = await apiClient.post<{ session_id: string; status: string }>(
         '/running/workouts/sessions/start',
         { assignment_id: assignmentId },
         { headers: { 'Idempotency-Key': generateIdempotencyKey() } },
       );
+      const data = response?.data;
+      if (!data?.session_id) {
+        setStatus('error');
+        return null;
+      }
       setSessionId(data.session_id);
       setStatus('running');
       void speak(AUDIO_STARTED);
@@ -98,6 +114,18 @@ export function useRunningSync(): UseRunningSyncResult {
       setIsSyncing(true);
       setStatus('completed');
       try {
+        if (!isOnline()) {
+          // Sin conexión: encolar completación para reenviar al recuperar la conexión.
+          enqueueRunningAction({
+            type: 'complete_session',
+            path: `/running/workouts/sessions/${sessionIdParam}/complete`,
+            payload: req,
+          });
+          setSessionId(sessionIdParam);
+          setStatus('completed');
+          void speak(AUDIO_COMPLETED);
+          return true;
+        }
         await apiClient.post<{ session_id: string; status: string }>(
           `/running/workouts/sessions/${sessionIdParam}/complete`,
           req,

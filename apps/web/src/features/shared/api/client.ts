@@ -1006,6 +1006,54 @@ export const coachingApi = {
       coachingFetch.get<T>(`${COACHING_BASE}/payment-history/${athleteId}`)
     ),
 
+  // Commercial policy engine — commission configuration and listing (Go API).
+  // POST /api/v1/policies/commission — configure commission rate for the coach.
+  configureCommission: (data: {
+    relationshipId: string;
+    rateBps: number;
+    fixedAmountCents?: number;
+    currency?: string;
+    validFrom: string;
+  }) =>
+    goFetch<{ id: string; version: number; status: string }>('/api/v1/policies/commission', {
+      method: 'POST',
+      body: JSON.stringify({
+        relationship_id: data.relationshipId,
+        rate_bps: data.rateBps,
+        fixed_amount_cents: data.fixedAmountCents ?? 0,
+        currency: data.currency ?? 'COP',
+        valid_from: data.validFrom,
+      }),
+    }),
+
+  // GET /api/v1/commissions — list commission entries for the coach (RLS by coach).
+  listCommissions: (params?: { page?: number; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.limit) qs.set('limit', String(params.limit));
+    return goFetch<{
+      data: Array<{
+        id: string;
+        operation_id: string;
+        relationship_id: string;
+        coach_id: string;
+        agreement_id: string;
+        agreement_version: number;
+        base_cents: number;
+        rate_bps: number;
+        fixed_amount_cents: number;
+        amount_cents: number;
+        currency: string;
+        status: string;
+        computed_at: string;
+        created_at: string;
+      }>;
+      total: number;
+      page: number;
+      limit: number;
+    }>(`/api/v1/commissions${qs.toString() ? `?${qs}` : ''}`);
+  },
+
   // Generic get for dynamic paths (Next.js fallback)
   get: <T>(path: string) => coachingFetch.get<T>(`${COACHING_BASE}${path}`),
 };
