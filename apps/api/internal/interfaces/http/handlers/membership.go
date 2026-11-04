@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	membershipapp "github.com/innotechlabs01/mr-training-api/internal/application/membership"
 	membershipdomain "github.com/innotechlabs01/mr-training-api/internal/domain/membership"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	"github.com/innotechlabs01/mr-training-api/internal/pkg/validator"
@@ -22,13 +24,40 @@ import (
 type MembershipHandler struct {
 	service  *membershipapp.Service
 	gamifSvc *gamificationapp.Service
+	db       *sql.DB
 }
 
 // NewMembershipHandler creates a new MembershipHandler with the given
 // application services. gamifSvc may be nil if membership badge checking is
 // not required.
-func NewMembershipHandler(service *membershipapp.Service, gamifSvc *gamificationapp.Service) *MembershipHandler {
-	return &MembershipHandler{service: service, gamifSvc: gamifSvc}
+func NewMembershipHandler(service *membershipapp.Service, gamifSvc *gamificationapp.Service, db *sql.DB) *MembershipHandler {
+	return &MembershipHandler{service: service, gamifSvc: gamifSvc, db: db}
+}
+
+// withTx injects a UnitOfWork transaction into the membership service when
+// running as a coach. Athlete-scoped reads can operate without tenant context.
+func (h *MembershipHandler) withTx(c *fiber.Ctx, fn func(*membershipapp.Service) error) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	coachID := middleware.GetCoachID(c)
+	if coachID != "" {
+		uow := database.NewUnitOfWork(h.db)
+		if err := uow.Begin(c.Context(), userID, coachID, middleware.GetUserRole(c)); err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
+		}
+		defer uow.Rollback(c.Context())
+		svc := h.service.SetExecutor(uow.Tx())
+		if err := fn(svc); err != nil {
+			return err
+		}
+		if err := uow.Commit(c.Context()); err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to commit transaction")
+		}
+		return nil
+	}
+	return fn(h.service)
 }
 
 // checkMembershipMilestones evaluates membership milestone badges for the
@@ -51,12 +80,20 @@ func (h *MembershipHandler) GetMembership(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	m, err := h.service.GetMembership(c.Context(), userID)
+	var result *membershipdomain.Membership
+	err := h.withTx(c, func(svc *membershipapp.Service) error {
+		m, err := svc.GetMembership(c.Context(), userID)
+		if err != nil {
+			return err
+		}
+		result = m
+		return nil
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
 
-	return appresponse.Success(c, toMembershipResponse(m))
+	return appresponse.Success(c, toMembershipResponse(result))
 }
 
 // CreateMembership handles POST /memberships.

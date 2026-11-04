@@ -317,7 +317,7 @@ func main() {
 		// Wire Membership domain
 		membershipRepo := membershipinfrastructure.NewRepository(db.DB)
 		membershipService := membershipapp.NewService(membershipRepo)
-		membershipHandler := userhttp.NewMembershipHandler(membershipService, gamificationService)
+		membershipHandler := userhttp.NewMembershipHandler(membershipService, gamificationService, db.DB)
 
 		// Wire Coach domain
 		coachRepo := coachinfrastructure.NewRepository(db.DB)
