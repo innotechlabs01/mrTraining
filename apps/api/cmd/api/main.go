@@ -119,6 +119,7 @@ import (
 	analyticsapp "github.com/innotechlabs01/mr-training-api/internal/application/analytics"
 	checkinapp "github.com/innotechlabs01/mr-training-api/internal/application/checkin"
 	importactivityapp "github.com/innotechlabs01/mr-training-api/internal/application/importactivity"
+	runningoutbox "github.com/innotechlabs01/mr-training-api/internal/application/running/outbox"
 	trainingaiapp "github.com/innotechlabs01/mr-training-api/internal/application/trainingai"
 	analyticsinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/analytics"
 	checkininfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/checkin"
@@ -179,6 +180,15 @@ func main() {
 		} else {
 			log.Warn("NATS_URL not set, skipping athlete session consumer")
 		}
+
+		// Start outbox worker for running realtime events
+		outboxWorker := runningoutbox.NewWorker(db.DB, log)
+		go func() {
+			if err := outboxWorker.Start(context.Background()); err != nil {
+				log.Error("outbox worker stopped", zap.Error(err))
+			}
+		}()
+		log.Info("outbox worker started")
 	} else {
 		log.Warn("no database URL configured, running without database")
 	}
