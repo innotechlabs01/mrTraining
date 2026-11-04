@@ -507,10 +507,13 @@ func main() {
 		commissionRepo := commissioninfrastructure.NewRepository(db.DB)
 		commissionService := commissionapp.NewService(commissionRepo)
 		auditRepo := auditinfrastructure.NewRepository(db.DB)
-		allyHandler := userhttp.NewAllyHandler(allyService, commissionService, auditRepo)
+		allyHandler := userhttp.NewAllyHandler(allyService, commissionService, inviteService, auditRepo)
 
 		// Register ally routes
 		routes.RegisterAllyRoutes(api, allyHandler)
+
+		// Athlete-facing: list the allies of the coach linked to the athlete.
+		api.Get("/athlete/allies", middleware.RequireAthlete(), allyHandler.ListAthleteAllies)
 
 		// Wire Ally Catalog domain (Phase C)
 		allyCatalogRepo := allycataloginfrastructure.NewRepository(db.DB)
@@ -585,6 +588,7 @@ func main() {
 		// Public landing content (anonymous visitors of the public site)
 		pub := app.Group("/public")
 		pub.Get("/landing", middleware.Cache(time.Hour, "landing"), handlers.HandlerGetLanding(db.DB))
+		pub.Post("/landing/contact", handlers.HandlerInsertLandingContact(db.DB))
 
 		// Wire Alert domain
 		alertRepo := alertinfrastructure.NewRepository(db.DB)

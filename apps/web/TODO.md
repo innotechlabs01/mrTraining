@@ -42,7 +42,6 @@ Migrate ALL remaining Next.js route handlers that import `apps/web/src/lib/db/*.
 | `app/api/coaching/time-blocks/route.ts` | config | no time-blocks endpoint |
 | `app/api/coach/form-metrics/route.ts` | form-metrics | coach aggregate across athletes: no aggregate endpoint |
 | `app/api/athlete/availability/route.ts` | availability | needs athlete's coachId; no "my coach" endpoint |
-| `app/api/athlete/onboard/route.ts` | onboarding | complex coach-isolation-db |
 
 ## Migrated domains (this session)
 | Domain | Route handlers migrated | Go endpoint |
@@ -52,19 +51,24 @@ Migrate ALL remaining Next.js route handlers that import `apps/web/src/lib/db/*.
 | products | `app/api/marketing/products/route.ts` (GET public list) | `GET /public/products` |
 | invites | `app/api/athlete/accept-invite/route.ts` (POST accept) — coach isolation logic moved to Go (`/invites/accept`, `/users/me`, PUT `/users/me`) | `POST /api/v1/invites/accept`, `GET /api/v1/users/me`, `PUT /api/v1/users/me` |
 | webhooks/clerk | `app/api/webhooks/clerk/route.ts` — replaced `getAthleteMembership` with inline `db.execute` query | N/A (Clerk webhook, excepted) |
+| allies | `app/api/athlete/allies/route.ts` (GET) | `GET /api/v1/athlete/allies` |
+| athlete/profile | `app/api/athlete/profile/route.ts` (GET, PUT) | `GET /api/v1/users/me`, `PUT /api/v1/athletes/me`, `PUT /api/v1/users/me` |
+| athlete/onboard | `app/api/athlete/onboard/route.ts` (POST) | `POST /api/v1/athletes/onboard` |
+| marketing/contact | `app/api/marketing/contact/route.ts` (POST landing contact) | `POST /public/landing/contact` |
 
 ## lib/db modules
 Removed: `blog.ts`, `payments.ts`, `plans.ts`, `products.ts`, `exercises.ts`, `video-metrics.ts`.
 Remaining:
-- `db.ts` (infra/shared — used by `coach-isolation-db.ts` [clerk webhook excepted], `landing.ts`, `landing-contacts.ts`; NOT removed — still has live callers).
+- `db.ts` (infra/shared — used by `coach-isolation-db.ts` [clerk webhook excepted] and `landing.ts` [landing content route]; NOT removed — still has live callers).
 - `index.ts` re-exports `./db` only.
+- `landing-contacts.ts` — REMOVED (only caller `app/api/marketing/contact/route.ts` migrated to Go API `POST /public/landing/contact`).
 
 ## Formally documented exceptions (intentional, not gaps)
 
 | Item | Reason | Disposition |
 |------|--------|-------------|
 | `nats/consumer/route.ts` | REMOVED from web. Long-running NATS JetStream consumer did direct SQL (`getDB`/`safeExecute`) — infrastructure concern that belongs in a Go worker, not a Next.js route handler. Direct SQL eliminated from `apps/web`; consumer to be implemented in `apps/api/worker/nats` in a separate cross-repo ticket. | Deleted from web; documented as Go-worker TODO, not a web exception. |
-| `coach-isolation-db.ts` | Still used by Clerk webhook (excepted) + other routes not in this task's scope (`validate-code`, `profile`, `coach/athletes/invite`, `onboard`, `allies`). | Kept; out of scope for this sweep. |
+| `coach-isolation-db.ts` | Still used by Clerk webhook (excepted) + other routes not in this task's scope (`validate-code`, `coach/athletes/invite`). profile, onboard and allies were migrated to Go API in this sweep. | Kept; out of scope for this sweep. |
 
 
 ## Pre-existing failures (NOT caused by this change)
@@ -75,12 +79,18 @@ Remaining:
 apps/web/src/lib/api/go-client.ts
 + 16 route handlers under apps/web/src/app/api/ (see table above)
 apps/web/src/app/api/athlete/accept-invite/route.ts — migrated off coach-isolation-db/lib/db to Go API (/invites/accept, /users/me, PUT /users/me)
-apps/api/internal/domain/invite/invite.go — added CoachID to AcceptResult
-apps/api/internal/infrastructure/invite/repository.go — populate CoachID in AcceptInvite result
+apps/web/src/app/api/athlete/allies/route.ts — migrated to Go API (GET /api/v1/athlete/allies)
+apps/web/src/app/api/athlete/profile/route.ts — migrated to Go API (GET /api/v1/users/me, PUT /api/v1/athletes/me, PUT /api/v1/users/me)
+apps/web/src/app/api/athlete/onboard/route.ts — migrated to Go API (POST /api/v1/athletes/onboard)
+apps/web/src/app/api/marketing/contact/route.ts — migrated to Go API (POST /public/landing/contact)
 apps/web/TODO.md (progress tracker)
+apps/api/internal/interfaces/http/handlers/ally.go — added ListAthleteAllies + inviteService dependency
+apps/api/internal/interfaces/http/handlers/landing.go — added HandlerInsertLandingContact
+apps/api/cmd/api/main.go — wired inviteService into AllyHandler; registered GET /api/v1/athlete/allies and POST /public/landing/contact
+apps/api/migrations/postgres/403_landing_contacts.sql — new landing_contacts table
 
 ## Removed this session (direct-DB cleanup)
-- `apps/web/src/app/api/coach/exercise-videos/route.ts` — dead exercise-videos path (T-009.1), no consumer.
+- `apps/web/src/lib/landing-contacts.ts` — only caller (`app/api/marketing/contact/route.ts`) migrated to Go API; module now unused.
 - `apps/web/src/app/api/coach/exercise-videos/upload/route.ts` — dead exercise-videos upload path (T-009.1), no consumer.
 - `apps/web/src/app/api/exercises/[id]/video/route.ts` — dead exercise video path; wrote `exercise_library.video_url` directly to DB.
 - `apps/web/src/app/api/nats/consumer/route.ts` — NATS JetStream consumer doing direct SQL; infra belongs in a Go worker.
@@ -88,4 +98,5 @@ apps/web/TODO.md (progress tracker)
 - `apps/web/src/lib/db/index.ts` — dropped `export * from './video-metrics'` (module deleted).
 
 ## Exceptions (direct-DB paths intentionally kept in apps/web)
-- `apps/web/src/lib/db/db.ts` — shared infra, still has live callers (`coach-isolation-db.ts`, `landing.ts`, `landing-contacts.ts`). NOT removed.
+- `apps/web/src/lib/db/db.ts` — shared infra, still has live callers (`coach-isolation-db.ts` → Clerk webhook [excepted], `validate-code`, `coach/athletes/invite`; `landing.ts` → landing content route). NOT removed yet because non-allowed callers (`landing.ts`, `coach-isolation-db.ts` via invite/validate-code) still depend on it.
+- `apps/web/src/app/api/webhooks/clerk/route.ts` — Clerk webhook: formally documented exception. Uses `coach-isolation-db.ts` (users, coaches, athlete profiles, coach-athlete links, memberships) plus direct `db.execute` for membership checks. Kept intentionally; migrating it would require Go API equivalents for user/coach provisioning and Clerk metadata sync that do not yet exist.

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { insertLandingContact } from '@/lib/landing-contacts';
+import { goFetch } from '@/lib/api/go-client';
 
 export async function POST(req: Request) {
   let body: unknown;
@@ -26,8 +26,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'name, email and message are required' }, { status: 400 });
   }
 
-  // Best-effort persistence: never fail the UX because Turso is unreachable.
-  await insertLandingContact({ name: name.trim(), email: email.trim(), message: message.trim() });
+  // Best-effort persistence via Go API (POST /public/landing/contact).
+  // Replaces direct SQL via landing-contacts.ts (lib/db). Never fail the UX
+  // because the Go API is unreachable.
+  try {
+    await goFetch<{ ok?: boolean }>('/public/landing/contact', {
+      method: 'POST',
+      auth: false,
+      body: JSON.stringify({
+        name: name.trim(),
+        email: email.trim(),
+        message: message.trim(),
+      }),
+    });
+  } catch {
+    // Best-effort: swallow errors so the contact form UX never breaks.
+  }
 
   return NextResponse.json({ ok: true });
 }
