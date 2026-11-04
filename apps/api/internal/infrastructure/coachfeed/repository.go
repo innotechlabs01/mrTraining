@@ -201,9 +201,9 @@ func (r *Repository) ListComments(ctx context.Context, postID string, limit int,
 	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, post_id, athlete_id, athlete_name, content, created_at
 		FROM coach_feed_comments
-		WHERE post_id = $33
+		WHERE post_id = $1
 		ORDER BY created_at ASC
-		LIMIT $34 OFFSET $35
+		LIMIT $2 OFFSET $3
 	`, postID, limit, offset)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {

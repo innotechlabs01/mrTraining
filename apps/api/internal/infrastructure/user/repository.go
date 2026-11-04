@@ -268,7 +268,7 @@ func (r *Repository) ListAthletesByCoach(ctx context.Context, coachID string) ([
 		 ap.is_active, ap.created_at, ap.updated_at
 		 FROM athlete_profiles ap
 		 INNER JOIN coach_athlete_links cal ON ap.id = cal.athlete_id
-		 WHERE cal.coach_id = $33 AND cal.status = 'active' AND ap.is_active = 1`, coachID)
+		 WHERE cal.coach_id = $1 AND cal.status = 'active' AND ap.is_active = 1`, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list athletes by coach: %w", err)
 	}
