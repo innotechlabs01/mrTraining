@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
@@ -91,7 +92,8 @@ func (m *mockInviteService) AcceptInvite(ctx context.Context, code, athleteID st
 }
 
 func svixSignature(secret, timestamp string, body []byte) string {
-	signedPayload := timestamp + "." + string(body)
+	secret = strings.TrimPrefix(secret, "whsec_")
+	signedPayload := "msg_123." + timestamp + "." + string(body)
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(signedPayload))
 	return "v1=" + hex.EncodeToString(mac.Sum(nil))

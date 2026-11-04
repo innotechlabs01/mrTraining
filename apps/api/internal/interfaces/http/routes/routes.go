@@ -33,7 +33,7 @@ func RegisterUserRoutes(api fiber.Router, handler *handlers.UserHandler) {
 
 	// Coaches (list is public within auth)
 	api.Get("/coaches", handler.ListCoaches)
-	api.Get("/coaches/:id/athletes", handler.GetAthletesByCoach)
+	api.Get("/coaches/:id/athletes", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetAthletesByCoach)
 
 	// Coach self-update (requires coach role)
 	api.Put("/coaches/me", middleware.RequireCoach(), middleware.RequireCoachID(), handler.UpdateCoachProfile)
