@@ -447,7 +447,7 @@ func main() {
 		// Wire Running domain
 		runningRepo := runninginfrastructure.NewRepository(db.DB)
 		runningService := runningapp.NewService(runningRepo, db.DB)
-		runningHandler := userhttp.NewRunningHandler(runningService)
+		runningHandler := userhttp.NewRunningHandler(runningService, tenantResolver)
 
 		// Register running routes
 		routes.RegisterRunningRoutes(api, runningHandler)
