@@ -38,6 +38,9 @@ type Config struct {
 	// Cache (Redis — optional, disabled when empty)
 	RedisURL string // Redis connection URL; empty disables response caching
 
+	// NATS (JetStream event bus — optional, disabled when empty)
+	NATSURL string // NATS server URL; empty disables JetStream consumers
+
 	// Traffic / proxy
 	TrustedProxies     []string // IPs/CIDRs allowed to set X-Forwarded-For (empty = ignore forwarded headers)
 	RateLimitMax       int      // Max requests per window, per client IP
@@ -87,6 +90,8 @@ func Load() (*Config, error) {
 		CORSOrigins: getEnv("CORS_ORIGINS", "*"),
 
 		RedisURL: getEnv("REDIS_URL", ""),
+
+		NATSURL:  getEnv("NATS_URL", "nats://localhost:4222"),
 
 		TrustedProxies:     splitCSV(getEnv("TRUSTED_PROXIES", "")),
 		RateLimitMax:       getEnvInt("RATE_LIMIT_MAX", 100),

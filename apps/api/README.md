@@ -64,6 +64,71 @@ docker build -t mr-training-api .
 docker run -p 8080:8080 mr-training-api
 ```
 
+## NATS Athlete Session Consumer (background worker)
+
+The legacy Next.js NATS consumer (`apps/web/src/app/api/nats/consumer/route.ts`, which did direct SQL via `getDB`/`safeExecute`) has been removed from `apps/web`. Its equivalent now runs in the Go API as a background worker started from `cmd/api/main.go`.
+
+### What it does
+Connects to NATS JetStream, ensures the `ATHLETE_STREAM` stream exists, and subscribes with three durable consumers to `athlete.session.*`:
+
+| Subject | Durable consumer | Projects into |
+|---|---|---|
+| `athlete.session.set.logged` | `pr-tracker` | `athlete_prs` |
+| `athlete.session.completed` | `session-completed` | `athlete_session_stats` |
+| `athlete.session.progress` | `session-progress` | `athlete_session_progress` |
+
+### Durability & idempotency
+- Durable consumers survive restarts and redeliver unacknowledged messages.
+- Every write is `INSERT ... ON CONFLICT` keyed on the natural business key
+  (`(athlete_clerk_id, exercise_id)` for PRs, `session_id` for stats/progress),
+  so redelivery of an already-processed message is idempotent.
+- A message is acknowledged only after its database write succeeds
+  (at-least-once, no lost updates). JSON parse errors are acknowledged and
+  skipped so a malformed message cannot poison the stream.
+- Tenant context: the consumer resolves the organization from the Clerk
+  `auth_id` in each message and sets `app.current_organization_id` before
+  writing, so Row-Level Security policies scope each write to the right
+  organization.
+
+### Manual run
+
+```bash
+# 1. Apply the migration (creates the three projection tables)
+go run ./cmd/migrate
+
+# 2. Configure NATS (defaults to nats://localhost:4222)
+export NATS_URL=nats://localhost:4222
+export DATABASE_URL=postgresql://...   # already in .env
+
+# 3. Start the API — the consumer starts automatically as a background worker
+go run ./cmd/api
+```
+
+The worker starts once `DATABASE_URL` and `NATS_URL` are configured. If either
+is missing, the API logs a warning and skips the consumer (safe for local
+development without NATS).
+
+### Verify with a test message
+
+Publish a message to NATS (requires a running NATS 2.10 with JetStream):
+
+```bash
+# NATS CLI (nats) example
+nats pub athlete.session.set.logged '{"athleteClerkId":"clerk_123","sessionId":"s1","exerciseId":"ex_1","setNumber":3,"reps":10,"weight":5,"loggedAt":"2026-01-01T10:00:00Z"}'
+nats pub athlete.session.completed '{"athleteClerkId":"clerk_123","sessionId":"s1","completedAt":"2026-01-01T10:00:00Z"}'
+nats pub athlete.session.progress '{"athleteClerkId":"clerk_123","sessionId":"s1","totalVolume":50,"durationSeconds":3600,"updatedAt":"2026-01-01T10:00:00Z"}'
+```
+
+Then confirm the row appeared:
+
+```sql
+SELECT * FROM athlete_prs WHERE athlete_clerk_id = 'clerk_123';
+SELECT * FROM athlete_session_stats WHERE session_id = 's1';
+SELECT * FROM athlete_session_progress WHERE session_id = 's1';
+```
+
+Re-publishing the same message is idempotent (the row is upserted, not duplicated).
+
 ## Endpoints
 
 ### Public Endpoints (No Auth Required)

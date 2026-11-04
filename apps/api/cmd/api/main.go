@@ -23,6 +23,7 @@ import (
 	allypaymentdeclarationapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_payment_declaration"
 	allypurchaseapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_purchase"
 	athleteapp "github.com/innotechlabs01/mr-training-api/internal/application/athlete"
+	athleteConsumer "github.com/innotechlabs01/mr-training-api/internal/athlete"
 	blogapp "github.com/innotechlabs01/mr-training-api/internal/application/blog"
 	challengeapp "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
 	coachapp "github.com/innotechlabs01/mr-training-api/internal/application/coach"
@@ -78,6 +79,7 @@ import (
 	commissionentryinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission_entry"
 	communityinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/community"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
+	natsInfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/nats"
 	eventinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/event"
 	favoriteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/favorite"
 	expoinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/expo"
@@ -154,6 +156,29 @@ func main() {
 		}
 		defer db.Close()
 		log.Info("database connected")
+
+		// Start the NATS JetStream athlete.session.* consumer as a background
+		// worker. It projects set.logged / completed / progress events into the
+		// athlete_prs, athlete_session_stats and athlete_session_progress tables.
+		// It only runs when both a database and a NATS URL are configured.
+		if cfg.NATSURL != "" {
+			nc, js, nerr := natsInfra.Connect(cfg.NATSURL)
+			if nerr != nil {
+				log.Warn("nats consumer disabled", zap.Error(nerr))
+			} else {
+				defer nc.Close()
+				consumer := athleteConsumer.NewConsumer(db, js, log, nil)
+				go func() {
+					if err := consumer.Start(context.Background()); err != nil {
+						log.Error("nats consumer stopped", zap.Error(err))
+					}
+				}()
+				log.Info("nats athlete session consumer started",
+					zap.String("url", cfg.NATSURL))
+			}
+		} else {
+			log.Warn("NATS_URL not set, skipping athlete session consumer")
+		}
 	} else {
 		log.Warn("no database URL configured, running without database")
 	}
