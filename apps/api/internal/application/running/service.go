@@ -675,22 +675,21 @@ func (s *Service) CreateTemplate(ctx context.Context, t *domain.RunningWorkoutTe
 				tx.Rollback()
 			}
 		}()
-	}
-
-	if err := s.repo.SaveTemplate(ctx, t); err != nil {
-		return fmt.Errorf("create template: %w", err)
-	}
-
-	if tx != nil {
-		if err := s.insertOutboxTemplateCreatedTx(ctx, tx, t.ID, t.CoachID, t.Name); err != nil {
+		if err = s.repo.SaveTemplate(ctx, t); err != nil {
+			return fmt.Errorf("create template: %w", err)
+		}
+		if err = s.insertOutboxTemplateCreatedTx(ctx, tx, t.ID, t.CoachID, t.Name); err != nil {
 			return fmt.Errorf("insert outbox template.created: %w", err)
 		}
-		if err := tx.Commit(); err != nil {
+		if err = tx.Commit(); err != nil {
 			return fmt.Errorf("commit template: %w", err)
 		}
 		return nil
 	}
 
+	if err := s.repo.SaveTemplate(ctx, t); err != nil {
+		return fmt.Errorf("create template: %w", err)
+	}
 	if err := s.insertOutboxTemplateCreated(ctx, t.ID, t.CoachID, t.Name); err != nil {
 		return fmt.Errorf("insert outbox template.created: %w", err)
 	}
@@ -766,21 +765,21 @@ func (s *Service) UpdateTemplate(ctx context.Context, id, name, description stri
 		}()
 	}
 
-	if err := s.repo.SaveTemplate(ctx, t); err != nil {
+	if err = s.repo.SaveTemplate(ctx, t); err != nil {
 		return fmt.Errorf("update template: %w", err)
 	}
 
 	if tx != nil {
-		if err := s.insertOutboxTemplateUpdatedTx(ctx, tx, t.ID, t.CoachID, t.Name, t.Version); err != nil {
+		if err = s.insertOutboxTemplateUpdatedTx(ctx, tx, t.ID, t.CoachID, t.Name, t.Version); err != nil {
 			return fmt.Errorf("insert outbox template.updated: %w", err)
 		}
-		if err := tx.Commit(); err != nil {
+		if err = tx.Commit(); err != nil {
 			return fmt.Errorf("commit template update: %w", err)
 		}
 		return nil
 	}
 
-	if err := s.insertOutboxTemplateUpdated(ctx, t.ID, t.CoachID, t.Name, t.Version); err != nil {
+	if err = s.insertOutboxTemplateUpdated(ctx, t.ID, t.CoachID, t.Name, t.Version); err != nil {
 		return fmt.Errorf("insert outbox template.updated: %w", err)
 	}
 	return nil
@@ -848,22 +847,21 @@ func (s *Service) CreateAssignment(ctx context.Context, a *domain.RunningWorkout
 				tx.Rollback()
 			}
 		}()
-	}
-
-	if err := s.repo.SaveAssignment(ctx, a); err != nil {
-		return fmt.Errorf("create assignment: %w", err)
-	}
-
-	if tx != nil {
-		if err := s.insertOutboxAssignmentCreatedTx(ctx, tx, a.ID, a.CoachID, a.AthleteID, a.TemplateID); err != nil {
+		if err = s.repo.SaveAssignment(ctx, a); err != nil {
+			return fmt.Errorf("create assignment: %w", err)
+		}
+		if err = s.insertOutboxAssignmentCreatedTx(ctx, tx, a.ID, a.CoachID, a.AthleteID, a.TemplateID); err != nil {
 			return fmt.Errorf("create assignment and insert outbox: %w", err)
 		}
-		if err := tx.Commit(); err != nil {
+		if err = tx.Commit(); err != nil {
 			return fmt.Errorf("commit assignment: %w", err)
 		}
 		return nil
 	}
 
+	if err := s.repo.SaveAssignment(ctx, a); err != nil {
+		return fmt.Errorf("create assignment: %w", err)
+	}
 	if err := s.insertOutboxAssignmentCreated(ctx, a.ID, a.CoachID, a.AthleteID, a.TemplateID); err != nil {
 		return fmt.Errorf("create assignment and insert outbox: %w", err)
 	}
@@ -972,6 +970,42 @@ func (s *Service) StartSession(ctx context.Context, assignmentID, athleteID stri
 				tx.Rollback()
 			}
 		}()
+		if err = s.repo.SaveSession(ctx, session); err != nil {
+			return nil, fmt.Errorf("save running session: %w", err)
+		}
+
+		snapshot := &domain.RunningWorkoutSnapshot{
+			ID:           uuid.New().String(),
+			AssignmentID: assignment.ID,
+			SessionID:    session.ID,
+			CapturedAt:   time.Now().UTC(),
+		}
+		var templateCopy []byte
+		templateCopy, err = json.Marshal(template)
+		if err != nil {
+			return nil, fmt.Errorf("marshal template copy: %w", err)
+		}
+		snapshot.TemplateCopy = string(templateCopy)
+		if err = s.repo.SaveSnapshot(ctx, snapshot); err != nil {
+			return nil, fmt.Errorf("save snapshot: %w", err)
+		}
+
+		if err = s.repo.UpdateAssignmentStatus(ctx, assignmentID, domain.AssignmentStatusStarted); err != nil {
+			return nil, fmt.Errorf("update assignment status: %w", err)
+		}
+
+		coachID := assignment.CoachID
+		if coachID == "" && template != nil {
+			coachID = template.CoachID
+		}
+
+		if err = s.insertOutboxWorkoutStartedTx(ctx, tx, session.ID, athleteID, assignment.TemplateID, coachID); err != nil {
+			return nil, fmt.Errorf("insert outbox workout.started: %w", err)
+		}
+		if err = tx.Commit(); err != nil {
+			return nil, fmt.Errorf("commit start session: %w", err)
+		}
+		return session, nil
 	}
 
 	if err := s.repo.SaveSession(ctx, session); err != nil {
@@ -1000,16 +1034,6 @@ func (s *Service) StartSession(ctx context.Context, assignmentID, athleteID stri
 	coachID := assignment.CoachID
 	if coachID == "" && template != nil {
 		coachID = template.CoachID
-	}
-
-	if tx != nil {
-		if err := s.insertOutboxWorkoutStartedTx(ctx, tx, session.ID, athleteID, assignment.TemplateID, coachID); err != nil {
-			return nil, fmt.Errorf("insert outbox workout.started: %w", err)
-		}
-		if err := tx.Commit(); err != nil {
-			return nil, fmt.Errorf("commit start session: %w", err)
-		}
-		return session, nil
 	}
 
 	if err := s.insertOutboxWorkoutStarted(ctx, session.ID, athleteID, assignment.TemplateID, coachID); err != nil {
@@ -1051,7 +1075,7 @@ func (s *Service) CompleteSession(ctx context.Context, sessionID, athleteID stri
 	}
 	var coachID string
 	if snapshot != nil {
-		if assignment, err := s.repo.GetAssignment(ctx, snapshot.AssignmentID); err == nil && assignment != nil {
+		if assignment, aerr := s.repo.GetAssignment(ctx, snapshot.AssignmentID); aerr == nil && assignment != nil {
 			coachID = assignment.CoachID
 		}
 	}
@@ -1067,29 +1091,26 @@ func (s *Service) CompleteSession(ctx context.Context, sessionID, athleteID stri
 				tx.Rollback()
 			}
 		}()
-	}
-
-	// Insert Outbox event: workout.completed
-	if tx != nil {
-		if err := s.insertOutboxWorkoutCompletedTx(ctx, tx, sessionID, athleteID, coachID); err != nil {
+		if err = s.insertOutboxWorkoutCompletedTx(ctx, tx, sessionID, athleteID, coachID); err != nil {
 			return fmt.Errorf("insert outbox workout.completed: %w", err)
 		}
-	} else {
-		if err := s.insertOutboxWorkoutCompleted(ctx, sessionID, athleteID, coachID); err != nil {
-			return fmt.Errorf("insert outbox workout.completed: %w", err)
+		if snapshot != nil {
+			if err = s.repo.UpdateAssignmentStatus(ctx, snapshot.AssignmentID, domain.AssignmentStatusCompleted); err != nil {
+				return fmt.Errorf("complete assignment: %w", err)
+			}
 		}
+		if err = tx.Commit(); err != nil {
+			return fmt.Errorf("commit complete session: %w", err)
+		}
+		return nil
 	}
 
+	if err := s.insertOutboxWorkoutCompleted(ctx, sessionID, athleteID, coachID); err != nil {
+		return fmt.Errorf("insert outbox workout.completed: %w", err)
+	}
 	if snapshot != nil {
-		// Both writes are idempotent: a failed status write can be retried safely.
 		if err := s.repo.UpdateAssignmentStatus(ctx, snapshot.AssignmentID, domain.AssignmentStatusCompleted); err != nil {
 			return fmt.Errorf("complete assignment: %w", err)
-		}
-	}
-
-	if tx != nil {
-		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("commit complete session: %w", err)
 		}
 	}
 	return nil
