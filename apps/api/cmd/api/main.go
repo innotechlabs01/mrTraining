@@ -589,7 +589,7 @@ func main() {
 		// Wire Coach Settlement domain (Phase F)
 		coachSetRepo := coachsetinfrastructure.NewRepository(db.DB)
 		coachSetService := coachsetapp.NewService(coachSetRepo)
-		coachSetHandler := userhttp.NewCoachSettlementHandler(coachSetService)
+		coachSetHandler := userhttp.NewCoachSettlementHandler(coachSetService, db.DB)
 		coachSetDocHandler := userhttp.NewCoachSettlementDocumentHandler(coachSetService)
 		coachPayHandler := userhttp.NewCoachPaymentRecordHandler(coachSetService)
 
