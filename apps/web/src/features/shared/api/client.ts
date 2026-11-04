@@ -1637,7 +1637,8 @@ export interface TemplateExerciseRow {
   sortOrder?: number;
   order?: number;
   notes?: string | null;
-  muscleGroups?: string[];
+  /** Go returns muscleGroups as a JSON string; legacy may pass an array. */
+  muscleGroups?: string | string[];
   libraryExerciseId?: string | null;
   /** Running route as an encoded GPS polyline (lat,lng pairs). */
   gpsRoute?: string | null;
@@ -1645,17 +1646,36 @@ export interface TemplateExerciseRow {
   intervals?: RunningIntervalRow[]
 }
 
+export interface WorkoutTemplateExercise {
+  id: string;
+  templateId: string;
+  name: string;
+  sets: number;
+  reps: number;
+  weightKg: number;
+  restSeconds: number;
+  sortOrder: number;
+  notes: string;
+  mode: string;
+  phase: string;
+  supersetGroup: string;
+  bodyPart: string;
+  /** Go stores muscle groups as a JSON string; clients parse it to an array. */
+  muscleGroups: string;
+  libraryExerciseId: string;
+}
+
 export interface WorkoutTemplateDetail extends WorkoutTemplateSummary {
   coachId: string;
-  exercises: Array<TemplateExerciseRow & {
-    id: string;
-    name: string;
-    sets: number;
-    reps: number;
-    sortOrder: number;
-    mode: 'reps' | 'time' | 'cardio';
-    phase: 'work' | 'warmup';
-  }>;
+  updatedAt: string;
+  exercises: WorkoutTemplateExercise[];
+}
+
+interface GoTemplatesList {
+  data: WorkoutTemplateSummary[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface PastAssignmentDetail {
@@ -1680,46 +1700,36 @@ export interface PastAssignmentDetail {
   }>;
 }
 
-// Template API — Go backend (primary) with Next.js fallback.
-// Go endpoints: /api/v1/workout-templates
-// Next.js fallback: /api/coach/workout-templates, /api/coaching/assigned-workouts
+// Template API — Go backend (primary).
+// Go endpoints: /api/v1/workout-templates (GET list, GET/:id, POST, PUT).
+// DELETE is not yet exposed by Go; removal stays on the Next.js route.
 export const templateApi = {
   list: () =>
-    // Go API: GET /api/v1/workout-templates
-    // Go returns { data: [...] }; older Next route returns { templates: [...] }.
-    goFetch<{ templates?: WorkoutTemplateSummary[]; data?: WorkoutTemplateSummary[] }>('/api/v1/workout-templates')
-      .then((res) => res.data ?? res.templates ?? [])
-      .catch(() =>
-        nextFetch.get<{ templates: WorkoutTemplateSummary[] }>('/api/coach/workout-templates')
-          .then((res) => res.templates)
-      ),
+    // Go API: GET /api/v1/workout-templates → { data: [...], total, page, limit }
+    goFetch<GoTemplatesList>('/api/v1/workout-templates')
+      .then((res) => res.data ?? []),
 
   get: (id: string) =>
-    // Go API: GET /api/v1/workout-templates/:id
-    goFetch<{ template: WorkoutTemplateDetail }>(`/api/v1/workout-templates/${id}`).catch(() =>
-      nextFetch.get<{ template: WorkoutTemplateDetail }>(`/api/coach/workout-templates/${id}`)
-    ),
+    // Go API: GET /api/v1/workout-templates/:id → single WorkoutTemplateDetail
+    goFetch<WorkoutTemplateDetail>(`/api/v1/workout-templates/${id}`)
+      .then((template) => ({ template })),
 
   create: (data: { name: string; description?: string; goal?: string; estimatedDurationMinutes?: number | null; exercises?: TemplateExerciseRow[]; id?: string }) =>
-    // Go API: POST /api/v1/workout-templates
-    goFetch<{ id: string }>('/api/v1/workout-templates', {
+    // Go API: POST /api/v1/workout-templates → single WorkoutTemplateDetail
+    goFetch<WorkoutTemplateDetail>('/api/v1/workout-templates', {
       method: 'POST',
       body: JSON.stringify(data),
-    }).catch(() =>
-      nextFetch.post<{ id: string }>('/api/coach/workout-templates', data)
-    ),
+    }).then((res) => ({ id: res.id })),
 
   update: (id: string, data: { name: string; description?: string; goal?: string; estimatedDurationMinutes?: number | null; exercises?: TemplateExerciseRow[] }) =>
-    // Go API: PUT /api/v1/workout-templates/:id (if available)
-    goFetch<{ id: string }>(`/api/v1/workout-templates/${id}`, {
+    // Go API: PUT /api/v1/workout-templates/:id → single WorkoutTemplateDetail
+    goFetch<WorkoutTemplateDetail>(`/api/v1/workout-templates/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    }).catch(() =>
-      nextFetch.put<{ id: string }>(`/api/coach/workout-templates/${id}`, data)
-    ),
+    }).then((res) => ({ id: res.id })),
 
   remove: (id: string) =>
-    // Next.js: DELETE /api/coach/workout-templates/:id (not in Go API)
+    // Next.js: DELETE /api/coach/workout-templates/:id (no Go DELETE endpoint yet)
     nextFetch.delete<{ ok: true }>(`/api/coach/workout-templates/${id}`),
 
   /** Full detail of a previously assigned workout, for reassignment flows. */
