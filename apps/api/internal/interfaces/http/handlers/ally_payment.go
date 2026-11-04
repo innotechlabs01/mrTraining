@@ -255,7 +255,11 @@ func (h *CommissionEntryHandler) withTx(c *fiber.Ctx, fn func(*commissionentryap
 	if coachID == "" {
 		return appresponse.Error(c, fiber.StatusForbidden, "coach tenant context is required")
 	}
+	if h.db == nil {
+		return fn(h.service)
+	}
 	uow := database.NewUnitOfWork(h.db)
+
 	if err := uow.Begin(c.Context(), userID, coachID, middleware.GetUserRole(c)); err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
 	}
