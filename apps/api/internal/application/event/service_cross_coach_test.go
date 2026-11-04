@@ -70,3 +70,18 @@ func TestServiceEvents_DeleteCrossCoachDenied(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "you can only delete your own events")
 }
+func TestServiceEvents_UpdateOwnAllowed(t *testing.T) {
+	repo := fakeEventRepoCross{event: &eventdomain.Event{ID: "event-1", CoachID: "coach-a"}}
+	svc := NewService(repo)
+	req := dto.UpdateEventRequest{}
+	updated, err := svc.UpdateEvent(context.Background(), "coach-a", "event-1", req)
+	require.NoError(t, err)
+	require.NotNil(t, updated)
+}
+
+func TestServiceEvents_DeleteOwnAllowed(t *testing.T) {
+	repo := fakeEventRepoCross{event: &eventdomain.Event{ID: "event-1", CoachID: "coach-a"}}
+	svc := NewService(repo)
+	err := svc.DeleteEvent(context.Background(), "coach-a", "event-1")
+	require.NoError(t, err)
+}
