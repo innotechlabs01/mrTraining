@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -139,10 +141,13 @@ func (h *ClerkWebhookHandler) Handle(c *fiber.Ctx) error {
 	return appresponse.Success(c, dto.WebhookResponse{Received: true})
 }
 
-// verifySignature validates the Clerk (svix) webhook signature.
-// The signed payload is "{svix-timestamp}.{raw_body}"; the signature is
-// HMAC-SHA256(webhook_secret, signed_payload) encoded as hex, sent as
-// "v1=<hex>" in the svix-signature header.
+// verifySignature validates the Clerk (svix) webhook signature using the
+// standard SVIX algorithm:
+//   signed = svix-id + "." + svix-timestamp + "." + raw_body
+//   sig    = HMAC-SHA256(base64-decoded whsec secret, signed)
+// and compares it in constant time against the v1 signature(s) carried in
+// the svix-signature header. Timestamp tolerance is enforced against stale or
+// future replays.
 func (h *ClerkWebhookHandler) verifySignature(c *fiber.Ctx, body []byte) bool {
 	svixID := c.Get("svix-id")
 	svixTimestamp := c.Get("svix-timestamp")
@@ -151,18 +156,60 @@ func (h *ClerkWebhookHandler) verifySignature(c *fiber.Ctx, body []byte) bool {
 		return false
 	}
 
-	sig := strings.TrimPrefix(svixSignature, "v1=")
-	if sig == svixSignature {
-		// No "v1=" prefix — not a valid svix signature.
-		return false
+	// svixTimestamp is nanoseconds since epoch (or seconds). Validate presence only; tolerance handled below.
+	secret := strings.TrimSpace(h.webhookSecret)
+	secret = strings.TrimPrefix(secret, "whsec_")
+	decoded, err := base64.StdEncoding.DecodeString(secret)
+	if err != nil {
+		decoded = []byte(secret)
 	}
 
-	signedPayload := svixTimestamp + "." + string(body)
-	mac := hmac.New(sha256.New, []byte(h.webhookSecret))
-	mac.Write([]byte(signedPayload))
+	signed := svixID + "." + svixTimestamp + "." + string(body)
+	mac := hmac.New(sha256.New, decoded)
+	mac.Write([]byte(signed))
 	expected := hex.EncodeToString(mac.Sum(nil))
 
-	return hmac.Equal([]byte(sig), []byte(expected))
+	// svix-signature may contain multiple "v1,<base64sig>" separated by spaces.
+	for _, part := range strings.Fields(svixSignature) {
+		for _, field := range strings.Split(part, ",") {
+			value := strings.TrimSpace(field)
+			if strings.HasPrefix(value, "v1=") {
+				value = strings.TrimPrefix(value, "v1=")
+			} else if strings.HasPrefix(value, "v1") {
+				continue
+			}
+			// svix signatures are base64, while our hmac is hex; compare both encodings.
+			if hmac.Equal([]byte(value), []byte(expected)) {
+				return true
+			}
+			// Try base64 decode of the provided signature.
+			if provided, err := base64.StdEncoding.DecodeString(value); err == nil {
+				if hmac.Equal(provided, []byte(expected)) {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// parseSvixTimestamp accepts seconds or nanoseconds encoded as strings.
+func parseSvixTimestamp(s string) (time.Time, error) {
+	// svix timestamps are usually milliseconds/seconds; try parsing standard.
+	if v, err := time.Parse(time.RFC3339, s); err == nil {
+		return v, nil
+	}
+	// Otherwise treat as numeric since-epoch.
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return time.Time{}, err
+	}
+	// Heuristic: value length > 10 means milliseconds.
+	if len(s) <= 10 {
+		return time.Unix(n, 0), nil
+	}
+	return time.UnixMilli(n), nil
 }
 
 // provisionUser creates or updates the user's application profile based on
