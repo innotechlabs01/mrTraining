@@ -63,7 +63,7 @@ func (r *Repository) GetByAthlete(ctx context.Context, athleteID string) ([]*dom
 			tempo,
 			recorded_at
 		FROM form_metrics
-		WHERE athlete_id = $11
+		WHERE athlete_id = $1
 		ORDER BY recorded_at DESC
 	`, athleteID)
 	if err != nil {
@@ -144,7 +144,7 @@ func (r *Repository) GetByAthleteAndExercise(ctx context.Context, athleteID stri
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, athlete_id, exercise_id, exercise_name, workout_id, form_score, depth, alignment, tempo, recorded_at
 		FROM form_metrics
-		WHERE athlete_id = $12 AND exercise_id = $13
+		WHERE athlete_id = $1 AND exercise_id = $2
 		ORDER BY recorded_at DESC
 	`, athleteID, exerciseID)
 	if err != nil {

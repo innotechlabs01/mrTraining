@@ -41,7 +41,7 @@ func (r *Repository) GetByDate(ctx context.Context, athleteID, date string) (*do
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, athlete_id, date, readiness, COALESCE(sleep_hours, 0), COALESCE(soreness, 0),
 		        COALESCE(notes, ''), created_at
-		 FROM readiness_checkins WHERE athlete_id = $8 AND date = $9`, athleteID, date)
+		 FROM readiness_checkins WHERE athlete_id = $1 AND date = $2`, athleteID, date)
 
 	c := &domain.Checkin{}
 	err := row.Scan(&c.ID, &c.AthleteID, &c.Date, &c.Readiness, &c.SleepHours, &c.Soreness, &c.Notes, &c.CreatedAt)
@@ -62,8 +62,8 @@ func (r *Repository) ListRecent(ctx context.Context, athleteID string, limit int
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, athlete_id, date, readiness, COALESCE(sleep_hours, 0), COALESCE(soreness, 0),
 		        COALESCE(notes, ''), created_at
-		 FROM readiness_checkins WHERE athlete_id = $10
-		 ORDER BY date DESC LIMIT $11`, athleteID, limit)
+		 FROM readiness_checkins WHERE athlete_id = $1
+		 ORDER BY date DESC LIMIT $2`, athleteID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list checkins: %w", err)
 	}

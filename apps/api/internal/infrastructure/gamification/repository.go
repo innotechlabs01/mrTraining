@@ -52,7 +52,7 @@ func (r *Repository) UpsertStreak(ctx context.Context, streak *gamification.Stre
 	}
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO gamification_streaks (id, athlete_id, current_streak, longest_streak, last_workout_date, created_at, updated_at)
-		VALUES ($2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT(athlete_id) DO UPDATE SET
 			current_streak = excluded.current_streak,
 			longest_streak = excluded.longest_streak,
@@ -75,7 +75,7 @@ func (r *Repository) LogWorkoutDay(ctx context.Context, day *gamification.Workou
 	}
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO gamification_workout_days (id, athlete_id, workout_date, workout_id, created_at)
-		VALUES ($9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, $4, $5)
 	`, day.ID, day.AthleteID, day.WorkoutDate, day.WorkoutID, day.CreatedAt)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
@@ -94,7 +94,7 @@ func (r *Repository) ListWorkoutDays(ctx context.Context, athleteID string, sinc
 	query := `
 		SELECT id, athlete_id, workout_date, workout_id, created_at
 		FROM gamification_workout_days
-		WHERE athlete_id = $14
+		WHERE athlete_id = $1
 	`
 	args := []interface{}{athleteID}
 	if since != "" {
@@ -138,7 +138,7 @@ func (r *Repository) ListBadges(ctx context.Context, athleteID string) ([]*gamif
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, athlete_id, badge_id, unlocked_at
 		FROM gamification_badges
-		WHERE athlete_id = $16
+		WHERE athlete_id = $1
 		ORDER BY unlocked_at DESC
 	`, athleteID)
 	if err != nil {
@@ -170,7 +170,7 @@ func (r *Repository) UpsertBadge(ctx context.Context, badge *gamification.Badge)
 	}
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO gamification_badges (id, athlete_id, badge_id, unlocked_at)
-		VALUES ($17, $18, $19, $20)
+		VALUES ($1, $2, $3, $4)
 		ON CONFLICT(athlete_id, badge_id) DO UPDATE SET
 			unlocked_at = excluded.unlocked_at
 	`, badge.ID, badge.AthleteID, badge.BadgeID, badge.UnlockedAt)
@@ -227,7 +227,7 @@ func (r *Repository) ListPRs(ctx context.Context, athleteID string) ([]*gamifica
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, athlete_id, exercise_id, best_value, unit, achieved_at, previous_best
 		FROM gamification_prs
-		WHERE athlete_id = $21
+		WHERE athlete_id = $1
 		ORDER BY achieved_at DESC
 	`, athleteID)
 	if err != nil {
@@ -264,7 +264,7 @@ func (r *Repository) GetPR(ctx context.Context, athleteID, exerciseID string) (*
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, athlete_id, exercise_id, best_value, unit, achieved_at, previous_best
 		FROM gamification_prs
-		WHERE athlete_id = $22 AND exercise_id = $23
+		WHERE athlete_id = $1 AND exercise_id = $2
 	`, athleteID, exerciseID)
 
 	var pr gamification.PersonalRecord
@@ -289,7 +289,7 @@ func (r *Repository) UpsertPR(ctx context.Context, pr *gamification.PersonalReco
 	}
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO gamification_prs (id, athlete_id, exercise_id, best_value, unit, achieved_at, previous_best)
-		VALUES ($24, $25, $26, $27, $28, $29, $30)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT(athlete_id, exercise_id) DO UPDATE SET
 			best_value = excluded.best_value,
 			unit = excluded.unit,

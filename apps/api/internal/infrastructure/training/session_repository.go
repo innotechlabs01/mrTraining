@@ -45,7 +45,7 @@ func (r *SessionRepository) Create(ctx context.Context, session *training.Traini
 	}
 
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO session_athletes (session_id, athlete_id) VALUES ($8, $9)
+		`INSERT INTO session_athletes (session_id, athlete_id) VALUES ($1, $2)
 		 ON CONFLICT (session_id, athlete_id) DO NOTHING`,
 		session.ID, session.AthleteID); err != nil {
 		return fmt.Errorf("link session athlete: %w", err)
@@ -68,9 +68,9 @@ func (r *SessionRepository) ListByAthlete(ctx context.Context, athleteID, from s
 		`SELECT cs.id, cs.coach_id, cs.name, cs.time, cs.end_time, cs.location, cs.status
 		 FROM coach_sessions cs
 		 JOIN session_athletes sa ON sa.session_id = cs.id
-		 WHERE sa.athlete_id = $10 AND cs.time >= $11
+		 WHERE sa.athlete_id = $1 AND cs.time >= $2
 		 ORDER BY cs.time ASC
-		 LIMIT $12`,
+		 LIMIT $3`,
 		athleteID, from, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list athlete sessions: %w", err)

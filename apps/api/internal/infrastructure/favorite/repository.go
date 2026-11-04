@@ -53,7 +53,7 @@ func (r *Repository) GetFavorite(ctx context.Context, athleteID, favoriteID stri
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, athlete_id, item_type, item_id, item_title, item_meta, created_at
 		FROM athlete_favorites
-		WHERE athlete_id = $2 AND id = $3
+		WHERE athlete_id = $1 AND id = $2
 	`, athleteID, favoriteID).Scan(&f.ID, &f.AthleteID, &f.ItemType, &f.ItemID, &f.ItemTitle, &itemMeta, &f.CreatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -71,7 +71,7 @@ func (r *Repository) GetFavorite(ctx context.Context, athleteID, favoriteID stri
 func (r *Repository) CreateFavorite(ctx context.Context, f *favorite.Favorite) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO athlete_favorites (id, athlete_id, item_type, item_id, item_title, item_meta, created_at)
-		VALUES ($4, $5, $6, $7, $8, $9, NOW())
+		VALUES ($1, $2, $3, $4, $5, $6, NOW())
 	`, f.ID, f.AthleteID, f.ItemType, f.ItemID, f.ItemTitle, f.ItemMeta)
 	if err != nil {
 		return fmt.Errorf("failed to create favorite: %w", err)
@@ -83,7 +83,7 @@ func (r *Repository) CreateFavorite(ctx context.Context, f *favorite.Favorite) e
 func (r *Repository) DeleteFavorite(ctx context.Context, athleteID, favoriteID string) error {
 	result, err := r.db.ExecContext(ctx, `
 		DELETE FROM athlete_favorites
-		WHERE athlete_id = $10 AND id = $11
+		WHERE athlete_id = $1 AND id = $2
 	`, athleteID, favoriteID)
 	if err != nil {
 		return fmt.Errorf("failed to delete favorite: %w", err)

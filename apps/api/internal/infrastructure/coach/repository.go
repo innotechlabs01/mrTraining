@@ -63,7 +63,7 @@ func (r *Repository) GetDashboard(ctx context.Context, coachID string) (*coachdo
 
 	// Count active workouts
 	err = r.exec.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM assigned_workouts WHERE coach_id = $2 AND status = 'active'`, coachID).Scan(&d.ActiveWorkouts)
+		`SELECT COUNT(*) FROM assigned_workouts WHERE coach_id = $1 AND status = 'active'`, coachID).Scan(&d.ActiveWorkouts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count active workouts: %w", err)
 	}
@@ -74,7 +74,7 @@ func (r *Repository) GetDashboard(ctx context.Context, coachID string) (*coachdo
 			(SELECT CAST(COUNT(CASE WHEN completed = 1 THEN 1 END) AS REAL) * 100.0 / NULLIF(COUNT(*), 0)
 			FROM workout_session_logs wsl
 			JOIN assigned_workouts aw ON wsl.workout_id = aw.id
-			WHERE aw.coach_id = $3), 0)`, coachID).Scan(&d.CompletionRate)
+			WHERE aw.coach_id = $1), 0)`, coachID).Scan(&d.CompletionRate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate completion rate: %w", err)
 	}
@@ -82,7 +82,7 @@ func (r *Repository) GetDashboard(ctx context.Context, coachID string) (*coachdo
 	// Count upcoming sessions (appointments in the future)
 	err = r.exec.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM coach_appointments
- 		 WHERE coach_id = $4 AND status = 'scheduled' AND start_time > NOW()`, coachID).Scan(&d.UpcomingSessions)
+ 		 WHERE coach_id = $1 AND status = 'scheduled' AND start_time > NOW()`, coachID).Scan(&d.UpcomingSessions)
 	if err != nil {
 		// Table might not exist yet — return 0
 		d.UpcomingSessions = 0
@@ -98,7 +98,7 @@ func (r *Repository) GetDailySummary(ctx context.Context, coachID string) (*coac
 	// Sessions today
 	err := r.exec.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM coach_appointments
- 		 WHERE coach_id = $5 AND date(start_time) = CURRENT_DATE`, coachID).Scan(&d.SessionsToday)
+ 		 WHERE coach_id = $1 AND date(start_time) = CURRENT_DATE`, coachID).Scan(&d.SessionsToday)
 	if err != nil {
 		d.SessionsToday = 0
 	}
@@ -106,7 +106,7 @@ func (r *Repository) GetDailySummary(ctx context.Context, coachID string) (*coac
 	// Athletes today
 	err = r.exec.QueryRowContext(ctx,
 		`SELECT COUNT(DISTINCT athlete_id) FROM coach_appointments
- 		 WHERE coach_id = $6 AND date(start_time) = CURRENT_DATE`, coachID).Scan(&d.AthletesToday)
+ 		 WHERE coach_id = $1 AND date(start_time) = CURRENT_DATE`, coachID).Scan(&d.AthletesToday)
 	if err != nil {
 		d.AthletesToday = 0
 	}
@@ -114,7 +114,7 @@ func (r *Repository) GetDailySummary(ctx context.Context, coachID string) (*coac
 	// Completed today
 	err = r.exec.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM coach_appointments
- 		 WHERE coach_id = $7 AND date(start_time) = CURRENT_DATE AND status = 'completed'`, coachID).Scan(&d.CompletedToday)
+ 		 WHERE coach_id = $1 AND date(start_time) = CURRENT_DATE AND status = 'completed'`, coachID).Scan(&d.CompletedToday)
 	if err != nil {
 		d.CompletedToday = 0
 	}
@@ -127,7 +127,7 @@ func (r *Repository) GetDailySummary(ctx context.Context, coachID string) (*coac
 func (r *Repository) GetTimeBlocks(ctx context.Context, coachID string) ([]*coachdomain.TimeBlock, error) {
 	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, coach_id, title, block_type, start_time, end_time, recurrence, color, created_at, updated_at
- 		 FROM coach_time_blocks WHERE coach_id = $8
+ 		 FROM coach_time_blocks WHERE coach_id = $1
  		 ORDER BY start_time`, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get time blocks: %w", err)

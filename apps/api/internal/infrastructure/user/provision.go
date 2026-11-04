@@ -43,7 +43,7 @@ func (r *Repository) EnsureCoach(ctx context.Context, userID, email, name string
 	}
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO coaches (id, email, name, coach_code, created_at, updated_at)
-		 VALUES ($5, $6, $7, $8, NOW(), NOW())
+		 VALUES ($1, $2, $3, $4, NOW(), NOW())
 		 ON CONFLICT (id) DO NOTHING`,
 		userID, email, name, GenerateCoachCode())
 	if err != nil {
@@ -65,7 +65,7 @@ func (r *Repository) EnsureAthleteProfile(ctx context.Context, userID, email, na
 	}
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO athlete_profiles (id, email, name, is_active, created_at, updated_at)
-		 VALUES ($9, $10, $11, 1, NOW(), NOW())
+		 VALUES ($1, $2, $3, 1, NOW(), NOW())
 		 ON CONFLICT (id) DO NOTHING`,
 		userID, email, name)
 	if err != nil {

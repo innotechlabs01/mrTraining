@@ -91,7 +91,7 @@ func (r *ExerciseRepository) GetByID(ctx context.Context, id string) (*training.
 		`SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
 		 default_sec, video_url, image_url, is_custom, coach_id, created_at, updated_at
-		 FROM exercise_library WHERE id = $3`, id)
+		 FROM exercise_library WHERE id = $1`, id)
 
 	e := &training.ExerciseEntry{}
 	var bodyPart, equipment, difficulty, category, videoURL, imageURL, coachID sql.NullString
@@ -169,7 +169,7 @@ func (r *ExerciseRepository) Create(ctx context.Context, e *training.ExerciseEnt
 		 (id, slug, name, description, mode, body_part, muscle_groups, secondary_muscles,
 		  equipment, difficulty, category, instructions, default_sec, video_url, image_url,
 		  is_custom, coach_id, created_at, updated_at)
-		 VALUES ($4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW(), NOW())`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW())`,
 		e.ID, e.Slug, e.Name, e.Description, e.Mode, bodyPart, e.MuscleGroups,
 		e.SecondaryMuscles, equipment, difficulty, category, e.Instructions,
 		defaultSec, videoURL, imageURL, e.IsCustom, coachID)
@@ -211,11 +211,11 @@ func (r *ExerciseRepository) Update(ctx context.Context, e *training.ExerciseEnt
 
 	res, err := r.db.ExecContext(ctx,
 		`UPDATE exercise_library
-		 SET slug = $21, name = $22, description = $23, mode = $24, body_part = $25, muscle_groups = $26,
-		     secondary_muscles = $27, equipment = $28, difficulty = $29, category = $30, instructions = $31,
-		     default_sec = $32, video_url = $33, image_url = $34, is_custom = $35, coach_id = $36,
+		 SET slug = $1, name = $2, description = $3, mode = $4, body_part = $5, muscle_groups = $6,
+		     secondary_muscles = $7, equipment = $8, difficulty = $9, category = $10, instructions = $11,
+		     default_sec = $12, video_url = $13, image_url = $14, is_custom = $15, coach_id = $16,
 		     updated_at = NOW()
-		 WHERE id = $37`,
+		 WHERE id = $17`,
 		e.Slug, e.Name, e.Description, e.Mode, bodyPart, e.MuscleGroups,
 		e.SecondaryMuscles, equipment, difficulty, category, e.Instructions,
 		defaultSec, videoURL, imageURL, e.IsCustom, coachID, e.ID)
@@ -232,7 +232,7 @@ func (r *ExerciseRepository) Update(ctx context.Context, e *training.ExerciseEnt
 
 // Delete removes an exercise entry by ID.
 func (r *ExerciseRepository) Delete(ctx context.Context, id string) error {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM exercise_library WHERE id = $38`, id)
+	res, err := r.db.ExecContext(ctx, `DELETE FROM exercise_library WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete exercise: %w", err)
 	}

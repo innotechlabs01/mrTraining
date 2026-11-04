@@ -71,13 +71,13 @@ func (r *Repository) insert(ctx context.Context, s *subscription.Subscription) e
 func (r *Repository) update(ctx context.Context, s *subscription.Subscription, existingVersion int) error {
 	result, err := r.exec.ExecContext(ctx, `
 		UPDATE subscriptions
-		SET athlete_id = $2, coach_id = $3, plan_id = $4, plan_name = $5,
-		    plan_price = $6, currency = $7, billing_period = $8, status = $9,
-		    cancel_at_period_end = $10, canceled_at = $11,
-		    current_period_start = $12, current_period_end = $13,
-		    grace_period_days = $14, payment_due_date = $15,
-		    version = $16, updated_at = NOW()
-		WHERE id = $1 AND version = $17`,
+		SET athlete_id = $1, coach_id = $2, plan_id = $3, plan_name = $4,
+		    plan_price = $5, currency = $6, billing_period = $7, status = $8,
+		    cancel_at_period_end = $9, canceled_at = $10,
+		    current_period_start = $11, current_period_end = $12,
+		    grace_period_days = $13, payment_due_date = $14,
+		    version = $15, updated_at = NOW()
+		WHERE id = $16 AND version = $17`,
 		s.ID, s.AthleteID, s.CoachID, s.PlanID, s.PlanName, s.PlanPrice,
 		s.Currency, s.BillingPeriod, string(s.Status), s.CancelAtPeriodEnd,
 		nullTime(s.CanceledAt), s.CurrentPeriodStart, s.CurrentPeriodEnd,

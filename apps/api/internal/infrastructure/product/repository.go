@@ -46,7 +46,7 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*productdomain.Pro
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, name, brand, image_url, price, received, gross, stock, low_stock_threshold,
 		 description, category, is_shop, coach_id, created_at, updated_at
-		 FROM products WHERE id = $2`, id)
+		 FROM products WHERE id = $1`, id)
 
 	p, err := scanProductRow(row)
 	if err != nil {
@@ -59,7 +59,7 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*productdomain.Pro
 func (r *Repository) Create(ctx context.Context, p *productdomain.Product) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO products (id, name, brand, image_url, price, received, gross, stock, low_stock_threshold, description, category, is_shop, coach_id)
-		 VALUES ($3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
 		p.ID, p.Name, p.Brand, p.ImageURL, p.Price, p.Received, p.Gross,
 		p.Stock, p.LowStockThreshold, p.Description, p.Category, p.IsShop, p.CoachID)
 	if err != nil {
@@ -71,9 +71,9 @@ func (r *Repository) Create(ctx context.Context, p *productdomain.Product) error
 // Update modifies an existing product record.
 func (r *Repository) Update(ctx context.Context, p *productdomain.Product) error {
 	result, err := r.db.ExecContext(ctx,
-		`UPDATE products SET name=$16, brand=$17, image_url=$18, price=$19, received=$20, gross=$21,
-		 stock=$22, low_stock_threshold=$23, description=$24, category=$25, is_shop=$26,
-		 updated_at=NOW() WHERE id=$27`,
+		`UPDATE products SET name=$1, brand=$2, image_url=$3, price=$4, received=$5, gross=$6,
+		 stock=$7, low_stock_threshold=$8, description=$9, category=$10, is_shop=$11,
+		 updated_at=NOW() WHERE id=$12`,
 		p.Name, p.Brand, p.ImageURL, p.Price, p.Received, p.Gross,
 		p.Stock, p.LowStockThreshold, p.Description, p.Category, p.IsShop, p.ID)
 	if err != nil {
@@ -91,7 +91,7 @@ func (r *Repository) Update(ctx context.Context, p *productdomain.Product) error
 
 // Delete removes a product record by ID.
 func (r *Repository) Delete(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM products WHERE id = $28`, id)
+	result, err := r.db.ExecContext(ctx, `DELETE FROM products WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete product: %w", err)
 	}
@@ -108,7 +108,7 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 // UpdateStock adjusts the stock of a product by the given delta.
 func (r *Repository) UpdateStock(ctx context.Context, id string, delta int) error {
 	result, err := r.db.ExecContext(ctx,
-		`UPDATE products SET stock = MAX(0, stock + $29), updated_at = NOW() WHERE id = $30`,
+		`UPDATE products SET stock = MAX(0, stock + $1), updated_at = NOW() WHERE id = $2`,
 		delta, id)
 	if err != nil {
 		return fmt.Errorf("failed to update stock: %w", err)
@@ -128,7 +128,7 @@ func (r *Repository) ListSalesByCoach(ctx context.Context, coachID string) ([]*p
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, product_id, product_name, brand, quantity, unit_price, unit_received,
 		 total, date, coach_id, created_at
-		 FROM sales WHERE coach_id = $31 ORDER BY created_at DESC`, coachID)
+		 FROM sales WHERE coach_id = $1 ORDER BY created_at DESC`, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sales: %w", err)
 	}
@@ -149,7 +149,7 @@ func (r *Repository) ListSalesByCoach(ctx context.Context, coachID string) ([]*p
 func (r *Repository) CreateSale(ctx context.Context, sale *productdomain.Sale) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO sales (id, product_id, product_name, brand, quantity, unit_price, unit_received, total, date, coach_id)
-		 VALUES ($32, $33, $34, $35, $36, $37, $38, $39, $40, $41)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 		sale.ID, sale.ProductID, sale.ProductName, sale.Brand, sale.Quantity,
 		sale.UnitPrice, sale.UnitReceived, sale.Total, sale.Date, sale.CoachID)
 	if err != nil {
@@ -158,7 +158,7 @@ func (r *Repository) CreateSale(ctx context.Context, sale *productdomain.Sale) e
 
 	// Decrement stock
 	if _, err := r.db.ExecContext(ctx,
-		`UPDATE products SET stock = MAX(0, stock - $42), updated_at = NOW() WHERE id = $43`,
+		`UPDATE products SET stock = MAX(0, stock - $1), updated_at = NOW() WHERE id = $2`,
 		sale.Quantity, sale.ProductID); err != nil {
 		return fmt.Errorf("failed to decrement stock: %w", err)
 	}
@@ -168,7 +168,7 @@ func (r *Repository) CreateSale(ctx context.Context, sale *productdomain.Sale) e
 
 // DeleteSale removes a sale record by ID.
 func (r *Repository) DeleteSale(ctx context.Context, saleID string) error {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM sales WHERE id = $44`, saleID)
+	res, err := r.db.ExecContext(ctx, `DELETE FROM sales WHERE id = $1`, saleID)
 	if err != nil {
 		return fmt.Errorf("failed to delete sale: %w", err)
 	}

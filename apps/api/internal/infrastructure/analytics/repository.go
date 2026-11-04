@@ -85,7 +85,7 @@ func (r *Repository) GetDashboardSummary(ctx context.Context, coachID string) (*
 		 FROM workout_session_logs wsl
 		 LEFT JOIN workout_set_logs wset ON wset.session_id = wsl.id AND wset.completed = 1
 		 WHERE wsl.completed = 1
-		   AND wsl.athlete_id IN (SELECT id FROM coach_athletes WHERE coach_id = $2)
+		   AND wsl.athlete_id IN (SELECT id FROM coach_athletes WHERE coach_id = $1)
 		   AND DATE(wsl.started_at) >= DATE('now', '-30 days')`, coachID).Scan(&sessions30d, &volume30d)
 	if err != nil {
 		return nil, fmt.Errorf("dashboard sessions: %w", err)
@@ -100,7 +100,7 @@ func (r *Repository) GetDashboardSummary(ctx context.Context, coachID string) (*
 	rows, err := r.exec.QueryContext(ctx,
 		`SELECT ca.id, ca.name
 		 FROM coach_athletes ca
-		 WHERE ca.coach_id = $3
+		 WHERE ca.coach_id = $1
 		   AND NOT EXISTS (
 		     SELECT 1 FROM workout_session_logs wsl
 		     WHERE wsl.athlete_id = ca.id
@@ -148,7 +148,7 @@ func (r *Repository) GetHRZones(ctx context.Context, athleteID string) ([]domain
 	var total int
 	rows, err := r.exec.QueryContext(ctx,
 		`SELECT value FROM athlete_health_metrics
-		 WHERE athlete_id = $4 AND metric_type = 'heart_rate'
+		 WHERE athlete_id = $1 AND metric_type = 'heart_rate'
 		   AND DATE(recorded_at) >= DATE('now', '-30 days')`, athleteID)
 	if err != nil {
 		return nil, fmt.Errorf("hr zones: %w", err)
@@ -200,7 +200,7 @@ func (r *Repository) GetFatigueMap(ctx context.Context, athleteID string) ([]dom
 		        COALESCE(SUM(wset.weight_kg * wset.reps), 0) AS load
 		 FROM workout_session_logs wsl
 		 LEFT JOIN workout_set_logs wset ON wset.session_id = wsl.id AND wset.completed = 1
-		 WHERE wsl.athlete_id = $5
+		 WHERE wsl.athlete_id = $1
 		   AND DATE(wsl.started_at) >= DATE('now', '-14 days')
 		 GROUP BY d
 		 ORDER BY d ASC`, athleteID)
@@ -274,7 +274,7 @@ func (r *Repository) GetOneRM(ctx context.Context, athleteID string) ([]domain.O
 		 FROM workout_set_logs wset
 		 JOIN workout_session_logs wsl ON wsl.id = wset.session_id
 		 LEFT JOIN workout_exercises we ON we.id = wset.exercise_id
-		 WHERE wsl.athlete_id = $6
+		 WHERE wsl.athlete_id = $1
 		   AND wset.completed = 1
 		   AND wset.weight_kg > 0 AND wset.reps > 0
 		   AND DATE(wset.logged_at) >= DATE('now', '-90 days')
@@ -318,7 +318,7 @@ func (r *Repository) GetTrainingSummary(ctx context.Context, coachID string) (*d
 		 FROM workout_session_logs wsl
 		 LEFT JOIN workout_set_logs wset ON wset.session_id = wsl.id AND wset.completed = 1
 		 WHERE wsl.completed = 1
-		   AND wsl.athlete_id IN (SELECT id FROM coach_athletes WHERE coach_id = $7)
+		   AND wsl.athlete_id IN (SELECT id FROM coach_athletes WHERE coach_id = $1)
 		   AND DATE(wsl.started_at) >= DATE('now', '-30 days')`,
 		coachID).Scan(&summary.TotalSessions, &summary.TotalVolume, &summary.AvgIntensity)
 	if err != nil {
@@ -340,7 +340,7 @@ func (r *Repository) GetEffort(ctx context.Context, athleteID string) ([]domain.
 		        COALESCE(wsl.duration_seconds, 0) AS duration_seconds
 		 FROM workout_session_logs wsl
 		 LEFT JOIN workout_set_logs wset ON wset.session_id = wsl.id AND wset.completed = 1
-		 WHERE wsl.athlete_id = $8
+		 WHERE wsl.athlete_id = $1
 		   AND wsl.completed = 1
 		   AND DATE(wsl.started_at) >= DATE('now', '-14 days')
 		 GROUP BY wsl.id

@@ -40,7 +40,7 @@ func (r *Repository) GetWorkoutExercises(ctx context.Context, workoutID string) 
 		`SELECT id, name, COALESCE(sets, 0), COALESCE(reps, 0),
 		        COALESCE(weight_kg, 0), COALESCE(rest_seconds, 0)
 		 FROM workout_exercises
-		 WHERE workout_id = $2
+		 WHERE workout_id = $1
 		 ORDER BY sort_order ASC, id ASC`, workoutID)
 	if err != nil {
 		return nil, fmt.Errorf("get workout exercises: %w", err)
@@ -72,14 +72,14 @@ func (r *Repository) GetExerciseHistory(ctx context.Context, athleteID, exercise
 		 FROM workout_set_logs wset
 		 JOIN workout_session_logs wsl ON wsl.id = wset.session_id
 		 JOIN workout_exercises we ON we.id = wset.exercise_id
-		 WHERE wsl.athlete_id = $3
-		   AND LOWER(TRIM(we.name)) = LOWER(TRIM($4))
+		 WHERE wsl.athlete_id = $1
+		   AND LOWER(TRIM(we.name)) = LOWER(TRIM($2))
 		   AND wset.completed = 1
 		   AND wset.weight_kg > 0
 		   AND wset.reps > 0
 		 GROUP BY d
 		 ORDER BY d DESC
-		 LIMIT $5`, athleteID, exerciseName, limit)
+		 LIMIT $3`, athleteID, exerciseName, limit)
 	if err != nil {
 		return nil, fmt.Errorf("get exercise history: %w", err)
 	}
@@ -104,8 +104,8 @@ func (r *Repository) GetExerciseLoadByDay(ctx context.Context, athleteID, exerci
 		 FROM workout_set_logs wset
 		 JOIN workout_session_logs wsl ON wsl.id = wset.session_id
 		 JOIN workout_exercises we ON we.id = wset.exercise_id
-		 WHERE wsl.athlete_id = $6
-		   AND LOWER(TRIM(we.name)) = LOWER(TRIM($7))
+		 WHERE wsl.athlete_id = $1
+		   AND LOWER(TRIM(we.name)) = LOWER(TRIM($2))
 		   AND wset.completed = 1
 		   AND DATE(wset.logged_at) >= DATE('now', '-7 days')
 		 GROUP BY d`, athleteID, exerciseName)

@@ -37,7 +37,7 @@ func (r *Repository) RegisterDevice(ctx context.Context, d *domain.Device) error
 func (r *Repository) GetDevice(ctx context.Context, id string) (*domain.Device, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, user_id, token, platform, is_active, created_at
-		 FROM devices WHERE id = $6`, id)
+		 FROM devices WHERE id = $1`, id)
 
 	d := &domain.Device{}
 	err := row.Scan(&d.ID, &d.UserID, &d.Token, &d.Platform, &d.IsActive, &d.CreatedAt)
@@ -54,7 +54,7 @@ func (r *Repository) GetDevice(ctx context.Context, id string) (*domain.Device, 
 func (r *Repository) GetDeviceByToken(ctx context.Context, token string) (*domain.Device, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, user_id, token, platform, is_active, created_at
-		 FROM devices WHERE token = $7`, token)
+		 FROM devices WHERE token = $1`, token)
 
 	d := &domain.Device{}
 	err := row.Scan(&d.ID, &d.UserID, &d.Token, &d.Platform, &d.IsActive, &d.CreatedAt)
@@ -71,7 +71,7 @@ func (r *Repository) GetDeviceByToken(ctx context.Context, token string) (*domai
 func (r *Repository) ListDevicesByUser(ctx context.Context, userID string) ([]*domain.Device, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, user_id, token, platform, is_active, created_at
-		 FROM devices WHERE user_id = $8 AND is_active = 1`, userID)
+		 FROM devices WHERE user_id = $1 AND is_active = 1`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list devices: %w", err)
 	}
@@ -91,7 +91,7 @@ func (r *Repository) ListDevicesByUser(ctx context.Context, userID string) ([]*d
 // DeactivateDevice marks a device as inactive.
 func (r *Repository) DeactivateDevice(ctx context.Context, id string) error {
 	result, err := r.db.ExecContext(ctx,
-		`UPDATE devices SET is_active = 0 WHERE id = $9`, id)
+		`UPDATE devices SET is_active = 0 WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to deactivate device: %w", err)
 	}
@@ -111,7 +111,7 @@ func (r *Repository) DeactivateDevice(ctx context.Context, id string) error {
 func (r *Repository) SaveNotification(ctx context.Context, n *domain.Notification) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO notifications (id, user_id, type, title, message, icon, is_read, created_at)
-		 VALUES ($10, $11, $12, $13, $14, $15, $16, NOW())`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
 		n.ID, n.UserID, n.Type, n.Title, n.Message, nullStr(n.Icon), n.Read)
 	if err != nil {
 		return fmt.Errorf("failed to save notification: %w", err)
@@ -123,7 +123,7 @@ func (r *Repository) SaveNotification(ctx context.Context, n *domain.Notificatio
 func (r *Repository) GetNotification(ctx context.Context, id string) (*domain.Notification, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, user_id, type, title, message, icon, is_read, created_at
-		 FROM notifications WHERE id = $17`, id)
+		 FROM notifications WHERE id = $1`, id)
 
 	n := &domain.Notification{}
 	var icon sql.NullString
@@ -144,8 +144,8 @@ func (r *Repository) GetNotification(ctx context.Context, id string) (*domain.No
 func (r *Repository) ListNotificationsByUser(ctx context.Context, userID string, limit, offset int) ([]*domain.Notification, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, user_id, type, title, message, icon, is_read, created_at
-		 FROM notifications WHERE user_id = $18
-		 ORDER BY created_at DESC LIMIT $19 OFFSET $20`, userID, limit, offset)
+		 FROM notifications WHERE user_id = $1
+		 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list notifications: %w", err)
 	}
@@ -170,7 +170,7 @@ func (r *Repository) ListNotificationsByUser(ctx context.Context, userID string,
 func (r *Repository) CountNotificationsByUser(ctx context.Context, userID string) (int, error) {
 	var count int
 	err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM notifications WHERE user_id = $21`, userID).Scan(&count)
+		`SELECT COUNT(*) FROM notifications WHERE user_id = $1`, userID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count notifications: %w", err)
 	}
@@ -180,7 +180,7 @@ func (r *Repository) CountNotificationsByUser(ctx context.Context, userID string
 // MarkNotificationRead marks a single notification as read.
 func (r *Repository) MarkNotificationRead(ctx context.Context, id string) error {
 	result, err := r.db.ExecContext(ctx,
-		`UPDATE notifications SET is_read = 1 WHERE id = $22`, id)
+		`UPDATE notifications SET is_read = 1 WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to mark notification read: %w", err)
 	}
@@ -197,7 +197,7 @@ func (r *Repository) MarkNotificationRead(ctx context.Context, id string) error 
 // MarkAllNotificationsRead marks all notifications for a user as read.
 func (r *Repository) MarkAllNotificationsRead(ctx context.Context, userID string) (int64, error) {
 	result, err := r.db.ExecContext(ctx,
-		`UPDATE notifications SET is_read = 1 WHERE user_id = $23 AND is_read = 0`, userID)
+		`UPDATE notifications SET is_read = 1 WHERE user_id = $1 AND is_read = 0`, userID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to mark all notifications read: %w", err)
 	}
@@ -211,7 +211,7 @@ func (r *Repository) MarkAllNotificationsRead(ctx context.Context, userID string
 func (r *Repository) GetPreferences(ctx context.Context, userID string) (*domain.NotificationPreference, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT user_id, workout_reminders, weekly_challenges, new_articles, community_updates, progress_reports
-		 FROM notification_preferences WHERE user_id = $24`, userID)
+		 FROM notification_preferences WHERE user_id = $1`, userID)
 
 	p := &domain.NotificationPreference{}
 	err := row.Scan(&p.UserID, &p.WorkoutReminders, &p.WeeklyChallenges,
@@ -237,7 +237,7 @@ func (r *Repository) GetPreferences(ctx context.Context, userID string) (*domain
 func (r *Repository) UpdatePreferences(ctx context.Context, p *domain.NotificationPreference) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO notification_preferences (user_id, workout_reminders, weekly_challenges, new_articles, community_updates, progress_reports)
-		 VALUES ($25, $26, $27, $28, $29, $30)
+		 VALUES ($1, $2, $3, $4, $5, $6)
 		 ON CONFLICT(user_id) DO UPDATE SET
 		 workout_reminders = excluded.workout_reminders,
 		 weekly_challenges = excluded.weekly_challenges,

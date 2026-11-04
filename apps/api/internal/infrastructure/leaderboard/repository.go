@@ -61,9 +61,9 @@ func (r *Repository) GetWeeklyLeaderboard(ctx context.Context, weekStart string,
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT athlete_id, athlete_name, points, week_start
 		FROM leaderboard_entries
-		WHERE week_start = $3
+		WHERE week_start = $1
 		ORDER BY points DESC
-		LIMIT $4
+		LIMIT $2
 	`, weekStart, limit)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
@@ -97,9 +97,9 @@ func (r *Repository) GetUserHistory(ctx context.Context, athleteID string, limit
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT week_start, rank, points, group_id
 		FROM leaderboard_entries
-		WHERE athlete_id = $5
+		WHERE athlete_id = $1
 		ORDER BY week_start DESC
-		LIMIT $6
+		LIMIT $2
 	`, athleteID, limit)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
@@ -131,7 +131,7 @@ func (r *Repository) UpsertLeaderboardEntry(ctx context.Context, entry *domain.G
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO leaderboard_entries (id, group_id, athlete_id, athlete_name, points, rank, week_start, created_at, updated_at)
-		VALUES ($7, $8, $9, $10, $11, $12, $13, $14, $15)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT(id) DO UPDATE SET points = excluded.points, rank = excluded.rank, updated_at = excluded.updated_at
 	`, entry.ID, entry.GroupID, entry.AthleteID, entry.AthleteName, entry.Points, entry.Rank, entry.WeekStart, now, now)
 	if err != nil {

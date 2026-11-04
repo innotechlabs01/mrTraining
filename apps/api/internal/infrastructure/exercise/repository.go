@@ -98,7 +98,7 @@ func (r *Repository) GetBySlug(ctx context.Context, slug string) (*exercise.Exer
 		`SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
 		 default_sec, video_url, image_url, is_custom, coach_id, created_at, updated_at
-		 FROM exercise_library WHERE slug = $2`, slug)
+		 FROM exercise_library WHERE slug = $1`, slug)
 
 	e := &exercise.ExerciseEntry{}
 	var bodyPart, equipment, difficulty, category, videoURL, imageURL, coachID sql.NullString
@@ -157,7 +157,7 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*exerci
 		`SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
 		 default_sec, video_url, image_url, is_custom, coach_id, created_at, updated_at
-		 FROM exercise_library WHERE is_custom = 0 OR coach_id = $3
+		 FROM exercise_library WHERE is_custom = 0 OR coach_id = $1
 		 ORDER BY name`, coachID)
 }
 
@@ -196,7 +196,7 @@ func (r *Repository) Create(ctx context.Context, e *exercise.ExerciseEntry) erro
 		 (id, slug, name, description, mode, body_part, muscle_groups, secondary_muscles,
 		  equipment, difficulty, category, instructions, default_sec, video_url, image_url,
 		  is_custom, coach_id, created_at, updated_at)
-		 VALUES ($4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW(), NOW())`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW())`,
 		e.ID, e.Slug, e.Name, e.Description, e.Mode, bodyPart, e.MuscleGroups,
 		e.SecondaryMuscles, equipment, difficulty, category, e.Instructions,
 		defaultSec, videoURL, imageURL, e.IsCustom, coachID)
@@ -234,10 +234,10 @@ func (r *Repository) Update(ctx context.Context, e *exercise.ExerciseEntry) erro
 	}
 
 	result, err := r.exec.ExecContext(ctx,
-		`UPDATE exercise_library SET name = $20, description = $21, mode = $22, body_part = $23,
-		 muscle_groups = $24, secondary_muscles = $25, equipment = $26, difficulty = $27,
-		 category = $28, instructions = $29, default_sec = $30, video_url = $31,
-		 image_url = $32, updated_at = NOW() WHERE id = $33`,
+		`UPDATE exercise_library SET name = $1, description = $2, mode = $3, body_part = $4,
+		 muscle_groups = $5, secondary_muscles = $6, equipment = $7, difficulty = $8,
+		 category = $9, instructions = $10, default_sec = $11, video_url = $12,
+		 image_url = $13, updated_at = NOW() WHERE id = $14`,
 		e.Name, e.Description, e.Mode, bodyPart, e.MuscleGroups, e.SecondaryMuscles,
 		equipment, difficulty, category, e.Instructions, defaultSec, videoURL, imageURL, e.ID)
 	if err != nil {
@@ -255,7 +255,7 @@ func (r *Repository) Update(ctx context.Context, e *exercise.ExerciseEntry) erro
 
 // Delete removes an exercise entry.
 func (r *Repository) Delete(ctx context.Context, id string) error {
-	result, err := r.exec.ExecContext(ctx, `DELETE FROM exercise_library WHERE id = $33`, id)
+	result, err := r.exec.ExecContext(ctx, `DELETE FROM exercise_library WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete exercise: %w", err)
 	}

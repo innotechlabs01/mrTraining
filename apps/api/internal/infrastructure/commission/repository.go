@@ -79,7 +79,7 @@ func (r *Repository) CreateAgreementVersion(ctx context.Context, in commissiondo
 	var maxClosedTo sql.NullString
 	if err := tx.QueryRowContext(ctx, `
 		SELECT MAX(valid_to) FROM commission_agreements
-		WHERE relationship_id = $2 AND valid_to IS NOT NULL
+		WHERE relationship_id = $1 AND valid_to IS NOT NULL
 	`, in.RelationshipID).Scan(&maxClosedTo); err != nil {
 		return nil, fmt.Errorf("failed to read closed intervals: %w", err)
 	}
@@ -88,7 +88,7 @@ func (r *Repository) CreateAgreementVersion(ctx context.Context, in commissiondo
 	var openFrom sql.NullString
 	if err := tx.QueryRowContext(ctx, `
 		SELECT MIN(valid_from) FROM commission_agreements
-		WHERE relationship_id = $3 AND valid_to IS NULL
+		WHERE relationship_id = $1 AND valid_to IS NULL
 	`, in.RelationshipID).Scan(&openFrom); err != nil {
 		return nil, fmt.Errorf("failed to read open interval: %w", err)
 	}
@@ -108,15 +108,15 @@ func (r *Repository) CreateAgreementVersion(ctx context.Context, in commissiondo
 	// Close the current open version at the new valid_from (immutable history).
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE commission_agreements
-		SET valid_to = $4, status = 'superseded'
-		WHERE relationship_id = $5 AND valid_to IS NULL
+		SET valid_to = $1, status = 'superseded'
+		WHERE relationship_id = $2 AND valid_to IS NULL
 	`, in.ValidFrom, in.RelationshipID); err != nil {
 		return nil, fmt.Errorf("failed to close previous agreement: %w", err)
 	}
 
 	var nextVersion int64
 	if err := tx.QueryRowContext(ctx, `
-		SELECT COALESCE(MAX(version), 0) + 1 FROM commission_agreements WHERE relationship_id = $6
+		SELECT COALESCE(MAX(version), 0) + 1 FROM commission_agreements WHERE relationship_id = $1
 	`, in.RelationshipID).Scan(&nextVersion); err != nil {
 		return nil, fmt.Errorf("failed to compute next version: %w", err)
 	}
@@ -134,7 +134,7 @@ func (r *Repository) CreateAgreementVersion(ctx context.Context, in commissiondo
 		INSERT INTO commission_agreements
 			(id, relationship_id, version, rate_bps, fixed_amount_cents, eligible_base_rule, rounding, currency, valid_from, valid_to, status, accepted_by, accepted_at, created_at)
 		VALUES
-			($7, $8, $9, $10, $11, 'gross_minus_discount_minus_tax', 'half_up', $12, $13, NULL, $14, $15, $16, NOW())
+			($1, $2, $3, $4, $5, 'gross_minus_discount_minus_tax', 'half_up', $6, $7, NULL, $8, $9, $10, NOW())
 	`, id, in.RelationshipID, nextVersion, in.RateBps, in.FixedAmountCents, in.Currency, in.ValidFrom, status, acceptedBy, acceptedAt); err != nil {
 		return nil, fmt.Errorf("failed to insert agreement: %w", err)
 	}
@@ -160,7 +160,7 @@ func (r *Repository) ListByRelationship(ctx context.Context, relationshipID stri
 	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, relationship_id, version, rate_bps, fixed_amount_cents, eligible_base_rule, rounding, currency, valid_from, valid_to, status, COALESCE(accepted_by, ''), COALESCE(accepted_at, ''), created_at
 		FROM commission_agreements
-		WHERE relationship_id = $17
+		WHERE relationship_id = $1
 		ORDER BY version DESC
 	`, relationshipID)
 	if err != nil {
@@ -184,7 +184,7 @@ func (r *Repository) GetOpenAgreement(ctx context.Context, relationshipID string
 	return scanAgreement(r.exec.QueryRowContext(ctx, `
 		SELECT id, relationship_id, version, rate_bps, fixed_amount_cents, eligible_base_rule, rounding, currency, valid_from, valid_to, status, COALESCE(accepted_by, ''), COALESCE(accepted_at, ''), created_at
 		FROM commission_agreements
-		WHERE relationship_id = $18 AND valid_to IS NULL
+		WHERE relationship_id = $1 AND valid_to IS NULL
 		ORDER BY version DESC
 		LIMIT 1
 	`, relationshipID))
@@ -193,7 +193,7 @@ func (r *Repository) GetOpenAgreement(ctx context.Context, relationshipID string
 func getAgreementTx(ctx context.Context, tx *sql.Tx, id string) (*commissiondomain.Agreement, error) {
 	return scanAgreement(tx.QueryRowContext(ctx, `
 		SELECT id, relationship_id, version, rate_bps, fixed_amount_cents, eligible_base_rule, rounding, currency, valid_from, valid_to, status, COALESCE(accepted_by, ''), COALESCE(accepted_at, ''), created_at
-		FROM commission_agreements WHERE id = $19
+		FROM commission_agreements WHERE id = $1
 	`, id))
 }
 

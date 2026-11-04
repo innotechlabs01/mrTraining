@@ -50,7 +50,7 @@ func (r *Repository) GetTodayData(ctx context.Context, athleteID string) (*today
 			`SELECT COALESCE(AVG(CASE WHEN metric_type='sleep' THEN value END), 0),
 			        COALESCE(AVG(CASE WHEN metric_type='hrv' THEN value END), 0),
 			        COALESCE(AVG(CASE WHEN metric_type='recovery' THEN value END), 0)
-			 FROM athlete_health_metrics WHERE athlete_id = $2 AND recorded_at >= datetime('now', '-7 days')`, athleteID).
+			 FROM athlete_health_metrics WHERE athlete_id = $1 AND recorded_at >= datetime('now', '-7 days')`, athleteID).
 			Scan(&readiness.Sleep, &readiness.HRV, &readiness.Recovery)
 		readiness.Score = int((readiness.Sleep + readiness.HRV + readiness.Recovery) / 3)
 		if readiness.Score > 100 {
@@ -85,7 +85,7 @@ func (r *Repository) GetTodayData(ctx context.Context, athleteID string) (*today
 			   FROM workout_exercises
 			   GROUP BY workout_id
 			 ) we ON we.workout_id = aw.id
-			 WHERE aw.athlete_id = $3 AND aw.status IN ('active','in_progress')
+			 WHERE aw.athlete_id = $1 AND aw.status IN ('active','in_progress')
 			 ORDER BY aw.start_date DESC LIMIT 5`, athleteID)
 		if err != nil {
 			return nil
@@ -109,7 +109,7 @@ func (r *Repository) GetTodayData(ctx context.Context, athleteID string) (*today
 			`SELECT cs.id, cs.name, cs.time, cs.end_time, cs.location, cs.status
 			 FROM coach_sessions cs
 			 JOIN session_athletes sa ON sa.session_id = cs.id
-			 WHERE sa.athlete_id = $4 AND date(cs.time) = CURRENT_DATE
+			 WHERE sa.athlete_id = $1 AND date(cs.time) = CURRENT_DATE
 			 ORDER BY cs.time`, athleteID)
 		if err != nil {
 			return nil

@@ -42,7 +42,7 @@ func (r *Repository) CreatePaymentDeclaration(ctx context.Context, in domain.Cre
 
 	var maxVersion int
 	_ = tx.QueryRowContext(ctx, `
-		SELECT COALESCE(MAX(version), 0) FROM ally_payment_declarations WHERE operation_id = $2
+		SELECT COALESCE(MAX(version), 0) FROM ally_payment_declarations WHERE operation_id = $1
 	`, in.OperationID).Scan(&maxVersion)
 	nextVersion := maxVersion + 1
 
@@ -60,7 +60,7 @@ func (r *Repository) CreatePaymentDeclaration(ctx context.Context, in domain.Cre
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO ally_payment_declarations
 			(id, operation_id, version, amount_cents, currency, method, declared_at, reference, evidence_ref, status, created_at)
-		VALUES ($3, $4, $5, $6, $7, $8, $9, $10, $11, 'declared', $12)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'declared', $10)
 	`, id, in.OperationID, nextVersion, in.AmountCents, currency, in.Method, declaredAt, in.Reference, in.EvidenceRef, t)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert payment declaration: %w", err)
@@ -104,7 +104,7 @@ func (r *Repository) GetPaymentDeclaration(ctx context.Context, declarationID, a
 		       d.status, COALESCE(d.reviewed_by, ''), COALESCE(d.reviewed_at, ''), COALESCE(d.review_note, ''), d.created_at
 		FROM ally_payment_declarations d
 		JOIN ally_operations o ON d.operation_id = o.id
-		WHERE d.id = $13 AND o.ally_id = $14
+		WHERE d.id = $1 AND o.ally_id = $2
 	`, declarationID, allyID))
 }
 
@@ -115,8 +115,8 @@ func (r *Repository) ResolveAllyID(ctx context.Context, userID string) (string, 
 	err := r.db.QueryRowContext(ctx, `
 		SELECT COUNT(*), COALESCE(MIN(a.id), '')
 		FROM allies a
-		WHERE a.owner_user_id = $15
-		   OR a.id IN (SELECT ally_id FROM ally_members WHERE user_id = $16)
+		WHERE a.owner_user_id = $1
+		   OR a.id IN (SELECT ally_id FROM ally_members WHERE user_id = $2)
 	`, userID, userID).Scan(&count, &allyID)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve ally for user: %w", err)
@@ -138,7 +138,7 @@ func (r *Repository) ListPaymentDeclarationsByAlly(ctx context.Context, allyID s
 		       d.status, COALESCE(d.reviewed_by, ''), COALESCE(d.reviewed_at, ''), COALESCE(d.review_note, ''), d.created_at
 		FROM ally_payment_declarations d
 		JOIN ally_operations o ON d.operation_id = o.id
-		WHERE o.ally_id = $17
+		WHERE o.ally_id = $1
 		ORDER BY d.created_at DESC
 	`, allyID)
 	if err != nil {
@@ -154,7 +154,7 @@ func (r *Repository) ListPaymentDeclarationsByOperation(ctx context.Context, ope
 		SELECT id, operation_id, version, COALESCE(supersedes_id, ''), amount_cents, currency,
 		       COALESCE(method, ''), declared_at, COALESCE(reference, ''), COALESCE(evidence_ref, ''),
 		       status, COALESCE(reviewed_by, ''), COALESCE(reviewed_at, ''), COALESCE(review_note, ''), created_at
-		FROM ally_payment_declarations WHERE operation_id = $18
+		FROM ally_payment_declarations WHERE operation_id = $1
 		ORDER BY version DESC
 	`, operationID)
 	if err != nil {
@@ -171,7 +171,7 @@ func (r *Repository) GetActiveDeclarationByOperation(ctx context.Context, operat
 		       COALESCE(method, ''), declared_at, COALESCE(reference, ''), COALESCE(evidence_ref, ''),
 		       status, COALESCE(reviewed_by, ''), COALESCE(reviewed_at, ''), COALESCE(review_note, ''), created_at
 		FROM ally_payment_declarations
-		WHERE operation_id = $19 AND status IN ('declared','under_review','confirmed')
+		WHERE operation_id = $1 AND status IN ('declared','under_review','confirmed')
 		ORDER BY version DESC
 		LIMIT 1
 	`, operationID))
@@ -192,8 +192,8 @@ func (r *Repository) ReviewPaymentDeclaration(ctx context.Context, declarationID
 	t := time.Now().Format("2006-01-02 15:04:05")
 	result, err := tx.ExecContext(ctx, `
 		UPDATE ally_payment_declarations
-		SET status = $20, reviewed_by = $21, reviewed_at = $22, review_note = $23
-		WHERE id = $24 AND status IN ('declared','under_review')
+		SET status = $1, reviewed_by = $2, reviewed_at = $3, review_note = $4
+		WHERE id = $5 AND status IN ('declared','under_review')
 	`, in.Status, reviewerID, t, in.ReviewNote, declarationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to review payment declaration: %w", err)
@@ -221,7 +221,7 @@ func (r *Repository) ReviewPaymentDeclaration(ctx context.Context, declarationID
 		SELECT id, operation_id, version, COALESCE(supersedes_id, ''), amount_cents, currency,
 		       COALESCE(method, ''), declared_at, COALESCE(reference, ''), COALESCE(evidence_ref, ''),
 		       status, COALESCE(reviewed_by, ''), COALESCE(reviewed_at, ''), COALESCE(review_note, ''), created_at
-		FROM ally_payment_declarations WHERE id = $25
+		FROM ally_payment_declarations WHERE id = $1
 	`, declarationID))
 }
 
@@ -239,7 +239,7 @@ func (r *Repository) ReversePaymentDeclaration(ctx context.Context, declarationI
 		       d.status, COALESCE(d.reviewed_by, ''), COALESCE(d.reviewed_at, ''), COALESCE(d.review_note, ''), d.created_at
 		FROM ally_payment_declarations d
 		JOIN ally_operations o ON d.operation_id = o.id
-		WHERE d.id = $26 AND o.ally_id = $27
+		WHERE d.id = $1 AND o.ally_id = $2
 	`, declarationID, reverserAllyID))
 	if err != nil {
 		return nil, err
@@ -253,8 +253,8 @@ func (r *Repository) ReversePaymentDeclaration(ctx context.Context, declarationI
 
 	_, err = tx.ExecContext(ctx, `
 		UPDATE ally_payment_declarations
-		SET status = 'reversed', reviewed_by = $28, reviewed_at = $29
-		WHERE id = $30 AND status IN ('declared','under_review','confirmed')
+		SET status = 'reversed', reviewed_by = $1, reviewed_at = $2
+		WHERE id = $3 AND status IN ('declared','under_review','confirmed')
 	`, reverserAllyID, t, declarationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reverse payment declaration: %w", err)
@@ -265,7 +265,7 @@ func (r *Repository) ReversePaymentDeclaration(ctx context.Context, declarationI
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO ally_payment_declarations
 			(id, operation_id, version, supersedes_id, amount_cents, currency, method, declared_at, reference, evidence_ref, status, created_at)
-		VALUES ($31, $32, $33, $34, $35, $36, $37, $38, $39, $40, 'declared', $41)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'declared', $11)
 	`, id, current.OperationID, nextVersion, declarationID, current.AmountCents, current.Currency,
 		current.Method, current.DeclaredAt, current.Reference, current.EvidenceRef, t)
 	if err != nil {

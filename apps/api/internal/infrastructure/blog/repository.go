@@ -76,7 +76,7 @@ func (r *Repository) ListArticles(ctx context.Context, page, limit int, publishe
 func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*blog.Article, error) {
 	rows, err := r.db.QueryContext(ctx, fmt.Sprintf(`
 		SELECT %s %s
-		WHERE p.coach_id = $3
+		WHERE p.coach_id = $1
 		ORDER BY COALESCE(p.published_at, p.created_at) DESC
 	`, articleColumns, articleFrom), coachID)
 	if err != nil {
@@ -99,7 +99,7 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*blog.A
 func (r *Repository) GetArticle(ctx context.Context, id string) (*blog.Article, error) {
 	row := r.db.QueryRowContext(ctx, fmt.Sprintf(`
 		SELECT %s %s
-		WHERE p.id = $4
+		WHERE p.id = $1
 	`, articleColumns, articleFrom), id)
 	return scanArticle(row)
 }
@@ -118,7 +118,7 @@ func (r *Repository) Create(ctx context.Context, a *blog.Article) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO blog_posts (id, slug, title, excerpt, content, category, tags, image_url,
 		                        is_published, published_at, coach_id, created_at, updated_at)
-		VALUES ($5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`,
 		a.ID, a.Slug, a.Title, a.Excerpt, a.Content, a.Category, tags, a.ImageURL,
 		boolToInt(a.IsPublished), nullStr(a.PublishedAt), a.AuthorID, a.CreatedAt, a.UpdatedAt,
@@ -137,9 +137,9 @@ func (r *Repository) Update(ctx context.Context, a *blog.Article) error {
 
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE blog_posts
-		SET slug = $18, title = $19, excerpt = $20, content = $21, category = $22, tags = $23,
-		    image_url = $24, is_published = $25, published_at = $26, updated_at = $27
-		WHERE id = $28 AND coach_id = $29
+		SET slug = $1, title = $2, excerpt = $3, content = $4, category = $5, tags = $6,
+		    image_url = $7, is_published = $8, published_at = $9, updated_at = $10
+		WHERE id = $11 AND coach_id = $12
 	`,
 		a.Slug, a.Title, a.Excerpt, a.Content, a.Category, tags, a.ImageURL,
 		boolToInt(a.IsPublished), nullStr(a.PublishedAt), a.UpdatedAt, a.ID, a.AuthorID,
@@ -157,7 +157,7 @@ func (r *Repository) Update(ctx context.Context, a *blog.Article) error {
 
 // Delete removes an article owned by the coach.
 func (r *Repository) Delete(ctx context.Context, id, coachID string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM blog_posts WHERE id = $30 AND coach_id = $31`, id, coachID)
+	_, err := r.db.ExecContext(ctx, `DELETE FROM blog_posts WHERE id = $1 AND coach_id = $2`, id, coachID)
 	return err
 }
 
@@ -165,7 +165,7 @@ func (r *Repository) upsertMeta(ctx context.Context, postID string, readTime, vi
 	// Preserve the view count on edit: only read_time_minutes is updated on conflict.
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO blog_post_meta (post_id, read_time_minutes, views)
-		VALUES ($32, $33, $34)
+		VALUES ($1, $2, $3)
 		ON CONFLICT(post_id) DO UPDATE SET read_time_minutes = excluded.read_time_minutes
 	`, postID, readTime, views)
 	return err
