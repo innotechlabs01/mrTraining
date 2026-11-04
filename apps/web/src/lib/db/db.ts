@@ -25,7 +25,7 @@ export function getPool(): Pool {
         )
       }
       console.warn('[DB] No DATABASE_URL set — falling back to local PostgreSQL for development')
-      pool = new Pool({ connectionString: 'postgres://mrtraining:mrtraining@localhost:5432/mrtraining?sslmode=disable' })
+      pool = new Pool({ connectionString: 'postgres://postgres:postgres@localhost:5432/mr_training_migration?sslmode=disable' })
     } else {
       pool = new Pool({ connectionString: url })
     }
