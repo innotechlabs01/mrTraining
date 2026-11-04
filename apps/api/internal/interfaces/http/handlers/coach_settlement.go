@@ -320,6 +320,9 @@ func (h *CoachSettlementHandler) handleError(c *fiber.Ctx, err error) error {
 	if appErr, ok := err.(*errors.AppError); ok {
 		return appresponse.Error(c, appErr.Status, appErr.Message)
 	}
+	if err != nil && err.Error() == domain.ErrNotFound.Error() {
+		return appresponse.Error(c, fiber.StatusNotFound, "settlement not found for coach")
+	}
 	return appresponse.Error(c, fiber.StatusInternalServerError, "internal server error")
 }
 

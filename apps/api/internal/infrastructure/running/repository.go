@@ -798,8 +798,8 @@ func (r *Repository) SaveOutbox(ctx context.Context, eventType, aggregateType, a
 	}
 
 	_, err = r.exec.ExecContext(ctx, `
-		INSERT INTO outbox (event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status)
-		VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'pending')
+		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, next_retry_at, attempts)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW(), 'pending', NOW(), 0)
 	`,
 		eventType, aggregateType, aggregateID, coachID, athleteID, payloadJSON)
 	if err != nil {

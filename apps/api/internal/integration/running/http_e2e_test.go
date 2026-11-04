@@ -50,6 +50,9 @@ func setupE2EApp(t *testing.T) (*fiber.App, *runningapp.Service, *runninginfra.R
 				Role:   role,
 				Email:  userID + "@test.com",
 			})
+			if role == "coach" {
+				c.Locals(string(middleware.CoachIDKey), userID)
+			}
 		}
 		return c.Next()
 	})
