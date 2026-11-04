@@ -28,6 +28,17 @@ func (h *AnalyticsHandler) withTx(c *fiber.Ctx, fn func(*analyticsapp.Service) e
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
+	athleteID := c.Params("athleteId")
+		if athleteID != "" && userID != athleteID {
+		if h.tenantResolver == nil {
+			return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this athlete")
+		}
+		ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, userID)
+		if err != nil || !ok {
+			return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this athlete")
+		}
+	}
+
 	coachID := middleware.GetCoachID(c)
 	if coachID == "" {
 		return fn(h.service)

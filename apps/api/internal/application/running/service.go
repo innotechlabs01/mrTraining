@@ -18,6 +18,7 @@ import (
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/running"
 	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
+	databasepkg "github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Service implements running-related business operations.
@@ -670,12 +671,13 @@ func (s *Service) CreateTemplate(ctx context.Context, t *domain.RunningWorkoutTe
 			return fmt.Errorf("begin tx: %w", errTx)
 		}
 		var err error
+		txRepo := asTxRepo(s.repo, tx)
 		defer func() {
 			if err != nil {
 				tx.Rollback()
 			}
 		}()
-		if err = s.repo.SaveTemplate(ctx, t); err != nil {
+		if err = txRepo.SaveTemplate(ctx, t); err != nil {
 			return fmt.Errorf("create template: %w", err)
 		}
 		if err = s.insertOutboxTemplateCreatedTx(ctx, tx, t.ID, t.CoachID, t.Name); err != nil {
@@ -716,39 +718,42 @@ func (s *Service) ListTemplatesByCoach(ctx context.Context, coachID string) ([]*
 
 // UpdateTemplate updates template mutable fields and persistence.
 func (s *Service) UpdateTemplate(ctx context.Context, id, name, description string, ttype domain.RunningWorkoutTemplateType, targetPaceMin, targetPaceMax *float64, targetHRMin, targetHRMax, targetCadence *int, targetDistance *float64, targetDuration *int) error {
-	t, err := s.repo.GetTemplate(ctx, id)
+	tpl, err := s.repo.GetTemplate(ctx, id)
 	if err != nil {
 		return fmt.Errorf("get template: %w", err)
 	}
+	if tpl == nil {
+		return fmt.Errorf("template not found: %s", id)
+	}
 	if name != "" {
-		t.Name = name
+		tpl.Name = name
 	}
 	if description != "" {
-		t.Description = description
+		tpl.Description = description
 	}
 	if ttype != "" {
-		t.Type = ttype
+		tpl.Type = ttype
 	}
 	if targetPaceMin != nil {
-		t.TargetPaceMinPerKm = targetPaceMin
+		tpl.TargetPaceMinPerKm = targetPaceMin
 	}
 	if targetPaceMax != nil {
-		t.TargetPaceMaxPerKm = targetPaceMax
+		tpl.TargetPaceMaxPerKm = targetPaceMax
 	}
 	if targetHRMin != nil {
-		t.TargetHeartRateMin = targetHRMin
+		tpl.TargetHeartRateMin = targetHRMin
 	}
 	if targetHRMax != nil {
-		t.TargetHeartRateMax = targetHRMax
+		tpl.TargetHeartRateMax = targetHRMax
 	}
 	if targetCadence != nil {
-		t.TargetCadence = targetCadence
+		tpl.TargetCadence = targetCadence
 	}
 	if targetDistance != nil {
-		t.TargetDistanceKm = targetDistance
+		tpl.TargetDistanceKm = targetDistance
 	}
 	if targetDuration != nil {
-		t.TargetDurationSec = targetDuration
+		tpl.TargetDurationSec = targetDuration
 	}
 
 	var tx *sql.Tx
@@ -758,19 +763,14 @@ func (s *Service) UpdateTemplate(ctx context.Context, id, name, description stri
 		if errTx != nil {
 			return fmt.Errorf("begin tx: %w", errTx)
 		}
-		defer func() {
-			if err != nil {
-				tx.Rollback()
-			}
-		}()
-	}
-
-	if err = s.repo.SaveTemplate(ctx, t); err != nil {
-		return fmt.Errorf("update template: %w", err)
-	}
-
-	if tx != nil {
-		if err = s.insertOutboxTemplateUpdatedTx(ctx, tx, t.ID, t.CoachID, t.Name, t.Version); err != nil {
+		defer func() { _ = tx }()
+		txRepo := asTxRepo(s.repo, tx)
+		if err = txRepo.SaveTemplate(ctx, tpl); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("update template: %w", err)
+		}
+		if err = s.insertOutboxTemplateUpdatedTx(ctx, tx, tpl.ID, tpl.CoachID, tpl.Name, tpl.Version); err != nil {
+			tx.Rollback()
 			return fmt.Errorf("insert outbox template.updated: %w", err)
 		}
 		if err = tx.Commit(); err != nil {
@@ -779,7 +779,10 @@ func (s *Service) UpdateTemplate(ctx context.Context, id, name, description stri
 		return nil
 	}
 
-	if err = s.insertOutboxTemplateUpdated(ctx, t.ID, t.CoachID, t.Name, t.Version); err != nil {
+	if err := s.repo.SaveTemplate(ctx, tpl); err != nil {
+		return fmt.Errorf("update template: %w", err)
+	}
+	if err := s.insertOutboxTemplateUpdated(ctx, tpl.ID, tpl.CoachID, tpl.Name, tpl.Version); err != nil {
 		return fmt.Errorf("insert outbox template.updated: %w", err)
 	}
 	return nil
@@ -842,12 +845,13 @@ func (s *Service) CreateAssignment(ctx context.Context, a *domain.RunningWorkout
 			return fmt.Errorf("begin tx: %w", errTx)
 		}
 		var err error
+		txRepo := asTxRepo(s.repo, tx)
 		defer func() {
 			if err != nil {
 				tx.Rollback()
 			}
 		}()
-		if err = s.repo.SaveAssignment(ctx, a); err != nil {
+		if err = txRepo.SaveAssignment(ctx, a); err != nil {
 			return fmt.Errorf("create assignment: %w", err)
 		}
 		if err = s.insertOutboxAssignmentCreatedTx(ctx, tx, a.ID, a.CoachID, a.AthleteID, a.TemplateID); err != nil {
@@ -970,7 +974,8 @@ func (s *Service) StartSession(ctx context.Context, assignmentID, athleteID stri
 				tx.Rollback()
 			}
 		}()
-		if err = s.repo.SaveSession(ctx, session); err != nil {
+		txRepo := asTxRepo(s.repo, tx)
+		if err = txRepo.SaveSession(ctx, session); err != nil {
 			return nil, fmt.Errorf("save running session: %w", err)
 		}
 
@@ -986,11 +991,11 @@ func (s *Service) StartSession(ctx context.Context, assignmentID, athleteID stri
 			return nil, fmt.Errorf("marshal template copy: %w", err)
 		}
 		snapshot.TemplateCopy = string(templateCopy)
-		if err = s.repo.SaveSnapshot(ctx, snapshot); err != nil {
+		if err = txRepo.SaveSnapshot(ctx, snapshot); err != nil {
 			return nil, fmt.Errorf("save snapshot: %w", err)
 		}
 
-		if err = s.repo.UpdateAssignmentStatus(ctx, assignmentID, domain.AssignmentStatusStarted); err != nil {
+		if err = txRepo.UpdateAssignmentStatus(ctx, assignmentID, domain.AssignmentStatusStarted); err != nil {
 			return nil, fmt.Errorf("update assignment status: %w", err)
 		}
 
@@ -1070,9 +1075,6 @@ func (s *Service) CompleteSession(ctx context.Context, sessionID, athleteID stri
 	updated.Distance, updated.Duration, updated.Pace = session.Distance, session.Duration, session.Pace
 	updated.Calories, updated.Elevation = session.Calories, session.Elevation
 	updated.HeartRate, updated.Cadence, updated.GPSRoute = session.HeartRate, session.Cadence, session.GPSRoute
-	if err := s.repo.UpdateSession(ctx, &updated); err != nil {
-		return fmt.Errorf("complete session: %w", err)
-	}
 	var coachID string
 	if snapshot != nil {
 		if assignment, aerr := s.repo.GetAssignment(ctx, snapshot.AssignmentID); aerr == nil && assignment != nil {
@@ -1091,11 +1093,16 @@ func (s *Service) CompleteSession(ctx context.Context, sessionID, athleteID stri
 				tx.Rollback()
 			}
 		}()
+		txRepo := asTxRepo(s.repo, tx)
+		if err = txRepo.UpdateSession(ctx, &updated); err != nil {
+			return fmt.Errorf("complete session: %w", err)
+		}
 		if err = s.insertOutboxWorkoutCompletedTx(ctx, tx, sessionID, athleteID, coachID); err != nil {
 			return fmt.Errorf("insert outbox workout.completed: %w", err)
+
 		}
 		if snapshot != nil {
-			if err = s.repo.UpdateAssignmentStatus(ctx, snapshot.AssignmentID, domain.AssignmentStatusCompleted); err != nil {
+			if err = txRepo.UpdateAssignmentStatus(ctx, snapshot.AssignmentID, domain.AssignmentStatusCompleted); err != nil {
 				return fmt.Errorf("complete assignment: %w", err)
 			}
 		}
@@ -1105,6 +1112,9 @@ func (s *Service) CompleteSession(ctx context.Context, sessionID, athleteID stri
 		return nil
 	}
 
+	if err := s.repo.UpdateSession(ctx, &updated); err != nil {
+		return fmt.Errorf("complete session: %w", err)
+	}
 	if err := s.insertOutboxWorkoutCompleted(ctx, sessionID, athleteID, coachID); err != nil {
 		return fmt.Errorf("insert outbox workout.completed: %w", err)
 	}
@@ -1289,4 +1299,19 @@ func (s *Service) insertOutboxWorkoutCompletedTx(ctx context.Context, tx *sql.Tx
 		VALUES (gen_random_uuid(), 'workout.completed', 'workout', $1, $2, $3, $4, NOW(), 'pending', 0, NOW(), NULL, NOW())
 	`, sessionID, coachID, athleteID, payload)
 	return err
+}
+
+// asTxRepo returns a repository bound to the supplied transaction when supported.
+func asTxRepo(r domain.Repository, tx *sql.Tx) domain.Repository {
+	if repo, ok := r.(interface {
+		WithExecutor(*sql.Tx) domain.Repository
+	}); ok {
+		return repo.WithExecutor(tx)
+	}
+	if repo, ok := r.(interface {
+		WithExecutor(databasepkg.Executor) domain.Repository
+	}); ok {
+		return repo.WithExecutor(tx)
+	}
+	return r
 }
