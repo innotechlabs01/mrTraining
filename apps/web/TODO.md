@@ -43,9 +43,6 @@ Migrate ALL remaining Next.js route handlers that import `apps/web/src/lib/db/*.
 | `app/api/coach/form-metrics/route.ts` | form-metrics | coach aggregate across athletes: no aggregate endpoint |
 | `app/api/athlete/availability/route.ts` | availability | needs athlete's coachId; no "my coach" endpoint |
 | `app/api/athlete/onboard/route.ts` | onboarding | complex coach-isolation-db |
-| `app/api/nats/consumer/route.ts` | nats | move consumer to Go worker (separate concern) |
-| `app/api/coach/exercise-videos/*` | exercise-videos | DEPRECATED dead path (T-009.1), removal needs approval |
-| `app/api/exercises/[id]/video/route.ts` | exercise-videos | DEPRECATED dead path (T-009.1) |
 
 ## Migrated domains (this session)
 | Domain | Route handlers migrated | Go endpoint |
@@ -57,21 +54,16 @@ Migrate ALL remaining Next.js route handlers that import `apps/web/src/lib/db/*.
 | webhooks/clerk | `app/api/webhooks/clerk/route.ts` — replaced `getAthleteMembership` with inline `db.execute` query | N/A (Clerk webhook, excepted) |
 
 ## lib/db modules
-Removed: `blog.ts`, `payments.ts`, `plans.ts`, `products.ts`, `exercises.ts`.
+Removed: `blog.ts`, `payments.ts`, `plans.ts`, `products.ts`, `exercises.ts`, `video-metrics.ts`.
 Remaining:
-- `db.ts` (infra — used by coach-isolation-db [clerk webhook excepted], `exercises/[id]/video` [deprecated], `nats/consumer` [infrastructure exception])
-- `video-metrics.ts` (DEPRECATED T-009.1 — used only by deprecated `coach/exercise-videos/*` routes; removal needs approval)
-- `index.ts` re-exports `./db` and `./video-metrics`
+- `db.ts` (infra/shared — used by `coach-isolation-db.ts` [clerk webhook excepted], `landing.ts`, `landing-contacts.ts`; NOT removed — still has live callers).
+- `index.ts` re-exports `./db` only.
 
 ## Formally documented exceptions (intentional, not gaps)
 
 | Item | Reason | Disposition |
 |------|--------|-------------|
-| `coach/exercise-videos/route.ts` | DEPRECATED T-009.1 dead path. `exercise_videos` table never read by Go API or mobile. Removal needs explicit approval. | Left as deprecated route; uses `video-metrics.ts`. |
-| `coach/exercise-videos/upload/route.ts` | Same as above — writes to dead `exercise_videos` table via Vercel Blob + SQL. | Left as deprecated route; uses `video-metrics.ts`. |
-| `exercises/[id]/video/route.ts` | DEPRECATED T-009.1 — writes `exercise_library.video_url` directly to DB instead of Go API (`POST/PUT /api/v1/exercises`). No web caller. | Left as deprecated route; uses `db.ts` directly. |
-| `nats/consumer/route.ts` | Long-running NATS JetStream consumer — infrastructure concern, belongs in a Go worker, not a Next.js route handler. | Left as Next.js route (transitional). Move to Go worker in separate ticket. |
-| `video-metrics.ts` | DEPRECATED T-009.1 module. Only used by deprecated exercise-videos routes. | Kept in `lib/db` as documented exception. |
+| `nats/consumer/route.ts` | REMOVED from web. Long-running NATS JetStream consumer did direct SQL (`getDB`/`safeExecute`) — infrastructure concern that belongs in a Go worker, not a Next.js route handler. Direct SQL eliminated from `apps/web`; consumer to be implemented in `apps/api/worker/nats` in a separate cross-repo ticket. | Deleted from web; documented as Go-worker TODO, not a web exception. |
 | `coach-isolation-db.ts` | Still used by Clerk webhook (excepted) + other routes not in this task's scope (`validate-code`, `profile`, `coach/athletes/invite`, `onboard`, `allies`). | Kept; out of scope for this sweep. |
 
 
@@ -86,3 +78,14 @@ apps/web/src/app/api/athlete/accept-invite/route.ts — migrated off coach-isola
 apps/api/internal/domain/invite/invite.go — added CoachID to AcceptResult
 apps/api/internal/infrastructure/invite/repository.go — populate CoachID in AcceptInvite result
 apps/web/TODO.md (progress tracker)
+
+## Removed this session (direct-DB cleanup)
+- `apps/web/src/app/api/coach/exercise-videos/route.ts` — dead exercise-videos path (T-009.1), no consumer.
+- `apps/web/src/app/api/coach/exercise-videos/upload/route.ts` — dead exercise-videos upload path (T-009.1), no consumer.
+- `apps/web/src/app/api/exercises/[id]/video/route.ts` — dead exercise video path; wrote `exercise_library.video_url` directly to DB.
+- `apps/web/src/app/api/nats/consumer/route.ts` — NATS JetStream consumer doing direct SQL; infra belongs in a Go worker.
+- `apps/web/src/lib/db/video-metrics.ts` — DEPRECATED T-009.1 module, only used by the deleted exercise-videos routes.
+- `apps/web/src/lib/db/index.ts` — dropped `export * from './video-metrics'` (module deleted).
+
+## Exceptions (direct-DB paths intentionally kept in apps/web)
+- `apps/web/src/lib/db/db.ts` — shared infra, still has live callers (`coach-isolation-db.ts`, `landing.ts`, `landing-contacts.ts`). NOT removed.
