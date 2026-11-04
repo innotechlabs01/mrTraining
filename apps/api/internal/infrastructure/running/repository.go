@@ -106,7 +106,7 @@ func (r *Repository) GetSession(ctx context.Context, id string) (*domain.Running
 // ListSessionsByUser retrieves running sessions for a user within an optional date range.
 func (r *Repository) ListSessionsByUser(ctx context.Context, userID string, fromDate, toDate string, limit, offset int) ([]*domain.RunningSession, error) {
 	query := `SELECT ` + sessionColumns + `, ` + sessionDeviceColumns + `
-		 FROM running_sessions ` + sessionDeviceJoin + ` WHERE running_sessions.user_id = $15`
+		 FROM running_sessions ` + sessionDeviceJoin + ` WHERE running_sessions.user_id = $1`
 	args := []interface{}{userID}
 
 	if fromDate != "" {
@@ -265,7 +265,7 @@ func (r *Repository) SaveGpsPoints(ctx context.Context, points []*domain.GpsPoin
 
 	stmt, err := tx.PrepareContext(ctx,
 		`INSERT INTO running_gps_points (id, session_id, lat, lng, alt, timestamp, accuracy)
-		 VALUES ($50, $51, $52, $53, $54, $55, $56)`)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare gps batch stmt: %w", err)
 	}
@@ -492,7 +492,7 @@ func (r *Repository) ListTemplatesByCoach(ctx context.Context, coachID string) (
 
 func (r *Repository) DeleteTemplate(ctx context.Context, id string) error {
 	result, err := r.exec.ExecContext(ctx, `
-		UPDATE running_workout_templates SET deleted_at = $2 WHERE id = $1 AND deleted_at IS NULL`,
+		UPDATE running_workout_templates SET deleted_at = $1 WHERE id = $2 AND deleted_at IS NULL`,
 		id, time.Now())
 	if err != nil {
 		return fmt.Errorf("delete running workout template: %w", err)
@@ -707,8 +707,8 @@ func (r *Repository) ListAssignmentsByCoach(ctx context.Context, coachID string)
 
 func (r *Repository) UpdateAssignmentStatus(ctx context.Context, id string, status domain.RunningWorkoutAssignmentStatus) error {
 	result, err := r.exec.ExecContext(ctx, `
-		UPDATE running_workout_assignments SET status = $2, updated_at = $3 WHERE id = $1 AND deleted_at IS NULL`,
-		id, status, time.Now())
+		UPDATE running_workout_assignments SET status = $1, updated_at = $2 WHERE id = $3 AND deleted_at IS NULL`,
+		status, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("update running workout assignment status: %w", err)
 	}
