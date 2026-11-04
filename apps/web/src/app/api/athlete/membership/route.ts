@@ -1,15 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteByClerkId, getAthleteMembership, getPaymentHistory } from '@/lib/db';
-import { proxyToGo } from '@/lib/api/proxy-helper';
+import { goFetchServer } from '@/lib/api/go-client';
 
-export const dynamic = 'force-dynamic';
+interface GoMembership {
+  id: string;
+  athlete_id: string;
+  coach_id: string;
+  plan_name: string;
+  plan_price: number;
+  billing_period: string;
+  status: string;
+  current_period_start: string;
+  current_period_end: string;
+  grace_period_days: number;
+  payment_due_date: string;
+  created_at: string;
+  updated_at: string;
+}
 
-function computeIsPayable(membership: { status: string; paymentDueDate: string } | null): boolean {
+interface GoPayment {
+  id: string;
+  membership_id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  polar_order_id?: string;
+  period_start: string;
+  period_end: string;
+  paid_at?: string;
+  created_at: string;
+}
+
+interface GoPaymentsList {
+  data: GoPayment[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+function computeIsPayable(membership: GoMembership | null): boolean {
   if (!membership) return false;
   if (membership.status === 'grace_period' || membership.status === 'suspended') return true;
   try {
-    const due = new Date(`${membership.paymentDueDate}T00:00:00Z`);
+    const due = new Date(`${membership.payment_due_date}T00:00:00Z`);
     if (Number.isNaN(due.getTime())) return false;
     const threshold = new Date(due);
     threshold.setDate(threshold.getDate() - 3);
@@ -21,50 +54,72 @@ function computeIsPayable(membership: { status: string; paymentDueDate: string }
   }
 }
 
+// GET /api/athlete/membership — athlete's membership + payment history (Go API).
 export async function GET(req: NextRequest) {
   try {
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    // Try Go API proxy first
-    const proxied = await proxyToGo(req, ['athlete', 'membership']);
-    if (proxied) {
-      return proxied;
+    const token = await getToken();
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fallback to legacy handler on 404 / upstream unavailable
-    console.warn('[athlete/membership] Go proxy fallback to legacy handler');
-
-    const athlete = await getAthleteByClerkId(userId);
-    if (!athlete) {
-      return NextResponse.json({ status: 'no_membership', membership: null, payments: [], isPayable: false });
-    }
-
-    const membership = await getAthleteMembership(athlete.id);
-    const payments = await getPaymentHistory(athlete.id);
+    const membership = await goFetchServer<GoMembership | null>('/api/v1/memberships', token);
 
     if (!membership) {
-      return NextResponse.json({ status: 'no_membership', membership: null, payments, isPayable: false });
+      return NextResponse.json({
+        status: 'no_membership',
+        membership: null,
+        payments: [],
+        isPayable: false,
+      });
     }
+
+    const paymentsRes = await goFetchServer<GoPaymentsList>(
+      `/api/v1/memberships/${membership.id}/payments`,
+      token,
+    );
 
     const isPayable = computeIsPayable(membership);
 
     return NextResponse.json({
-      membership,
-      payments,
+      membership: {
+        id: membership.id,
+        athleteId: membership.athlete_id,
+        coachId: membership.coach_id,
+        planName: membership.plan_name,
+        planPrice: membership.plan_price,
+        billingPeriod: membership.billing_period,
+        status: membership.status,
+        currentPeriodEnd: membership.current_period_end,
+        currentPeriodStart: membership.current_period_start,
+        paymentDueDate: membership.payment_due_date,
+        gracePeriodDays: membership.grace_period_days,
+      },
+      payments: paymentsRes.data.map((p) => ({
+        id: p.id,
+        membershipId: p.membership_id,
+        amount: p.amount,
+        currency: p.currency,
+        status: p.status,
+        polarOrderId: p.polar_order_id,
+        periodStart: p.period_start,
+        periodEnd: p.period_end,
+        paidAt: p.paid_at,
+      })),
       isPayable,
       id: membership.id,
       status: membership.status,
-      planName: membership.planName,
-      planPrice: membership.planPrice,
-      paymentDueDate: membership.paymentDueDate,
-      currentPeriodEnd: membership.currentPeriodEnd,
-      currentPeriodStart: membership.currentPeriodStart,
-      billingPeriod: membership.billingPeriod,
-      athleteId: membership.athleteId,
-      coachId: membership.coachId,
+      planName: membership.plan_name,
+      planPrice: membership.plan_price,
+      paymentDueDate: membership.payment_due_date,
+      currentPeriodEnd: membership.current_period_end,
+      currentPeriodStart: membership.current_period_start,
+      billingPeriod: membership.billing_period,
+      athleteId: membership.athlete_id,
+      coachId: membership.coach_id,
     });
   } catch (error) {
     console.error('Error fetching athlete membership:', error);

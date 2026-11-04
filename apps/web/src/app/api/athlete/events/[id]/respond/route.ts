@@ -1,24 +1,24 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthleteByClerkId, getEventDetail, upsertEventRegistration, replaceEventFormResponses, EventRegistrationStatus } from '@/lib/db';
-
-const VALID_STATUSES: EventRegistrationStatus[] = ['accepted', 'cancelled'];
+import { goFetchServer } from '@/lib/api/go-client';
 
 type RespondBody = {
   status?: string;
   answers?: Array<{ fieldId: string; value: string }>;
 };
 
+const VALID_STATUSES = ['accepted', 'cancelled'];
+
+// POST /api/athlete/events/[id]/respond — register/respond to an event (Go API).
 export async function POST(req: Request, ctx: { params: { id: string } }) {
   try {
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const athlete = await getAthleteByClerkId(userId);
-    if (!athlete) {
-      return NextResponse.json({ error: 'Athlete profile not found' }, { status: 404 });
+    const token = await getToken();
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     let body: RespondBody;
@@ -28,28 +28,22 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const detail = await getEventDetail(ctx.params.id);
-    if (!detail) {
-      return NextResponse.json({ error: 'Event not found' }, { status: 404 });
-    }
-
-    if (!body.status || !VALID_STATUSES.includes(body.status as EventRegistrationStatus)) {
+    if (!body.status || !VALID_STATUSES.includes(body.status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
-    const status = body.status as EventRegistrationStatus;
 
-    const answers = body.answers ?? [];
-    if (status === 'accepted' && answers.length > 0) {
-      const validFieldIds = new Set<string>((detail.formFields || []).map((f: { id: string }) => f.id));
-      const invalid = answers.find(a => !validFieldIds.has(a.fieldId));
-      if (invalid) {
-        return NextResponse.json({ error: `Unknown form field: ${invalid.fieldId}` }, { status: 400 });
-      }
-      await replaceEventFormResponses(ctx.params.id, athlete.id, answers);
-    }
+    const answers = (body.answers ?? []).map((a) => ({
+      field_id: a.fieldId,
+      value: a.value,
+    }));
 
-    const registration = await upsertEventRegistration(ctx.params.id, athlete.id, status);
-    return NextResponse.json({ registration }, { status: 201 });
+    const result = await goFetchServer<{ registration: unknown }>(
+      `/api/v1/athletes/events/${ctx.params.id}/respond`,
+      token,
+      { method: 'POST', body: JSON.stringify({ status: body.status, answers }) },
+    );
+
+    return NextResponse.json({ registration: result.registration }, { status: 201 });
   } catch (error) {
     console.error('Error registering athlete for event:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

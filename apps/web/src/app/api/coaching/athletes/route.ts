@@ -1,23 +1,60 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getAthletes, saveAthlete } from '@/lib/db';
+import { saveAthlete } from '@/lib/db/athletes';
+import { goFetchServer } from '@/lib/api/go-client';
 
-export const dynamic = 'force-dynamic';
+interface GoAthleteProfile {
+  id: string;
+  email: string;
+  name: string;
+  avatarUrl?: string;
+  sport?: string;
+  experienceLevel?: string;
+  heightCm: number;
+  weightKg: number;
+  emergencyContact?: string;
+  emergencyPhone?: string;
+  modality?: string;
+  scheduleDays?: string;
+  scheduleTime?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
+interface GoAthletesList {
+  data: GoAthleteProfile[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+// GET /api/coaching/athletes — the authenticated coach's linked athletes (Go API).
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const athletes = await getAthletes(userId);
-    return NextResponse.json(athletes);
+    const token = await getToken();
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data } = await goFetchServer<GoAthletesList>(
+      `/api/v1/coaches/${userId}/athletes`,
+      token,
+    );
+    return NextResponse.json(data, { status: 200 });
   } catch (error) {
     console.error('Error fetching athletes:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
+// POST /api/coaching/athletes — create an athlete.
+// NOTE: no Go create-athlete endpoint exists yet ([GAP] in the contract matrix).
+// Kept on the legacy lib/db path until the API agent adds POST /api/v1/athletes.
 export async function POST(req: Request) {
   try {
     const { userId } = await auth();
