@@ -488,10 +488,17 @@ func main() {
 		routes.RegisterOnboardingRoutes(api, onboardingHandler)
 
 		// Wire Invite domain
-		inviteHandler := userhttp.NewInviteHandler(inviteService)
+		inviteHandler := userhttp.NewInviteHandler(inviteService, userService, cfg.ClerkSecretKey)
 
 		// Register invite routes
 		routes.RegisterInviteRoutes(api, inviteHandler)
+
+		// Public invite validation (no auth needed — read-only code check)
+		routes.RegisterPublicInviteRoutes(app, inviteHandler)
+
+		// Clerk webhook (public — no auth, validates its own svix signature)
+		clerkWebhookHandler := userhttp.NewClerkWebhookHandler(userService, inviteService, cfg.ClerkSecretKey, cfg.ClerkWebhookSecret, db.DB)
+		routes.RegisterClerkWebhookRoutes(app, clerkWebhookHandler)
 
 		// Wire Favorite domain
 		favoriteRepo := favoriteinfrastructure.NewRepository(db.DB)

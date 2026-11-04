@@ -114,3 +114,15 @@ func (r *Repository) ValidateCode(ctx context.Context, code string) (bool, error
 	}
 	return true, nil
 }
+
+// CreatePendingInvite stores a clerk-issued invitation for a coach.
+func (r *Repository) CreatePendingInvite(ctx context.Context, inv *invite.PendingInvite) error {
+	_, err := r.exec.ExecContext(ctx,
+		`INSERT INTO pending_invites (id, coach_id, email, clerk_invitation_id, status, expires_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+		inv.ID, inv.CoachID, inv.Email, inv.ClerkInvitationID, inv.Status, inv.ExpiresAt)
+	if err != nil {
+		return fmt.Errorf("create pending invite: %w", err)
+	}
+	return nil
+}

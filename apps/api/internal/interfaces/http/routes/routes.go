@@ -266,6 +266,13 @@ func RegisterWebhookRoutes(app fiber.Router, garmin *handlers.GarminWebhookHandl
 	app.Post("/webhooks/garmin", middleware.RateLimit(120, 60), garmin.Handle)
 }
 
+// RegisterClerkWebhookRoutes registers the public Clerk webhook endpoint
+// outside the auth group (Clerk webhooks carry no bearer token). The handler
+// validates its own svix signature when CLERK_WEBHOOK_SECRET is configured.
+func RegisterClerkWebhookRoutes(app fiber.Router, clerk *handlers.ClerkWebhookHandler) {
+	app.Post("/webhooks/clerk", middleware.RateLimit(120, 60), clerk.Handle)
+}
+
 // RegisterRunningImportRoutes registers activity-file import (GPX/TCX/FIT).
 func RegisterRunningImportRoutes(api fiber.Router, handler *handlers.ImportActivityHandler) {
 	api.Post("/running/import", middleware.RateLimit(10, 60), handler.ImportRunningActivity)
@@ -314,11 +321,19 @@ func RegisterOnboardingRoutes(api fiber.Router, handler *handlers.OnboardingHand
 // RegisterInviteRoutes registers coach invitation routes on the given API group.
 // The calling code must have already applied auth middleware to the api group.
 func RegisterInviteRoutes(api fiber.Router, handler *handlers.InviteHandler) {
-	// Invite acceptance/validation are rate-limited and protected against
-	// repeated failures: coach codes (MR-XXXX) have a small search space and
-	// must not be brute-forced.
+	// Invite acceptance is rate-limited and protected against repeated failures.
 	api.Post("/invites/accept", middleware.RateLimit(5, 60), middleware.FailedAttemptLockout(), handler.AcceptInvite)
-	api.Post("/invites/validate", middleware.RateLimit(20, 60), middleware.FailedAttemptLockout(), handler.ValidateInvite)
+
+	// Coach-issued invite: verify coach, check capacity, create Clerk invitation,
+	// persist pending invite record. Requires coach role.
+	api.Post("/coach/invite", middleware.RequireCoach(), handler.CoachInvite)
+}
+
+// RegisterPublicInviteRoutes registers public invite routes outside the auth
+// group. Code validation is read-only and used by unauthenticated invite
+// landing pages, so it does not require a Clerk token.
+func RegisterPublicInviteRoutes(app fiber.Router, handler *handlers.InviteHandler) {
+	app.Post("/invites/validate", middleware.RateLimit(20, 60), middleware.FailedAttemptLockout(), handler.ValidateInvite)
 }
 
 // RegisterFavoriteRoutes registers athlete favorite routes on the given API group.

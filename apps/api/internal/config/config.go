@@ -23,9 +23,10 @@ type Config struct {
 	DatabaseURL string // PostgreSQL connection URL (DATABASE_URL)
 
 	// Auth (Clerk)
-	ClerkSecretKey      string // Clerk secret key for backend API calls
-	ClerkPublishableKey string // Clerk publishable key for frontend
-	ClerkJWKSURL        string // Optional: Custom JWKS URL for token verification
+	ClerkSecretKey       string // Clerk secret key for backend API calls
+	ClerkPublishableKey  string // Clerk publishable key for frontend
+	ClerkJWKSURL         string // Optional: Custom JWKS URL for token verification
+	ClerkWebhookSecret   string // Clerk webhook signing secret (svix) for /webhooks/clerk
 
 	// Firebase (FCM — optional, skip if empty)
 	FirebaseProjectID   string // Firebase project ID for FCM
@@ -82,6 +83,7 @@ func Load() (*Config, error) {
 		ClerkSecretKey:      getEnv("CLERK_SECRET_KEY", ""),
 		ClerkPublishableKey: getEnv("CLERK_PUBLISHABLE_KEY", ""),
 		ClerkJWKSURL:        getEnv("CLERK_JWKS_URL", ""),
+		ClerkWebhookSecret:  getEnv("CLERK_WEBHOOK_SECRET", ""),
 
 		FirebaseProjectID:   getEnv("FIREBASE_PROJECT_ID", ""),
 		FirebaseClientEmail: getEnv("FIREBASE_CLIENT_EMAIL", ""),

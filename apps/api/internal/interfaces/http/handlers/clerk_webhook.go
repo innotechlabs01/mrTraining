@@ -1,0 +1,289 @@
+package handlers
+
+import (
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+
+	inviteapp "github.com/innotechlabs01/mr-training-api/internal/application/invite"
+	userapp "github.com/innotechlabs01/mr-training-api/internal/application/user"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
+	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
+	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
+)
+
+// clerkWebhookPayload is the minimal subset of a Clerk webhook event we consume.
+type clerkWebhookPayload struct {
+	Type    string                 `json:"type"`
+	Data    map[string]interface{} `json:"data"`
+}
+
+// ClerkWebhookHandler handles Clerk webhook events (public endpoint).
+// It verifies the Clerk (svix) signature when CLERK_WEBHOOK_SECRET is set,
+// otherwise trusts the forward from the Next.js proxy. No auth middleware
+// is applied — Clerk webhooks carry no bearer token.
+type ClerkWebhookHandler struct {
+	userService    *userapp.Service
+	inviteService  *inviteapp.Service
+	clerkSecretKey string
+	webhookSecret  string
+	db             database.Executor
+}
+
+// NewClerkWebhookHandler creates a new Clerk webhook handler.
+func NewClerkWebhookHandler(
+	userService *userapp.Service,
+	inviteService *inviteapp.Service,
+	clerkSecretKey, webhookSecret string,
+	db database.Executor,
+) *ClerkWebhookHandler {
+	return &ClerkWebhookHandler{
+		userService:    userService,
+		inviteService:  inviteService,
+		clerkSecretKey: clerkSecretKey,
+		webhookSecret:  webhookSecret,
+		db:             db,
+	}
+}
+
+// Handle processes POST /webhooks/clerk.
+func (h *ClerkWebhookHandler) Handle(c *fiber.Ctx) error {
+	body := c.Body()
+
+	// Verify Clerk (svix) signature when a secret is configured. When the
+	// webhook is forwarded by the Next.js proxy (which already verified),
+	// and no secret is set, we trust the forward.
+	if h.webhookSecret != "" {
+		if !h.verifySignature(c, body) {
+			return appresponse.Error(c, fiber.StatusBadRequest, "invalid webhook signature")
+		}
+	}
+
+	var evt clerkWebhookPayload
+	if err := json.Unmarshal(body, &evt); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid payload")
+	}
+
+	userID, _ := evt.Data["id"].(string)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "missing user id")
+	}
+
+	email := ""
+	if addrs, ok := evt.Data["email_addresses"].([]interface{}); ok && len(addrs) > 0 {
+		if m, ok := addrs[0].(map[string]interface{}); ok {
+			email, _ = m["email_address"].(string)
+		}
+	}
+
+	// Build display name from Clerk first/last, with unsafe_metadata fallback
+	// (mobile sends firstName/lastName there).
+	unsafeMeta, _ := evt.Data["unsafe_metadata"].(map[string]interface{})
+	metaFirst, _ := unsafeMeta["firstName"].(string)
+	metaLast, _ := unsafeMeta["lastName"].(string)
+	firstName, _ := evt.Data["first_name"].(string)
+	lastName, _ := evt.Data["last_name"].(string)
+	if firstName == "" {
+		firstName = metaFirst
+	}
+	if lastName == "" {
+		lastName = metaLast
+	}
+	name := strings.TrimSpace(firstName + " " + lastName)
+	if name == "" {
+		name = email
+	}
+	avatar, _ := evt.Data["image_url"].(string)
+
+	ctx := c.Context()
+
+	switch evt.Type {
+	case "user.created", "user.updated":
+		if err := h.provisionUser(ctx, userID, email, name, avatar, unsafeMeta); err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
+		}
+
+	case "user.deleted":
+		if err := h.softDeleteUser(ctx, userID); err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
+		}
+
+	default:
+		// Ignore unknown event types.
+	}
+
+	return appresponse.Success(c, dto.WebhookResponse{Received: true})
+}
+
+// verifySignature validates the Clerk (svix) webhook signature.
+// The signed payload is "{svix-timestamp}.{raw_body}"; the signature is
+// HMAC-SHA256(webhook_secret, signed_payload) encoded as hex, sent as
+// "v1=<hex>" in the svix-signature header.
+func (h *ClerkWebhookHandler) verifySignature(c *fiber.Ctx, body []byte) bool {
+	svixID := c.Get("svix-id")
+	svixTimestamp := c.Get("svix-timestamp")
+	svixSignature := c.Get("svix-signature")
+	if svixID == "" || svixTimestamp == "" || svixSignature == "" {
+		return false
+	}
+
+	sig := strings.TrimPrefix(svixSignature, "v1=")
+	if sig == svixSignature {
+		// No "v1=" prefix — not a valid svix signature.
+		return false
+	}
+
+	signedPayload := svixTimestamp + "." + string(body)
+	mac := hmac.New(sha256.New, []byte(h.webhookSecret))
+	mac.Write([]byte(signedPayload))
+	expected := hex.EncodeToString(mac.Sum(nil))
+
+	return hmac.Equal([]byte(sig), []byte(expected))
+}
+
+// provisionUser creates or updates the user's application profile based on
+// their role, derived from unsafe_metadata.coachCode:
+//   - coachCode present  → athlete provisioning (validate code, link coach)
+//   - coachCode absent   → coach provisioning (create coach profile + code)
+func (h *ClerkWebhookHandler) provisionUser(ctx context.Context, userID, email, name, avatar string, unsafeMeta map[string]interface{}) error {
+	coachCode, _ := unsafeMeta["coachCode"].(string)
+	coachCode = strings.TrimSpace(coachCode)
+
+	if coachCode != "" {
+		return h.provisionAthlete(ctx, userID, email, name, avatar, coachCode)
+	}
+	return h.provisionCoach(ctx, userID, email, name, avatar)
+}
+
+// provisionCoach creates the base user row and coach profile, generates a
+// unique coach code, and mirrors role + coachCode into Clerk public_metadata.
+func (h *ClerkWebhookHandler) provisionCoach(ctx context.Context, userID, email, name, avatar string) error {
+	// Idempotent base user row.
+	if err := h.userService.EnsureUser(ctx, userID, email, name, "coach"); err != nil {
+		return fmt.Errorf("ensure user: %w", err)
+	}
+	// Idempotent coach profile (generates coach_code if missing).
+	if err := h.userService.EnsureCoach(ctx, userID, email, name); err != nil {
+		return fmt.Errorf("ensure coach: %w", err)
+	}
+
+	// Read back the generated coach code for Clerk metadata.
+	coachCode := ""
+	if c, err := h.userService.GetCoachByID(ctx, userID); err == nil {
+		coachCode = c.CoachCode
+	}
+
+	// Update avatar if provided.
+	if avatar != "" {
+		_ = h.userService.UpdateUserAvatar(ctx, userID, avatar)
+	}
+
+	// Mirror role + coachCode into Clerk public_metadata so the frontend can
+	// read it without hitting the database.
+	if h.clerkSecretKey != "" {
+		_ = h.setClerkMetadata(userID, map[string]interface{}{
+			"role":      "coach",
+			"coachCode": coachCode,
+		})
+	}
+
+	return nil
+}
+
+// provisionAthlete validates the coach code, creates the athlete profile,
+// links the athlete to the coach, and mirrors role + coach info into Clerk.
+func (h *ClerkWebhookHandler) provisionAthlete(ctx context.Context, userID, email, name, avatar, coachCode string) error {
+	// Validate the coach code before doing anything.
+	inv, err := h.inviteService.GetByCode(ctx, coachCode)
+	if err != nil {
+		return fmt.Errorf("invalid coach code %q: %w", coachCode, err)
+	}
+
+	// Idempotent base user row.
+	if err := h.userService.EnsureUser(ctx, userID, email, name, "athlete"); err != nil {
+		return fmt.Errorf("ensure user: %w", err)
+	}
+	// Idempotent athlete profile.
+	if err := h.userService.EnsureAthleteProfile(ctx, userID, email, name); err != nil {
+		return fmt.Errorf("ensure athlete profile: %w", err)
+	}
+
+	// Link coach → athlete (idempotent). AcceptInvite returns the coach name.
+	result, err := h.inviteService.AcceptInvite(ctx, coachCode, userID)
+	if err != nil {
+		return fmt.Errorf("link athlete to coach: %w", err)
+	}
+
+	// Update avatar if provided.
+	if avatar != "" {
+		_ = h.userService.UpdateUserAvatar(ctx, userID, avatar)
+	}
+
+	// Mirror role + coach info into Clerk public_metadata.
+	if h.clerkSecretKey != "" {
+		_ = h.setClerkMetadata(userID, map[string]interface{}{
+			"role":      "athlete",
+			"coachCode": coachCode,
+			"coachId":   inv.CoachID,
+			"coachName": result.CoachName,
+		})
+	}
+
+	return nil
+}
+
+// softDeleteUser marks the user and their coach profile as inactive.
+func (h *ClerkWebhookHandler) softDeleteUser(ctx context.Context, userID string) error {
+	if _, err := h.db.ExecContext(ctx,
+		`UPDATE users SET is_active = 0, updated_at = NOW() WHERE id = $1`,
+		userID); err != nil {
+		return fmt.Errorf("soft delete user: %w", err)
+	}
+	if _, err := h.db.ExecContext(ctx,
+		`UPDATE coaches SET is_active = 0, updated_at = NOW() WHERE id = $1`,
+		userID); err != nil {
+		return fmt.Errorf("soft delete coach: %w", err)
+	}
+	return nil
+}
+
+// setClerkMetadata patches a user's public_metadata via the Clerk Backend API.
+// Best-effort: failures are logged but never fail the webhook.
+func (h *ClerkWebhookHandler) setClerkMetadata(userID string, metadata map[string]interface{}) error {
+	body, err := json.Marshal(map[string]interface{}{
+		"public_metadata": metadata,
+	})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPatch,
+		"https://api.clerk.com/v1/users/"+userID+"/metadata", strings.NewReader(string(body)))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+h.clerkSecretKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	io.Copy(io.Discard, resp.Body)
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("clerk metadata update failed: status %d", resp.StatusCode)
+	}
+	return nil
+}
