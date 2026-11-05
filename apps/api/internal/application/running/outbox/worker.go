@@ -79,7 +79,7 @@ func (w *Worker) processBatch(ctx context.Context) error {
 	defer tx.Rollback()
 
 	rows, err := tx.QueryContext(ctx, `
-		SELECT id, COALESCE(event_id::text, id), event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, attempts
+		SELECT id, COALESCE(event_id::text, id::text), event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, attempts
 		FROM outbox
 		WHERE status IN ('pending')
 		  AND (next_retry_at IS NULL OR next_retry_at <= NOW())
