@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS readiness_checkins (
   sleep_hours  REAL,
   soreness     INTEGER,                   -- 1..5 (1 = none, 5 = severe)
   notes        TEXT,
-  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at   TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_readiness_checkins_athlete_date

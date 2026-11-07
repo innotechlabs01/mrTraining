@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS support_tickets (
     assigned_to TEXT,
     unread_count INTEGER NOT NULL DEFAULT 0,
     last_message_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at TEXT NOT NULL DEFAULT (NOW()),
     updated_at TEXT,
     resolved_at TEXT
 );
