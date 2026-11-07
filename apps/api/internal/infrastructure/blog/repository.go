@@ -3,6 +3,8 @@ package blog
 import (
 	"context"
 	"database/sql"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -15,12 +17,35 @@ import (
 // It reads and writes the shared `blog_posts` / `blog_post_meta` tables so the
 // web dashboard and the mobile app share one source of truth.
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new blog repository.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+// When set, all repository queries run against this executor instead of the
+// connection pool.
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) blog.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx (injected by a
+// UnitOfWork) rather than the connection pool.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 const articleColumns = `
@@ -43,7 +68,7 @@ func (r *Repository) ListArticles(ctx context.Context, page, limit int, publishe
 		where = "WHERE p.is_published = 1"
 	}
 
-	rows, err := r.db.QueryContext(ctx, fmt.Sprintf(`
+	rows, err := r.exec.QueryContext(ctx, fmt.Sprintf(`
 		SELECT %s %s %s
 		ORDER BY COALESCE(p.published_at, p.created_at) DESC
 		LIMIT $1 OFFSET $2
@@ -64,7 +89,7 @@ func (r *Repository) ListArticles(ctx context.Context, page, limit int, publishe
 	}
 
 	var total int
-	err = r.db.QueryRowContext(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM blog_posts p %s`, where)).Scan(&total)
+	err = r.exec.QueryRowContext(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM blog_posts p %s`, where)).Scan(&total)
 	if err != nil {
 		total = 0
 	}
@@ -74,9 +99,9 @@ func (r *Repository) ListArticles(ctx context.Context, page, limit int, publishe
 
 // ListByCoach returns all articles (drafts included) for a coach, newest-first.
 func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*blog.Article, error) {
-	rows, err := r.db.QueryContext(ctx, fmt.Sprintf(`
+	rows, err := r.exec.QueryContext(ctx, fmt.Sprintf(`
 		SELECT %s %s
-		WHERE p.coach_id = $3
+		WHERE p.coach_id = $1
 		ORDER BY COALESCE(p.published_at, p.created_at) DESC
 	`, articleColumns, articleFrom), coachID)
 	if err != nil {
@@ -97,10 +122,19 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*blog.A
 
 // GetArticle returns a single article by ID.
 func (r *Repository) GetArticle(ctx context.Context, id string) (*blog.Article, error) {
-	row := r.db.QueryRowContext(ctx, fmt.Sprintf(`
+	row := r.exec.QueryRowContext(ctx, fmt.Sprintf(`
 		SELECT %s %s
-		WHERE p.id = $4
+		WHERE p.id = $1
 	`, articleColumns, articleFrom), id)
+	return scanArticle(row)
+}
+
+// GetArticleBySlug returns a single published article by slug.
+func (r *Repository) GetArticleBySlug(ctx context.Context, slug string) (*blog.Article, error) {
+	row := r.exec.QueryRowContext(ctx, fmt.Sprintf(`
+		SELECT %s %s
+		WHERE p.slug = $1 AND p.is_published = 1
+	`, articleColumns, articleFrom), slug)
 	return scanArticle(row)
 }
 
@@ -115,10 +149,10 @@ func (r *Repository) Create(ctx context.Context, a *blog.Article) error {
 
 	tags, _ := marshalTags(a.Tags)
 
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO blog_posts (id, slug, title, excerpt, content, category, tags, image_url,
 		                        is_published, published_at, coach_id, created_at, updated_at)
-		VALUES ($5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`,
 		a.ID, a.Slug, a.Title, a.Excerpt, a.Content, a.Category, tags, a.ImageURL,
 		boolToInt(a.IsPublished), nullStr(a.PublishedAt), a.AuthorID, a.CreatedAt, a.UpdatedAt,
@@ -135,11 +169,11 @@ func (r *Repository) Update(ctx context.Context, a *blog.Article) error {
 	a.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	tags, _ := marshalTags(a.Tags)
 
-	res, err := r.db.ExecContext(ctx, `
+	res, err := r.exec.ExecContext(ctx, `
 		UPDATE blog_posts
-		SET slug = $18, title = $19, excerpt = $20, content = $21, category = $22, tags = $23,
-		    image_url = $24, is_published = $25, published_at = $26, updated_at = $27
-		WHERE id = $28 AND coach_id = $29
+		SET slug = $1, title = $2, excerpt = $3, content = $4, category = $5, tags = $6,
+		    image_url = $7, is_published = $8, published_at = $9, updated_at = $10
+		WHERE id = $11 AND coach_id = $12
 	`,
 		a.Slug, a.Title, a.Excerpt, a.Content, a.Category, tags, a.ImageURL,
 		boolToInt(a.IsPublished), nullStr(a.PublishedAt), a.UpdatedAt, a.ID, a.AuthorID,
@@ -157,15 +191,15 @@ func (r *Repository) Update(ctx context.Context, a *blog.Article) error {
 
 // Delete removes an article owned by the coach.
 func (r *Repository) Delete(ctx context.Context, id, coachID string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM blog_posts WHERE id = $30 AND coach_id = $31`, id, coachID)
+	_, err := r.exec.ExecContext(ctx, `DELETE FROM blog_posts WHERE id = $1 AND coach_id = $2`, id, coachID)
 	return err
 }
 
 func (r *Repository) upsertMeta(ctx context.Context, postID string, readTime, views int) error {
 	// Preserve the view count on edit: only read_time_minutes is updated on conflict.
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO blog_post_meta (post_id, read_time_minutes, views)
-		VALUES ($32, $33, $34)
+		VALUES ($1, $2, $3)
 		ON CONFLICT(post_id) DO UPDATE SET read_time_minutes = excluded.read_time_minutes
 	`, postID, readTime, views)
 	return err

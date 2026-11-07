@@ -33,10 +33,10 @@ func RegisterUserRoutes(api fiber.Router, handler *handlers.UserHandler) {
 
 	// Coaches (list is public within auth)
 	api.Get("/coaches", handler.ListCoaches)
-	api.Get("/coaches/:id/athletes", handler.GetAthletesByCoach)
+	api.Get("/coaches/:id/athletes", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetAthletesByCoach)
 
 	// Coach self-update (requires coach role)
-	api.Put("/coaches/me", middleware.RequireCoach(), handler.UpdateCoachProfile)
+	api.Put("/coaches/me", middleware.RequireCoach(), middleware.RequireCoachID(), handler.UpdateCoachProfile)
 
 	// Athlete self-update (requires athlete role)
 	api.Put("/athletes/me", middleware.RequireAthlete(), handler.UpdateAthleteProfile)
@@ -44,8 +44,8 @@ func RegisterUserRoutes(api fiber.Router, handler *handlers.UserHandler) {
 
 // RegisterEarningsRoutes registers coach earnings routes on the given API group.
 func RegisterEarningsRoutes(api fiber.Router, handler *handlers.EarningsHandler) {
-	api.Get("/coach/earnings-summary", middleware.RequireCoach(), handler.GetEarningsSummary)
-	api.Get("/coach/earnings-live", middleware.RequireCoach(), handler.EarningsLive)
+	api.Get("/coach/earnings-summary", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetEarningsSummary)
+	api.Get("/coach/earnings-live", middleware.RequireCoach(), middleware.RequireCoachID(), handler.EarningsLive)
 }
 
 // RegisterTrainingAIRoutes registers the workout AI-insights endpoint
@@ -63,18 +63,18 @@ func RegisterTrainingRoutes(api fiber.Router, handler *handlers.TrainingHandler,
 	// Exercises
 	api.Get("/exercises", middleware.Cache(24*time.Hour, "exercises"), handler.ListExercises)
 	api.Get("/exercises/:id", middleware.Cache(24*time.Hour, "exercises"), handler.GetExercise)
-	api.Post("/exercises", middleware.RequireCoach(), handler.CreateExercise)
-	api.Put("/exercises/:id", middleware.RequireCoach(), handler.UpdateExercise)
-	api.Delete("/exercises/:id", middleware.RequireCoach(), handler.DeleteExercise)
+	api.Post("/exercises", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateExercise)
+	api.Put("/exercises/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.UpdateExercise)
+	api.Delete("/exercises/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.DeleteExercise)
 
 	// Workout templates (coach only)
-	api.Get("/workout-templates", middleware.RequireCoach(), middleware.Cache(24*time.Hour, "workout-templates"), handler.ListWorkoutTemplates)
+	api.Get("/workout-templates", middleware.RequireCoach(), middleware.RequireCoachID(), middleware.Cache(24*time.Hour, "workout-templates"), handler.ListWorkoutTemplates)
 	api.Get("/workout-templates/:id", middleware.Cache(24*time.Hour, "workout-templates"), handler.GetWorkoutTemplate)
-	api.Put("/workout-templates/:id", middleware.RequireCoach(), handler.UpdateWorkoutTemplate)
-	api.Post("/workout-templates", middleware.RequireCoach(), handler.CreateWorkoutTemplate)
+	api.Put("/workout-templates/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.UpdateWorkoutTemplate)
+	api.Post("/workout-templates", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateWorkoutTemplate)
 
 	// Workouts (assignment and tracking)
-	api.Post("/workouts/assign", middleware.RequireCoach(), handler.AssignWorkout)
+	api.Post("/workouts/assign", middleware.RequireCoach(), middleware.RequireCoachID(), handler.AssignWorkout)
 	api.Get("/workouts", middleware.RequireAthlete(), middleware.RequireActiveMembership(statusReader), handler.GetAssignedWorkouts)
 	api.Get("/workouts/:id", middleware.RequireAthlete(), middleware.RequireActiveMembership(statusReader), handler.GetAssignedWorkoutDetail)
 	api.Get("/workouts/:id/detail", middleware.RequireAthlete(), middleware.RequireActiveMembership(statusReader), handler.GetAssignedWorkoutDetail)
@@ -99,7 +99,7 @@ func RegisterTrainingRoutes(api fiber.Router, handler *handlers.TrainingHandler,
 
 	// Training Sessions
 	api.Get("/athletes/sessions", middleware.RequireAthlete(), middleware.RequireActiveMembership(statusReader), handler.GetUpcomingSessions)
-	api.Post("/training/sessions", middleware.RequireCoach(), handler.CreateTrainingSession)
+	api.Post("/training/sessions", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateTrainingSession)
 }
 
 // RegisterMembershipRoutes registers all membership-related routes on the given API group.
@@ -108,26 +108,30 @@ func RegisterMembershipRoutes(api fiber.Router, handler *handlers.MembershipHand
 	// Athlete's membership
 	api.Get("/memberships", handler.GetMembership)
 
+	// Athlete's normalized membership state (backend-authoritative, never 404).
+	// Used by Web/Mobile to drive checkout/access state instead of redirect success.
+	api.Get("/athletes/membership/status", middleware.RequireAthlete(), handler.GetMembershipStatus)
+
 	// Athlete's available plans for purchase (linked coach's plans)
 	api.Get("/athletes/membership/plans", middleware.RequireAthlete(), planHandler.ListActivePlansForAthlete)
 
 	// Create membership (requires coach role)
-	api.Post("/memberships", middleware.RequireCoach(), handler.CreateMembership)
+	api.Post("/memberships", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateMembership)
 
 	// Cancel membership (requires coach role)
-	api.Put("/memberships/:id/cancel", middleware.RequireCoach(), handler.CancelMembership)
+	api.Put("/memberships/:id/cancel", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CancelMembership)
 
 	// Start a trial (athlete self-service, default 7 days)
 	api.Post("/memberships/trial", middleware.RequireAthlete(), middleware.RateLimit(3, 3600), handler.StartTrial)
 
 	// Renew membership (requires coach role)
-	api.Put("/memberships/:id/renew", middleware.RequireCoach(), handler.RenewMembership)
+	api.Put("/memberships/:id/renew", middleware.RequireCoach(), middleware.RequireCoachID(), handler.RenewMembership)
 
 	// Payment history (authenticated user)
 	api.Get("/memberships/:id/payments", handler.GetPaymentHistory)
 
 	// Coach's all memberships
-	api.Get("/coaches/memberships", middleware.RequireCoach(), handler.ListMembershipsByCoach)
+	api.Get("/coaches/memberships", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListMembershipsByCoach)
 }
 
 // RegisterAllyAthleteRoutes registers athlete-facing ally catalog routes.
@@ -148,11 +152,11 @@ func RegisterEventRoutes(api fiber.Router, handler *handlers.EventHandler) {
 	// Events (coach)
 	api.Get("/events", middleware.Cache(5*time.Minute, "events"), handler.ListEvents)
 	api.Get("/events/:id", middleware.Cache(5*time.Minute, "events"), handler.GetEvent)
-	api.Get("/events/:id/registrations", middleware.RequireCoach(), handler.ListEventRegistrations)
-	api.Get("/events/:id/form-responses", middleware.RequireCoach(), handler.ListEventFormResponses)
-	api.Post("/events", middleware.RequireCoach(), handler.CreateEvent)
-	api.Put("/events/:id", middleware.RequireCoach(), handler.UpdateEvent)
-	api.Delete("/events/:id", middleware.RequireCoach(), handler.DeleteEvent)
+	api.Get("/events/:id/registrations", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListEventRegistrations)
+	api.Get("/events/:id/form-responses", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListEventFormResponses)
+	api.Post("/events", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateEvent)
+	api.Put("/events/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.UpdateEvent)
+	api.Delete("/events/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.DeleteEvent)
 
 	// Event registration (athlete)
 	api.Post("/events/:id/register", middleware.RequireAthlete(), handler.RegisterForEvent)
@@ -171,14 +175,21 @@ func RegisterProductRoutes(api fiber.Router, handler *handlers.ProductHandler) {
 	// Products (coach)
 	api.Get("/products", middleware.Cache(time.Hour, "products"), handler.ListProducts)
 	api.Get("/products/:id", middleware.Cache(time.Hour, "products"), handler.GetProduct)
-	api.Post("/products", middleware.RequireCoach(), handler.CreateProduct)
-	api.Put("/products/:id", middleware.RequireCoach(), handler.UpdateProduct)
-	api.Delete("/products/:id", middleware.RequireCoach(), handler.DeleteProduct)
+	api.Post("/products", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateProduct)
+	api.Put("/products/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.UpdateProduct)
+	api.Delete("/products/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.DeleteProduct)
 
 	// Sales (coach)
-	api.Get("/coaches/sales", middleware.RequireCoach(), handler.GetSales)
-	api.Post("/coaches/sales", middleware.RequireCoach(), handler.RecordSale)
-	api.Delete("/coaches/sales/:id", middleware.RequireCoach(), handler.DeleteSale)
+	api.Get("/coaches/sales", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetSales)
+	api.Post("/coaches/sales", middleware.RequireCoach(), middleware.RequireCoachID(), handler.RecordSale)
+	api.Delete("/coaches/sales/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.DeleteSale)
+}
+
+// RegisterPublicProductRoutes registers unauthenticated public product routes.
+// Lives outside /api/v1 so anonymous landing visitors can fetch shop products
+// without a Clerk token.
+func RegisterPublicProductRoutes(api fiber.Router, handler *handlers.ProductHandler) {
+	api.Get("/products", handler.ListPublicProducts)
 }
 
 // RegisterNotificationRoutes registers all notification-related routes on the given API group.
@@ -213,10 +224,10 @@ func RegisterRunningRoutes(api fiber.Router, handler *handlers.RunningHandler) {
 	api.Get("/running/stats", handler.GetStats)
 
 	// Coach scoped — ver running de un atleta específico
-	api.Get("/coach/athletes/:id/running/sessions", middleware.RequireCoach(), handler.CoachListSessionsByAthlete)
-	api.Get("/coach/athletes/:id/running/stats", middleware.RequireCoach(), handler.CoachGetStatsByAthlete)
-	api.Get("/coach/athletes/:id/running/weekly-trend", middleware.RequireCoach(), handler.CoachGetWeeklyTrendByAthlete)
-	api.Get("/coach/athletes/:id/running/export", middleware.RequireCoach(), handler.CoachExportSessionsByAthlete)
+	api.Get("/coach/athletes/:id/running/sessions", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CoachListSessionsByAthlete)
+	api.Get("/coach/athletes/:id/running/stats", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CoachGetStatsByAthlete)
+	api.Get("/coach/athletes/:id/running/weekly-trend", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CoachGetWeeklyTrendByAthlete)
+	api.Get("/coach/athletes/:id/running/export", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CoachExportSessionsByAthlete)
 
 	// Device connections
 	api.Post("/running/devices", handler.ConnectDevice)
@@ -228,18 +239,18 @@ func RegisterRunningRoutes(api fiber.Router, handler *handlers.RunningHandler) {
 // (templates, assignments, guided sessions).
 func RegisterRunningWorkoutRoutes(api fiber.Router, handler *handlers.RunningWorkoutHandler) {
 	// Templates — coach-owned
-	api.Post("/running/workouts/templates", middleware.RequireCoach(), handler.CreateTemplate)
+	api.Post("/running/workouts/templates", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateTemplate)
 	api.Get("/running/workouts/templates/:id", handler.GetTemplate)
 	api.Get("/running/workouts/templates", handler.ListTemplatesByCoach)
-	api.Delete("/running/workouts/templates/:id", middleware.RequireCoach(), handler.DeleteTemplate)
+	api.Delete("/running/workouts/templates/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.DeleteTemplate)
 
 	// Assignments — coach assigns to athlete
-	api.Post("/running/workouts/assignments", middleware.RequireCoach(), handler.CreateAssignment)
+	api.Post("/running/workouts/assignments", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateAssignment)
 	api.Get("/running/workouts/assignments", middleware.RequireAthlete(), handler.ListMyAssignments)
 	api.Get("/running/workouts/assignments/:id", handler.GetAssignment)
-	api.Get("/coach/athletes/:id/running/assignments", middleware.RequireCoach(), handler.ListAssignmentsByAthlete)
-	api.Get("/coach/running/assignments", middleware.RequireCoach(), handler.ListAssignmentsByCoach)
-	api.Patch("/running/workouts/assignments/:id/status", middleware.RequireCoach(), handler.UpdateAssignmentStatus)
+	api.Get("/coach/athletes/:id/running/assignments", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListAssignmentsByAthlete)
+	api.Get("/coach/running/assignments", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListAssignmentsByCoach)
+	api.Patch("/running/workouts/assignments/:id/status", middleware.RequireCoach(), middleware.RequireCoachID(), handler.UpdateAssignmentStatus)
 
 	// Sessions — athlete executes
 	api.Post("/running/workouts/sessions/start", middleware.RequireAthlete(), handler.StartSession)
@@ -257,6 +268,13 @@ func RegisterCheckinRoutes(api fiber.Router, handler *handlers.CheckinHandler) {
 // middleware group; each handler validates its own signature).
 func RegisterWebhookRoutes(app fiber.Router, garmin *handlers.GarminWebhookHandler) {
 	app.Post("/webhooks/garmin", middleware.RateLimit(120, 60), garmin.Handle)
+}
+
+// RegisterClerkWebhookRoutes registers the public Clerk webhook endpoint
+// outside the auth group (Clerk webhooks carry no bearer token). The handler
+// validates its own svix signature when CLERK_WEBHOOK_SECRET is configured.
+func RegisterClerkWebhookRoutes(app fiber.Router, clerk *handlers.ClerkWebhookHandler) {
+	app.Post("/webhooks/clerk", middleware.RateLimit(120, 60), clerk.Handle)
 }
 
 // RegisterRunningImportRoutes registers activity-file import (GPX/TCX/FIT).
@@ -307,11 +325,19 @@ func RegisterOnboardingRoutes(api fiber.Router, handler *handlers.OnboardingHand
 // RegisterInviteRoutes registers coach invitation routes on the given API group.
 // The calling code must have already applied auth middleware to the api group.
 func RegisterInviteRoutes(api fiber.Router, handler *handlers.InviteHandler) {
-	// Invite acceptance/validation are rate-limited and protected against
-	// repeated failures: coach codes (MR-XXXX) have a small search space and
-	// must not be brute-forced.
+	// Invite acceptance is rate-limited and protected against repeated failures.
 	api.Post("/invites/accept", middleware.RateLimit(5, 60), middleware.FailedAttemptLockout(), handler.AcceptInvite)
-	api.Post("/invites/validate", middleware.RateLimit(20, 60), middleware.FailedAttemptLockout(), handler.ValidateInvite)
+
+	// Coach-issued invite: verify coach, check capacity, create Clerk invitation,
+	// persist pending invite record. Requires coach role.
+	api.Post("/coach/invite", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CoachInvite)
+}
+
+// RegisterPublicInviteRoutes registers public invite routes outside the auth
+// group. Code validation is read-only and used by unauthenticated invite
+// landing pages, so it does not require a Clerk token.
+func RegisterPublicInviteRoutes(app fiber.Router, handler *handlers.InviteHandler) {
+	app.Post("/invites/validate", middleware.RateLimit(20, 60), middleware.FailedAttemptLockout(), handler.ValidateInvite)
 }
 
 // RegisterFavoriteRoutes registers athlete favorite routes on the given API group.
@@ -336,10 +362,18 @@ func RegisterBlogRoutes(api fiber.Router, handler *handlers.BlogHandler) {
 	api.Get("/blog/:id", middleware.RequireAthlete(), middleware.Cache(time.Hour, "blog"), handler.GetArticle)
 
 	// Coach CRUD
-	api.Get("/coach/blog", middleware.RequireCoach(), handler.ListCoachArticles)
-	api.Post("/blog", middleware.RequireCoach(), handler.CreateArticle)
-	api.Put("/blog/:id", middleware.RequireCoach(), handler.UpdateArticle)
-	api.Delete("/blog/:id", middleware.RequireCoach(), handler.DeleteArticle)
+	api.Get("/coach/blog", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListCoachArticles)
+	api.Post("/blog", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateArticle)
+	api.Put("/blog/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.UpdateArticle)
+	api.Delete("/blog/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.DeleteArticle)
+}
+
+// RegisterPublicBlogRoutes registers unauthenticated public blog routes.
+// Lives outside /api/v1 so anonymous landing visitors can fetch published
+// articles without a Clerk token.
+func RegisterPublicBlogRoutes(api fiber.Router, handler *handlers.BlogHandler) {
+	api.Get("/blog", middleware.Cache(time.Hour, "blog"), handler.ListArticles)
+	api.Get("/blog/:slug", middleware.Cache(time.Hour, "blog"), handler.GetArticleBySlug)
 }
 
 // RegisterImportRoutes registers data import routes on the given API group.
@@ -475,18 +509,18 @@ func RegisterRoutineRoutes(api fiber.Router, handler *handlers.RoutineHandler) {
 func RegisterChallengeRoutes(api fiber.Router, handler *handlers.ChallengeHandler) {
 	// --- Coach endpoints ---
 	// Challenge CRUD
-	api.Post("/challenges", middleware.RequireCoach(), handler.CreateChallenge)
-	api.Get("/coach/challenges", middleware.RequireCoach(), handler.ListCoachChallenges)
-	api.Get("/coach/challenges/draft", middleware.RequireCoach(), handler.ListDraftChallenges)
-	api.Get("/coach/challenges/active", middleware.RequireCoach(), handler.ListActiveChallengesByCoach)
+	api.Post("/challenges", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateChallenge)
+	api.Get("/coach/challenges", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListCoachChallenges)
+	api.Get("/coach/challenges/draft", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListDraftChallenges)
+	api.Get("/coach/challenges/active", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListActiveChallengesByCoach)
 	api.Get("/challenges/:id", handler.GetChallenge)
-	api.Put("/challenges/:id", middleware.RequireCoach(), handler.UpdateChallenge)
-	api.Delete("/challenges/:id", middleware.RequireCoach(), handler.DeleteChallenge)
-	api.Post("/challenges/:id/activate", middleware.RequireCoach(), handler.ActivateChallenge)
+	api.Put("/challenges/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.UpdateChallenge)
+	api.Delete("/challenges/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.DeleteChallenge)
+	api.Post("/challenges/:id/activate", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ActivateChallenge)
 
 	// Coach analytics
-	api.Get("/challenges/:id/stats", middleware.RequireCoach(), handler.GetChallengeStats)
-	api.Get("/coach/athletes/:id/challenge-analytics", middleware.RequireCoach(), handler.GetAthleteChallengeAnalytics)
+	api.Get("/challenges/:id/stats", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetChallengeStats)
+	api.Get("/coach/athletes/:id/challenge-analytics", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetAthleteChallengeAnalytics)
 
 	// --- Athlete endpoints ---
 	api.Get("/athlete/challenges", middleware.RequireAthlete(), handler.ListAthleteChallenges)
@@ -519,10 +553,10 @@ func RegisterPublicEventRoutes(api fiber.Router, handler *handlers.EventHandler)
 // RegisterPlanRoutes registers plan-related routes on the given API group.
 func RegisterPlanRoutes(api fiber.Router, handler *handlers.PlanHandler) {
 	// Coach CRUD (own plans, all statuses)
-	api.Get("/plans", middleware.RequireCoach(), handler.ListPlans)
-	api.Post("/plans", middleware.RequireCoach(), handler.CreatePlan)
-	api.Put("/plans/:id", middleware.RequireCoach(), handler.UpdatePlan)
-	api.Delete("/plans/:id", middleware.RequireCoach(), handler.DeletePlan)
+	api.Get("/plans", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListPlans)
+	api.Post("/plans", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreatePlan)
+	api.Put("/plans/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.UpdatePlan)
+	api.Delete("/plans/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.DeletePlan)
 }
 
 // RegisterPublicPlanRoutes registers unauthenticated public plan routes.
@@ -530,6 +564,7 @@ func RegisterPlanRoutes(api fiber.Router, handler *handlers.PlanHandler) {
 // plans and the current TRM without a Clerk token.
 func RegisterPublicPlanRoutes(api fiber.Router, handler *handlers.PlanHandler) {
 	api.Get("/coaches/:coachId/plans", handler.ListPublicPlans)
+	api.Get("/plans", handler.ListAllPublicPlans)
 	api.Get("/trm", handler.GetTRM)
 }
 
@@ -544,11 +579,11 @@ func RegisterPublicCoachLandingRoutes(api fiber.Router, handler *handlers.CoachL
 // RegisterSupportRoutes registers support ticket routes on the given API group.
 func RegisterSupportRoutes(api fiber.Router, handler *handlers.SupportHandler) {
 	// Coach endpoints
-	api.Get("/tickets", middleware.RequireCoach(), handler.ListTickets)
-	api.Post("/tickets", middleware.RequireCoach(), handler.CreateTicket)
-	api.Get("/tickets/:id", middleware.RequireCoach(), handler.GetTicket)
-	api.Put("/tickets/:id", middleware.RequireCoach(), handler.UpdateTicket)
-	api.Delete("/tickets/:id", middleware.RequireCoach(), handler.DeleteTicket)
+	api.Get("/tickets", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListTickets)
+	api.Post("/tickets", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateTicket)
+	api.Get("/tickets/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetTicket)
+	api.Put("/tickets/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.UpdateTicket)
+	api.Delete("/tickets/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.DeleteTicket)
 
 	// Athlete endpoints
 	api.Get("/athlete/tickets", middleware.RequireAthlete(), handler.ListAthleteTickets)
@@ -568,12 +603,12 @@ func RegisterSupportRoutes(api fiber.Router, handler *handlers.SupportHandler) {
 // creation and the admin financial-audit listing.
 func RegisterAllyRoutes(api fiber.Router, handler *handlers.AllyHandler) {
 	// Coach side: register and view allies for your own relationships.
-	api.Post("/coach/allies", middleware.RequireCoach(), handler.CreateAlly)
-	api.Get("/coach/allies", middleware.RequireCoach(), handler.ListCoachAllies)
-	api.Get("/coach/allies/:id", middleware.RequireCoach(), handler.GetCoachAlly)
+	api.Post("/coach/allies", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateAlly)
+	api.Get("/coach/allies", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListCoachAllies)
+	api.Get("/coach/allies/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetCoachAlly)
 
 	// Coach side: create a new commission-agreement version for one of your allies.
-	api.Put("/coach/allies/:id/commission-agreement", middleware.RequireCoach(), handler.CreateCommissionAgreement)
+	api.Put("/coach/allies/:id/commission-agreement", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateCommissionAgreement)
 
 	// Ally side: view your own allies (owned or member).
 	api.Get("/ally/me", middleware.RequireAlly(), handler.GetMyAlly)
@@ -624,42 +659,42 @@ func RegisterAllyPaymentDeclarationRoutes(api fiber.Router, handler *handlers.Al
 // RegisterPolicyRoutes registers commercial policy engine routes on the given
 // API group. Endpoints: POST /policies/commission, GET /commissions.
 func RegisterPolicyRoutes(api fiber.Router, handler *handlers.CommissionPolicyHandler) {
-	api.Post("/policies/commission", middleware.RequireCoach(), handler.ConfigureCommission)
-	api.Get("/commissions", middleware.RequireCoach(), handler.ListCommissions)
+	api.Post("/policies/commission", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ConfigureCommission)
+	api.Get("/commissions", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListCommissions)
 }
 
 // RegisterCommissionEntryRoutes registers commission entry routes on the
 // given API group.
 func RegisterCommissionEntryRoutes(api fiber.Router, handler *handlers.CommissionEntryHandler) {
-	api.Post("/coach/commission-entries", middleware.RequireCoach(), handler.CreateCommissionEntry)
-	api.Get("/coach/commission-entries", middleware.RequireCoach(), handler.ListCommissionEntries)
-	api.Get("/coach/commission-entries/:id", middleware.RequireCoach(), handler.GetCommissionEntry)
-	api.Post("/coach/commission-entries/:id/reverse", middleware.RequireCoach(), handler.ReverseCommissionEntry)
-	api.Post("/coach/commission-entries/:id/adjustments", middleware.RequireCoach(), handler.CreateFinancialAdjustment)
-	api.Get("/coach/commission-entries/:id/adjustments", middleware.RequireCoach(), handler.ListFinancialAdjustments)
+	api.Post("/coach/commission-entries", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateCommissionEntry)
+	api.Get("/coach/commission-entries", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListCommissionEntries)
+	api.Get("/coach/commission-entries/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetCommissionEntry)
+	api.Post("/coach/commission-entries/:id/reverse", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ReverseCommissionEntry)
+	api.Post("/coach/commission-entries/:id/adjustments", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateFinancialAdjustment)
+	api.Get("/coach/commission-entries/:id/adjustments", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListFinancialAdjustments)
 }
 
 // RegisterSettlementRoutes registers settlement routes on the given API group.
 func RegisterSettlementRoutes(api fiber.Router, handler *handlers.CoachSettlementHandler) {
-	api.Post("/coach/settlements", middleware.RequireCoach(), handler.CreateSettlement)
-	api.Get("/coach/settlements", middleware.RequireCoach(), handler.ListSettlements)
-	api.Get("/coach/settlements/:id", middleware.RequireCoach(), handler.GetSettlement)
-	api.Put("/coach/settlements/:id/status", middleware.RequireCoach(), handler.UpdateSettlementStatus)
-	api.Post("/coach/settlements/:id/void", middleware.RequireCoach(), handler.VoidSettlement)
-	api.Get("/coach/settlements/:id/items", middleware.RequireCoach(), handler.ListSettlementItems)
+	api.Post("/coach/settlements", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateSettlement)
+	api.Get("/coach/settlements", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListSettlements)
+	api.Get("/coach/settlements/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetSettlement)
+	api.Put("/coach/settlements/:id/status", middleware.RequireCoach(), middleware.RequireCoachID(), handler.UpdateSettlementStatus)
+	api.Post("/coach/settlements/:id/void", middleware.RequireCoach(), middleware.RequireCoachID(), handler.VoidSettlement)
+	api.Get("/coach/settlements/:id/items", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListSettlementItems)
 }
 
 // RegisterSettlementDocumentRoutes registers settlement document routes.
 func RegisterSettlementDocumentRoutes(api fiber.Router, handler *handlers.CoachSettlementDocumentHandler) {
-	api.Post("/coach/settlements/:id/documents", middleware.RequireCoach(), handler.CreateDocument)
-	api.Get("/coach/settlements/:id/documents", middleware.RequireCoach(), handler.ListDocuments)
+	api.Post("/coach/settlements/:id/documents", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateDocument)
+	api.Get("/coach/settlements/:id/documents", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListDocuments)
 }
 
 // RegisterCoachPaymentRecordRoutes registers coach payment record routes.
 func RegisterCoachPaymentRecordRoutes(api fiber.Router, handler *handlers.CoachPaymentRecordHandler) {
-	api.Post("/coach/payment-records", middleware.RequireCoach(), handler.CreateRecord)
-	api.Post("/coach/payment-records/:id/confirm", middleware.RequireCoach(), handler.ConfirmRecord)
-	api.Get("/coach/payment-records", middleware.RequireCoach(), handler.ListRecords)
+	api.Post("/coach/payment-records", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateRecord)
+	api.Post("/coach/payment-records/:id/confirm", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ConfirmRecord)
+	api.Get("/coach/payment-records", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListRecords)
 }
 
 // RegisterSubscriptionRoutes registers subscription endpoints (subscribe, cancel,
@@ -672,4 +707,42 @@ func RegisterSubscriptionRoutes(api fiber.Router, handler *handlers.Subscription
 // outside the auth group (MP notifications carry no Clerk token).
 func RegisterMercadoPagoWebhookRoutes(app fiber.Router, handler *handlers.SubscriptionHandler) {
 	handler.RegisterMercadoPagoWebhook(app)
+}
+
+// RegisterWompiWebhookRoutes registers the public Wompi webhook outside the
+// auth group.
+func RegisterWompiWebhookRoutes(app fiber.Router, handler *handlers.SubscriptionHandler) {
+	handler.RegisterWompiWebhook(app)
+}
+
+// RegisterCoachAthleteRoutes registers coach-scoped athlete CRUD routes.
+// Routes: GET/PUT/DELETE /coach/athletes/:id
+func RegisterCoachAthleteRoutes(api fiber.Router, handler *handlers.CoachHandler) {
+	athletes := api.Group("/coach/athletes")
+	athletes.Get("/:id", handler.GetAthleteById)
+	athletes.Put("/:id", handler.SaveAthlete)
+	athletes.Delete("/:id", handler.DeleteAthlete)
+}
+
+// RegisterCoachFormMetricsRoutes registers coach form-metrics aggregate route.
+// Route: GET /coach/form-metrics
+func RegisterCoachFormMetricsRoutes(api fiber.Router, handler *handlers.FormMetricsHandler) {
+	api.Get("/coach/form-metrics", handler.GetCoachFormMetrics)
+}
+
+// RegisterWompiAvailabilityRoutes registers the Wompi availability gate endpoint.
+func RegisterWompiAvailabilityRoutes(api fiber.Router, handler *handlers.WompiAvailabilityHandler) {
+	api.Get("/payments/availability", handler.Handle)
+}
+
+// RegisterAdminRoutes registers read-only platform administration routes.
+// The supplied allowlist (optional) is passed to RequirePlatformSuperAdmin and
+// may be a string, []string, or variadic list of IDs.
+func RegisterAdminRoutes(api fiber.Router, handler *handlers.AdminHandler, allowed ...interface{}) {
+	admin := api.Group("/admin")
+	admin.Use(middleware.RequirePlatformSuperAdmin(allowed...))
+	admin.Get("/dashboard", handler.GetDashboard)
+	admin.Get("/coaches", handler.ListCoaches)
+	admin.Get("/coaches/:id", handler.GetCoach)
+	admin.Get("/services/health", handler.GetServicesHealth)
 }

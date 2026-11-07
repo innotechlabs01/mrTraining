@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
@@ -124,6 +125,38 @@ func HandlerGetLanding(db *sql.DB) fiber.Handler {
 		data.Version = version
 		data = withLandingDefaults(data)
 		return c.JSON(data)
+	}
+}
+
+// HandlerInsertLandingContact inserts a public landing-page contact form
+// submission (name, email, message). No authentication is required; it is a
+// best-effort marketing capture endpoint.
+func HandlerInsertLandingContact(db *sql.DB) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		var req struct {
+			Name    string `json:"name"`
+			Email   string `json:"email"`
+			Message string `json:"message"`
+		}
+		if err := c.BodyParser(&req); err != nil {
+			return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+		}
+		name := strings.TrimSpace(req.Name)
+		email := strings.TrimSpace(req.Email)
+		message := strings.TrimSpace(req.Message)
+		if name == "" || email == "" || message == "" {
+			return appresponse.Error(c, fiber.StatusBadRequest, "name, email and message are required")
+		}
+
+		id := uuid.New().String()
+		if _, err := db.Exec(
+			`INSERT INTO landing_contacts (id, name, email, message) VALUES ($1, $2, $3, $4)`,
+			id, name, email, message,
+		); err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to save contact")
+		}
+
+		return c.JSON(fiber.Map{"ok": true})
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 
 	allyapp "github.com/innotechlabs01/mr-training-api/internal/application/ally"
 	commissionapp "github.com/innotechlabs01/mr-training-api/internal/application/commission"
+	inviteapp "github.com/innotechlabs01/mr-training-api/internal/application/invite"
 	allydomain "github.com/innotechlabs01/mr-training-api/internal/domain/ally"
 	commissiondomain "github.com/innotechlabs01/mr-training-api/internal/domain/commission"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
@@ -18,14 +19,16 @@ import (
 type AllyHandler struct {
 	allyService       *allyapp.Service
 	commissionService *commissionapp.Service
+	inviteService     *inviteapp.Service
 	auditRepo         *auditinfra.Repository
 }
 
 // NewAllyHandler creates a new AllyHandler.
-func NewAllyHandler(allyService *allyapp.Service, commissionService *commissionapp.Service, auditRepo *auditinfra.Repository) *AllyHandler {
+func NewAllyHandler(allyService *allyapp.Service, commissionService *commissionapp.Service, inviteService *inviteapp.Service, auditRepo *auditinfra.Repository) *AllyHandler {
 	return &AllyHandler{
 		allyService:       allyService,
 		commissionService: commissionService,
+		inviteService:     inviteService,
 		auditRepo:         auditRepo,
 	}
 }
@@ -90,6 +93,45 @@ func (h *AllyHandler) ListCoachAllies(c *fiber.Ctx) error {
 	coachID := middleware.GetUserID(c)
 	if coachID == "" {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	allies, err := h.allyService.ListByCoach(c.Context(), coachID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	responses := make([]dto.AllySummaryResponse, len(allies))
+	for i, a := range allies {
+		responses[i] = dto.AllySummaryResponse{
+			RelationshipID: a.RelationshipID,
+			CoachID:        a.CoachID,
+			AllyID:         a.AllyID,
+			LegalName:      a.LegalName,
+			CommercialName: a.CommercialName,
+			Category:       a.Category,
+			Status:         a.Status,
+		}
+	}
+
+	return appresponse.Success(c, dto.ListResponse[dto.AllySummaryResponse]{
+		Data:  responses,
+		Total: len(responses),
+		Page:  1,
+		Limit: len(responses),
+	})
+}
+
+// ListAthleteAllies handles GET /athlete/allies.
+// Returns the allies of the coach linked to the authenticated athlete.
+func (h *AllyHandler) ListAthleteAllies(c *fiber.Ctx) error {
+	athleteID := middleware.GetUserID(c)
+	if athleteID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	coachID, err := h.inviteService.GetCoachIDByAthleteID(c.Context(), athleteID)
+	if err != nil {
+		return appresponse.Error(c, fiber.StatusNotFound, "no active coach link found for athlete")
 	}
 
 	allies, err := h.allyService.ListByCoach(c.Context(), coachID)

@@ -29,7 +29,7 @@ func (r *Repository) SetExecutor(exec database.Executor) {
 
 // WithExecutor returns a new Repository instance sharing the same connection
 // pool but using the given executor for all queries.
-func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+func (r *Repository) WithExecutor(exec database.Executor) store.Repository {
 	return &Repository{
 		db:  r.db,
 		exec: exec,
@@ -210,7 +210,7 @@ func (r *Repository) CreateOrderWithItems(ctx context.Context, order *store.Orde
 
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO store_orders (id, athlete_id, status, total, currency, created_at)
-		VALUES ($11, $12, 'pending', $13, $14, NOW())
+		VALUES ($1, $2, 'pending', $3, $4, NOW())
 	`, order.ID, order.AthleteID, order.Total, order.Currency); err != nil {
 		return fmt.Errorf("failed to insert order: %w", err)
 	}
@@ -218,7 +218,7 @@ func (r *Repository) CreateOrderWithItems(ctx context.Context, order *store.Orde
 	for _, it := range items {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO store_order_items (id, order_id, product_id, product_name, unit_price, quantity, fulfilled)
-			VALUES ($15, $16, $17, $18, $19, $20, 0)
+			VALUES ($1, $2, $3, $4, $5, $6, 0)
 		`, it.ID, order.ID, it.ProductID, it.ProductName, it.UnitPrice, it.Quantity); err != nil {
 			return fmt.Errorf("failed to insert order item: %w", err)
 		}
@@ -236,7 +236,7 @@ func (r *Repository) GetOrder(ctx context.Context, orderID string) (*store.Order
 	var externalRef, paidAt sql.NullString
 	err := r.exec.QueryRowContext(ctx, `
 		SELECT id, athlete_id, status, total, currency, external_ref, created_at, paid_at
-		FROM store_orders WHERE id = $21
+		FROM store_orders WHERE id = $1
 	`, orderID).Scan(&o.ID, &o.AthleteID, &o.Status, &o.Total, &o.Currency, &externalRef, &o.CreatedAt, &paidAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get order: %w", err)
@@ -250,7 +250,7 @@ func (r *Repository) GetOrder(ctx context.Context, orderID string) (*store.Order
 func (r *Repository) GetOrderItems(ctx context.Context, orderID string) ([]*store.OrderItem, error) {
 	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, order_id, product_id, product_name, unit_price, quantity, fulfilled
-		FROM store_order_items WHERE order_id = $22 ORDER BY product_name
+		FROM store_order_items WHERE order_id = $1 ORDER BY product_name
 	`, orderID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list order items: %w", err)
@@ -288,7 +288,7 @@ func (r *Repository) FulfillOrder(ctx context.Context, orderID, externalRef stri
 
 	// Inspect the order state first — replayed webhooks must be no-ops.
 	var status string
-	err = tx.QueryRowContext(ctx, `SELECT status FROM store_orders WHERE id = $23`, orderID).Scan(&status)
+	err = tx.QueryRowContext(ctx, `SELECT status FROM store_orders WHERE id = $1`, orderID).Scan(&status)
 	if err != nil {
 		return nil, fmt.Errorf("order not found: %w", err)
 	}
@@ -301,7 +301,7 @@ func (r *Repository) FulfillOrder(ctx context.Context, orderID, externalRef stri
 
 	rows, err := tx.QueryContext(ctx, `
 		SELECT product_id, product_name, unit_price, quantity
-		FROM store_order_items WHERE order_id = $24
+		FROM store_order_items WHERE order_id = $1
 	`, orderID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load order items: %w", err)
@@ -326,7 +326,7 @@ func (r *Repository) FulfillOrder(ctx context.Context, orderID, externalRef stri
 	// Validate existence + stock for every line BEFORE writing anything.
 	for _, l := range lines {
 		var stock int
-		err := tx.QueryRowContext(ctx, `SELECT stock FROM products WHERE id = $25`, l.productID).Scan(&stock)
+		err := tx.QueryRowContext(ctx, `SELECT stock FROM products WHERE id = $1`, l.productID).Scan(&stock)
 		if err != nil {
 			return nil, fmt.Errorf("product %s not found: %w", l.productID, err)
 		}
@@ -341,32 +341,32 @@ func (r *Repository) FulfillOrder(ctx context.Context, orderID, externalRef stri
 	for _, l := range lines {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO store_purchases (id, athlete_id, product_id, quantity, price, created_at)
-			VALUES ($26, (SELECT athlete_id FROM store_orders WHERE id = $27), $28, $29, $30, NOW())
+			VALUES ($1, (SELECT athlete_id FROM store_orders WHERE id = $2), $3, $4, $5, NOW())
 		`, purchaseID(orderID, l.productID), orderID, l.productID, l.quantity, l.unitPrice); err != nil {
 			return nil, fmt.Errorf("failed to record purchase: %w", err)
 		}
 		if _, err := tx.ExecContext(ctx, `
-			UPDATE products SET stock = stock - $31 WHERE id = $32
+			UPDATE products SET stock = stock - $1 WHERE id = $2
 		`, l.quantity, l.productID); err != nil {
 			return nil, fmt.Errorf("failed to decrement stock: %w", err)
 		}
 		if _, err := tx.ExecContext(ctx, `
-			UPDATE store_order_items SET fulfilled = 1 WHERE order_id = $33 AND product_id = $34
+			UPDATE store_order_items SET fulfilled = 1 WHERE order_id = $1 AND product_id = $2
 		`, orderID, l.productID); err != nil {
 			return nil, fmt.Errorf("failed to mark item fulfilled: %w", err)
 		}
 		// Mirror into the sales table for dashboard revenue + ventas page.
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO sales (id, product_id, product_name, brand, quantity, unit_price, unit_received, total, date, coach_id, created_at)
-			VALUES ($35, $36, $37, (SELECT COALESCE(brand, '') FROM products WHERE id = $38), $39, $40, 0, $41, CURRENT_DATE, (SELECT coach_id FROM products WHERE id = $42), NOW())
+			VALUES ($1, $2, $3, (SELECT COALESCE(brand, '') FROM products WHERE id = $4), $5, $6, 0, $7, CURRENT_DATE, (SELECT coach_id FROM products WHERE id = $8), NOW())
 		`, "sls-"+purchaseID(orderID, l.productID), l.productID, l.productName, l.productID, l.quantity, l.unitPrice, l.unitPrice*float64(l.quantity), l.productID); err != nil {
 			return nil, fmt.Errorf("failed to log sale for dashboard: %w", err)
 		}
 	}
 
 	if _, err := tx.ExecContext(ctx, `
-		UPDATE store_orders SET status = 'paid', external_ref = COALESCE(NULLIF($43, ''), external_ref), paid_at = NOW()
-		WHERE id = $44
+		UPDATE store_orders SET status = 'paid', external_ref = COALESCE(NULLIF($1, ''), external_ref), paid_at = NOW()
+		WHERE id = $2
 	`, externalRef, orderID); err != nil {
 		return nil, fmt.Errorf("failed to mark order paid: %w", err)
 	}

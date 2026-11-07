@@ -1,9 +1,3 @@
--- Financial audit trail (append-only), Phase B.
--- Every covered mutation must write its audit event in the SAME transaction as
--- the mutation itself; the operation is rolled back if the audit insert fails.
--- Append-only is enforced at the database level with triggers (H-05), so an
--- UPDATE or DELETE aborts regardless of application bugs.
-
 CREATE TABLE IF NOT EXISTS financial_audit_events (
   id         TEXT PRIMARY KEY,
   entity     TEXT NOT NULL,
@@ -21,14 +15,12 @@ CREATE INDEX IF NOT EXISTS idx_financial_audit_entity
 CREATE INDEX IF NOT EXISTS idx_financial_audit_created
   ON financial_audit_events(created_at);
 
-CREATE TRIGGER IF NOT EXISTS trg_financial_audit_no_update
-BEFORE UPDATE ON financial_audit_events
-BEGIN
-  SELECT RAISE(ABORT, 'financial_audit_events is append-only');
-END;
+DROP RULE IF EXISTS trg_financial_audit_no_update ON financial_audit_events;
+CREATE RULE trg_financial_audit_no_update
+AS ON UPDATE TO financial_audit_events
+DO INSTEAD NOTHING;
 
-CREATE TRIGGER IF NOT EXISTS trg_financial_audit_no_delete
-BEFORE DELETE ON financial_audit_events
-BEGIN
-  SELECT RAISE(ABORT, 'financial_audit_events is append-only');
-END;
+DROP RULE IF EXISTS trg_financial_audit_no_delete ON financial_audit_events;
+CREATE RULE trg_financial_audit_no_delete
+AS ON DELETE TO financial_audit_events
+DO INSTEAD NOTHING;

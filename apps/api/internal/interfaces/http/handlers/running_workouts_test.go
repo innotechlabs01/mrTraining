@@ -122,7 +122,7 @@ func setupApp(userID string, svc *runningapp.Service) *fiber.App {
 			return c.Next()
 		})
 	}
-	handler := NewRunningWorkoutHandler(svc)
+	handler := NewRunningWorkoutHandler(svc, nil)
 	app.Get("/running/workouts/templates/:id", handler.GetTemplate)
 	app.Get("/running/workouts/assignments/:id", handler.GetAssignment)
 	app.Post("/running/workouts/sessions/:id/complete", handler.CompleteSession)

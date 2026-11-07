@@ -88,6 +88,21 @@ func (h *PlanHandler) ListActivePlansForAthlete(c *fiber.Ctx) error {
 // ListActivePlans is not yet wired to a mobile-facing endpoint.
 // Use ListPublicPlans(coachId, true) for coach-scoped active plans.
 
+// ListAllPublicPlans returns all active (published) plans across all coaches,
+// for public marketing/landing pages.
+func (h *PlanHandler) ListAllPublicPlans(c *fiber.Ctx) error {
+	plans, err := h.service.ListAllActivePlans(c.Context())
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	return appresponse.Success(c, dto.ListResponse[*dto.PlanResponse]{
+		Data:  toPlanResponses(plans),
+		Total: len(plans),
+		Page:  1,
+		Limit: len(plans),
+	})
+}
+
 // CreatePlan creates a new plan for the authenticated coach.
 func (h *PlanHandler) CreatePlan(c *fiber.Ctx) error {
 	coachID := middleware.GetUserID(c)

@@ -6,6 +6,12 @@ export const dynamic = 'force-dynamic';
 import { useSearchParams } from 'next/navigation';
 import { Copy, Check, Smartphone, Download } from 'lucide-react';
 import { buildExpoUrl, buildExpoGoUrl, buildUniversalLink } from './expoLink';
+import { goFetch } from '@/lib/api/go-client';
+
+interface ValidateCodeResponse {
+  valid: boolean;
+  coach?: { id: string; name: string; email: string };
+}
 
 function InviteContent() {
   const searchParams = useSearchParams();
@@ -33,8 +39,13 @@ function InviteContent() {
       setLoading(false);
       return;
     }
-    fetch(`/api/athlete/validate-code?code=${encodeURIComponent(code)}`)
-      .then((res) => res.json())
+    // Validate the coach code via the Go API (POST /api/v1/invites/validate).
+    // Replaces the Next.js route /api/athlete/validate-code (direct SQL).
+    goFetch<ValidateCodeResponse>('/api/v1/invites/validate', {
+      auth: false,
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    })
       .then((data) => {
         if (data?.valid && data?.coach?.name) {
           setCoachName(data.coach.name);

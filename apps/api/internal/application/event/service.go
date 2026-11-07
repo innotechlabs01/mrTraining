@@ -14,6 +14,7 @@ import (
 
 	eventdomain "github.com/innotechlabs01/mr-training-api/internal/domain/event"
 	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 )
 
@@ -29,6 +30,17 @@ func NewService(repo eventdomain.Repository) *Service {
 }
 
 // ListEvents returns all events for the given coach.
+// SetExecutor returns a service instance bound to the supplied executor
+// (typically a UnitOfWork transaction), keeping the original unchanged.
+func (s *Service) SetExecutor(exec database.Executor) *Service {
+	if repo, ok := s.repo.(interface {
+		WithExecutor(database.Executor) eventdomain.Repository
+	}); ok {
+		return &Service{repo: repo.WithExecutor(exec)}
+	}
+	return s
+}
+
 func (s *Service) ListEvents(ctx context.Context, coachID string) ([]*eventdomain.Event, error) {
 	events, err := s.repo.ListByCoach(ctx, coachID)
 	if err != nil {

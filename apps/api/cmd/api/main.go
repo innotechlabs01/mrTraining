@@ -58,7 +58,9 @@ import (
 	trmapp "github.com/innotechlabs01/mr-training-api/internal/application/trm"
 	userdomain "github.com/innotechlabs01/mr-training-api/internal/application/user"
 	vaapp "github.com/innotechlabs01/mr-training-api/internal/application/videoanalytics"
+	wompiavailapp "github.com/innotechlabs01/mr-training-api/internal/application/wompiavailability"
 	videoviewapp "github.com/innotechlabs01/mr-training-api/internal/application/videoview"
+	athleteConsumer "github.com/innotechlabs01/mr-training-api/internal/athlete"
 	"github.com/innotechlabs01/mr-training-api/internal/config"
 	handlerpkg "github.com/innotechlabs01/mr-training-api/internal/handlers"
 	alertinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/alert"
@@ -79,8 +81,8 @@ import (
 	communityinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/community"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	eventinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/event"
-	favoriteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/favorite"
 	expoinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/expo"
+	favoriteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/favorite"
 	formmetricsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formmetrics"
 	formrecordinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formrecording"
 	gamificationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/gamification"
@@ -90,6 +92,7 @@ import (
 	leaderboardinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/leaderboard"
 	membershipinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/membership"
 	messageinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/message"
+	natsInfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/nats"
 	notificationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/notification"
 	onboardinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/onboarding"
 	planinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/plan"
@@ -98,7 +101,7 @@ import (
 	runninginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/running"
 	storeinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/store"
 	subscriptioninfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/subscription"
-	mercadopagoinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/subscription/mercadopago"
+	wompiinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/subscription/wompi"
 	supportinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/support"
 	todayinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/today"
 	traininginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/training"
@@ -117,6 +120,7 @@ import (
 	analyticsapp "github.com/innotechlabs01/mr-training-api/internal/application/analytics"
 	checkinapp "github.com/innotechlabs01/mr-training-api/internal/application/checkin"
 	importactivityapp "github.com/innotechlabs01/mr-training-api/internal/application/importactivity"
+	runningoutbox "github.com/innotechlabs01/mr-training-api/internal/application/running/outbox"
 	trainingaiapp "github.com/innotechlabs01/mr-training-api/internal/application/trainingai"
 	analyticsinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/analytics"
 	checkininfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/checkin"
@@ -154,6 +158,38 @@ func main() {
 		}
 		defer db.Close()
 		log.Info("database connected")
+
+		// Start the NATS JetStream athlete.session.* consumer as a background
+		// worker. It projects set.logged / completed / progress events into the
+		// athlete_prs, athlete_session_stats and athlete_session_progress tables.
+		// It only runs when both a database and a NATS URL are configured.
+		if cfg.NATSURL != "" {
+			nc, js, nerr := natsInfra.Connect(cfg.NATSURL)
+			if nerr != nil {
+				log.Warn("nats consumer disabled", zap.Error(nerr))
+			} else {
+				defer nc.Close()
+				consumer := athleteConsumer.NewConsumer(db, js, log, nil)
+				go func() {
+					if err := consumer.Start(context.Background()); err != nil {
+						log.Error("nats consumer stopped", zap.Error(err))
+					}
+				}()
+				log.Info("nats athlete session consumer started",
+					zap.String("url", cfg.NATSURL))
+			}
+		} else {
+			log.Warn("NATS_URL not set, skipping athlete session consumer")
+		}
+
+		// Start outbox worker for running realtime events
+		outboxWorker := runningoutbox.NewWorker(db.DB, log)
+		go func() {
+			if err := outboxWorker.Start(context.Background()); err != nil {
+				log.Error("outbox worker stopped", zap.Error(err))
+			}
+		}()
+		log.Info("outbox worker started")
 	} else {
 		log.Warn("no database URL configured, running without database")
 	}
@@ -282,7 +318,7 @@ func main() {
 		// Wire Membership domain
 		membershipRepo := membershipinfrastructure.NewRepository(db.DB)
 		membershipService := membershipapp.NewService(membershipRepo)
-		membershipHandler := userhttp.NewMembershipHandler(membershipService, gamificationService)
+		membershipHandler := userhttp.NewMembershipHandler(membershipService, gamificationService, db.DB, tenantResolver)
 
 		// Wire Coach domain
 		coachRepo := coachinfrastructure.NewRepository(db.DB)
@@ -325,8 +361,8 @@ func main() {
 
 		// Wire Subscription domain (plans & payments)
 		subRepo := subscriptioninfra.NewRepository(db.DB)
-		mpProvider := mercadopagoinfra.NewAdapter(cfg)
-		subscriptionService := subscriptionapp.NewService(cfg, subRepo, mpProvider, planRepo)
+		wompiProvider := wompiinfra.NewAdapter(cfg)
+		subscriptionService := subscriptionapp.NewService(cfg, subRepo, wompiProvider, planRepo)
 		subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionService)
 
 		// Register membership routes
@@ -338,7 +374,7 @@ func main() {
 		// Wire Event domain
 		eventRepo := eventinfrastructure.NewRepository(db.DB)
 		eventService := eventapp.NewService(eventRepo)
-		eventHandler := userhttp.NewEventHandler(eventService, hub)
+		eventHandler := userhttp.NewEventHandler(eventService, hub, db.DB)
 
 		// Register event routes
 		routes.RegisterEventRoutes(api, eventHandler)
@@ -367,6 +403,12 @@ func main() {
 		coach.Get("/availability", coachHandler.GetAvailability)
 		coach.Post("/availability", coachHandler.SaveAvailability)
 
+		// Coach-scoped athlete CRUD
+		coachAthletes := api.Group("/coach/athletes")
+		coachAthletes.Get("/:id", coachHandler.GetAthleteById)
+		coachAthletes.Put("/:id", coachHandler.SaveAthlete)
+		coachAthletes.Delete("/:id", coachHandler.DeleteAthlete)
+
 		// Wire Product domain
 		productRepo := productinfrastructure.NewRepository(db.DB)
 		productService := productapp.NewService(productRepo)
@@ -374,6 +416,9 @@ func main() {
 
 		// Register product routes
 		routes.RegisterProductRoutes(api, productHandler)
+
+		// Public product routes (shop catalog, no auth)
+		routes.RegisterPublicProductRoutes(app.Group("/public"), productHandler)
 
 		// Wire Notification domain
 		notifRepo := notificationinfrastructure.NewRepository(db.DB)
@@ -388,7 +433,7 @@ func main() {
 		// Wire Support domain (uses notifService for push notifications)
 		supportRepo := supportinfrastructure.NewRepository(db.DB)
 		supportService := supportapp.NewService(supportRepo, notifService)
-		supportHandler := userhttp.NewSupportHandler(supportService)
+		supportHandler := userhttp.NewSupportHandler(supportService, db.DB)
 
 		// Register support routes
 		routes.RegisterSupportRoutes(api, supportHandler)
@@ -397,19 +442,19 @@ func main() {
 		// RegisterAnalyticsRoutes existed but was never called — endpoints 404'd.
 		analyticsRepo := analyticsinfra.NewRepository(db.DB)
 		analyticsService := analyticsapp.NewService(analyticsRepo)
-		analyticsHandler := userhttp.NewAnalyticsHandler(analyticsService, db.DB)
+		analyticsHandler := userhttp.NewAnalyticsHandler(analyticsService, db.DB, tenantResolver)
 		routes.RegisterAnalyticsRoutes(api, analyticsHandler)
 
 		// Wire Running domain
 		runningRepo := runninginfrastructure.NewRepository(db.DB)
 		runningService := runningapp.NewService(runningRepo, db.DB)
-		runningHandler := userhttp.NewRunningHandler(runningService)
+		runningHandler := userhttp.NewRunningHandler(runningService, tenantResolver)
 
 		// Register running routes
 		routes.RegisterRunningRoutes(api, runningHandler)
 
 		// Register structured running workout routes (templates, assignments, guided sessions)
-		runningWorkoutHandler := userhttp.NewRunningWorkoutHandler(runningService)
+		runningWorkoutHandler := userhttp.NewRunningWorkoutHandler(runningService, db.DB)
 		routes.RegisterRunningWorkoutRoutes(api, runningWorkoutHandler)
 
 		// Activity-file import (GPX/TCX/FIT) → running sessions + GPS points
@@ -425,9 +470,10 @@ func main() {
 		garminWebhookHandler := userhttp.NewGarminWebhookHandler(runningService, os.Getenv("GARMIN_WEBHOOK_SECRET"))
 		routes.RegisterWebhookRoutes(app, garminWebhookHandler)
 
-		// MercadoPago webhook (public, own signature check) — fulfillment of
+		// Wompi webhook (public, own signature check) — fulfillment of
 		// subscription payments. Mounted outside the /api/v1 auth group.
-		routes.RegisterMercadoPagoWebhookRoutes(app, subscriptionHandler)
+		// MercadoPago webhook route is intentionally not registered (legacy).
+		routes.RegisterWompiWebhookRoutes(app, subscriptionHandler)
 
 		// Wire readiness check-ins (morning 10-second check-in)
 		checkinRepo := checkininfra.NewRepository(db.DB)
@@ -454,10 +500,17 @@ func main() {
 		routes.RegisterOnboardingRoutes(api, onboardingHandler)
 
 		// Wire Invite domain
-		inviteHandler := userhttp.NewInviteHandler(inviteService)
+		inviteHandler := userhttp.NewInviteHandler(inviteService, userService, cfg.ClerkSecretKey)
 
 		// Register invite routes
 		routes.RegisterInviteRoutes(api, inviteHandler)
+
+		// Public invite validation (no auth needed — read-only code check)
+		routes.RegisterPublicInviteRoutes(app, inviteHandler)
+
+		// Clerk webhook (public — no auth, validates its own svix signature)
+		clerkWebhookHandler := userhttp.NewClerkWebhookHandler(userService, inviteService, cfg.ClerkSecretKey, cfg.ClerkWebhookSecret)
+		routes.RegisterClerkWebhookRoutes(app, clerkWebhookHandler)
 
 		// Wire Favorite domain
 		favoriteRepo := favoriteinfrastructure.NewRepository(db.DB)
@@ -473,10 +526,13 @@ func main() {
 		commissionRepo := commissioninfrastructure.NewRepository(db.DB)
 		commissionService := commissionapp.NewService(commissionRepo)
 		auditRepo := auditinfrastructure.NewRepository(db.DB)
-		allyHandler := userhttp.NewAllyHandler(allyService, commissionService, auditRepo)
+		allyHandler := userhttp.NewAllyHandler(allyService, commissionService, inviteService, auditRepo)
 
 		// Register ally routes
 		routes.RegisterAllyRoutes(api, allyHandler)
+
+		// Athlete-facing: list the allies of the coach linked to the athlete.
+		api.Get("/athlete/allies", middleware.RequireAthlete(), allyHandler.ListAthleteAllies)
 
 		// Wire Ally Catalog domain (Phase C)
 		allyCatalogRepo := allycataloginfrastructure.NewRepository(db.DB)
@@ -509,7 +565,7 @@ func main() {
 		// Wire Commission Entry domain (Phase E)
 		commissionEntryRepo := commissionentryinfrastructure.NewRepository(db.DB)
 		commissionEntryService := commissionentryapp.NewService(commissionEntryRepo)
-		commissionEntryHandler := userhttp.NewCommissionEntryHandler(commissionEntryService)
+		commissionEntryHandler := userhttp.NewCommissionEntryHandler(commissionEntryService, db.DB)
 
 		// Register commission entry routes
 		routes.RegisterCommissionEntryRoutes(api, commissionEntryHandler)
@@ -535,7 +591,7 @@ func main() {
 		// Wire Coach Settlement domain (Phase F)
 		coachSetRepo := coachsetinfrastructure.NewRepository(db.DB)
 		coachSetService := coachsetapp.NewService(coachSetRepo)
-		coachSetHandler := userhttp.NewCoachSettlementHandler(coachSetService)
+		coachSetHandler := userhttp.NewCoachSettlementHandler(coachSetService, db.DB)
 		coachSetDocHandler := userhttp.NewCoachSettlementDocumentHandler(coachSetService)
 		coachPayHandler := userhttp.NewCoachPaymentRecordHandler(coachSetService)
 
@@ -551,6 +607,7 @@ func main() {
 		// Public landing content (anonymous visitors of the public site)
 		pub := app.Group("/public")
 		pub.Get("/landing", middleware.Cache(time.Hour, "landing"), handlers.HandlerGetLanding(db.DB))
+		pub.Post("/landing/contact", handlers.HandlerInsertLandingContact(db.DB))
 
 		// Wire Alert domain
 		alertRepo := alertinfrastructure.NewRepository(db.DB)
@@ -567,6 +624,9 @@ func main() {
 
 		// Register blog routes
 		routes.RegisterBlogRoutes(api, blogHandler)
+
+		// Public blog routes (published articles, no auth)
+		routes.RegisterPublicBlogRoutes(app.Group("/public"), blogHandler)
 
 		// Wire Import domain
 		importRepo := importinfrastructure.NewRepository(db.DB)
@@ -629,6 +689,9 @@ func main() {
 
 		// Register form metrics routes
 		routes.RegisterFormMetricsRoutes(api, formmetricsHandler)
+
+		// Coach form-metrics aggregate
+		api.Get("/coach/form-metrics", formmetricsHandler.GetCoachFormMetrics)
 
 		// Wire Form Recording domain
 		formrecordingRepo := formrecordinginfrastructure.NewRepository(db.DB)
@@ -708,10 +771,15 @@ func main() {
 		// Wire Payment domain (MercadoPago cart checkout).
 		// Webhook mounts OUTSIDE the auth group — MP notifications carry no
 		// Clerk token; preference + order polling require the athlete.
-		paymentService := paymentapp.NewService(cfg, storeRepo, membershipService)
+		paymentService := paymentapp.NewService(cfg, storeRepo, membershipService, wompiProvider)
 		paymentHandler := userhttp.NewPaymentHandler(paymentService)
 		userhttp.RegisterPublicPaymentRoutes(app, paymentHandler)
 		userhttp.RegisterPaymentRoutes(api, paymentHandler)
+
+		// Wompi availability gate (backend authority, cached).
+		wompiAvailSvc := wompiavailapp.NewService()
+		wompiAvailHandler := handlers.NewWompiAvailabilityHandler(wompiAvailSvc)
+		routes.RegisterWompiAvailabilityRoutes(api, wompiAvailHandler)
 
 		// Register store routes
 		routes.RegisterStoreRoutes(api, storeHandler)
@@ -723,7 +791,7 @@ func main() {
 		}
 		messageRepo := messageinfrastructure.NewRepository(messageRepoDB)
 		messageService := messageapp.NewService(messageRepo)
-		messageHandler := messagehandlers.NewMessageHandler(messageService)
+		messageHandler := messagehandlers.NewMessageHandler(messageService, messageRepoDB)
 
 		// Register message routes
 		routes.RegisterMessageRoutes(api, messageHandler, cfg.ClerkSecretKey)
@@ -739,8 +807,15 @@ func main() {
 		// Wire Athlete Scheduling (availability/appointments) — reuse coachService
 		schedulingHandler := userhttp.NewAthleteSchedulingHandler(coachService)
 		routes.RegisterAthleteSchedulingRoutes(api, schedulingHandler)
-	} else {
-		log.Warn("CLERK_SECRET_KEY not set, skipping protected route registration")
+
+		// Wire read-only platform administration (identity-based, env allowlist)
+		var adminDB *sql.DB
+		if db != nil {
+			adminDB = db.DB
+		}
+		adminHandler := handlers.NewAdminHandler(adminDB)
+		routes.RegisterAdminRoutes(api, adminHandler, cfg.PlatformSuperAdminClerkIDs)
+	} else {		log.Warn("CLERK_SECRET_KEY not set, skipping protected route registration")
 	}
 
 	// Start server

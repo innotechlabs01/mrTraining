@@ -18,9 +18,12 @@ func newTestRepo(t *testing.T) (*Repository, *sql.DB) {
 	t.Helper()
 	ctx := context.Background()
 
-	url := os.Getenv("DATABASE_URL")
+	url := os.Getenv("SUPER_DATABASE_URL")
 	if url == "" {
-		t.Skip("skipping: DATABASE_URL not set")
+		url = os.Getenv("POSTGRES_DATABASE_URL")
+	}
+	if url == "" {
+		url = "postgresql://postgres:1e6819bd685e31fa529ed353f65bc6b6eb4d47f9f3e76c43@127.0.0.1:5435/mr_training_migration?sslmode=disable"
 	}
 
 	conn, err := database.Connect(url)
@@ -31,7 +34,11 @@ func newTestRepo(t *testing.T) (*Repository, *sql.DB) {
 	t.Cleanup(func() { _ = conn.Close() })
 
 	// Columns the repository reads/writes on running_sessions.
-	if _, err := sqlDB.ExecContext(ctx, `CREATE TABLE running_sessions (
+	sqlDB.ExecContext(ctx, `DELETE FROM running_gps_points WHERE session_id IN ('s-1','s-2','s-manual','s-garmin')`)
+	sqlDB.ExecContext(ctx, `DELETE FROM running_session_devices WHERE session_id IN ('s-1','s-2','s-manual','s-garmin')`)
+	sqlDB.ExecContext(ctx, `DELETE FROM running_sessions WHERE id IN ('s-1','s-2','s-manual','s-garmin')`)
+
+	if _, err := sqlDB.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS running_sessions (
 		id TEXT PRIMARY KEY,
 		user_id TEXT NOT NULL,
 		date TEXT NOT NULL,
@@ -45,10 +52,16 @@ func newTestRepo(t *testing.T) (*Repository, *sql.DB) {
 		cadence INTEGER NOT NULL DEFAULT 0,
 		gps_route TEXT,
 		source TEXT NOT NULL DEFAULT 'manual',
-		created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
 	)`); err != nil {
 		t.Fatalf("create running_sessions failed: %v", err)
 	}
+
+	t.Cleanup(func() {
+		sqlDB.ExecContext(context.Background(), `DELETE FROM running_gps_points WHERE session_id IN ('s-1','s-2','s-manual','s-garmin')`)
+		sqlDB.ExecContext(context.Background(), `DELETE FROM running_session_devices WHERE session_id IN ('s-1','s-2','s-manual','s-garmin')`)
+		sqlDB.ExecContext(context.Background(), `DELETE FROM running_sessions WHERE id IN ('s-1','s-2','s-manual','s-garmin')`)
+	})
 
 	applyMigrations(t, ctx, sqlDB,
 		"027_running_gps_points.sql",

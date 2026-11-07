@@ -41,6 +41,12 @@ func (h *SubscriptionHandler) RegisterMercadoPagoWebhook(app fiber.Router) {
 	app.Post("/webhooks/mercadopago", middleware.RateLimit(120, 60), h.HandleWebhook)
 }
 
+// RegisterWompiWebhook mounts the public Wompi webhook OUTSIDE the auth group.
+// Wompi is the active payment provider; MP remains legacy-only.
+func (h *SubscriptionHandler) RegisterWompiWebhook(app fiber.Router) {
+	app.Post("/webhooks/wompi", middleware.RateLimit(120, 60), h.HandleWebhook)
+}
+
 // HandleSubscribe creates a subscription for the authenticated athlete on the
 // given plan and returns the checkout URL for the MercadoPago browser flow.
 func (h *SubscriptionHandler) HandleSubscribe(c *fiber.Ctx) error {

@@ -133,9 +133,11 @@ func loadSchema(ctx context.Context, db *sql.DB, tableName string) (*TableSchema
 	for rows.Next() {
 		var col ColumnInfo
 		var def *string
-		if err := rows.Scan(&col.Name, &col.Type, &col.IsNullable, &def); err != nil {
+		var isNullable string
+		if err := rows.Scan(&col.Name, &col.Type, &isNullable, &def); err != nil {
 			return nil, fmt.Errorf("scan column: %w", err)
 		}
+		col.IsNullable = isNullable == "YES"
 		col.Type = strings.ToLower(col.Type)
 		if def != nil {
 			col.Default = def
@@ -167,17 +169,14 @@ func loadSchema(ctx context.Context, db *sql.DB, tableName string) (*TableSchema
 	}
 
 	fkQuery := `
-		SELECT kcu.column_name, ccu.table_name AS foreign_table, kcu.column_name AS foreign_column
+		SELECT kcu.column_name, ccu.table_name AS foreign_table, ccu.column_name AS foreign_column
 		FROM information_schema.table_constraints tc
 		JOIN information_schema.key_column_usage kcu
 			ON tc.constraint_name = kcu.constraint_name
 			AND tc.table_schema = kcu.table_schema
-		JOIN information_schema.key_column_usage kcu2
-			ON kcu.column_name = kcu2.column_name
-			AND kcu.table_schema = kcu2.table_schema
-		JOIN information_schema.column_column_usage ccu
-			ON kcu2.column_name = ccu.column_name
-			AND kcu2.table_schema = ccu.table_schema
+		JOIN information_schema.constraint_column_usage ccu
+			ON tc.constraint_name = ccu.constraint_name
+			AND tc.table_schema = ccu.table_schema
 		WHERE tc.constraint_type = 'FOREIGN KEY'
 			AND tc.table_schema = 'public'
 			AND tc.table_name = $1`
