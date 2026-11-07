@@ -15,8 +15,16 @@ import Link from 'next/link'
 
 export default function CoachUserDetailPage() {
   const params = useParams()
+  const athleteId = params.id as string
   const { getAthleteById } = useAthletes()
-  const athlete = getAthleteById(params.id as string)
+  const athlete = getAthleteById(athleteId)
+
+  const { data: streak } = useStreak(athleteId)
+  const { data: badges } = useBadges(athleteId)
+  const { data: prs } = usePRs(athleteId)
+  const { data: weeklyLeaderboard } = useWeeklyLeaderboard()
+  const { data: formMetrics } = useAthleteFormMetrics(athleteId)
+  const { data: coachFeedPosts } = useCoachFeedPosts()
 
   if (!athlete) {
     return (
@@ -28,13 +36,6 @@ export default function CoachUserDetailPage() {
       </div>
     )
   }
-
-  const { data: streak } = useStreak(athlete.id)
-  const { data: badges } = useBadges(athlete.id)
-  const { data: prs } = usePRs(athlete.id)
-  const { data: weeklyLeaderboard } = useWeeklyLeaderboard()
-  const { data: formMetrics } = useAthleteFormMetrics(athlete.id)
-  const { data: coachFeedPosts } = useCoachFeedPosts()
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">

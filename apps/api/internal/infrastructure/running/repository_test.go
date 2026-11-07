@@ -28,7 +28,7 @@ func newTestRepo(t *testing.T) (*Repository, *sql.DB) {
 
 	conn, err := database.Connect(url)
 	if err != nil {
-		t.Fatalf("open local db failed: %v", err)
+		t.Skipf("skipping test: database not reachable: %v", err)
 	}
 	sqlDB := conn.DB
 	t.Cleanup(func() { _ = conn.Close() })

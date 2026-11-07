@@ -7,6 +7,7 @@ package athlete
 import (
 	"context"
 	"database/sql"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/athlete"
@@ -91,3 +92,24 @@ func (r *repository) GetMessages(ctx context.Context, athleteID string) ([]*doma
 
 // ErrNotImplemented is returned for operations the facade does not support.
 var ErrNotImplemented = fmt.Errorf("not implemented")
+
+// SetExecutor sets the executor for the underlying repositories if supported.
+func (r *repository) SetExecutor(exec database.Executor) {
+	if s, ok := r.workoutRepo.(interface{ SetExecutor(database.Executor) }); ok {
+		s.SetExecutor(exec)
+	}
+	if s, ok := r.messageRepo.(interface{ SetExecutor(database.Executor) }); ok {
+		s.SetExecutor(exec)
+	}
+}
+
+// WithExecutor returns a shallow copy of the repository using the given executor.
+func (r *repository) WithExecutor(exec database.Executor) *repository {
+	copied := &repository{
+		db:          r.db,
+		workoutRepo: r.workoutRepo,
+		messageRepo: r.messageRepo,
+	}
+	copied.SetExecutor(exec)
+	return copied
+}
