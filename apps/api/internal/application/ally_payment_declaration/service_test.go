@@ -14,7 +14,13 @@ import (
 
 func newPaymentDeclarationTestDB(t *testing.T) (*database.DB, *Service) {
 	t.Helper()
-	url := os.Getenv("DATABASE_URL")
+	url := os.Getenv("SUPER_DATABASE_URL")
+	if url == "" {
+		url = os.Getenv("POSTGRES_DATABASE_URL")
+	}
+	if url == "" {
+		url = "postgresql://postgres:1e6819bd685e31fa529ed353f65bc6b6eb4d47f9f3e76c43@127.0.0.1:5435/mr_training_migration?sslmode=disable"
+	}
 	if url == "" {
 		t.Skip("skipping: DATABASE_URL not set")
 	}
@@ -40,7 +46,7 @@ CREATE TABLE IF NOT EXISTS coach_ally_relationships (
 CREATE TABLE IF NOT EXISTS ally_members (
   id TEXT PRIMARY KEY, ally_id TEXT NOT NULL REFERENCES allies(id),
   user_id TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'staff',
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
   UNIQUE (ally_id, user_id),
   CHECK (role IN ('owner','staff'))
 );
@@ -50,7 +56,7 @@ CREATE TABLE IF NOT EXISTS ally_operations (
   ally_id TEXT NOT NULL REFERENCES allies(id),
   athlete_id TEXT NOT NULL,
   status TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP), updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
   CHECK (kind IN ('order','reservation')),
   CHECK (status IN ('created','confirmed','fulfilled','attended','no_show','cancelled'))
 );
@@ -61,7 +67,7 @@ CREATE TABLE IF NOT EXISTS ally_payment_declarations (
   method TEXT, declared_at TEXT NOT NULL, reference TEXT, evidence_ref TEXT,
   status TEXT NOT NULL DEFAULT 'declared',
   reviewed_by TEXT, reviewed_at TEXT, review_note TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
   UNIQUE (operation_id, version),
   CHECK (amount_cents >= 0),
   CHECK (currency IN ('COP')),
@@ -73,7 +79,7 @@ CREATE INDEX IF NOT EXISTS idx_ally_payment_declarations_operation ON ally_payme
 CREATE TABLE IF NOT EXISTS financial_audit_events (
   id TEXT PRIMARY KEY, entity TEXT NOT NULL, entity_id TEXT NOT NULL, action TEXT NOT NULL,
   actor_id TEXT, actor_type TEXT NOT NULL DEFAULT 'user', payload TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
   CHECK (actor_type IN ('user','system'))
 );
 CREATE INDEX IF NOT EXISTS idx_financial_audit_entity ON financial_audit_events(entity, entity_id);
@@ -81,6 +87,8 @@ CREATE INDEX IF NOT EXISTS idx_financial_audit_entity ON financial_audit_events(
 	if _, err := db.Exec(ddl); err != nil {
 		t.Fatalf("apply ddl: %v", err)
 	}
+
+	db.DB.Exec("TRUNCATE TABLE allies, coach_ally_relationships, commission_agreements, financial_audit_events, ally_operations, ally_operation_items, ally_redemptions, ally_products, ally_services, ally_payment_declarations, commission_entries, financial_adjustments, coach_settlements, settlement_items, settlement_documents, coach_payment_records CASCADE")
 
 	mustExec(t, db, `INSERT INTO allies (id, owner_user_id, legal_name, commercial_name, category, status) VALUES ('allyA','userA','Legal A','Comercial A','gym','active')`)
 	mustExec(t, db, `INSERT INTO allies (id, owner_user_id, legal_name, commercial_name, category, status) VALUES ('allyB','userB','Legal B','Comercial B','nutrition','active')`)

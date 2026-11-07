@@ -16,7 +16,7 @@ import (
 
 // Repository implements domain.Repository using database/sql (Turso/libsql).
 type Repository struct {
-	db  *sql.DB
+	db   *sql.DB
 	exec database.Executor
 }
 
@@ -34,9 +34,9 @@ func (r *Repository) SetExecutor(exec database.Executor) {
 
 // WithExecutor returns a new Repository instance sharing the same connection
 // pool but using the given executor for all queries.
-func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+func (r *Repository) WithExecutor(exec database.Executor) domain.Repository {
 	return &Repository{
-		db:  r.db,
+		db:   r.db,
 		exec: exec,
 	}
 }
@@ -190,9 +190,9 @@ func (r *Repository) GetHRZones(ctx context.Context, athleteID string) ([]domain
 // decay fatigue score (half-life 72h) and a mirrored recovery score (0-100).
 func (r *Repository) GetFatigueMap(ctx context.Context, athleteID string) ([]domain.FatigueMap, error) {
 	type dayLoad struct {
-		date   string
+		date     string
 		hoursAgo float64
-		load   float64
+		load     float64
 	}
 
 	rows, err := r.exec.QueryContext(ctx,

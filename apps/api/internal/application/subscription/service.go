@@ -90,7 +90,12 @@ func (s *Service) Subscribe(ctx context.Context, cmd SubscribeCommand) (*Subscri
 		SuccessURL:        s.cfg.AppURL + "/payment/success",
 		FailureURL:        s.cfg.AppURL + "/payment/failed",
 		PendingURL:        s.cfg.AppURL + "/payment/pending",
-		NotificationURL:   s.cfg.MercadoPagoWebhookURL,
+		NotificationURL:   func() string {
+			if s.cfg.WompiWebhookURL != "" {
+				return s.cfg.WompiWebhookURL
+			}
+			return s.cfg.MercadoPagoWebhookURL
+		}(),
 		PayerEmail:        "",
 	})
 	if err != nil {
@@ -171,16 +176,25 @@ func (s *Service) FulfillWebhook(ctx context.Context, req subscription.WebhookRe
 	if err != nil {
 		return errors.BadRequest("invalid webhook body: " + err.Error())
 	}
-	if notif.Type != "payment" {
+
+	paymentID := notif.Data.ID
+	if notif.Data.Transaction.ID != "" {
+		paymentID = notif.Data.Transaction.ID
+	}
+	isPayment := notif.Type == "payment" || notif.Event == "transaction.updated" || notif.Event == "transaction.created" || paymentID != ""
+	if !isPayment {
 		// Non-payment notifications are acknowledged and ignored.
 		return nil
 	}
-	if notif.Data.ID == "" {
+	if paymentID == "" {
 		return errors.BadRequest("provider payment id missing")
+	}
+	if notif.Data.ID == "" {
+		notif.Data.ID = paymentID
 	}
 
 	// Never trust the notification body alone for money movements.
-	payment, err := s.provider.FetchPayment(ctx, notif.Data.ID)
+	payment, err := s.provider.FetchPayment(ctx, paymentID)
 	if err != nil {
 		return err
 	}
@@ -250,9 +264,13 @@ func newSubscriptionID() string {
 // --- notification parsing (internal) ---
 
 type mpNotification struct {
-	Type string `json:"type"`
-	Data struct {
-		ID string `json:"id"`
+	Type  string `json:"type"`
+	Event string `json:"event"`
+	Data  struct {
+		ID          string `json:"id"`
+		Transaction struct {
+			ID string `json:"id"`
+		} `json:"transaction"`
 	} `json:"data"`
 }
 

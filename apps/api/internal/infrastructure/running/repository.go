@@ -33,7 +33,7 @@ func (r *Repository) SetExecutor(exec database.Executor) {
 
 // WithExecutor returns a new Repository instance sharing the same connection
 // pool but using the given executor for all queries.
-func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+func (r *Repository) WithExecutor(exec database.Executor) domain.Repository {
 	return &Repository{
 		db:  r.db,
 		exec: exec,
@@ -109,16 +109,19 @@ func (r *Repository) ListSessionsByUser(ctx context.Context, userID string, from
 		 FROM running_sessions ` + sessionDeviceJoin + ` WHERE running_sessions.user_id = $1`
 	args := []interface{}{userID}
 
+	next := 2
 	if fromDate != "" {
-		query += " AND date >= $16"
+		query += fmt.Sprintf(" AND date >= $%d", next)
 		args = append(args, fromDate)
+		next++
 	}
 	if toDate != "" {
-		query += " AND date <= $17"
+		query += fmt.Sprintf(" AND date <= $%d", next)
 		args = append(args, toDate)
+		next++
 	}
 
-	query += " ORDER BY running_sessions.date DESC LIMIT $18 OFFSET $19"
+	query += fmt.Sprintf(" ORDER BY running_sessions.date DESC LIMIT $%d OFFSET $%d", next, next+1)
 	args = append(args, limit, offset)
 
 	rows, err := r.exec.QueryContext(ctx, query, args...)
@@ -251,12 +254,32 @@ func (r *Repository) SaveGpsPoint(ctx context.Context, p *domain.GpsPoint) error
 	return nil
 }
 
-// SaveGpsPoints persists a batch of GPS samples in a single transaction.
-// Empty slices are a no-op. All-or-nothing: any failure rolls back.
+// SaveGpsPoints persists a batch of GPS samples.
+// When the repository is bound to an external transaction (exec is *sql.Tx),
+// all rows are written through that transaction and no internal commit occurs;
+// the caller owns commit/rollback. Otherwise (pool or db executor) the method
+// opens and commits its own transaction, preserving prior behavior.
 func (r *Repository) SaveGpsPoints(ctx context.Context, points []*domain.GpsPoint) error {
 	if len(points) == 0 {
 		return nil
 	}
+	if tx, ok := r.exec.(*sql.Tx); ok {
+		stmt, err := tx.PrepareContext(ctx,
+			`INSERT INTO running_gps_points (id, session_id, lat, lng, alt, timestamp, accuracy)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7)`)
+		if err != nil {
+			return fmt.Errorf("failed to prepare gps batch stmt: %w", err)
+		}
+		defer stmt.Close()
+
+		for _, p := range points {
+			if _, err := stmt.ExecContext(ctx, p.ID, p.SessionID, p.Lat, p.Lng, p.Alt, p.Timestamp, p.Accuracy); err != nil {
+				return fmt.Errorf("failed to save gps point in batch: %w", err)
+			}
+		}
+		return nil
+	}
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin gps batch tx: %w", err)

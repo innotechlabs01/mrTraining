@@ -22,9 +22,9 @@ import (
 
 // MembershipHandler handles HTTP requests for the membership domain.
 type MembershipHandler struct {
-	service  *membershipapp.Service
-	gamifSvc *gamificationapp.Service
-	db       *sql.DB
+	service        *membershipapp.Service
+	gamifSvc       *gamificationapp.Service
+	db             *sql.DB
 	tenantResolver middleware.TenantResolver
 }
 
@@ -214,11 +214,13 @@ func (h *MembershipHandler) GetMembershipStatus(c *fiber.Ctx) error {
 	response := dto.MembershipStatusResponse{
 		HasActiveMembership: hasActiveMembership,
 		Status:              m.Status,
-		IsInGracePeriod:     m.GracePeriodDays > 0,
-		DaysRemaining:       calculateDaysRemaining(m),
-		ExpiresAt:           m.CurrentPeriodEnd,
-		Membership:          &dto.MembershipSummary{},
-		MembershipID:        m.ID,
+		// Grace period is an active status rule state, not a static plan attribute:
+		// only "past_due" memberships are inside their payment grace window.
+		IsInGracePeriod: m.Status == "past_due",
+		DaysRemaining:   calculateDaysRemaining(m),
+		ExpiresAt:       m.CurrentPeriodEnd,
+		Membership:      &dto.MembershipSummary{},
+		MembershipID:    m.ID,
 	}
 
 	if m != nil {

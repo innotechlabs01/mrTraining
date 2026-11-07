@@ -31,6 +31,15 @@ func (r *Repository) SetExecutor(exec database.Executor) {
 	r.exec = exec
 }
 
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) plandomain.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
 // isTx reports whether the current executor is a *sql.Tx (injected by a
 // UnitOfWork) rather than the connection pool.
 func (r *Repository) isTx() bool {

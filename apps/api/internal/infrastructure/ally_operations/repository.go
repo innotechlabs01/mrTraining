@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -18,19 +20,40 @@ import (
 
 // operationsRepository implements the Repository interface from the domain package.
 type operationsRepository struct {
-	db *sql.DB
+	db   *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new operations repository.
 func NewRepository(db *sql.DB) *operationsRepository {
-	return &operationsRepository{db: db}
+	return &operationsRepository{db: db, exec: db}
 }
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+func (r *operationsRepository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new operationsRepository instance sharing the same
+// connection pool but using the given executor for all queries.
+func (r *operationsRepository) WithExecutor(exec database.Executor) allydomain.Repository {
+	return &operationsRepository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx.
+func (r *operationsRepository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
+}
+
 
 // ResolveAllyID devuelve el aliado que el usuario posee o pertenece.
 func (r *operationsRepository) ResolveAllyID(ctx context.Context, userID string) (string, error) {
 	var allyID string
 	var count int
-	err := r.db.QueryRowContext(ctx, `
+	err := r.exec.QueryRowContext(ctx, `
 		SELECT COUNT(*), COALESCE(MIN(a.id), '')
 		FROM allies a
 		WHERE a.owner_user_id = $1
@@ -52,7 +75,7 @@ func (r *operationsRepository) ResolveAllyID(ctx context.Context, userID string)
 // coach y tiene status 'active' (R7).
 func (r *operationsRepository) ResolveRelationship(ctx context.Context, relationshipID string, coachID string) error {
 	var coachFromDB string
-	err := r.db.QueryRowContext(ctx, `SELECT coach_id FROM coach_ally_relationships WHERE id = $1`, relationshipID).Scan(&coachFromDB)
+	err := r.exec.QueryRowContext(ctx, `SELECT coach_id FROM coach_ally_relationships WHERE id = $1`, relationshipID).Scan(&coachFromDB)
 	if err != nil {
 		return fmt.Errorf("relationship not found: %w", err)
 	}
@@ -60,7 +83,7 @@ func (r *operationsRepository) ResolveRelationship(ctx context.Context, relation
 		return fmt.Errorf("relationship not owned by coach (got %s, expected %s)", coachFromDB, coachID)
 	}
 	var status string
-	err = r.db.QueryRowContext(ctx, `SELECT status FROM coach_ally_relationships WHERE id = $1`, relationshipID).Scan(&status)
+	err = r.exec.QueryRowContext(ctx, `SELECT status FROM coach_ally_relationships WHERE id = $1`, relationshipID).Scan(&status)
 	if err != nil {
 		return fmt.Errorf("cannot read relationship status: %w", err)
 	}
@@ -77,16 +100,20 @@ func (r *operationsRepository) CreateOperation(ctx context.Context, in allydomai
 	}
 	// Resolve ally_id from the relationship (it's the ally side of the relationship)
 	var allyID string
-	err := r.db.QueryRowContext(ctx, `SELECT ally_id FROM coach_ally_relationships WHERE id = $1`, in.RelationshipID).Scan(&allyID)
+	err := r.exec.QueryRowContext(ctx, `SELECT ally_id FROM coach_ally_relationships WHERE id = $1`, in.RelationshipID).Scan(&allyID)
 	if err != nil {
 		return nil, fmt.Errorf("cannot resolve ally_id from relationship: %w", err)
 	}
 	id := uuid.New().String()
 	t := time.Now().Format("2006-01-02 15:04:05")
-	_, err = r.db.ExecContext(ctx, `
+	var scheduled any
+	if in.ScheduledAt != "" {
+		scheduled = in.ScheduledAt
+	}
+	_, err = r.exec.ExecContext(ctx, `
 		INSERT INTO ally_operations (id, kind, relationship_id, ally_id, athlete_id, status, scheduled_at, confirmed_at, completed_at, cancelled_at, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-	`, id, in.Kind, in.RelationshipID, allyID, in.AthleteID, "created", in.ScheduledAt, nil, nil, nil, t, t)
+	`, id, in.Kind, in.RelationshipID, allyID, in.AthleteID, "created", scheduled, nil, nil, nil, t, t)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert operation: %w", err)
 	}
@@ -105,7 +132,7 @@ func (r *operationsRepository) CreateOperation(ctx context.Context, in allydomai
 
 // GetOperation devuelve la operación solo cuando pertenece al athlete asociado.
 func (r *operationsRepository) GetOperation(ctx context.Context, operationID, athleteID string) (*allydomain.AllyOperation, error) {
-	return scanOperation(r.db.QueryRowContext(ctx, `
+	return scanOperation(r.exec.QueryRowContext(ctx, `
 		SELECT id, kind, relationship_id, ally_id, athlete_id, status, scheduled_at, confirmed_at, completed_at, cancelled_at, created_at, updated_at
 		FROM ally_operations WHERE id = $1 AND athlete_id = $2
 	`, operationID, athleteID))
@@ -113,7 +140,7 @@ func (r *operationsRepository) GetOperation(ctx context.Context, operationID, at
 
 // ListOperationsByAthlete devuelve todas las operaciones del atleta.
 func (r *operationsRepository) ListOperationsByAthlete(ctx context.Context, athleteID string) ([]*allydomain.AllyOperation, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, kind, relationship_id, ally_id, athlete_id, status, scheduled_at, confirmed_at, completed_at, cancelled_at, created_at, updated_at
 		FROM ally_operations WHERE athlete_id = $1 ORDER BY created_at DESC
 	`, athleteID)
@@ -126,7 +153,7 @@ func (r *operationsRepository) ListOperationsByAthlete(ctx context.Context, athl
 
 // ListOperationsByCoach devuelve todas las operaciones de las relaciones del coach.
 func (r *operationsRepository) ListOperationsByCoach(ctx context.Context, coachID string) ([]*allydomain.AllyOperation, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT o.id, o.kind, o.relationship_id, o.ally_id, o.athlete_id, o.status, o.scheduled_at, o.confirmed_at, o.completed_at, o.cancelled_at, o.created_at, o.updated_at
 		FROM ally_operations o
 		JOIN coach_ally_relationships rel ON o.relationship_id = rel.id
@@ -142,7 +169,7 @@ func (r *operationsRepository) ListOperationsByCoach(ctx context.Context, coachI
 
 // ListOperationsByAlly devuelve todas las operaciones de un aliado.
 func (r *operationsRepository) ListOperationsByAlly(ctx context.Context, allyID string) ([]*allydomain.AllyOperation, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, kind, relationship_id, ally_id, athlete_id, status, scheduled_at, confirmed_at, completed_at, cancelled_at, created_at, updated_at
 		FROM ally_operations WHERE ally_id = $1
 		ORDER BY created_at DESC
@@ -157,7 +184,7 @@ func (r *operationsRepository) ListOperationsByAlly(ctx context.Context, allyID 
 // CreateOperationItem inserta un ítem en una operación.
 func (r *operationsRepository) CreateOperationItem(ctx context.Context, in allydomain.CreateOperationItemInput) (*allydomain.AllyOperationItem, error) {
 	id := uuid.New().String()
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO ally_operation_items (id, operation_id, offer_kind, offer_id, name, unit_price_cents, quantity)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`, id, in.OperationID, in.OfferKind, in.OfferID, in.Name, in.UnitPriceCents, in.Quantity)
@@ -177,7 +204,7 @@ func (r *operationsRepository) CreateOperationItem(ctx context.Context, in allyd
 
 // ListOperationItems devuelve todos los ítems de una operación.
 func (r *operationsRepository) ListOperationItems(ctx context.Context, operationID string) ([]*allydomain.AllyOperationItem, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, operation_id, offer_kind, offer_id, name, unit_price_cents, quantity
 		FROM ally_operation_items WHERE operation_id = $1
 	`, operationID)
@@ -204,14 +231,14 @@ func (r *operationsRepository) CreateRedemption(ctx context.Context, in allydoma
 	t := time.Now().Format("2006-01-02 15:04:05")
 	expires := addDays(t, 30) // vence en 30 días
 
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO ally_redemptions (id, operation_id, token_hash, expires_at, status, created_at)
 		VALUES ($1, $2, $3, $4, 'issued', $5)
 	`, id, in.OperationID, tokenHash, expires, t)
 	if err != nil {
 		// Verificar si ya existe (race condition o constraint)
 		var existingID string
-		if err2 := r.db.QueryRowContext(ctx, `SELECT id FROM ally_redemptions WHERE token_hash = $1`, tokenHash).Scan(&existingID); err2 == nil {
+		if err2 := r.exec.QueryRowContext(ctx, `SELECT id FROM ally_redemptions WHERE token_hash = $1`, tokenHash).Scan(&existingID); err2 == nil {
 			// Ya existe; retornar el existente
 			return r.GetRedemption(ctx, existingID, in.OperationID)
 		}
@@ -224,7 +251,7 @@ func (r *operationsRepository) CreateRedemption(ctx context.Context, in allydoma
 // GetRedemption devuelve un redemption solo cuando pertenece a la operación
 // y su estado lo permite. ErrNotFound en caso contrario.
 func (r *operationsRepository) GetRedemption(ctx context.Context, redemptionID, operationID string) (*allydomain.AllyRedemption, error) {
-	return scanRedemption(r.db.QueryRowContext(ctx, `
+	return scanRedemption(r.exec.QueryRowContext(ctx, `
 		SELECT id, operation_id, token_hash, expires_at, redeemed_by, redeemed_at, status, created_at
 		FROM ally_redemptions WHERE id = $1 AND operation_id = $2
 	`, redemptionID, operationID))
@@ -232,7 +259,7 @@ func (r *operationsRepository) GetRedemption(ctx context.Context, redemptionID, 
 
 // ListRedemptionsByOperation devuelve todos los redemption de una operación.
 func (r *operationsRepository) ListRedemptionsByOperation(ctx context.Context, operationID string) ([]*allydomain.AllyRedemption, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, operation_id, token_hash, expires_at, redeemed_by, redeemed_at, status, created_at
 		FROM ally_redemptions WHERE operation_id = $1 ORDER BY created_at DESC
 	`, operationID)
@@ -245,7 +272,7 @@ func (r *operationsRepository) ListRedemptionsByOperation(ctx context.Context, o
 
 // GetRedemptionByTokenHash busca un redemption por su hash de token.
 func (r *operationsRepository) GetRedemptionByTokenHash(ctx context.Context, tokenHash string) (*allydomain.AllyRedemption, error) {
-	return scanRedemption(r.db.QueryRowContext(ctx, `
+	return scanRedemption(r.exec.QueryRowContext(ctx, `
 		SELECT id, operation_id, token_hash, expires_at, redeemed_by, redeemed_at, status, created_at
 		FROM ally_redemptions WHERE token_hash = $1
 	`, tokenHash))
@@ -255,7 +282,7 @@ func (r *operationsRepository) GetRedemptionByTokenHash(ctx context.Context, tok
 // atómica. Devuelve un error si el redemption no existe o no está en estado
 // 'issued' (anti-replay).
 func (r *operationsRepository) MarkRedeemed(ctx context.Context, redemptionID, operationID, redeemedBy string) error {
-	result, err := r.db.ExecContext(ctx, `
+	result, err := r.exec.ExecContext(ctx, `
 		UPDATE ally_redemptions
 		SET status = 'redeemed', redeemed_by = $1, redeemed_at = NOW()
 		WHERE id = $2 AND operation_id = $3 AND status = 'issued'

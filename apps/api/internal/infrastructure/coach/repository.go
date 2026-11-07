@@ -36,7 +36,7 @@ func (r *Repository) SetExecutor(exec database.Executor) {
 // WithExecutor returns a new Repository instance sharing the same connection
 // pool but using the given executor for all queries. This allows request-scoped
 // transactional usage without mutating the shared repository instance.
-func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+func (r *Repository) WithExecutor(exec database.Executor) coachdomain.Repository {
 	return &Repository{
 		db:  r.db,
 		exec: exec,

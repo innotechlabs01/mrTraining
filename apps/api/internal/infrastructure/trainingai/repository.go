@@ -4,6 +4,8 @@ package trainingai
 import (
 	"context"
 	"database/sql"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/trainingai"
@@ -12,18 +14,41 @@ import (
 
 // Repository implements domain.Repository using database/sql.
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a trainingai repository with the given database handle.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+// When set, all repository queries run against this executor instead of the
+// connection pool.
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) domain.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx (injected by a
+// UnitOfWork) rather than the connection pool.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // GetWorkoutAthlete returns the athlete id the assigned workout belongs to.
 func (r *Repository) GetWorkoutAthlete(ctx context.Context, workoutID string) (string, error) {
 	var athleteID string
-	err := r.db.QueryRowContext(ctx,
+	err := r.exec.QueryRowContext(ctx,
 		`SELECT athlete_id FROM assigned_workouts WHERE id = $1`, workoutID).Scan(&athleteID)
 	if err == sql.ErrNoRows {
 		return "", errors.NotFound("AssignedWorkout", workoutID)
@@ -36,7 +61,7 @@ func (r *Repository) GetWorkoutAthlete(ctx context.Context, workoutID string) (s
 
 // GetWorkoutExercises returns the prescribed exercises of an assigned workout.
 func (r *Repository) GetWorkoutExercises(ctx context.Context, workoutID string) ([]domain.WorkoutExercise, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, name, COALESCE(sets, 0), COALESCE(reps, 0),
 		        COALESCE(weight_kg, 0), COALESCE(rest_seconds, 0)
 		 FROM workout_exercises
@@ -65,7 +90,7 @@ func (r *Repository) GetExerciseHistory(ctx context.Context, athleteID, exercise
 	if limit <= 0 || limit > 50 {
 		limit = 8
 	}
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT DATE(wset.logged_at) AS d,
 		        MAX(wset.weight_kg) AS best_weight,
 		        MAX(wset.reps) AS best_reps
@@ -98,7 +123,7 @@ func (r *Repository) GetExerciseHistory(ctx context.Context, athleteID, exercise
 
 // GetExerciseLoadByDay returns load (weight*reps) per date for the last 7 days.
 func (r *Repository) GetExerciseLoadByDay(ctx context.Context, athleteID, exerciseName string) (map[string]float64, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT DATE(wset.logged_at) AS d,
 		        COALESCE(SUM(wset.weight_kg * wset.reps), 0)
 		 FROM workout_set_logs wset

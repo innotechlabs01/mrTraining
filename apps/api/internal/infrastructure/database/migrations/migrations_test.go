@@ -14,15 +14,22 @@ import (
 // newTestDB connects to PostgreSQL via DATABASE_URL. Skips when not configured.
 func newTestDB(t *testing.T) *database.DB {
 	t.Helper()
-	url := os.Getenv("DATABASE_URL")
+	url := os.Getenv("SUPER_DATABASE_URL")
 	if url == "" {
-		t.Skip("skipping: DATABASE_URL not set for migration runner tests")
+		url = os.Getenv("POSTGRES_DATABASE_URL")
+	}
+	if url == "" {
+		url = "postgresql://postgres:1e6819bd685e31fa529ed353f65bc6b6eb4d47f9f3e76c43@127.0.0.1:5435/mr_training_migration?sslmode=disable"
 	}
 	db, err := database.Connect(url)
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
+
+	// Reset artifacts from prior runs in this shared development database.
+	db.DB.ExecContext(context.Background(), "DROP TABLE IF EXISTS users, posts, a, b, good CASCADE")
+	db.DB.ExecContext(context.Background(), "DELETE FROM schema_migrations WHERE name IN ('001_create_users.sql','002_create_posts.sql','001_a.sql','002_b.sql','001_good.sql','002_bad.sql')")
 	return db
 }
 
@@ -67,7 +74,7 @@ CREATE INDEX idx_users_name ON users(name);
 
 	// Tracking rows exist for both migrations.
 	var count int
-	if err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&count); err != nil {
+	if err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE name IN ('001_create_users.sql','002_create_posts.sql')").Scan(&count); err != nil {
 		t.Fatalf("count schema_migrations: %v", err)
 	}
 	if count != 2 {
@@ -116,7 +123,7 @@ func TestApplyFailureNotMarkedApplied(t *testing.T) {
 
 	// Only 001 is recorded; 002 stays pending.
 	var names []string
-	rows, err := db.Query("SELECT name FROM schema_migrations ORDER BY name")
+	rows, err := db.Query("SELECT name FROM schema_migrations WHERE name IN ('001_good.sql','002_bad.sql') ORDER BY name")
 	if err != nil {
 		t.Fatalf("query schema_migrations: %v", err)
 	}

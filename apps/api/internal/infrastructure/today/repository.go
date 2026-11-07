@@ -3,6 +3,8 @@ package today
 import (
 	"context"
 	"database/sql"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 
 	"golang.org/x/sync/errgroup"
@@ -12,12 +14,35 @@ import (
 
 // Repository implements today.Repository using database/sql with Turso.
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new today repository.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+// When set, all repository queries run against this executor instead of the
+// connection pool.
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) today.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx (injected by a
+// UnitOfWork) rather than the connection pool.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // GetTodayData returns the aggregated today view for an athlete.
@@ -32,7 +57,7 @@ func (r *Repository) GetTodayData(ctx context.Context, athleteID string) (*today
 	// Athlete info
 	var info today.AthleteInfo
 	g.Go(func() error {
-		err := r.db.QueryRowContext(gctx,
+		err := r.exec.QueryRowContext(gctx,
 			`SELECT id, name, sport FROM athlete_profiles WHERE id = $1`, athleteID).Scan(&info.ID, &info.Name, &info.Sport)
 		if err == sql.ErrNoRows {
 			return fmt.Errorf("athlete not found")
@@ -46,7 +71,7 @@ func (r *Repository) GetTodayData(ctx context.Context, athleteID string) (*today
 	// Readiness — simplified: average of recent metrics
 	var readiness today.ReadinessScore
 	g.Go(func() error {
-		_ = r.db.QueryRowContext(gctx,
+		_ = r.exec.QueryRowContext(gctx,
 			`SELECT COALESCE(AVG(CASE WHEN metric_type='sleep' THEN value END), 0),
 			        COALESCE(AVG(CASE WHEN metric_type='hrv' THEN value END), 0),
 			        COALESCE(AVG(CASE WHEN metric_type='recovery' THEN value END), 0)
@@ -68,7 +93,7 @@ func (r *Repository) GetTodayData(ctx context.Context, athleteID string) (*today
 	var workouts []today.ActiveWorkout
 	g.Go(func() error {
 		workouts = make([]today.ActiveWorkout, 0)
-		wrows, err := r.db.QueryContext(gctx,
+		wrows, err := r.exec.QueryContext(gctx,
 			`SELECT aw.id, aw.content_name, aw.modality, aw.status, aw.progress,
 			        COALESCE(we.exercise_count, 0),
 			        (COALESCE(we.estimated_seconds, 0) + 59) / 60
@@ -105,7 +130,7 @@ func (r *Repository) GetTodayData(ctx context.Context, athleteID string) (*today
 	var sessions []today.Session
 	g.Go(func() error {
 		sessions = make([]today.Session, 0)
-		srows, err := r.db.QueryContext(gctx,
+		srows, err := r.exec.QueryContext(gctx,
 			`SELECT cs.id, cs.name, cs.time, cs.end_time, cs.location, cs.status
 			 FROM coach_sessions cs
 			 JOIN session_athletes sa ON sa.session_id = cs.id

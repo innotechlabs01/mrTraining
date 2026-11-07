@@ -9,15 +9,15 @@ import (
 
 	"github.com/google/uuid"
 
-	domain "github.com/innotechlabs01/mr-training-api/internal/domain/coach_settlement"
 	auditdomain "github.com/innotechlabs01/mr-training-api/internal/domain/audit"
+	domain "github.com/innotechlabs01/mr-training-api/internal/domain/coach_settlement"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Repository implements domain.Repository using libsql/SQLite.
 type Repository struct {
-	db  *sql.DB
+	db   *sql.DB
 	exec database.Executor
 }
 
@@ -37,9 +37,9 @@ func (r *Repository) SetExecutor(exec database.Executor) {
 
 // WithExecutor returns a new Repository instance sharing the same connection
 // pool but using the given executor for all queries.
-func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+func (r *Repository) WithExecutor(exec database.Executor) domain.Repository {
 	return &Repository{
-		db:  r.db,
+		db:   r.db,
 		exec: exec,
 	}
 }
@@ -154,21 +154,21 @@ func (r *Repository) CreateSettlement(ctx context.Context, in domain.CreateSettl
 	}
 
 	return &domain.CoachSettlement{
-		ID:                 id,
-		CoachID:            in.CoachID,
-		AllyID:             in.AllyID,
-		PeriodStart:        in.PeriodStart,
-		PeriodEnd:          in.PeriodEnd,
-		PeriodKey:          in.PeriodKey,
-		Currency:           currency,
-		Status:             domain.StatusDraft,
-		OperationsCount:    0,
-		BaseTotalCents:     0,
+		ID:                   id,
+		CoachID:              in.CoachID,
+		AllyID:               in.AllyID,
+		PeriodStart:          in.PeriodStart,
+		PeriodEnd:            in.PeriodEnd,
+		PeriodKey:            in.PeriodKey,
+		Currency:             currency,
+		Status:               domain.StatusDraft,
+		OperationsCount:      0,
+		BaseTotalCents:       0,
 		CommissionGrossCents: 0,
-		AdjustmentsCents:   0,
-		CommissionNetCents: 0,
-		CreatedAt:          t,
-		UpdatedAt:          t,
+		AdjustmentsCents:     0,
+		CommissionNetCents:   0,
+		CreatedAt:            t,
+		UpdatedAt:            t,
 	}, nil
 }
 
@@ -253,10 +253,10 @@ func (r *Repository) CalculateSettlement(ctx context.Context, settlementID strin
 
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO settlement_items
-				(id, settlement_id, entry_id, base_cents, rate_bps, fixed_amount_cents,
+				(id, settlement_id, entry_id, base_cents, rate_bps,
 				 amount_cents, released_at, created_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, $8)
-		`, itemID, settlementID, c.EntryID, c.BaseCents, c.RateBps, c.FixedAmountCents,
+			VALUES ($1, $2, $3, $4, $5, $6, NULL, $7)
+		`, itemID, settlementID, c.EntryID, c.BaseCents, c.RateBps,
 			c.AmountCents, t)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to insert settlement item: %w", err)
@@ -292,9 +292,9 @@ func (r *Repository) CalculateSettlement(ctx context.Context, settlementID strin
 	}
 
 	ev := auditdomain.NewEvent("coach_settlement", "settlement.calculated", actorID, map[string]any{
-		"settlement_id":        settlementID,
-		"operations_count":     len(items),
-		"base_total_cents":     baseTotalCents,
+		"settlement_id":          settlementID,
+		"operations_count":       len(items),
+		"base_total_cents":       baseTotalCents,
 		"commission_gross_cents": commissionGrossCents,
 		"commission_net_cents":   commissionNetCents,
 	})
@@ -307,20 +307,20 @@ func (r *Repository) CalculateSettlement(ctx context.Context, settlementID strin
 	}
 
 	return &domain.CoachSettlement{
-		ID:                 settlementID,
-		CoachID:            coachID,
-		AllyID:             allyID,
-		PeriodKey:          periodKey,
-		Currency:           currency,
-		Status:             domain.StatusCalculated,
-		OperationsCount:    len(items),
-		BaseTotalCents:     baseTotalCents,
+		ID:                   settlementID,
+		CoachID:              coachID,
+		AllyID:               allyID,
+		PeriodKey:            periodKey,
+		Currency:             currency,
+		Status:               domain.StatusCalculated,
+		OperationsCount:      len(items),
+		BaseTotalCents:       baseTotalCents,
 		CommissionGrossCents: commissionGrossCents,
-		AdjustmentsCents:   adjustmentsCents,
-		CommissionNetCents: commissionNetCents,
-		CalculatedAt:       t,
-		CreatedAt:          t,
-		UpdatedAt:          t,
+		AdjustmentsCents:     adjustmentsCents,
+		CommissionNetCents:   commissionNetCents,
+		CalculatedAt:         t,
+		CreatedAt:            t,
+		UpdatedAt:            t,
 	}, items, nil
 }
 
@@ -562,13 +562,13 @@ func (r *Repository) CreateCoachPaymentRecord(ctx context.Context, in domain.Cre
 	}
 
 	ev := auditdomain.NewEvent("coach_payment_record", "payment_record.created", actorID, map[string]any{
-		"record_id":      id,
-		"settlement_id":  in.SettlementID,
-		"coach_id":       in.CoachID,
-		"payer_ally_id":  in.PayerAllyID,
-		"amount_cents":   in.AmountCents,
-		"currency":       currency,
-		"status":         "declared",
+		"record_id":     id,
+		"settlement_id": in.SettlementID,
+		"coach_id":      in.CoachID,
+		"payer_ally_id": in.PayerAllyID,
+		"amount_cents":  in.AmountCents,
+		"currency":      currency,
+		"status":        "declared",
 	})
 	if err := audit.InsertTx(ctx, tx, ev); err != nil {
 		return nil, err
@@ -579,19 +579,19 @@ func (r *Repository) CreateCoachPaymentRecord(ctx context.Context, in domain.Cre
 	}
 
 	return &domain.CoachPaymentRecord{
-		ID:          id,
+		ID:           id,
 		SettlementID: in.SettlementID,
-		CoachID:     in.CoachID,
-		PayerAllyID: in.PayerAllyID,
-		AmountCents: in.AmountCents,
-		Currency:    currency,
-		ActorID:     in.ActorID,
-		ActorType:   in.ActorType,
-		Reference:   in.Reference,
-		EvidenceRef: in.EvidenceRef,
-		DeclaredAt:  declaredAt,
-		Status:      domain.PaymentStatusDeclared,
-		CreatedAt:   t,
+		CoachID:      in.CoachID,
+		PayerAllyID:  in.PayerAllyID,
+		AmountCents:  in.AmountCents,
+		Currency:     currency,
+		ActorID:      in.ActorID,
+		ActorType:    in.ActorType,
+		Reference:    in.Reference,
+		EvidenceRef:  in.EvidenceRef,
+		DeclaredAt:   declaredAt,
+		Status:       domain.PaymentStatusDeclared,
+		CreatedAt:    t,
 	}, nil
 }
 

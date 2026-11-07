@@ -5,8 +5,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	membership "github.com/innotechlabs01/mr-training-api/internal/application/membership"
+	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
@@ -20,7 +20,7 @@ import (
 func membershipError(c *fiber.Ctx, status int, code, message string) error {
 	reqID, _ := c.Locals("request_id").(string)
 	return c.Status(status).JSON(appresponse.ErrorResponse{
-		Error: appresponse.ErrorDetail{Code: code, Message: message},
+		Error:     appresponse.ErrorDetail{Code: code, Message: message},
 		RequestID: reqID,
 	})
 }
@@ -103,8 +103,12 @@ func (r *membershipStatusReader) GetMembershipStatus(ctx context.Context, athlet
 	// Recalculate status (the service already does this, but be explicit)
 	m.RecalculateStatus()
 
-	// Determine if the membership is "active" (status ∈ {active, trial, past_due})
-	hasActiveMembership := m.Status != "expired" && m.Status != "cancelled"
-
-	return m.Status, hasActiveMembership, nil
+	// Determine if the membership is "active" according to the existing
+	// status rules: only active, trial, and past_due (grace) grant access.
+	switch m.Status {
+	case "active", "trial", "past_due":
+		return m.Status, true, nil
+	default:
+		return m.Status, false, nil
+	}
 }

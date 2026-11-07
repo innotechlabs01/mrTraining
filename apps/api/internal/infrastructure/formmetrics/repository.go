@@ -3,6 +3,8 @@ package formmetrics
 import (
 	"context"
 	"database/sql"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/formmetrics"
@@ -10,16 +12,39 @@ import (
 
 // Repository implements the formmetrics.Repository interface.
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new form metrics repository.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+// When set, all repository queries run against this executor instead of the
+// connection pool.
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) domain.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx (injected by a
+// UnitOfWork) rather than the connection pool.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 func (r *Repository) InsertBatch(ctx context.Context, metrics []*domain.FormMetric) error {
-	if r.db == nil || len(metrics) == 0 {
+	if r.exec == nil || len(metrics) == 0 {
 		return nil
 	}
 
@@ -49,11 +74,11 @@ func (r *Repository) InsertBatch(ctx context.Context, metrics []*domain.FormMetr
 }
 
 func (r *Repository) GetByAthlete(ctx context.Context, athleteID string) ([]*domain.ExerciseFormStats, error) {
-	if r.db == nil {
+	if r.exec == nil {
 		return nil, nil
 	}
 
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT
 			exercise_id,
 			exercise_name,
@@ -137,11 +162,11 @@ func (r *Repository) GetByAthlete(ctx context.Context, athleteID string) ([]*dom
 }
 
 func (r *Repository) GetByAthleteAndExercise(ctx context.Context, athleteID string, exerciseID string) ([]*domain.FormMetric, error) {
-	if r.db == nil {
+	if r.exec == nil {
 		return nil, nil
 	}
 
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, athlete_id, exercise_id, exercise_name, workout_id, form_score, depth, alignment, tempo, recorded_at
 		FROM form_metrics
 		WHERE athlete_id = $1 AND exercise_id = $2
@@ -165,11 +190,11 @@ func (r *Repository) GetByAthleteAndExercise(ctx context.Context, athleteID stri
 }
 
 func (r *Repository) GetByCoach(ctx context.Context, coachID string) ([]*domain.CoachAthleteFormStats, error) {
-	if r.db == nil {
+	if r.exec == nil {
 		return nil, nil
 	}
 
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT
 			fm.athlete_id,
 			COALESCE(ca.name, 'Athlete') as athlete_name,

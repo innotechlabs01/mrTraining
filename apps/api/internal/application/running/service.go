@@ -39,6 +39,22 @@ func NewService(repo domain.Repository, db *sql.DB) *Service {
 	}
 }
 
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork)
+// into the underlying repository. Returns a new Service instance, leaving
+// the original unchanged.
+func (s *Service) SetExecutor(exec databasepkg.Executor) *Service {
+	if repo, ok := s.repo.(interface {
+		WithExecutor(databasepkg.Executor) domain.Repository
+	}); ok {
+		return &Service{
+			repo:      repo.WithExecutor(exec),
+			providers: s.providers,
+			db:        s.db,
+		}
+	}
+	return s
+}
+
 // RegisterProvider adds a wearable provider to the service.
 func (s *Service) RegisterProvider(provider domain.WearableProvider) {
 	s.providers[provider.Name()] = provider
@@ -671,7 +687,21 @@ func (s *Service) CreateTemplate(ctx context.Context, t *domain.RunningWorkoutTe
 			return fmt.Errorf("begin tx: %w", errTx)
 		}
 		var err error
+		if _, rerr := tx.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, true)", t.CoachID); rerr != nil {
+			tx.Rollback()
+			return rerr
+		}
+
+		if _, rerr := tx.ExecContext(ctx, "SELECT set_config('app.current_coach_id', $1, true)", t.CoachID); rerr != nil {
+			tx.Rollback()
+			return rerr
+		}
+		if _, rerr := tx.ExecContext(ctx, "SELECT set_config('app.user_role', $1, true)", "coach"); rerr != nil {
+			tx.Rollback()
+			return rerr
+		}
 		txRepo := asTxRepo(s.repo, tx)
+
 		defer func() {
 			if err != nil {
 				tx.Rollback()
@@ -764,6 +794,18 @@ func (s *Service) UpdateTemplate(ctx context.Context, id, name, description stri
 			return fmt.Errorf("begin tx: %w", errTx)
 		}
 		defer func() { _ = tx }()
+		if _, rerr := tx.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, true)", tpl.CoachID); rerr != nil {
+			tx.Rollback()
+			return rerr
+		}
+		if _, rerr := tx.ExecContext(ctx, "SELECT set_config('app.current_coach_id', $1, true)", tpl.CoachID); rerr != nil {
+			tx.Rollback()
+			return rerr
+		}
+		if _, rerr := tx.ExecContext(ctx, "SELECT set_config('app.user_role', $1, true)", "coach"); rerr != nil {
+			tx.Rollback()
+			return rerr
+		}
 		txRepo := asTxRepo(s.repo, tx)
 		if err = txRepo.SaveTemplate(ctx, tpl); err != nil {
 			tx.Rollback()
@@ -814,6 +856,72 @@ func (s *Service) CreateAssignment(ctx context.Context, a *domain.RunningWorkout
 	if a.ID == "" {
 		a.ID = uuid.New().String()
 	}
+	var tx *sql.Tx
+	if s.db != nil {
+		var errTx error
+		tx, errTx = s.db.BeginTx(ctx, nil)
+		if errTx != nil {
+			return fmt.Errorf("begin tx: %w", errTx)
+		}
+		var err error
+		if _, rerr := tx.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, true)", a.CoachID); rerr != nil {
+			tx.Rollback()
+			return rerr
+		}
+		if _, rerr := tx.ExecContext(ctx, "SELECT set_config('app.current_coach_id', $1, true)", a.CoachID); rerr != nil {
+			tx.Rollback()
+			return rerr
+		}
+		if _, rerr := tx.ExecContext(ctx, "SELECT set_config('app.user_role', $1, true)", "coach"); rerr != nil {
+			tx.Rollback()
+			return rerr
+		}
+		txRepo := asTxRepo(s.repo, tx)
+		defer func() {
+			if err != nil {
+				tx.Rollback()
+			}
+		}()
+
+		// Validate template exists and belongs to the coach (within RLS context).
+		template, gerr := txRepo.GetTemplate(ctx, a.TemplateID)
+		if gerr != nil {
+			err = gerr
+			return fmt.Errorf("get template: %w", gerr)
+		}
+		if template == nil {
+			err = fmt.Errorf("template not found: %s", a.TemplateID)
+			return err
+		}
+		if template.CoachID != a.CoachID {
+			err = fmt.Errorf("coach %s does not own template %s", a.CoachID, a.TemplateID)
+			return err
+		}
+		// Prevent duplicate active assignment for same athlete+template.
+		for _, status := range []domain.RunningWorkoutAssignmentStatus{domain.AssignmentStatusAssigned, domain.AssignmentStatusStarted} {
+			existing, lerr := txRepo.ListAssignmentsByAthlete(ctx, a.AthleteID, status)
+			if lerr == nil {
+				for _, aa := range existing {
+					if aa.TemplateID == a.TemplateID {
+						err = fmt.Errorf("duplicate active assignment for athlete %s and template %s", a.AthleteID, a.TemplateID)
+						return err
+					}
+				}
+			}
+		}
+
+		if err = txRepo.SaveAssignment(ctx, a); err != nil {
+			return fmt.Errorf("create assignment: %w", err)
+		}
+		if err = s.insertOutboxAssignmentCreatedTx(ctx, tx, a.ID, a.CoachID, a.AthleteID, a.TemplateID); err != nil {
+			return fmt.Errorf("create assignment and insert outbox: %w", err)
+		}
+		if err = tx.Commit(); err != nil {
+			return fmt.Errorf("commit assignment: %w", err)
+		}
+		return nil
+	}
+
 	// Validate template exists and belongs to the coach.
 	template, err := s.repo.GetTemplate(ctx, a.TemplateID)
 	if err != nil {
@@ -835,32 +943,6 @@ func (s *Service) CreateAssignment(ctx context.Context, a *domain.RunningWorkout
 				}
 			}
 		}
-	}
-
-	var tx *sql.Tx
-	if s.db != nil {
-		var errTx error
-		tx, errTx = s.db.BeginTx(ctx, nil)
-		if errTx != nil {
-			return fmt.Errorf("begin tx: %w", errTx)
-		}
-		var err error
-		txRepo := asTxRepo(s.repo, tx)
-		defer func() {
-			if err != nil {
-				tx.Rollback()
-			}
-		}()
-		if err = txRepo.SaveAssignment(ctx, a); err != nil {
-			return fmt.Errorf("create assignment: %w", err)
-		}
-		if err = s.insertOutboxAssignmentCreatedTx(ctx, tx, a.ID, a.CoachID, a.AthleteID, a.TemplateID); err != nil {
-			return fmt.Errorf("create assignment and insert outbox: %w", err)
-		}
-		if err = tx.Commit(); err != nil {
-			return fmt.Errorf("commit assignment: %w", err)
-		}
-		return nil
 	}
 
 	if err := s.repo.SaveAssignment(ctx, a); err != nil {
@@ -974,6 +1056,18 @@ func (s *Service) StartSession(ctx context.Context, assignmentID, athleteID stri
 				tx.Rollback()
 			}
 		}()
+		if _, rerr := tx.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, true)", athleteID); rerr != nil {
+			tx.Rollback()
+			return nil, rerr
+		}
+		if _, rerr := tx.ExecContext(ctx, "SELECT set_config('app.current_coach_id', $1, true)", assignment.CoachID); rerr != nil {
+			tx.Rollback()
+			return nil, rerr
+		}
+		if _, rerr := tx.ExecContext(ctx, "SELECT set_config('app.user_role', $1, true)", "athlete"); rerr != nil {
+			tx.Rollback()
+			return nil, rerr
+		}
 		txRepo := asTxRepo(s.repo, tx)
 		if err = txRepo.SaveSession(ctx, session); err != nil {
 			return nil, fmt.Errorf("save running session: %w", err)
@@ -1093,6 +1187,18 @@ func (s *Service) CompleteSession(ctx context.Context, sessionID, athleteID stri
 				tx.Rollback()
 			}
 		}()
+		if _, rerr := tx.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, true)", athleteID); rerr != nil {
+			tx.Rollback()
+			return fmt.Errorf("set rls context: %w", rerr)
+		}
+		if _, rerr := tx.ExecContext(ctx, "SELECT set_config('app.current_coach_id', $1, true)", coachID); rerr != nil {
+			tx.Rollback()
+			return fmt.Errorf("set rls context: %w", rerr)
+		}
+		if _, rerr := tx.ExecContext(ctx, "SELECT set_config('app.user_role', $1, true)", "athlete"); rerr != nil {
+			tx.Rollback()
+			return fmt.Errorf("set rls context: %w", rerr)
+		}
 		txRepo := asTxRepo(s.repo, tx)
 		if err = txRepo.UpdateSession(ctx, &updated); err != nil {
 			return fmt.Errorf("complete session: %w", err)

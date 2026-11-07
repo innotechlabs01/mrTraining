@@ -36,7 +36,7 @@ func (r *Repository) SetExecutor(exec database.Executor) {
 
 // WithExecutor returns a new Repository instance sharing the same connection
 // pool but using the given executor for all queries.
-func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+func (r *Repository) WithExecutor(exec database.Executor) allydomain.Repository {
 	return &Repository{
 		db:  r.db,
 		exec: exec,
@@ -112,7 +112,7 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*allydo
 		FROM coach_ally_relationships r
 		JOIN allies a ON a.id = r.ally_id
 		WHERE r.coach_id = $1
-		ORDER BY a.commercial_name COLLATE NOCASE
+		ORDER BY a.commercial_name 
 	`, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list allies: %w", err)
@@ -129,7 +129,7 @@ func (r *Repository) ListByAllyUser(ctx context.Context, userID string) ([]*ally
 		JOIN allies a ON a.id = r.ally_id
 		WHERE a.owner_user_id = $1
 		   OR a.id IN (SELECT ally_id FROM ally_members WHERE user_id = $2)
-		ORDER BY a.commercial_name COLLATE NOCASE
+		ORDER BY a.commercial_name 
 	`, userID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list allies for user: %w", err)

@@ -108,6 +108,10 @@ func RegisterMembershipRoutes(api fiber.Router, handler *handlers.MembershipHand
 	// Athlete's membership
 	api.Get("/memberships", handler.GetMembership)
 
+	// Athlete's normalized membership state (backend-authoritative, never 404).
+	// Used by Web/Mobile to drive checkout/access state instead of redirect success.
+	api.Get("/athletes/membership/status", middleware.RequireAthlete(), handler.GetMembershipStatus)
+
 	// Athlete's available plans for purchase (linked coach's plans)
 	api.Get("/athletes/membership/plans", middleware.RequireAthlete(), planHandler.ListActivePlansForAthlete)
 
@@ -705,6 +709,12 @@ func RegisterMercadoPagoWebhookRoutes(app fiber.Router, handler *handlers.Subscr
 	handler.RegisterMercadoPagoWebhook(app)
 }
 
+// RegisterWompiWebhookRoutes registers the public Wompi webhook outside the
+// auth group.
+func RegisterWompiWebhookRoutes(app fiber.Router, handler *handlers.SubscriptionHandler) {
+	handler.RegisterWompiWebhook(app)
+}
+
 // RegisterCoachAthleteRoutes registers coach-scoped athlete CRUD routes.
 // Routes: GET/PUT/DELETE /coach/athletes/:id
 func RegisterCoachAthleteRoutes(api fiber.Router, handler *handlers.CoachHandler) {
@@ -718,4 +728,21 @@ func RegisterCoachAthleteRoutes(api fiber.Router, handler *handlers.CoachHandler
 // Route: GET /coach/form-metrics
 func RegisterCoachFormMetricsRoutes(api fiber.Router, handler *handlers.FormMetricsHandler) {
 	api.Get("/coach/form-metrics", handler.GetCoachFormMetrics)
+}
+
+// RegisterWompiAvailabilityRoutes registers the Wompi availability gate endpoint.
+func RegisterWompiAvailabilityRoutes(api fiber.Router, handler *handlers.WompiAvailabilityHandler) {
+	api.Get("/payments/availability", handler.Handle)
+}
+
+// RegisterAdminRoutes registers read-only platform administration routes.
+// The supplied allowlist (optional) is passed to RequirePlatformSuperAdmin and
+// may be a string, []string, or variadic list of IDs.
+func RegisterAdminRoutes(api fiber.Router, handler *handlers.AdminHandler, allowed ...interface{}) {
+	admin := api.Group("/admin")
+	admin.Use(middleware.RequirePlatformSuperAdmin(allowed...))
+	admin.Get("/dashboard", handler.GetDashboard)
+	admin.Get("/coaches", handler.ListCoaches)
+	admin.Get("/coaches/:id", handler.GetCoach)
+	admin.Get("/services/health", handler.GetServicesHealth)
 }

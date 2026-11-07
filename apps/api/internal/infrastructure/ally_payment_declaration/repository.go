@@ -3,6 +3,8 @@ package ally_payment_declaration
 import (
 	"context"
 	"database/sql"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"errors"
 	"fmt"
 	"time"
@@ -18,13 +20,34 @@ import (
 // Todas las mutaciones financieras se escriben en la misma transacción que el
 // evento de auditoría (H-05).
 type Repository struct {
-	db *sql.DB
+	db   *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new payment declaration repository.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
 }
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) domain.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
+}
+
 
 // CreatePaymentDeclaration crea una declaración para una operación válida.
 func (r *Repository) CreatePaymentDeclaration(ctx context.Context, in domain.CreatePaymentDeclarationInput, actorID string) (*domain.AllyPaymentDeclaration, error) {
@@ -98,7 +121,7 @@ func (r *Repository) CreatePaymentDeclaration(ctx context.Context, in domain.Cre
 
 // GetPaymentDeclaration devuelve una declaración por ID y verifica ownership del aliado.
 func (r *Repository) GetPaymentDeclaration(ctx context.Context, declarationID, allyID string) (*domain.AllyPaymentDeclaration, error) {
-	return scanDeclaration(r.db.QueryRowContext(ctx, `
+	return scanDeclaration(r.exec.QueryRowContext(ctx, `
 		SELECT d.id, d.operation_id, d.version, COALESCE(d.supersedes_id, ''), d.amount_cents, d.currency,
 		       COALESCE(d.method, ''), d.declared_at, COALESCE(d.reference, ''), COALESCE(d.evidence_ref, ''),
 		       d.status, COALESCE(d.reviewed_by, ''), COALESCE(d.reviewed_at, ''), COALESCE(d.review_note, ''), d.created_at
@@ -112,7 +135,7 @@ func (r *Repository) GetPaymentDeclaration(ctx context.Context, declarationID, a
 func (r *Repository) ResolveAllyID(ctx context.Context, userID string) (string, error) {
 	var allyID string
 	var count int
-	err := r.db.QueryRowContext(ctx, `
+	err := r.exec.QueryRowContext(ctx, `
 		SELECT COUNT(*), COALESCE(MIN(a.id), '')
 		FROM allies a
 		WHERE a.owner_user_id = $1
@@ -132,7 +155,7 @@ func (r *Repository) ResolveAllyID(ctx context.Context, userID string) (string, 
 
 // ListPaymentDeclarationsByAlly devuelve todas las declaraciones de un aliado.
 func (r *Repository) ListPaymentDeclarationsByAlly(ctx context.Context, allyID string) ([]*domain.AllyPaymentDeclaration, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT d.id, d.operation_id, d.version, COALESCE(d.supersedes_id, ''), d.amount_cents, d.currency,
 		       COALESCE(d.method, ''), d.declared_at, COALESCE(d.reference, ''), COALESCE(d.evidence_ref, ''),
 		       d.status, COALESCE(d.reviewed_by, ''), COALESCE(d.reviewed_at, ''), COALESCE(d.review_note, ''), d.created_at
@@ -150,7 +173,7 @@ func (r *Repository) ListPaymentDeclarationsByAlly(ctx context.Context, allyID s
 
 // ListPaymentDeclarationsByOperation devuelve todas las versiones de una operación.
 func (r *Repository) ListPaymentDeclarationsByOperation(ctx context.Context, operationID string) ([]*domain.AllyPaymentDeclaration, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, operation_id, version, COALESCE(supersedes_id, ''), amount_cents, currency,
 		       COALESCE(method, ''), declared_at, COALESCE(reference, ''), COALESCE(evidence_ref, ''),
 		       status, COALESCE(reviewed_by, ''), COALESCE(reviewed_at, ''), COALESCE(review_note, ''), created_at
@@ -166,7 +189,7 @@ func (r *Repository) ListPaymentDeclarationsByOperation(ctx context.Context, ope
 
 // GetActiveDeclarationByOperation devuelve la declaración activa de una operación.
 func (r *Repository) GetActiveDeclarationByOperation(ctx context.Context, operationID string) (*domain.AllyPaymentDeclaration, error) {
-	return scanDeclaration(r.db.QueryRowContext(ctx, `
+	return scanDeclaration(r.exec.QueryRowContext(ctx, `
 		SELECT id, operation_id, version, COALESCE(supersedes_id, ''), amount_cents, currency,
 		       COALESCE(method, ''), declared_at, COALESCE(reference, ''), COALESCE(evidence_ref, ''),
 		       status, COALESCE(reviewed_by, ''), COALESCE(reviewed_at, ''), COALESCE(review_note, ''), created_at
@@ -217,7 +240,7 @@ func (r *Repository) ReviewPaymentDeclaration(ctx context.Context, declarationID
 		return nil, fmt.Errorf("failed to commit: %w", err)
 	}
 
-	return scanDeclaration(r.db.QueryRowContext(ctx, `
+	return scanDeclaration(r.exec.QueryRowContext(ctx, `
 		SELECT id, operation_id, version, COALESCE(supersedes_id, ''), amount_cents, currency,
 		       COALESCE(method, ''), declared_at, COALESCE(reference, ''), COALESCE(evidence_ref, ''),
 		       status, COALESCE(reviewed_by, ''), COALESCE(reviewed_at, ''), COALESCE(review_note, ''), created_at

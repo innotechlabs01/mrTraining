@@ -3,6 +3,8 @@ package workout
 import (
 	"context"
 	"database/sql"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 
 	"github.com/innotechlabs01/mr-training-api/internal/domain/workout"
@@ -11,18 +13,41 @@ import (
 
 // Repository implements workout.Repository using database/sql with Turso/libsql.
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new workout repository with the given database connection.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+// When set, all repository queries run against this executor instead of the
+// connection pool.
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) workout.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx (injected by a
+// UnitOfWork) rather than the connection pool.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // GetByID retrieves a workout template by its unique identifier,
 // including all associated exercises.
 func (r *Repository) GetByID(ctx context.Context, id string) (*workout.WorkoutTemplate, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, coach_id, name, description, goal, estimated_duration_minutes,
 		 created_at, updated_at
 		 FROM workout_templates WHERE id = $1`, id)
@@ -54,7 +79,7 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*workout.WorkoutTe
 
 // ListByCoach retrieves all workout templates for a specific coach.
 func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*workout.WorkoutTemplate, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, coach_id, name, description, goal, estimated_duration_minutes,
 		 created_at, updated_at
 		 FROM workout_templates WHERE coach_id = $1
@@ -157,7 +182,7 @@ func (r *Repository) Update(ctx context.Context, t *workout.WorkoutTemplate) err
 
 // Delete removes a workout template and all associated exercises.
 func (r *Repository) Delete(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM workout_templates WHERE id = $1`, id)
+	result, err := r.exec.ExecContext(ctx, `DELETE FROM workout_templates WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete workout template: %w", err)
 	}
@@ -173,7 +198,7 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 
 // getExercises retrieves all exercises for a given template ID, ordered by sort_order.
 func (r *Repository) getExercises(ctx context.Context, templateID string) ([]workout.Exercise, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, template_id, name, sets, reps, weight_kg, rest_seconds, sort_order,
 		 notes, mode, phase, superset_group, reps_min, reps_max, prog, inc, sec,
 		 minutes, speed, per_side, body_part, muscle_groups, library_exercise_id

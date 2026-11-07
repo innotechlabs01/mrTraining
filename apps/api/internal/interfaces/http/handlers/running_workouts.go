@@ -3,25 +3,62 @@
 package handlers
 
 import (
+	"database/sql"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 
 	runningapp "github.com/innotechlabs01/mr-training-api/internal/application/running"
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/running"
 	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
-	"time"
 )
 
 // RunningWorkoutHandler handles HTTP requests for structured running workouts.
 type RunningWorkoutHandler struct {
 	service *runningapp.Service
+	db      *sql.DB
 }
 
 // NewRunningWorkoutHandler creates a new RunningWorkoutHandler.
-func NewRunningWorkoutHandler(service *runningapp.Service) *RunningWorkoutHandler {
-	return &RunningWorkoutHandler{service: service}
+func NewRunningWorkoutHandler(service *runningapp.Service, db *sql.DB) *RunningWorkoutHandler {
+	return &RunningWorkoutHandler{service: service, db: db}
+}
+
+// withTx wraps a handler body in a UnitOfWork when a database connection is
+// available, propagating user/coach/role context so RLS policies apply.
+func (h *RunningWorkoutHandler) withTx(c *fiber.Ctx, fn func(*runningapp.Service) error) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	if h.db == nil {
+		return fn(h.service)
+	}
+	coachID := middleware.GetCoachID(c)
+	if coachID == "" {
+		coachID = userID
+	}
+	role := middleware.GetUserRole(c)
+	if role == "" {
+		role = "athlete"
+	}
+	uow := database.NewUnitOfWork(h.db)
+	if err := uow.Begin(c.Context(), userID, coachID, role); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
+	}
+	defer uow.Rollback(c.Context())
+	svc := h.service.SetExecutor(uow.Tx())
+	if err := fn(svc); err != nil {
+		return err
+	}
+	if err := uow.Commit(c.Context()); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to commit transaction")
+	}
+	return nil
 }
 
 // CreateTemplate handles POST /running/workouts/templates.
@@ -41,34 +78,34 @@ func (h *RunningWorkoutHandler) CreateTemplate(c *fiber.Ctx) error {
 	}
 
 	template := &domain.RunningWorkoutTemplate{
-		CoachID:              userID,
-		Name:                 req.Name,
-		Description:          req.Description,
-		Type:                 domain.RunningWorkoutTemplateType(req.Type),
-		TargetPaceMinPerKm:   req.TargetPaceMinPerKm,
-		TargetPaceMaxPerKm:   req.TargetPaceMaxPerKm,
-		TargetHeartRateMin:   req.TargetHeartRateMin,
-		TargetHeartRateMax:   req.TargetHeartRateMax,
-		TargetCadence:        req.TargetCadence,
-		TargetDistanceKm:     req.TargetDistanceKm,
-		TargetDurationSec:    req.TargetDurationSec,
+		CoachID:            userID,
+		Name:               req.Name,
+		Description:        req.Description,
+		Type:               domain.RunningWorkoutTemplateType(req.Type),
+		TargetPaceMinPerKm: req.TargetPaceMinPerKm,
+		TargetPaceMaxPerKm: req.TargetPaceMaxPerKm,
+		TargetHeartRateMin: req.TargetHeartRateMin,
+		TargetHeartRateMax: req.TargetHeartRateMax,
+		TargetCadence:      req.TargetCadence,
+		TargetDistanceKm:   req.TargetDistanceKm,
+		TargetDurationSec:  req.TargetDurationSec,
 	}
 
 	for _, segReq := range req.Segments {
 		template.Segments = append(template.Segments, &domain.RunningWorkoutSegment{
-			OrderIndex:           segReq.OrderIndex,
-			Type:                 domain.RunningWorkoutSegmentType(segReq.Type),
-			Instruction:          segReq.Instruction,
-			SpokenInstruction:    segReq.SpokenInstruction,
-			TargetDurationSec:    segReq.TargetDurationSec,
-			TargetDistanceKm:     segReq.TargetDistanceKm,
-			TargetPaceMinPerKm:   segReq.TargetPaceMinPerKm,
-			TargetPaceMaxPerKm:   segReq.TargetPaceMaxPerKm,
-			TargetHeartRateMin:   segReq.TargetHeartRateMin,
-			TargetHeartRateMax:   segReq.TargetHeartRateMax,
-			Repetitions:          segReq.Repetitions,
-			RecoverySec:          segReq.RecoverySec,
-			CompletionCriteria:   domain.RunningWorkoutCompletionCriteria(segReq.CompletionCriteria),
+			OrderIndex:         segReq.OrderIndex,
+			Type:               domain.RunningWorkoutSegmentType(segReq.Type),
+			Instruction:        segReq.Instruction,
+			SpokenInstruction:  segReq.SpokenInstruction,
+			TargetDurationSec:  segReq.TargetDurationSec,
+			TargetDistanceKm:   segReq.TargetDistanceKm,
+			TargetPaceMinPerKm: segReq.TargetPaceMinPerKm,
+			TargetPaceMaxPerKm: segReq.TargetPaceMaxPerKm,
+			TargetHeartRateMin: segReq.TargetHeartRateMin,
+			TargetHeartRateMax: segReq.TargetHeartRateMax,
+			Repetitions:        segReq.Repetitions,
+			RecoverySec:        segReq.RecoverySec,
+			CompletionCriteria: domain.RunningWorkoutCompletionCriteria(segReq.CompletionCriteria),
 		})
 	}
 
@@ -82,70 +119,64 @@ func (h *RunningWorkoutHandler) CreateTemplate(c *fiber.Ctx) error {
 // GetTemplate handles GET /running/workouts/templates/:id.
 // The owning coach and athletes assigned this template may retrieve it.
 func (h *RunningWorkoutHandler) GetTemplate(c *fiber.Ctx) error {
-	userID := middleware.GetUserID(c)
-	if userID == "" {
-		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
-	}
+	return h.withTx(c, func(svc *runningapp.Service) error {
+		userID := middleware.GetUserID(c)
+		id := c.Params("id")
+		if id == "" {
+			return appresponse.Error(c, fiber.StatusBadRequest, "template id is required")
+		}
 
-	id := c.Params("id")
-	if id == "" {
-		return appresponse.Error(c, fiber.StatusBadRequest, "template id is required")
-	}
-
-	template, err := h.service.GetTemplate(c.Context(), id)
-	if err != nil {
-		return h.handleError(c, err)
-	}
-	if template.CoachID != userID {
-		assignments, err := h.service.ListAssignmentsByAthlete(c.Context(), userID, "")
+		template, err := svc.GetTemplate(c.Context(), id)
 		if err != nil {
 			return h.handleError(c, err)
 		}
-		assigned := false
-		for _, assignment := range assignments {
-			if assignment.TemplateID == template.ID {
-				assigned = true
-				break
+		if template.CoachID != userID {
+			assignments, err := svc.ListAssignmentsByAthlete(c.Context(), userID, "")
+			if err != nil {
+				return h.handleError(c, err)
+			}
+			assigned := false
+			for _, assignment := range assignments {
+				if assignment.TemplateID == template.ID {
+					assigned = true
+					break
+				}
+			}
+			if !assigned {
+				return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view this template")
 			}
 		}
-		if !assigned {
-			return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view this template")
-		}
-	}
 
-	return appresponse.Success(c, toTemplateResponse(template))
+		return appresponse.Success(c, toTemplateResponse(template))
+	})
 }
 
 // ListTemplatesByCoach handles GET /running/workouts/templates?coach_id=...
 func (h *RunningWorkoutHandler) ListTemplatesByCoach(c *fiber.Ctx) error {
-	userID := middleware.GetUserID(c)
-	if userID == "" {
-		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
-	}
+	return h.withTx(c, func(svc *runningapp.Service) error {
+		userID := middleware.GetUserID(c)
 
-	coachID := c.Query("coach_id")
-	if coachID == "" {
-		coachID = userID
-	}
+		coachID := c.Query("coach_id")
+		if coachID == "" {
+			coachID = userID
+		}
 
-	// Prevent cross-coach enumeration: a coach may only list their own templates.
-	// A non-self coach_id is rejected unless explicitly supported in a future
-	// administrative flow.
-	if coachID != userID {
-		return appresponse.Error(c, fiber.StatusForbidden, "not allowed to list templates for another coach")
-	}
+		if coachID != userID {
+			return appresponse.Error(c, fiber.StatusForbidden, "not allowed to list templates for another coach")
+		}
 
-	templates, err := h.service.ListTemplatesByCoach(c.Context(), coachID)
-	if err != nil {
-		return h.handleError(c, err)
-	}
+		templates, err := svc.ListTemplatesByCoach(c.Context(), coachID)
+		if err != nil {
+			return h.handleError(c, err)
+		}
 
-	responses := make([]dto.RunningWorkoutTemplateResponse, len(templates))
-	for i, t := range templates {
-		responses[i] = toTemplateResponse(t)
-	}
+		responses := make([]dto.RunningWorkoutTemplateResponse, len(templates))
+		for i, t := range templates {
+			responses[i] = toTemplateResponse(t)
+		}
 
-	return appresponse.Success(c, responses)
+		return appresponse.Success(c, responses)
+	})
 }
 
 // DeleteTemplate handles DELETE /running/workouts/templates/:id.
@@ -199,10 +230,10 @@ func (h *RunningWorkoutHandler) CreateAssignment(c *fiber.Ctx) error {
 	}
 
 	assignment := &domain.RunningWorkoutAssignment{
-		TemplateID:         req.TemplateID,
-		AthleteID:          req.AthleteID,
-		CoachID:            userID,
-		ScheduledDate:      parseTime(req.ScheduledDate),
+		TemplateID:          req.TemplateID,
+		AthleteID:           req.AthleteID,
+		CoachID:             userID,
+		ScheduledDate:       parseTime(req.ScheduledDate),
 		AthleteInstructions: req.AthleteInstructions,
 	}
 
@@ -216,25 +247,24 @@ func (h *RunningWorkoutHandler) CreateAssignment(c *fiber.Ctx) error {
 // GetAssignment handles GET /running/workouts/assignments/:id.
 // Only the athlete or coach involved in the assignment may retrieve it.
 func (h *RunningWorkoutHandler) GetAssignment(c *fiber.Ctx) error {
-	userID := middleware.GetUserID(c)
-	if userID == "" {
-		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
-	}
+	return h.withTx(c, func(svc *runningapp.Service) error {
+		userID := middleware.GetUserID(c)
 
-	id := c.Params("id")
-	if id == "" {
-		return appresponse.Error(c, fiber.StatusBadRequest, "assignment id is required")
-	}
+		id := c.Params("id")
+		if id == "" {
+			return appresponse.Error(c, fiber.StatusBadRequest, "assignment id is required")
+		}
 
-	assignment, err := h.service.GetAssignment(c.Context(), id)
-	if err != nil {
-		return h.handleError(c, err)
-	}
-	if assignment.AthleteID != userID && assignment.CoachID != userID {
-		return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view this assignment")
-	}
+		assignment, err := svc.GetAssignment(c.Context(), id)
+		if err != nil {
+			return h.handleError(c, err)
+		}
+		if assignment.AthleteID != userID && assignment.CoachID != userID {
+			return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view this assignment")
+		}
 
-	return appresponse.Success(c, toAssignmentResponse(assignment))
+		return appresponse.Success(c, toAssignmentResponse(assignment))
+	})
 }
 
 // ListMyAssignments handles GET /running/workouts/assignments.
@@ -246,7 +276,9 @@ func (h *RunningWorkoutHandler) ListMyAssignments(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	return h.respondAssignmentsByAthlete(c, userID, "")
+	return h.withTx(c, func(svc *runningapp.Service) error {
+		return h.respondAssignmentsByAthleteTx(c, svc, userID, "")
+	})
 }
 
 // ListAssignmentsByAthlete handles GET /coach/athletes/:id/running/assignments.
@@ -264,12 +296,14 @@ func (h *RunningWorkoutHandler) ListAssignmentsByAthlete(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusForbidden, "coach cannot list own assignments through coach endpoint")
 	}
 
-	return h.respondAssignmentsByAthlete(c, athleteID, userID)
+	return h.withTx(c, func(svc *runningapp.Service) error {
+		return h.respondAssignmentsByAthleteTx(c, svc, athleteID, userID)
+	})
 }
 
-func (h *RunningWorkoutHandler) respondAssignmentsByAthlete(c *fiber.Ctx, athleteID, coachID string) error {
+func (h *RunningWorkoutHandler) respondAssignmentsByAthleteTx(c *fiber.Ctx, svc *runningapp.Service, athleteID, coachID string) error {
 	status := domain.RunningWorkoutAssignmentStatus(c.Query("status"))
-	assignments, err := h.service.ListAssignmentsByAthlete(c.Context(), athleteID, status)
+	assignments, err := svc.ListAssignmentsByAthlete(c.Context(), athleteID, status)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -287,22 +321,21 @@ func (h *RunningWorkoutHandler) respondAssignmentsByAthlete(c *fiber.Ctx, athlet
 
 // ListAssignmentsByCoach handles GET /coach/running/assignments.
 func (h *RunningWorkoutHandler) ListAssignmentsByCoach(c *fiber.Ctx) error {
-	userID := middleware.GetUserID(c)
-	if userID == "" {
-		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
-	}
+	return h.withTx(c, func(svc *runningapp.Service) error {
+		userID := middleware.GetUserID(c)
 
-	assignments, err := h.service.ListAssignmentsByCoach(c.Context(), userID)
-	if err != nil {
-		return h.handleError(c, err)
-	}
+		assignments, err := svc.ListAssignmentsByCoach(c.Context(), userID)
+		if err != nil {
+			return h.handleError(c, err)
+		}
 
-	responses := make([]dto.RunningWorkoutAssignmentResponse, len(assignments))
-	for i, a := range assignments {
-		responses[i] = toAssignmentResponse(a)
-	}
+		responses := make([]dto.RunningWorkoutAssignmentResponse, len(assignments))
+		for i, a := range assignments {
+			responses[i] = toAssignmentResponse(a)
+		}
 
-	return appresponse.Success(c, responses)
+		return appresponse.Success(c, responses)
+	})
 }
 
 // UpdateAssignmentStatus handles PATCH /running/workouts/assignments/:id/status.
@@ -426,41 +459,41 @@ func (h *RunningWorkoutHandler) CompleteSession(c *fiber.Ctx) error {
 
 func toTemplateResponse(t *domain.RunningWorkoutTemplate) dto.RunningWorkoutTemplateResponse {
 	resp := dto.RunningWorkoutTemplateResponse{
-		ID:                   t.ID,
-		CoachID:              t.CoachID,
-		Name:                 t.Name,
-		Description:          t.Description,
-		Type:                 string(t.Type),
-		TargetPaceMinPerKm:   t.TargetPaceMinPerKm,
-		TargetPaceMaxPerKm:   t.TargetPaceMaxPerKm,
-		TargetHeartRateMin:   t.TargetHeartRateMin,
-		TargetHeartRateMax:   t.TargetHeartRateMax,
-		TargetCadence:        t.TargetCadence,
-		TargetDistanceKm:     t.TargetDistanceKm,
-		TargetDurationSec:    t.TargetDurationSec,
-		CreatedAt:            t.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:            t.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		Segments:             make([]dto.RunningWorkoutSegmentResponse, 0, len(t.Segments)),
+		ID:                 t.ID,
+		CoachID:            t.CoachID,
+		Name:               t.Name,
+		Description:        t.Description,
+		Type:               string(t.Type),
+		TargetPaceMinPerKm: t.TargetPaceMinPerKm,
+		TargetPaceMaxPerKm: t.TargetPaceMaxPerKm,
+		TargetHeartRateMin: t.TargetHeartRateMin,
+		TargetHeartRateMax: t.TargetHeartRateMax,
+		TargetCadence:      t.TargetCadence,
+		TargetDistanceKm:   t.TargetDistanceKm,
+		TargetDurationSec:  t.TargetDurationSec,
+		CreatedAt:          t.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:          t.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Segments:           make([]dto.RunningWorkoutSegmentResponse, 0, len(t.Segments)),
 	}
 	for _, seg := range t.Segments {
 		resp.Segments = append(resp.Segments, dto.RunningWorkoutSegmentResponse{
-			ID:                   seg.ID,
-			TemplateID:           seg.TemplateID,
-			OrderIndex:           seg.OrderIndex,
-			Type:                 string(seg.Type),
-			Instruction:          seg.Instruction,
-			SpokenInstruction:    seg.SpokenInstruction,
-			TargetDurationSec:    seg.TargetDurationSec,
-			TargetDistanceKm:     seg.TargetDistanceKm,
-			TargetPaceMinPerKm:   seg.TargetPaceMinPerKm,
-			TargetPaceMaxPerKm:   seg.TargetPaceMaxPerKm,
-			TargetHeartRateMin:   seg.TargetHeartRateMin,
-			TargetHeartRateMax:   seg.TargetHeartRateMax,
-			Repetitions:          seg.Repetitions,
-			RecoverySec:          seg.RecoverySec,
-			CompletionCriteria:   string(seg.CompletionCriteria),
-			CreatedAt:            seg.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-			UpdatedAt:            seg.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			ID:                 seg.ID,
+			TemplateID:         seg.TemplateID,
+			OrderIndex:         seg.OrderIndex,
+			Type:               string(seg.Type),
+			Instruction:        seg.Instruction,
+			SpokenInstruction:  seg.SpokenInstruction,
+			TargetDurationSec:  seg.TargetDurationSec,
+			TargetDistanceKm:   seg.TargetDistanceKm,
+			TargetPaceMinPerKm: seg.TargetPaceMinPerKm,
+			TargetPaceMaxPerKm: seg.TargetPaceMaxPerKm,
+			TargetHeartRateMin: seg.TargetHeartRateMin,
+			TargetHeartRateMax: seg.TargetHeartRateMax,
+			Repetitions:        seg.Repetitions,
+			RecoverySec:        seg.RecoverySec,
+			CompletionCriteria: string(seg.CompletionCriteria),
+			CreatedAt:          seg.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:          seg.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		})
 	}
 	return resp
@@ -468,15 +501,15 @@ func toTemplateResponse(t *domain.RunningWorkoutTemplate) dto.RunningWorkoutTemp
 
 func toAssignmentResponse(a *domain.RunningWorkoutAssignment) dto.RunningWorkoutAssignmentResponse {
 	return dto.RunningWorkoutAssignmentResponse{
-		ID:                 a.ID,
-		TemplateID:         a.TemplateID,
-		AthleteID:          a.AthleteID,
-		CoachID:            a.CoachID,
-		ScheduledDate:      a.ScheduledDate.Format("2006-01-02T15:04:05Z07:00"),
-		Status:             string(a.Status),
+		ID:                  a.ID,
+		TemplateID:          a.TemplateID,
+		AthleteID:           a.AthleteID,
+		CoachID:             a.CoachID,
+		ScheduledDate:       a.ScheduledDate.Format("2006-01-02T15:04:05Z07:00"),
+		Status:              string(a.Status),
 		AthleteInstructions: a.AthleteInstructions,
-		CreatedAt:          a.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:          a.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:           a.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:           a.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 }
 

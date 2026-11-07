@@ -3,6 +3,8 @@ package training
 import (
 	"context"
 	"database/sql"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 	"strings"
 
@@ -12,12 +14,35 @@ import (
 
 // ExerciseRepository implements training.ExerciseRepository using database/sql with Turso/libsql.
 type ExerciseRepository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewExerciseRepository creates a new exercise repository with the given database connection.
 func NewExerciseRepository(db *sql.DB) *ExerciseRepository {
-	return &ExerciseRepository{db: db}
+	return &ExerciseRepository{db: db, exec: db}
+}
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+// When set, all repository queries run against this executor instead of the
+// connection pool.
+func (r *ExerciseRepository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new ExerciseRepository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *ExerciseRepository) WithExecutor(exec database.Executor) training.ExerciseRepository {
+	return &ExerciseRepository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx (injected by a
+// UnitOfWork) rather than the connection pool.
+func (r *ExerciseRepository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // List retrieves exercises with optional filters and pagination.
@@ -27,7 +52,7 @@ func (r *ExerciseRepository) List(ctx context.Context, filter training.ExerciseF
 	// Count total matching rows
 	countQuery := "SELECT COUNT(*) FROM exercise_library" + where
 	var total int
-	if err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+	if err := r.exec.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("failed to count exercises: %w", err)
 	}
 
@@ -38,7 +63,7 @@ func (r *ExerciseRepository) List(ctx context.Context, filter training.ExerciseF
 		 FROM exercise_library` + where + ` ORDER BY name LIMIT $1 OFFSET $2`
 
 	args = append(args, limit, offset)
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.exec.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list exercises: %w", err)
 	}
@@ -87,7 +112,7 @@ func (r *ExerciseRepository) List(ctx context.Context, filter training.ExerciseF
 
 // GetByID retrieves an exercise entry by its unique identifier.
 func (r *ExerciseRepository) GetByID(ctx context.Context, id string) (*training.ExerciseEntry, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
 		 default_sec, video_url, image_url, is_custom, coach_id, created_at, updated_at
@@ -164,7 +189,7 @@ func (r *ExerciseRepository) Create(ctx context.Context, e *training.ExerciseEnt
 		defaultSec = sql.NullInt64{Int64: int64(*e.DefaultSec), Valid: true}
 	}
 
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO exercise_library
 		 (id, slug, name, description, mode, body_part, muscle_groups, secondary_muscles,
 		  equipment, difficulty, category, instructions, default_sec, video_url, image_url,
@@ -209,7 +234,7 @@ func (r *ExerciseRepository) Update(ctx context.Context, e *training.ExerciseEnt
 		defaultSec = sql.NullInt64{Int64: int64(*e.DefaultSec), Valid: true}
 	}
 
-	res, err := r.db.ExecContext(ctx,
+	res, err := r.exec.ExecContext(ctx,
 		`UPDATE exercise_library
 		 SET slug = $1, name = $2, description = $3, mode = $4, body_part = $5, muscle_groups = $6,
 		     secondary_muscles = $7, equipment = $8, difficulty = $9, category = $10, instructions = $11,
@@ -232,7 +257,7 @@ func (r *ExerciseRepository) Update(ctx context.Context, e *training.ExerciseEnt
 
 // Delete removes an exercise entry by ID.
 func (r *ExerciseRepository) Delete(ctx context.Context, id string) error {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM exercise_library WHERE id = $1`, id)
+	res, err := r.exec.ExecContext(ctx, `DELETE FROM exercise_library WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete exercise: %w", err)
 	}

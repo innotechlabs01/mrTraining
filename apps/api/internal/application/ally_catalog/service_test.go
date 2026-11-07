@@ -13,7 +13,13 @@ import (
 
 func newCatalogTestDB(t *testing.T) (*database.DB, *Service) {
 	t.Helper()
-	url := os.Getenv("DATABASE_URL")
+	url := os.Getenv("SUPER_DATABASE_URL")
+	if url == "" {
+		url = os.Getenv("POSTGRES_DATABASE_URL")
+	}
+	if url == "" {
+		url = "postgresql://postgres:1e6819bd685e31fa529ed353f65bc6b6eb4d47f9f3e76c43@127.0.0.1:5435/mr_training_migration?sslmode=disable"
+	}
 	if url == "" {
 		t.Skip("skipping: DATABASE_URL not set")
 	}
@@ -23,6 +29,7 @@ func newCatalogTestDB(t *testing.T) (*database.DB, *Service) {
 	}
 	t.Cleanup(func() { db.Close() })
 
+	db.DB.Exec("TRUNCATE TABLE allies, coach_ally_relationships, commission_agreements, financial_audit_events, ally_operations, ally_operation_items, ally_redemptions, ally_products, ally_services, ally_payment_declarations, commission_entries, financial_adjustments, coach_settlements, settlement_items, settlement_documents, coach_payment_records CASCADE")
 	if err := applyCatalogMigrations(t, db); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
@@ -46,7 +53,7 @@ CREATE TABLE IF NOT EXISTS allies (
 CREATE TABLE IF NOT EXISTS ally_members (
   id TEXT PRIMARY KEY, ally_id TEXT NOT NULL REFERENCES allies(id),
   user_id TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'staff',
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
   UNIQUE (ally_id, user_id),
   CHECK (role IN ('owner','staff'))
 );
@@ -55,7 +62,7 @@ CREATE TABLE IF NOT EXISTS ally_products (
   name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', image_url TEXT NOT NULL DEFAULT '',
   price_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'COP',
   stock INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP), updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
   CHECK (price_cents >= 0), CHECK (stock >= 0), CHECK (currency IN ('COP')), CHECK (active IN (0,1))
 );
 CREATE INDEX IF NOT EXISTS idx_ally_products_ally ON ally_products(ally_id);
@@ -66,7 +73,7 @@ CREATE TABLE IF NOT EXISTS ally_services (
   price_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'COP',
   duration_min INTEGER NOT NULL DEFAULT 0, capacity INTEGER NOT NULL DEFAULT 1,
   active INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP), updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
   CHECK (price_cents >= 0), CHECK (duration_min >= 0), CHECK (capacity >= 1),
   CHECK (currency IN ('COP')), CHECK (active IN (0,1))
 );

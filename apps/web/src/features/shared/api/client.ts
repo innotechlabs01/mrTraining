@@ -31,6 +31,7 @@ import type { Plan } from '@/features/coach/types'
 import type { Product } from '@/features/coach/types'
 import type { Sale } from '@/features/coach/types'
 import type { LandingData } from '@/components/landing/data'
+import type { PaymentAvailability } from '@/features/shared/types/paymentAvailability'
 
 export interface BlogPost {
   id: string;
@@ -936,6 +937,10 @@ export const coachingApi = {
 
   // Dashboard (not in Go API yet — Next.js fallback)
   getDashboard: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/dashboard`),
+
+  // Payment Availability (Wompi statuspage gate)
+  getPaymentAvailability: () =>
+    goFetch<PaymentAvailability>('/api/v1/payments/availability'),
 
   // Payment Methods (not in Go API yet — Next.js fallback)
   getPaymentMethods: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/payment-methods`),

@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Loader2, CheckCircle, User, Phone, Mail, Tag, Check, CreditCard } from 'lucide-react';
+import { X, Loader2, CheckCircle, User, Phone, Mail, Tag, Check, CreditCard, WifiOff } from 'lucide-react';
 import type { PlanDiscount } from '@/features/coach/types';
 import { usePaymentMethods } from '@/features/coach/hooks/usePaymentMethods';
 import { isPaymentMethodComplete } from '@/features/coach/types';
+import { paymentAvailabilityApi } from '@/features/shared/api/paymentAvailability';
+import type { PaymentAvailability } from '@/features/shared/types/paymentAvailability';
 
 interface PaymentModalProps {
   open: boolean;
@@ -23,6 +25,23 @@ export function PaymentModal({ open, onClose, plan }: PaymentModalProps) {
   const router = useRouter();
   const { methods } = usePaymentMethods();
   const activeMethods = useMemo(() => methods.filter(isPaymentMethodComplete), [methods]);
+
+  const [availability, setAvailability] = useState<PaymentAvailability | null>(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let mounted = true;
+    setAvailabilityLoading(true);
+    paymentAvailabilityApi
+      .get()
+      .then((res) => { if (mounted) setAvailability(res); })
+      .catch(() => { if (mounted) setAvailability(null); })
+      .finally(() => { if (mounted) setAvailabilityLoading(false); });
+    return () => { mounted = false; };
+  }, [open]);
+
+  const blocked = !!availability && (availability.fail_closed || !availability.checkout_allowed);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -65,6 +84,11 @@ export function PaymentModal({ open, onClose, plan }: PaymentModalProps) {
 
   const handlePay = () => {
     setError('');
+
+    if (blocked) {
+      setError('Pagos en línea no disponibles en este momento.');
+      return;
+    }
 
     if (!name.trim()) { setError('Ingresa tu nombre'); return; }
     if (!validateEmail(email)) { setError('Ingresa un email válido'); return; }
@@ -192,6 +216,26 @@ export function PaymentModal({ open, onClose, plan }: PaymentModalProps) {
                 </div>
               )}
 
+              {(availabilityLoading || blocked) && (
+                <div className="p-3 rounded-md bg-amber-50 border border-amber-200 text-sm text-amber-700 flex items-start gap-2">
+                  <WifiOff className="w-4 h-4 mt-0.5 shrink-0" />
+                  <div>
+                    {availabilityLoading
+                      ? 'Verificando disponibilidad de pagos...'
+                      : `Pagos en línea no disponibles en este momento (${availability?.reason ?? 'unavailable'}).`}
+                    {availability && availability.media?.some((m) => !m.operational) && (
+                      <ul className="mt-2 space-y-1 text-xs">
+                        {availability.media
+                          .filter((m) => !m.operational)
+                          .map((m) => (
+                            <li key={m.id}>{m.name}: {m.status}</li>
+                          ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-[#757575] uppercase tracking-wide">
                   Nombre completo
@@ -311,7 +355,8 @@ export function PaymentModal({ open, onClose, plan }: PaymentModalProps) {
             <div className="px-6 pb-6 pt-2">
               <button
                 onClick={handlePay}
-                className="w-full py-3 rounded-md bg-brand-primary text-white font-semibold hover:bg-brand-primary-hover transition-colors"
+                disabled={availabilityLoading || blocked}
+                className="w-full py-3 rounded-md bg-brand-primary text-white font-semibold hover:bg-brand-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Pagar — ${finalPrice}
               </button>

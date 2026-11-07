@@ -38,6 +38,9 @@ type Config struct {
 
 	// Cache (Redis — optional, disabled when empty)
 	RedisURL string // Redis connection URL; empty disables response caching
+	// Platform super admin (read-only MVP)
+	PlatformSuperAdminClerkID  string   // PLATFORM_SUPER_ADMIN_CLERK_ID (raw)
+	PlatformSuperAdminClerkIDs []string // Normalized, trimmed, non-empty
 
 	// NATS (JetStream event bus — optional, disabled when empty)
 	NATSURL string // NATS server URL; empty disables JetStream consumers
@@ -47,11 +50,20 @@ type Config struct {
 	RateLimitMax       int      // Max requests per window, per client IP
 	RateLimitWindowSec int      // Rate limit window in seconds
 
-	// MercadoPago
+	// MercadoPago (legacy, historical records preserved)
 	MercadoPagoWebhookURL  string // URL del webhook registrada en el dashboard de MP
 	MercadoPagoSecretKey   string // Access token (APP_USR-...) para llamar la API de MP
 	MercadoPagoPublicKey   string // Public key (APP_USR-...) — informativa, para el cliente
 	MercadoPagoWebhookKey  string // Webhook secret: firma x-signature de las notificaciones
+
+	// Wompi (active payment provider)
+	WompiPublicKey       string // pub_...
+	WompiPrivateKey      string // prv_...
+	WompiIntegritySecret string // Integrity secret used for widget/checkout signatures
+	WompiEventsSecret    string // Events secret used to verify webhooks
+	WompiEnv             string // sandbox | production
+	WompiWebhookURL      string // URL del webhook registrada en el dashboard de Wompi
+
 	AppURL                 string // URL base de la app (para back_urls)
 
 // Email (para notificaciones a coaches)
@@ -72,6 +84,7 @@ type Config struct {
 func Load() (*Config, error) {
 	// Attempt to load .env file; ignore if missing (Docker, CI)
 	_ = godotenv.Load()
+	_ = godotenv.Load("config/.env.local")
 
 	cfg := &Config{
 		AppEnv:  getEnv("APP_ENV", "development"),
@@ -93,7 +106,7 @@ func Load() (*Config, error) {
 
 		RedisURL: getEnv("REDIS_URL", ""),
 
-		NATSURL:  getEnv("NATS_URL", "nats://localhost:4222"),
+		PlatformSuperAdminClerkID: getEnv("PLATFORM_SUPER_ADMIN_CLERK_ID", ""),		NATSURL:  getEnv("NATS_URL", "nats://localhost:4222"),
 
 		TrustedProxies:     splitCSV(getEnv("TRUSTED_PROXIES", "")),
 		RateLimitMax:       getEnvInt("RATE_LIMIT_MAX", 100),
@@ -105,11 +118,19 @@ func Load() (*Config, error) {
 		MercadoPagoSecretKey:  getEnv("MERCADO_PAGO_SECRET_KEY", ""),
 		MercadoPagoPublicKey:  getEnv("MERCADO_PAGO_PUBLIC_KEY", ""),
 		MercadoPagoWebhookKey: getEnv("MERCADO_PAG_SECRET_WEBHOOK", getEnv("MERCADO_PAGO_WEBHOOK_SECRET", "")),
+
+		WompiPublicKey:       getEnv("WOMPI_PUBLIC_KEY", getEnv("KEY_PUBLIC", "")),
+		WompiPrivateKey:      getEnv("WOMPI_PRIVATE_KEY", getEnv("KEY_PRIVATE", "")),
+		WompiIntegritySecret: getEnv("WOMPI_INTEGRITY_SECRET", ""),
+		WompiEventsSecret:    getEnv("WOMPI_EVENTS_SECRET", ""),
+		WompiEnv:             getEnv("WOMPI_ENV", "sandbox"),
+		WompiWebhookURL:      getEnv("WOMPI_WEBHOOK_URL", ""),
 		AppURL:                getEnv("APP_URL", ""),
 	}
 
-	if err := cfg.validate(); err != nil {
-		return nil, fmt.Errorf("config validation failed: %w", err)
+	cfg.PlatformSuperAdminClerkIDs = splitCSV(cfg.PlatformSuperAdminClerkID)
+
+	if err := cfg.validate(); err != nil {		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
 
 	return cfg, nil
@@ -121,6 +142,7 @@ func Load() (*Config, error) {
 // of Load so they don't require unrelated production variables.
 func DatabaseConnection() (url string) {
 	_ = godotenv.Load()
+	_ = godotenv.Load("config/.env.local")
 	return getEnv("DATABASE_URL", "")
 }
 

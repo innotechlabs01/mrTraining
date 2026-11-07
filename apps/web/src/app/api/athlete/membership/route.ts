@@ -40,7 +40,10 @@ interface GoPaymentsList {
 
 function computeIsPayable(membership: GoMembership | null): boolean {
   if (!membership) return false;
-  if (membership.status === 'grace_period' || membership.status === 'suspended') return true;
+  // Backend-authoritative statuses: a membership becomes payable once it is
+  // past due, expired, or cancelled (renew/recover). "grace_period" and
+  // "suspended" are not statuses emitted by the Go API.
+  if (membership.status === 'past_due' || membership.status === 'expired' || membership.status === 'cancelled') return true;
   try {
     const due = new Date(`${membership.payment_due_date}T00:00:00Z`);
     if (Number.isNaN(due.getTime())) return false;
@@ -66,7 +69,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const membership = await goFetchServer<GoMembership | null>('/api/v1/memberships', token);
+    // Backend is authoritative: an athlete with no membership produces a 404
+    // from the Go API. Treat that as "no membership" (NOT an error) so the
+    // route can return the canonical empty state instead of a 500.
+    let membership: GoMembership | null = null;
+    try {
+      membership = await goFetchServer<GoMembership | null>('/api/v1/memberships', token);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message.toLowerCase() : '';
+      const isNoMembership = msg.includes('not found') || msg.includes('404');
+      if (!isNoMembership) {
+        throw err;
+      }
+    }
 
     if (!membership) {
       return NextResponse.json({

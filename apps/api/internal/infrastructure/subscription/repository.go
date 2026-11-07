@@ -32,6 +32,21 @@ func (r *Repository) SetExecutor(exec database.Executor) {
 	r.exec = exec
 }
 
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) subscription.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
+}
+
 // Save persists a subscription aggregate. On insert it sets created_at/updated_at;
 // on update it bumps the version column optimistically.
 func (r *Repository) Save(ctx context.Context, s *subscription.Subscription) error {

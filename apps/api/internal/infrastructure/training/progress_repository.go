@@ -3,6 +3,8 @@ package training
 import (
 	"context"
 	"database/sql"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 	"time"
 
@@ -11,19 +13,42 @@ import (
 
 // ProgressRepository implements training.ProgressRepository using database/sql with Turso/libsql.
 type ProgressRepository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewProgressRepository creates a new progress repository with the given database connection.
 func NewProgressRepository(db *sql.DB) *ProgressRepository {
-	return &ProgressRepository{db: db}
+	return &ProgressRepository{db: db, exec: db}
+}
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+// When set, all repository queries run against this executor instead of the
+// connection pool.
+func (r *ProgressRepository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new ProgressRepository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *ProgressRepository) WithExecutor(exec database.Executor) training.ProgressRepository {
+	return &ProgressRepository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx (injected by a
+// UnitOfWork) rather than the connection pool.
+func (r *ProgressRepository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // GetProgress retrieves progress entries for an athlete within a date range.
 // Progress is derived from completed workout sessions and their set logs.
 func (r *ProgressRepository) GetProgress(ctx context.Context, athleteID string, dateRange training.ProgressDateRange) ([]*training.ProgressEntry, error) {
 	// Query workout sessions grouped by date
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT
 		 DATE(wsl.started_at) AS date,
 		 COUNT(DISTINCT wsl.workout_id) AS workouts_assigned,
@@ -85,7 +110,7 @@ func (r *ProgressRepository) GetProgressSummary(ctx context.Context, athleteID s
 	var completedSets int
 	var totalVolume float64
 
-	err := r.db.QueryRowContext(ctx,
+	err := r.exec.QueryRowContext(ctx,
 		`SELECT
 		 COALESCE(SUM(CASE WHEN wsl.completed = 1 THEN 1 ELSE 0 END), 0) AS workouts_completed,
 		 COUNT(wset.id) AS total_sets,
@@ -123,7 +148,7 @@ func (r *ProgressRepository) GetProgressSummary(ctx context.Context, athleteID s
 // countCompletionStreak counts consecutive days ending at dateRange.EndDate
 // on which the athlete completed at least one workout session.
 func (r *ProgressRepository) countCompletionStreak(ctx context.Context, athleteID string, dateRange training.ProgressDateRange) (int, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT DISTINCT DATE(wsl.started_at) AS date
 		 FROM workout_session_logs wsl
 		 WHERE wsl.athlete_id = $1

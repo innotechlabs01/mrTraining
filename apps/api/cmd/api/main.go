@@ -23,7 +23,6 @@ import (
 	allypaymentdeclarationapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_payment_declaration"
 	allypurchaseapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_purchase"
 	athleteapp "github.com/innotechlabs01/mr-training-api/internal/application/athlete"
-	athleteConsumer "github.com/innotechlabs01/mr-training-api/internal/athlete"
 	blogapp "github.com/innotechlabs01/mr-training-api/internal/application/blog"
 	challengeapp "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
 	coachapp "github.com/innotechlabs01/mr-training-api/internal/application/coach"
@@ -59,7 +58,9 @@ import (
 	trmapp "github.com/innotechlabs01/mr-training-api/internal/application/trm"
 	userdomain "github.com/innotechlabs01/mr-training-api/internal/application/user"
 	vaapp "github.com/innotechlabs01/mr-training-api/internal/application/videoanalytics"
+	wompiavailapp "github.com/innotechlabs01/mr-training-api/internal/application/wompiavailability"
 	videoviewapp "github.com/innotechlabs01/mr-training-api/internal/application/videoview"
+	athleteConsumer "github.com/innotechlabs01/mr-training-api/internal/athlete"
 	"github.com/innotechlabs01/mr-training-api/internal/config"
 	handlerpkg "github.com/innotechlabs01/mr-training-api/internal/handlers"
 	alertinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/alert"
@@ -79,10 +80,9 @@ import (
 	commissionentryinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission_entry"
 	communityinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/community"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
-	natsInfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/nats"
 	eventinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/event"
-	favoriteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/favorite"
 	expoinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/expo"
+	favoriteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/favorite"
 	formmetricsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formmetrics"
 	formrecordinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/formrecording"
 	gamificationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/gamification"
@@ -92,6 +92,7 @@ import (
 	leaderboardinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/leaderboard"
 	membershipinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/membership"
 	messageinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/message"
+	natsInfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/nats"
 	notificationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/notification"
 	onboardinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/onboarding"
 	planinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/plan"
@@ -100,7 +101,7 @@ import (
 	runninginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/running"
 	storeinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/store"
 	subscriptioninfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/subscription"
-	mercadopagoinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/subscription/mercadopago"
+	wompiinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/subscription/wompi"
 	supportinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/support"
 	todayinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/today"
 	traininginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/training"
@@ -360,8 +361,8 @@ func main() {
 
 		// Wire Subscription domain (plans & payments)
 		subRepo := subscriptioninfra.NewRepository(db.DB)
-		mpProvider := mercadopagoinfra.NewAdapter(cfg)
-		subscriptionService := subscriptionapp.NewService(cfg, subRepo, mpProvider, planRepo)
+		wompiProvider := wompiinfra.NewAdapter(cfg)
+		subscriptionService := subscriptionapp.NewService(cfg, subRepo, wompiProvider, planRepo)
 		subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionService)
 
 		// Register membership routes
@@ -432,7 +433,7 @@ func main() {
 		// Wire Support domain (uses notifService for push notifications)
 		supportRepo := supportinfrastructure.NewRepository(db.DB)
 		supportService := supportapp.NewService(supportRepo, notifService)
-		supportHandler := userhttp.NewSupportHandler(supportService)
+		supportHandler := userhttp.NewSupportHandler(supportService, db.DB)
 
 		// Register support routes
 		routes.RegisterSupportRoutes(api, supportHandler)
@@ -453,7 +454,7 @@ func main() {
 		routes.RegisterRunningRoutes(api, runningHandler)
 
 		// Register structured running workout routes (templates, assignments, guided sessions)
-		runningWorkoutHandler := userhttp.NewRunningWorkoutHandler(runningService)
+		runningWorkoutHandler := userhttp.NewRunningWorkoutHandler(runningService, db.DB)
 		routes.RegisterRunningWorkoutRoutes(api, runningWorkoutHandler)
 
 		// Activity-file import (GPX/TCX/FIT) → running sessions + GPS points
@@ -469,9 +470,10 @@ func main() {
 		garminWebhookHandler := userhttp.NewGarminWebhookHandler(runningService, os.Getenv("GARMIN_WEBHOOK_SECRET"))
 		routes.RegisterWebhookRoutes(app, garminWebhookHandler)
 
-		// MercadoPago webhook (public, own signature check) — fulfillment of
+		// Wompi webhook (public, own signature check) — fulfillment of
 		// subscription payments. Mounted outside the /api/v1 auth group.
-		routes.RegisterMercadoPagoWebhookRoutes(app, subscriptionHandler)
+		// MercadoPago webhook route is intentionally not registered (legacy).
+		routes.RegisterWompiWebhookRoutes(app, subscriptionHandler)
 
 		// Wire readiness check-ins (morning 10-second check-in)
 		checkinRepo := checkininfra.NewRepository(db.DB)
@@ -769,10 +771,15 @@ func main() {
 		// Wire Payment domain (MercadoPago cart checkout).
 		// Webhook mounts OUTSIDE the auth group — MP notifications carry no
 		// Clerk token; preference + order polling require the athlete.
-		paymentService := paymentapp.NewService(cfg, storeRepo, membershipService)
+		paymentService := paymentapp.NewService(cfg, storeRepo, membershipService, wompiProvider)
 		paymentHandler := userhttp.NewPaymentHandler(paymentService)
 		userhttp.RegisterPublicPaymentRoutes(app, paymentHandler)
 		userhttp.RegisterPaymentRoutes(api, paymentHandler)
+
+		// Wompi availability gate (backend authority, cached).
+		wompiAvailSvc := wompiavailapp.NewService()
+		wompiAvailHandler := handlers.NewWompiAvailabilityHandler(wompiAvailSvc)
+		routes.RegisterWompiAvailabilityRoutes(api, wompiAvailHandler)
 
 		// Register store routes
 		routes.RegisterStoreRoutes(api, storeHandler)
@@ -784,7 +791,7 @@ func main() {
 		}
 		messageRepo := messageinfrastructure.NewRepository(messageRepoDB)
 		messageService := messageapp.NewService(messageRepo)
-		messageHandler := messagehandlers.NewMessageHandler(messageService)
+		messageHandler := messagehandlers.NewMessageHandler(messageService, messageRepoDB)
 
 		// Register message routes
 		routes.RegisterMessageRoutes(api, messageHandler, cfg.ClerkSecretKey)
@@ -800,8 +807,15 @@ func main() {
 		// Wire Athlete Scheduling (availability/appointments) — reuse coachService
 		schedulingHandler := userhttp.NewAthleteSchedulingHandler(coachService)
 		routes.RegisterAthleteSchedulingRoutes(api, schedulingHandler)
-	} else {
-		log.Warn("CLERK_SECRET_KEY not set, skipping protected route registration")
+
+		// Wire read-only platform administration (identity-based, env allowlist)
+		var adminDB *sql.DB
+		if db != nil {
+			adminDB = db.DB
+		}
+		adminHandler := handlers.NewAdminHandler(adminDB)
+		routes.RegisterAdminRoutes(api, adminHandler, cfg.PlatformSuperAdminClerkIDs)
+	} else {		log.Warn("CLERK_SECRET_KEY not set, skipping protected route registration")
 	}
 
 	// Start server
