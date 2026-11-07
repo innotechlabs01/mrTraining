@@ -39,7 +39,7 @@ func (r *Repository) ListVideoViews(ctx context.Context, athleteID, exerciseID s
 		rows, err = r.db.QueryContext(ctx, `
 			SELECT id, athlete_id, exercise_id, action, progress_pct, watch_duration_seconds, created_at
 			FROM video_views
-			WHERE athlete_id = $7 AND exercise_id = $8
+			WHERE athlete_id = $1 AND exercise_id = $2
 			ORDER BY created_at DESC
 			LIMIT 100
 		`, athleteID, exerciseID)
@@ -47,7 +47,7 @@ func (r *Repository) ListVideoViews(ctx context.Context, athleteID, exerciseID s
 		rows, err = r.db.QueryContext(ctx, `
 			SELECT id, athlete_id, exercise_id, action, progress_pct, watch_duration_seconds, created_at
 			FROM video_views
-			WHERE athlete_id = $9
+			WHERE athlete_id = $1
 			ORDER BY created_at DESC
 			LIMIT 100
 		`, athleteID)

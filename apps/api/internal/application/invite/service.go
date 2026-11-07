@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/innotechlabs01/mr-training-api/internal/domain/invite"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
@@ -68,4 +69,24 @@ func (s *Service) GetCoachIDByAthleteID(ctx context.Context, athleteID string) (
 		return "", errors.BadRequest("athlete_id is required")
 	}
 	return s.repo.GetCoachIDByAthleteID(ctx, athleteID)
+}
+
+// CreatePendingInvite stores a clerk-issued invitation for a coach.
+func (s *Service) CreatePendingInvite(ctx context.Context, inv *invite.PendingInvite) error {
+	if inv.ID == "" || inv.CoachID == "" || inv.Email == "" {
+		return errors.BadRequest("id, coach_id and email are required")
+	}
+	if inv.Status == "" {
+		inv.Status = "pending"
+	}
+	if inv.ExpiresAt == "" {
+		inv.ExpiresAt = time.Now().Add(7 * 24 * time.Hour).Format(time.RFC3339)
+	}
+	if inv.CreatedAt == "" {
+		inv.CreatedAt = time.Now().Format(time.RFC3339)
+	}
+	if err := s.repo.CreatePendingInvite(ctx, inv); err != nil {
+		return fmt.Errorf("create pending invite: %w", err)
+	}
+	return nil
 }

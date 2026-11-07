@@ -31,6 +31,15 @@ func (r *Repository) SetExecutor(exec database.Executor) {
 	r.exec = exec
 }
 
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) plandomain.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
 // isTx reports whether the current executor is a *sql.Tx (injected by a
 // UnitOfWork) rather than the connection pool.
 func (r *Repository) isTx() bool {
@@ -63,6 +72,33 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string, activeOnly
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("list plans by coach: %w", err)
+	}
+	return plans, nil
+}
+
+// ListAllActive returns all active (published) plans across all coaches.
+func (r *Repository) ListAllActive(ctx context.Context) ([]*plandomain.Plan, error) {
+	query := `SELECT id, name, description, price, currency, billing_period,
+		max_athletes, max_sessions_per_week, is_active, athlete_count, coach_id, trm,
+		discount_type, discount_value, discount_label, discount_valid_from,
+		discount_valid_until, discount_code, created_at, updated_at
+		FROM plans WHERE is_active = 1 ORDER BY price`
+	rows, err := r.exec.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("list all active plans: %w", err)
+	}
+	defer rows.Close()
+
+	plans := []*plandomain.Plan{}
+	for rows.Next() {
+		p, err := scanPlan(rows)
+		if err != nil {
+			return nil, err
+		}
+		plans = append(plans, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list all active plans: %w", err)
 	}
 	return plans, nil
 }

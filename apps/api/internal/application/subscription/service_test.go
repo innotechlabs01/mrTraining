@@ -26,6 +26,9 @@ func (f *fakePlanRepo) GetByID(ctx context.Context, id string) (*plandomain.Plan
 func (f *fakePlanRepo) ListByCoach(ctx context.Context, coachID string, activeOnly bool) ([]*plandomain.Plan, error) {
 	return nil, nil
 }
+func (f *fakePlanRepo) ListAllActive(ctx context.Context) ([]*plandomain.Plan, error) {
+	return nil, nil
+}
 func (f *fakePlanRepo) ListVersionsByPlan(ctx context.Context, planID string) ([]*plandomain.Version, error) {
 	return nil, nil
 }

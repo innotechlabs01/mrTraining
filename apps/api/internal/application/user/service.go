@@ -212,3 +212,59 @@ func (s *Service) GetUser(ctx context.Context, userID string) (*user.User, error
 	}
 	return u, nil
 }
+
+// EnsureUser idempotently creates the base users row if missing.
+// Used for auto-provisioning when the Clerk webhook missed user.created.
+func (s *Service) EnsureUser(ctx context.Context, id, email, name, role string) error {
+	if err := s.repo.EnsureUser(ctx, id, email, name, role); err != nil {
+		return fmt.Errorf("ensure user: %w", err)
+	}
+	return nil
+}
+
+// EnsureCoach idempotently creates the coach profile row with a generated
+// coach_code. Used for coach provisioning.
+func (s *Service) EnsureCoach(ctx context.Context, userID, email, name string) error {
+	if err := s.repo.EnsureCoach(ctx, userID, email, name); err != nil {
+		return fmt.Errorf("ensure coach: %w", err)
+	}
+	return nil
+}
+
+// EnsureAthleteProfile idempotently creates the athlete_profiles row.
+func (s *Service) EnsureAthleteProfile(ctx context.Context, userID, email, name string) error {
+	if err := s.repo.EnsureAthleteProfile(ctx, userID, email, name); err != nil {
+		return fmt.Errorf("ensure athlete profile: %w", err)
+	}
+	return nil
+}
+
+// GetCoachByID retrieves the coach profile for a user, including coach_code.
+func (s *Service) GetCoachByID(ctx context.Context, userID string) (*user.Coach, error) {
+	c, err := s.repo.GetCoach(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get coach: %w", err)
+	}
+	return c, nil
+}
+
+// UpdateUserAvatar updates the avatar URL for a user.
+func (s *Service) UpdateUserAvatar(ctx context.Context, userID, avatarURL string) error {
+	u, err := s.repo.GetByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("get user for avatar update: %w", err)
+	}
+	u.AvatarURL = avatarURL
+	if err := s.repo.Update(ctx, u); err != nil {
+		return fmt.Errorf("update user avatar: %w", err)
+	}
+	return nil
+}
+
+// SoftDeleteUser marks the user and their coach profile as inactive.
+func (s *Service) SoftDeleteUser(ctx context.Context, userID string) error {
+	if err := s.repo.SoftDeleteUser(ctx, userID); err != nil {
+		return fmt.Errorf("soft delete user: %w", err)
+	}
+	return nil
+}

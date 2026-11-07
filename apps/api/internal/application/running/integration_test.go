@@ -14,9 +14,12 @@ import (
 
 func newTestDB(t *testing.T) *database.DB {
 	t.Helper()
-	url := os.Getenv("DATABASE_URL")
+	url := os.Getenv("SUPER_DATABASE_URL")
 	if url == "" {
-		t.Skip("skipping: DATABASE_URL not set for integration tests")
+		url = os.Getenv("POSTGRES_DATABASE_URL")
+	}
+	if url == "" {
+		url = "postgresql://postgres:1e6819bd685e31fa529ed353f65bc6b6eb4d47f9f3e76c43@127.0.0.1:5435/mr_training_migration?sslmode=disable"
 	}
 	db, err := database.Connect(url)
 	if err != nil {
@@ -31,7 +34,7 @@ func TestIntegration_CreateTemplate_PostgreSQL(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, db.DB)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
@@ -72,7 +75,7 @@ func TestIntegration_AssignTemplate_PostgreSQL(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, db.DB)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
@@ -120,7 +123,7 @@ func TestIntegration_AssignTemplate_UnauthorizedCoach(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, db.DB)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
@@ -153,7 +156,7 @@ func TestIntegration_StartSession_PostgreSQL(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, db.DB)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
@@ -208,7 +211,7 @@ func TestIntegration_ImmutableSnapshot_PostgreSQL(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, db.DB)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
@@ -266,7 +269,7 @@ func TestIntegration_FinishSession_PostgreSQL(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, db.DB)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
@@ -304,7 +307,7 @@ func TestIntegration_FinishSession_PostgreSQL(t *testing.T) {
 	}
 
 	// Verify assignment completed
-	updatedAssignment, err := svc.GetAssignment(ctx, assignment.ID, "athlete-integration-6", "athlete")
+	updatedAssignment, err := svc.GetAssignment(ctx, assignment.ID, "athlete-integration-5", "athlete")
 	if err != nil {
 		t.Fatalf("unexpected error getting assignment: %v", err)
 	}
@@ -318,7 +321,7 @@ func TestIntegration_FinishSession_Idempotent(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, db.DB)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
@@ -366,7 +369,7 @@ func TestIntegration_CrossCoachAthleteAccess(t *testing.T) {
 	ctx := context.Background()
 
 	repo := running.NewRepository(db.DB)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, db.DB)
 
 	now := time.Now()
 	template := &domain.RunningWorkoutTemplate{
@@ -403,7 +406,7 @@ func TestIntegration_CrossCoachAthleteAccess(t *testing.T) {
 	}
 
 	// Verify assignment not completed
-	updatedAssignment, err := svc.GetAssignment(ctx, assignment.ID, "athlete-7", "athlete")
+	updatedAssignment, err := svc.GetAssignment(ctx, assignment.ID, "athlete-integration-7", "athlete")
 	if err != nil {
 		t.Fatalf("unexpected error getting assignment: %v", err)
 	}

@@ -5,10 +5,11 @@ import (
 	"context"
 	"fmt"
 
-	supportdomain "github.com/innotechlabs01/mr-training-api/internal/domain/support"
-	notificationdomain "github.com/innotechlabs01/mr-training-api/internal/domain/notification"
 	"github.com/google/uuid"
+	notificationdomain "github.com/innotechlabs01/mr-training-api/internal/domain/notification"
+	supportdomain "github.com/innotechlabs01/mr-training-api/internal/domain/support"
 	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Notifier defines the notification interface needed by support service.
@@ -25,6 +26,18 @@ type Service struct {
 // NewService creates a new support ticket service.
 func NewService(repo supportdomain.Repository, notifs Notifier) *Service {
 	return &Service{repo: repo, notifs: notifs}
+}
+
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork)
+// into the underlying repository. Returns a new Service instance, leaving
+// the original unchanged.
+func (s *Service) SetExecutor(exec database.Executor) *Service {
+	if repo, ok := s.repo.(interface {
+		WithExecutor(database.Executor) supportdomain.Repository
+	}); ok {
+		return &Service{repo: repo.WithExecutor(exec), notifs: s.notifs}
+	}
+	return s
 }
 
 // Coach methods
@@ -61,15 +74,15 @@ func (s *Service) CreateTicket(ctx context.Context, coachID string, req CreateTi
 	}
 
 	ticket := &supportdomain.SupportTicket{
-		ID:           uuid.New().String(),
-		TicketNumber: maxNum + 1,
-		Subject:      req.Subject,
-		Category:     req.Category,
-		Priority:     req.Priority,
-		Status:       supportdomain.TicketStatusOpen,
-		CoachID:      coachID,
-		AthleteID:    req.AthleteID,
-		UnreadCount:  1, // Support team has 1 unread
+		ID:            uuid.New().String(),
+		TicketNumber:  maxNum + 1,
+		Subject:       req.Subject,
+		Category:      req.Category,
+		Priority:      req.Priority,
+		Status:        supportdomain.TicketStatusOpen,
+		CoachID:       coachID,
+		AthleteID:     req.AthleteID,
+		UnreadCount:   1, // Support team has 1 unread
 		LastMessageAt: "",
 	}
 	if ticket.Category == "" {
@@ -120,7 +133,7 @@ func (s *Service) UpdateTicket(ctx context.Context, coachID, id string, req Upda
 	if req.Status != nil {
 		ticket.Status = *req.Status
 		if *req.Status == supportdomain.TicketStatusResolved || *req.Status == supportdomain.TicketStatusClosed {
-			now := "datetime('now')" // will be set by DB
+			now := "CURRENT_TIMESTAMP" // will be set by DB
 			ticket.ResolvedAt = now
 		}
 	}
@@ -370,25 +383,25 @@ func (s *Service) GetUnreadCount(ctx context.Context, userID, userRole, ticketID
 
 // Request types
 type CreateTicketRequest struct {
-	Subject  string                      `json:"subject"`
-	Body     string                      `json:"body"`
-	Category supportdomain.TicketCategory `json:"category"`
-	Priority supportdomain.TicketPriority `json:"priority"`
-	AthleteID string                     `json:"athlete_id,omitempty"`
-	ImageURL string                      `json:"image_url,omitempty"`
+	Subject   string                       `json:"subject"`
+	Body      string                       `json:"body"`
+	Category  supportdomain.TicketCategory `json:"category"`
+	Priority  supportdomain.TicketPriority `json:"priority"`
+	AthleteID string                       `json:"athlete_id,omitempty"`
+	ImageURL  string                       `json:"image_url,omitempty"`
 }
 
 type UpdateTicketRequest struct {
-	Status    *supportdomain.TicketStatus   `json:"status,omitempty"`
-	Priority  *supportdomain.TicketPriority `json:"priority,omitempty"`
-	Category  *supportdomain.TicketCategory `json:"category,omitempty"`
-	AssignedTo *string                     `json:"assigned_to,omitempty"`
+	Status     *supportdomain.TicketStatus   `json:"status,omitempty"`
+	Priority   *supportdomain.TicketPriority `json:"priority,omitempty"`
+	Category   *supportdomain.TicketCategory `json:"category,omitempty"`
+	AssignedTo *string                       `json:"assigned_to,omitempty"`
 }
 
 type CreateAthleteTicketRequest struct {
-	Subject  string                      `json:"subject"`
-	Body     string                      `json:"body"`
+	Subject  string                       `json:"subject"`
+	Body     string                       `json:"body"`
 	Category supportdomain.TicketCategory `json:"category"`
 	Priority supportdomain.TicketPriority `json:"priority"`
-	ImageURL string                      `json:"image_url,omitempty"`
+	ImageURL string                       `json:"image_url,omitempty"`
 }

@@ -58,7 +58,14 @@ function mapRowToWorkoutExercise(row: TemplateExerciseRow, idx: number): Workout
   const weight = typeof weightRaw === 'number' && Number.isFinite(weightRaw) ? weightRaw : undefined
   const rest = typeof restRaw === 'number' && Number.isFinite(restRaw) ? restRaw : 60
   const order = typeof orderRaw === 'number' && Number.isFinite(orderRaw) ? orderRaw : idx + 1
-  const mg = Array.isArray(row.muscleGroups) ? (row.muscleGroups as MuscleGroup[]) : []
+  const mg = (() => {
+    const raw = row.muscleGroups;
+    if (Array.isArray(raw)) return raw as MuscleGroup[];
+    if (typeof raw === 'string') {
+      try { return JSON.parse(raw) as MuscleGroup[]; } catch { return []; }
+    }
+    return [];
+  })();
   return {
     id,
     exerciseId,

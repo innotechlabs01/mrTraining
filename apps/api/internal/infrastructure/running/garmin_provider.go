@@ -58,7 +58,7 @@ func (s *TokenStore) Get(ctx context.Context, userID, platform string) (access, 
 func (s *TokenStore) Save(ctx context.Context, userID, platform, access, refresh, expiresAt, scope string) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO wearable_oauth_tokens (id, user_id, platform, access_token, refresh_token, expires_at, scope)
-		 VALUES ($3, $4, $5, $6, $7, $8, $9)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 ON CONFLICT(user_id, platform) DO UPDATE SET
 		   access_token = excluded.access_token,
 		   refresh_token = excluded.refresh_token,

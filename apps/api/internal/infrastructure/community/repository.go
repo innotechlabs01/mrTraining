@@ -51,7 +51,7 @@ func (r *Repository) CreatePost(ctx context.Context, post *community.Post) error
 	if r.db == nil {
 		return fmt.Errorf("database not configured")
 	}
-	_, err := r.db.ExecContext(ctx, `INSERT INTO community_posts (id, author_id, content) VALUES ($2, $3, $4)`, post.ID, post.AuthorID, post.Content)
+	_, err := r.db.ExecContext(ctx, `INSERT INTO community_posts (id, author_id, content) VALUES ($1, $2, $3)`, post.ID, post.AuthorID, post.Content)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
 			return nil
@@ -157,7 +157,7 @@ func (r *Repository) ListMessages(ctx context.Context, forumID string) ([]*commu
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, forum_id, user_id, user_name, message, created_at
 		FROM community_messages
-		WHERE forum_id = $5
+		WHERE forum_id = $1
 		ORDER BY created_at ASC
 	`, forumID)
 	if err != nil {
@@ -196,7 +196,7 @@ func (r *Repository) CreateMessage(ctx context.Context, msg *community.Message) 
 	}
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO community_messages (id, forum_id, user_id, user_name, message, created_at)
-		VALUES ($6, $7, $8, $9, $10, NOW())
+		VALUES ($1, $2, $3, $4, $5, NOW())
 	`, msg.ID, msg.ForumID, msg.UserID, msg.UserName, msg.Message)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {

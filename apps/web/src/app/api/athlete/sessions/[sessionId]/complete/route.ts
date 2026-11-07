@@ -1,24 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getDB, safeExecute } from '@/lib/db/db';
-import { publishSessionCompleted } from '@/lib/nats';
+
+const GO = process.env.NEXT_PUBLIC_GO_API_URL || '';
+
+async function goFetchJson(token: string, path: string, init?: RequestInit): Promise<unknown> {
+  const res = await fetch(`${GO}${path}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...(init?.headers as Record<string, string>),
+    },
+    ...init,
+  });
+  if (!res.ok) {
+    throw new Error(`Go API ${path}: ${res.status}`);
+  }
+  return res.json();
+}
 
 export async function POST(_req: NextRequest, { params }: { params: { sessionId: string } }) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const db = getDB();
-  const completedAt = new Date().toISOString();
-
-  await safeExecute(`UPDATE athlete_sessions SET completed_at = ?, status = 'completed' WHERE id = ? AND athlete_clerk_id = ?`,
-    [completedAt, params.sessionId, userId]
-  );
-
-  try {
-    await publishSessionCompleted(params.sessionId, userId, completedAt);
-  } catch (e) {
-    console.error('[NATS] publish failed', e);
+  const { userId, getToken } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  return NextResponse.json({ success: true, sessionId: params.sessionId, completedAt });
+  const token = await getToken();
+  if (!token) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const body = await _req.json().catch(() => ({}));
+  const { durationSeconds } = body;
+
+  try {
+    const data = await goFetchJson(
+      token,
+      `/api/v1/workouts/sessions/${params.sessionId}/complete`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ durationSeconds: durationSeconds ?? 0 }),
+      },
+    );
+    return NextResponse.json({ success: true, sessionId: params.sessionId, ...(data as object) });
+  } catch (error) {
+    console.error('Error completing session:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }

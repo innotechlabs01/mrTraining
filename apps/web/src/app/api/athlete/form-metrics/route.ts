@@ -1,11 +1,14 @@
 /**
  * POST /api/athlete/form-metrics
  *
- * Receives batch of form metrics from athlete's device.
- * Stores in DB for coach analysis.
+ * Receives a batch of form metrics from the athlete's device and syncs them
+ * to the Go API (single source of truth). The Go handler resolves the
+ * athlete_id from the authenticated session (RLS), so the client does not
+ * send a trusted athlete_id.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { getDB, safeExecute, generateId } from '@/lib/db/db'
+import { auth } from '@clerk/nextjs/server'
+import { goFetchServer } from '@/lib/api/go-client'
 
 type FormMetricEntry = {
   id: string
@@ -19,8 +22,38 @@ type FormMetricEntry = {
   timestamp: string
 }
 
+interface GoFormMetric {
+  id: string
+  exercise_id: string
+  exercise_name: string
+  workout_id?: string | null
+  form_score: number
+  depth: number
+  alignment: number
+  tempo: number
+  recorded_at: string
+}
+
+interface GoBatchSyncRequest {
+  metrics: GoFormMetric[]
+}
+
+interface GoBatchSyncResponse {
+  synced: number
+  failed: number
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const { userId, getToken } = await auth()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const token = await getToken()
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { metrics } = body as { metrics: FormMetricEntry[] }
 
@@ -31,36 +64,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const db = getDB()
+    // Map client camelCase entries to Go snake_case payload. athlete_id is
+    // resolved server-side by Go from the authenticated session.
+    const goMetrics: GoFormMetric[] = metrics.map((m) => ({
+      id: m.id,
+      exercise_id: m.exerciseId,
+      exercise_name: m.exerciseName,
+      workout_id: m.workoutId ?? null,
+      form_score: m.formScore,
+      depth: m.depth,
+      alignment: m.alignment,
+      tempo: m.tempo,
+      recorded_at: m.timestamp,
+    }))
 
-    // Get athlete ID from auth (simplified — in real app, use Clerk)
-    const athleteId = request.headers.get('x-athlete-id') || 'anonymous'
-
-    // Insert each metric
-    for (const metric of metrics) {
-      const id = generateId()
-      await safeExecute(`INSERT INTO form_metrics (
-          id, athlete_id, exercise_id, exercise_name, workout_id,
-          form_score, depth, alignment, tempo, recorded_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          athleteId,
-          metric.exerciseId,
-          metric.exerciseName,
-          metric.workoutId || null,
-          metric.formScore,
-          metric.depth,
-          metric.alignment,
-          metric.tempo,
-          metric.timestamp,
-        ],
-      )
-    }
+    const result = await goFetchServer<GoBatchSyncResponse>(
+      '/api/v1/form-metrics/sync',
+      token,
+      { method: 'POST', body: JSON.stringify({ metrics: goMetrics }) },
+    )
 
     return NextResponse.json({
       success: true,
-      synced: metrics.length,
+      synced: result.synced,
     })
   } catch (error) {
     console.error('Error saving form metrics:', error)

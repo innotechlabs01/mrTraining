@@ -1510,7 +1510,7 @@ POST   /api/v1/polar/checkout         # RequireAthlete — { athleteID, membersh
 
 #### Membership Status (athlete)
 ```text
-GET    /api/v1/athletes/membership/status  # RequireActiveMembership — always 200
+GET    /api/v1/athletes/membership/status  # RequireAthlete — always 200 (must remain reachable while blocked)
 ```
 
 Returns the athlete's membership gate status. **Always returns `200` even when no membership exists** (never 404). Response payload:

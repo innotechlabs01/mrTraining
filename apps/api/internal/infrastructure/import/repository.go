@@ -37,7 +37,7 @@ func (r *Repository) GetImportJob(ctx context.Context, id string) (*importdata.I
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, athlete_id, source, status, workouts_imported, exercises_imported, error_message, created_at, completed_at
 		FROM import_jobs
-		WHERE id = $9
+		WHERE id = $1
 	`, id).Scan(&job.ID, &job.AthleteID, &job.Source, &job.Status, &job.WorkoutsImported, &job.ExercisesImported, &errorMessage, &job.CreatedAt, &completedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -59,7 +59,7 @@ func (r *Repository) ListImportJobs(ctx context.Context, athleteID string) ([]*i
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, athlete_id, source, status, workouts_imported, exercises_imported, error_message, created_at, completed_at
 		FROM import_jobs
-		WHERE athlete_id = $10
+		WHERE athlete_id = $1
 		ORDER BY created_at DESC
 	`, athleteID)
 	if err != nil {
@@ -89,8 +89,8 @@ func (r *Repository) ListImportJobs(ctx context.Context, athleteID string) ([]*i
 func (r *Repository) UpdateImportJob(ctx context.Context, job *importdata.ImportJob) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE import_jobs
-		SET status = $11, workouts_imported = $12, exercises_imported = $13, error_message = $14, completed_at = $15
-		WHERE id = $16
+		SET status = $1, workouts_imported = $2, exercises_imported = $3, error_message = $4, completed_at = $5
+		WHERE id = $6
 	`, job.Status, job.WorkoutsImported, job.ExercisesImported, job.ErrorMessage, job.CompletedAt, job.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update import job: %w", err)

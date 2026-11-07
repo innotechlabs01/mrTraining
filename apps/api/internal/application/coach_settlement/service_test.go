@@ -13,7 +13,13 @@ import (
 
 func newSettlementTestDB(t *testing.T) (*database.DB, *Service) {
 	t.Helper()
-	url := os.Getenv("DATABASE_URL")
+	url := os.Getenv("SUPER_DATABASE_URL")
+	if url == "" {
+		url = os.Getenv("POSTGRES_DATABASE_URL")
+	}
+	if url == "" {
+		url = "postgresql://postgres:1e6819bd685e31fa529ed353f65bc6b6eb4d47f9f3e76c43@127.0.0.1:5435/mr_training_migration?sslmode=disable"
+	}
 	if url == "" {
 		t.Skip("skipping: DATABASE_URL not set")
 	}
@@ -54,7 +60,7 @@ CREATE TABLE IF NOT EXISTS ally_operations (
   ally_id TEXT NOT NULL REFERENCES allies(id),
   athlete_id TEXT NOT NULL,
   status TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP), updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
   CHECK (kind IN ('order','reservation')),
   CHECK (status IN ('created','confirmed','fulfilled','attended','no_show','cancelled'))
 );
@@ -73,7 +79,7 @@ CREATE TABLE IF NOT EXISTS ally_payment_declarations (
   method TEXT, declared_at TEXT NOT NULL, reference TEXT, evidence_ref TEXT,
   status TEXT NOT NULL DEFAULT 'declared',
   reviewed_by TEXT, reviewed_at TEXT, review_note TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
   UNIQUE (operation_id, version),
   CHECK (amount_cents >= 0),
   CHECK (currency IN ('COP')),
@@ -89,7 +95,7 @@ CREATE TABLE IF NOT EXISTS commission_entries (
   rate_bps INTEGER NOT NULL, fixed_amount_cents INTEGER NOT NULL,
   amount_cents INTEGER NOT NULL, currency TEXT NOT NULL DEFAULT 'COP',
   status TEXT NOT NULL DEFAULT 'accrued', computed_at TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
   UNIQUE (operation_id),
   CHECK (base_cents >= 0),
   CHECK (rate_bps >= 0 AND rate_bps <= 100000),
@@ -109,7 +115,7 @@ CREATE TABLE IF NOT EXISTS coach_settlements (
   adjustments_cents INTEGER NOT NULL DEFAULT 0,
   commission_net_cents INTEGER NOT NULL DEFAULT 0,
   calculated_at TEXT, approved_at TEXT, closed_at TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP), updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
   UNIQUE (coach_id, ally_id, period_key, currency),
   CHECK (currency = 'COP'),
   CHECK (status IN ('draft','calculated','under_review','approved','document_issued','paid_external','disputed','void'))
@@ -120,7 +126,7 @@ CREATE TABLE IF NOT EXISTS settlement_items (
   base_cents INTEGER NOT NULL, rate_bps INTEGER NOT NULL,
   fixed_amount_cents INTEGER NOT NULL DEFAULT 0,
   amount_cents INTEGER NOT NULL, released_at TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
   UNIQUE (settlement_id, entry_id),
   CHECK (base_cents >= 0),
   CHECK (rate_bps >= 0 AND rate_bps <= 100000),
@@ -131,7 +137,7 @@ CREATE TABLE IF NOT EXISTS settlement_documents (
   id TEXT PRIMARY KEY, settlement_id TEXT NOT NULL REFERENCES coach_settlements(id),
   kind TEXT NOT NULL DEFAULT 'draft_account_of_collection', content_ref TEXT,
   status TEXT NOT NULL DEFAULT 'draft', version INTEGER NOT NULL DEFAULT 1,
-  generated_at TEXT NOT NULL DEFAULT (datetime('now')), sent_at TEXT,
+  generated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP), sent_at TEXT,
   CHECK (status IN ('draft','reviewed','approved'))
 );
 CREATE TABLE IF NOT EXISTS coach_payment_records (
@@ -140,7 +146,7 @@ CREATE TABLE IF NOT EXISTS coach_payment_records (
   amount_cents INTEGER NOT NULL, currency TEXT NOT NULL DEFAULT 'COP',
   actor_id TEXT NOT NULL, actor_type TEXT NOT NULL DEFAULT 'user',
   reference TEXT, evidence_ref TEXT, declared_at TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'declared', created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  status TEXT NOT NULL DEFAULT 'declared', created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
   CHECK (actor_type IN ('user','system')),
   CHECK (status IN ('declared','confirmed')),
   CHECK (amount_cents >= 0)
@@ -148,13 +154,15 @@ CREATE TABLE IF NOT EXISTS coach_payment_records (
 CREATE TABLE IF NOT EXISTS financial_audit_events (
   id TEXT PRIMARY KEY, entity TEXT NOT NULL, entity_id TEXT NOT NULL, action TEXT NOT NULL,
   actor_id TEXT, actor_type TEXT NOT NULL DEFAULT 'user', payload TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
   CHECK (actor_type IN ('user','system'))
 );
 `
 	if _, err := db.Exec(ddl); err != nil {
 		t.Fatalf("apply ddl: %v", err)
 	}
+
+	db.DB.Exec("TRUNCATE TABLE allies, coach_ally_relationships, commission_agreements, financial_audit_events, ally_operations, ally_operation_items, ally_redemptions, ally_products, ally_services, ally_payment_declarations, commission_entries, financial_adjustments, coach_settlements, settlement_items, settlement_documents, coach_payment_records CASCADE")
 
 	// Seed: coach, ally, relationship, operation, entry.
 	mustExec(t, db, `INSERT INTO allies (id, owner_user_id, legal_name, commercial_name, category, status) VALUES ('a1','userA','Legal A','Comercial A','gym','active')`)

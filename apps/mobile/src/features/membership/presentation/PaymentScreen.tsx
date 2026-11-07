@@ -6,6 +6,7 @@ import { colors, typography } from '../../../shared/theme/tokens';
 import { texts } from '../../../shared/i18n/texts';
 import { LockIcon } from '../../../shared/components/icons';
 import { createMembershipPreference } from '../../../features/membership/membershipPayment';
+import { usePaymentAvailability } from '../../../features/payments/usePaymentAvailability';
 
 const t = texts.screens.paymentScreen;
 
@@ -19,6 +20,7 @@ type Props = {
 
 export function PaymentScreen({ membership }: Props) {
   const queryClient = useQueryClient();
+  const { availability, checkoutAllowed, loading: checkingAvailability } = usePaymentAvailability();
   const [isPaying, setIsPaying] = useState(false);
   const [preference, setPreference] = useState<{ initPoint: string; total: number; currency: string } | null>(null);
 
@@ -39,6 +41,16 @@ export function PaymentScreen({ membership }: Props) {
   }, [queryClient]);
 
   const handlePay = async () => {
+    if (!checkoutAllowed) {
+      const blockedMedia = (availability?.media ?? []).filter(m => !m.operational).map(m => m.name).join(', ');
+      Alert.alert(
+        t.checkoutFailedTitle,
+        blockedMedia
+          ? `Pagos no disponibles: ${blockedMedia}`
+          : (availability?.reason ?? t.checkoutFailedBody),
+      );
+      return;
+    }
     setIsPaying(true);
     try {
       const res = await createMembershipPreference();
@@ -91,8 +103,8 @@ export function PaymentScreen({ membership }: Props) {
           </View>
         </View>
         <Pressable
-          style={({ pressed }) => [styles.payBtn, pressed && !isPaying && { opacity: 0.8 }, isPaying && { opacity: 0.6 }]}
-          disabled={isPaying}
+          style={({ pressed }) => [styles.payBtn, (pressed && !isPaying && checkoutAllowed) && { opacity: 0.8 }, (isPaying || !checkoutAllowed) && { opacity: 0.6 }]}
+          disabled={isPaying || checkingAvailability || !checkoutAllowed}
           onPress={handlePay}
         >
           <Text style={styles.payText}>{isPaying ? t.processing : t.payAmount.replace('${amount}', String(membership.planPrice))}</Text>

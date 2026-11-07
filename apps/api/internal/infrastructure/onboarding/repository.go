@@ -45,7 +45,7 @@ func (r *Repository) Get(ctx context.Context, athleteID string) (*onboarding.Onb
 	row := r.db.QueryRowContext(ctx,
 		`SELECT athlete_id, sports, modality, experience_level, goal,
 		 sessions_per_week, session_duration, equipment, athlete_routine_accepted
-		 FROM athlete_onboarding WHERE athlete_id = $10`, athleteID)
+		 FROM athlete_onboarding WHERE athlete_id = $1`, athleteID)
 
 	d := &onboarding.OnboardingData{}
 	var sportsJSON string

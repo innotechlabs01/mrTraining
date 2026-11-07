@@ -50,6 +50,47 @@ async function getAuthToken(skipCache = false): Promise<string | null> {
 }
 
 /**
+ * Server-side variant for Route Handlers and Server Components.
+ * Accepts an explicit Clerk bearer token (resolved via `auth()` from
+ * `@clerk/nextjs/server`) instead of reading it from `window.Clerk`.
+ * Forwards the token as `Authorization: Bearer <token>` so Go's
+ * Authenticate + TenantContext middleware can enforce RLS.
+ * @param path - The API path (e.g., '/api/v1/users/me')
+ * @param token - Clerk session JWT
+ * @param options - Request options (method, body, headers)
+ * @returns The parsed JSON response
+ */
+export async function goFetchServer<T>(
+  path: string,
+  token: string,
+  options: GoRequestOptions = {}
+): Promise<T> {
+  const { headers: customHeaders, ...rest } = options;
+
+  const headers: Record<string, string> = {
+    // FormData lets the browser set the multipart boundary.
+    ...(rest.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+    Authorization: `Bearer ${token}`,
+    ...(customHeaders as Record<string, string>),
+  };
+
+  const res = await fetch(`${GO_API_BASE}${path}`, {
+    ...rest,
+    headers,
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body as { error?: string }).error || `Go API error: ${res.status}`
+    );
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json();
+}
+
+/**
  * Make a request to the Go API backend.
  * Retries once on 401 with a fresh Clerk token (silent token refresh).
  * @param path - The API path (e.g., '/api/v1/users/me')

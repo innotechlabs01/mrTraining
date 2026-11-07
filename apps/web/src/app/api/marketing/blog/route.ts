@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllPublicBlogPosts, getAllPublicBlogPostBySlug } from '@/lib/db';
+import { goFetch } from '@/lib/api/go-client';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -7,12 +7,20 @@ export async function GET(req: Request) {
 
   try {
     if (slug) {
-      const post = await getAllPublicBlogPostBySlug(slug);
-      if (!post) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      const post = await goFetch<{ id: string }>(
+        `/public/blog/${encodeURIComponent(slug)}`,
+        { auth: false },
+      );
+      if (!post || !post.id) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      }
       return NextResponse.json(post);
     }
 
-    const posts = await getAllPublicBlogPosts();
+    const res = await goFetch<{ data?: unknown[] }>('/public/blog', {
+      auth: false,
+    });
+    const posts: unknown[] = Array.isArray(res) ? res : (res?.data ?? []);
     return NextResponse.json(posts);
   } catch {
     if (slug) return NextResponse.json({ error: 'Not found' }, { status: 404 });

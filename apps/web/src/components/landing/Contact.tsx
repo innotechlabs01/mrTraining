@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Mail, MapPin } from 'lucide-react';
 import { WhatsAppIcon } from './icons';
 import type { LandingContact } from './data';
+import { goFetch } from '@/lib/api/go-client';
 
 export function ContactSection({ contact }: { contact: LandingContact }) {
   const t = useTranslations('common');
@@ -17,12 +18,17 @@ export function ContactSection({ contact }: { contact: LandingContact }) {
     e.preventDefault();
     setStatus('sending');
     try {
-      const res = await fetch('/api/marketing/contact', {
+      // Persist via Go API (POST /public/landing/contact). Replaces the
+      // Next.js route /api/marketing/contact (direct SQL).
+      await goFetch<{ ok?: boolean }>('/public/landing/contact', {
+        auth: false,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, message }),
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          message: message.trim(),
+        }),
       });
-      if (!res.ok) throw new Error('request failed');
       setStatus('sent');
     } catch {
       setStatus('error');
