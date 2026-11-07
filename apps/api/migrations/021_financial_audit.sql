@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS financial_audit_events (
   actor_id   TEXT,
   actor_type TEXT NOT NULL DEFAULT 'user',
   payload    TEXT,
-  created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+  created_at TEXT NOT NULL DEFAULT (NOW()),
   CHECK (actor_type IN ('user','system'))
 );
 
