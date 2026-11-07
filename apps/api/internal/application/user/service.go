@@ -5,6 +5,7 @@ package user
 
 import (
 	"context"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 
 	"github.com/innotechlabs01/mr-training-api/internal/domain/user"
@@ -267,4 +268,18 @@ func (s *Service) SoftDeleteUser(ctx context.Context, userID string) error {
 		return fmt.Errorf("soft delete user: %w", err)
 	}
 	return nil
+}
+
+// SetExecutor propagates a transactional SQL executor into the user repository.
+func (s *Service) SetExecutor(exec database.Executor) *Service {
+	repo := s.repo
+	if r, ok := s.repo.(interface{ WithExecutor(database.Executor) user.Repository }); ok {
+		repo = r.WithExecutor(exec)
+	} else if r, ok := s.repo.(interface{ SetExecutor(database.Executor) }); ok {
+		r.SetExecutor(exec)
+	}
+	return &Service{
+		repo:     repo,
+		identity: s.identity,
+	}
 }

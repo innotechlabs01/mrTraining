@@ -31,7 +31,12 @@ func Timeout(seconds int) fiber.Handler {
 
 		select {
 		case <-ctx.Done():
-			// Context deadline exceeded — handler took too long.
+			// Wait for the handler goroutine to notice context cancellation
+			// so fasthttp/fiber do not recycle *fiber.Ctx while c.Next() is running.
+			select {
+			case <-done:
+			case <-time.After(200 * time.Millisecond):
+			}
 			return fiber.NewError(
 				fiber.StatusLoopDetected,
 				"request timeout exceeded",

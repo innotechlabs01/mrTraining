@@ -148,7 +148,7 @@ function TrendChart({ data, metricType, height = 120 }: { data: HealthSeriesRow[
           contentStyle={{ backgroundColor: '#1C2320', border: '1px solid #374151', borderRadius: 8 }}
           labelStyle={{ color: '#fff' }}
           itemStyle={{ color: '#fff' }}
-          formatter={(value: any, name?: string | number) => [typeof value === 'number' ? Math.round(value) : value, String(name ?? '')]}
+          formatter={(value: unknown, name?: string | number) => [typeof value === 'number' ? Math.round(value) : value, String(name ?? '')]}
         />
         <Area type="monotone" dataKey="value" stroke={color} fillOpacity={1} fill={`url(#color-${metricType})`} />
       </AreaChart>
@@ -201,7 +201,7 @@ function SleepQualityChart({ nights }: { nights: AthleteHealthResponse['sleepLog
           contentStyle={{ backgroundColor: '#1C2320', border: '1px solid #374151', borderRadius: 8 }}
           labelStyle={{ color: '#fff' }}
           itemStyle={{ color: '#fff' }}
-          formatter={(value: any, name?: string | number) => {
+          formatter={(value: unknown, name?: string | number) => {
             const labels: Record<string, string> = {
               efficiency: 'Eficiencia (%)',
               deep: 'Deep (h)',

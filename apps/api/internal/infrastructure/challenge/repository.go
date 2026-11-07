@@ -2,18 +2,20 @@ package challenge
 
 import (
 	"database/sql"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"time"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/challenge"
 )
 
 type repository struct {
-	db *sql.DB
+	db   *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new challenge repository.
 func NewRepository(db *sql.DB) domain.Repository {
-	return &repository{db: db}
+	return &repository{db: db, exec: db}
 }
 
 // --- Challenge CRUD ---
@@ -675,4 +677,17 @@ func (r *repository) DeleteExercise(id string) error {
 func (r *repository) DeleteExercisesByChallenge(challengeID string) error {
 	_, err := r.db.Exec(`DELETE FROM challenge_exercises WHERE challenge_id = $1`, challengeID)
 	return err
+}
+
+// SetExecutor sets the executor for queries (e.g. *sql.Tx).
+func (r *repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a shallow copy of the repository using the given executor.
+func (r *repository) WithExecutor(exec database.Executor) *repository {
+	return &repository{
+		db:   r.db,
+		exec: exec,
+	}
 }

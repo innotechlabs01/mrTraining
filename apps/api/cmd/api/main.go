@@ -309,7 +309,7 @@ func main() {
 		trainingProgressRepo := traininginfrastructure.NewProgressRepository(db.DB)
 		trainingSessionRepo := traininginfrastructure.NewSessionRepository(db.DB)
 		trainingService := trainingapp.NewService(trainingExerciseRepo, trainingWorkoutRepo, trainingProgressRepo, trainingSessionRepo)
-		trainingHandler := userhttp.NewTrainingHandler(trainingService)
+		trainingHandler := userhttp.NewTrainingHandler(trainingService, db.DB)
 
 		// Wire Gamification domain (needed by Membership handler for badge milestones)
 		gamificationRepo := gamificationinfrastructure.NewRepository(db.DB)
