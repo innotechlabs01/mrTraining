@@ -33,8 +33,10 @@ func (h *GarminWebhookHandler) Handle(c *fiber.Ctx) error {
 	if h.secret == "" {
 		return appresponse.Error(c, fiber.StatusServiceUnavailable, "garmin webhook not configured")
 	}
-	// Constant-time comparison prevents timing side-channel attacks on the webhook signature.
-	if subtle.ConstantTimeCompare([]byte(c.Get("X-Garmin-Signature")), []byte(h.secret)) != 1 {
+	// Use constant-time comparison to prevent side-channel timing attacks
+	// where an attacker could deduce the secret byte-by-byte.
+	sig := c.Get("X-Garmin-Signature")
+	if subtle.ConstantTimeCompare([]byte(sig), []byte(h.secret)) != 1 {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "invalid signature")
 	}
 

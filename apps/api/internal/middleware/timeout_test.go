@@ -10,22 +10,17 @@ import (
 )
 
 // setupTimeoutTestApp creates a Fiber app with timeout middleware.
-// The handler sleeps for handlerDelay before responding.
+// The handler respects the context cancellation or responds after handlerDelay.
 func setupTimeoutTestApp(timeoutSeconds int, handlerDelay time.Duration) *fiber.App {
 	app := fiber.New()
 	app.Use(middleware.Timeout(timeoutSeconds))
 
 	app.Get("/test", func(c *fiber.Ctx) error {
-		// Respetar el contexto de timeout: si el middleware ya canceló,
-		// no escribir respuesta (el middleware ya envió 508).
 		select {
 		case <-time.After(handlerDelay):
-			if c.UserContext().Err() != nil {
-				return nil
-			}
 			return c.SendStatus(fiber.StatusOK)
 		case <-c.UserContext().Done():
-			return nil
+			return c.UserContext().Err()
 		}
 	})
 
@@ -49,7 +44,7 @@ func TestTimeout_FastRequest(t *testing.T) {
 
 // TestTimeout_SlowRequest verifies requests exceeding the timeout get 508.
 func TestTimeout_SlowRequest(t *testing.T) {
-	app := setupTimeoutTestApp(1, 3*time.Second)
+	app := setupTimeoutTestApp(1, 2*time.Second)
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	// Fiber's app.Test() defaults to 1s timeout — extend it so the
