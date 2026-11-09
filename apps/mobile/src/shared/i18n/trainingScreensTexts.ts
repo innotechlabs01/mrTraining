@@ -38,6 +38,12 @@ export const trainingScreensTexts = {
     quickHistory: 'Historial',
     quickMessages: 'Mensajes',
   },
+  exercises: {
+    exercisesTitle: 'Ejercicios',
+    searchPlaceholder: 'Buscar ejercicio…',
+    emptyTitle: 'Sin ejercicios',
+    emptyMessage: 'Tu coach aún no te ha asignado ejercicios.',
+  },
   todaySections: {
     sessionsTitle: 'Sesiones de Hoy',
     sessionsEmpty: 'Sin sesiones programadas',

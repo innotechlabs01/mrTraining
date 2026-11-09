@@ -240,7 +240,7 @@ export function TodayScreen() {
   }, [firstWorkout, rootNav]);
 
   const handleOpenExercises = useCallback(() => {
-    rootNav?.navigate('Search');
+    rootNav?.navigate('Exercises');
   }, [rootNav]);
 
   const handleOpenHistory = useCallback(() => {

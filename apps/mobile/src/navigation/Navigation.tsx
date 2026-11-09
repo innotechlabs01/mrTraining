@@ -98,6 +98,7 @@ export type RootStackParamList = {
     exerciseDbId?: string;
   };
   EventDetail: { eventId: string };
+  Exercises: undefined;
   ImportHistory: undefined;
   Search: undefined;
   Settings: undefined;
@@ -261,6 +262,12 @@ function RootNavigator() {
             name="ImportHistory"
             getComponent={() => require('../features/training/presentation/screens/ImportHistoryScreen').ImportHistoryScreen}
             options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="Exercises"
+            getComponent={() =>
+              require('../features/training/presentation/screens/ExercisesScreen').ExercisesScreen
+            }
           />
           <Stack.Screen
             name="Search"
