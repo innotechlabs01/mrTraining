@@ -24,10 +24,11 @@ export interface ExerciseFormStats {
   history: { date: string; score: number }[]
 }
 
-export function useAthleteFormMetrics(athleteId: string) {
+export function useAthleteFormMetrics(athleteId?: string) {
   return useQuery({
     queryKey: ['form-metrics', athleteId],
     queryFn: async (): Promise<ExerciseFormStats[]> => {
+      if (!athleteId) return []
       // Go API endpoint
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9090'
       const res = await fetch(`${apiUrl}/api/v1/form-metrics/athlete/${athleteId}`)
@@ -36,5 +37,6 @@ export function useAthleteFormMetrics(athleteId: string) {
       return data.data || data
     },
     staleTime: 5 * 60 * 1000,
+    enabled: !!athleteId,
   })
 }

@@ -13,6 +13,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, BarChart, Bar, Cell, Legend
 } from 'recharts'
+import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent'
 
 const SOURCE_LABEL: Record<string, string> = {
   healthkit: 'Apple Health',
@@ -148,7 +149,7 @@ function TrendChart({ data, metricType, height = 120 }: { data: HealthSeriesRow[
           contentStyle={{ backgroundColor: '#1C2320', border: '1px solid #374151', borderRadius: 8 }}
           labelStyle={{ color: '#fff' }}
           itemStyle={{ color: '#fff' }}
-          formatter={(value: any, name?: string | number) => [typeof value === 'number' ? Math.round(value) : value, String(name ?? '')]}
+          formatter={(value: ValueType | undefined, name?: NameType) => [typeof value === 'number' ? Math.round(value) : (value ?? ''), (name ?? '') as NameType]}
         />
         <Area type="monotone" dataKey="value" stroke={color} fillOpacity={1} fill={`url(#color-${metricType})`} />
       </AreaChart>
@@ -201,7 +202,7 @@ function SleepQualityChart({ nights }: { nights: AthleteHealthResponse['sleepLog
           contentStyle={{ backgroundColor: '#1C2320', border: '1px solid #374151', borderRadius: 8 }}
           labelStyle={{ color: '#fff' }}
           itemStyle={{ color: '#fff' }}
-          formatter={(value: any, name?: string | number) => {
+          formatter={(value: ValueType | undefined, name?: NameType) => {
             const labels: Record<string, string> = {
               efficiency: 'Eficiencia (%)',
               deep: 'Deep (h)',
@@ -209,8 +210,8 @@ function SleepQualityChart({ nights }: { nights: AthleteHealthResponse['sleepLog
               light: 'Light (h)',
             }
             const num = typeof value === 'number' ? value : 0
-            const label = typeof name === 'string' ? (labels[name] || name) : ''
-            return [num, label] as const
+            const label = typeof name === 'string' ? (labels[name] || name) : ((name ?? '') as NameType)
+            return [num, label]
           }}
         />
         <Legend />
