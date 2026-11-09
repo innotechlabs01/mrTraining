@@ -1,5 +1,5 @@
 
-import { useMemo, useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Pressable,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   useNavigation,
@@ -34,6 +35,7 @@ import { Skeleton } from '../../../../shared/components/ui/Skeleton';
 import { ProgressBar } from '../../../../shared/components/ui/ProgressBar';
 import { SectionHeader } from '../../../../shared/components/ui/SectionHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
+import { SegmentedFilter } from '../../../../shared/components/ui/SegmentedFilter';
 import {
   PlayIcon,
   BarbellIcon,
@@ -47,6 +49,14 @@ import { texts } from '../../../../shared/i18n/texts';
 const t = texts.screens.historyScreen;
 const tUp = texts.screens.planInfoSections;
 const tHist = texts.screens.planHistorySections;
+
+const NAV = {
+  ALL: 'all',
+  COMPLETED: 'completed',
+  PENDING: 'pending',
+} as const;
+
+type NavFilter = (typeof NAV)[keyof typeof NAV];
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<AthleteTabParamList, 'History'>,
@@ -80,6 +90,10 @@ type ProgressSummary = {
   avgCompletionRate: number;
   streak: number;
 };
+
+type HistoryItem =
+  | { type: 'week'; label: string; weekStart: string }
+  | { type: 'workout'; workout: Workout };
 
 const DAYS_LABELS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MONTHS = [
@@ -174,15 +188,44 @@ export function HistoryScreen() {
     staleTime: 5 * 60 * 1000,
   });
 
-  useFocusEffect(
-    useCallback(() => {
-      refetchWorkouts();
-      refetchSessions();
-      refetchProgress();
-    }, [refetchWorkouts, refetchSessions, refetchProgress]),
-  );
+  const [filter, setFilter] = useState<NavFilter>(NAV.ALL);
 
   // --- Derived data ---
+
+  const filteredWorkouts = useMemo(() => {
+    const list = (workouts ?? []).filter((w) => {
+      if (filter === NAV.COMPLETED) return w.status === 'completed';
+      if (filter === NAV.PENDING) return w.status !== 'completed';
+      return true;
+    });
+    return list.sort((a, b) => b.startDate.localeCompare(a.startDate));
+  }, [workouts, filter]);
+
+  const groupedHistory = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const groups = new Map<string, { label: string; workouts: Workout[] }>();
+
+    for (const w of filteredWorkouts) {
+      const wkStart = weekStart(w.startDate);
+      const existing = groups.get(wkStart);
+      if (existing) {
+        existing.workouts.push(w);
+      } else {
+        groups.set(wkStart, { label: weekLabel(wkStart, today), workouts: [w] });
+      }
+    }
+
+    // Ordenar grupos de más reciente a más antiguo.
+    return Array.from(groups.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .flatMap(([, group]) => [
+        { type: 'week' as const, label: group.label, weekStart: '' },
+        ...group.workouts.map((w) => ({ type: 'workout' as const, workout: w })),
+      ]);
+  }, [filteredWorkouts, todayStr]);
+
   const planInfo = useMemo(() => {
     const list = workouts ?? [];
 
@@ -233,9 +276,7 @@ export function HistoryScreen() {
         nextDate: nextOccurrence(w, tomorrowStr),
       }))
       .filter(
-        (
-          item,
-        ): item is {
+        (item): item is {
           id: string;
           contentName: string;
           status: string;
@@ -245,12 +286,6 @@ export function HistoryScreen() {
       .sort((a, b) => a.nextDate.localeCompare(b.nextDate))
       .slice(0, 5);
   }, [workouts, tomorrowStr]);
-
-  const historyDesc = useMemo(() => {
-    return [...(workouts ?? [])].sort((a, b) =>
-      b.startDate.localeCompare(a.startDate),
-    );
-  }, [workouts]);
 
   const onOpenWorkout = useCallback(
     (id: string) => {
@@ -267,6 +302,14 @@ export function HistoryScreen() {
     refetchProgress();
   }, [refetchWorkouts, refetchSessions, refetchProgress]);
 
+  useFocusEffect(
+    useCallback(() => {
+      refetchWorkouts();
+      refetchSessions();
+      refetchProgress();
+    }, [refetchWorkouts, refetchSessions, refetchProgress]),
+  );
+
   const planEmpty =
     !workoutsLoading &&
     ((workouts as Workout[] | undefined)?.length ?? 0) === 0;
@@ -281,6 +324,61 @@ export function HistoryScreen() {
   const volumeGoal = 1000;
   const volumeDone = summary?.totalVolume ?? 0;
   const completionRate = (summary?.avgCompletionRate ?? 0) / 100;
+
+  const renderHistoryItem = useCallback(
+    ({ item }: { item: HistoryItem }) => {
+      if (item.type === 'week') {
+        return (
+          <View style={styles.weekHeader}>
+            <Text style={styles.weekLabel}>{item.label}</Text>
+          </View>
+        );
+      }
+
+      const w = item.workout;
+      return (
+        <Pressable
+          key={w.id}
+          onPress={() => onOpenWorkout(w.id)}
+          style={({ pressed }) => [
+            styles.pressableCard,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Card style={styles.listCard}>
+            <View style={styles.listTopRow}>
+              <View
+                style={[
+                  styles.progressRing,
+                  { borderColor: toneForProgress(w.progress) },
+                ]}
+              >
+                <Text style={styles.progressRingText}>
+                  {Math.round(w.progress * 100)}
+                </Text>
+              </View>
+
+              <View style={styles.listBody}>
+                <Text style={styles.listName} numberOfLines={2}>
+                  {w.contentName}
+                </Text>
+                <Text style={styles.listMeta}>
+                  {formatDayLabel(w.startDate, tomorrowStr)}
+                  {' · '}
+                  {w.modality || '—'}
+                </Text>
+              </View>
+
+              <View style={styles.listBadge}>
+                <Badge text={w.status} tone={toneForStatus(w.status)} />
+              </View>
+            </View>
+          </Card>
+        </Pressable>
+      );
+    },
+    [onOpenWorkout],
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -479,17 +577,11 @@ export function HistoryScreen() {
                       <Card style={styles.listCard}>
                         <View style={styles.listTopRow}>
                           <View style={styles.listIconWrap}>
-                            <BarbellIcon
-                              size={19}
-                              color={colors.primary}
-                            />
+                            <BarbellIcon size={19} color={colors.primary} />
                           </View>
 
                           <View style={styles.listBody}>
-                            <Text
-                              style={styles.listName}
-                              numberOfLines={2}
-                            >
+                            <Text style={styles.listName} numberOfLines={2}>
                               {w.contentName}
                             </Text>
                             <Text style={styles.listMeta}>
@@ -521,17 +613,11 @@ export function HistoryScreen() {
                     <Card key={s.id} style={styles.listCard}>
                       <View style={styles.listTopRow}>
                         <View style={styles.listIconWrap}>
-                          <CalendarIcon
-                            size={19}
-                            color={colors.primary}
-                          />
+                          <CalendarIcon size={19} color={colors.primary} />
                         </View>
 
                         <View style={styles.listBody}>
-                          <Text
-                            style={styles.listName}
-                            numberOfLines={2}
-                          >
+                          <Text style={styles.listName} numberOfLines={2}>
                             {s.title}
                           </Text>
                           <Text style={styles.listMeta}>
@@ -541,10 +627,7 @@ export function HistoryScreen() {
                         </View>
 
                         <View style={styles.listBadge}>
-                          <Badge
-                            text={s.status}
-                            tone={toneForStatus(s.status)}
-                          />
+                          <Badge text={s.status} tone={toneForStatus(s.status)} />
                         </View>
                       </View>
                     </Card>
@@ -553,58 +636,38 @@ export function HistoryScreen() {
               </View>
             )}
 
-            {/* --- HISTORIAL --- */}
+            {/* --- HISTORIAL POR SEMANA --- */}
             <View style={styles.section}>
-              <SectionHeader title={tHist.historyTitle} />
-
-              <View style={styles.cardList}>
-                {historyDesc.slice(0, 10).map((w) => (
-                  <Pressable
-                    key={w.id}
-                    onPress={() => onOpenWorkout(w.id)}
-                    style={({ pressed }) => [
-                      styles.pressableCard,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Card style={styles.listCard}>
-                      <View style={styles.listTopRow}>
-                        <View
-                          style={[
-                            styles.progressRing,
-                            { borderColor: toneForProgress(w.progress) },
-                          ]}
-                        >
-                          <Text style={styles.progressRingText}>
-                            {Math.round(w.progress * 100)}
-                          </Text>
-                        </View>
-
-                        <View style={styles.listBody}>
-                          <Text
-                            style={styles.listName}
-                            numberOfLines={2}
-                          >
-                            {w.contentName}
-                          </Text>
-                          <Text style={styles.listMeta}>
-                            {formatDayLabel(w.startDate, tomorrowStr)}
-                            {' · '}
-                            {w.modality || '—'}
-                          </Text>
-                        </View>
-
-                        <View style={styles.listBadge}>
-                          <Badge
-                            text={w.status}
-                            tone={toneForStatus(w.status)}
-                          />
-                        </View>
-                      </View>
-                    </Card>
-                  </Pressable>
-                ))}
+              <View style={styles.historyHeaderRow}>
+                <SectionHeader title={tHist.historyTitle} />
               </View>
+              <SegmentedFilter
+                options={[
+                  { key: NAV.ALL, label: tHist.filterAll },
+                  { key: NAV.COMPLETED, label: tHist.filterCompleted },
+                  { key: NAV.PENDING, label: tHist.filterPending },
+                ]}
+                value={filter}
+                onChange={(key) => setFilter(key as NavFilter)}
+              />
+
+              {groupedHistory.length === 0 ? (
+                <EmptyState
+                  variant="empty"
+                  title={tHist.noProgress}
+                  message="Sin entrenamientos registrados todavía"
+                />
+              ) : (
+                <FlashList<HistoryItem>
+                  data={groupedHistory}
+                  renderItem={renderHistoryItem}
+                  keyExtractor={(item, index) =>
+                    item.type === 'week' ? `week-${item.label}` : item.workout.id
+                  }
+                  contentContainerStyle={styles.flashContent}
+                  showsVerticalScrollIndicator={false}
+                />
+              )}
             </View>
           </>
         )}
@@ -633,6 +696,31 @@ function RingLabel({
       </View>
     </View>
   );
+}
+
+function weekStart(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  const day = d.getDay(); // 0 = dom ... 6 = sáb
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // lunes = inicio de semana
+  return new Date(d.setDate(diff)).toISOString().slice(0, 10);
+}
+
+function weekLabel(weekStartStr: string, today: Date): string {
+  const wk = new Date(weekStartStr + 'T00:00:00');
+  const todayStart = new Date(today);
+  todayStart.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.round(
+    (todayStart.getTime() - wk.getTime()) / (1000 * 60 * 60 * 24),
+  );
+
+  if (diffDays === 0) return tHist.weekTitle;
+  if (diffDays === 7) return 'Semana pasada';
+  if (diffDays === 14) return 'Hace 2 semanas';
+
+  const [y, m, d] = weekStartStr.split('-').map(Number);
+  const end = new Date(y, m - 1, d + 6);
+  return `${d} ${MONTHS[m - 1]} - ${end.getDate()} ${MONTHS[end.getMonth()]}`;
 }
 
 function formatDayLabel(
@@ -933,6 +1021,30 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     alignItems: 'flex-end',
     maxWidth: 112,
+  },
+
+  // Week header
+  historyHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  weekHeader: {
+    paddingHorizontal: layout.pagePadding,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  weekLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  flashContent: {
+    paddingHorizontal: layout.pagePadding,
+    paddingBottom: spacing.md,
   },
 
   // Workout completion indicator
