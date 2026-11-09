@@ -10,6 +10,59 @@
 -- Tenant model: coach is the tenant (decision 2026-11-02). RLS key is
 -- app.current_coach_id, set transaction-locally by the UnitOfWork.
 
+-- 0. Ensure base tables exist idempotently if running on a clean database before 300_remaining_migrations.
+CREATE TABLE IF NOT EXISTS allies (
+    id              TEXT PRIMARY KEY,
+    owner_user_id   TEXT,
+    legal_name      TEXT NOT NULL,
+    commercial_name TEXT NOT NULL,
+    category        TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'active',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_allies_owner ON allies(owner_user_id);
+
+CREATE TABLE IF NOT EXISTS coach_ally_relationships (
+    id           TEXT PRIMARY KEY,
+    coach_id     TEXT NOT NULL,
+    ally_id      TEXT NOT NULL REFERENCES allies(id) ON DELETE CASCADE,
+    status       TEXT NOT NULL DEFAULT 'invited',
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (coach_id, ally_id)
+);
+CREATE INDEX IF NOT EXISTS idx_car_coach ON coach_ally_relationships(coach_id);
+CREATE INDEX IF NOT EXISTS idx_car_ally ON coach_ally_relationships(ally_id);
+
+CREATE TABLE IF NOT EXISTS commission_agreements (
+    id                 TEXT PRIMARY KEY,
+    relationship_id    TEXT NOT NULL,
+    coach_id           TEXT NOT NULL DEFAULT '',
+    ally_id            TEXT NOT NULL DEFAULT '',
+    version            INTEGER NOT NULL DEFAULT 1,
+    rate_bps           INTEGER NOT NULL DEFAULT 0,
+    fixed_amount_cents INTEGER NOT NULL DEFAULT 0,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_commission_agreements_rel ON commission_agreements(relationship_id);
+
+CREATE TABLE IF NOT EXISTS commission_entries (
+    id                   TEXT PRIMARY KEY,
+    operation_id         TEXT NOT NULL DEFAULT '',
+    relationship_id      TEXT NOT NULL DEFAULT '',
+    coach_id             TEXT NOT NULL DEFAULT '',
+    agreement_id         TEXT NOT NULL DEFAULT '',
+    agreement_version    INTEGER NOT NULL DEFAULT 1,
+    base_cents           INTEGER NOT NULL DEFAULT 0,
+    rate_bps             INTEGER NOT NULL DEFAULT 0,
+    fixed_amount_cents   INTEGER NOT NULL DEFAULT 0,
+    amount_cents         INTEGER NOT NULL DEFAULT 0,
+    currency             TEXT NOT NULL DEFAULT 'COP',
+    status               TEXT NOT NULL DEFAULT 'accrued',
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- 1. Add coach_id to commission_agreements for RLS enforcement.
 ALTER TABLE commission_agreements
   ADD COLUMN IF NOT EXISTS coach_id TEXT NOT NULL DEFAULT '';
