@@ -1,4 +1,4 @@
-import { isCheckoutBlocked, isMediumOperational, type PaymentAvailability } from '../paymentAvailability';
+import { isCheckoutBlocked, isMediumOperational, PaymentAvailability } from '../paymentAvailability';
 
 describe('paymentAvailability helpers', () => {
   it('blocks when fail_closed', () => {

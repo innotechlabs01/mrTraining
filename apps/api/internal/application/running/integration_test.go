@@ -23,8 +23,7 @@ func newTestDB(t *testing.T) *database.DB {
 	}
 	db, err := database.Connect(url)
 	if err != nil {
-		t.Skipf("skipping: cannot connect to PostgreSQL: %v", err)
-		return nil
+		t.Fatalf("connect: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
 	return db

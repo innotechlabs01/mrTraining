@@ -169,25 +169,3 @@ func TestParseUnsupportedFormat(t *testing.T) {
 		t.Fatal("expected error for unsupported format")
 	}
 }
-
-func BenchmarkHaversineMeters(b *testing.B) {
-	lat1, lng1 := 40.7128, -74.0060
-	lat2, lng2 := 40.7138, -74.0050
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = haversineMeters(lat1, lng1, lat2, lng2)
-	}
-}
-
-func BenchmarkEncodePolyline(b *testing.B) {
-	pts := make([]Point, 1000)
-	for i := range pts {
-		pts[i] = Point{Lat: 40.7128 + float64(i)*0.0001, Lng: -74.0060 + float64(i)*0.0001}
-	}
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = EncodePolyline(pts)
-	}
-}

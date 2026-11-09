@@ -2,7 +2,6 @@
 package handlers
 
 import (
-	"crypto/subtle"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -33,10 +32,7 @@ func (h *GarminWebhookHandler) Handle(c *fiber.Ctx) error {
 	if h.secret == "" {
 		return appresponse.Error(c, fiber.StatusServiceUnavailable, "garmin webhook not configured")
 	}
-	// Use constant-time comparison to prevent side-channel timing attacks
-	// where an attacker could deduce the secret byte-by-byte.
-	sig := c.Get("X-Garmin-Signature")
-	if subtle.ConstantTimeCompare([]byte(sig), []byte(h.secret)) != 1 {
+	if c.Get("X-Garmin-Signature") != h.secret {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "invalid signature")
 	}
 

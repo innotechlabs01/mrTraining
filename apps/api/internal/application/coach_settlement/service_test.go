@@ -25,8 +25,7 @@ func newSettlementTestDB(t *testing.T) (*database.DB, *Service) {
 	}
 	db, err := database.Connect(url)
 	if err != nil {
-		t.Skipf("skipping: cannot connect to PostgreSQL: %v", err)
-		return nil, nil
+		t.Fatalf("connect: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
 
