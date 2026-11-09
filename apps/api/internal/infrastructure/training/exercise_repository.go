@@ -271,34 +271,40 @@ func (r *ExerciseRepository) Delete(ctx context.Context, id string) error {
 func (r *ExerciseRepository) buildWhereClause(filter training.ExerciseFilter) (string, []interface{}) {
 	var conditions []string
 	var args []interface{}
+	argIdx := 1
 
 	// Coach scoping: global exercises + coach's custom exercises
 	if filter.CoachID != "" {
-		conditions = append(conditions, "(is_custom = 0 OR coach_id = $39)")
+		conditions = append(conditions, fmt.Sprintf("(is_custom = 0 OR coach_id = $%d)", argIdx))
 		args = append(args, filter.CoachID)
+		argIdx++
 	} else {
 		conditions = append(conditions, "is_custom = 0")
 	}
 
 	if filter.BodyPart != "" {
-		conditions = append(conditions, "body_part = $40")
+		conditions = append(conditions, fmt.Sprintf("body_part = $%d", argIdx))
 		args = append(args, filter.BodyPart)
+		argIdx++
 	}
 
 	if filter.Equipment != "" {
-		conditions = append(conditions, "equipment = $41")
+		conditions = append(conditions, fmt.Sprintf("equipment = $%d", argIdx))
 		args = append(args, filter.Equipment)
+		argIdx++
 	}
 
 	if filter.Difficulty != "" {
-		conditions = append(conditions, "difficulty = $42")
+		conditions = append(conditions, fmt.Sprintf("difficulty = $%d", argIdx))
 		args = append(args, filter.Difficulty)
+		argIdx++
 	}
 
 	if filter.Search != "" {
-		conditions = append(conditions, "(name LIKE $43 OR description LIKE $44)")
+		conditions = append(conditions, fmt.Sprintf("(name LIKE $%d OR description LIKE $%d)", argIdx, argIdx+1))
 		search := "%" + filter.Search + "%"
 		args = append(args, search, search)
+		argIdx += 2
 	}
 
 	if len(conditions) == 0 {

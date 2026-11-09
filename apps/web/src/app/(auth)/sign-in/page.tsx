@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth, useUser } from '@clerk/nextjs';
 import { AuthShell } from '@/features/auth/components/AuthShell';
 import { SignInForm } from '@/features/auth/components/SignInForm';
 import { motion } from 'framer-motion';
@@ -14,20 +14,31 @@ const ROLES = [
   { id: 'coach', label: 'Coach', icon: ClipboardList, desc: 'Manage athletes & create programs' },
 ];
 
+const SUPER_ADMIN_IDS = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
+
 export default function SignInPage() {
   const router = useRouter();
   const { isSignedIn, isLoaded } = useAuth();
+  const { user } = useUser();
   const [role, setRole] = useState<string | null>(null);
   const { t } = useI18n('common');
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      router.replace('/coach');
+    if (isLoaded && isSignedIn && user) {
+      if (SUPER_ADMIN_IDS.includes(user.id)) {
+        router.replace('/admin/dashboard');
+      } else {
+        router.replace('/coach');
+      }
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [isLoaded, isSignedIn, user, router]);
 
   const handleSuccess = () => {
-    router.push('/coach');
+    if (SUPER_ADMIN_IDS.includes(user?.id || '')) {
+      router.push('/admin/dashboard');
+    } else {
+      router.push('/coach');
+    }
   };
 
   return (
@@ -36,7 +47,7 @@ export default function SignInPage() {
         {!role ? (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-text-secondary text-center mb-2">{t('auth.iAm')}</p>
-            <div className="grid grid-col-6 gap-3">
+            <div className="grid grid-cols-6 gap-3">
               {ROLES.map((r) => (
                 <motion.button
                   key={r.id}

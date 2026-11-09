@@ -65,6 +65,8 @@ export default function CoachPlansLandingPage() {
                 width={64}
                 height={64}
                 className="object-cover"
+                loading="lazy"
+                quality={85}
               />
             ) : (
               <span className="text-2xl font-bold text-brand-primary">{coach?.name?.charAt(0) || 'C'}</span>

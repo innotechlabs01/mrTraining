@@ -210,6 +210,8 @@ export function ProductDialog({ open, initial, onOpenChange, onSave }: ProductDi
                       fill
                       className="rounded-xl object-cover"
                       sizes="200px"
+                      loading="lazy"
+                      quality={85}
                     />
                     <button
                       type="button"

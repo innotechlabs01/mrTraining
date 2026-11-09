@@ -91,12 +91,12 @@ func (r *Repository) SoftDeleteUser(ctx context.Context, userID string) error {
 
 // CoachExists reports whether the coach profile row exists for the user.
 func (r *Repository) CoachExists(ctx context.Context, userID string) (bool, error) {
-	return r.rowExists(ctx, "SELECT 1 FROM coaches WHERE id = $12", userID)
+	return r.rowExists(ctx, "SELECT 1 FROM coaches WHERE id = $1", userID)
 }
 
 // AthleteProfileExists reports whether the athlete profile row exists for the user.
 func (r *Repository) AthleteProfileExists(ctx context.Context, userID string) (bool, error) {
-	return r.rowExists(ctx, "SELECT 1 FROM athlete_profiles WHERE id = $13", userID)
+	return r.rowExists(ctx, "SELECT 1 FROM athlete_profiles WHERE id = $1", userID)
 }
 
 func (r *Repository) rowExists(ctx context.Context, query, id string) (bool, error) {

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Dumbbell, Award, Swords, Waves } from 'lucide-react';
+import Image from 'next/image';
 
 const items = [
   {
@@ -80,22 +81,34 @@ export function IronGymWhyChooseUs() {
             className="grid grid-cols-1 sm:grid-cols-2 gap-4"
           >
             <div className="space-y-4">
-              <img
+              <Image
                 src="/iron-gym/why-1.png"
                 alt="Gym training"
+                width={400}
+                height={300}
                 className="w-full rounded-xl object-cover aspect-[3/4]"
+                loading="lazy"
+                quality={85}
               />
-              <img
+              <Image
                 src="/iron-gym/why-2.png"
                 alt="Personal training"
+                width={400}
+                height={300}
                 className="w-full rounded-xl object-cover aspect-[4/3]"
+                loading="lazy"
+                quality={85}
               />
             </div>
             <div className="pt-8">
-              <img
+              <Image
                 src="/iron-gym/why-3.png"
                 alt="Group workout"
-                className="w-full rounded-xl object-cover aspect-[3/4]"
+                width={400}
+                height={300}
+                className="w-full rounded-xl object-cover"
+                loading="lazy"
+                quality={85}
               />
             </div>
           </motion.div>

@@ -107,6 +107,11 @@ func (s *Service) CreatePlan(ctx context.Context, coachID string, req dto.Create
 	return p, nil
 }
 
+// GetPlanByID returns a plan by ID.
+func (s *Service) GetPlanByID(ctx context.Context, planID string) (*plandomain.Plan, error) {
+	return s.repo.GetByID(ctx, planID)
+}
+
 // UpdatePlan updates an existing plan. Only the owning coach can update.
 func (s *Service) UpdatePlan(ctx context.Context, coachID, id string, req dto.UpdatePlanRequest) (*plandomain.Plan, error) {
 	existing, err := s.repo.GetByID(ctx, id)

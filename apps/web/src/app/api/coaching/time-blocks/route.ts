@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { goFetchServer } from '@/lib/api/go-client';
+import { goFetchServer, GoApiError } from '@/lib/api/go-client';
 
 interface TimeBlock {
   id: string;
@@ -34,6 +34,9 @@ export async function GET() {
     );
     return NextResponse.json(blocks);
   } catch (error) {
+    if (error instanceof GoApiError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('Error fetching time blocks:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -75,6 +78,9 @@ export async function POST(req: Request) {
     );
     return NextResponse.json({ success: true, data: blocks });
   } catch (error) {
+    if (error instanceof GoApiError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('Error saving time blocks:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

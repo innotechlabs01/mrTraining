@@ -746,3 +746,45 @@ func RegisterAdminRoutes(api fiber.Router, handler *handlers.AdminHandler, allow
 	admin.Get("/coaches/:id", handler.GetCoach)
 	admin.Get("/services/health", handler.GetServicesHealth)
 }
+
+// RegisterErrorRoutes registers error tracking routes on the auth-protected API group.
+// Super admin only: create, list, get, resolve errors, and stats.
+func RegisterErrorRoutes(api fiber.Router, handler *handlers.ErrorHandler) {
+	handler.RegisterErrorRoutes(api)
+}
+
+// RegisterErrorWebhookRoutes registers public error webhook routes outside auth.
+// Used by web/mobile/cron to report errors without Clerk token.
+func RegisterErrorWebhookRoutes(app fiber.Router, handler *handlers.ErrorHandler) {
+	app.Post("/webhooks/errors", handler.CreateError)
+}
+
+// RegisterCRMRoutes registers super admin CRM routes on the auth-protected API group.
+// Routes: GET /admin/coaches, /admin/coaches/expiring, /admin/coaches/expired,
+//         /admin/revenue, /admin/coaches/:id/payments.
+func RegisterCRMRoutes(api fiber.Router, handler *handlers.CRMHandler) {
+	handler.RegisterRoutes(api)
+}
+
+// RegisterCoachLandingRoutes registers coach landing page routes (auth-protected).
+// Routes: POST /coach/landing, GET /coach/landing, PUT/DELETE /coach/landing/:id, PUT /coach/landing/:id/publish.
+func RegisterCoachLandingRoutes(api fiber.Router, handler *handlers.CoachLandingHandler) {
+	handler.RegisterRoutes(api)
+}
+
+// RegisterPublicLandingRoute registers the public landing page route by slug (no auth).
+func RegisterPublicLandingRoute(app fiber.Router, handler *handlers.CoachLandingHandler) {
+	app.Get("/l/:slug", handler.GetBySlug)
+}
+
+// RegisterTestimonialRoutes registers testimonial routes on the auth-protected API group.
+// Routes: POST /testimonials, GET /testimonials/:coachID, PUT/DELETE /testimonials/:id.
+func RegisterTestimonialRoutes(api fiber.Router, handler *handlers.TestimonialHandler) {
+	handler.RegisterRoutes(api)
+}
+
+// RegisterPublicTestimonialRoutes registers public testimonial routes (no auth).
+// Used by landing pages to fetch testimonials for a coach.
+func RegisterPublicTestimonialRoutes(app fiber.Router, handler *handlers.TestimonialHandler) {
+	handler.RegisterPublicTestimonialRoutes(app)
+}

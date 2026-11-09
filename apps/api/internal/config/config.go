@@ -74,6 +74,9 @@ type Config struct {
 	EmailFromName         string // Nombre del remitente
 	EmailEnabled          bool     // Cuando true, envía emails reales; false = modo solo-log
 
+	// Discord (error tracking webhook — optional)
+	DiscordWebhookURL string // Discord webhook URL for error notifications
+
 	// Logging
 	LogLevel string // Log level: debug, info, warn, error
 }
@@ -107,6 +110,8 @@ func Load() (*Config, error) {
 		RedisURL: getEnv("REDIS_URL", ""),
 
 		PlatformSuperAdminClerkID: getEnv("PLATFORM_SUPER_ADMIN_CLERK_ID", ""),		NATSURL:  getEnv("NATS_URL", "nats://localhost:4222"),
+
+		DiscordWebhookURL: getEnv("ERROR_WEBHOOK_DISCOR", ""),
 
 		TrustedProxies:     splitCSV(getEnv("TRUSTED_PROXIES", "")),
 		RateLimitMax:       getEnvInt("RATE_LIMIT_MAX", 100),

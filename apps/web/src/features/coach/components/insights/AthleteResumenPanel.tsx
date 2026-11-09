@@ -10,7 +10,7 @@
  */
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Activity, Battery, BatteryCharging, Clock, Dumbbell, TrendingUp,
   CheckCircle2, AlertTriangle, XCircle,
@@ -93,7 +93,7 @@ function formatDate(iso: string): string {
  * Top-level resumen: one cohesive snapshot of the athlete's status.
  * Consumes training-summary, health, and device data to compute everything client-side.
  */
-export function AthleteResumenPanel({ athleteId }: { athleteId: string }) {
+const AthleteResumenPanelInner = React.memo(function AthleteResumenPanel({ athleteId }: { athleteId: string }) {
   const [data, setData] = useState<ResumenData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -223,4 +223,6 @@ export function AthleteResumenPanel({ athleteId }: { athleteId: string }) {
       </div>
     </div>
   )
-}
+})
+
+export { AthleteResumenPanelInner as AthleteResumenPanel }

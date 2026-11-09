@@ -2,14 +2,19 @@
 
 import { motion } from 'framer-motion';
 import { Twitter, Facebook, Instagram, ArrowRight } from 'lucide-react';
+import Image from 'next/image';
 
 export function IronGymHero() {
   return (
     <section id="home" className="relative min-h-screen flex items-center overflow-hidden bg-black">
-      <img
+      <Image
         src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1920&auto=format&fit=crop"
         alt=""
+        fill
+        sizes="100vw"
         className="absolute inset-0 w-full h-full object-cover opacity-60"
+        priority
+        quality={85}
       />
 
       <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />

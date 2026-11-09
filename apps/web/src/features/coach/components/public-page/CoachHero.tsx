@@ -30,6 +30,7 @@ export function CoachHero({ coach }: CoachHeroProps) {
                   height={160}
                   className="object-cover"
                   priority
+                  quality={85}
                 />
               ) : (
                 <span className="text-4xl font-display font-bold text-brand-primary">

@@ -11,8 +11,11 @@ import (
 	"time"
 
 	"github.com/innotechlabs01/mr-training-api/internal/config"
+	commissionentrydomain "github.com/innotechlabs01/mr-training-api/internal/domain/commission_entry"
 	plandomain "github.com/innotechlabs01/mr-training-api/internal/domain/plan"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/subscription"
+	paymentledgerdomain "github.com/innotechlabs01/mr-training-api/internal/domain/payment_ledger"
+	paymentledgersvc "github.com/innotechlabs01/mr-training-api/internal/application/payment_ledger"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 )
 
@@ -20,15 +23,17 @@ import (
 // fulfillment. It depends only on interfaces (Repository, PaymentProvider,
 // plan.Repository), making it testable with fakes.
 type Service struct {
-	cfg      *config.Config
-	subRepo  subscription.Repository
-	provider subscription.PaymentProvider
-	planRepo plandomain.Repository
+	cfg             *config.Config
+	subRepo         subscription.Repository
+	provider        subscription.PaymentProvider
+	planRepo        plandomain.Repository
+	ledgerSvc       *paymentledgersvc.Service
+	commissionEntry commissionentrydomain.Repository
 }
 
 // NewService creates a new subscription application service.
-func NewService(cfg *config.Config, subRepo subscription.Repository, provider subscription.PaymentProvider, planRepo plandomain.Repository) *Service {
-	return &Service{cfg: cfg, subRepo: subRepo, provider: provider, planRepo: planRepo}
+func NewService(cfg *config.Config, subRepo subscription.Repository, provider subscription.PaymentProvider, planRepo plandomain.Repository, ledgerSvc *paymentledgersvc.Service, commissionEntry commissionentrydomain.Repository) *Service {
+	return &Service{cfg: cfg, subRepo: subRepo, provider: provider, planRepo: planRepo, ledgerSvc: ledgerSvc, commissionEntry: commissionEntry}
 }
 
 // SubscribeCommand is the input to the subscribe use case.
@@ -253,6 +258,62 @@ func (s *Service) FulfillWebhook(ctx context.Context, req subscription.WebhookRe
 	if err := s.subRepo.Save(ctx, sub); err != nil {
 		return fmt.Errorf("save subscription: %w", err)
 	}
+
+	// --- Record payment in ledger + commission entry for coach ---
+	if s.ledgerSvc != nil && s.commissionEntry != nil && payment.Status == "approved" {
+		periodStartStr := periodStart.Format("2006-01-02")
+		periodEndStr := periodEnd.Format("2006-01-02")
+		amountCents := int64(payment.TransactionAmount * 100)
+
+		// Resolve commission term for the coach (platform fee + processing)
+		term, termErr := s.ledgerSvc.GetActiveTerm(ctx, sub.CoachID, periodStartStr)
+		_ = termErr
+
+		// Record ledger entry (computes processing_fee, platform_commission, coach_net_payable)
+		ledgerEntry, ledErr := s.ledgerSvc.RecordPayment(ctx, paymentledgerdomain.CreateLedgerEntryInput{
+			WompiTransactionID: payment.ID,
+			SourceType:         paymentledgerdomain.SourceTypeMembership,
+			SubscriptionID:     sub.ID,
+			AthleteID:          sub.AthleteID,
+			CoachID:            sub.CoachID,
+			GrossAmountCents:   amountCents,
+			Currency:           payment.Currency,
+			PeriodStart:        periodStartStr,
+			PeriodEnd:          periodEndStr,
+			Status:             paymentledgerdomain.StatusApproved,
+			IdempotencyKey:     "sub_" + payment.ID,
+		}, sub.CoachID)
+		if ledErr != nil {
+			// Ledger failure should not fail the webhook fulfillment; log and continue
+			_ = ledErr
+		} else if ledgerEntry != nil {
+			// Create commission entry for the coach (net payable from platform)
+			rateBps := int64(0)
+			fixedFeeCents := int64(0)
+			if term != nil {
+				rateBps = term.RateBps
+				fixedFeeCents = term.FixedFeeCents
+			}
+
+			_, cErr := s.commissionEntry.CreateCommissionEntryDirect(ctx, commissionentrydomain.CreateCommissionEntryInput{
+				OperationID:        sub.ID,
+				RelationshipID:     "", // subscriptions have no ally relationship
+				CoachID:            sub.CoachID,
+				AgreementID:        ledgerEntry.CommissionTermID,
+				AgreementVersion:   ledgerEntry.CommissionTermVersion,
+				BaseCents:          ledgerEntry.GrossAmountCents,
+				RateBps:            rateBps,
+				FixedAmountCents:   fixedFeeCents,
+				AmountCents:        ledgerEntry.CoachNetPayableCents,
+				Currency:           payment.Currency,
+				ComputedAt:         time.Now().UTC().Format("2006-01-02 15:04:05"),
+			}, sub.CoachID)
+			if cErr != nil {
+				_ = cErr
+			}
+		}
+	}
+
 	return nil
 }
 

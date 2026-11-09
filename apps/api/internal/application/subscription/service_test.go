@@ -133,7 +133,7 @@ func TestServiceSubscribe(t *testing.T) {
 	svc := NewService(&config.Config{
 		AppURL:                "https://app.test",
 		MercadoPagoWebhookURL: "https://app.test/webhooks/mercadopago",
-	}, subRepo, provider, planRepo)
+	}, subRepo, provider, planRepo, nil, nil)
 
 	result, err := svc.Subscribe(ctx, SubscribeCommand{
 		AthleteID: "athlete_1",
@@ -157,7 +157,7 @@ func TestServiceSubscribePlanNotFound(t *testing.T) {
 	planRepo := &fakePlanRepo{err: apperrors.NotFound("Plan", "plan_1")}
 	subRepo := &fakeSubRepo{}
 	provider := &fakeProvider{}
-	svc := NewService(&config.Config{}, subRepo, provider, planRepo)
+	svc := NewService(&config.Config{}, subRepo, provider, planRepo, nil, nil)
 
 	_, err := svc.Subscribe(ctx, SubscribeCommand{AthleteID: "a", CoachID: "c", PlanID: "plan_1"})
 	require.Error(t, err)
@@ -170,7 +170,7 @@ func TestServiceSubscribeInactivePlan(t *testing.T) {
 	planRepo := &fakePlanRepo{plan: plan}
 	subRepo := &fakeSubRepo{}
 	provider := &fakeProvider{}
-	svc := NewService(&config.Config{}, subRepo, provider, planRepo)
+	svc := NewService(&config.Config{}, subRepo, provider, planRepo, nil, nil)
 
 	_, err := svc.Subscribe(ctx, SubscribeCommand{AthleteID: "a", CoachID: "c", PlanID: "plan_1"})
 	require.Error(t, err)
@@ -178,7 +178,7 @@ func TestServiceSubscribeInactivePlan(t *testing.T) {
 
 func TestServiceSubscribeValidation(t *testing.T) {
 	ctx := context.Background()
-	svc := NewService(&config.Config{}, &fakeSubRepo{}, &fakeProvider{}, &fakePlanRepo{plan: newPlan()})
+	svc := NewService(&config.Config{}, &fakeSubRepo{}, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, nil, nil)
 
 	_, err := svc.Subscribe(ctx, SubscribeCommand{})
 	require.Error(t, err)
@@ -194,7 +194,7 @@ func TestServiceCancel(t *testing.T) {
 	ctx := context.Background()
 	sub := &subscriptiondomain.Subscription{ID: "sub_1", CoachID: "coach_1", Status: subscriptiondomain.StatusActive, BillingPeriod: "monthly"}
 	subRepo := &fakeSubRepo{byID: sub}
-	svc := NewService(&config.Config{}, subRepo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()})
+	svc := NewService(&config.Config{}, subRepo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, nil, nil)
 
 	require.NoError(t, svc.Cancel(ctx, CancelCommand{SubscriptionID: "sub_1", CoachID: "coach_1"}))
 	assert.True(t, sub.CancelAtPeriodEnd)
@@ -205,7 +205,7 @@ func TestServiceCancel(t *testing.T) {
 func TestServiceCancelNotFound(t *testing.T) {
 	ctx := context.Background()
 	subRepo := &fakeSubRepo{} // byID nil -> not found
-	svc := NewService(&config.Config{}, subRepo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()})
+	svc := NewService(&config.Config{}, subRepo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, nil, nil)
 
 	err := svc.Cancel(ctx, CancelCommand{SubscriptionID: "missing", CoachID: "coach_1"})
 	require.Error(t, err)
@@ -215,7 +215,7 @@ func TestServiceCancelUnauthorized(t *testing.T) {
 	ctx := context.Background()
 	sub := &subscriptiondomain.Subscription{ID: "sub_1", CoachID: "coach_1", Status: subscriptiondomain.StatusActive}
 	subRepo := &fakeSubRepo{byID: sub}
-	svc := NewService(&config.Config{}, subRepo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()})
+	svc := NewService(&config.Config{}, subRepo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, nil, nil)
 
 	err := svc.Cancel(ctx, CancelCommand{SubscriptionID: "sub_1", CoachID: "coach_2"})
 	require.Error(t, err)
@@ -244,7 +244,7 @@ func TestServiceFulfillWebhookApproved(t *testing.T) {
 			DateApproved:      &approved,
 		},
 	}
-	svc := NewService(&config.Config{}, subRepo, provider, &fakePlanRepo{plan: newPlan()})
+	svc := NewService(&config.Config{}, subRepo, provider, &fakePlanRepo{plan: newPlan()}, nil, nil)
 
 	require.NoError(t, svc.FulfillWebhook(ctx, subscriptiondomain.WebhookRequest{Body: []byte(`{"type":"payment","data":{"id":"pay_1"}}`), SignatureHeader: "ts=1,v1=abc"}))
 	assert.Equal(t, subscriptiondomain.StatusActive, sub.Status)
@@ -256,7 +256,7 @@ func TestServiceFulfillWebhookApproved(t *testing.T) {
 
 func TestServiceFulfillWebhookInvalidSignature(t *testing.T) {
 	ctx := context.Background()
-	svc := NewService(&config.Config{}, &fakeSubRepo{}, &fakeProvider{verifyErr: subscriptiondomain.ErrInvalidSignature}, &fakePlanRepo{plan: newPlan()})
+	svc := NewService(&config.Config{}, &fakeSubRepo{}, &fakeProvider{verifyErr: subscriptiondomain.ErrInvalidSignature}, &fakePlanRepo{plan: newPlan()}, nil, nil)
 
 	err := svc.FulfillWebhook(ctx, subscriptiondomain.WebhookRequest{Body: []byte("{}"), SignatureHeader: "bad"})
 	assert.ErrorIs(t, err, subscriptiondomain.ErrInvalidSignature)
@@ -275,7 +275,7 @@ func TestServiceFulfillWebhookNotApproved(t *testing.T) {
 			TransactionAmount: 49900,
 		},
 	}
-	svc := NewService(&config.Config{}, subRepo, provider, &fakePlanRepo{plan: newPlan()})
+	svc := NewService(&config.Config{}, subRepo, provider, &fakePlanRepo{plan: newPlan()}, nil, nil)
 
 	require.NoError(t, svc.FulfillWebhook(ctx, subscriptiondomain.WebhookRequest{Body: []byte(`{"type":"payment","data":{"id":"pay_1"}}`), SignatureHeader: "ts=1,v1=abc"}))
 	// Rejected payment: subscription untouched, nothing recorded
@@ -299,7 +299,7 @@ func TestServiceFulfillWebhookIdempotent(t *testing.T) {
 			ExternalReference: "subscription:sub_1",
 		},
 	}
-	svc := NewService(&config.Config{}, subRepo, provider, &fakePlanRepo{plan: newPlan()})
+	svc := NewService(&config.Config{}, subRepo, provider, &fakePlanRepo{plan: newPlan()}, nil, nil)
 
 	require.NoError(t, svc.FulfillWebhook(ctx, subscriptiondomain.WebhookRequest{Body: []byte(`{"type":"payment","data":{"id":"pay_1"}}`), SignatureHeader: "ts=1,v1=abc"}))
 	// Already recorded: no-op, subscription untouched

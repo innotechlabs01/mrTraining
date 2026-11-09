@@ -8,11 +8,18 @@ import (
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
-// contextKey for the resolved tenant coach.
-const (
-	// CoachIDKey is the context key for the tenant coach owning the operation.
-	CoachIDKey contextKey = "coach_id"
-)
+// CoachIDKey is the context key for the tenant coach owning the operation.
+// Defined here (not in auth.go) because it is tenant-domain specific.
+const CoachIDKey = "coach_id"
+
+// Provisioner provisions missing coach/athlete profile rows for authenticated
+// users whose Clerk webhook may have missed the initial provisioning event.
+type Provisioner interface {
+	// GetUser fetches identity data (email, name) from the auth provider.
+	GetUser(ctx context.Context, userID string) (email, name string, err error)
+	// EnsureCoach idempotently creates a coaches row for a coach user.
+	EnsureCoach(ctx context.Context, userID, email, name string) error
+}
 
 // tenantError renders a consistent JSON error with the request id, following
 // the same pattern as membershipError in membership.go.
@@ -54,7 +61,7 @@ const coachIDHeader = "X-Coach-ID"
 //
 //	Coach authenticated:
 //	  users.id == coaches.id with is_active = 1 → context coach = self.
-//	  Inactive or missing coach row → context coach is NOT set (caller must check).
+//	  Inactive or missing coach row → auto-provision from Clerk, then set context.
 //
 //	Athlete authenticated:
 //	  The coach comes from the X-Coach-ID header (or, for resource-scoped
@@ -87,8 +94,26 @@ func RequireTenantContext(resolver TenantResolver) fiber.Handler {
 			return tenantError(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "tenant resolution failed")
 		}
 		if coachID != "" {
-			c.Locals(string(CoachIDKey), coachID)
+			c.Locals(CoachIDKey, coachID)
 			return c.Next()
+		}
+
+		// Auto-provision: a coach-authenticated user with no active coach row
+		// (e.g. signed up on an external page where the Clerk webhook missed
+		// user.created) gets a coaches row provisioned on first access.
+		if GetUserRole(c) == "coach" {
+			if p, ok := resolver.(Provisioner); ok {
+				email, name := "", ""
+				if e, n, gerr := p.GetUser(ctx, userID); gerr == nil {
+					email, name = e, n
+				}
+				if perr := p.EnsureCoach(ctx, userID, email, name); perr == nil {
+					if coachID, err := resolver.GetActiveCoachID(ctx, userID); err == nil && coachID != "" {
+						c.Locals(CoachIDKey, coachID)
+						return c.Next()
+					}
+				}
+			}
 		}
 
 		// Flow 2 — athlete user: coach comes from the operation, validated.
@@ -108,7 +133,7 @@ func RequireTenantContext(resolver TenantResolver) fiber.Handler {
 				"no active relationship with this coach")
 		}
 
-		c.Locals(string(CoachIDKey), requestedCoach)
+		c.Locals(CoachIDKey, requestedCoach)
 		return c.Next()
 	}
 }
@@ -133,6 +158,6 @@ func RequireCoachID() fiber.Handler {
 // Returns empty string if not set (caller should check RequireTenantContext
 // ran first). Handlers pass this value to UnitOfWork.Begin as coachID.
 func GetCoachID(c *fiber.Ctx) string {
-	id, _ := c.Locals(string(CoachIDKey)).(string)
+	id, _ := c.Locals(CoachIDKey).(string)
 	return id
 }

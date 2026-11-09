@@ -22,6 +22,7 @@ const nextConfig = {
     }
     return [
       { source: '/api/v1/:path*', destination: `${goOrigin}/api/v1/:path*` },
+      { source: '/public/:path*', destination: `${goOrigin}/public/:path*` },
       { source: '/uploads/:path*', destination: `${goOrigin}/uploads/:path*` },
       { source: '/health', destination: `${goOrigin}/health` },
     ];

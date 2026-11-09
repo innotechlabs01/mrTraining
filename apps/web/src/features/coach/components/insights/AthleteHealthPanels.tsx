@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { HeartPulse, Moon, Watch, Activity, Zap, Droplets, Brain, Flame, ChevronRight } from 'lucide-react'
 import {
   trainingApi,
@@ -311,7 +311,7 @@ function SleepQualityPanel({ sleepLogs }: { sleepLogs: AthleteHealthResponse['sl
   )
 }
 
-export function AthleteHealthPanels({ athleteId }: { athleteId: string }) {
+export const AthleteHealthPanels = React.memo(function AthleteHealthPanels({ athleteId }: { athleteId: string }) {
   const [health, setHealth] = useState<AthleteHealthResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -426,8 +426,7 @@ export function AthleteHealthPanels({ athleteId }: { athleteId: string }) {
       <HRZonesPanel athleteId={athleteId} />
       <VideoEngagementPanel athleteId={athleteId} />
     </div>
-  )
-}
+  )})
 
 const ZONE_COLORS = ['#22c55e', '#84cc16', '#eab308', '#f97316', '#ef4444'];
 const ZONE_LABELS = ['Zona 1 · Recuperación', 'Zona 2 · Aeróbica', 'Zona 3 · Tempo', 'Zona 4 · Umbral', 'Zona 5 · VO₂max'];

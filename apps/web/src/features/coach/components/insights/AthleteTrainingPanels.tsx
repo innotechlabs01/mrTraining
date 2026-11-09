@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { useAthleteTrainingIntel } from '@/features/coach/hooks/useAthleteTrainingIntel'
 import { Dumbbell, Flame, Gauge, TrendingUp, type LucideIcon } from 'lucide-react'
 
@@ -36,7 +37,7 @@ function Skeleton() {
  * leaders, muscle fatigue map and aggregated RIR/RPE effort. All numbers derive from
  * real logged sets — nothing here is self-reported.
  */
-export function AthleteTrainingPanels({ athleteId }: { athleteId: string }) {
+export const AthleteTrainingPanels = React.memo(function AthleteTrainingPanels({ athleteId }: { athleteId: string }) {
   const { intel, isLoading, error } = useAthleteTrainingIntel(athleteId)
 
   if (isLoading) return <Skeleton />
@@ -156,5 +157,4 @@ export function AthleteTrainingPanels({ athleteId }: { athleteId: string }) {
         </Panel>
       )}
     </div>
-  )
-}
+  )})

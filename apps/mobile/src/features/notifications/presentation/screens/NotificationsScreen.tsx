@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -67,7 +67,7 @@ export function NotificationsScreen() {
   const navigation = useNavigation<Nav>();
   const [tab, setTab] = useState<NotificationTab>('reminders');
 
-  const { data: notifications, isLoading } = useQuery({
+  const { data: notifications, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
       const { data } = await apiClient.get('/athlete/notifications');
@@ -126,7 +126,7 @@ export function NotificationsScreen() {
 
       <SegmentedFilter options={TABS} value={tab} onChange={(k) => setTab(k as NotificationTab)} />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={colors.primary} />} showsVerticalScrollIndicator={false}>
         {isLoading ? (
           <Skeleton.List rows={5} height={72} />
         ) : filtered.length === 0 ? (

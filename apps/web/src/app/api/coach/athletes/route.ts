@@ -44,7 +44,7 @@ export async function GET() {
       `/api/v1/coaches/${userId}/athletes`,
       token,
     );
-    return NextResponse.json({ athletes: data, count: total }, { status: 200 });
+    return NextResponse.json({ athletes: data, count: total }, { status: 200, headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' } });
   } catch (error) {
     console.error('Error fetching coach athletes:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

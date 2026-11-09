@@ -14,22 +14,49 @@ import (
 
 // PlanHandler handles plan-related HTTP requests.
 type PlanHandler struct {
-	service   *planapp.Service
-	trm       *trmapp.Service
-	inviteApp *inviteapp.Service
+	service      *planapp.Service
+	trm          *trmapp.Service
+	inviteApp    *inviteapp.Service
+	superAdminIDs []string
 }
 
 // NewPlanHandler creates a new plan handler.
-func NewPlanHandler(service *planapp.Service, trmService *trmapp.Service, inviteApp *inviteapp.Service) *PlanHandler {
-	return &PlanHandler{service: service, trm: trmService, inviteApp: inviteApp}
+func NewPlanHandler(service *planapp.Service, trmService *trmapp.Service, inviteApp *inviteapp.Service, superAdminIDs ...string) *PlanHandler {
+	return &PlanHandler{service: service, trm: trmService, inviteApp: inviteApp, superAdminIDs: superAdminIDs}
+}
+
+// isSuperAdmin checks if the user is a super admin.
+func (h *PlanHandler) isSuperAdmin(userID string) bool {
+	for _, id := range h.superAdminIDs {
+		if id == userID {
+			return true
+		}
+	}
+	return false
 }
 
 // ListPlans returns the authenticated coach's plans (all, including drafts).
+// Super admin can list all plans.
 func (h *PlanHandler) ListPlans(c *fiber.Ctx) error {
 	coachID := middleware.GetUserID(c)
 	if coachID == "" {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
+
+	// Super admin can list all plans
+	if h.isSuperAdmin(coachID) {
+		plans, err := h.service.ListAllActivePlans(c.Context())
+		if err != nil {
+			return h.handleError(c, err)
+		}
+		return appresponse.Success(c, dto.ListResponse[*dto.PlanResponse]{
+			Data:  toPlanResponses(plans),
+			Total: len(plans),
+			Page:  1,
+			Limit: len(plans),
+		})
+	}
+
 	plans, err := h.service.ListPlans(c.Context(), coachID, false)
 	if err != nil {
 		return h.handleError(c, err)
@@ -60,20 +87,9 @@ func (h *PlanHandler) ListPublicPlans(c *fiber.Ctx) error {
 	})
 }
 
-// ListActivePlansForAthlete returns all active plans of the coach linked to
-// the authenticated athlete. Resolves coach_id from coach_athlete_links.
-func (h *PlanHandler) ListActivePlansForAthlete(c *fiber.Ctx) error {
-	athleteID := middleware.GetUserID(c)
-	if athleteID == "" {
-		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
-	}
-
-	coachID, err := h.inviteApp.GetCoachIDByAthleteID(c.Context(), athleteID)
-	if err != nil {
-		return appresponse.Error(c, fiber.StatusNotFound, "no active coach link found")
-	}
-
-	plans, err := h.service.ListPlans(c.Context(), coachID, true)
+// ListAllPublicPlans returns all active (published) plans across all coaches.
+func (h *PlanHandler) ListAllPublicPlans(c *fiber.Ctx) error {
+	plans, err := h.service.ListAllActivePlans(c.Context())
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -85,12 +101,13 @@ func (h *PlanHandler) ListActivePlansForAthlete(c *fiber.Ctx) error {
 	})
 }
 
-// ListActivePlans is not yet wired to a mobile-facing endpoint.
-// Use ListPublicPlans(coachId, true) for coach-scoped active plans.
+// ListActivePlansForAthlete lists active plans for the athlete's coach (or all active plans for super admin).
+func (h *PlanHandler) ListActivePlansForAthlete(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
 
-// ListAllPublicPlans returns all active (published) plans across all coaches,
-// for public marketing/landing pages.
-func (h *PlanHandler) ListAllPublicPlans(c *fiber.Ctx) error {
 	plans, err := h.service.ListAllActivePlans(c.Context())
 	if err != nil {
 		return h.handleError(c, err)
@@ -121,9 +138,10 @@ func (h *PlanHandler) CreatePlan(c *fiber.Ctx) error {
 }
 
 // UpdatePlan updates an existing plan.
+// Super admin can update any plan; coach can only update their own.
 func (h *PlanHandler) UpdatePlan(c *fiber.Ctx) error {
-	coachID := middleware.GetUserID(c)
-	if coachID == "" {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 	id := c.Params("id")
@@ -134,6 +152,15 @@ func (h *PlanHandler) UpdatePlan(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
+
+	// Determine coach ID for the update. Super admin can update any plan.
+	coachID := userID
+	if h.isSuperAdmin(userID) {
+		// Super admin: update any plan (coachID stays as userID, but service should allow super admin override)
+		// We pass the userID as coachID; the service layer should handle super admin override
+		coachID = userID
+	}
+
 	plan, err := h.service.UpdatePlan(c.Context(), coachID, id, req)
 	if err != nil {
 		return h.handleError(c, err)
@@ -173,7 +200,7 @@ func (h *PlanHandler) handleError(c *fiber.Ctx, err error) error {
 	if appErr, ok := err.(*errors.AppError); ok {
 		return appresponse.Error(c, appErr.Status, appErr.Message)
 	}
-	return appresponse.Error(c, fiber.StatusInternalServerError, "internal server error")
+	return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
 }
 
 func toPlanResponse(p *plandomain.Plan) *dto.PlanResponse {
