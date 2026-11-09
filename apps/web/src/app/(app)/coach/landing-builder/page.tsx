@@ -118,7 +118,7 @@ export default function LandingBuilder() {
   function removeSection(index: number) {
     setLanding(prev => ({
       ...prev!,
-      sections: JSON.stringify(JSON.parse(prev!.sections || '[]').filter((_: any, i: number) => i !== index)),
+      sections: JSON.stringify(JSON.parse(prev!.sections || '[]').filter((_: unknown, i: number) => i !== index)),
     }));
   }
 
