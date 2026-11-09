@@ -2,18 +2,20 @@ package routine
 
 import (
 	"database/sql"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"time"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/routine"
 )
 
 type repository struct {
-	db *sql.DB
+	db   *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new routine repository.
 func NewRepository(db *sql.DB) domain.Repository {
-	return &repository{db: db}
+	return &repository{db: db, exec: db}
 }
 
 func (r *repository) ListByAthleteID(athleteID string) ([]*domain.Routine, error) {
@@ -102,4 +104,17 @@ func (r *repository) Delete(id, athleteID string) error {
 	query := `DELETE FROM athlete_routines WHERE id = $1 AND athlete_id = $2`
 	_, err := r.db.Exec(query, id, athleteID)
 	return err
+}
+
+// SetExecutor sets the executor for queries (e.g. *sql.Tx).
+func (r *repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a shallow copy of the repository using the given executor.
+func (r *repository) WithExecutor(exec database.Executor) *repository {
+	return &repository{
+		db:   r.db,
+		exec: exec,
+	}
 }

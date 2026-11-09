@@ -3,6 +3,7 @@ package importdata
 import (
 	"context"
 	"database/sql"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 
 	"github.com/innotechlabs01/mr-training-api/internal/domain/importdata"
@@ -10,17 +11,18 @@ import (
 
 // Repository implements the importdata.Repository interface using libsql.
 type Repository struct {
-	db *sql.DB
+	db   *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new import repository.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
 }
 
 // CreateImportJob inserts a new import job.
 func (r *Repository) CreateImportJob(ctx context.Context, job *importdata.ImportJob) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO import_jobs (id, athlete_id, source, status, workouts_imported, exercises_imported, error_message, created_at, completed_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8)
 	`, job.ID, job.AthleteID, job.Source, job.Status, job.WorkoutsImported, job.ExercisesImported, job.ErrorMessage, job.CompletedAt)
@@ -34,7 +36,7 @@ func (r *Repository) CreateImportJob(ctx context.Context, job *importdata.Import
 func (r *Repository) GetImportJob(ctx context.Context, id string) (*importdata.ImportJob, error) {
 	var job importdata.ImportJob
 	var errorMessage, completedAt sql.NullString
-	err := r.db.QueryRowContext(ctx, `
+	err := r.exec.QueryRowContext(ctx, `
 		SELECT id, athlete_id, source, status, workouts_imported, exercises_imported, error_message, created_at, completed_at
 		FROM import_jobs
 		WHERE id = $1
@@ -56,7 +58,7 @@ func (r *Repository) GetImportJob(ctx context.Context, id string) (*importdata.I
 
 // ListImportJobs returns all import jobs for an athlete.
 func (r *Repository) ListImportJobs(ctx context.Context, athleteID string) ([]*importdata.ImportJob, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, athlete_id, source, status, workouts_imported, exercises_imported, error_message, created_at, completed_at
 		FROM import_jobs
 		WHERE athlete_id = $1
@@ -87,7 +89,7 @@ func (r *Repository) ListImportJobs(ctx context.Context, athleteID string) ([]*i
 
 // UpdateImportJob updates an import job.
 func (r *Repository) UpdateImportJob(ctx context.Context, job *importdata.ImportJob) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		UPDATE import_jobs
 		SET status = $1, workouts_imported = $2, exercises_imported = $3, error_message = $4, completed_at = $5
 		WHERE id = $6
@@ -96,4 +98,16 @@ func (r *Repository) UpdateImportJob(ctx context.Context, job *importdata.Import
 		return fmt.Errorf("failed to update import job: %w", err)
 	}
 	return nil
+}
+// SetExecutor sets the executor for queries (e.g. *sql.Tx).
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a shallow copy of the repository using the given executor.
+func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
 }

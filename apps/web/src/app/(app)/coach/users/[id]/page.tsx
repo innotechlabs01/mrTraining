@@ -15,8 +15,16 @@ import Link from 'next/link'
 
 export default function CoachUserDetailPage() {
   const params = useParams()
+  const athleteId = params.id as string
   const { getAthleteById } = useAthletes()
-  const athlete = getAthleteById(params.id as string)
+  const athlete = getAthleteById(athleteId)
+
+  const { data: streak } = useStreak(athleteId)
+  const { data: badges } = useBadges(athleteId)
+  const { data: prs } = usePRs(athleteId)
+  const { data: weeklyLeaderboard } = useWeeklyLeaderboard()
+  const { data: formMetrics } = useAthleteFormMetrics(athleteId)
+  const { data: coachFeedPosts } = useCoachFeedPosts()
 
   const athleteId = athlete?.id ?? ''
   const { data: streak } = useStreak(athleteId)
