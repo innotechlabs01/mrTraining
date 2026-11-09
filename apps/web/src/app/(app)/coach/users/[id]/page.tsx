@@ -26,6 +26,14 @@ export default function CoachUserDetailPage() {
   const { data: formMetrics } = useAthleteFormMetrics(athleteId)
   const { data: coachFeedPosts } = useCoachFeedPosts()
 
+  const athleteId = athlete?.id ?? ''
+  const { data: streak } = useStreak(athleteId)
+  const { data: badges } = useBadges(athleteId)
+  const { data: prs } = usePRs(athleteId)
+  const { data: weeklyLeaderboard } = useWeeklyLeaderboard()
+  const { data: formMetrics } = useAthleteFormMetrics(athleteId)
+  const { data: coachFeedPosts } = useCoachFeedPosts()
+
   if (!athlete) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-6">

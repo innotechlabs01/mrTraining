@@ -18,11 +18,7 @@ func setupTestDB(t *testing.T) *database.DB {
 
 	db, err := database.Connect(url)
 	if err != nil {
-		t.Skipf("skipping: failed to connect to database: %v", err)
-	}
-	var exists bool
-	if err := db.DB.QueryRow("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users')").Scan(&exists); err != nil || !exists {
-		t.Skip("skipping: database schema not initialized")
+		t.Fatalf("failed to connect to database: %v", err)
 	}
 	return db
 }
@@ -78,6 +74,10 @@ func TestRepository_ListCoaches_Empty(t *testing.T) {
 	repo := NewRepository(db.DB)
 	coaches, err := repo.ListCoaches(context.Background())
 	if err != nil {
+		if strings.Contains(err.Error(), "does not exist") {
+			t.Skipf("skipping: table does not exist: %v", err)
+			return
+		}
 		t.Fatalf("unexpected error: %v", err)
 	}
 	// ListCoaches should return empty slice, not nil
@@ -93,6 +93,10 @@ func TestRepository_ListAthletesByCoach_Empty(t *testing.T) {
 	repo := NewRepository(db.DB)
 	athletes, err := repo.ListAthletesByCoach(context.Background(), "nonexistent-coach")
 	if err != nil {
+		if strings.Contains(err.Error(), "does not exist") {
+			t.Skipf("skipping: table does not exist: %v", err)
+			return
+		}
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if athletes == nil {
@@ -120,7 +124,8 @@ func TestRepository_GetCoach_BackfillsCoachCode(t *testing.T) {
 
 	db, err := database.Connect(url)
 	if err != nil {
-		t.Skipf("skipping test: database not reachable: %v", err)
+		t.Skipf("skipping: cannot connect to PostgreSQL: %v", err)
+		return
 	}
 	defer db.Close()
 	sqlDB := db.DB

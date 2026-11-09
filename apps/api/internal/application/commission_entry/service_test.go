@@ -26,7 +26,8 @@ func newCommissionEntryTestDB(t *testing.T) (*database.DB, *Service) {
 	}
 	db, err := database.Connect(url)
 	if err != nil {
-		t.Skipf("skipping: database not reachable: %v", err)
+		t.Skipf("skipping: cannot connect to PostgreSQL: %v", err)
+		return nil, nil
 	}
 	t.Cleanup(func() { db.Close() })
 
@@ -292,7 +293,8 @@ func dbPtr(t *testing.T) *database.DB {
 	}
 	db, err := database.Connect(url)
 	if err != nil {
-		t.Skipf("skipping: database not reachable: %v", err)
+		t.Skipf("skipping: cannot connect to PostgreSQL: %v", err)
+		return nil
 	}
 	t.Cleanup(func() { db.Close() })
 	return db
