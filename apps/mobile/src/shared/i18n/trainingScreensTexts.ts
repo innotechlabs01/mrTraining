@@ -44,6 +44,17 @@ export const trainingScreensTexts = {
     emptyTitle: 'Sin ejercicios',
     emptyMessage: 'Tu coach aún no te ha asignado ejercicios.',
   },
+  sessionFeedback: {
+    title: '¿Cómo te sentiste?',
+    subtitle: 'Tu coach leerá tu respuesta',
+    rpeLabel: 'Esfuerzo percibido (RPE)',
+    rpeHint: '1 = muy ligero, 10 = máximo esfuerzo',
+    notesLabel: 'Notas para tu coach',
+    notesPlaceholder: 'Ej. me costó la última serie, rodilla algo molesta…',
+    sendButton: 'Enviar al coach',
+    sentTitle: 'Enviado',
+    sentMessage: 'Tu coach recibirá tu feedback.',
+  },
   todaySections: {
     sessionsTitle: 'Sesiones de Hoy',
     sessionsEmpty: 'Sin sesiones programadas',

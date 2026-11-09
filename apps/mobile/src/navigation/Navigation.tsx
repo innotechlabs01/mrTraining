@@ -99,6 +99,7 @@ export type RootStackParamList = {
   };
   EventDetail: { eventId: string };
   Exercises: undefined;
+  SessionFeedback: { sessionId: string; workoutId: string } | undefined;
   ImportHistory: undefined;
   Search: undefined;
   Settings: undefined;
@@ -267,6 +268,12 @@ function RootNavigator() {
             name="Exercises"
             getComponent={() =>
               require('../features/training/presentation/screens/ExercisesScreen').ExercisesScreen
+            }
+          />
+          <Stack.Screen
+            name="SessionFeedback"
+            getComponent={() =>
+              require('../features/training/presentation/screens/SessionFeedbackScreen').SessionFeedbackScreen
             }
           />
           <Stack.Screen
