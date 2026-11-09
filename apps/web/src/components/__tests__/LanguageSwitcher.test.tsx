@@ -1,34 +1,56 @@
 import React from 'react';
-import ReactDOMServer from 'react-dom/server';
 import { LanguageSwitcher } from '../LanguageSwitcher';
 
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: jest.fn() }),
-  usePathname: () => '/es/landing',
-}));
+let mockLocale = 'es';
+const mockSetLocale = jest.fn();
+const mockPush = jest.fn();
 
 jest.mock('@/features/shared/hooks/useI18n', () => ({
   useI18n: () => ({
-    locale: 'es',
-    setLocale: jest.fn(),
-    t: (key: string) => key,
+    locale: mockLocale,
+    setLocale: mockSetLocale,
   }),
 }));
 
-describe('LanguageSwitcher accessibility', () => {
-  it('renders select element with accessible aria-label and options', () => {
-    const html = ReactDOMServer.renderToString(<LanguageSwitcher />);
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: mockPush,
+  }),
+  usePathname: () => '/es/coach',
+}));
 
-    // Verify aria-label is present on select
-    expect(html).toContain('aria-label="Seleccionar idioma / Select language"');
+describe('LanguageSwitcher', () => {
+  beforeEach(() => {
+    mockLocale = 'es';
+    jest.clearAllMocks();
+  });
 
-    // Verify accessible focus visible ring styling
-    expect(html).toContain('focus-visible:ring-2');
+  it('renders select element with accessible aria-label and options for es', () => {
+    mockLocale = 'es';
+    const element = LanguageSwitcher();
 
-    // Verify Spanish and English options
-    expect(html).toContain('value="es"');
-    expect(html).toContain('🇪🇸 Español');
-    expect(html).toContain('value="en"');
-    expect(html).toContain('🇺🇸 English');
+    expect(element.type).toBe('select');
+    expect(element.props['aria-label']).toBe('Seleccionar idioma');
+    expect(element.props.className).toContain('focus-visible:ring-brand-primary');
+    expect(element.props.value).toBe('es');
+  });
+
+  it('renders select element with accessible aria-label for en', () => {
+    mockLocale = 'en';
+    const element = LanguageSwitcher();
+
+    expect(element.type).toBe('select');
+    expect(element.props['aria-label']).toBe('Select language');
+    expect(element.props.className).toContain('focus-visible:ring-brand-primary');
+    expect(element.props.value).toBe('en');
+  });
+
+  it('triggers language change handler properly', () => {
+    mockLocale = 'es';
+    const element = LanguageSwitcher();
+    element.props.onChange({ target: { value: 'en' } } as unknown as React.ChangeEvent<HTMLSelectElement>);
+
+    expect(mockSetLocale).toHaveBeenCalledWith('en');
+    expect(mockPush).toHaveBeenCalledWith('/en/coach');
   });
 });

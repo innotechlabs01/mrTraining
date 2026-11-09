@@ -11,8 +11,11 @@ module.exports = {
       'ts-jest',
       {
         tsconfig: {
-          jsx: 'react-jsx',
+          target: 'es2017',
           module: 'commonjs',
+          jsx: 'react-jsx',
+          esModuleInterop: true,
+          allowJs: true,
         },
       },
     ],

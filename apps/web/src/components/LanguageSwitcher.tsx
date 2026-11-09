@@ -14,15 +14,20 @@ export function LanguageSwitcher() {
     router.push(newPath);
   };
 
+  const label = locale === 'es' ? 'Seleccionar idioma' : 'Select language';
+
   return (
     <select
-      aria-label="Seleccionar idioma / Select language"
       value={locale}
+      aria-label={label}
       onChange={(e) => switchLang(e.target.value as 'es' | 'en')}
-      className="px-2.5 py-1 text-sm rounded-md border border-[var(--border,#e5e7eb)] bg-white text-gray-800 shadow-sm transition-colors cursor-pointer hover:border-gray-400 focus:border-brand-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
+      className="px-2.5 py-1 text-sm border border-surface-3 rounded-lg bg-surface-1 text-text-primary hover:border-brand-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer transition-colors"
     >
-      <option value="es">🇪🇸 Español</option>
-      <option value="en">🇺🇸 English</option>
+      {['es', 'en'].map((l) => (
+        <option key={l} value={l} className="bg-surface-1 text-text-primary">
+          {l === 'es' ? '🇪🇸 Español' : '🇺🇸 English'}
+        </option>
+      ))}
     </select>
   );
 }
