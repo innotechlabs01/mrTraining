@@ -1,3 +1,4 @@
+import React, { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, layout, radius, spacing, typography } from '../../theme/tokens';
 import { BarbellIcon, PlayIcon, ChevronRightIcon } from '../icons';
@@ -13,7 +14,7 @@ type Props = {
 };
 
 /** Workout/session row with real progress. No fabricated values. */
-export function SessionListCard({ title, meta, progress, duration, onPress }: Props) {
+export const SessionListCard = memo(function SessionListCard({ title, meta, progress, duration, onPress }: Props) {
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : undefined}
@@ -40,7 +41,7 @@ export function SessionListCard({ title, meta, progress, duration, onPress }: Pr
       ) : null}
     </Pressable>
   );
-}
+})
 
 const styles = StyleSheet.create({
   row: {
