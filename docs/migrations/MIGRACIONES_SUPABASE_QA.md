@@ -28,12 +28,24 @@ Para que el entorno de QA ejecute las migraciones de forma controlada y el CD de
 
 | Secreto / Variable | Descripción | Ejemplo / Formato |
 |--------------------|-------------|-------------------|
-| `DATABASE_URL_QA` | String de conexión directo a PostgreSQL de Supabase en QA (usado por `cmd/migrate` en CD y Cloud Run). | `postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?sslmode=require` o puerto `5432` directo. |
-| `SUPABASE_ACCESS_TOKEN` *(opcional)* | Token de acceso personal de Supabase para operaciones vía Supabase CLI. | `sbp_...` |
+| `DATABASE_URL_QA` | String de conexión directo a PostgreSQL de Supabase en QA (usado por `cmd/migrate` en CD y Cloud Run). Debe apuntar al puerto directo 5432 o Session Pooler (puerto 5432 / modo session) con usuario con privilegios DDL (`postgres`). | `postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres?sslmode=require` o `postgresql://postgres:[password]@db.[ref].supabase.co:5432/postgres?sslmode=require` |
+| `SUPABASE_ACCESS_TOKEN` *(opcional)* | Token de acceso personal de Supabase para operaciones vía Supabase CLI (`supabase link`, `supabase db push`). | `sbp_...` |
 | `SUPABASE_PROJECT_ID_QA` *(opcional)* | ID de referencia del proyecto en Supabase para vincular el CLI (`supabase link --project-ref`). | `abcdefghijklmno` |
 | `CLERK_SECRET_KEY_QA` | Llave secreta de Clerk para autenticación de API en QA. | `sk_test_...` |
 | `CLERK_PUBLISHABLE_KEY_QA` | Llave pública de Clerk en QA. | `pk_test_...` |
 | `CORS_ORIGINS_QA` | Orígenes permitidos en QA. | `https://qa.mrtraining.app,http://localhost:3000` |
+| `GCP_PROJECT_ID` | ID del proyecto de Google Cloud para el despliegue de Cloud Run en QA. | `mr-training-qa` |
+| `GCP_SERVICE_ACCOUNT_KEY` | Credencial JSON de la Service Account de GCP con roles de Cloud Run Admin y Artifact Registry Writer. | `{"type": "service_account", ...}` |
+
+### Especificaciones Técnicas de Supabase QA
+1. **Tipo de Conexión para Migraciones (DDL)**:
+   - Se requiere conexión directa (puerto `5432`) o `Session pooler` (puerto `5432` en pooler de Supabase).
+   - **Nota importante**: No utilizar el Transaction Pooler (puerto `6543`) para correr migraciones DDL con transacciones múltiples o bloqueos de tabla pesados (`ALTER TABLE`, `CREATE INDEX CONCURRENTLY`), ya que `schema_migrations` y las transacciones DDL requieren persistencia de sesión completa durante la ejecución.
+2. **Permisos y Roles**:
+   - `postgres`: Usuario administrador que ejecuta `cmd/migrate` y gestiona las extensiones (`pgcrypto`, etc.) y la tabla `schema_migrations`.
+   - `mr_training_app` / roles de aplicación: Utilizados por la API para queries transaccionales bajo políticas RLS.
+3. **Variables de Sesión RLS**:
+   - El sistema opera con aislamiento multi-tenant RLS que evalúa variables de sesión en tiempo de ejecución: `app.current_user_id` y `app.current_coach_id`.
 
 ---
 

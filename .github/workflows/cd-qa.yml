@@ -25,8 +25,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify migration sync
-        run: bash ../../scripts/sync-migrations.sh --check
+      - name: Verify and sync Supabase / Postgres migrations
+        run: bash ../../scripts/sync-migrations.sh --ci
 
       - uses: actions/setup-go@v5
         with:
