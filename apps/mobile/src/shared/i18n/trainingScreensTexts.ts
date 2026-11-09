@@ -33,6 +33,10 @@ export const trainingScreensTexts = {
     sessionsTitle: 'Sesiones Hoy',
     sessionsSeeAll: 'Ver todas',
     communityTitle: 'Comunidad',
+    quickContinue: 'Continuar',
+    quickExercises: 'Ejercicios',
+    quickHistory: 'Historial',
+    quickMessages: 'Mensajes',
   },
   todaySections: {
     sessionsTitle: 'Sesiones de Hoy',

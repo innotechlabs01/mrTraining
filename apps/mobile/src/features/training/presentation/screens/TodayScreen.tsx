@@ -1,33 +1,30 @@
-
 /**
- * TodayScreen — athlete landing.
+ * TodayScreen — athlete landing. Training-first.
  *
  * Priorities:
- * 1. Continue today's workout.
- * 2. Review readiness, activity and streak.
- * 3. View sessions, personal records and challenges.
- * 4. Discover coaching articles and store products.
- * 5. Catch up with the community.
+ * 1. Continue today's workout (primary action, top).
+ * 2. Readiness snapshot (compact).
+ * 3. Quick actions: continue / exercises / history / coach messages.
+ *
+ * Everything else (articles, store, news) moves below the fold or off-screen
+ * so it never competes with the training intent.
  *
  * Principles:
  * - API-backed data; no fabricated workout metrics.
  * - Explicit loading, error and empty states.
- * - Safe numeric values for UI metrics.
- * - Query-based data fetching and refresh.
- * - Existing navigation routes and design tokens.
+ * - FlashList for scrollable lists (60 FPS).
+ * - Fewer mount queries for fast first paint.
  */
 
-import React, {
-  useCallback,
-  useMemo,
-} from 'react';
-
+import React, { useCallback, useMemo } from 'react';
 import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -43,63 +40,33 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUser } from '@clerk/clerk-expo';
 import { useQuery } from '@tanstack/react-query';
 
+import { useStreak } from '../../../gamification/hooks';
+
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
 
 import {
   colors,
   layout,
+  radius,
   spacing,
+  typography,
 } from '../../../../shared/theme/tokens';
 
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
-import { MetricCard } from '../../../../shared/components/ui/MetricCard';
 import { SectionHeader } from '../../../../shared/components/ui/SectionHeader';
 import { ChallengeHomeCard } from '../../../../shared/components/ui/ChallengeHomeCard';
+import { MetricCard } from '../../../../shared/components/ui/MetricCard';
 
 import { texts } from '../../../../shared/i18n/texts';
 
 import { ContinueWorkoutCard } from '../../../../shared/components/fitness/ContinueWorkoutCard';
-
-import { useStreak, usePRs } from '../../../gamification/hooks';
-
-import {
-  listAlerts,
-  type Alert,
-} from '../../../alerts/alertService';
-
-import {
-  listMessages,
-  type CommunityMessage,
-} from '../../../community/communityService';
-
-import {
-  listBlogPosts,
-  type BlogPost,
-} from '../../../blog/blogService';
-
-import {
-  listStore,
-  type StoreProduct,
-} from '../../../store/storeService';
-
-import { useCart } from '../../../store/application/cartStore';
-
 import { AthleteTodaySummary } from './AthleteTodaySummary';
-import { MorningCheckinCard } from '../components/MorningCheckinCard';
 import { TodayHeader } from './TodayHeader';
 
 import {
   SessionsSection,
-  NewsFeedSection,
   PRsSection,
-  ChallengeSection,
 } from './TodaySections';
-
-import {
-  LiveSessionsSection,
-  ArticlesCarousel,
-  StoreCarousel,
-} from './TodayExtraSections';
 
 import { showToast } from '../../../../shared/components/ui/Toast';
 
@@ -107,10 +74,8 @@ import type { AthleteTabParamList } from '../../../../navigation/AthleteTabs';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 
 const t = texts.screens.todayScreen;
-const tStore = texts.screens.storeScreen;
 
 const QUERY_STALE_TIME = 60 * 1000;
-const STORE_STALE_TIME = 5 * 60 * 1000;
 
 type TodaySession = {
   id: string;
@@ -164,9 +129,6 @@ type TodayNav = CompositeNavigationProp<
   NativeStackNavigationProp<RootStackParamList>
 >;
 
-/**
- * Keeps API-derived numeric values finite and within bounds.
- */
 function safeNumber(
   value: number | undefined | null,
   fallback = 0,
@@ -174,7 +136,6 @@ function safeNumber(
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return fallback;
   }
-
   return value;
 }
 
@@ -182,16 +143,30 @@ function clampProgress(value: number | undefined | null): number {
   return Math.min(1, Math.max(0, safeNumber(value)));
 }
 
-/**
- * Time-aware greeting using the device's local time.
- */
 function timeGreeting(): string {
   const hour = new Date().getHours();
-
   if (hour < 12) return t.greetingMorning;
   if (hour < 19) return t.greetingAfternoon;
-
   return t.greetingEvening;
+}
+
+function QuickAction({
+  label,
+  onPress,
+  icon,
+}: {
+  label: string;
+  onPress: () => void;
+  icon: React.ReactNode;
+}) {
+  return (
+    <View style={styles.quickItem}>
+      <View style={styles.quickWrap}>
+        {icon}
+      </View>
+      <Text style={styles.quickLabel}>{label}</Text>
+    </View>
+  );
 }
 
 export function TodayScreen() {
@@ -201,10 +176,8 @@ export function TodayScreen() {
   const firstName = user?.firstName || t.athleteFallback;
 
   /**
-   * Today's training data.
-   *
-   * The API remains the source of truth for sessions,
-   * active workouts and readiness.
+   * Today's training data — single essential query for fast first paint.
+   * Articles, store and news are not fetched here anymore.
    */
   const {
     data,
@@ -216,7 +189,6 @@ export function TodayScreen() {
     queryKey: ['athlete-today'],
     queryFn: async (): Promise<TodayData> => {
       const response = await apiClient.get('/athlete/today');
-
       return response.data as TodayData;
     },
     staleTime: QUERY_STALE_TIME,
@@ -225,188 +197,26 @@ export function TodayScreen() {
   });
 
   /**
-   * Gamification.
+   * Gamification (streak) — lightweight hook.
    */
   const { data: streakData } = useStreak();
-  const { data: prsData } = usePRs();
 
-  const streak = Math.max(
-    0,
-    safeNumber(streakData?.current),
-  );
+  const streak = Math.max(0, safeNumber(streakData?.current));
 
-  const prs = prsData ?? [];
-
-  /**
-   * Community preview.
-   */
-  const { data: chatMessages = [] } = useQuery({
-    queryKey: ['community-messages-preview'],
-    queryFn: async (): Promise<CommunityMessage[]> => {
-      try {
-        return await listMessages();
-      } catch {
-        return [];
-      }
-    },
-    staleTime: QUERY_STALE_TIME,
-  });
-
-  /**
-   * Coach articles.
-   */
-  const { data: blogPosts = [] } = useQuery({
-    queryKey: ['blog-preview'],
-    queryFn: async (): Promise<BlogPost[]> => {
-      try {
-        return await listBlogPosts();
-      } catch {
-        return [];
-      }
-    },
-    staleTime: QUERY_STALE_TIME,
-  });
-
-  /**
-   * Alerts.
-   *
-   * Query caching avoids maintaining duplicate local state.
-   */
-  const {
-    data: alerts = [],
-    refetch: refetchAlerts,
-  } = useQuery({
-    queryKey: ['athlete-alerts'],
-    queryFn: async (): Promise<Alert[]> => {
-      try {
-        return await listAlerts();
-      } catch {
-        return [];
-      }
-    },
-    staleTime: QUERY_STALE_TIME,
-  });
-
-  /**
-   * Active challenge.
-   */
-  const {
-    data: activeChallenge,
-    isLoading: challengeLoading,
-  } = useQuery({
-    queryKey: ['active-challenge-today'],
-    queryFn: async (): Promise<ActiveChallenge | null> => {
-      const response = await apiClient.get(
-        '/athlete/challenges/active',
-      );
-
-      const payload = response.data as {
-        data?: ActiveChallenge | null;
-      };
-
-      return payload?.data ?? null;
-    },
-    staleTime: QUERY_STALE_TIME,
-  });
-
-  /**
-   * Available challenges are requested only when no active
-   * challenge is available.
-   */
-  const {
-    data: availableChallenges = [],
-  } = useQuery({
-    queryKey: ['available-challenges-today'],
-    queryFn: async (): Promise<ActiveChallenge[]> => {
-      const response = await apiClient.get(
-        '/athlete/challenges',
-      );
-
-      const payload = response.data as {
-        data?: ActiveChallenge[];
-      };
-
-      return payload?.data ?? [];
-    },
-    staleTime: QUERY_STALE_TIME,
-    enabled:
-      !challengeLoading &&
-      activeChallenge == null,
-  });
-
-  const challengeToShow = activeChallenge ?? availableChallenges[0];
-
-  /**
-   * Store products.
-   */
-  const { data: storeProducts = [] } = useQuery({
-    queryKey: ['athlete-store-preview'],
-    queryFn: async (): Promise<StoreProduct[]> => {
-      try {
-        return await listStore();
-      } catch {
-        return [];
-      }
-    },
-    staleTime: STORE_STALE_TIME,
-  });
-
-  const addToCart = useCart((state) => state.add);
-
-  const handleAddProduct = useCallback(
-    (product: StoreProduct) => {
-      addToCart(product);
-
-      showToast(
-        'success',
-        tStore.successTitle,
-        tStore.addedBody,
-      );
-    },
-    [addToCart],
-  );
-
-  /**
-   * Refresh essential dashboard data when the screen regains focus.
-   */
-  useFocusEffect(
-    useCallback(() => {
-      void refetch();
-      void refetchAlerts();
-    }, [refetch, refetchAlerts]),
-  );
-
-  /**
-   * Resolve the parent navigator once per render.
-   */
-  const rootNav =
-    navigation.getParent<
-      NativeStackNavigationProp<RootStackParamList>
-    >();
-
-  /**
-   * Dashboard view models.
-   */
   const todaySessions = data?.todaySessions ?? [];
   const activeWorkouts = data?.activeWorkouts ?? [];
-
   const firstWorkout = activeWorkouts[0] ?? null;
 
   const totalMinutes = useMemo(
     () =>
       activeWorkouts.reduce(
         (total, workout) =>
-          total +
-          Math.max(0, safeNumber(workout.estimatedMinutes)),
+          total + Math.max(0, safeNumber(workout.estimatedMinutes)),
         0,
       ),
     [activeWorkouts],
   );
 
-  /**
-   * Activity indicators are derived from actual API data.
-   * These represent dashboard activity, not medical assessments.
-   */
   const moveProgress = data
     ? clampProgress(todaySessions.length / 3)
     : 0;
@@ -416,74 +226,53 @@ export function TodayScreen() {
     : 0;
 
   const recoveryProgress = data
-    ? clampProgress(
-        safeNumber(data.readiness?.recovery) / 100,
-      )
+    ? clampProgress(safeNumber(data.readiness?.recovery) / 100)
     : 0;
 
-  const latestChatMessage =
-    chatMessages.length > 0
-      ? chatMessages[chatMessages.length - 1]
-      : null;
-
-  /**
-   * Navigation actions.
-   */
-  const handleSearch = useCallback(() => {
-    rootNav?.navigate('Search');
-  }, [rootNav]);
-
-  const handleNotifications = useCallback(() => {
-    rootNav?.navigate('Notifications');
-  }, [rootNav]);
-
-  const handleProfile = useCallback(() => {
-    navigation.navigate('Profile');
-  }, [navigation]);
+  const rootNav =
+    navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
 
   const handleOpenWorkout = useCallback(() => {
     if (!firstWorkout) return;
-
     rootNav?.navigate('WorkoutDetail', {
       workoutId: firstWorkout.id,
     });
   }, [firstWorkout, rootNav]);
 
-  const handleJoinLive = useCallback(
-    (id: string) => {
-      rootNav?.navigate('EventDetail', {
-        eventId: id,
-      });
-    },
-    [rootNav],
-  );
-
-  const handleOpenArticle = useCallback(
-    (id: string) => {
-      rootNav?.navigate('ArticleDetail', { id });
-    },
-    [rootNav],
-  );
-
-  const handleOpenCommunity = useCallback(() => {
-    rootNav?.navigate('Community');
+  const handleOpenExercises = useCallback(() => {
+    rootNav?.navigate('Search');
   }, [rootNav]);
 
-  const handleOpenArticles = useCallback(() => {
-    rootNav?.navigate('Articles');
-  }, [rootNav]);
-
-  const handleOpenStore = useCallback(() => {
-    rootNav?.navigate('Store');
-  }, [rootNav]);
-
-  const handleOpenDiscussion = useCallback(() => {
-    rootNav?.navigate('DiscussionForum');
-  }, [rootNav]);
-
-  const handleOpenProgress = useCallback(() => {
+  const handleOpenHistory = useCallback(() => {
     navigation.navigate('Progress');
   }, [navigation]);
+
+  const handleOpenMessages = useCallback(() => {
+    rootNav?.navigate('Notifications');
+  }, [rootNav]);
+
+  const renderSessionItem = useCallback(
+    ({ item }: { item: TodaySession }) => (
+      <View style={styles.sessionRow}>
+        <Text style={styles.sessionTime}>{item.time}</Text>
+        <View style={styles.sessionBody}>
+          <Text style={styles.sessionTitle} numberOfLines={1}>
+            {item.name}
+          </Text>
+          <Text style={styles.sessionMeta}>
+            {item.endTime}{item.location ? ` · ${item.location}` : ''}
+          </Text>
+        </View>
+      </View>
+    ),
+    [],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
 
   return (
     <SafeAreaView
@@ -507,9 +296,9 @@ export function TodayScreen() {
         <TodayHeader
           firstName={firstName}
           greeting={timeGreeting()}
-          onSearch={handleSearch}
-          onNotifications={handleNotifications}
-          onProfile={handleProfile}
+          onSearch={handleOpenExercises}
+          onNotifications={handleOpenMessages}
+          onProfile={() => navigation.navigate('Profile')}
         />
 
         {/* 2. Primary action: continue training */}
@@ -529,10 +318,7 @@ export function TodayScreen() {
           />
         ) : null}
 
-        {/* 3. Readiness, activity and streak */}
-        <View style={styles.checkinWrap}>
-          <MorningCheckinCard />
-        </View>
+        {/* 3. Readiness compact */}
         <AthleteTodaySummary
           athleteId={user?.id ?? ''}
           move={moveProgress}
@@ -542,45 +328,44 @@ export function TodayScreen() {
           streakInactive={streak === 0}
         />
 
-        {/* 4. Compact activity scoreboard */}
-        <View
-          style={styles.scoreboard}
-          accessibilityLabel="Resumen de actividad"
-        >
-          <View style={styles.scoreItem}>
-            <MetricCard
-              label={t.metricSessions}
-              value={todaySessions.length}
-              size="lg"
-            />
-          </View>
-
-          <View style={styles.scoreItem}>
-            <MetricCard
-              label={t.metricMinutes}
-              value={totalMinutes}
-              unit={t.minutesUnit}
-              size="lg"
-            />
-          </View>
-
-          <View style={styles.scoreItem}>
-            <MetricCard
-              label={t.metricActive}
-              value={activeWorkouts.length}
-              size="lg"
-            />
-          </View>
-
-          <View style={styles.scoreItem}>
-            <MetricCard
-              label={t.metricStreak}
-              value={streak}
-              unit={t.streakUnit}
-              tone={streak > 0 ? 'success' : 'text'}
-              size="lg"
-            />
-          </View>
+        {/* 4. Quick actions row */}
+        <View style={styles.quickActions}>
+          <QuickAction
+            label={t.quickContinue}
+            onPress={handleOpenWorkout}
+            icon={
+              <View style={styles.quickIcon}>
+                <View style={styles.quickIconBg} />
+              </View>
+            }
+          />
+          <QuickAction
+            label={t.quickExercises}
+            onPress={handleOpenExercises}
+            icon={
+              <View style={styles.quickIcon}>
+                <View style={styles.quickIconBg} />
+              </View>
+            }
+          />
+          <QuickAction
+            label={t.quickHistory}
+            onPress={handleOpenHistory}
+            icon={
+              <View style={styles.quickIcon}>
+                <View style={styles.quickIconBg} />
+              </View>
+            }
+          />
+          <QuickAction
+            label={t.quickMessages}
+            onPress={handleOpenMessages}
+            icon={
+              <View style={styles.quickIcon}>
+                <View style={styles.quickIconBg} />
+              </View>
+            }
+          />
         </View>
 
         {/* 5. Dashboard loading and failure states */}
@@ -598,113 +383,131 @@ export function TodayScreen() {
         ) : null}
 
         {!isLoading && !isError && !data ? (
-          <EmptyState
-            variant="empty"
-            message={t.todayEmpty}
-          />
+          <EmptyState variant="empty" message={t.todayEmpty} />
         ) : null}
 
-        {/* 6. Live sessions */}
-        <LiveSessionsSection
-          sessions={todaySessions as any}
-          onJoin={handleJoinLive}
-        />
+        {/* 6. Scheduled sessions (FlashList for smooth scroll) */}
+        <View style={styles.section}>
+          <SectionHeader title={t.sessionsTitle} />
+          {todaySessions.length === 0 ? (
+            <EmptyState
+              variant="empty"
+              message={texts.screens.todaySections.sessionsEmpty}
+            />
+          ) : (
+            <FlashList<TodaySession>
+              data={todaySessions}
+              renderItem={renderSessionItem}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.flashContent}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
 
-        {/* 7. Scheduled sessions */}
-        <SessionsSection sessions={todaySessions} />
-
-        {/* 8. Personal records */}
+        {/* 7. PRs */}
         <PRsSection
-          prs={prs}
-          onPress={handleOpenProgress}
+          prs={[]}
+          onPress={handleOpenHistory}
         />
 
-        {/* 9. Challenges */}
-        {challengeToShow ? (
-          <View style={styles.section}>
-            <SectionHeader
-              title={t.challengesTitle}
-              action={{
-                label: t.challengesSeeAll,
-                onPress: handleOpenCommunity,
-              }}
-            />
-
-            <ChallengeHomeCard
-              challenge={challengeToShow}
-              loading={challengeLoading}
-            />
-          </View>
-        ) : (
-          <ChallengeSection
-            hasChallenge={false}
-            onPressChallenges={handleOpenCommunity}
+        {/* 8. Active challenge (compact, below fold) — null hides the card */}
+        <View style={styles.section}>
+          <SectionHeader
+            title={t.challengesTitle}
+            action={{
+              label: t.challengesSeeAll,
+              onPress: () => rootNav?.navigate('Community'),
+            }}
           />
-        )}
-
-        {/* 10. Coaching articles */}
-        <ArticlesCarousel
-          posts={blogPosts.slice(0, 6)}
-          onOpen={handleOpenArticle}
-          onSeeAll={handleOpenArticles}
-        />
-
-        {/* 11. Store */}
-        <StoreCarousel
-          products={storeProducts}
-          onAdd={handleAddProduct}
-          onSeeAll={handleOpenStore}
-        />
-
-        {/* 12. Community and notifications */}
-        <NewsFeedSection
-          latestMessage={latestChatMessage}
-          posts={[]}
-          alerts={alerts}
-          onPressCommunity={handleOpenDiscussion}
-          onPressArticles={handleOpenArticles}
-        />
+          <ChallengeHomeCard challenge={null} loading={false} />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  checkinWrap: { marginBottom: spacing.sm },
   container: {
     flex: 1,
     backgroundColor: colors.base,
   },
-
   scrollView: {
     flex: 1,
   },
-
   content: {
     paddingHorizontal: layout.pagePadding,
     paddingTop: spacing.md,
     paddingBottom: 120,
     gap: spacing.xl,
   },
-
-  scoreboard: {
+  quickActions: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    columnGap: spacing.sm,
-    rowGap: spacing.md,
+    gap: spacing.sm,
+    marginVertical: spacing.md,
   },
-
-  scoreItem: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: '45%',
-    minWidth: 0,
+  quickItem: {
+    flex: 1,
+    alignItems: 'center',
   },
-
+  quickWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  quickIcon: {
+    width: 24,
+    height: 24,
+  },
+  quickIconBg: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primarySoft,
+  },
+  quickLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 16,
+  },
   section: {
     gap: spacing.md,
   },
-
+  sessionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  sessionTime: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    width: 56,
+  },
+  sessionBody: {
+    flex: 1,
+    gap: 2,
+  },
+  sessionTitle: {
+    ...typography.bodyStrong,
+    color: colors.text,
+    fontSize: 14,
+  },
+  sessionMeta: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  flashContent: {
+    paddingBottom: spacing.md,
+  },
   errorContainer: {
     gap: spacing.sm,
   },
