@@ -1,18 +1,18 @@
-# Sincronización y Migración Completa de Supabase (Local y QA)
+# Guía de Migraciones y Sincronización Supabase (QA y Local)
 
-Este documento detalla la arquitectura de migraciones, los requerimientos necesarios para el entorno de Supabase en QA y desarrollo local, y el flujo de integración y despliegue continuo (CI/CD).
+Esta guía documenta el funcionamiento, la arquitectura y los requerimientos para mantener las migraciones de PostgreSQL y Supabase sincronizadas entre el entorno local, CI/CD y el ambiente de QA de Supabase.
 
 ---
 
 ## 1. Arquitectura de Migraciones
 
-El proyecto cuenta con dos directorios que representan las migraciones PostgreSQL canónicas:
-- `apps/api/migrations/postgres`: Directorio de ejecución de migraciones consumido por el runner Go (`apps/api/cmd/migrate`).
-- `supabase/migrations`: Directorio de migraciones consumido por el CLI de Supabase (`supabase db push`, `supabase start`).
+El proyecto cuenta con dos directorios de migraciones:
+- `apps/api/migrations/postgres`: Directorio canónico utilizado por la API Go y el runner `cmd/migrate`.
+- `supabase/migrations`: Directorio utilizado por el CLI de Supabase para despliegues locales y cloud.
 
-### Regla de Paridad Estricta
-1. Cada archivo `.sql` en `apps/api/migrations/postgres` debe existir con contenido idéntico en `supabase/migrations`.
-2. Los archivos de rollback (`*.down.sql`) existen únicamente en `apps/api/migrations/postgres` para pruebas internas y **no** se sincronizan a Supabase.
+### Reglas de Sincronización
+1. **Paridad Total**: Cada archivo `.sql` de migración hacia adelante en `apps/api/migrations/postgres` debe existir idénticamente en `supabase/migrations`.
+2. **Archivos de Rollback**: Los archivos `.down.sql` pertenecen exclusivamente a `apps/api/migrations/postgres` para pruebas internas y **no** se sincronizan a Supabase.
 3. Se provee el script `scripts/sync-migrations.sh` para verificar y corregir automáticamente cualquier desfase:
    - `bash scripts/sync-migrations.sh --check`: Verifica si hay diferencias sin alterar archivos. Retorna código `0` si todo está sincronizado.
    - `bash scripts/sync-migrations.sh --fix`: Sincroniza automáticamente cualquier migración faltante o modificada.
