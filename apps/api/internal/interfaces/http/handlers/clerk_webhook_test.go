@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/valyala/fasthttp"
@@ -99,7 +101,7 @@ func svixSignature(secret, timestamp string, body []byte) string {
 	return "v1=" + hex.EncodeToString(mac.Sum(nil))
 }
 
-func postWebhook(t *testing.T, handler *ClerkWebhookHandler, body []byte, signature string) (int, string) {
+func postWebhookWithTimestamp(t *testing.T, handler *ClerkWebhookHandler, body []byte, signature, timestamp string) (int, string) {
 	t.Helper()
 
 	app := fiber.New()
@@ -110,7 +112,9 @@ func postWebhook(t *testing.T, handler *ClerkWebhookHandler, body []byte, signat
 	ctx.Request.Header.SetMethod(http.MethodPost)
 	ctx.Request.Header.SetContentType("application/json")
 	ctx.Request.Header.Set("svix-id", "msg_123")
-	ctx.Request.Header.Set("svix-timestamp", "1704067200")
+	if timestamp != "" {
+		ctx.Request.Header.Set("svix-timestamp", timestamp)
+	}
 	if signature != "" {
 		ctx.Request.Header.Set("svix-signature", signature)
 	}
@@ -120,6 +124,12 @@ func postWebhook(t *testing.T, handler *ClerkWebhookHandler, body []byte, signat
 	h(ctx)
 
 	return ctx.Response.StatusCode(), string(ctx.Response.Body())
+}
+
+func postWebhook(t *testing.T, handler *ClerkWebhookHandler, body []byte, signature string) (int, string) {
+	t.Helper()
+	nowTs := strconv.FormatInt(time.Now().Unix(), 10)
+	return postWebhookWithTimestamp(t, handler, body, signature, nowTs)
 }
 
 func TestClerkWebhook_ValidSignature_UserCreatedCoach(t *testing.T) {
@@ -135,7 +145,8 @@ func TestClerkWebhook_ValidSignature_UserCreatedCoach(t *testing.T) {
 			"unsafe_metadata": {}
 		}
 	}`)
-	sig := svixSignature(secret, "1704067200", body)
+	nowTs := strconv.FormatInt(time.Now().Unix(), 10)
+	sig := svixSignature(secret, nowTs, body)
 
 	var ensureCalled bool
 	var ensureCoachCalled bool
@@ -198,9 +209,37 @@ func TestClerkWebhook_MissingSignatureHeaders(t *testing.T) {
 	body := []byte(`{"type":"user.created","data":{"id":"user_123"}}`)
 	handler := NewClerkWebhookHandler(nil, nil, "", "whsec_secret")
 
-	status, _ := postWebhook(t, handler, body, "")
+	status, _ := postWebhookWithTimestamp(t, handler, body, "", "")
 	if status != 400 {
 		t.Fatalf("expected status 400 for missing signature headers, got %d", status)
+	}
+}
+
+func TestClerkWebhook_ExpiredTimestampReplayRejected(t *testing.T) {
+	secret := "whsec_test123"
+	body := []byte(`{"type":"user.created","data":{"id":"user_123"}}`)
+	// Timestamp 10 minutes in the past (> 5 minutes tolerance).
+	expiredTs := strconv.FormatInt(time.Now().Add(-10*time.Minute).Unix(), 10)
+	sig := svixSignature(secret, expiredTs, body)
+	handler := NewClerkWebhookHandler(nil, nil, "", secret)
+
+	status, _ := postWebhookWithTimestamp(t, handler, body, sig, expiredTs)
+	if status != 400 {
+		t.Fatalf("expected status 400 for expired timestamp replay, got %d", status)
+	}
+}
+
+func TestClerkWebhook_FutureTimestampRejected(t *testing.T) {
+	secret := "whsec_test123"
+	body := []byte(`{"type":"user.created","data":{"id":"user_123"}}`)
+	// Timestamp 10 minutes in the future (> 5 minutes tolerance).
+	futureTs := strconv.FormatInt(time.Now().Add(10*time.Minute).Unix(), 10)
+	sig := svixSignature(secret, futureTs, body)
+	handler := NewClerkWebhookHandler(nil, nil, "", secret)
+
+	status, _ := postWebhookWithTimestamp(t, handler, body, sig, futureTs)
+	if status != 400 {
+		t.Fatalf("expected status 400 for future timestamp, got %d", status)
 	}
 }
 
@@ -230,7 +269,8 @@ func TestClerkWebhook_UserDeleted(t *testing.T) {
 		"type": "user.deleted",
 		"data": {"id": "user_123"}
 	}`)
-	sig := svixSignature(secret, "1704067200", body)
+	nowTs := strconv.FormatInt(time.Now().Unix(), 10)
+	sig := svixSignature(secret, nowTs, body)
 
 	var softDeleted bool
 	svc := &mockUserService{
@@ -267,7 +307,8 @@ func TestClerkWebhook_UserDeleted_RepoError(t *testing.T) {
 		"type": "user.deleted",
 		"data": {"id": "user_123"}
 	}`)
-	sig := svixSignature(secret, "1704067200", body)
+	nowTs := strconv.FormatInt(time.Now().Unix(), 10)
+	sig := svixSignature(secret, nowTs, body)
 
 	svc := &mockUserService{
 		softDeleteUserFn: func(ctx context.Context, userID string) error {
