@@ -1,9 +1,3 @@
-if (typeof global.TextEncoder === 'undefined') {
-  const { TextEncoder, TextDecoder } = require('util');
-  global.TextEncoder = TextEncoder;
-  global.TextDecoder = TextDecoder;
-}
-
 // Mock de pg para tests en entorno Jest (no hay TextEncoder ni conexiones reales a PostgreSQL)
 const mockQuery = jest.fn(() => Promise.resolve({ rows: [], rowCount: 0, fields: [] }));
 const mockConnect = jest.fn(() => Promise.resolve({ release: jest.fn(), query: mockQuery }));
