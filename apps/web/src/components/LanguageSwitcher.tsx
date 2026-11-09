@@ -15,12 +15,14 @@ export function LanguageSwitcher() {
   };
 
   return (
-    <select value={locale} onChange={(e) => switchLang(e.target.value as 'es' | 'en')} className="px-2 py-1 border rounded bg-white text-sm">
-      {['es', 'en'].map((l) => (
-        <option key={l} value={l}>
-          {l === 'es' ? '🇪🇸 Español' : '🇺🇸 English'}
-        </option>
-      ))}
+    <select
+      aria-label="Seleccionar idioma / Select language"
+      value={locale}
+      onChange={(e) => switchLang(e.target.value as 'es' | 'en')}
+      className="px-2.5 py-1 text-sm rounded-md border border-[var(--border,#e5e7eb)] bg-white text-gray-800 shadow-sm transition-colors cursor-pointer hover:border-gray-400 focus:border-brand-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
+    >
+      <option value="es">🇪🇸 Español</option>
+      <option value="en">🇺🇸 English</option>
     </select>
   );
 }
