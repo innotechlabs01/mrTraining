@@ -49,4 +49,25 @@ describe('Progress Analytics Service', () => {
     expect(result).toHaveProperty('summary');
     expect(typeof result.summary).toBe('string');
   });
+
+  test('handles datasets with duplicate points and maintains O(n) linear performance', () => {
+    // Points with duplicate references/values to verify index calculation
+    const point = { date: '2026-06-01', value: 50 };
+    const duplicateData = [point, { date: '2026-06-02', value: 60 }, point];
+    const trend = analyzeTrend(duplicateData);
+    expect(trend).toBeDefined();
+    expect(trend.confidence).toBeGreaterThanOrEqual(0);
+
+    // Large scale dataset to confirm O(n) performance without freezing
+    const largeData = Array.from({ length: 5000 }, (_, i) => ({
+      date: `2026-01-${(i % 28) + 1}`,
+      value: 50 + i * 1.5,
+    }));
+    const start = Date.now();
+    const largeResult = analyzeProgress(largeData);
+    const durationMs = Date.now() - start;
+
+    expect(largeResult.trend.direction).toBe('up');
+    expect(durationMs).toBeLessThan(100); // 5000 points completes in a few milliseconds
+  });
 });

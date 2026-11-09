@@ -44,8 +44,11 @@ function linearRegression(data: ProgressDataPoint[]) {
   const slope = denominator !== 0 ? numerator / denominator : 0;
   const intercept = yMean - slope * xMean;
 
-  const ssRes = data.reduce((sum, d) => {
-    const predicted = slope * data.indexOf(d) + intercept;
+  // Performance optimization: use reduction index `i` directly instead of
+  // `data.indexOf(d)`. Calling indexOf inside reduce caused O(n^2) nested lookups
+  // and incorrect results if identical object references existed. Reduces complexity to O(n).
+  const ssRes = data.reduce((sum, d, i) => {
+    const predicted = slope * i + intercept;
     return sum + Math.pow(d.value - predicted, 2);
   }, 0);
 
