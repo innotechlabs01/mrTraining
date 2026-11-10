@@ -10,8 +10,60 @@
 -- Tenant model: coach is the tenant (decision 2026-11-02). RLS key is
 -- app.current_coach_id, set transaction-locally by the UnitOfWork.
 
+-- Pre-declaración idempotente para ejecuciones sobre base de datos limpia
+CREATE TABLE IF NOT EXISTS allies (
+    id             TEXT PRIMARY KEY,
+    owner_user_id  TEXT NOT NULL,
+    legal_name     TEXT NOT NULL,
+    commercial_name TEXT NOT NULL,
+    category       TEXT NOT NULL,
+    status         TEXT NOT NULL DEFAULT 'active',
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS coach_ally_relationships (
+    id            TEXT PRIMARY KEY,
+    coach_id      TEXT NOT NULL,
+    ally_id       TEXT NOT NULL REFERENCES allies(id) ON DELETE CASCADE,
+    status        TEXT NOT NULL DEFAULT 'invited',
+    attributed_by TEXT,
+    invited_at    TEXT,
+    activated_at  TEXT,
+    ended_at      TEXT,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS commission_agreements (
+    id                 TEXT PRIMARY KEY,
+    coach_id           TEXT NOT NULL DEFAULT '',
+    ally_id            TEXT NOT NULL DEFAULT '',
+    relationship_id    TEXT DEFAULT '',
+    version            INTEGER NOT NULL DEFAULT 1,
+    rate_bps           INTEGER NOT NULL DEFAULT 0,
+    fixed_amount_cents INTEGER NOT NULL DEFAULT 0,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS commission_entries (
+    id                   TEXT PRIMARY KEY,
+    agreement_id         TEXT NOT NULL,
+    coach_id             TEXT NOT NULL DEFAULT '',
+    version              INTEGER NOT NULL DEFAULT 1,
+    base_cents           INTEGER NOT NULL DEFAULT 0,
+    rate_bps             INTEGER NOT NULL DEFAULT 0,
+    fixed_amount_cents   INTEGER NOT NULL DEFAULT 0,
+    amount_cents         INTEGER NOT NULL DEFAULT 0,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- 1. Add coach_id to commission_agreements for RLS enforcement.
 ALTER TABLE commission_agreements
+  ADD COLUMN IF NOT EXISTS coach_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE commission_agreements
+  ADD COLUMN IF NOT EXISTS relationship_id TEXT DEFAULT '';
+ALTER TABLE commission_entries
   ADD COLUMN IF NOT EXISTS coach_id TEXT NOT NULL DEFAULT '';
 
 -- Backfill coach_id from the relationship for existing rows.
