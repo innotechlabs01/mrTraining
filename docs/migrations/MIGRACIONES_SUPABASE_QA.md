@@ -28,7 +28,7 @@ Para que el entorno de QA ejecute las migraciones de forma controlada y el CD de
 
 | Secreto / Variable | Descripción | Ejemplo / Formato |
 |--------------------|-------------|-------------------|
-| `DATABASE_URL_QA` | String de conexión directo a PostgreSQL de Supabase en QA (usado por `cmd/migrate` en CD y Cloud Run). | `postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?sslmode=require` o puerto `5432` directo. |
+| `DATABASE_URL_QA` | String de conexión directo a PostgreSQL de Supabase en QA (usado por `cmd/migrate` en CD y Cloud Run). Debe utilizar el puerto **5432** (conexión directa o session pooler). **Nota importante:** No usar el Transaction Pooler (puerto 6543) ya que PgBouncer en modo transacción no soporta sentencias DDL complejas (`CREATE TABLE`, `ALTER TABLE`, transacciones DDL o advisory locks) requeridas por las migraciones. | `postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres?sslmode=require` o conexión directa `db.[ref].supabase.co:5432`. |
 | `SUPABASE_ACCESS_TOKEN` *(opcional)* | Token de acceso personal de Supabase para operaciones vía Supabase CLI. | `sbp_...` |
 | `SUPABASE_PROJECT_ID_QA` *(opcional)* | ID de referencia del proyecto en Supabase para vincular el CLI (`supabase link --project-ref`). | `abcdefghijklmno` |
 | `CLERK_SECRET_KEY_QA` | Llave secreta de Clerk para autenticación de API en QA. | `sk_test_...` |
