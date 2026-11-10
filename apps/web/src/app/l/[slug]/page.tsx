@@ -1,5 +1,15 @@
 import { notFound } from 'next/navigation';
 
+interface SectionItem {
+  title?: string;
+  copy?: string;
+}
+
+interface SectionData {
+  title?: string;
+  items?: SectionItem[];
+}
+
 interface LandingPage {
   id: string;
   coach_id: string;
@@ -64,11 +74,11 @@ export default async function PublicLandingPage({
           <h1><span className="accent">{data.title}</span>{data.subtitle ? <span> — {data.subtitle}</span> : null}</h1>
         </header>
         <main className="sections">
-          {sections.map((section: any, i: number) => (
+          {sections.map((section: SectionData, i: number) => (
             <section key={i} className="section">
               <h2>{section.title || 'Sección'}</h2>
               <div className="grid-3">
-                {(section.items || []).map((item: any, j: number) => (
+                {(section.items || []).map((item: SectionItem, j: number) => (
                   <div key={j} className="card">
                     <h3>{item.title}</h3>
                     <p>{item.copy}</p>
