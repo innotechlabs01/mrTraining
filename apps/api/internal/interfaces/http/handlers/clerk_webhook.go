@@ -156,7 +156,16 @@ func (h *ClerkWebhookHandler) verifySignature(c *fiber.Ctx, body []byte) bool {
 		return false
 	}
 
-	// svixTimestamp is nanoseconds since epoch (or seconds). Validate presence only; tolerance handled below.
+	// Prevent replay attacks: enforce standard 5-minute timestamp tolerance.
+	ts, err := parseSvixTimestamp(svixTimestamp)
+	if err != nil {
+		return false
+	}
+	diff := time.Since(ts)
+	if diff < -5*time.Minute || diff > 5*time.Minute {
+		return false
+	}
+
 	secret := strings.TrimSpace(h.webhookSecret)
 	secret = strings.TrimPrefix(secret, "whsec_")
 	decoded, err := base64.StdEncoding.DecodeString(secret)
