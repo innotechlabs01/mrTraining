@@ -65,6 +65,20 @@ func setCachedRole(userID, role string) {
 	}
 }
 
+// InvalidateRoleCache drops the cached role for a user.
+//
+// It MUST be called whenever the role is written (coach activation, Clerk
+// webhook) so the next request does not keep resolving the stale role for up
+// to roleCacheTTL.
+func InvalidateRoleCache(userID string) {
+	if userID == "" {
+		return
+	}
+	roleCacheMu.Lock()
+	defer roleCacheMu.Unlock()
+	delete(roleCache, userID)
+}
+
 // fetchUserRole fetches the user's role from Clerk Backend API.
 func fetchUserRole(userID string) string {
 	u, err := user.Get(context.Background(), userID)

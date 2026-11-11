@@ -92,9 +92,13 @@ func (s *Service) Subscribe(ctx context.Context, cmd SubscribeCommand) (*Subscri
 		Description:       "Suscripción " + plan.Name + " (" + plan.BillingPeriod + ")",
 		Amount:            plan.Price,
 		Currency:          plan.Currency,
-		SuccessURL:        s.cfg.AppURL + "/payment/success",
-		FailureURL:        s.cfg.AppURL + "/payment/failed",
-		PendingURL:        s.cfg.AppURL + "/payment/pending",
+		TRM:               plan.TRM,
+		// The payer comes back to the FRONTEND, not to this API. Building
+		// these from APP_URL pointed at the Go API and every return URL
+		// 404'd right after the payment.
+		SuccessURL:        s.cfg.WebAppURL + "/payment/success",
+		FailureURL:        s.cfg.WebAppURL + "/payment/failed",
+		PendingURL:        s.cfg.WebAppURL + "/payment/pending",
 		NotificationURL:   func() string {
 			if s.cfg.WompiWebhookURL != "" {
 				return s.cfg.WompiWebhookURL

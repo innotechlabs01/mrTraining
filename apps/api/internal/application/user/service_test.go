@@ -20,6 +20,7 @@ type mockRepository struct {
 	listCoachesFn         func(ctx context.Context) ([]*userdomain.Coach, error)
 	listAthletesByCoachFn  func(ctx context.Context, coachID string) ([]*userdomain.AthleteProfile, error)
 	updateAthleteProfileFn func(ctx context.Context, userID string, profile *userdomain.AthleteProfile) error
+	updateCoachOnboardingFn func(ctx context.Context, userID string, coach *userdomain.Coach) error
 	softDeleteUserFn       func(ctx context.Context, userID string) error
 }
 
@@ -64,6 +65,10 @@ func (m *mockRepository) ListAthletesByCoach(ctx context.Context, coachID string
 
 func (m *mockRepository) UpdateAthleteProfile(ctx context.Context, userID string, profile *userdomain.AthleteProfile) error {
 	return m.updateAthleteProfileFn(ctx, userID, profile)
+}
+
+func (m *mockRepository) UpdateCoachOnboarding(ctx context.Context, userID string, coach *userdomain.Coach) error {
+	return m.updateCoachOnboardingFn(ctx, userID, coach)
 }
 
 func (m *mockRepository) EnsureUser(ctx context.Context, id, email, name, role string) error {

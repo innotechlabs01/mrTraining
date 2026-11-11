@@ -123,14 +123,18 @@ func (r *Repository) Update(ctx context.Context, u *user.User) error {
 func (r *Repository) GetCoach(ctx context.Context, userID string) (*user.Coach, error) {
 	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, email, name, avatar_url, coach_code, specializations, certifications, bio,
-		 experience_years, max_athletes, is_accepting_athletes, is_active, created_at, updated_at
+		 experience_years, max_athletes, is_accepting_athletes, is_active, created_at, updated_at,
+		 sports, team_name, team_size, age_group, experience_level
 		 FROM coaches WHERE id = $1`, userID)
 
 	c := &user.Coach{}
 	var avatarURL, specializations, certifications, coachCode sql.NullString
+	var sports, teamName, ageGroup, experienceLevel sql.NullString
+	var teamSize sql.NullInt64
 	err := row.Scan(&c.ID, &c.Email, &c.Name, &avatarURL, &coachCode, &specializations, &certifications,
 		&c.Bio, &c.ExperienceYears, &c.MaxAthletes, &c.IsAcceptingAthletes, &c.IsActive,
-		&c.CreatedAt, &c.UpdatedAt)
+		&c.CreatedAt, &c.UpdatedAt,
+		&sports, &teamName, &teamSize, &ageGroup, &experienceLevel)
 	if err == sql.ErrNoRows {
 		return nil, errors.NotFound("Coach", userID)
 	}
@@ -145,6 +149,19 @@ func (r *Repository) GetCoach(ctx context.Context, userID string) (*user.Coach, 
 	}
 	c.Specializations = parseJSONArray(specializations)
 	c.Certifications = parseJSONArray(certifications)
+	c.Sports = parseJSONArray(sports)
+	if teamName.Valid {
+		c.TeamName = teamName.String
+	}
+	if teamSize.Valid {
+		c.TeamSize = int(teamSize.Int64)
+	}
+	if ageGroup.Valid {
+		c.AgeGroup = ageGroup.String
+	}
+	if experienceLevel.Valid {
+		c.ExperienceLevel = experienceLevel.String
+	}
 
 	// Self-heal legacy coach rows created before coach_code provisioning:
 	// generate a unique code and persist it so every coach keeps exactly one
@@ -163,6 +180,36 @@ func (r *Repository) GetCoach(ctx context.Context, userID string) (*user.Coach, 
 		}
 	}
 	return c, nil
+}
+
+// UpdateCoachOnboarding persists the answers collected by the coach
+// onboarding flow. Only the onboarding columns are touched so a concurrent
+// profile edit (bio, avatar, max athletes) is never overwritten.
+func (r *Repository) UpdateCoachOnboarding(ctx context.Context, userID string, c *user.Coach) error {
+	result, err := r.exec.ExecContext(ctx,
+		`UPDATE coaches SET sports = $1, specializations = $2, certifications = $3,
+		 experience_level = $4, team_name = $5, team_size = $6, age_group = $7,
+		 updated_at = NOW()
+		 WHERE id = $8`,
+		mustJSON(c.Sports), mustJSON(c.Specializations), mustJSON(c.Certifications),
+		c.ExperienceLevel, c.TeamName, c.TeamSize, c.AgeGroup, userID)
+	if err != nil {
+		return fmt.Errorf("update coach onboarding: %w", err)
+	}
+	if n, _ := result.RowsAffected(); n == 0 {
+		return errors.NotFound("Coach", userID)
+	}
+	return nil
+}
+
+// mustJSON marshals a string slice for a JSON text column. A marshalling
+// failure is impossible for []string, so the fallback keeps the column valid.
+func mustJSON(v []string) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
 }
 
 // uniqueCoachCode generates a coach code that is not taken by any active coach.

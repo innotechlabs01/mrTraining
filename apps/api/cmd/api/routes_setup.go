@@ -127,7 +127,7 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	// --- User domain ---
 	userRepo := userinfrastructure.NewRepository(db.DB)
 	clerkIdentity := userinfrastructure.NewClerkClient(cfg.ClerkSecretKey)
-	userService := userapp.NewService(userRepo, clerkIdentity)
+	userService := userapp.NewService(userRepo, clerkIdentity).WithMetadataWriter(clerkIdentity)
 	userHandler := handlers.NewUserHandler(userService)
 
 	// Tenant resolver for multi-tenant isolation.
@@ -500,7 +500,13 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	}
 	adminHandler := handlers.NewAdminHandler(adminDB, clerkIdentity)
 	routes.RegisterAdminRoutes(api, adminHandler, cfg.PlatformSuperAdminClerkIDs)
-	routes.RegisterCoachOnboardingRoutes(api, adminHandler)
+
+	// --- Coach activation ---
+	// Server-authoritative coach provisioning: the role is decided by the Go
+	// API (the only holder of the Clerk secret key) and mirrored into Clerk's
+	// PUBLIC metadata. Both endpoints act on the authenticated caller only.
+	coachActivationHandler := handlers.NewCoachActivationHandler(userService)
+	coachActivationHandler.RegisterCoachActivationRoutes(api)
 
 	// --- Error Tracking ---
 	errorRepo := errorinfrastructure.NewRepository(db.DB)

@@ -81,6 +81,118 @@ type Coach struct {
 	IsActive         bool     `json:"is_active"`
 	CreatedAt        string   `json:"created_at"`
 	UpdatedAt        string   `json:"updated_at"`
+
+	// Onboarding answers collected by the coach activation flow.
+	Sports          []string `json:"sports"`
+	TeamName        string   `json:"team_name,omitempty"`
+	TeamSize        int      `json:"team_size"`
+	AgeGroup        string   `json:"age_group,omitempty"`
+	ExperienceLevel string   `json:"experience_level,omitempty"`
+}
+
+// Experience levels accepted by the coach onboarding.
+var coachExperienceLevels = map[string]bool{
+	"beginner":     true,
+	"intermediate": true,
+	"advanced":     true,
+	"elite":        true,
+}
+
+// CoachOnboarding holds the answers collected by the coach onboarding flow.
+type CoachOnboarding struct {
+	Sports          []string
+	Specializations []string
+	ExperienceLevel string
+	TeamName        string
+	TeamSize        int
+	AgeGroup        string
+	Certifications  []Certification
+}
+
+// Certification is a credential issued by an organization.
+type Certification struct {
+	Name string
+	Org  string
+}
+
+// Display renders the certification for the coaches.certifications column,
+// which the app reads as a flat list of strings.
+func (c Certification) Display() string {
+	name := strings.TrimSpace(c.Name)
+	org := strings.TrimSpace(c.Org)
+	switch {
+	case name == "" && org == "":
+		return ""
+	case org == "":
+		return name
+	case name == "":
+		return org
+	default:
+		return name + " (" + org + ")"
+	}
+}
+
+// ApplyOnboarding validates the onboarding answers and applies them to the
+// coach profile. It returns an error when a mandatory answer is missing so
+// the profile is never persisted half-filled.
+func (c *Coach) ApplyOnboarding(o CoachOnboarding) error {
+	sports := cleanList(o.Sports)
+	if len(sports) == 0 {
+		return fmt.Errorf("at least one sport is required")
+	}
+	level := strings.TrimSpace(o.ExperienceLevel)
+	if !coachExperienceLevels[level] {
+		return fmt.Errorf("experience level must be one of beginner, intermediate, advanced, elite")
+	}
+	teamName := strings.TrimSpace(o.TeamName)
+	if teamName == "" {
+		return fmt.Errorf("team name is required")
+	}
+	teamSize := o.TeamSize
+	if teamSize < 1 {
+		teamSize = 1
+	}
+	ageGroup := strings.TrimSpace(o.AgeGroup)
+	if ageGroup == "" {
+		return fmt.Errorf("age group is required")
+	}
+
+	c.Sports = sports
+	c.Specializations = cleanList(o.Specializations)
+	c.Certifications = certificationDisplays(o.Certifications)
+	c.ExperienceLevel = level
+	c.TeamName = teamName
+	c.TeamSize = teamSize
+	c.AgeGroup = ageGroup
+	return nil
+}
+
+// certificationDisplays flattens the certification list into the display
+// strings stored on the coach profile.
+func certificationDisplays(in []Certification) []string {
+	out := make([]string, 0, len(in))
+	for _, c := range in {
+		if d := c.Display(); d != "" {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// cleanList trims every entry, drops the empty ones and removes duplicates
+// while preserving the original order.
+func cleanList(in []string) []string {
+	out := make([]string, 0, len(in))
+	seen := make(map[string]bool, len(in))
+	for _, v := range in {
+		v = strings.TrimSpace(v)
+		if v == "" || seen[v] {
+			continue
+		}
+		seen[v] = true
+		out = append(out, v)
+	}
+	return out
 }
 
 // Active returns true if the coach profile is active.

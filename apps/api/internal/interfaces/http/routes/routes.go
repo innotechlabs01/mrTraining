@@ -560,12 +560,13 @@ func RegisterPlanRoutes(api fiber.Router, handler *handlers.PlanHandler) {
 }
 
 // RegisterPublicPlanRoutes registers unauthenticated public plan routes.
-// Lives outside /api/v1 so anonymous landing visitors can fetch published
-// plans and the current TRM without a Clerk token.
-func RegisterPublicPlanRoutes(api fiber.Router, handler *handlers.PlanHandler) {
-	api.Get("/coaches/:coachId/plans", handler.ListPublicPlans)
-	api.Get("/plans", handler.ListAllPublicPlans)
-	api.Get("/trm", handler.GetTRM)
+// Lives OUTSIDE the /public group so anonymous landing visitors can fetch
+// published plans and the current TRM without a Clerk token (/api/v1/* is
+// behind a group-wide Clerk middleware in main.go).
+func RegisterPublicPlanRoutes(pub fiber.Router, handler *handlers.PlanHandler) {
+	pub.Get("/coaches/:coachId/plans", handler.ListPublicPlans)
+	pub.Get("/plans", handler.ListAllPublicPlans)
+	pub.Get("/trm", handler.GetTRM)
 }
 
 // RegisterPublicCoachLandingRoutes registers unauthenticated public coach
@@ -715,6 +716,12 @@ func RegisterWompiWebhookRoutes(app fiber.Router, handler *handlers.Subscription
 	handler.RegisterWompiWebhook(app)
 }
 
+// RegisterCoachPlatformSubscriptionRoutes registers coach platform subscription endpoints.
+// Route: POST /coach/subscription/checkout
+func RegisterCoachPlatformSubscriptionRoutes(api fiber.Router, handler *handlers.SubscriptionHandler) {
+	handler.RegisterCoachPlatformSubscriptionRoutes(api)
+}
+
 // RegisterCoachAthleteRoutes registers coach-scoped athlete CRUD routes.
 // Routes: GET/PUT/DELETE /coach/athletes/:id
 func RegisterCoachAthleteRoutes(api fiber.Router, handler *handlers.CoachHandler) {
@@ -744,7 +751,15 @@ func RegisterAdminRoutes(api fiber.Router, handler *handlers.AdminHandler, allow
 	admin.Get("/dashboard", handler.GetDashboard)
 	admin.Get("/coaches", handler.ListCoaches)
 	admin.Get("/coaches/:id", handler.GetCoach)
+	admin.Post("/coaches/:id/skip-subscription", handler.ToggleSkipSubscription)
 	admin.Get("/services/health", handler.GetServicesHealth)
+	// Planes y configuración de plataforma (super admin).
+	admin.Get("/plans", handler.ListAdminPlans)
+	admin.Post("/plans", handler.CreateAdminPlan)
+	admin.Put("/plans/:id", handler.UpdateAdminPlan)
+	admin.Delete("/plans/:id", handler.DeleteAdminPlan)
+	admin.Get("/settings", handler.GetSettings)
+	admin.Put("/settings", handler.PutSettings)
 }
 
 // RegisterErrorRoutes registers error tracking routes on the auth-protected API group.
@@ -784,7 +799,9 @@ func RegisterTestimonialRoutes(api fiber.Router, handler *handlers.TestimonialHa
 }
 
 // RegisterPublicTestimonialRoutes registers public testimonial routes (no auth).
-// Used by landing pages to fetch testimonials for a coach.
-func RegisterPublicTestimonialRoutes(app fiber.Router, handler *handlers.TestimonialHandler) {
-	handler.RegisterPublicTestimonialRoutes(app)
+// Lives OUTSIDE the /api/v1/* prefix — that group carries a group-wide Clerk
+// middleware, so public read paths must live under /public instead.
+// Used by public landing pages to fetch testimonials for a coach.
+func RegisterPublicTestimonialRoutes(pub fiber.Router, handler *handlers.TestimonialHandler) {
+	handler.RegisterPublicTestimonialRoutes(pub)
 }
