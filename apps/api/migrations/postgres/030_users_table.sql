@@ -37,4 +37,10 @@ CREATE POLICY policy_users_delete ON public.users
   FOR DELETE USING (id = NULLIF(current_setting('app.current_user_id', true)::text, ''));
 
 -- Grant permissions to the application role
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.users TO mr_training_app;
+-- Grant permissions to the application role if it exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mr_training_app') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.users TO mr_training_app;
+    END IF;
+END $$;
