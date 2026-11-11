@@ -263,6 +263,12 @@ func (s *Service) GetCoachByID(ctx context.Context, userID string) (*user.Coach,
 	return c, nil
 }
 
+// isNotFound reports whether the error means "the row does not exist".
+func isNotFound(err error) bool {
+	appErr, ok := err.(*errors.AppError)
+	return ok && appErr.Status == 404
+}
+
 // ActivateCommand is the input to the coach activation use case.
 type ActivateCommand struct {
 	// UserID is the authenticated Clerk user id. It always comes from the
@@ -313,11 +319,17 @@ func (s *Service) ActivateCoach(ctx context.Context, cmd ActivateCommand) (*Acti
 	existing, err := s.repo.GetByID(ctx, cmd.UserID)
 	created := false
 	switch {
-	case err != nil:
+	case err == nil:
+		if existing.IsAthlete() {
+			return nil, errors.Conflict("this account is already registered as an athlete")
+		}
+	case isNotFound(err):
 		// No base row yet — provision it below.
 		created = true
-	case existing.IsAthlete():
-		return nil, errors.Conflict("this account is already registered as an athlete")
+	default:
+		// A transient database error must not be mistaken for "the user does
+		// not exist": that would silently create a duplicate account.
+		return nil, fmt.Errorf("get user for activation: %w", err)
 	}
 
 	if created {

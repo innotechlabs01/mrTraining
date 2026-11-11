@@ -185,8 +185,23 @@ func (r *Repository) GetCoach(ctx context.Context, userID string) (*user.Coach, 
 // UpdateCoachOnboarding persists the answers collected by the coach
 // onboarding flow. Only the onboarding columns are touched so a concurrent
 // profile edit (bio, avatar, max athletes) is never overwritten.
+//
+// The write runs inside a transaction that sets app.current_user_id: the
+// coaches UPDATE policy is tenant scoped, so without that context the UPDATE
+// matches zero rows.
 func (r *Repository) UpdateCoachOnboarding(ctx context.Context, userID string, c *user.Coach) error {
-	result, err := r.exec.ExecContext(ctx,
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("update coach onboarding: begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err = tx.ExecContext(ctx,
+		`SELECT set_config('app.current_user_id', $1, true)`, userID); err != nil {
+		return fmt.Errorf("update coach onboarding: set rls context: %w", err)
+	}
+
+	result, err := tx.ExecContext(ctx,
 		`UPDATE coaches SET sports = $1, specializations = $2, certifications = $3,
 		 experience_level = $4, team_name = $5, team_size = $6, age_group = $7,
 		 updated_at = NOW()
@@ -199,7 +214,8 @@ func (r *Repository) UpdateCoachOnboarding(ctx context.Context, userID string, c
 	if n, _ := result.RowsAffected(); n == 0 {
 		return errors.NotFound("Coach", userID)
 	}
-	return nil
+
+	return tx.Commit()
 }
 
 // mustJSON marshals a string slice for a JSON text column. A marshalling
