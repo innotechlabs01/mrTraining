@@ -224,34 +224,32 @@ func (h *SubscriptionHandler) handleError(c *fiber.Ctx, err error) error {
 	return appresponse.Error(c, fiber.StatusInternalServerError, "internal server error")
 }
 
-// HandleCoachPlatformSubscriptionStatus returns the authenticated coach's
-// platform subscription status.
+// HandleCoachPlatformSubscriptionStatus returns the payment status of the
+// authenticated coach's platform subscription.
 //
 // The payment provider confirms the payment asynchronously through the
 // webhook, so the frontend polls this endpoint instead of trusting the
-// redirect the payer came back with. A missing subscription is reported as
-// status "none" rather than an error: the coach has simply not paid yet.
+// redirect the payer came back with. The subscription row is created before
+// the payment, so the status is derived from the PAYMENT record.
 func (h *SubscriptionHandler) HandleCoachPlatformSubscriptionStatus(c *fiber.Ctx) error {
 	coachID := middleware.GetUserID(c)
 	if coachID == "" {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	sub, err := h.svc.GetByAthlete(c.Context(), coachID)
+	status, sub, err := h.svc.GetPaymentStatus(c.Context(), coachID)
 	if err != nil {
 		if appErr, ok := err.(*errors.AppError); ok && appErr.Status == fiber.StatusNotFound {
-			return appresponse.Success(c, dto.CoachSubscriptionStatusResponse{Status: "none"})
+			return appresponse.Success(c, dto.CoachSubscriptionStatusResponse{Status: subscriptionapp.PaymentStatusNone})
 		}
 		return h.handleError(c, err)
 	}
-	if sub == nil {
-		return appresponse.Success(c, dto.CoachSubscriptionStatusResponse{Status: "none"})
-	}
 
-	return appresponse.Success(c, dto.CoachSubscriptionStatusResponse{
-		Status:   string(sub.Status),
-		Reference: sub.ID,
-		PlanID:   sub.PlanID,
-		PlanName: sub.PlanName,
-	})
+	resp := dto.CoachSubscriptionStatusResponse{Status: status}
+	if sub != nil {
+		resp.Reference = sub.ID
+		resp.PlanID = sub.PlanID
+		resp.PlanName = sub.PlanName
+	}
+	return appresponse.Success(c, resp)
 }

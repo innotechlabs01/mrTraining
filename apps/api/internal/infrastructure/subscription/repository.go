@@ -202,6 +202,22 @@ func (r *Repository) GetPaymentByProviderID(ctx context.Context, providerPayment
 	return scanPayment(row)
 }
 
+// HasApprovedPayment reports whether an approved payment exists for the
+// subscription.
+func (r *Repository) HasApprovedPayment(ctx context.Context, subscriptionID string) (bool, error) {
+	var one int
+	err := r.exec.QueryRowContext(ctx,
+		`SELECT 1 FROM subscription_payments WHERE subscription_id = $1 AND status = 'approved' LIMIT 1`,
+		subscriptionID).Scan(&one)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("check approved payment: %w", err)
+	}
+	return true, nil
+}
+
 type scannable interface {
 	Scan(dest ...interface{}) error
 }
