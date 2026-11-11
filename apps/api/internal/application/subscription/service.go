@@ -167,6 +167,47 @@ func (s *Service) GetByAthlete(ctx context.Context, athleteID string) (*subscrip
 	return s.subRepo.FindByAthlete(ctx, athleteID)
 }
 
+// Payment status values returned by GetPaymentStatus.
+const (
+	// PaymentStatusNone means there is no subscription for the user yet.
+	PaymentStatusNone = "none"
+	// PaymentStatusPending means the subscription exists but no approved
+	// payment has been recorded for it yet.
+	PaymentStatusPending = "pending"
+	// PaymentStatusApproved means the payment provider confirmed the payment.
+	PaymentStatusApproved = "approved"
+)
+
+// GetPaymentStatus reports whether the payment for the given subscriber has
+// been confirmed by the provider.
+//
+// The subscription row is created BEFORE the payer pays (the checkout needs
+// it to attach the payment to), so the subscription status is always "active"
+// from the start. The approved PAYMENT is the only trustworthy signal, and it
+// is recorded by the provider webhook.
+func (s *Service) GetPaymentStatus(ctx context.Context, subscriberID string) (string, *subscription.Subscription, error) {
+	if subscriberID == "" {
+		return PaymentStatusNone, nil, errors.BadRequest("subscriber_id is required")
+	}
+
+	sub, err := s.subRepo.FindByAthlete(ctx, subscriberID)
+	if err != nil {
+		return PaymentStatusNone, nil, err
+	}
+	if sub == nil {
+		return PaymentStatusNone, nil, nil
+	}
+
+	approved, err := s.subRepo.HasApprovedPayment(ctx, sub.ID)
+	if err != nil {
+		return PaymentStatusNone, nil, err
+	}
+	if approved {
+		return PaymentStatusApproved, sub, nil
+	}
+	return PaymentStatusPending, sub, nil
+}
+
 // ListByCoach returns all subscriptions for a coach's athletes.
 func (s *Service) ListByCoach(ctx context.Context, coachID string) ([]*subscription.Subscription, error) {
 	return s.subRepo.FindByCoach(ctx, coachID)
