@@ -31,13 +31,13 @@ const nextConfig = {
     const isProd = process.env.NODE_ENV === 'production';
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.com https://*.clerk.dev https://*.clerk.accounts.dev",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.com https://*.clerk.dev https://*.clerk.accounts.dev https://challenges.cloudflare.com",
       `connect-src 'self' ${process.env.NEXT_PUBLIC_GO_API_URL || ''} ${process.env.NEXT_PUBLIC_API_URL || ''} https://*.clerk.com https://*.clerk.dev https://*.clerk.accounts.dev https://api.clerk.com https://*.public.blob.vercel-storage.com wss: ws:`,
       "img-src 'self' data: blob: https:",
       "media-src 'self' data: blob: https:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' data: https://fonts.gstatic.com",
-      "frame-src 'self' https://*.clerk.com https://*.clerk.dev https://*.clerk.accounts.dev",
+      "frame-src 'self' https://*.clerk.com https://*.clerk.dev https://*.clerk.accounts.dev https://challenges.cloudflare.com",
       "worker-src 'self' blob:",
       "object-src 'none'",
       "base-uri 'self'",
