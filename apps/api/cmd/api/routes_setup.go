@@ -204,7 +204,8 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	ledgerRepo := paymentledgerinfra.NewRepository(db.DB)
 	ledgerSvc := paymentledgersvc.NewService(ledgerRepo)
 	commissionEntryRepo := commissionentryinfra.NewRepository(db.DB)
-	subscriptionService := subscriptionapp.NewService(cfg, subRepo, wompiProvider, planRepo, ledgerSvc, commissionEntryRepo)
+	subscriptionService := subscriptionapp.NewService(cfg, subRepo, wompiProvider, planRepo, ledgerSvc, commissionEntryRepo).
+		WithMetadataWriter(clerkIdentity)
 	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionService)
 
 	routes.RegisterMembershipRoutes(api, membershipHandler, planHandler, statusReader)

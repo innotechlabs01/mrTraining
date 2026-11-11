@@ -46,8 +46,12 @@ func (r *Repository) isTx() bool {
 // GetByCode finds an active coach by invite code.
 func (r *Repository) GetByCode(ctx context.Context, code string) (*invite.Invite, error) {
 	normalized := strings.ToUpper(strings.TrimSpace(code))
+	// The invite IS the coach: the coach code is the invite code, so the
+	// coach id answers both the invite id and the coach id. (The previous
+	// query read a `user_id` column that the coaches table does not have,
+	// which made every athlete sign-up with a coach code fail.)
 	row := r.exec.QueryRowContext(ctx,
-		`SELECT id, user_id, coach_code, 'active', created_at
+		`SELECT id, id, coach_code, 'active', created_at
 		 FROM coaches WHERE UPPER(coach_code) = $1 AND is_active = 1`, normalized)
 
 	inv := &invite.Invite{}
@@ -68,14 +72,32 @@ func (r *Repository) AcceptInvite(ctx context.Context, code, athleteID string) (
 		return nil, err
 	}
 
+	// The link table is tenant scoped: the insert passes when the athlete is
+	// the acting user. The context is set inside a transaction because
+	// set_config(..., true) is transaction local.
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to link athlete: begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx,
+		`SELECT set_config('app.current_user_id', $1, true)`, athleteID); err != nil {
+		return nil, fmt.Errorf("failed to link athlete: set rls context: %w", err)
+	}
+
 	// Link coach-athlete (idempotent)
-	_, err = r.exec.ExecContext(ctx,
+	_, err = tx.ExecContext(ctx,
 		`INSERT INTO coach_athlete_links (coach_id, athlete_id, status, is_primary, assigned_at)
 		 VALUES ($1, $2, 'active', 0, NOW())
 		 ON CONFLICT(coach_id, athlete_id) DO UPDATE SET status='active'`,
 		inv.CoachID, athleteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to link athlete: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to link athlete: commit: %w", err)
 	}
 
 	// Resolve coach name for the response

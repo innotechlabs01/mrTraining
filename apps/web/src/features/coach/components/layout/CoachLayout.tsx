@@ -11,12 +11,14 @@ import { CoachSidebar } from '../navigation/CoachSidebar'
 import { TopBar } from './TopBar'
 import { RightPanel } from './RightPanel'
 import { useMembershipStatus } from '@/features/coach/hooks/useMembershipStatus'
+import { usePlanEntitlements } from '@/features/coach/hooks/usePlanEntitlements'
 
 export { useCoachPanel } from './CoachPanelContext'
 
 export default function CoachLayout({ children }: { children: React.ReactNode }) {
   const { user } = useUser()
   const { status: membershipStatus } = useMembershipStatus()
+  const entitlements = usePlanEntitlements()
   useSessionTimeout()
   const [panel, setPanel] = useState<PanelState>({ type: null, data: {} })
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -51,8 +53,9 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
       coachCode: (u.coachCode as string) ?? '',
       createdAt: '',
       membershipStatus,
+      subscription: entitlements,
     }
-  }, [user, membershipStatus])
+  }, [user, membershipStatus, entitlements])
 
   return (
     <CoachPanelContext.Provider value={value}>

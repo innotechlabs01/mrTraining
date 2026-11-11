@@ -92,6 +92,81 @@ func (f *fakeSubRepo) HasApprovedPayment(ctx context.Context, subscriptionID str
 	return f.hasApprovedPayment, nil
 }
 
+// fakeMetadataWriter records the entitlement patches mirrored to Clerk.
+type fakeMetadataWriter struct {
+	patches []map[string]interface{}
+	userIDs []string
+}
+
+func (f *fakeMetadataWriter) MergePublicMetadata(ctx context.Context, userID string, patch map[string]interface{}) error {
+	f.userIDs = append(f.userIDs, userID)
+	f.patches = append(f.patches, patch)
+	return nil
+}
+
+// The selected plan must reach the Clerk public metadata, otherwise the
+// frontend cannot know what the user may see and do.
+func TestSubscribe_MirrorsThePlanIntoThePublicMetadata(t *testing.T) {
+	repo := &fakeSubRepo{}
+	writer := &fakeMetadataWriter{}
+	provider := &fakeProvider{
+		checkout: &subscriptiondomain.CheckoutResponse{CheckoutURL: "https://wompi.co/l/1", Reference: "ref_1"},
+	}
+	svc := NewService(&config.Config{}, repo, provider, &fakePlanRepo{plan: newPlan()}, nil, nil).
+		WithMetadataWriter(writer)
+
+	_, err := svc.Subscribe(context.Background(), SubscribeCommand{
+		AthleteID: "coach_1",
+		CoachID:   "coach_1",
+		PlanID:    "plan_1",
+	})
+	require.NoError(t, err)
+
+	require.Len(t, writer.patches, 1)
+	assert.Equal(t, "coach_1", writer.userIDs[0])
+	assert.Equal(t, "plan_1", writer.patches[0]["plan"])
+	assert.Equal(t, "pending", writer.patches[0]["planStatus"])
+}
+
+func TestFulfillWebhook_MirrorsThePlanAsActive(t *testing.T) {
+	ctx := context.Background()
+	sub := &subscriptiondomain.Subscription{
+		ID:            "sub_1",
+		AthleteID:     "athlete_1",
+		CoachID:       "coach_1",
+		PlanID:        "plan_1",
+		PlanName:      "Plan Pro",
+		BillingPeriod: "monthly",
+		Status:        subscriptiondomain.StatusPastDue,
+	}
+	subRepo := &fakeSubRepo{byID: sub, byAthlete: sub}
+	approved := time.Now().UTC()
+	provider := &fakeProvider{
+		payment: &subscriptiondomain.ProviderPayment{
+			ID:                "pay_1",
+			Status:            "approved",
+			ExternalReference: "subscription:sub_1",
+			TransactionAmount: 49900,
+			Currency:          "COP",
+			DateApproved:      &approved,
+		},
+	}
+	writer := &fakeMetadataWriter{}
+	svc := NewService(&config.Config{}, subRepo, provider, &fakePlanRepo{plan: newPlan()}, nil, nil).
+		WithMetadataWriter(writer)
+
+	require.NoError(t, svc.FulfillWebhook(ctx, subscriptiondomain.WebhookRequest{
+		Body:            []byte(`{"type":"payment","data":{"id":"pay_1"}}`),
+		SignatureHeader: "ts=1,v1=abc",
+	}))
+
+	require.Len(t, writer.patches, 1)
+	assert.Equal(t, "athlete_1", writer.userIDs[0])
+	assert.Equal(t, "plan_1", writer.patches[0]["plan"])
+	assert.Equal(t, "Plan Pro", writer.patches[0]["planName"])
+	assert.Equal(t, "active", writer.patches[0]["planStatus"])
+}
+
 func TestGetPaymentStatus(t *testing.T) {
 	sub := &subscriptiondomain.Subscription{
 		ID:      "sub_1",

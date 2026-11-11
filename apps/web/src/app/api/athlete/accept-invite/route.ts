@@ -135,18 +135,30 @@ export async function POST(req: Request) {
       // to avoid direct SQL; membership will be created on the coach side.
     }
 
-    // Sync Clerk public_metadata so dashboard shows relation immediately
+    // Sync Clerk public_metadata so dashboard shows relation immediately.
+    // The Clerk PATCH REPLACES the whole object, so the current metadata is
+    // merged first — otherwise the plan entitlements would be wiped.
     const clerkSecretKey = process.env.CLERK_SECRET_KEY;
     if (clerkSecretKey) {
       try {
+        const headers = {
+          Authorization: `Bearer ${clerkSecretKey}`,
+          'Content-Type': 'application/json',
+        };
+
+        const currentRes = await fetch(`https://api.clerk.com/v1/users/${userId}`, { headers });
+        const clerkUser = currentRes.ok ? await currentRes.json() : {};
+        const currentMetadata =
+          clerkUser?.public_metadata && typeof clerkUser.public_metadata === 'object'
+            ? clerkUser.public_metadata
+            : {};
+
         await fetch(`https://api.clerk.com/v1/users/${userId}/metadata`, {
           method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${clerkSecretKey}`,
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify({
             public_metadata: {
+              ...currentMetadata,
               role: 'athlete',
               coachCode: normalizedCode,
               coachId,

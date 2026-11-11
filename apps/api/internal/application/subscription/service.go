@@ -19,6 +19,13 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 )
 
+// MetadataWriter mirrors the subscription entitlements into the auth
+// provider's PUBLIC metadata, so the frontend can know what the user may see
+// and do without a round trip to the database.
+type MetadataWriter interface {
+	MergePublicMetadata(ctx context.Context, userID string, patch map[string]interface{}) error
+}
+
 // Service orchestrates subscription use cases: subscribe, cancel, and webhook
 // fulfillment. It depends only on interfaces (Repository, PaymentProvider,
 // plan.Repository), making it testable with fakes.
@@ -29,11 +36,19 @@ type Service struct {
 	planRepo        plandomain.Repository
 	ledgerSvc       *paymentledgersvc.Service
 	commissionEntry commissionentrydomain.Repository
+	metadata        MetadataWriter
 }
 
 // NewService creates a new subscription application service.
 func NewService(cfg *config.Config, subRepo subscription.Repository, provider subscription.PaymentProvider, planRepo plandomain.Repository, ledgerSvc *paymentledgersvc.Service, commissionEntry commissionentrydomain.Repository) *Service {
 	return &Service{cfg: cfg, subRepo: subRepo, provider: provider, planRepo: planRepo, ledgerSvc: ledgerSvc, commissionEntry: commissionEntry}
+}
+
+// WithMetadataWriter injects the auth-provider metadata writer used to mirror
+// the plan entitlements.
+func (s *Service) WithMetadataWriter(w MetadataWriter) *Service {
+	s.metadata = w
+	return s
 }
 
 // SubscribeCommand is the input to the subscribe use case.
@@ -115,6 +130,11 @@ func (s *Service) Subscribe(ctx context.Context, cmd SubscribeCommand) (*Subscri
 		return nil, fmt.Errorf("save subscription: %w", err)
 	}
 
+	// Mirror the selected plan into the subscriber's public metadata so the
+	// frontend knows what the user is on. The status stays "pending" until
+	// the provider confirms the payment.
+	s.mirrorEntitlements(ctx, cmd.AthleteID, plan.ID, plan.Name, "pending")
+
 	// Publish domain events after successful persistence.
 	for _, event := range sub.DomainEvents() {
 		_ = event // events published by the transport layer / outbox
@@ -160,6 +180,21 @@ func (s *Service) Cancel(ctx context.Context, cmd CancelCommand) error {
 		return fmt.Errorf("save subscription: %w", err)
 	}
 	return nil
+}
+
+// mirrorEntitlements writes the plan entitlements into the auth provider's
+// public metadata. It is best-effort: the subscription is already persisted,
+// and the webhook can be replayed to sync the metadata again.
+func (s *Service) mirrorEntitlements(ctx context.Context, userID, planID, planName, status string) {
+	if s.metadata == nil || userID == "" {
+		return
+	}
+	patch := map[string]interface{}{
+		"plan":       planID,
+		"planName":   planName,
+		"planStatus": status,
+	}
+	_ = s.metadata.MergePublicMetadata(ctx, userID, patch)
 }
 
 // GetByAthlete returns the athlete's current subscription.
@@ -303,6 +338,11 @@ func (s *Service) FulfillWebhook(ctx context.Context, req subscription.WebhookRe
 	if err := s.subRepo.Save(ctx, sub); err != nil {
 		return fmt.Errorf("save subscription: %w", err)
 	}
+
+	// The payment is confirmed: the subscriber now has the plan. Mirror it
+	// into the public metadata so the frontend can gate features without a
+	// round trip to the database.
+	s.mirrorEntitlements(ctx, sub.AthleteID, sub.PlanID, sub.PlanName, "active")
 
 	// --- Record payment in ledger + commission entry for coach ---
 	if s.ledgerSvc != nil && s.commissionEntry != nil && payment.Status == "approved" {
