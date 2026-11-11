@@ -123,7 +123,7 @@ import (
 
 // registerProtectedRoutes wires all domain services and registers API v1 routes.
 // Returns subscription and error handlers for public webhook registration.
-func registerProtectedRoutes(app *fiber.App, api fiber.Router, cfg *config.Config, db *database.DB, log *zap.Logger) (*handlers.SubscriptionHandler, *handlers.ErrorHandler) {
+func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router, cfg *config.Config, db *database.DB, log *zap.Logger) (*handlers.SubscriptionHandler, *handlers.ErrorHandler) {
 	// --- User domain ---
 	userRepo := userinfrastructure.NewRepository(db.DB)
 	clerkIdentity := userinfrastructure.NewClerkClient(cfg.ClerkSecretKey)
@@ -178,6 +178,20 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, cfg *config.Confi
 	inviteRepo := inviteinfrastructure.NewRepository(db.DB)
 	inviteService := inviteapp.NewService(inviteRepo)
 
+	// --- Clerk webhook (PUBLIC, outside the auth group) ---
+	// Clerk posts user.created / user.updated here. This route is what
+	// provisions the users + coaches rows and mirrors role + coachCode into
+	// Clerk's PUBLIC metadata. It was never registered, so no account was ever
+	// provisioned and every user resolved as "athlete".
+	clerkWebhookHandler := handlers.NewClerkWebhookHandler(
+		userService,
+		inviteService,
+		cfg.ClerkSecretKey,
+		cfg.ClerkWebhookSecret,
+	).WithMetadataWriter(clerkIdentity)
+	routes.RegisterClerkWebhookRoutes(app, clerkWebhookHandler)
+	log.Info("clerk webhook registered", zap.String("path", "/webhooks/clerk"))
+
 	// --- Plan ---
 	trmService := trmapp.NewService()
 	planRepo := planinfrastructure.NewRepository(db.DB)
@@ -195,6 +209,7 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, cfg *config.Confi
 
 	routes.RegisterMembershipRoutes(api, membershipHandler, planHandler, statusReader)
 	routes.RegisterSubscriptionRoutes(api, subscriptionHandler)
+	routes.RegisterCoachPlatformSubscriptionRoutes(api, subscriptionHandler)
 
 	// --- Event ---
 	eventRepo := eventinfrastructure.NewRepository(db.DB)
@@ -205,6 +220,7 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, cfg *config.Confi
 
 	// --- Plan routes (coach CRUD + public) ---
 	routes.RegisterPlanRoutes(api, planHandler)
+	routes.RegisterPublicPlanRoutes(pub, planHandler)
 
 	// --- Product ---
 	productRepo := productinfrastructure.NewRepository(db.DB)
@@ -354,7 +370,7 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, cfg *config.Confi
 	testimonialSvc := testimonialapp.NewService(testimonialRepo)
 	testimonialHandler := handlers.NewTestimonialHandler(testimonialSvc)
 	routes.RegisterTestimonialRoutes(api, testimonialHandler)
-	routes.RegisterPublicTestimonialRoutes(app, testimonialHandler)
+	routes.RegisterPublicTestimonialRoutes(pub, testimonialHandler)
 
 	// --- CRM Super Admin ---
 	crmRepo := crminfrastructure.NewRepository(db.DB)
@@ -482,8 +498,9 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, cfg *config.Confi
 	if db != nil {
 		adminDB = db.DB
 	}
-	adminHandler := handlers.NewAdminHandler(adminDB)
+	adminHandler := handlers.NewAdminHandler(adminDB, clerkIdentity)
 	routes.RegisterAdminRoutes(api, adminHandler, cfg.PlatformSuperAdminClerkIDs)
+	routes.RegisterCoachOnboardingRoutes(api, adminHandler)
 
 	// --- Error Tracking ---
 	errorRepo := errorinfrastructure.NewRepository(db.DB)

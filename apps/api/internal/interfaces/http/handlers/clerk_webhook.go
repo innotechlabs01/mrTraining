@@ -8,8 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -47,6 +45,16 @@ type inviteLinker interface {
 	AcceptInvite(ctx context.Context, code, athleteID string) (*invite.AcceptResult, error)
 }
 
+// publicMetadataWriter is the port used to mirror role metadata into Clerk's
+// PUBLIC metadata. It is a port (not the Clerk client) so the handler stays
+// decoupled from the infrastructure layer and testable with a fake.
+//
+// Merge semantics matter: the Clerk Backend API replaces the whole metadata
+// object on PATCH, so writing the role must not wipe `membership_status`.
+type publicMetadataWriter interface {
+	MergePublicMetadata(ctx context.Context, userID string, patch map[string]interface{}) error
+}
+
 // ClerkWebhookHandler handles Clerk webhook events (public endpoint).
 // It verifies the Clerk (svix) signature when CLERK_WEBHOOK_SECRET is set,
 // otherwise trusts the forward from the Next.js proxy. No auth middleware
@@ -56,6 +64,7 @@ type ClerkWebhookHandler struct {
 	inviteService  inviteLinker
 	clerkSecretKey string
 	webhookSecret  string
+	metadata       publicMetadataWriter
 }
 
 // NewClerkWebhookHandler creates a new Clerk webhook handler.
@@ -70,6 +79,14 @@ func NewClerkWebhookHandler(
 		clerkSecretKey: clerkSecretKey,
 		webhookSecret:  webhookSecret,
 	}
+}
+
+// WithMetadataWriter injects the Clerk metadata writer. It is a separate
+// constructor option because the writer is only needed to mirror the role
+// back into Clerk, and tests may not care about it.
+func (h *ClerkWebhookHandler) WithMetadataWriter(w publicMetadataWriter) *ClerkWebhookHandler {
+	h.metadata = w
+	return h
 }
 
 // Handle processes POST /webhooks/clerk.
@@ -121,11 +138,15 @@ func (h *ClerkWebhookHandler) Handle(c *fiber.Ctx) error {
 	}
 	avatar, _ := evt.Data["image_url"].(string)
 
+	// public_metadata is the server-written metadata (role, coachCode) and is
+	// the authoritative source for the user's role.
+	publicMeta, _ := evt.Data["public_metadata"].(map[string]interface{})
+
 	ctx := c.Context()
 
 	switch evt.Type {
 	case "user.created", "user.updated":
-		if err := h.provisionUser(ctx, userID, email, name, avatar, unsafeMeta); err != nil {
+		if err := h.provisionUser(ctx, userID, email, name, avatar, publicMeta, unsafeMeta); err != nil {
 			return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
 		}
 
@@ -213,14 +234,23 @@ func parseSvixTimestamp(s string) (time.Time, error) {
 }
 
 // provisionUser creates or updates the user's application profile based on
-// their role, derived from unsafe_metadata.coachCode:
-//   - coachCode present  → athlete provisioning (validate code, link coach)
-//   - coachCode absent   → coach provisioning (create coach profile + code)
-func (h *ClerkWebhookHandler) provisionUser(ctx context.Context, userID, email, name, avatar string, unsafeMeta map[string]interface{}) error {
+// their role.
+//
+// Role resolution (priority order):
+//  1. public_metadata.role — written server-side by the activation endpoint.
+//     Authoritative: a client cannot forge it because only the backend holds
+//     the Clerk secret key.
+//  2. unsafe_metadata.coachCode — legacy signal used by the mobile athlete
+//     sign-up (the athlete joins a coach with an invite code).
+//  3. Default → coach. The web sign-up flow is the coach flow.
+func (h *ClerkWebhookHandler) provisionUser(ctx context.Context, userID, email, name, avatar string, publicMeta, unsafeMeta map[string]interface{}) error {
+	role, _ := publicMeta["role"].(string)
+	role = strings.TrimSpace(role)
+
 	coachCode, _ := unsafeMeta["coachCode"].(string)
 	coachCode = strings.TrimSpace(coachCode)
 
-	if coachCode != "" {
+	if role == "athlete" || (role == "" && coachCode != "") {
 		return h.provisionAthlete(ctx, userID, email, name, avatar, coachCode)
 	}
 	return h.provisionCoach(ctx, userID, email, name, avatar)
@@ -251,8 +281,8 @@ func (h *ClerkWebhookHandler) provisionCoach(ctx context.Context, userID, email,
 
 	// Mirror role + coachCode into Clerk public_metadata so the frontend can
 	// read it without hitting the database.
-	if h.clerkSecretKey != "" {
-		_ = h.setClerkMetadata(userID, map[string]interface{}{
+	if h.metadata != nil {
+		_ = h.metadata.MergePublicMetadata(ctx, userID, map[string]interface{}{
 			"role":      "coach",
 			"coachCode": coachCode,
 		})
@@ -291,8 +321,8 @@ func (h *ClerkWebhookHandler) provisionAthlete(ctx context.Context, userID, emai
 	}
 
 	// Mirror role + coach info into Clerk public_metadata.
-	if h.clerkSecretKey != "" {
-		_ = h.setClerkMetadata(userID, map[string]interface{}{
+	if h.metadata != nil {
+		_ = h.metadata.MergePublicMetadata(ctx, userID, map[string]interface{}{
 			"role":      "athlete",
 			"coachCode": coachCode,
 			"coachId":   inv.CoachID,
@@ -300,37 +330,5 @@ func (h *ClerkWebhookHandler) provisionAthlete(ctx context.Context, userID, emai
 		})
 	}
 
-	return nil
-}
-
-// setClerkMetadata patches a user's public_metadata via the Clerk Backend API.
-// Best-effort: failures are logged but never fail the webhook.
-func (h *ClerkWebhookHandler) setClerkMetadata(userID string, metadata map[string]interface{}) error {
-	body, err := json.Marshal(map[string]interface{}{
-		"public_metadata": metadata,
-	})
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPatch,
-		"https://api.clerk.com/v1/users/"+userID+"/metadata", strings.NewReader(string(body)))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+h.clerkSecretKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("clerk metadata update failed: status %d", resp.StatusCode)
-	}
 	return nil
 }

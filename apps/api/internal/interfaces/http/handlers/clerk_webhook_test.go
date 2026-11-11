@@ -314,3 +314,107 @@ func TestClerkWebhook_NoSecretConfigured(t *testing.T) {
 		t.Fatal("expected signature check to be skipped when no secret configured")
 	}
 }
+
+// mockMetadataWriter records the public metadata patches applied by the handler.
+type mockMetadataWriter struct {
+	patches []map[string]interface{}
+}
+
+func (m *mockMetadataWriter) MergePublicMetadata(ctx context.Context, userID string, patch map[string]interface{}) error {
+	m.patches = append(m.patches, patch)
+	return nil
+}
+
+func TestClerkWebhook_PublicMetadataRoleAthlete_ProvisionsAthlete(t *testing.T) {
+	secret := "whsec_test123"
+	body := []byte(`{
+		"type": "user.created",
+		"data": {
+			"id": "user_athlete",
+			"email_addresses": [{"email_address": "athlete@example.com"}],
+			"public_metadata": {"role": "athlete"},
+			"unsafe_metadata": {}
+		}
+	}`)
+	sig := svixSignature(secret, "1704067200", body)
+
+	var ensuredRole string
+	var ensureCoachCalled bool
+	svc := &mockUserService{
+		ensureUserFn: func(ctx context.Context, id, email, name, role string) error {
+			ensuredRole = role
+			return nil
+		},
+		ensureCoachFn: func(ctx context.Context, userID, email, name string) error {
+			ensureCoachCalled = true
+			return nil
+		},
+	}
+	invSvc := &mockInviteService{
+		getByCodeFn: func(ctx context.Context, code string) (*invite.Invite, error) {
+			return &invite.Invite{CoachID: "coach_1"}, nil
+		},
+		acceptInviteFn: func(ctx context.Context, code, athleteID string) (*invite.AcceptResult, error) {
+			return &invite.AcceptResult{CoachName: "Coach One"}, nil
+		},
+	}
+	writer := &mockMetadataWriter{}
+	handler := NewClerkWebhookHandler(svc, invSvc, "clerk_sk_test", secret).WithMetadataWriter(writer)
+
+	status, _ := postWebhook(t, handler, body, sig)
+	if status != 200 {
+		t.Fatalf("expected status 200, got %d", status)
+	}
+	if ensuredRole != "athlete" {
+		t.Errorf("expected role athlete from public_metadata, got %q", ensuredRole)
+	}
+	if ensureCoachCalled {
+		t.Error("expected coach NOT to be provisioned for an athlete")
+	}
+	if len(writer.patches) != 1 {
+		t.Fatalf("expected 1 metadata patch, got %d", len(writer.patches))
+	}
+	if writer.patches[0]["role"] != "athlete" {
+		t.Errorf("expected role athlete mirrored to public metadata, got %v", writer.patches[0]["role"])
+	}
+}
+
+func TestClerkWebhook_CoachMirrorsRoleAndCoachCodeToPublicMetadata(t *testing.T) {
+	secret := "whsec_test123"
+	body := []byte(`{
+		"type": "user.created",
+		"data": {
+			"id": "user_coach",
+			"email_addresses": [{"email_address": "coach@example.com"}],
+			"public_metadata": {"role": "coach"},
+			"unsafe_metadata": {}
+		}
+	}`)
+	sig := svixSignature(secret, "1704067200", body)
+
+	svc := &mockUserService{
+		ensureUserFn:  func(ctx context.Context, id, email, name, role string) error { return nil },
+		ensureCoachFn: func(ctx context.Context, userID, email, name string) error { return nil },
+		getCoachByIDFn: func(ctx context.Context, userID string) (*user.Coach, error) {
+			return &user.Coach{ID: userID, CoachCode: "MR-ABCD"}, nil
+		},
+		updateAvatarFn: func(ctx context.Context, userID, avatarURL string) error { return nil },
+	}
+	writer := &mockMetadataWriter{}
+	handler := NewClerkWebhookHandler(svc, nil, "clerk_sk_test", secret).WithMetadataWriter(writer)
+
+	status, _ := postWebhook(t, handler, body, sig)
+	if status != 200 {
+		t.Fatalf("expected status 200, got %d", status)
+	}
+	if len(writer.patches) != 1 {
+		t.Fatalf("expected 1 metadata patch, got %d", len(writer.patches))
+	}
+	patch := writer.patches[0]
+	if patch["role"] != "coach" {
+		t.Errorf("expected role coach, got %v", patch["role"])
+	}
+	if patch["coachCode"] != "MR-ABCD" {
+		t.Errorf("expected coachCode MR-ABCD, got %v", patch["coachCode"])
+	}
+}

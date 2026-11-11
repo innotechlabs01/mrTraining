@@ -176,3 +176,22 @@ func (c *ClerkClient) GetPublicMetadata(ctx context.Context, userID string) (map
 	}
 	return data.PublicMetadata, nil
 }
+
+// MergePublicMetadata merges a patch into a user's public metadata.
+//
+// The Clerk Backend API replaces the whole metadata object on PATCH, so a
+// plain write would drop unrelated keys such as `membership_status`. This
+// reads the current object, merges the patch on top and writes it back.
+func (c *ClerkClient) MergePublicMetadata(ctx context.Context, userID string, patch map[string]interface{}) error {
+	current, err := c.GetPublicMetadata(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if current == nil {
+		current = map[string]interface{}{}
+	}
+	for k, v := range patch {
+		current[k] = v
+	}
+	return c.UpdatePublicMetadata(ctx, userID, current)
+}
