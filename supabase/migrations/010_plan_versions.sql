@@ -1,5 +1,25 @@
 -- plan_versions — versiones de precios y duración para planes de entrenamiento.
 -- Permite que un plan tenga múltiples versiones con diferentes precios y duraciones.
+
+CREATE TABLE IF NOT EXISTS plans (
+    id                   TEXT PRIMARY KEY,
+    name                 TEXT NOT NULL,
+    description          TEXT NOT NULL DEFAULT '',
+    price                REAL NOT NULL DEFAULT 0,
+    currency             TEXT NOT NULL DEFAULT 'USD',
+    billing_period       TEXT NOT NULL DEFAULT 'monthly',
+    max_athletes         INTEGER NOT NULL DEFAULT 10,
+    max_sessions_per_week INTEGER NOT NULL DEFAULT 12,
+    is_active            INTEGER NOT NULL DEFAULT 1,
+    athlete_count        INTEGER NOT NULL DEFAULT 0,
+    coach_id             TEXT NOT NULL DEFAULT '',
+    discount_type        TEXT NOT NULL DEFAULT '',
+    discount_value       REAL NOT NULL DEFAULT 0,
+    discount_label       TEXT NOT NULL DEFAULT '',
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS plan_versions (
     id           TEXT PRIMARY KEY,
     plan_id      TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
