@@ -141,6 +141,10 @@ func (h *ClerkWebhookHandler) Handle(c *fiber.Ctx) error {
 	return appresponse.Success(c, dto.WebhookResponse{Received: true})
 }
 
+// clerkWebhookTolerance defines the maximum allowed clock drift/replay window (5 minutes)
+// per the Svix webhook signature verification standard.
+const clerkWebhookTolerance = 5 * time.Minute
+
 // verifySignature validates the Clerk (svix) webhook signature using the
 // standard SVIX algorithm:
 //   signed = svix-id + "." + svix-timestamp + "." + raw_body
@@ -156,7 +160,16 @@ func (h *ClerkWebhookHandler) verifySignature(c *fiber.Ctx, body []byte) bool {
 		return false
 	}
 
-	// svixTimestamp is nanoseconds since epoch (or seconds). Validate presence only; tolerance handled below.
+	// Enforce timestamp tolerance against replay attacks: reject stale or future timestamps.
+	ts, err := parseSvixTimestamp(svixTimestamp)
+	if err != nil {
+		return false
+	}
+	diff := time.Since(ts)
+	if diff > clerkWebhookTolerance || diff < -clerkWebhookTolerance {
+		return false
+	}
+
 	secret := strings.TrimSpace(h.webhookSecret)
 	secret = strings.TrimPrefix(secret, "whsec_")
 	decoded, err := base64.StdEncoding.DecodeString(secret)
