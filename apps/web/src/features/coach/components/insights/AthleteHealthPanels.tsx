@@ -56,7 +56,7 @@ const METRIC_LABELS: Record<string, { label: string; unit: string; color: string
 
 function Panel({ title, icon: Icon, children, action }: { title: string; icon: LucideIcon; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 space-y-4">
+    <div className="rounded-lg border border-white/5 bg-surface-1 p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-white/70">
           <Icon size={15} className="text-brand-primary" />
@@ -326,7 +326,7 @@ export const AthleteHealthPanels = React.memo(function AthleteHealthPanels({ ath
   }, [athleteId])
 
   if (isLoading) {
-    return <div className="space-y-4">{[1,2,3,4].map(i => <div key={i} className="rounded-2xl border border-white/5 bg-surface-1 p-5 h-28 animate-pulse" />)}</div>
+    return <div className="space-y-4">{[1,2,3,4].map(i => <div key={i} className="rounded-lg border border-white/5 bg-surface-1 p-5 h-28 animate-pulse" />)}</div>
   }
   if (error || !health) return null
 
@@ -444,7 +444,7 @@ function HRZonesPanel({ athleteId }: { athleteId: string }) {
     return () => { cancelled = true }
   }, [athleteId])
 
-  if (loading) return <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 h-20 animate-pulse" />
+  if (loading) return <div className="rounded-lg border border-white/5 bg-surface-1 p-5 h-20 animate-pulse" />
   if (!zones || zones.totalTime === 0) return null
 
   const total = zones.totalTime
@@ -492,7 +492,7 @@ function VideoEngagementPanel({ athleteId }: { athleteId: string }) {
     return () => { cancelled = true }
   }, [athleteId])
 
-  if (loading) return <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 h-20 animate-pulse" />
+  if (loading) return <div className="rounded-lg border border-white/5 bg-surface-1 p-5 h-20 animate-pulse" />
   if (analytics.length === 0) return null
 
   return (

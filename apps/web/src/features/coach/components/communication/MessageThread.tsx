@@ -99,7 +99,7 @@ export default function MessageThread({ thread, onBack }: MessageThreadProps) {
               >
                 <div
                   className={cn(
-                    'max-w-[80%] rounded-2xl px-4 py-2.5',
+                    'max-w-[80%] rounded-lg px-4 py-2.5',
                     isCoach
                       ? 'bg-brand-primary text-white rounded-br-md'
                       : 'bg-surface-3 text-white rounded-bl-md',

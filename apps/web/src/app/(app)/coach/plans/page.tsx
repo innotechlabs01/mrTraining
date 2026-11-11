@@ -211,7 +211,7 @@ export default function CoachPlansPage() {
       )}
 
       {/* Form */}
-      <div className="bg-surface-1 rounded-xl border border-surface-2 p-6 mb-6">
+      <div className="bg-surface-1 rounded-xl border border-surface-6 p-6 mb-6">
         <h2 className="text-lg font-bold text-text-primary mb-4">
           {editing ? 'Editar Plan' : 'Crear Plan Nuevo'}
         </h2>
@@ -295,7 +295,7 @@ export default function CoachPlansPage() {
       </div>
 
       {/* Plans List */}
-      <div className="bg-surface-1 rounded-xl border border-surface-2 p-6">
+      <div className="bg-surface-1 rounded-xl border border-surface-6 p-6">
         <h2 className="text-lg font-bold text-text-primary mb-4">Tus Planes</h2>
         {loading ? (
           <div className="text-text-secondary text-center py-8">Cargando planes...</div>
@@ -304,7 +304,7 @@ export default function CoachPlansPage() {
         ) : (
           <div className="space-y-3">
             {plans.map((plan: Plan) => (
-              <div key={plan.id} className="p-4 rounded-lg border border-surface-2 bg-surface-2">
+              <div key={plan.id} className="p-4 rounded-lg border border-surface-6 bg-surface-2">
                 <div className="flex flex-col lg:flex-row gap-4 items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -355,10 +355,10 @@ export default function CoachPlansPage() {
         )}
       </div>
 
-      <div className="mt-8 bg-surface-1 rounded-xl border border-surface-2 p-6">
+      <div className="mt-8 bg-surface-1 rounded-xl border border-surface-6 p-6">
         <h2 className="text-lg font-bold text-text-primary mb-4">Cómo funcionan tus planes</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 rounded-lg bg-surface-2 border border-surface-2">
+          <div className="p-4 rounded-lg bg-surface-2 border border-surface-6">
             <div className="flex items-center gap-3 mb-3">
               <DollarSign size={20} className="text-brand-primary" />
               <h3 className="font-semibold text-text-primary">Cobro automático</h3>
@@ -367,7 +367,7 @@ export default function CoachPlansPage() {
               Tus atletas pagan por Wompi y tú recibes el pago directamente en tu cuenta.
             </p>
           </div>
-          <div className="p-4 rounded-lg bg-surface-2 border border-surface-2">
+          <div className="p-4 rounded-lg bg-surface-2 border border-surface-6">
             <div className="flex items-center gap-3 mb-3">
               <User size={20} className="text-brand-primary" />
               <h3 className="font-semibold text-text-primary">Gestión de atletas</h3>
@@ -376,7 +376,7 @@ export default function CoachPlansPage() {
               Cada plan tiene un límite de atletas. Controla cuántos atletas puedes entrenar.
             </p>
           </div>
-          <div className="p-4 rounded-lg bg-surface-2 border border-surface-2">
+          <div className="p-4 rounded-lg bg-surface-2 border border-surface-6">
             <div className="flex items-center gap-3 mb-3">
               <Clock size={20} className="text-brand-primary" />
               <h3 className="font-semibold text-text-primary">Facturación recurrente</h3>

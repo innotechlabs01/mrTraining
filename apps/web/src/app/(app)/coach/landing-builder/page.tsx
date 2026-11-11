@@ -168,7 +168,7 @@ export default function LandingBuilder() {
       )}
 
       <div className="space-y-6">
-        <div className="bg-surface-1 rounded-xl border border-surface-2 p-6">
+        <div className="bg-surface-1 rounded-xl border border-surface-6 p-6">
           <h2 className="text-lg font-bold text-text-primary mb-4">Configuración</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -206,11 +206,11 @@ export default function LandingBuilder() {
           </div>
         </div>
 
-        <div className="bg-surface-1 rounded-xl border border-surface-2 p-6">
+        <div className="bg-surface-1 rounded-xl border border-surface-6 p-6">
           <h2 className="text-lg font-bold text-text-primary mb-4">Secciones</h2>
           <div className="space-y-3">
             {sections.map((section: LandingSection, idx: number) => (
-              <div key={section.id} className="border border-surface-2 rounded-lg p-4 bg-surface-2">
+              <div key={section.id} className="border border-surface-6 rounded-lg p-4 bg-surface-2">
                 <div className="flex items-center justify-between mb-3">
                   <input
                     type="text"

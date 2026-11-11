@@ -35,7 +35,7 @@ export function PlansSection({ plans, loading }: { plans: Plan[]; loading: boole
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {plans.map((plan) => (
-            <div key={plan.id} className="rounded-xl border p-6 flex flex-col border-surface-2 bg-surface-2">
+            <div key={plan.id} className="rounded-xl border p-6 flex flex-col border-surface-6 bg-surface-2">
               <h3 className="text-lg font-bold text-white mb-2">{plan.name}</h3>
               <div className="flex items-baseline gap-1 mb-4">
                 <span className="text-3xl font-bold text-white">{plan.price}</span>
@@ -50,9 +50,12 @@ export function PlansSection({ plans, loading }: { plans: Plan[]; loading: boole
                   </div>
                 ))}
               </ul>
-              <button className="w-full py-3 rounded-lg text-sm font-semibold bg-brand-primary text-white hover:bg-brand-primary/90 transition-colors">
+              <a
+                href={`/sign-up?plan=${encodeURIComponent(plan.id)}`}
+                className="w-full py-3 rounded-lg text-sm font-semibold bg-brand-primary text-white hover:bg-brand-primary/90 transition-colors text-center block"
+              >
                 Elegir plan
-              </button>
+              </a>
             </div>
           ))}
         </div>

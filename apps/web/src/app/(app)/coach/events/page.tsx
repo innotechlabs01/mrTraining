@@ -204,7 +204,7 @@ export default function CoachEventsPage() {
               transition={{ delay: i * 0.04 }}
               onClick={() => setDetail(event)}
               className={cn(
-                'relative rounded-2xl border border-white/5 bg-surface-1 p-4 pl-5 hover:border-white/10 transition-all cursor-pointer border-l-2',
+                'relative rounded-lg border border-white/5 bg-surface-1 p-4 pl-5 hover:border-white/10 transition-all cursor-pointer border-l-2',
                 fmt.accent,
                 expired && 'opacity-60 hover:opacity-100',
               )}

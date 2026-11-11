@@ -164,7 +164,7 @@ function AiModal({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.92, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="w-full max-w-md bg-surface-1 rounded-2xl border border-white/10"
+            className="w-full max-w-md bg-surface-1 rounded-lg border border-white/10"
           >
             <div className="flex items-center justify-between p-5 border-b border-white/5">
               <div className="flex items-center gap-2">

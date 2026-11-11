@@ -19,7 +19,7 @@ export default function HydrationCard({
   const glassesDone = Math.floor(data.current / 250)
 
   return (
-    <div className="bg-surface-1 rounded-2xl p-5 border border-white/5">
+    <div className="bg-surface-1 rounded-lg p-5 border border-white/5">
       <div className="flex items-center gap-2 mb-4">
         <Droplets className="w-4 h-4 text-blue-400" />
         <span className="text-xs text-white/50 font-medium">Hydration</span>

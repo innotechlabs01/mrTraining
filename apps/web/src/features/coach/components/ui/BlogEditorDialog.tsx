@@ -197,7 +197,7 @@ export function BlogEditorDialog({ open, initial, onOpenChange, onSave }: BlogEd
               {/* Right: Preview Panel (sticky) */}
               <div className="lg:order-first hidden lg:block">
                 <div className="sticky top-6 space-y-4">
-                  <div className="rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden">
+                  <div className="rounded-lg border border-white/5 bg-white/[0.02] overflow-hidden">
                     <div className="flex items-center justify-between p-4 border-b border-white/5">
                       <h4 className="flex items-center gap-2 text-sm font-semibold text-white">
                         <ImageIcon size={16} className="text-brand-primary" />

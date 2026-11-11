@@ -36,9 +36,25 @@ test.describe('Public landing page — Marketing', () => {
     const count = await planCards.count();
     expect(count).toBeGreaterThanOrEqual(0);
     if (count > 0) {
-      // First card must show a renderable price + a CTA button
-      await expect(planCards.first().locator('button')).toContainText('Elegir plan');
+      // First card must show a renderable price + a CTA link
+      await expect(planCards.first().locator('a')).toContainText('Elegir plan');
     }
+  });
+
+  test('plans section renders only active plans (hidden plan is not exposed)', async ({ page }) => {
+    // Seeded data (seed_local_dev_landing.sql): 3 active plans + 1 inactive.
+    await expect(page.getByText('Plan Starter')).toBeVisible();
+    await expect(page.getByText('Plan Pro')).toBeVisible();
+    await expect(page.getByText('Plan Elite')).toBeVisible();
+    // The inactive "Plan Oculto (borrador)" must never reach the public page.
+    await expect(page.getByText('Plan Oculto')).toHaveCount(0);
+  });
+
+  test('testimonials section renders seeded coach cards', async ({ page }) => {
+    await expect(page.getByText('Camila Restrepo')).toBeVisible();
+    await expect(page.getByText('Andrés Toro')).toBeVisible();
+    // A hidden (unpublished) testimonial would appear here if RLS read leaked.
+    await expect(page.getByText('Plan Oculto (borrador)')).toHaveCount(0);
   });
 
   test('features section renders the three feature cards', async ({ page }) => {

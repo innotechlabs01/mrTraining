@@ -9,19 +9,19 @@ import Link from 'next/link'
 // Lazy-loaded panels — not in initial bundle
 const AthleteResumenPanel = dynamic(
   () => import('@/features/coach/components/insights/AthleteResumenPanel').then(mod => mod.AthleteResumenPanel),
-  { loading: () => <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 h-32 animate-pulse" /> },
+  { loading: () => <div className="rounded-lg border border-white/5 bg-surface-1 p-5 h-32 animate-pulse" /> },
 )
 const AthleteTrainingPanels = dynamic(
   () => import('@/features/coach/components/insights/AthleteTrainingPanels').then(mod => mod.AthleteTrainingPanels),
-  { loading: () => <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 h-32 animate-pulse" /> },
+  { loading: () => <div className="rounded-lg border border-white/5 bg-surface-1 p-5 h-32 animate-pulse" /> },
 )
 const AthleteHealthPanels = dynamic(
   () => import('@/features/coach/components/insights/AthleteHealthPanels').then(mod => mod.AthleteHealthPanels),
-  { loading: () => <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 h-32 animate-pulse" /> },
+  { loading: () => <div className="rounded-lg border border-white/5 bg-surface-1 p-5 h-32 animate-pulse" /> },
 )
 const AthleteRunningPanel = dynamic(
   () => import('@/features/coach/components/insights/AthleteRunningPanel').then(mod => mod.AthleteRunningPanel),
-  { loading: () => <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 h-32 animate-pulse" /> },
+  { loading: () => <div className="rounded-lg border border-white/5 bg-surface-1 p-5 h-32 animate-pulse" /> },
 )
 
 // Per-icon lucide imports (tree-shake friendly)

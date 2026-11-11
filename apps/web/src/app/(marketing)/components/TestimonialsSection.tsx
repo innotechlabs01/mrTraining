@@ -9,26 +9,6 @@ interface Testimonial {
 }
 
 export function TestimonialsSection({ testimonials, loading }: { testimonials: Testimonial[]; loading: boolean }) {
-  if (loading) {
-    return (
-      <section id="testimonios" className="py-20 px-4 sm:px-6 lg:px-8 bg-[#0a0a0a]">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-20 text-text-secondary">Cargando testimonios...</div>
-        </div>
-      </section>
-    );
-  }
-
-  if (testimonials.length === 0) {
-    return (
-      <section id="testimonios" className="py-20 px-4 sm:px-6 lg:px-8 bg-[#0a0a0a]">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-20 text-text-secondary">No hay testimonios aún.</div>
-        </div>
-      </section>
-    );
-  }
-
   return (
     <section id="testimonios" className="py-20 px-4 sm:px-6 lg:px-8 bg-[#0a0a0a]">
       <div className="max-w-7xl mx-auto">
@@ -36,9 +16,15 @@ export function TestimonialsSection({ testimonials, loading }: { testimonials: T
           <h2 className="text-2xl font-bold text-white">Lo que dicen nuestros coaches</h2>
           <p className="mt-4 text-text-secondary">Historias reales de coaches que crecieron con MR Training</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        {loading ? (
+          <div className="text-center py-20 text-text-secondary">Cargando testimonios...</div>
+        ) : testimonials.length === 0 ? (
+          <div className="text-center py-20 text-text-secondary">No hay testimonios aún.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {testimonials.map((t) => (
-            <div key={t.id} className="rounded-xl border border-surface-2 bg-surface-1 p-6">
+            <div key={t.id} className="rounded-xl border border-surface-6 bg-surface-1 p-6">
               <div className="flex items-center gap-2 mb-4">
                 {[1, 2, 3, 4, 5].map((s, i) => (
                   <span key={s} className={i < t.stars ? 'text-yellow-400' : 'text-gray-400'}>
@@ -58,7 +44,8 @@ export function TestimonialsSection({ testimonials, loading }: { testimonials: T
               </div>
             </div>
           ))}
-        </div>
+          </div>
+        )}
       </div>
     </section>
   );

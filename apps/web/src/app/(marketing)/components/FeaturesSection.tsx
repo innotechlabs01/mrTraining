@@ -14,7 +14,7 @@ export function FeaturesSection() {
             { title: 'Sin contratos', desc: 'Cancela cuando quieras. Sin compromisos a largo plazo.' },
             { title: 'Resultados medibles', desc: 'Mide el progreso real de tus atletas con métricas objetivas.' },
           ].map((f) => (
-            <div key={f.title} className="rounded-xl border border-surface-2 bg-surface-1 p-6">
+            <div key={f.title} className="rounded-xl border border-surface-6 bg-surface-1 p-6">
               <h3 className="text-lg font-semibold text-white">{f.title}</h3>
               <p className="mt-2 text-sm text-gray-400">{f.desc}</p>
             </div>

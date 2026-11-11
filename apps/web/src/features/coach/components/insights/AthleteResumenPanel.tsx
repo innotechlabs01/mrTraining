@@ -169,12 +169,12 @@ const AthleteResumenPanelInner = React.memo(function AthleteResumenPanel({ athle
   }, [athleteId])
 
   if (loading) {
-    return <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 h-32 animate-pulse" />
+    return <div className="rounded-lg border border-white/5 bg-surface-1 p-5 h-32 animate-pulse" />
   }
   if (!data) return null
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 space-y-4">
+    <div className="rounded-lg border border-white/5 bg-surface-1 p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-white/70 flex items-center gap-2">
           <Activity size={14} className="text-brand-primary" />

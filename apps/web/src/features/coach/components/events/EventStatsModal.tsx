@@ -108,7 +108,7 @@ export function EventStatsModal({ event, onClose }: EventStatsModalProps) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto bg-surface-1 border border-white/10 rounded-2xl shadow-2xl">
+      <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto bg-surface-1 border border-white/10 rounded-lg shadow-2xl">
         <div className="relative px-6 pt-6 pb-5 border-b border-white/10">
           <button onClick={onClose} className="absolute top-5 right-5 text-white/40 hover:text-white transition-colors" aria-label="Cerrar">
             <X className="w-5 h-5" />

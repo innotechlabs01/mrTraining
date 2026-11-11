@@ -124,7 +124,7 @@ export function ProductDialog({ open, initial, onOpenChange, onSave }: ProductDi
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-2xl rounded-2xl border border-white/10 bg-surface-1 shadow-2xl overflow-hidden"
+        className="w-full max-w-2xl rounded-lg border border-white/10 bg-surface-1 shadow-2xl overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-white/5 bg-white/[0.02] px-6 py-4">

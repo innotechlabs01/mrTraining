@@ -10,7 +10,7 @@ interface PlanCardProps {
 export function PlanCard({ plan, coachUsername }: PlanCardProps) {
   const planSlug = plan.name.toLowerCase().replace(/\s+/g, '-');
   return (
-    <Card className="border border-[var(--border)] bg-surface-1 rounded-2xl p-0 overflow-hidden flex flex-col h-full group">
+    <Card className="border border-[var(--border)] bg-surface-1 rounded-lg p-0 overflow-hidden flex flex-col h-full group">
       <CardContent className="p-6 pt-5">
         <h3 className="text-h4 font-display text-[var(--text)] mb-2">{plan.name}</h3>
         <p className="text-body-sm text-[var(--text-secondary)] leading-relaxed mb-4 line-clamp-2">

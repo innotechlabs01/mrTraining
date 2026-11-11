@@ -10,11 +10,13 @@ import { CoachPanelContext } from './CoachPanelContext'
 import { CoachSidebar } from '../navigation/CoachSidebar'
 import { TopBar } from './TopBar'
 import { RightPanel } from './RightPanel'
+import { useMembershipStatus } from '@/features/coach/hooks/useMembershipStatus'
 
 export { useCoachPanel } from './CoachPanelContext'
 
 export default function CoachLayout({ children }: { children: React.ReactNode }) {
   const { user } = useUser()
+  const { status: membershipStatus } = useMembershipStatus()
   useSessionTimeout()
   const [panel, setPanel] = useState<PanelState>({ type: null, data: {} })
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -48,15 +50,16 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
       certifications: (u.certifications as string[]) ?? [],
       coachCode: (u.coachCode as string) ?? '',
       createdAt: '',
+      membershipStatus,
     }
-  }, [user])
+  }, [user, membershipStatus])
 
   return (
     <CoachPanelContext.Provider value={value}>
       <CoachProfileProvider initialProfile={coachProfile}>
         <div className="relative min-h-screen bg-surface-0">
-          <CoachSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-          <TopBar onMenuClick={() => setSidebarOpen(true)} user={coachProfile} />
+          <CoachSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} membershipStatus={membershipStatus} />
+          <TopBar onMenuClick={() => setSidebarOpen(true)} user={coachProfile} membershipStatus={membershipStatus} />
           <main className="pt-14 min-h-screen lg:ml-60">{children}</main>
           <RightPanel />
         </div>

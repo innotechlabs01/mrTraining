@@ -21,7 +21,7 @@ export function HeroSection() {
               <Link href="#planes" className="flex-1 lg:flex-none px-6 py-4 rounded-xl bg-brand-primary text-white text-lg font-semibold hover:bg-brand-primary/90 transition-colors">
                 Ver planes
               </Link>
-              <a href="#como-funciona" className="flex-1 lg:flex-none px-6 py-4 rounded-lg border border-surface-2 text-white hover:bg-surface-2 transition-colors">
+              <a href="#como-funciona" className="flex-1 lg:flex-none px-6 py-4 rounded-lg border border-surface-6 text-white hover:bg-surface-2 transition-colors">
                 Cómo funciona
               </a>
             </div>

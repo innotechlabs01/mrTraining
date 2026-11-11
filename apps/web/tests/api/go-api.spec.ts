@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { checkGoApiHealth, checkWebApiHealth, testUsers, getClerkTokenViaAPI, goApiRequest } from '../helpers/api';
+import { checkGoApiHealth, checkWebApiHealth, testUsers, getClerkToken, goApiRequest } from '../helpers/api';
 
 test.describe('API Health & Connectivity', () => {
   test('Go API should be healthy', async ({ request }) => {
@@ -17,7 +17,7 @@ test.describe('Go API - User Endpoints (Authenticated)', () => {
   let coachToken: string;
 
   test.beforeAll(async ({ request }) => {
-    coachToken = await getClerkTokenViaAPI(request);
+    coachToken = await getClerkToken(request, testUsers[0]);
   });
 
   test('GET /users/me should return current user with coach profile', async ({ request }) => {
@@ -81,7 +81,7 @@ test.describe('Go API - Coach Profile', () => {
   let coachToken: string;
 
   test.beforeAll(async ({ request }) => {
-    coachToken = await getClerkTokenViaAPI(request);
+    coachToken = await getClerkToken(request, testUsers[0]);
   });
 
   test('GET /coaches/me should return coach profile via /users/me', async ({ request }) => {

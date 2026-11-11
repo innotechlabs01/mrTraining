@@ -19,7 +19,7 @@ export default function PublicEventPage() {
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-3">
           <div className="h-8 w-40 rounded bg-surface-3 animate-pulse mx-auto" />
-          <div className="h-48 rounded-2xl bg-surface-2 animate-pulse" />
+          <div className="h-48 rounded-lg bg-surface-2 animate-pulse" />
         </div>
       </div>
     );

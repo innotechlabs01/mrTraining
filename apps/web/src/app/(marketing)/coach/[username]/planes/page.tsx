@@ -32,7 +32,7 @@ export default function CoachPlansLandingPage() {
           <div className="h-4 w-64 bg-surface-2 animate-pulse rounded mx-auto" />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-2xl border border-white/10 bg-surface-1 p-6 animate-pulse space-y-4">
+              <div key={i} className="rounded-lg border border-white/10 bg-surface-1 p-6 animate-pulse space-y-4">
                 <div className="h-4 w-3/4 bg-white/10 rounded" />
                 <div className="h-12 bg-white/5 rounded" />
                 <div className="h-8 w-1/2 bg-white/10 rounded" />
@@ -105,7 +105,7 @@ export default function CoachPlansLandingPage() {
               return (
                 <article
                   key={plan.id}
-                  className="relative flex flex-col rounded-2xl border border-white/10 bg-surface-1 p-5
+                  className="relative flex flex-col rounded-lg border border-white/10 bg-surface-1 p-5
                            transition-colors hover:border-white/20 focus-within:border-brand-primary"
                 >
                   <h3 className="text-sm font-semibold text-white">{plan.name}</h3>
