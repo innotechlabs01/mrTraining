@@ -45,6 +45,8 @@ type fakeSubRepo struct {
 	saved         []*subscriptiondomain.Subscription
 	getPayment    *subscriptiondomain.Payment
 	getPaymentErr error
+	// hasApprovedPayment drives the payment status reported by the service.
+	hasApprovedPayment bool
 }
 
 func (f *fakeSubRepo) Save(ctx context.Context, s *subscriptiondomain.Subscription) error {
@@ -84,6 +86,59 @@ func (f *fakeSubRepo) GetPaymentByProviderID(ctx context.Context, providerPaymen
 		return nil, f.getPaymentErr
 	}
 	return f.getPayment, nil
+}
+
+func (f *fakeSubRepo) HasApprovedPayment(ctx context.Context, subscriptionID string) (bool, error) {
+	return f.hasApprovedPayment, nil
+}
+
+func TestGetPaymentStatus(t *testing.T) {
+	sub := &subscriptiondomain.Subscription{
+		ID:      "sub_1",
+		PlanID:  "plan-seed-pro",
+		PlanName: "Plan Pro",
+	}
+
+	t.Run("no subscription", func(t *testing.T) {
+		svc := NewService(&config.Config{}, &fakeSubRepo{}, &fakeProvider{}, &fakePlanRepo{}, nil, nil)
+		status, got, err := svc.GetPaymentStatus(context.Background(), "coach_1")
+		if err != nil {
+			t.Fatalf("GetPaymentStatus failed: %v", err)
+		}
+		if status != PaymentStatusNone {
+			t.Errorf("expected status %q, got %q", PaymentStatusNone, status)
+		}
+		if got != nil {
+			t.Errorf("expected no subscription, got %v", got)
+		}
+	})
+
+	t.Run("subscription without approved payment is pending", func(t *testing.T) {
+		repo := &fakeSubRepo{byAthlete: sub}
+		svc := NewService(&config.Config{}, repo, &fakeProvider{}, &fakePlanRepo{}, nil, nil)
+		status, got, err := svc.GetPaymentStatus(context.Background(), "coach_1")
+		if err != nil {
+			t.Fatalf("GetPaymentStatus failed: %v", err)
+		}
+		if status != PaymentStatusPending {
+			t.Errorf("expected status %q, got %q", PaymentStatusPending, status)
+		}
+		if got == nil || got.PlanID != "plan-seed-pro" {
+			t.Errorf("expected the subscription to be returned, got %v", got)
+		}
+	})
+
+	t.Run("approved payment is approved", func(t *testing.T) {
+		repo := &fakeSubRepo{byAthlete: sub, hasApprovedPayment: true}
+		svc := NewService(&config.Config{}, repo, &fakeProvider{}, &fakePlanRepo{}, nil, nil)
+		status, _, err := svc.GetPaymentStatus(context.Background(), "coach_1")
+		if err != nil {
+			t.Fatalf("GetPaymentStatus failed: %v", err)
+		}
+		if status != PaymentStatusApproved {
+			t.Errorf("expected status %q, got %q", PaymentStatusApproved, status)
+		}
+	})
 }
 
 type fakeProvider struct {
@@ -254,8 +309,48 @@ func TestServiceFulfillWebhookApproved(t *testing.T) {
 	assert.Len(t, subRepo.saved, 1)
 }
 
-func TestServiceFulfillWebhookInvalidSignature(t *testing.T) {
+// The payment status the frontend polls must flip to "approved" only AFTER
+// the provider webhook recorded the payment — that is the whole point of the
+// status endpoint.
+func TestGetPaymentStatus_FlipsToApprovedAfterTheWebhook(t *testing.T) {
 	ctx := context.Background()
+	sub := &subscriptiondomain.Subscription{
+		ID:            "sub_1",
+		AthleteID:     "coach_1",
+		CoachID:       "coach_1",
+		BillingPeriod: "monthly",
+		Status:        subscriptiondomain.StatusActive,
+	}
+	subRepo := &fakeSubRepo{byID: sub, byAthlete: sub}
+	approved := time.Now().UTC()
+	provider := &fakeProvider{
+		payment: &subscriptiondomain.ProviderPayment{
+			ID:                "pay_1",
+			Status:            "approved",
+			ExternalReference: "subscription:sub_1",
+			TransactionAmount: 49900,
+			Currency:          "COP",
+			DateApproved:      &approved,
+		},
+	}
+	svc := NewService(&config.Config{}, subRepo, provider, &fakePlanRepo{plan: newPlan()}, nil, nil)
+
+	status, _, err := svc.GetPaymentStatus(ctx, "coach_1")
+	require.NoError(t, err)
+	assert.Equal(t, PaymentStatusPending, status)
+
+	require.NoError(t, svc.FulfillWebhook(ctx, subscriptiondomain.WebhookRequest{
+		Body:            []byte(`{"type":"payment","data":{"id":"pay_1"}}`),
+		SignatureHeader: "ts=1,v1=abc",
+	}))
+
+	subRepo.hasApprovedPayment = true
+	status, _, err = svc.GetPaymentStatus(ctx, "coach_1")
+	require.NoError(t, err)
+	assert.Equal(t, PaymentStatusApproved, status)
+}
+
+func TestServiceFulfillWebhookInvalidSignature(t *testing.T) {	ctx := context.Background()
 	svc := NewService(&config.Config{}, &fakeSubRepo{}, &fakeProvider{verifyErr: subscriptiondomain.ErrInvalidSignature}, &fakePlanRepo{plan: newPlan()}, nil, nil)
 
 	err := svc.FulfillWebhook(ctx, subscriptiondomain.WebhookRequest{Body: []byte("{}"), SignatureHeader: "bad"})
