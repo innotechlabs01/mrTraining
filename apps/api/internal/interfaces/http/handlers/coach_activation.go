@@ -52,17 +52,12 @@ func (h *CoachActivationHandler) RegisterCoachActivationRoutes(api fiber.Router)
 // It provisions the coach profile for the authenticated caller (users row,
 // coaches row, coach code) and mirrors role + coach code into Clerk's PUBLIC
 // metadata. It is idempotent: calling it twice returns the same coach code.
+//
+// The request carries no target user: the target is always the caller.
 func (h *CoachActivationHandler) HandleActivate(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
 	if userID == "" {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
-	}
-
-	var req dto.CoachActivateRequest
-	if len(c.Body()) > 0 {
-		if err := c.BodyParser(&req); err != nil {
-			return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
-		}
 	}
 
 	result, err := h.svc.ActivateCoach(c.Context(), userapp.ActivateCommand{UserID: userID})

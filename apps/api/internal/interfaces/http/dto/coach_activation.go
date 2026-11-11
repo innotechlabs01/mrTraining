@@ -1,16 +1,5 @@
 package dto
 
-// CoachActivateRequest is the payload for activating a coach account.
-//
-// The target user is ALWAYS the authenticated caller: the request carries no
-// user id, so a client cannot provision a coach profile for somebody else.
-type CoachActivateRequest struct {
-	// PlanID is the platform plan the coach is activating. Optional: the
-	// checkout is a separate call, but keeping it here lets the API validate
-	// the plan exists and is active.
-	PlanID string `json:"plan_id"`
-}
-
 // CoachActivateResponse is the result of a coach activation.
 type CoachActivateResponse struct {
 	CoachID   string `json:"coach_id"`
