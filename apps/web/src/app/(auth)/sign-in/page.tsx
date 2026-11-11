@@ -1,79 +1,99 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth, useUser } from '@clerk/nextjs';
 import { AuthShell } from '@/features/auth/components/AuthShell';
 import { SignInForm } from '@/features/auth/components/SignInForm';
-import { motion } from 'framer-motion';
-import { ClipboardList } from 'lucide-react';
 import { useI18n } from '@/features/shared/hooks/useI18n';
-import { cn } from '@/lib/utils';
-
-const ROLES = [
-  { id: 'coach', label: 'Coach', icon: ClipboardList, desc: 'Manage athletes & create programs' },
-];
 
 const SUPER_ADMIN_IDS = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
 
 export default function SignInPage() {
   const router = useRouter();
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded, sessionClaims, userId } = useAuth();
   const { user } = useUser();
-  const [role, setRole] = useState<string | null>(null);
   const { t } = useI18n('common');
 
+  /**
+   * Resolves where a signed-in user belongs.
+   *
+   * The role comes from the Clerk PUBLIC metadata, which only the Go API
+   * writes — the client cannot forge it. A coach that has not finished the
+   * activation flow yet is sent to the onboarding instead of the dashboard.
+   */
   useEffect(() => {
-    if (isLoaded && isSignedIn && user) {
-      if (SUPER_ADMIN_IDS.includes(user.id)) {
-        router.replace('/admin/dashboard');
-      } else {
-        router.replace('/coach');
-      }
-    }
-  }, [isLoaded, isSignedIn, user, router]);
+    if (!isLoaded || !isSignedIn) return;
 
-  const handleSuccess = () => {
-    if (SUPER_ADMIN_IDS.includes(user?.id || '')) {
-      router.push('/admin/dashboard');
-    } else {
-      router.push('/coach');
+    // sessionClaims are on the session token, so they are available as soon
+    // as the session exists. The `user` object can still be loading and was
+    // what stalled this redirect after POST /sign-in.
+    const claims = sessionClaims as { publicMetadata?: Record<string, unknown> } | null | undefined;
+    const metadataRole = (claims?.publicMetadata?.role ??
+      (user?.publicMetadata as Record<string, unknown> | undefined)?.role) as string | undefined;
+    const id = userId ?? user?.id;
+    const isSuperAdmin = (id !== undefined && SUPER_ADMIN_IDS.includes(id)) || metadataRole === 'super_admin';
+
+    if (isSuperAdmin) {
+      router.replace('/admin/dashboard');
+      return;
     }
+
+    if (metadataRole === 'coach') {
+      router.replace('/coach/plan');
+      return;
+    }
+
+    if (!user) {
+      // Role still undetermined and the user object has not arrived yet —
+      // keep waiting instead of guessing. The effect re-runs once `user`
+      // loads.
+      return;
+    }
+
+    // Athletes live on mobile and users without a role belong on the public
+    // landing. Never /coach or /sign-in: the middleware bounces both back.
+    router.replace('/');
+  }, [isLoaded, isSignedIn, sessionClaims, userId, user, router]);
+
+  // NOTE: SignInForm calls this the instant attemptFirstFactor() completes —
+  // Clerk's session state (and sessionClaims) may not have propagated yet, so
+  // reading roles here can be stale. We only act when the role is unambiguous;
+  // otherwise the effect above routes once isSignedIn flips.
+  const handleSuccess = () => {
+    const claims = sessionClaims as { publicMetadata?: Record<string, unknown> } | null | undefined;
+    const metadataRole = (claims?.publicMetadata?.role ??
+      (user?.publicMetadata as Record<string, unknown> | undefined)?.role) as string | undefined;
+    const id = userId ?? user?.id;
+    const isSuperAdmin = (id !== undefined && SUPER_ADMIN_IDS.includes(id)) || metadataRole === 'super_admin';
+
+    if (isSuperAdmin) {
+      router.push('/admin/dashboard');
+    } else if (metadataRole === 'coach') {
+      router.push('/coach/plan');
+    }
+    // Unknown role: do nothing, let the effect decide.
   };
+
+  // An already signed-in user never sees the sign-in form: they are routed to
+  // their own home. The "Ya tienes una sesión activa" error is gone.
+  if (isLoaded && isSignedIn) {
+    return (
+      <AuthShell title={t('welcome')} subtitle={t('signInSubtitle')}>
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-primary"></div>
+        </div>
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell title={t('welcome')} subtitle={t('signInSubtitle')}>
       <Suspense fallback={null}>
-        {!role ? (
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-text-secondary text-center mb-2">{t('auth.iAm')}</p>
-            <div className="grid grid-cols-6 gap-3">
-              {ROLES.map((r) => (
-                <motion.button
-                  key={r.id}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setRole(r.id)}
-                  className={cn(
-                    'flex flex-col items-center gap-3 p-5 rounded-xl border border-surface-3 bg-surface-1 hover:bg-surface-2 transition-colors text-center',
-                    role === r.id && 'border-brand-primary bg-brand-primary/5',
-                  )}
-                >
-                  <r.icon size={28} className="text-brand-primary" />
-                  <span className="text-sm font-semibold text-text-primary">{r.label}</span>
-                  <span className="text-xs text-text-secondary">{r.desc}</span>
-                </motion.button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <SignInForm
-            onSuccess={handleSuccess}
-            onForgotPassword={() => router.push('/forgot-password')}
-            onBack={() => setRole(null)}
-            role={role}
-          />
-        )}
+        <SignInForm
+          onSuccess={handleSuccess}
+          onForgotPassword={() => router.push('/forgot-password')}
+        />
       </Suspense>
     </AuthShell>
   );
