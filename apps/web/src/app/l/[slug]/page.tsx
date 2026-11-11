@@ -30,8 +30,18 @@ export default async function PublicLandingPage({
 
   const data: LandingPage = await res.json();
 
-  const sections = data.sections ? JSON.parse(data.sections) : [];
-  const images = data.images ? JSON.parse(data.images) : [];
+  interface LandingSectionItem {
+    title?: string;
+    copy?: string;
+  }
+
+  interface LandingSection {
+    title?: string;
+    items?: LandingSectionItem[];
+  }
+
+  const sections: LandingSection[] = data.sections ? JSON.parse(data.sections) : [];
+  const _images = data.images ? JSON.parse(data.images) : [];
   const config = data.config ? JSON.parse(data.config) : {};
 
   const primaryColor = config.primary_color || '#15AAF2';
@@ -64,11 +74,11 @@ export default async function PublicLandingPage({
           <h1><span className="accent">{data.title}</span>{data.subtitle ? <span> — {data.subtitle}</span> : null}</h1>
         </header>
         <main className="sections">
-          {sections.map((section: any, i: number) => (
+          {sections.map((section: LandingSection, i: number) => (
             <section key={i} className="section">
               <h2>{section.title || 'Sección'}</h2>
               <div className="grid-3">
-                {(section.items || []).map((item: any, j: number) => (
+                {(section.items || []).map((item: LandingSectionItem, j: number) => (
                   <div key={j} className="card">
                     <h3>{item.title}</h3>
                     <p>{item.copy}</p>
