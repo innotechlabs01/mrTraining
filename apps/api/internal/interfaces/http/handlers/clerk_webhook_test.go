@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -99,6 +100,20 @@ func svixSignature(secret, timestamp string, body []byte) string {
 	return "v1=" + hex.EncodeToString(mac.Sum(nil))
 }
 
+// svixSignatureBase64 builds the signature the way svix/Clerk actually send
+// it: base64 of the raw HMAC, with the secret decoded from base64.
+func svixSignatureBase64(secret, timestamp string, body []byte) string {
+	secret = strings.TrimPrefix(secret, "whsec_")
+	key, err := base64.StdEncoding.DecodeString(secret)
+	if err != nil {
+		key = []byte(secret)
+	}
+	signedPayload := "msg_123." + timestamp + "." + string(body)
+	mac := hmac.New(sha256.New, key)
+	mac.Write([]byte(signedPayload))
+	return "v1," + base64.StdEncoding.EncodeToString(mac.Sum(nil))
+}
+
 func postWebhook(t *testing.T, handler *ClerkWebhookHandler, body []byte, signature string) (int, string) {
 	t.Helper()
 
@@ -181,6 +196,37 @@ func TestClerkWebhook_ValidSignature_UserCreatedCoach(t *testing.T) {
 	}
 	if !ensureCoachCalled {
 		t.Error("expected EnsureCoach to be called")
+	}
+}
+
+func TestClerkWebhook_RealSvixBase64Signature_IsAccepted(t *testing.T) {
+	// This is the format svix (and therefore Clerk) actually sends:
+	// "v1,<base64 of the raw HMAC>" with the secret decoded from base64.
+	secret := "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+	body := []byte(`{
+		"type": "user.created",
+		"data": {
+			"id": "user_signed",
+			"email_addresses": [{"email_address": "signed@example.com"}],
+			"public_metadata": {"role": "coach"},
+			"unsafe_metadata": {}
+		}
+	}`)
+	sig := svixSignatureBase64(secret, "1704067200", body)
+
+	svc := &mockUserService{
+		ensureUserFn:  func(ctx context.Context, id, email, name, role string) error { return nil },
+		ensureCoachFn: func(ctx context.Context, userID, email, name string) error { return nil },
+		getCoachByIDFn: func(ctx context.Context, userID string) (*user.Coach, error) {
+			return &user.Coach{ID: userID, CoachCode: "MR-REAL"}, nil
+		},
+		updateAvatarFn: func(ctx context.Context, userID, avatarURL string) error { return nil },
+	}
+	handler := NewClerkWebhookHandler(svc, nil, "clerk_sk_test", secret)
+
+	status, respBody := postWebhook(t, handler, body, sig)
+	if status != 200 {
+		t.Fatalf("expected status 200 for a real svix base64 signature, got %d (%s)", status, respBody)
 	}
 }
 
@@ -325,8 +371,7 @@ func (m *mockMetadataWriter) MergePublicMetadata(ctx context.Context, userID str
 	return nil
 }
 
-func TestClerkWebhook_PublicMetadataRoleAthlete_ProvisionsAthlete(t *testing.T) {
-	secret := "whsec_test123"
+func TestClerkWebhook_PublicMetadataRoleAthlete_ProvisionsAthlete(t *testing.T) {	secret := "whsec_test123"
 	body := []byte(`{
 		"type": "user.created",
 		"data": {
@@ -376,6 +421,59 @@ func TestClerkWebhook_PublicMetadataRoleAthlete_ProvisionsAthlete(t *testing.T) 
 	}
 	if writer.patches[0]["role"] != "athlete" {
 		t.Errorf("expected role athlete mirrored to public metadata, got %v", writer.patches[0]["role"])
+	}
+}
+
+func TestClerkWebhook_AthleteWithoutCoachCode_IsProvisionedWithoutCoach(t *testing.T) {
+	secret := "whsec_test123"
+	body := []byte(`{
+		"type": "user.created",
+		"data": {
+			"id": "user_athlete",
+			"email_addresses": [{"email_address": "athlete@example.com"}],
+			"public_metadata": {"role": "athlete"},
+			"unsafe_metadata": {}
+		}
+	}`)
+	sig := svixSignature(secret, "1704067200", body)
+
+	var ensuredRole string
+	var athleteProfileCreated bool
+	var inviteLookedUp bool
+	svc := &mockUserService{
+		ensureUserFn: func(ctx context.Context, id, email, name, role string) error {
+			ensuredRole = role
+			return nil
+		},
+		ensureAthleteFn: func(ctx context.Context, userID, email, name string) error {
+			athleteProfileCreated = true
+			return nil
+		},
+	}
+	invSvc := &mockInviteService{
+		getByCodeFn: func(ctx context.Context, code string) (*invite.Invite, error) {
+			inviteLookedUp = true
+			return nil, errors.New("must not be called")
+		},
+	}
+	writer := &mockMetadataWriter{}
+	handler := NewClerkWebhookHandler(svc, invSvc, "clerk_sk_test", secret).WithMetadataWriter(writer)
+
+	status, _ := postWebhook(t, handler, body, sig)
+	if status != 200 {
+		t.Fatalf("expected status 200, got %d", status)
+	}
+	if ensuredRole != "athlete" {
+		t.Errorf("expected role athlete, got %q", ensuredRole)
+	}
+	if !athleteProfileCreated {
+		t.Error("expected the athlete profile to be created")
+	}
+	if inviteLookedUp {
+		t.Error("expected no invite lookup for an athlete without a coach code")
+	}
+	if len(writer.patches) != 1 || writer.patches[0]["role"] != "athlete" {
+		t.Errorf("expected the athlete role mirrored to public metadata, got %v", writer.patches)
 	}
 }
 

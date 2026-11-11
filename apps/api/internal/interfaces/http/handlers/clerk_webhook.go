@@ -188,7 +188,9 @@ func (h *ClerkWebhookHandler) verifySignature(c *fiber.Ctx, body []byte) bool {
 	signed := svixID + "." + svixTimestamp + "." + string(body)
 	mac := hmac.New(sha256.New, decoded)
 	mac.Write([]byte(signed))
-	expected := hex.EncodeToString(mac.Sum(nil))
+	expectedRaw := mac.Sum(nil)
+	expectedHex := hex.EncodeToString(expectedRaw)
+	expectedB64 := base64.StdEncoding.EncodeToString(expectedRaw)
 
 	// svix-signature may contain multiple "v1,<base64sig>" separated by spaces.
 	for _, part := range strings.Fields(svixSignature) {
@@ -199,15 +201,22 @@ func (h *ClerkWebhookHandler) verifySignature(c *fiber.Ctx, body []byte) bool {
 			} else if strings.HasPrefix(value, "v1") {
 				continue
 			}
-			// svix signatures are base64, while our hmac is hex; compare both encodings.
-			if hmac.Equal([]byte(value), []byte(expected)) {
+			// Clerk sends the signature base64 encoded. Compare the raw digest
+			// against the DECODED signature and the encoded digests against the
+			// encoded signature — comparing the 32 raw bytes with the 64 bytes
+			// of a hex string can never match, which rejected every real
+			// Clerk event.
+			if hmac.Equal([]byte(value), []byte(expectedB64)) {
 				return true
 			}
-			// Try base64 decode of the provided signature.
-			if provided, err := base64.StdEncoding.DecodeString(value); err == nil {
-				if hmac.Equal(provided, []byte(expected)) {
-					return true
-				}
+			if hmac.Equal([]byte(value), []byte(expectedHex)) {
+				return true
+			}
+			if provided, err := base64.StdEncoding.DecodeString(value); err == nil && hmac.Equal(provided, expectedRaw) {
+				return true
+			}
+			if provided, err := base64.RawStdEncoding.DecodeString(value); err == nil && hmac.Equal(provided, expectedRaw) {
+				return true
 			}
 		}
 	}
@@ -250,10 +259,18 @@ func (h *ClerkWebhookHandler) provisionUser(ctx context.Context, userID, email, 
 	coachCode, _ := unsafeMeta["coachCode"].(string)
 	coachCode = strings.TrimSpace(coachCode)
 
-	if role == "athlete" || (role == "" && coachCode != "") {
+	switch {
+	case role == "athlete" && coachCode != "":
+		// An athlete joining a coach with an invite code.
 		return h.provisionAthlete(ctx, userID, email, name, avatar, coachCode)
+	case role == "athlete":
+		// An athlete with no coach yet: the profile is created and the coach
+		// link is added later through the invite flow. Validating an empty
+		// coach code here would fail the whole webhook.
+		return h.provisionAthleteWithoutCoach(ctx, userID, email, name, avatar)
+	default:
+		return h.provisionCoach(ctx, userID, email, name, avatar)
 	}
-	return h.provisionCoach(ctx, userID, email, name, avatar)
 }
 
 // provisionCoach creates the base user row and coach profile, generates a
@@ -288,6 +305,26 @@ func (h *ClerkWebhookHandler) provisionCoach(ctx context.Context, userID, email,
 		})
 	}
 
+	return nil
+}
+
+// provisionAthleteWithoutCoach creates the athlete profile for a user that
+// has no coach yet. The coach link is added later through the invite flow.
+func (h *ClerkWebhookHandler) provisionAthleteWithoutCoach(ctx context.Context, userID, email, name, avatar string) error {
+	if err := h.userService.EnsureUser(ctx, userID, email, name, "athlete"); err != nil {
+		return fmt.Errorf("ensure user: %w", err)
+	}
+	if err := h.userService.EnsureAthleteProfile(ctx, userID, email, name); err != nil {
+		return fmt.Errorf("ensure athlete profile: %w", err)
+	}
+	if avatar != "" {
+		_ = h.userService.UpdateUserAvatar(ctx, userID, avatar)
+	}
+	if h.metadata != nil {
+		_ = h.metadata.MergePublicMetadata(ctx, userID, map[string]interface{}{
+			"role": "athlete",
+		})
+	}
 	return nil
 }
 
