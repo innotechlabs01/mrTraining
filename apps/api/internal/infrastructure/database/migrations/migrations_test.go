@@ -2,6 +2,9 @@ package migrations
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,9 +14,47 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
-// newTestDB connects to PostgreSQL via DATABASE_URL. Skips when not configured.
+// newTestDB connects to a THROWAWAY PostgreSQL database dedicated to this
+// test run.
+//
+// It used to connect to the shared development database and "reset" it by
+// dropping the `users` table with CASCADE — which silently destroyed the
+// real application data (and every table with a foreign key to it) whenever
+// the suite was run. The test database is now created and dropped around the
+// run, so it can never touch the development data.
 func newTestDB(t *testing.T) *database.DB {
 	t.Helper()
+
+	adminURL := resolveAdminURL()
+	admin, err := database.Connect(adminURL)
+	if err != nil {
+		t.Skipf("skipping: cannot connect to PostgreSQL: %v", err)
+	}
+	defer admin.Close()
+
+	name := fmt.Sprintf("mr_training_migrations_test_%d_%s", os.Getpid(), randomSuffix())
+	if _, err := admin.DB.ExecContext(context.Background(), fmt.Sprintf(`CREATE DATABASE %q`, name)); err != nil {
+		t.Skipf("skipping: cannot create a test database: %v", err)
+	}
+	t.Cleanup(func() {
+		// Terminate the leftover sessions so the database can be dropped.
+		_, _ = admin.DB.ExecContext(context.Background(),
+			`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1`, name)
+		_, _ = admin.DB.ExecContext(context.Background(), fmt.Sprintf(`DROP DATABASE IF EXISTS %q`, name))
+	})
+
+	db, err := database.Connect(strings.Replace(adminURL, "/postgres?", "/"+name+"?", 1))
+	if err != nil {
+		t.Skipf("skipping: cannot connect to the test database: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	return db
+}
+
+// resolveAdminURL returns the superuser URL pointing at the maintenance
+// database, so a fresh test database can be created.
+func resolveAdminURL() string {
 	url := os.Getenv("SUPER_DATABASE_URL")
 	if url == "" {
 		url = os.Getenv("POSTGRES_DATABASE_URL")
@@ -21,17 +62,22 @@ func newTestDB(t *testing.T) *database.DB {
 	if url == "" {
 		url = "postgresql://postgres:1e6819bd685e31fa529ed353f65bc6b6eb4d47f9f3e76c43@127.0.0.1:5435/mr_training_migration?sslmode=disable"
 	}
-	db, err := database.Connect(url)
-	if err != nil {
-		t.Skipf("skipping: cannot connect to PostgreSQL: %v", err)
-		return nil
+	if i := strings.Index(url, "/postgres?"); i >= 0 {
+		return url
 	}
-	t.Cleanup(func() { db.Close() })
+	if i := strings.Index(url, "?"); i >= 0 {
+		return url[:i] + "/postgres" + url[i:]
+	}
+	return url + "/postgres"
+}
 
-	// Reset artifacts from prior runs in this shared development database.
-	db.DB.ExecContext(context.Background(), "DROP TABLE IF EXISTS users, posts, a, b, good CASCADE")
-	db.DB.ExecContext(context.Background(), "DELETE FROM schema_migrations WHERE name IN ('001_create_users.sql','002_create_posts.sql','001_a.sql','002_b.sql','001_good.sql','002_bad.sql')")
-	return db
+// randomSuffix returns a short random identifier for the test database name.
+func randomSuffix() string {
+	var b [4]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "xxxx"
+	}
+	return hex.EncodeToString(b[:])
 }
 
 func writeMigration(t *testing.T, dir, name, content string) {
