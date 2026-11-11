@@ -16,6 +16,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.39.0
 	github.com/clerk/clerk-sdk-go/v2 v2.7.0
 	github.com/gofiber/websocket/v2 v2.2.1
+	github.com/google/wire v0.7.0
 	github.com/nats-io/nats.go v1.39.0
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/stretchr/testify v1.11.1
@@ -57,7 +58,6 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
-	github.com/google/wire v0.7.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.20 // indirect
 	github.com/googleapis/gax-go/v2 v2.23.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
