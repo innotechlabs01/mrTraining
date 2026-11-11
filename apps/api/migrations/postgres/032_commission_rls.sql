@@ -10,6 +10,47 @@
 -- Tenant model: coach is the tenant (decision 2026-11-02). RLS key is
 -- app.current_coach_id, set transaction-locally by the UnitOfWork.
 
+-- Idempotent table definitions for prerequisites if migrations run out-of-order or on fresh databases.
+CREATE TABLE IF NOT EXISTS coach_ally_relationships (
+  id            TEXT PRIMARY KEY,
+  coach_id      TEXT NOT NULL,
+  ally_id       TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'invited',
+  attributed_by TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS commission_agreements (
+  id                 TEXT PRIMARY KEY,
+  relationship_id    TEXT NOT NULL,
+  coach_id           TEXT NOT NULL DEFAULT '',
+  version            INTEGER NOT NULL DEFAULT 1,
+  rate_bps           INTEGER NOT NULL DEFAULT 0,
+  fixed_amount_cents INTEGER NOT NULL DEFAULT 0,
+  eligible_base_rule TEXT NOT NULL DEFAULT 'gross_minus_discount_minus_tax',
+  rounding           TEXT NOT NULL DEFAULT 'half_up',
+  currency           TEXT NOT NULL DEFAULT 'COP',
+  valid_from         TEXT NOT NULL DEFAULT '',
+  valid_to           TEXT,
+  status             TEXT NOT NULL DEFAULT 'proposed',
+  accepted_by        TEXT,
+  accepted_at        TEXT,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS commission_entries (
+  id                 TEXT PRIMARY KEY,
+  agreement_id       TEXT NOT NULL,
+  coach_id           TEXT NOT NULL DEFAULT '',
+  version            INTEGER NOT NULL DEFAULT 1,
+  base_cents         INTEGER NOT NULL DEFAULT 0,
+  rate_bps           INTEGER NOT NULL DEFAULT 0,
+  fixed_amount_cents INTEGER NOT NULL DEFAULT 0,
+  amount_cents       INTEGER NOT NULL DEFAULT 0,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- 1. Add coach_id to commission_agreements for RLS enforcement.
 ALTER TABLE commission_agreements
   ADD COLUMN IF NOT EXISTS coach_id TEXT NOT NULL DEFAULT '';
