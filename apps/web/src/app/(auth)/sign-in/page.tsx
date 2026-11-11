@@ -10,17 +10,44 @@ import { useI18n } from '@/features/shared/hooks/useI18n';
 const SUPER_ADMIN_IDS = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
 
 export default function SignInPage() {
+  const { t } = useI18n('common');
+
+  return (
+    <AuthShell title={t('welcome')} subtitle={t('signInSubtitle')}>
+      <Suspense fallback={null}>
+        <SignInContent />
+      </Suspense>
+    </AuthShell>
+  );
+}
+
+function SignInContent() {
   const router = useRouter();
   const { isSignedIn, isLoaded, sessionClaims, userId } = useAuth();
   const { user } = useUser();
-  const { t } = useI18n('common');
+  const searchParams = useSearchParams();
+
+  /**
+   * Where to land after the sign-in.
+   *
+   * An internal `redirect_url` wins (that is how the payment flow keeps the
+   * plan context), otherwise the user goes to the home of their role.
+   */
+  const destinationFor = (isSuperAdmin: boolean, role?: string): string => {
+    const redirect = searchParams.get('redirect_url');
+    if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
+      return redirect;
+    }
+    if (isSuperAdmin) return '/admin/dashboard';
+    if (role === 'coach') return '/coach/plan';
+    return '/';
+  };
 
   /**
    * Resolves where a signed-in user belongs.
    *
    * The role comes from the Clerk PUBLIC metadata, which only the Go API
-   * writes — the client cannot forge it. A coach that has not finished the
-   * activation flow yet is sent to the onboarding instead of the dashboard.
+   * writes — the client cannot forge it.
    */
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
@@ -35,12 +62,12 @@ export default function SignInPage() {
     const isSuperAdmin = (id !== undefined && SUPER_ADMIN_IDS.includes(id)) || metadataRole === 'super_admin';
 
     if (isSuperAdmin) {
-      router.replace('/admin/dashboard');
+      router.replace(destinationFor(true, metadataRole));
       return;
     }
 
     if (metadataRole === 'coach') {
-      router.replace('/coach/plan');
+      router.replace(destinationFor(false, metadataRole));
       return;
     }
 
@@ -53,8 +80,8 @@ export default function SignInPage() {
 
     // Athletes live on mobile and users without a role belong on the public
     // landing. Never /coach or /sign-in: the middleware bounces both back.
-    router.replace('/');
-  }, [isLoaded, isSignedIn, sessionClaims, userId, user, router]);
+    router.replace(destinationFor(false, metadataRole));
+  }, [isLoaded, isSignedIn, sessionClaims, userId, user, router, searchParams]);
 
   // NOTE: SignInForm calls this the instant attemptFirstFactor() completes —
   // Clerk's session state (and sessionClaims) may not have propagated yet, so
@@ -68,9 +95,9 @@ export default function SignInPage() {
     const isSuperAdmin = (id !== undefined && SUPER_ADMIN_IDS.includes(id)) || metadataRole === 'super_admin';
 
     if (isSuperAdmin) {
-      router.push('/admin/dashboard');
+      router.push(destinationFor(true, metadataRole));
     } else if (metadataRole === 'coach') {
-      router.push('/coach/plan');
+      router.push(destinationFor(false, metadataRole));
     }
     // Unknown role: do nothing, let the effect decide.
   };
@@ -79,22 +106,16 @@ export default function SignInPage() {
   // their own home. The "Ya tienes una sesión activa" error is gone.
   if (isLoaded && isSignedIn) {
     return (
-      <AuthShell title={t('welcome')} subtitle={t('signInSubtitle')}>
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-primary"></div>
-        </div>
-      </AuthShell>
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-primary"></div>
+      </div>
     );
   }
 
   return (
-    <AuthShell title={t('welcome')} subtitle={t('signInSubtitle')}>
-      <Suspense fallback={null}>
-        <SignInForm
-          onSuccess={handleSuccess}
-          onForgotPassword={() => router.push('/forgot-password')}
-        />
-      </Suspense>
-    </AuthShell>
+    <SignInForm
+      onSuccess={handleSuccess}
+      onForgotPassword={() => router.push('/forgot-password')}
+    />
   );
 }

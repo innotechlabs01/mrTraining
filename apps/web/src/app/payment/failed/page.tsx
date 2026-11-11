@@ -33,7 +33,11 @@ export default function PaymentFailedPage() {
         <button
           type="button"
           onClick={() =>
-            router.push(planId ? `/sign-in?plan=${encodeURIComponent(planId)}` : '/sign-in')
+            router.push(
+              planId
+                ? `/sign-in?redirect_url=${encodeURIComponent(`/payment/failed?plan=${planId}`)}`
+                : '/sign-in',
+            )
           }
           className="flex h-12 w-full items-center justify-center gap-2 rounded-md border border-surface-6 bg-transparent text-body-sm font-semibold text-text-primary transition-all duration-200 hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary active:scale-[0.98]"
         >
