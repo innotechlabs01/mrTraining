@@ -162,13 +162,20 @@ func (h *ClerkWebhookHandler) Handle(c *fiber.Ctx) error {
 	return appresponse.Success(c, dto.WebhookResponse{Received: true})
 }
 
+// webhookReplayTolerance is how old a svix timestamp may be before the
+// event is treated as a replay. Svix recommends five minutes.
+const webhookReplayTolerance = 5 * time.Minute
+
 // verifySignature validates the Clerk (svix) webhook signature using the
 // standard SVIX algorithm:
 //   signed = svix-id + "." + svix-timestamp + "." + raw_body
 //   sig    = HMAC-SHA256(base64-decoded whsec secret, signed)
 // and compares it in constant time against the v1 signature(s) carried in
-// the svix-signature header. Timestamp tolerance is enforced against stale or
-// future replays.
+// the svix-signature header.
+//
+// The timestamp is checked against a replay tolerance: a signature older
+// than webhookReplayTolerance (or too far in the future) is rejected even
+// when the digest is correct.
 func (h *ClerkWebhookHandler) verifySignature(c *fiber.Ctx, body []byte) bool {
 	svixID := c.Get("svix-id")
 	svixTimestamp := c.Get("svix-timestamp")
@@ -177,7 +184,16 @@ func (h *ClerkWebhookHandler) verifySignature(c *fiber.Ctx, body []byte) bool {
 		return false
 	}
 
-	// svixTimestamp is nanoseconds since epoch (or seconds). Validate presence only; tolerance handled below.
+	// Replay window: the event must be recent.
+	ts, err := parseSvixTimestamp(svixTimestamp)
+	if err != nil {
+		return false
+	}
+	age := time.Since(ts)
+	if age > webhookReplayTolerance || age < -webhookReplayTolerance {
+		return false
+	}
+
 	secret := strings.TrimSpace(h.webhookSecret)
 	secret = strings.TrimPrefix(secret, "whsec_")
 	decoded, err := base64.StdEncoding.DecodeString(secret)

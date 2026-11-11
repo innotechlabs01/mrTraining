@@ -9,8 +9,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/valyala/fasthttp"
@@ -92,6 +94,11 @@ func (m *mockInviteService) AcceptInvite(ctx context.Context, code, athleteID st
 	return nil, errors.New("not implemented")
 }
 
+// currentSvixTimestamp returns the svix timestamp of right now.
+func currentSvixTimestamp() string {
+	return strconv.FormatInt(time.Now().Unix(), 10)
+}
+
 func svixSignature(secret, timestamp string, body []byte) string {
 	secret = strings.TrimPrefix(secret, "whsec_")
 	signedPayload := "msg_123." + timestamp + "." + string(body)
@@ -125,7 +132,7 @@ func postWebhook(t *testing.T, handler *ClerkWebhookHandler, body []byte, signat
 	ctx.Request.Header.SetMethod(http.MethodPost)
 	ctx.Request.Header.SetContentType("application/json")
 	ctx.Request.Header.Set("svix-id", "msg_123")
-	ctx.Request.Header.Set("svix-timestamp", "1704067200")
+	ctx.Request.Header.Set("svix-timestamp", strconv.FormatInt(time.Now().Unix(), 10))
 	if signature != "" {
 		ctx.Request.Header.Set("svix-signature", signature)
 	}
@@ -150,7 +157,7 @@ func TestClerkWebhook_ValidSignature_UserCreatedCoach(t *testing.T) {
 			"unsafe_metadata": {}
 		}
 	}`)
-	sig := svixSignature(secret, "1704067200", body)
+	sig := svixSignature(secret, currentSvixTimestamp(), body)
 
 	var ensureCalled bool
 	var ensureCoachCalled bool
@@ -212,7 +219,7 @@ func TestClerkWebhook_RealSvixBase64Signature_IsAccepted(t *testing.T) {
 			"unsafe_metadata": {}
 		}
 	}`)
-	sig := svixSignatureBase64(secret, "1704067200", body)
+	sig := svixSignatureBase64(secret, currentSvixTimestamp(), body)
 
 	svc := &mockUserService{
 		ensureUserFn:  func(ctx context.Context, id, email, name, role string) error { return nil },
@@ -227,6 +234,21 @@ func TestClerkWebhook_RealSvixBase64Signature_IsAccepted(t *testing.T) {
 	status, respBody := postWebhook(t, handler, body, sig)
 	if status != 200 {
 		t.Fatalf("expected status 200 for a real svix base64 signature, got %d (%s)", status, respBody)
+	}
+}
+
+func TestClerkWebhook_StaleTimestamp_IsRejected(t *testing.T) {
+	secret := "whsec_test123"
+	body := []byte(`{"type":"user.created","data":{"id":"user_123"}}`)
+	// A correctly signed event with an old timestamp is a replay and must be
+	// rejected.
+	sig := svixSignature(secret, strconv.FormatInt(time.Now().Add(-2*time.Hour).Unix(), 10), body)
+
+	handler := NewClerkWebhookHandler(nil, nil, "", secret)
+	status, _ := postWebhook(t, handler, body, sig)
+
+	if status != 400 {
+		t.Fatalf("expected status 400 for a stale timestamp, got %d", status)
 	}
 }
 
@@ -276,7 +298,7 @@ func TestClerkWebhook_UserDeleted(t *testing.T) {
 		"type": "user.deleted",
 		"data": {"id": "user_123"}
 	}`)
-	sig := svixSignature(secret, "1704067200", body)
+	sig := svixSignature(secret, currentSvixTimestamp(), body)
 
 	var softDeleted bool
 	svc := &mockUserService{
@@ -313,7 +335,7 @@ func TestClerkWebhook_UserDeleted_RepoError(t *testing.T) {
 		"type": "user.deleted",
 		"data": {"id": "user_123"}
 	}`)
-	sig := svixSignature(secret, "1704067200", body)
+	sig := svixSignature(secret, currentSvixTimestamp(), body)
 
 	svc := &mockUserService{
 		softDeleteUserFn: func(ctx context.Context, userID string) error {
@@ -381,7 +403,7 @@ func TestClerkWebhook_PublicMetadataRoleAthlete_ProvisionsAthlete(t *testing.T) 
 			"unsafe_metadata": {}
 		}
 	}`)
-	sig := svixSignature(secret, "1704067200", body)
+	sig := svixSignature(secret, currentSvixTimestamp(), body)
 
 	var ensuredRole string
 	var ensureCoachCalled bool
@@ -435,7 +457,7 @@ func TestClerkWebhook_AthleteWithoutCoachCode_IsProvisionedWithoutCoach(t *testi
 			"unsafe_metadata": {}
 		}
 	}`)
-	sig := svixSignature(secret, "1704067200", body)
+	sig := svixSignature(secret, currentSvixTimestamp(), body)
 
 	var ensuredRole string
 	var athleteProfileCreated bool
@@ -488,7 +510,7 @@ func TestClerkWebhook_CoachMirrorsRoleAndCoachCodeToPublicMetadata(t *testing.T)
 			"unsafe_metadata": {}
 		}
 	}`)
-	sig := svixSignature(secret, "1704067200", body)
+	sig := svixSignature(secret, currentSvixTimestamp(), body)
 
 	svc := &mockUserService{
 		ensureUserFn:  func(ctx context.Context, id, email, name, role string) error { return nil },
