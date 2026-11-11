@@ -24,6 +24,7 @@ type CoachSummary struct {
 	RevenueMonth   float64 `json:"revenue_month"`     // ganancias mes actual
 	RevenueTotal   float64 `json:"revenue_total"`     // ganancias totales
 	LastLogin      string  `json:"last_login,omitempty"`
+	SkipSubscription bool   `json:"skip_subscription"`
 }
 
 // RevenueStats estadísticas de ganancias.

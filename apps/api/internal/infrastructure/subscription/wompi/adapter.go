@@ -50,7 +50,17 @@ func (a *Adapter) CreateCheckout(ctx context.Context, req subscription.CheckoutR
 	if currency == "" {
 		currency = "COP"
 	}
-	cents := int64(math.Round(req.Amount * 100))
+
+	// Wompi sandbox only accepts COP. Convert if needed using TRM.
+	amount := req.Amount
+	if strings.EqualFold(strings.TrimSpace(a.cfg.WompiEnv), "sandbox") && currency != "COP" {
+		if req.TRM > 0 {
+			amount = req.Amount * req.TRM
+		}
+		currency = "COP"
+	}
+
+	cents := int64(math.Round(amount * 100))
 	if cents <= 0 {
 		return nil, fmt.Errorf("wompi amount must be positive")
 	}

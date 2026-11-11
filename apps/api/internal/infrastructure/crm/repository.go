@@ -46,34 +46,36 @@ func (r *Repository) ListCoaches(ctx context.Context) ([]*domain.CoachSummary, e
 	rows, err := r.exec.QueryContext(ctx, `
 		SELECT
 			u.id, u.email, u.name, u.role,
-			p.name as plan_name, p.price as plan_price, p.status as plan_status,
+			p.plan_name as plan_name, p.plan_price as plan_price, p.status as plan_status,
 			p.current_period_end as plan_expires_at,
+			COALESCE(c.skip_subscription, false) as skip_subscription,
 			COALESCE(a.athletes_count, 0) as athletes_count,
 			COALESCE(r.revenue_month, 0) as revenue_month,
 			COALESCE(r.revenue_total, 0) as revenue_total,
 			u.updated_at as last_login
 		FROM users u
+		LEFT JOIN coaches c ON c.email = u.email
 		LEFT JOIN (
-			SELECT coach_id, name as plan_name, price as plan_price, status,
+			SELECT DISTINCT ON (coach_id) coach_id, plan_name as plan_name, plan_price as plan_price, status,
 			       current_period_end
 			FROM subscriptions
 			WHERE status = 'active'
-			ORDER BY current_period_end DESC
-		) p ON p.coach_id = u.id
+			ORDER BY coach_id, current_period_end::timestamp DESC
+		) p ON p.coach_id = c.id
 		LEFT JOIN (
 			SELECT coach_id, COUNT(*) as athletes_count
 			FROM coach_athlete_links
 			WHERE status = 'active'
 			GROUP BY coach_id
-		) a ON a.coach_id = u.id
+		) a ON a.coach_id = c.id
 		LEFT JOIN (
 			SELECT coach_id,
-			       SUM(CASE WHEN period_start >= date_trunc('month', NOW()) THEN gross_amount_cents/100.0 ELSE 0 END) as revenue_month,
+			       SUM(CASE WHEN period_start::timestamp >= date_trunc('month', NOW()) THEN gross_amount_cents/100.0 ELSE 0 END) as revenue_month,
 			       SUM(gross_amount_cents/100.0) as revenue_total
 			FROM wompi_payment_ledger
 			WHERE status = 'approved'
 			GROUP BY coach_id
-		) r ON r.coach_id = u.id
+		) r ON r.coach_id = c.id
 		WHERE u.role = 'coach'
 		ORDER BY u.name
 	`)
@@ -91,6 +93,7 @@ func (r *Repository) ListCoaches(ctx context.Context) ([]*domain.CoachSummary, e
 		var lastLogin sql.NullString
 		err := rows.Scan(&c.ID, &c.Email, &c.Name, &c.Role,
 			&planName, &planPrice, &planStatus, &planExpires,
+			&c.SkipSubscription,
 			&athletesCount, &revenueMonth, &revenueTotal, &lastLogin)
 		if err != nil {
 			return nil, err
@@ -295,7 +298,7 @@ func (r *Repository) GetExpiringCoaches(ctx context.Context) ([]*domain.CoachSum
 func (r *Repository) GetExpiredCoaches(ctx context.Context) ([]*domain.CoachSummary, error) {
 	rows, err := r.exec.QueryContext(ctx, `
 		SELECT u.id, u.email, u.name, u.role,
-			p.name as plan_name, p.price as plan_price, p.status as plan_status,
+			p.plan_name as plan_name, p.plan_price as plan_price, p.status as plan_status,
 			p.current_period_end as plan_expires_at,
 			COALESCE(a.athletes_count, 0) as athletes_count
 		FROM users u

@@ -110,7 +110,7 @@ func main() {
 	if cfg.ClerkSecretKey != "" {
 		api := server.App.Group("/api/v1")
 		api.Use(middleware.RequireAuth(cfg.ClerkSecretKey))
-		subscriptionHandler, errorHandler = registerProtectedRoutes(server.App, api, cfg, db, log)
+		subscriptionHandler, errorHandler = registerProtectedRoutes(server.App, api, pub, cfg, db, log)
 	} else {
 		log.Warn("CLERK_SECRET_KEY not set, skipping protected route registration")
 	}

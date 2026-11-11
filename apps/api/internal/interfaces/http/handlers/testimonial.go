@@ -30,9 +30,9 @@ func (h *TestimonialHandler) RegisterRoutes(api fiber.Router) {
 }
 
 // RegisterPublicTestimonialRoutes monta rutas públicas de testimonios (sin auth).
-func (h *TestimonialHandler) RegisterPublicTestimonialRoutes(app fiber.Router) {
-	app.Get("/api/v1/coach/:coachID/testimonials", h.GetPublic)
-	app.Get("/api/v1/testimonials", h.GetAllPublic)
+func (h *TestimonialHandler) RegisterPublicTestimonialRoutes(pub fiber.Router) {
+	pub.Get("/coach/:coachID/testimonials", h.GetPublic)
+	pub.Get("/testimonials", h.GetAllPublic)
 }
 
 // Create maneja POST /testimonials.
