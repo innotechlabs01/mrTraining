@@ -105,4 +105,27 @@ test.describe('T-006 coach activation flow', () => {
     await expect(page.getByText('Plan Pro')).toBeVisible();
     await page.screenshot({ path: 'test-results/t006-signup.png', fullPage: true });
   });
+
+  test('the landing plan CTA opens the hybrid checkout with the plan and the email', async ({ page }) => {
+    // The landing CTA goes to the checkout: the buyer pays before registering.
+    await page.goto('http://localhost:3000/');
+    await page.locator('a[href^="/checkout?plan="]').first().click();
+
+    await expect(page).toHaveURL(/\/checkout\?plan=/, { timeout: 30_000 });
+    await expect(page.getByText('Activa tu plan')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByLabel('Tu correo')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Pagar y activar plan' })).toBeDisabled();
+
+    // The form is server-rendered: wait for React to hydrate before typing,
+    // otherwise the input event is dispatched before the handler is attached
+    // and the state never updates.
+    await page.waitForLoadState('networkidle');
+    await page.getByLabel('Tu correo').fill('t006.checkout@mrtraining.dev');
+    await expect(page.getByRole('button', { name: 'Pagar y activar plan' })).toBeEnabled({ timeout: 15_000 });
+    await page.screenshot({ path: 'test-results/t007-checkout.png', fullPage: true });
+
+    // Paying redirects to the provider.
+    await page.getByRole('button', { name: 'Pagar y activar plan' }).click();
+    await expect(page).toHaveURL(/checkout\.wompi\.co/, { timeout: 30_000 });
+  });
 });

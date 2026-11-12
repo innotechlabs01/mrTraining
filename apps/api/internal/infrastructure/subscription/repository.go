@@ -93,10 +93,10 @@ func (r *Repository) update(ctx context.Context, s *subscription.Subscription, e
 		    grace_period_days = $13, payment_due_date = $14,
 		    version = $15, updated_at = NOW()
 		WHERE id = $16 AND version = $17`,
-		s.ID, s.AthleteID, s.CoachID, s.PlanID, s.PlanName, s.PlanPrice,
+		s.AthleteID, s.CoachID, s.PlanID, s.PlanName, s.PlanPrice,
 		s.Currency, s.BillingPeriod, string(s.Status), s.CancelAtPeriodEnd,
 		nullTime(s.CanceledAt), s.CurrentPeriodStart, s.CurrentPeriodEnd,
-		s.GracePeriodDays, s.PaymentDueDate, s.Version+1, existingVersion,
+		s.GracePeriodDays, s.PaymentDueDate, s.Version+1, s.ID, existingVersion,
 	)
 	if err != nil {
 		return fmt.Errorf("update subscription: %w", err)

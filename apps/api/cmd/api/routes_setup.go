@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	analyticsapp "github.com/innotechlabs01/mr-training-api/internal/application/analytics"
+	checkoutapp "github.com/innotechlabs01/mr-training-api/internal/application/checkout"
 	athleteapp "github.com/innotechlabs01/mr-training-api/internal/application/athlete"
 	allyapp "github.com/innotechlabs01/mr-training-api/internal/application/ally"
 	allycatalogapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_catalog"
@@ -72,6 +73,7 @@ import (
 	auditinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
 	analyticsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/analytics"
 	bloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/blog"
+	checkoutinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/checkout"
 	challengeinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/challenge"
 	checkininfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/checkin"
 	coachinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach"
@@ -208,9 +210,19 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 		WithMetadataWriter(clerkIdentity)
 	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionService)
 
+	// --- Hybrid checkout (pay before registering) ---
+	// The checkout service needs the subscription service, and the subscription
+	// service needs the checkout recorder for payments confirmed before the
+	// buyer registered. The recorder is injected afterwards: both hold
+	// pointers, so the cycle is closed before the server starts serving.
+	checkoutRepo := checkoutinfrastructure.NewRepository(db.DB)
+	checkoutService := checkoutapp.NewService(cfg, checkoutRepo, wompiProvider, planRepo, userService, subscriptionService)
+	subscriptionService.WithCheckoutRecorder(checkoutService)
+	checkoutHandler := handlers.NewCheckoutHandler(checkoutService)
 	routes.RegisterMembershipRoutes(api, membershipHandler, planHandler, statusReader)
 	routes.RegisterSubscriptionRoutes(api, subscriptionHandler)
 	routes.RegisterCoachPlatformSubscriptionRoutes(api, subscriptionHandler)
+	checkoutHandler.RegisterCheckoutRoutes(api, pub)
 
 	// --- Event ---
 	eventRepo := eventinfrastructure.NewRepository(db.DB)

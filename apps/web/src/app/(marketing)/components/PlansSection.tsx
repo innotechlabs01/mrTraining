@@ -51,7 +51,7 @@ export function PlansSection({ plans, loading }: { plans: Plan[]; loading: boole
                 ))}
               </ul>
               <a
-                href={`/sign-up?plan=${encodeURIComponent(plan.id)}`}
+                href={`/checkout?plan=${encodeURIComponent(plan.id)}`}
                 className="w-full py-3 rounded-lg text-sm font-semibold bg-brand-primary text-white hover:bg-brand-primary/90 transition-colors text-center block"
               >
                 Elegir plan

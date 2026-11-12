@@ -425,6 +425,54 @@ func TestGetPaymentStatus_FlipsToApprovedAfterTheWebhook(t *testing.T) {
 	assert.Equal(t, PaymentStatusApproved, status)
 }
 
+// fakeCheckoutRecorder records the payments confirmed for a pending checkout.
+type fakeCheckoutRecorder struct {
+	checkoutID string
+	paymentID  string
+	amount     float64
+	currency   string
+	calls      int
+}
+
+func (f *fakeCheckoutRecorder) MarkPaid(ctx context.Context, checkoutID, providerPaymentID string, amount float64, currency string) error {
+	f.checkoutID = checkoutID
+	f.paymentID = providerPaymentID
+	f.amount = amount
+	f.currency = currency
+	f.calls++
+	return nil
+}
+
+// A checkout paid BEFORE the buyer registered must not fail the webhook: the
+// payment is recorded on the pending checkout and claimed later.
+func TestFulfillWebhook_CheckoutReferenceIsRecordedOnThePendingCheckout(t *testing.T) {
+	ctx := context.Background()
+	approved := time.Now().UTC()
+	provider := &fakeProvider{
+		payment: &subscriptiondomain.ProviderPayment{
+			ID:                "pay_checkout_1",
+			Status:            "approved",
+			ExternalReference: "checkout:chk_123",
+			TransactionAmount: 59,
+			Currency:          "COP",
+			DateApproved:      &approved,
+		},
+	}
+	recorder := &fakeCheckoutRecorder{}
+	svc := NewService(&config.Config{}, &fakeSubRepo{}, provider, &fakePlanRepo{plan: newPlan()}, nil, nil).
+		WithCheckoutRecorder(recorder)
+
+	require.NoError(t, svc.FulfillWebhook(ctx, subscriptiondomain.WebhookRequest{
+		Body:            []byte(`{"type":"payment","data":{"id":"pay_checkout_1"}}`),
+		SignatureHeader: "ts=1,v1=abc",
+	}))
+
+	require.Equal(t, 1, recorder.calls)
+	assert.Equal(t, "chk_123", recorder.checkoutID)
+	assert.Equal(t, "pay_checkout_1", recorder.paymentID)
+	assert.Equal(t, 59.0, recorder.amount)
+}
+
 func TestServiceFulfillWebhookInvalidSignature(t *testing.T) {	ctx := context.Background()
 	svc := NewService(&config.Config{}, &fakeSubRepo{}, &fakeProvider{verifyErr: subscriptiondomain.ErrInvalidSignature}, &fakePlanRepo{plan: newPlan()}, nil, nil)
 

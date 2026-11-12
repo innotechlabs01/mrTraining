@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/innotechlabs01/mr-training-api/internal/config"
+	checkoutdomain "github.com/innotechlabs01/mr-training-api/internal/domain/checkout"
 	commissionentrydomain "github.com/innotechlabs01/mr-training-api/internal/domain/commission_entry"
 	plandomain "github.com/innotechlabs01/mr-training-api/internal/domain/plan"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/subscription"
@@ -18,6 +19,12 @@ import (
 	paymentledgersvc "github.com/innotechlabs01/mr-training-api/internal/application/payment_ledger"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 )
+
+// CheckoutRecorder records a payment confirmed for a pending checkout (a
+// checkout paid before the buyer registered).
+type CheckoutRecorder interface {
+	MarkPaid(ctx context.Context, checkoutID, providerPaymentID string, amount float64, currency string) error
+}
 
 // MetadataWriter mirrors the subscription entitlements into the auth
 // provider's PUBLIC metadata, so the frontend can know what the user may see
@@ -37,6 +44,7 @@ type Service struct {
 	ledgerSvc       *paymentledgersvc.Service
 	commissionEntry commissionentrydomain.Repository
 	metadata        MetadataWriter
+	checkouts       CheckoutRecorder
 }
 
 // NewService creates a new subscription application service.
@@ -48,6 +56,13 @@ func NewService(cfg *config.Config, subRepo subscription.Repository, provider su
 // the plan entitlements.
 func (s *Service) WithMetadataWriter(w MetadataWriter) *Service {
 	s.metadata = w
+	return s
+}
+
+// WithCheckoutRecorder injects the recorder for checkouts paid before the
+// buyer registered.
+func (s *Service) WithCheckoutRecorder(r CheckoutRecorder) *Service {
+	s.checkouts = r
 	return s
 }
 
@@ -182,6 +197,114 @@ func (s *Service) Cancel(ctx context.Context, cmd CancelCommand) error {
 	return nil
 }
 
+// AttachPaidCheckoutCommand describes the subscription to create for a checkout
+// that was already paid for.
+type AttachPaidCheckoutCommand struct {
+	UserID    string
+	CoachID   string
+	PlanID    string
+	PaymentID string
+	Amount    float64
+	Currency  string
+	PaidAt    *time.Time
+}
+
+// AttachPaidCheckout creates the subscription for a checkout that was paid
+// BEFORE the user registered, attaches the payment that was already made and
+// activates it.
+//
+// It is the mirror of Subscribe: no new checkout is issued, because the payer
+// already went through the provider.
+func (s *Service) AttachPaidCheckout(ctx context.Context, cmd AttachPaidCheckoutCommand) (*subscription.Subscription, error) {
+	if cmd.UserID == "" {
+		return nil, errors.BadRequest("user_id is required")
+	}
+	if cmd.PaymentID == "" {
+		return nil, errors.BadRequest("payment_id is required")
+	}
+
+	plan, err := s.planRepo.GetByID(ctx, cmd.PlanID)
+	if err != nil {
+		return nil, errors.NotFound("Plan", cmd.PlanID)
+	}
+	if !plan.IsActive {
+		return nil, errors.BadRequest("plan is not active")
+	}
+
+	// Idempotency: the provider payment id is unique, so a claim that already
+	// attached the payment must reuse that subscription instead of creating a
+	// second one.
+	if existing, err := s.subRepo.GetPaymentByProviderID(ctx, cmd.PaymentID); err == nil && existing != nil {
+		if sub, ferr := s.subRepo.FindByID(ctx, existing.SubscriptionID); ferr == nil && sub != nil {
+			s.mirrorEntitlements(ctx, cmd.UserID, sub.PlanID, sub.PlanName, "active")
+			return sub, nil
+		}
+	}
+
+	coachID := cmd.CoachID
+	if coachID == "" {
+		coachID = cmd.UserID
+	}
+
+	id := subscription.NewSubscriptionID()
+	sub, err := subscription.NewSubscription(
+		id, cmd.UserID, coachID, plan.ID, plan.Name, plan.Price,
+		plan.Currency, plan.BillingPeriod, 5,
+	)
+	if err != nil {
+		return nil, errors.BadRequest(err.Error())
+	}
+
+	periodStart := time.Now().UTC()
+	if cmd.PaidAt != nil {
+		periodStart = *cmd.PaidAt
+	}
+	periodEnd := subscription.ComputePeriodEnd(periodStart, plan.BillingPeriod)
+
+	amount := cmd.Amount
+	if amount <= 0 {
+		amount = plan.Price
+	}
+	currency := cmd.Currency
+	if currency == "" {
+		currency = plan.Currency
+	}
+
+	// The payment references the subscription, so the row must exist first.
+	if err := s.subRepo.Save(ctx, sub); err != nil {
+		return nil, fmt.Errorf("save subscription: %w", err)
+	}
+
+	payment := &subscription.Payment{
+		ID:                subscription.NewSubscriptionID(),
+		SubscriptionID:    sub.ID,
+		ProviderPaymentID: cmd.PaymentID,
+		ExternalReference: "subscription:" + sub.ID,
+		Amount:            amount,
+		Currency:          currency,
+		Status:            "approved",
+		PeriodStart:       periodStart,
+		PeriodEnd:         periodEnd,
+		PaidAt:            cmd.PaidAt,
+		CreatedAt:         time.Now().UTC(),
+	}
+	if err := s.subRepo.RecordPayment(ctx, payment); err != nil {
+		return nil, fmt.Errorf("record payment: %w", err)
+	}
+
+	if err := sub.ActivateAfterPayment(payment.ID, payment.Amount, periodStart, periodEnd); err != nil {
+		return nil, fmt.Errorf("activate subscription: %w", err)
+	}
+	if err := s.subRepo.Save(ctx, sub); err != nil {
+		return nil, fmt.Errorf("save subscription: %w", err)
+	}
+
+	// The subscriber now owns the plan: mirror the entitlements.
+	s.mirrorEntitlements(ctx, cmd.UserID, sub.PlanID, sub.PlanName, "active")
+
+	return sub, nil
+}
+
 // mirrorEntitlements writes the plan entitlements into the auth provider's
 // public metadata. It is best-effort: the subscription is already persisted,
 // and the webhook can be replayed to sync the metadata again.
@@ -298,6 +421,16 @@ func (s *Service) FulfillWebhook(ctx context.Context, req subscription.WebhookRe
 	if ref == "" {
 		return errors.BadRequest("external_reference missing")
 	}
+
+	// A checkout paid BEFORE the buyer registered: the payment is recorded on
+	// the pending checkout and the claim creates the subscription later.
+	if checkoutID, ok := checkoutdomain.ParseReference(ref); ok {
+		if s.checkouts == nil {
+			return nil
+		}
+		return s.checkouts.MarkPaid(ctx, checkoutID, payment.ID, payment.TransactionAmount, payment.Currency)
+	}
+
 	subscriptionID, ok := trimSubscriptionRef(ref)
 	if !ok {
 		return errors.BadRequest("invalid external_reference: " + ref)
