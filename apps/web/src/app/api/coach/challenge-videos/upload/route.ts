@@ -16,6 +16,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { put } from '@vercel/blob'
 
+export const dynamic = 'force-dynamic'
+
 const MAX_SIZE = 50 * 1024 * 1024
 const ALLOWED_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
 

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { goFetchServer } from '@/lib/api/go-client';
 
+export const dynamic = 'force-dynamic'
+
 interface CoachAthlete {
   id: string;
   coach_id: string;
@@ -25,7 +27,6 @@ interface CoachAthlete {
   updated_at: string;
 }
 
-export const dynamic = 'force-dynamic';
 
 export async function GET(
   _req: Request,

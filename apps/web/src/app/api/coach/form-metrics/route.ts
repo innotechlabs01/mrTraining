@@ -9,6 +9,8 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { goFetchServer } from '@/lib/api/go-client'
 
+export const dynamic = 'force-dynamic'
+
 interface FormMetricStat {
   athlete_id: string;
   athlete_name: string;
