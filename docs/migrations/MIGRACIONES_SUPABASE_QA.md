@@ -34,6 +34,47 @@ Para que el entorno de QA ejecute las migraciones de forma controlada y el CD de
 | `CLERK_SECRET_KEY_QA` | Llave secreta de Clerk para autenticación de API en QA. | `sk_test_...` |
 | `CLERK_PUBLISHABLE_KEY_QA` | Llave pública de Clerk en QA. | `pk_test_...` |
 | `CORS_ORIGINS_QA` | Orígenes permitidos en QA. | `https://qa.mrtraining.app,http://localhost:3000` |
+| `APP_DB_PASSWORD_QA` *(opcional)* | Contraseña del rol de aplicación (`mr_training_app`) en QA. Sin este secreto el rol **no** se crea, las migraciones omiten sus `GRANT` y la API conecta con el rol de la URL. | `s3cret...` |
+
+---
+
+## 2.1 El rol de la aplicación (`mr_training_app`)
+
+Las migraciones conceden los permisos DML al rol `mr_training_app`, que es el
+que usa la API. Ese rol **no existe por defecto** en Supabase: antes se
+creaba a mano en cada entorno, y por eso el CD de QA moría con
+
+```
+role "mr_training_app" does not exist
+```
+
+Ahora hay dos capas:
+
+1. **Los `GRANT` son condicionales.** Cada migración los envuelve en un bloque
+   `DO $$ ... IF EXISTS (SELECT 1 FROM pg_roles ...) ... $$`, así que la cadena
+   aplica **igual** en local, en CI y en Supabase, exista el rol o no.
+   `bash scripts/check-migrations-portable.sh` falla el CI si alguien agrega un
+   `GRANT` sin condicionar.
+2. **El rol se crea antes de migrar.** `bash scripts/ensure-app-role.sh` lo crea
+   si falta (idempotente, no toca datos). El CD de QA lo corre con el secreto
+   `APP_DB_PASSWORD_QA`; el CI lo corre con una contraseña propia de su base
+   efímera.
+
+### ⚠️ RLS en QA
+
+PostgreSQL **no aplica las políticas RLS al dueño de las tablas**. Si
+`DATABASE_URL_QA` conecta con `postgres` (el owner en Supabase), el
+aislamiento por tenant **no está activo en QA**, aunque el rol exista y los
+`GRANT` se apliquen.
+
+Para que QA se comporte como local hay que:
+
+1. Crear el rol (lo hace el CD con `APP_DB_PASSWORD_QA`).
+2. Apuntar `DATABASE_URL_QA` a ese rol:
+   `postgresql://mr_training_app:<password>@<pooler>:5432/postgres?sslmode=require`
+
+Mientras `DATABASE_URL_QA` apunte al owner, QA es funcional pero sin
+aislamiento: es una diferencia real con el entorno local, no un detalle.
 
 ### Consideraciones de Conexión y Pooler de Supabase
 - **Puerto 5432 (Conexión Directa / Session Mode)**: Requerido para la ejecución de migraciones (`cmd/migrate`) y DDL. Permite transacciones con variables de sesión (`SET LOCAL app.current_user_id`), bloqueos de tabla y sentencias DDL.

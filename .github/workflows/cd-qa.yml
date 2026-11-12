@@ -28,6 +28,9 @@ jobs:
       - name: Verify migration sync
         run: bash ../../scripts/sync-migrations.sh --check
 
+      - name: Verify migrations are portable
+        run: bash ../../scripts/check-migrations-portable.sh
+
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25"
@@ -35,6 +38,17 @@ jobs:
 
       - name: Download Go dependencies
         run: go mod download
+
+      - name: Ensure the application role exists in QA
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_QA }}
+          APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD_QA }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "⚠️ DATABASE_URL_QA not configured; skipping the role bootstrap."
+          else
+            bash ../../scripts/ensure-app-role.sh
+          fi
 
       - name: Run database migrations against QA
         env:

@@ -18,6 +18,8 @@ jobs:
 
       - name: Verify and sync Supabase / Postgres migrations
         run: bash ../../scripts/sync-migrations.sh --ci
+      - name: Verify migrations are portable (no role that may not exist)
+        run: bash ../../scripts/check-migrations-portable.sh
       
       - name: Set up Go
         uses: actions/setup-go@v5

@@ -30,6 +30,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify and sync Supabase / Postgres migrations
         run: bash ../../scripts/sync-migrations.sh --ci
+      - name: Verify migrations are portable (no role that may not exist)
+        run: bash ../../scripts/check-migrations-portable.sh
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25"
@@ -42,6 +44,11 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/mr_training_test?sslmode=disable
         run: go run ./cmd/migrate -dry-run -dir migrations/postgres
+      - name: Ensure the application role exists
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/mr_training_test?sslmode=disable
+          APP_DB_PASSWORD: ci_app_role_password
+        run: bash ../../scripts/ensure-app-role.sh
       - name: Apply Postgres migrations to test DB
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/mr_training_test?sslmode=disable
