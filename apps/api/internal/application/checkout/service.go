@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -123,9 +124,9 @@ func (s *Service) Start(ctx context.Context, cmd StartCommand) (*StartResult, er
 		Amount:            plan.Price,
 		Currency:          plan.Currency,
 		TRM:               plan.TRM,
-		SuccessURL:        s.cfg.WebAppURL + "/payment/success?checkout=" + co.ID + "&email=" + co.Email,
-		FailureURL:        s.cfg.WebAppURL + "/payment/failed?checkout=" + co.ID + "&email=" + co.Email,
-		PendingURL:        s.cfg.WebAppURL + "/payment/pending?checkout=" + co.ID + "&email=" + co.Email,
+		SuccessURL:        s.cfg.WebAppURL + "/payment/success?checkout=" + url.QueryEscape(co.ID) + "&email=" + url.QueryEscape(co.Email),
+		FailureURL:        s.cfg.WebAppURL + "/payment/failed?checkout=" + url.QueryEscape(co.ID) + "&email=" + url.QueryEscape(co.Email),
+		PendingURL:        s.cfg.WebAppURL + "/payment/pending?checkout=" + url.QueryEscape(co.ID) + "&email=" + url.QueryEscape(co.Email),
 		NotificationURL:   s.wompiWebhookURL(),
 	})
 	if err != nil {
