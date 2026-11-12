@@ -30,7 +30,7 @@ func (r *Repository) SetExecutor(exec database.Executor) {
 
 // WithExecutor returns a new Repository instance sharing the same connection
 // pool but using the given executor for all queries.
-func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+func (r *Repository) WithExecutor(exec database.Executor) invite.Repository {
 	return &Repository{
 		db:  r.db,
 		exec: exec,
@@ -71,7 +71,7 @@ func (r *Repository) AcceptInvite(ctx context.Context, code, athleteID string) (
 	// Link coach-athlete (idempotent)
 	_, err = r.exec.ExecContext(ctx,
 		`INSERT INTO coach_athlete_links (coach_id, athlete_id, status, is_primary, assigned_at)
-		 VALUES ($2, $3, 'active', 0, NOW())
+		 VALUES ($1, $2, 'active', 0, NOW())
 		 ON CONFLICT(coach_id, athlete_id) DO UPDATE SET status='active'`,
 		inv.CoachID, athleteID)
 	if err != nil {
@@ -80,16 +80,16 @@ func (r *Repository) AcceptInvite(ctx context.Context, code, athleteID string) (
 
 	// Resolve coach name for the response
 	var coachName string
-	_ = r.exec.QueryRowContext(ctx, `SELECT name FROM coaches WHERE id = $4`, inv.CoachID).Scan(&coachName)
+	_ = r.exec.QueryRowContext(ctx, `SELECT name FROM coaches WHERE id = $1`, inv.CoachID).Scan(&coachName)
 
-	return &invite.AcceptResult{Success: true, CoachName: coachName}, nil
+	return &invite.AcceptResult{Success: true, CoachID: inv.CoachID, CoachName: coachName}, nil
 }
 
 // GetCoachIDByAthleteID resolves the coach linked to an athlete via coach_athlete_links.
 func (r *Repository) GetCoachIDByAthleteID(ctx context.Context, athleteID string) (string, error) {
 	var coachID string
 	err := r.exec.QueryRowContext(ctx,
-		`SELECT coach_id FROM coach_athlete_links WHERE athlete_id = $5 AND status = 'active'`,
+		`SELECT coach_id FROM coach_athlete_links WHERE athlete_id = $1 AND status = 'active'`,
 		athleteID).Scan(&coachID)
 	if err == sql.ErrNoRows {
 		return "", fmt.Errorf("no active coach link found for athlete")
@@ -105,7 +105,7 @@ func (r *Repository) ValidateCode(ctx context.Context, code string) (bool, error
 	normalized := strings.ToUpper(strings.TrimSpace(code))
 	var one int
 	err := r.exec.QueryRowContext(ctx,
-		`SELECT 1 FROM coaches WHERE UPPER(coach_code) = $6 AND is_active = 1`, normalized).Scan(&one)
+		`SELECT 1 FROM coaches WHERE UPPER(coach_code) = $1 AND is_active = 1`, normalized).Scan(&one)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}
@@ -113,4 +113,16 @@ func (r *Repository) ValidateCode(ctx context.Context, code string) (bool, error
 		return false, fmt.Errorf("failed to validate code: %w", err)
 	}
 	return true, nil
+}
+
+// CreatePendingInvite stores a clerk-issued invitation for a coach.
+func (r *Repository) CreatePendingInvite(ctx context.Context, inv *invite.PendingInvite) error {
+	_, err := r.exec.ExecContext(ctx,
+		`INSERT INTO pending_invites (id, coach_id, email, clerk_invitation_id, status, expires_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+		inv.ID, inv.CoachID, inv.Email, inv.ClerkInvitationID, inv.Status, inv.ExpiresAt)
+	if err != nil {
+		return fmt.Errorf("create pending invite: %w", err)
+	}
+	return nil
 }

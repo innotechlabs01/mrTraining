@@ -113,7 +113,23 @@ func RequireTenantContext(resolver TenantResolver) fiber.Handler {
 	}
 }
 
-// GetCoachID extracts the resolved tenant coach from the Fiber context.
+// RequireCoachID ensures the tenant coach context resolved by
+// RequireTenantContext is present. It does NOT attempt to resolve it itself.
+func RequireCoachID() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userID := GetUserID(c)
+		if userID == "" {
+			return tenantError(c, fiber.StatusUnauthorized, "UNAUTHENTICATED", "user not authenticated")
+		}
+		coachID := GetCoachID(c)
+		if coachID == "" {
+			return tenantError(c, fiber.StatusForbidden, "TENANT_CONTEXT_MISSING",
+				"coach tenant context is required for this operation")
+		}
+		return c.Next()
+	}
+}
+
 // Returns empty string if not set (caller should check RequireTenantContext
 // ran first). Handlers pass this value to UnitOfWork.Begin as coachID.
 func GetCoachID(c *fiber.Ctx) string {

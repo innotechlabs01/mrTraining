@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import { createCartPreference, getOrder } from '../../storeService';
 import { cartTotal, useCart } from '../../application/cartStore';
+import { usePaymentAvailability } from '../../../payments/usePaymentAvailability';
 import { colors, layout, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { CloseIcon, MinusIcon, PlusIcon } from '../../../../shared/components/icons';
@@ -39,9 +40,15 @@ export function CartSheet({ visible, onClose, onSuccess }: Props) {
   const queryClient = useQueryClient();
   const [pending, setPending] = React.useState(false);
 
+  const { checkoutAllowed } = usePaymentAvailability(visible);
+
   const total = cartTotal(items);
 
   const checkout = async () => {
+    if (!checkoutAllowed) {
+      showToast('error', t.errorTitle, 'Pagos no disponibles en este momento.');
+      return;
+    }
     setPending(true);
     let preference;
     try {
@@ -147,7 +154,7 @@ export function CartSheet({ visible, onClose, onSuccess }: Props) {
               <PrimaryButton
                 label={pending ? texts.common.loading : t.cartConfirm}
                 onPress={checkout}
-                disabled={pending}
+                disabled={pending || !checkoutAllowed}
               />
             </>
           )}

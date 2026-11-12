@@ -103,9 +103,15 @@ func TestRepository_ListAthletesByCoach_Empty(t *testing.T) {
 func TestRepository_GetCoach_BackfillsCoachCode(t *testing.T) {
 	// Runs against PostgreSQL via DATABASE_URL — no remote services needed.
 	ctx := context.Background()
-	url := os.Getenv("DATABASE_URL")
+	url := os.Getenv("SUPER_DATABASE_URL")
 	if url == "" {
-		t.Skip("skipping: DATABASE_URL not set")
+		url = os.Getenv("POSTGRES_DATABASE_URL")
+	}
+	if url == "" {
+		url = "postgresql://postgres:1e6819bd685e31fa529ed353f65bc6b6eb4d47f9f3e76c43@127.0.0.1:5435/mr_training_migration?sslmode=disable"
+	}
+	if url == "" {
+		t.Skip("skipping: database URL not set")
 	}
 
 	db, err := database.Connect(url)
@@ -115,14 +121,20 @@ func TestRepository_GetCoach_BackfillsCoachCode(t *testing.T) {
 	defer db.Close()
 	sqlDB := db.DB
 
+	// Clean any leftovers.
+	sqlDB.Exec(`DELETE FROM coaches WHERE id = $1`, "test-coach-backfill-1")
+
 	// Minimal coaches schema matching the production columns used below.
-	if _, err := sqlDB.Exec(`CREATE TABLE coaches (
+	if _, err := sqlDB.Exec(`CREATE TABLE IF NOT EXISTS coaches (
 		id TEXT PRIMARY KEY, email TEXT, name TEXT, avatar_url TEXT,
 		coach_code TEXT, specializations TEXT, certifications TEXT, bio TEXT DEFAULT '',
 		experience_years INTEGER NOT NULL DEFAULT 0, max_athletes INTEGER NOT NULL DEFAULT 0,
 		is_accepting_athletes INTEGER NOT NULL DEFAULT 0, is_active INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT
 	)`); err != nil {
 		t.Fatalf("create coaches table failed: %v", err)
+	}
+	if _, err := sqlDB.Exec(`ALTER TABLE coaches ADD COLUMN IF NOT EXISTS coach_code TEXT`); err != nil {
+		t.Fatalf("add coach_code: %v", err)
 	}
 
 	repo := NewRepository(sqlDB)
@@ -131,7 +143,7 @@ func TestRepository_GetCoach_BackfillsCoachCode(t *testing.T) {
 	if err := repo.EnsureCoach(ctx, id, id+"@example.com", "Backfill Coach"); err != nil {
 		t.Fatalf("EnsureCoach failed: %v", err)
 	}
-	if _, err := sqlDB.Exec(`UPDATE coaches SET coach_code = '' WHERE id = ?`, id); err != nil {
+	if _, err := sqlDB.Exec(`UPDATE coaches SET coach_code = '' WHERE id = $1`, id); err != nil {
 		t.Fatalf("clearing coach_code failed: %v", err)
 	}
 

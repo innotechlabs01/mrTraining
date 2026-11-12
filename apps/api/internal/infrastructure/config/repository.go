@@ -63,7 +63,7 @@ func (r *repository) GetByCoachID(ctx context.Context, coachID string) (*config.
 func (r *repository) Upsert(ctx context.Context, cfg *config.PublicPageConfig) error {
 	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO public_page_config (id, coach_id, brand_name, tagline, welcome_message, footer_text, created_at, updated_at)
-		VALUES ($2, $3, $4, $5, $6, $7, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
 		ON CONFLICT(coach_id) DO UPDATE SET
 			brand_name = excluded.brand_name,
 			tagline = excluded.tagline,

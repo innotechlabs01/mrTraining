@@ -4,6 +4,8 @@ package training
 import (
 	"context"
 	"database/sql"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 	"time"
 
@@ -15,12 +17,35 @@ import (
 // durable coach_sessions table (source of truth also used by the web app),
 // linked to athletes through the session_athletes join table.
 type SessionRepository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewSessionRepository creates a durable training session repository.
 func NewSessionRepository(db *sql.DB) *SessionRepository {
-	return &SessionRepository{db: db}
+	return &SessionRepository{db: db, exec: db}
+}
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+// When set, all repository queries run against this executor instead of the
+// connection pool.
+func (r *SessionRepository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new SessionRepository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *SessionRepository) WithExecutor(exec database.Executor) training.TrainingSessionRepository {
+	return &SessionRepository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx (injected by a
+// UnitOfWork) rather than the connection pool.
+func (r *SessionRepository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // Create persists a new training session and links it to the given athlete.
@@ -45,7 +70,7 @@ func (r *SessionRepository) Create(ctx context.Context, session *training.Traini
 	}
 
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO session_athletes (session_id, athlete_id) VALUES ($8, $9)
+		`INSERT INTO session_athletes (session_id, athlete_id) VALUES ($1, $2)
 		 ON CONFLICT (session_id, athlete_id) DO NOTHING`,
 		session.ID, session.AthleteID); err != nil {
 		return fmt.Errorf("link session athlete: %w", err)
@@ -64,13 +89,13 @@ func (r *SessionRepository) ListByAthlete(ctx context.Context, athleteID, from s
 		from = time.Now().UTC().Format(time.RFC3339)
 	}
 
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT cs.id, cs.coach_id, cs.name, cs.time, cs.end_time, cs.location, cs.status
 		 FROM coach_sessions cs
 		 JOIN session_athletes sa ON sa.session_id = cs.id
-		 WHERE sa.athlete_id = $10 AND cs.time >= $11
+		 WHERE sa.athlete_id = $1 AND cs.time >= $2
 		 ORDER BY cs.time ASC
-		 LIMIT $12`,
+		 LIMIT $3`,
 		athleteID, from, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list athlete sessions: %w", err)

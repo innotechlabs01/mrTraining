@@ -31,6 +31,11 @@ func (s *Service) ListActivePlansByCoach(ctx context.Context, coachID string) ([
 	return s.repo.ListByCoach(ctx, coachID, true)
 }
 
+// ListAllActivePlans returns all active (published) plans across all coaches.
+func (s *Service) ListAllActivePlans(ctx context.Context) ([]*plandomain.Plan, error) {
+	return s.repo.ListAllActive(ctx)
+}
+
 // GetActiveVersionByPlan returns the active version of a plan.
 func (s *Service) GetActiveVersionByPlan(ctx context.Context, planID string) (*plandomain.Version, error) {
 	versions, err := s.repo.ListVersionsByPlan(ctx, planID)

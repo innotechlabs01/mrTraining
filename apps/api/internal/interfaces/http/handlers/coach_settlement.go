@@ -1,11 +1,15 @@
 package handlers
 
 import (
+	"database/sql"
+
 	"github.com/gofiber/fiber/v2"
+
 
 	coachsetapp "github.com/innotechlabs01/mr-training-api/internal/application/coach_settlement"
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/coach_settlement"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
@@ -14,11 +18,37 @@ import (
 // CoachSettlementHandler handles HTTP requests for coach settlements.
 type CoachSettlementHandler struct {
 	service *coachsetapp.Service
+	db      *sql.DB
 }
 
 // NewCoachSettlementHandler creates a new handler.
-func NewCoachSettlementHandler(service *coachsetapp.Service) *CoachSettlementHandler {
-	return &CoachSettlementHandler{service: service}
+func NewCoachSettlementHandler(service *coachsetapp.Service, db *sql.DB) *CoachSettlementHandler {
+	return &CoachSettlementHandler{service: service, db: db}
+}
+
+// withTx injects a UnitOfWork when coach context is present.
+func (h *CoachSettlementHandler) withTx(c *fiber.Ctx, fn func(*coachsetapp.Service) error) error {
+	userID := middleware.GetUserID(c)
+	coachID := middleware.GetCoachID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusForbidden, "coach tenant context is required")
+	}
+	uow := database.NewUnitOfWork(h.db)
+	if err := uow.Begin(c.Context(), userID, coachID, middleware.GetUserRole(c)); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
+	}
+	defer uow.Rollback(c.Context())
+	svc := h.service.SetExecutor(uow.Tx())
+	if err := fn(svc); err != nil {
+		return err
+	}
+	if err := uow.Commit(c.Context()); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to commit transaction")
+	}
+	return nil
 }
 
 // CreateSettlement handles POST /coach/settlements.
@@ -33,14 +63,22 @@ func (h *CoachSettlementHandler) CreateSettlement(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	settlement, err := h.service.CreateSettlement(c.Context(), domain.CreateSettlementInput{
-		CoachID:     req.CoachID,
-		AllyID:      req.AllyID,
-		PeriodStart: req.PeriodStart,
-		PeriodEnd:   req.PeriodEnd,
-		PeriodKey:   req.PeriodKey,
-		Currency:    req.Currency,
-	}, coachID)
+	var settlement *domain.CoachSettlement
+	err := h.withTx(c, func(svc *coachsetapp.Service) error {
+		s, err := svc.CreateSettlement(c.Context(), domain.CreateSettlementInput{
+			CoachID:     req.CoachID,
+			AllyID:      req.AllyID,
+			PeriodStart: req.PeriodStart,
+			PeriodEnd:   req.PeriodEnd,
+			PeriodKey:   req.PeriodKey,
+			Currency:    req.Currency,
+		}, coachID)
+		if err != nil {
+			return err
+		}
+		settlement = s
+		return nil
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -281,6 +319,9 @@ func (h *CoachSettlementHandler) ListSettlementItems(c *fiber.Ctx) error {
 func (h *CoachSettlementHandler) handleError(c *fiber.Ctx, err error) error {
 	if appErr, ok := err.(*errors.AppError); ok {
 		return appresponse.Error(c, appErr.Status, appErr.Message)
+	}
+	if err != nil && err.Error() == domain.ErrNotFound.Error() {
+		return appresponse.Error(c, fiber.StatusNotFound, "settlement not found for coach")
 	}
 	return appresponse.Error(c, fiber.StatusInternalServerError, "internal server error")
 }

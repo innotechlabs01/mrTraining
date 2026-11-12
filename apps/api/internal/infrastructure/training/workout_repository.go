@@ -213,13 +213,13 @@ func (r *WorkoutRepository) AssignWorkout(ctx context.Context, a *training.Assig
 		  per_side, body_part, muscle_groups, library_exercise_id, gps_route, intervals)
 		 SELECT
 		  gen_random_uuid() AS id,
-		  $14 AS workout_id,
+		  $1 AS workout_id,
 		  wte.name, wte.sets, wte.reps, wte.weight_kg, wte.rest_seconds, wte.sort_order, wte.notes,
 		  wte.mode, wte.phase, wte.superset_group, wte.reps_min, wte.reps_max, wte.prog, wte.inc,
 		  wte.sec, wte.minutes, wte.speed, wte.per_side, wte.body_part, wte.muscle_groups,
 		  wte.library_exercise_id, wte.gps_route, wte.intervals
 		 FROM workout_template_exercises wte
-		 WHERE wte.template_id = $15`,
+		 WHERE wte.template_id = $2`,
 		a.ID, a.ContentID)
 	if err != nil {
 		return fmt.Errorf("failed to copy template exercises: %w", err)
@@ -234,7 +234,7 @@ func (r *WorkoutRepository) ListAssignedWorkouts(ctx context.Context, athleteID 
 		`SELECT id, athlete_id, athlete_name, content_id, content_type, content_name,
 		 modality, start_date, end_date, days_of_week, status, progress, coach_id,
 		 created_at, updated_at
-		 FROM assigned_workouts WHERE athlete_id = $16
+		 FROM assigned_workouts WHERE athlete_id = $1
 		 ORDER BY created_at DESC`, athleteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list assigned workouts: %w", err)
@@ -272,7 +272,7 @@ func (r *WorkoutRepository) GetAssignedWorkout(ctx context.Context, id string) (
 		`SELECT id, athlete_id, athlete_name, content_id, content_type, content_name,
 		 modality, start_date, end_date, days_of_week, status, progress, coach_id,
 		 created_at, updated_at
-		 FROM assigned_workouts WHERE id = $17`, id)
+		 FROM assigned_workouts WHERE id = $1`, id)
 
 	w := &training.AssignedWorkout{}
 	var daysOfWeekJSON sql.NullString
@@ -312,7 +312,7 @@ func (r *WorkoutRepository) LogWorkoutSet(ctx context.Context, set *training.Wor
 	var sessionID string
 	err = tx.QueryRowContext(ctx,
 		`SELECT id FROM workout_session_logs
-		 WHERE workout_id = $18 AND athlete_id = $19 AND completed = 0
+		 WHERE workout_id = $1 AND athlete_id = $2 AND completed = 0
 		 ORDER BY started_at DESC LIMIT 1`, workoutID, athleteID).Scan(&sessionID)
 	if err == sql.ErrNoRows {
 		// Create new session
@@ -320,7 +320,7 @@ func (r *WorkoutRepository) LogWorkoutSet(ctx context.Context, set *training.Wor
 		_, err = tx.ExecContext(ctx,
 			`INSERT INTO workout_session_logs
 			 (id, workout_id, athlete_id, started_at, completed, current_exercise_index, duration_seconds)
-			 VALUES ($20, $21, $22, NOW(), 0, 0, 0)`,
+			 VALUES ($1, $2, $3, NOW(), 0, 0, 0)`,
 			sessionID, workoutID, athleteID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create workout session: %w", err)
@@ -371,7 +371,7 @@ func (r *WorkoutRepository) LogWorkoutSet(ctx context.Context, set *training.Wor
 		`INSERT INTO workout_set_logs
 		 (id, session_id, exercise_id, set_index, weight_kg, reps, completed, logged_at,
 		  phase, rir, rpe, sec, minutes, speed, skipped)
-		 VALUES ($23, $24, $25, $26, $27, $28, $29, NOW(), $30, $31, $32, $33, $34, $35, $36)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10, $11, $12, $13, $14)`,
 		set.ID, set.SessionID, set.ExerciseID, set.SetIndex, weightKg, set.Reps,
 		completed, phase, rir, rpe, duration, nil, speed, skipped)
 	if err != nil {
@@ -393,7 +393,7 @@ func (r *WorkoutRepository) getTemplateExercises(ctx context.Context, templateID
 		 notes, mode, phase, superset_group, reps_min, reps_max, prog, inc, sec,
 		 minutes, speed, per_side, body_part, muscle_groups, library_exercise_id, gps_route, intervals
 		 FROM workout_template_exercises
-		 WHERE template_id = $37 ORDER BY sort_order`, templateID)
+		 WHERE template_id = $1 ORDER BY sort_order`, templateID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get template exercises: %w", err)
 	}
@@ -508,7 +508,7 @@ func (r *WorkoutRepository) insertTemplateExercise(ctx context.Context, tx *sql.
 		 (id, template_id, name, sets, reps, weight_kg, rest_seconds, sort_order,
 		  notes, mode, phase, superset_group, reps_min, reps_max, prog, inc, sec,
 		  minutes, speed, per_side, body_part, muscle_groups, library_exercise_id, gps_route, intervals)
-		 VALUES ($38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)`,
 		ex.ID, ex.TemplateID, ex.Name, ex.Sets, ex.Reps, weightKg, ex.RestSeconds,
 		ex.SortOrder, nullStr(ex.Notes), ex.Mode, ex.Phase, nullStr(ex.SupersetGroup),
 		repsMin, repsMax, nullStr(ex.Progression), increment, durationSec,
@@ -552,7 +552,7 @@ func (r *WorkoutRepository) findLatestSession(ctx context.Context, workoutID str
 		`SELECT id, workout_id, athlete_id, started_at, completed, completed_at,
 		 current_exercise_index, duration_seconds
 		 FROM workout_session_logs
-		 WHERE workout_id = $63 AND completed = 0
+		 WHERE workout_id = $1 AND completed = 0
 		 ORDER BY started_at DESC LIMIT 1`, workoutID)
 
 	s := &training.WorkoutSession{}
@@ -579,7 +579,7 @@ func (r *WorkoutRepository) getAssignedWorkoutExercises(ctx context.Context, wor
 		 el.image_url, el.video_url, we.gps_route, we.intervals, we.actual_gps_route, we.actual_intervals
 		 FROM workout_exercises we
 		 LEFT JOIN exercise_library el ON el.id = we.library_exercise_id
-		 WHERE we.workout_id = $64 ORDER BY we.sort_order`, workoutID)
+		 WHERE we.workout_id = $1 ORDER BY we.sort_order`, workoutID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get assigned workout exercises: %w", err)
 	}
@@ -648,7 +648,7 @@ func (r *WorkoutRepository) GetWorkoutSession(ctx context.Context, sessionID, at
 	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, workout_id, athlete_id, started_at, completed, completed_at,
 		 current_exercise_index, duration_seconds
-		 FROM workout_session_logs WHERE id = $65 AND athlete_id = $66`, sessionID, athleteID)
+		 FROM workout_session_logs WHERE id = $1 AND athlete_id = $2`, sessionID, athleteID)
 
 	s := &training.WorkoutSession{}
 	var completedAt sql.NullString
@@ -677,7 +677,7 @@ func (r *WorkoutRepository) CreateWorkoutSession(ctx context.Context, workoutID,
 	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO workout_session_logs
 		 (id, workout_id, athlete_id, started_at, completed, current_exercise_index, duration_seconds)
-		 VALUES ($67, $68, $69, NOW(), 0, 0, 0)`,
+		 VALUES ($1, $2, $3, NOW(), 0, 0, 0)`,
 		session.ID, session.WorkoutID, session.AthleteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workout session: %w", err)
@@ -690,8 +690,8 @@ func (r *WorkoutRepository) CreateWorkoutSession(ctx context.Context, workoutID,
 func (r *WorkoutRepository) CompleteSession(ctx context.Context, sessionID, athleteID string, durationSeconds int) error {
 	result, err := r.exec.ExecContext(ctx,
 		`UPDATE workout_session_logs
-		 SET completed = 1, completed_at = NOW(), duration_seconds = $70
-		 WHERE id = $71 AND athlete_id = $72 AND completed = 0`,
+		 SET completed = 1, completed_at = NOW(), duration_seconds = $1
+		 WHERE id = $2 AND athlete_id = $3 AND completed = 0`,
 		durationSeconds, sessionID, athleteID)
 	if err != nil {
 		return fmt.Errorf("failed to complete session: %w", err)
@@ -717,7 +717,7 @@ func (r *WorkoutRepository) ListAssignedWorkoutsByCoach(ctx context.Context, coa
 		`SELECT id, athlete_id, athlete_name, content_id, content_type, content_name,
 		 modality, start_date, end_date, days_of_week, status, progress, coach_id,
 		 created_at, updated_at
-		 FROM assigned_workouts WHERE coach_id = $73
+		 FROM assigned_workouts WHERE coach_id = $1
 		 ORDER BY created_at DESC`, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list assigned workouts by coach: %w", err)
@@ -758,9 +758,9 @@ func (r *WorkoutRepository) UpdateAssignedWorkout(ctx context.Context, id string
 
 	result, err := r.exec.ExecContext(ctx,
 		`UPDATE assigned_workouts
-		 SET modality = $74, start_date = $75, end_date = $76, days_of_week = $77,
-		     status = $78, updated_at = NOW()
-		 WHERE id = $79`,
+		 SET modality = $1, start_date = $2, end_date = $3, days_of_week = $4,
+		     status = $5, updated_at = NOW()
+		 WHERE id = $6`,
 		aw.Modality, aw.StartDate, aw.EndDate, string(daysJSON), aw.Status, id)
 	if err != nil {
 		return fmt.Errorf("failed to update assigned workout: %w", err)
@@ -783,12 +783,12 @@ func (r *WorkoutRepository) DeleteAssignedWorkout(ctx context.Context, id string
 	}
 	defer tx.Rollback()
 
-	_, err = tx.ExecContext(ctx, `DELETE FROM workout_exercises WHERE workout_id = $80`, id)
+	_, err = tx.ExecContext(ctx, `DELETE FROM workout_exercises WHERE workout_id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete workout exercises: %w", err)
 	}
 
-	result, err := tx.ExecContext(ctx, `DELETE FROM assigned_workouts WHERE id = $81`, id)
+	result, err := tx.ExecContext(ctx, `DELETE FROM assigned_workouts WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete assigned workout: %w", err)
 	}
@@ -811,12 +811,12 @@ func (r *WorkoutRepository) DeleteTemplate(ctx context.Context, id string) error
 	}
 	defer tx.Rollback()
 
-	_, err = tx.ExecContext(ctx, `DELETE FROM workout_template_exercises WHERE template_id = $82`, id)
+	_, err = tx.ExecContext(ctx, `DELETE FROM workout_template_exercises WHERE template_id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete template exercises: %w", err)
 	}
 
-	result, err := tx.ExecContext(ctx, `DELETE FROM workout_templates WHERE id = $83`, id)
+	result, err := tx.ExecContext(ctx, `DELETE FROM workout_templates WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete template: %w", err)
 	}
@@ -845,7 +845,7 @@ func (r *WorkoutRepository) UpdateWorkoutExerciseActuals(ctx context.Context, wo
 	// Update all exercises in this workout with the same GPS route (whole workout route)
 	// and per-exercise intervals
 	_, err = r.exec.ExecContext(ctx,
-		`UPDATE workout_exercises SET actual_gps_route = $84, actual_intervals = $85 WHERE workout_id = $86`,
+		`UPDATE workout_exercises SET actual_gps_route = $1, actual_intervals = $2 WHERE workout_id = $3`,
 		actualGPSRoute, string(intervalsJSON), workoutID)
 	if err != nil {
 		return fmt.Errorf("failed to update workout exercise actuals: %w", err)
@@ -859,7 +859,7 @@ func (r *WorkoutRepository) ListSessionsByWorkout(ctx context.Context, workoutID
 		`SELECT id, workout_id, athlete_id, started_at, completed, completed_at,
 		 current_exercise_index, duration_seconds
 		 FROM workout_session_logs
-		 WHERE workout_id = $87 ORDER BY started_at DESC`, workoutID)
+		 WHERE workout_id = $1 ORDER BY started_at DESC`, workoutID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sessions by workout: %w", err)
 	}

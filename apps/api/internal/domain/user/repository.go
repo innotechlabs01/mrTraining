@@ -57,4 +57,7 @@ type Repository interface {
 
 	// AthleteProfileExists reports whether the athlete profile row exists.
 	AthleteProfileExists(ctx context.Context, userID string) (bool, error)
+
+	// SoftDeleteUser marks the user and their coach profile as inactive.
+	SoftDeleteUser(ctx context.Context, userID string) error
 }

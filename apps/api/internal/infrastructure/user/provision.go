@@ -43,7 +43,7 @@ func (r *Repository) EnsureCoach(ctx context.Context, userID, email, name string
 	}
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO coaches (id, email, name, coach_code, created_at, updated_at)
-		 VALUES ($5, $6, $7, $8, NOW(), NOW())
+		 VALUES ($1, $2, $3, $4, NOW(), NOW())
 		 ON CONFLICT (id) DO NOTHING`,
 		userID, email, name, GenerateCoachCode())
 	if err != nil {
@@ -65,11 +65,26 @@ func (r *Repository) EnsureAthleteProfile(ctx context.Context, userID, email, na
 	}
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO athlete_profiles (id, email, name, is_active, created_at, updated_at)
-		 VALUES ($9, $10, $11, 1, NOW(), NOW())
+		 VALUES ($1, $2, $3, 1, NOW(), NOW())
 		 ON CONFLICT (id) DO NOTHING`,
 		userID, email, name)
 	if err != nil {
 		return fmt.Errorf("ensure athlete profile: %w", err)
+	}
+	return nil
+}
+
+// SoftDeleteUser marks the user and their coach profile as inactive.
+func (r *Repository) SoftDeleteUser(ctx context.Context, userID string) error {
+	if _, err := r.db.ExecContext(ctx,
+		`UPDATE users SET is_active = 0, updated_at = NOW() WHERE id = $1`,
+		userID); err != nil {
+		return fmt.Errorf("soft delete user: %w", err)
+	}
+	if _, err := r.db.ExecContext(ctx,
+		`UPDATE coaches SET is_active = 0, updated_at = NOW() WHERE id = $1`,
+		userID); err != nil {
+		return fmt.Errorf("soft delete coach: %w", err)
 	}
 	return nil
 }

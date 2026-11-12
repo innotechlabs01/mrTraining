@@ -3,6 +3,8 @@ package health
 import (
 	"context"
 	"database/sql"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 
 	"github.com/innotechlabs01/mr-training-api/internal/domain/health"
@@ -10,12 +12,35 @@ import (
 
 // Repository implements health.Repository using database/sql with Turso/libsql.
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new health repository.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+// When set, all repository queries run against this executor instead of the
+// connection pool.
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) health.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx (injected by a
+// UnitOfWork) rather than the connection pool.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // GetMetrics returns recent health metrics for an athlete.
@@ -28,7 +53,7 @@ func (r *Repository) GetMetrics(ctx context.Context, athleteID string, days int)
 		args = append(args, fmt.Sprintf("-%d days", days))
 	}
 	query += ` ORDER BY recorded_at DESC`
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.exec.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get health metrics: %w", err)
 	}
@@ -51,9 +76,9 @@ func (r *Repository) GetMetrics(ctx context.Context, athleteID string, days int)
 
 // RecordMetric inserts a health metric.
 func (r *Repository) RecordMetric(ctx context.Context, m *health.HealthMetric) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO athlete_health_metrics (id, athlete_id, metric_type, value, unit, source, source_workout_id, recorded_at, synced_at)
-		 VALUES ($3, $4, $5, $6, $7, $8, $9, $10, NOW())`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
 		m.ID, m.AthleteID, m.MetricType, m.Value, m.Unit, m.Source, m.SourceWorkoutID, m.RecordedAt)
 	if err != nil {
 		return fmt.Errorf("failed to record health metric: %w", err)
@@ -64,14 +89,14 @@ func (r *Repository) RecordMetric(ctx context.Context, m *health.HealthMetric) e
 // GetSleepLogs returns recent sleep logs for an athlete.
 func (r *Repository) GetSleepLogs(ctx context.Context, athleteID string, days int) ([]*health.SleepLog, error) {
 	query := `SELECT id, athlete_id, date, total_minutes, deep_minutes, rem_minutes, light_minutes, awake_minutes, efficiency, score, source
-	          FROM athlete_sleep_logs WHERE athlete_id = $11`
+	          FROM athlete_sleep_logs WHERE athlete_id = $1`
 	args := []interface{}{athleteID}
 	if days > 0 {
 		query += ` AND date >= date('now', $12)`
 		args = append(args, fmt.Sprintf("-%d days", days))
 	}
 	query += ` ORDER BY date DESC`
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.exec.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sleep logs: %w", err)
 	}
@@ -115,9 +140,9 @@ func (r *Repository) GetSleepLogs(ctx context.Context, athleteID string, days in
 
 // RecordSleepLog inserts a sleep log.
 func (r *Repository) RecordSleepLog(ctx context.Context, s *health.SleepLog) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO athlete_sleep_logs (id, athlete_id, date, total_minutes, deep_minutes, rem_minutes, light_minutes, awake_minutes, efficiency, score, source)
-		 VALUES ($13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 		s.ID, s.AthleteID, s.Date, s.TotalMinutes, s.DeepMinutes, s.RemMinutes, s.LightMinutes, s.AwakeMinutes, s.Efficiency, s.Score, s.Source)
 	if err != nil {
 		return fmt.Errorf("failed to record sleep log: %w", err)
@@ -127,9 +152,9 @@ func (r *Repository) RecordSleepLog(ctx context.Context, s *health.SleepLog) err
 
 // GetDevices returns registered devices for an athlete.
 func (r *Repository) GetDevices(ctx context.Context, athleteID string) ([]*health.HealthDevice, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, athlete_id, platform, device_name, device_brand, is_active, last_sync_at, created_at
-		 FROM athlete_health_devices WHERE athlete_id = $24 ORDER BY created_at DESC`, athleteID)
+		 FROM athlete_health_devices WHERE athlete_id = $1 ORDER BY created_at DESC`, athleteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get health devices: %w", err)
 	}
@@ -152,9 +177,9 @@ func (r *Repository) GetDevices(ctx context.Context, athleteID string) ([]*healt
 
 // RegisterDevice inserts or updates a device.
 func (r *Repository) RegisterDevice(ctx context.Context, d *health.HealthDevice) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO athlete_health_devices (id, athlete_id, platform, device_name, device_brand, is_active, last_sync_at, created_at)
-		 VALUES ($25, $26, $27, $28, $29, $30, $31, NOW())
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
 		 ON CONFLICT(athlete_id, platform) DO UPDATE SET device_name=excluded.device_name, device_brand=excluded.device_brand, is_active=1, last_sync_at=NOW()`,
 		d.ID, d.AthleteID, d.Platform, d.DeviceName, d.DeviceBrand, d.IsActive, d.LastSyncAt)
 	if err != nil {
@@ -165,7 +190,7 @@ func (r *Repository) RegisterDevice(ctx context.Context, d *health.HealthDevice)
 
 // RemoveDevice deletes a device.
 func (r *Repository) RemoveDevice(ctx context.Context, deviceID string) error {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM athlete_health_devices WHERE id = $32`, deviceID)
+	res, err := r.exec.ExecContext(ctx, `DELETE FROM athlete_health_devices WHERE id = $1`, deviceID)
 	if err != nil {
 		return fmt.Errorf("failed to remove health device: %w", err)
 	}

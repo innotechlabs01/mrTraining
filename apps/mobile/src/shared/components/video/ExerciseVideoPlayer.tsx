@@ -75,20 +75,9 @@ export function ExerciseVideoPlayer({
     const metrics = metricsRef.current
     if (metrics.durationSec === 0) return
 
-    try {
-      const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000'
-      await fetch(`${API_BASE}/api/athlete/video-metrics`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          videoId,
-          videoType,
-          ...metrics,
-        }),
-      })
-    } catch (err) {
-      console.warn('Failed to send video metrics:', err)
-    }
+    // Telemetry is optional. The web video-metrics endpoint was deprecated during the API-first migration;
+    // keep collection local until a Go metrics endpoint is available.
+    return
   }, [videoId, videoType])
 
   // Send metrics on unmount

@@ -52,7 +52,7 @@ func (r *Repository) ListRecent(ctx context.Context, limit int) ([]*auditdomain.
 		SELECT id, entity, entity_id, action, COALESCE(actor_id, ''), actor_type, COALESCE(payload, ''), created_at
 		FROM financial_audit_events
 		ORDER BY created_at DESC, id DESC
-		LIMIT $8
+		LIMIT $1
 	`, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list audit events: %w", err)

@@ -269,3 +269,57 @@ export async function reportRunningProgress(
 	)
 	return response.data
 }
+
+// =============================================================================
+// GPS batch (Fase 3.1)
+// =============================================================================
+
+/** Max GPS points sent in a single live-location batch (server-enforced cap). */
+export const MAX_GPS_BATCH_POINTS = 100;
+
+/** Points with accuracy worse than this (meters) are dropped before sending. */
+export const GPS_ACCURACY_FILTER_METERS = 50;
+
+export interface LogGpsPointRequest {
+	session_id: string
+	lat: number
+	lng: number
+	alt?: number | null
+	timestamp: string
+	accuracy?: number | null
+}
+
+export interface LogGpsBatchRequest {
+	session_id: string
+	points: LogGpsPointRequest[]
+}
+
+export interface LogGpsBatchResponse {
+	received: number
+	saved: number
+}
+
+/**
+ * Sends a batch of GPS samples for a running session in one POST.
+ * POST /api/v1/running/sessions/:id/live-location
+ * Points with accuracy > 50 m are dropped server-side; we pre-filter client-side
+ * to save bandwidth and battery.
+ */
+export async function reportRunningGpsBatch(
+	request: LogGpsBatchRequest
+): Promise<LogGpsBatchResponse> {
+	const response = await smartClient.post<LogGpsBatchResponse>(
+		`/running/sessions/${request.session_id}/live-location`,
+		request
+	)
+	return response.data
+}
+
+// =============================================================================
+// Idempotency keys (Fase 3.3)
+// =============================================================================
+
+/** Generates a client-side idempotency key for an offlineable action. */
+export function generateIdempotencyKey(): string {
+	return crypto.randomUUID()
+}
