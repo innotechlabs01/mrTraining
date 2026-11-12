@@ -11,10 +11,16 @@
 --   app role entirely for public/admin flows.
 
 -- 1. Grants for tables created in 415/416/417 (mr_training_app is the API role)
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.platform_errors TO mr_training_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.coach_landing_pages TO mr_training_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.testimonials TO mr_training_app;
-
+-- The application role only exists in the local stack: on Supabase the
+-- grants have to be skipped instead of aborting the whole migration.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mr_training_app') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.platform_errors TO mr_training_app;
+        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.coach_landing_pages TO mr_training_app;
+        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.testimonials TO mr_training_app;
+    END IF;
+END $$;
 -- 2. platform_errors: authorize at the HTTP layer (webhook route is public,
 --    CRUD routes are super-admin gated). Replace the session-policy that the
 --    application cannot satisfy with an app-role allow-all.

@@ -12,4 +12,11 @@ CREATE POLICY plans_public_read ON plans
     USING (is_active = 1);
 
 -- Keep the app role grant explicit for this table (same set as 414).
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.plans TO mr_training_app;
+-- The application role only exists in the local stack: on Supabase the
+-- grant has to be skipped instead of aborting the whole migration.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mr_training_app') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.plans TO mr_training_app;
+    END IF;
+END $$;

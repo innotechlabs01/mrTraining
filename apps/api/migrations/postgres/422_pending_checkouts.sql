@@ -47,4 +47,11 @@ CREATE POLICY pending_checkouts_update ON public.pending_checkouts
   FOR UPDATE USING (current_user = 'mr_training_app')
   WITH CHECK (current_user = 'mr_training_app');
 
-GRANT SELECT, INSERT, UPDATE ON TABLE public.pending_checkouts TO mr_training_app;
+-- The application role only exists in the local stack: on Supabase the
+-- grant has to be skipped instead of aborting the whole migration.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mr_training_app') THEN
+        GRANT SELECT, INSERT, UPDATE ON TABLE public.pending_checkouts TO mr_training_app;
+    END IF;
+END $$;

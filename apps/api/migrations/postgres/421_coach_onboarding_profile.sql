@@ -17,4 +17,11 @@ ALTER TABLE public.coaches
     ADD COLUMN IF NOT EXISTS experience_level TEXT NOT NULL DEFAULT '';
 
 -- The application role owns these columns through the existing coaches grant.
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.coaches TO mr_training_app;
+-- The application role only exists in the local stack: on Supabase the
+-- grant has to be skipped instead of aborting the whole migration.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mr_training_app') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.coaches TO mr_training_app;
+    END IF;
+END $$;
