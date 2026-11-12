@@ -1,10 +1,5 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { TodayScreen } from '../features/training/presentation/screens/TodayScreen';
-import { HistoryScreen } from '../features/training/presentation/screens/HistoryScreen';
-import { EventsScreen } from '../features/events/presentation/screens/EventsScreen';
-import { ProfileScreen } from '../features/auth/presentation/screens/ProfileScreen';
-import { RecoveryScreen } from '../features/recovery/presentation/screens/RecoveryScreen';
 import { GlassDock } from '../shared/components/ui/GlassDock';
 
 export type AthleteTabParamList = {
@@ -17,17 +12,45 @@ export type AthleteTabParamList = {
 
 const Tab = createBottomTabNavigator<AthleteTabParamList>();
 
+// Pantallas del tab cargadas bajo demanda (lazy) para mantener el bundle
+// inicial del tab ligero. Cada pantalla pesada se resuelve solo cuando el
+// atleta navega a esa pestaña.
 export function AthleteTabs() {
   return (
     <Tab.Navigator
       tabBar={(props) => <GlassDock {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen name="Today" component={TodayScreen} />
-      <Tab.Screen name="History" component={HistoryScreen} />
-      <Tab.Screen name="Events" component={EventsScreen} />
-      <Tab.Screen name="Recovery" component={RecoveryScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen
+        name="Today"
+        getComponent={() =>
+          require('../features/training/presentation/screens/TodayScreen').TodayScreen
+        }
+      />
+      <Tab.Screen
+        name="History"
+        getComponent={() =>
+          require('../features/training/presentation/screens/HistoryScreen').HistoryScreen
+        }
+      />
+      <Tab.Screen
+        name="Events"
+        getComponent={() =>
+          require('../features/events/presentation/screens/EventsScreen').EventsScreen
+        }
+      />
+      <Tab.Screen
+        name="Recovery"
+        getComponent={() =>
+          require('../features/recovery/presentation/screens/RecoveryScreen').RecoveryScreen
+        }
+      />
+      <Tab.Screen
+        name="Profile"
+        getComponent={() =>
+          require('../features/auth/presentation/screens/ProfileScreen').ProfileScreen
+        }
+      />
     </Tab.Navigator>
   );
 }

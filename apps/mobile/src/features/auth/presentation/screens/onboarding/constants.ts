@@ -1,4 +1,4 @@
-export const STEP_COUNT = 13;
+export const STEP_COUNT = 10;
 
 export const WEIGHT_MIN = 40;
 export const WEIGHT_MAX = 150;

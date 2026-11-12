@@ -14,7 +14,7 @@ import (
 
 func TestAdminHandler_AuthorizationMatrix(t *testing.T) {
 	allowedID := "allowed-admin"
-	h := NewAdminHandler(nil)
+	h := NewAdminHandler(nil, nil)
 
 	cases := []struct {
 		name   string
@@ -49,7 +49,7 @@ func TestAdminHandler_AuthorizationMatrix(t *testing.T) {
 }
 
 func TestAdminHandler_UnauthorizedMatrixAllEndpoints(t *testing.T) {
-	h := NewAdminHandler(nil)
+	h := NewAdminHandler(nil, nil)
 	allowedID := "allowed-admin"
 	endpoints := []string{
 		"/admin/dashboard",

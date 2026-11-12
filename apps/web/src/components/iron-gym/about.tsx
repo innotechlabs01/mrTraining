@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
+import Image from 'next/image';
 
 export function IronGymAbout() {
   return (
@@ -14,15 +15,23 @@ export function IronGymAbout() {
             viewport={{ once: true }}
             className="flex gap-4"
           >
-            <img
+            <Image
               src="/iron-gym/program-1.png"
               alt="Personal training"
+              width={400}
+              height={720}
               className="w-[40%] sm:w-[200px] rounded-xl object-cover aspect-[5/9]"
+              loading="lazy"
+              quality={85}
             />
-            <img
+            <Image
               src="/iron-gym/program-2.png"
               alt="Group coaching"
+              width={600}
+              height={720}
               className="w-[60%] sm:w-[350px] rounded-xl object-cover aspect-[5/6] self-end"
+              loading="lazy"
+              quality={85}
             />
           </motion.div>
 

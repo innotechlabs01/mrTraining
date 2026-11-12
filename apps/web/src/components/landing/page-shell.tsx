@@ -3,6 +3,7 @@
 import { useI18n } from '@/features/shared/hooks/useI18n';
 import { MenuIcon, CloseIcon } from './icons';
 import Link from 'next/link';
+import Image from 'next/image';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useState } from 'react';
 import { SignInButton } from './SignInButton';
@@ -26,8 +27,7 @@ export function Header({ activeKey }: { activeKey?: string }) {
       <header className="ig-nav scrolled">
         <div className="ig-container ig-nav-inner">
           <Link href="/" className="ig-logo">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={LOGO} alt="MR Training" style={{ height: 84, width: 'auto' }} />
+            <Image src={LOGO} alt="MR Training" width={200} height={84} priority />
           </Link>
           <nav className="ig-links" aria-label="MR Training">
             {LINKS.map((item) => (

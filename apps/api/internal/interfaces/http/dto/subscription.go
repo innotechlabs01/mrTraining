@@ -21,6 +21,20 @@ type SubscribeResponse struct {
 	Reference    string               `json:"reference"`
 }
 
+// CoachSubscriptionStatusResponse is the status of a coach's platform
+// subscription. The frontend polls it while the payment provider confirms
+// the payment through the webhook.
+type CoachSubscriptionStatusResponse struct {
+	// Status is the subscription status: active, trial, past_due, cancelled,
+	// expired, or "none" when the coach has no subscription yet.
+	Status string `json:"status"`
+	// Reference is the subscription id.
+	Reference string `json:"reference,omitempty"`
+	// PlanID and PlanName identify the subscribed plan.
+	PlanID   string `json:"plan_id,omitempty"`
+	PlanName string `json:"plan_name,omitempty"`
+}
+
 // SubscriptionResponse represents a subscription in API responses.
 type SubscriptionResponse struct {
 	ID                 string  `json:"id"`

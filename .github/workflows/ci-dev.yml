@@ -28,6 +28,8 @@ jobs:
         working-directory: apps/api
     steps:
       - uses: actions/checkout@v4
+      - name: Verify and sync Supabase / Postgres migrations
+        run: bash ../../scripts/sync-migrations.sh --ci
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25"
@@ -36,10 +38,18 @@ jobs:
       - run: go mod tidy
       - run: git diff --exit-code go.mod go.sum
       - run: go build ./...
+      - name: Migration dry-run against clean DB (Postgres)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/mr_training_test?sslmode=disable
+        run: go run ./cmd/migrate -dry-run -dir migrations/postgres
+      - name: Apply Postgres migrations to test DB
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/mr_training_test?sslmode=disable
+        run: go run ./cmd/migrate -dir migrations/postgres
       - env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/mr_training_test?sslmode=disable
           APP_ENV: development
-        run: go test ./internal/... -race -count=1
+        run: go test -p 1 ./internal/... -race -count=1
 
   web:
     name: Web (dev)

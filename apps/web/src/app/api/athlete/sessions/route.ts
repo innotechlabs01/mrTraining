@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 
+export const dynamic = 'force-dynamic'
+
 const GO = process.env.NEXT_PUBLIC_GO_API_URL || '';
 
-export const dynamic = 'force-dynamic';
 
 async function goFetchJson(token: string, path: string): Promise<unknown> {
   const res = await fetch(`${GO}${path}`, {

@@ -60,6 +60,19 @@ async function getAuthToken(skipCache = false): Promise<string | null> {
  * @param options - Request options (method, body, headers)
  * @returns The parsed JSON response
  */
+/**
+ * Go API error with HTTP status code, so callers can propagate
+ * the correct status (e.g. 403 Forbidden from Go stays 403 in Next.js).
+ */
+export class GoApiError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+    this.name = 'GoApiError';
+  }
+}
+
 export async function goFetchServer<T>(
   path: string,
   token: string,
@@ -81,10 +94,19 @@ export async function goFetchServer<T>(
   });
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(
-      (body as { error?: string }).error || `Go API error: ${res.status}`
-    );
+    let body: { error?: string | object } = {};
+    try {
+      body = await res.json();
+    } catch {
+      body = {};
+    }
+    const errMsg =
+      typeof body.error === 'string'
+        ? body.error
+        : body.error != null
+          ? JSON.stringify(body.error)
+          : `Go API error: ${res.status}`;
+    throw new GoApiError(errMsg, res.status);
   }
   if (res.status === 204) return undefined as T;
   return res.json();

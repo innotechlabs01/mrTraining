@@ -193,7 +193,7 @@ export default function CoachUsersPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-brand-primary/10 to-surface-1 p-5">
+      <div className="rounded-lg border border-white/10 bg-gradient-to-br from-brand-primary/10 to-surface-1 p-5">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-xl bg-brand-primary/20 flex items-center justify-center shrink-0">
@@ -275,7 +275,7 @@ export default function CoachUsersPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
               className={cn(
-                'w-full text-left rounded-2xl border p-4 hover:border-brand-primary/30 hover:bg-surface-2 transition-all group',
+                'w-full text-left rounded-lg border p-4 hover:border-brand-primary/30 hover:bg-surface-2 transition-all group',
                 membership && statusInfo ? STATUS_CARD[membership.status] ?? 'border-white/5 bg-surface-1' : 'border-white/5 bg-surface-1',
               )}
             >

@@ -2,6 +2,9 @@ package migrations
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,9 +14,47 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
-// newTestDB connects to PostgreSQL via DATABASE_URL. Skips when not configured.
+// newTestDB connects to a THROWAWAY PostgreSQL database dedicated to this
+// test run.
+//
+// It used to connect to the shared development database and "reset" it by
+// dropping the `users` table with CASCADE — which silently destroyed the
+// real application data (and every table with a foreign key to it) whenever
+// the suite was run. The test database is now created and dropped around the
+// run, so it can never touch the development data.
 func newTestDB(t *testing.T) *database.DB {
 	t.Helper()
+
+	adminURL := resolveAdminURL()
+	admin, err := database.Connect(adminURL)
+	if err != nil {
+		t.Skipf("skipping: cannot connect to PostgreSQL: %v", err)
+	}
+	defer admin.Close()
+
+	name := fmt.Sprintf("mr_training_migrations_test_%d_%s", os.Getpid(), randomSuffix())
+	if _, err := admin.DB.ExecContext(context.Background(), fmt.Sprintf(`CREATE DATABASE %q`, name)); err != nil {
+		t.Skipf("skipping: cannot create a test database: %v", err)
+	}
+	t.Cleanup(func() {
+		// Terminate the leftover sessions so the database can be dropped.
+		_, _ = admin.DB.ExecContext(context.Background(),
+			`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1`, name)
+		_, _ = admin.DB.ExecContext(context.Background(), fmt.Sprintf(`DROP DATABASE IF EXISTS %q`, name))
+	})
+
+	db, err := database.Connect(strings.Replace(adminURL, "/postgres?", "/"+name+"?", 1))
+	if err != nil {
+		t.Skipf("skipping: cannot connect to the test database: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	return db
+}
+
+// resolveAdminURL returns the superuser URL pointing at the maintenance
+// database, so a fresh test database can be created.
+func resolveAdminURL() string {
 	url := os.Getenv("SUPER_DATABASE_URL")
 	if url == "" {
 		url = os.Getenv("POSTGRES_DATABASE_URL")
@@ -21,16 +62,22 @@ func newTestDB(t *testing.T) *database.DB {
 	if url == "" {
 		url = "postgresql://postgres:1e6819bd685e31fa529ed353f65bc6b6eb4d47f9f3e76c43@127.0.0.1:5435/mr_training_migration?sslmode=disable"
 	}
-	db, err := database.Connect(url)
-	if err != nil {
-		t.Fatalf("connect: %v", err)
+	if i := strings.Index(url, "/postgres?"); i >= 0 {
+		return url
 	}
-	t.Cleanup(func() { db.Close() })
+	if i := strings.Index(url, "?"); i >= 0 {
+		return url[:i] + "/postgres" + url[i:]
+	}
+	return url + "/postgres"
+}
 
-	// Reset artifacts from prior runs in this shared development database.
-	db.DB.ExecContext(context.Background(), "DROP TABLE IF EXISTS users, posts, a, b, good CASCADE")
-	db.DB.ExecContext(context.Background(), "DELETE FROM schema_migrations WHERE name IN ('001_create_users.sql','002_create_posts.sql','001_a.sql','002_b.sql','001_good.sql','002_bad.sql')")
-	return db
+// randomSuffix returns a short random identifier for the test database name.
+func randomSuffix() string {
+	var b [4]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "xxxx"
+	}
+	return hex.EncodeToString(b[:])
 }
 
 func writeMigration(t *testing.T, dir, name, content string) {
@@ -175,5 +222,77 @@ INSERT INTO t (note) VALUES ('x;y'); -- trailing
 	}
 	if !strings.Contains(got[1], "'x;y'") {
 		t.Fatalf("second statement mangled: %q", got[1])
+	}
+}
+
+// A dollar-quoted body holds semicolons of its own: a DO block or a
+// function definition must stay a single statement, otherwise the migration
+// is split and the database rejects the fragments.
+func TestSplitStatements_DollarQuotedBodyIsOneStatement(t *testing.T) {
+	script := `
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mr_training_app') THEN
+        GRANT SELECT ON TABLE public.users TO mr_training_app;
+    END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS demo (id TEXT PRIMARY KEY);
+`
+	got := SplitStatements(script)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 statements, got %d: %v", len(got), got)
+	}
+	if !strings.Contains(got[0], "GRANT SELECT") || !strings.Contains(got[0], "END $$") {
+		t.Errorf("the DO block was split: %q", got[0])
+	}
+	if !strings.Contains(got[1], "CREATE TABLE") {
+		t.Errorf("unexpected second statement: %q", got[1])
+	}
+}
+
+// A tagged dollar quote ($$tag$ ... $tag$) is valid too.
+func TestSplitStatements_TaggedDollarQuote(t *testing.T) {
+	script := `
+CREATE FUNCTION demo() RETURNS void AS $body$
+BEGIN
+    PERFORM 1;
+END;
+$body$ LANGUAGE plpgsql;
+
+CREATE TABLE demo (id TEXT PRIMARY KEY);
+`
+	got := SplitStatements(script)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 statements, got %d: %v", len(got), got)
+	}
+}
+
+// Rollback scripts are not migrations: applying them with the chain used to
+// run a rollback right before the matching forward migration.
+func TestList_SkipsRollbackScripts(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{
+		"001_first.sql",
+		"002_second.down.sql",
+		"003_third.sql",
+		"004_fourth.down.sql",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("SELECT 1;"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	files, err := List(dir)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(files) != 2 {
+		t.Fatalf("expected 2 migration files, got %v", files)
+	}
+	for _, f := range files {
+		if strings.HasSuffix(f, ".down.sql") {
+			t.Errorf("rollback script listed as a migration: %s", f)
+		}
 	}
 }

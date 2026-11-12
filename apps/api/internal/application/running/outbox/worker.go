@@ -50,6 +50,29 @@ func (w *Worker) Start(ctx context.Context) error {
 }
 
 func (w *Worker) recoverExpired(ctx context.Context) error {
+	tx, err := w.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, "SELECT set_config('app.internal_execution_context', 'system_worker', true)"); err != nil {
+		return err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE outbox
+		SET status = 'pending', locked_by = NULL, locked_until = NULL
+		WHERE status = 'processing'
+		  AND locked_until IS NOT NULL
+		  AND locked_until < NOW()
+	`); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (w *Worker) recoverExpiredLegacy(ctx context.Context) error {
 	_, err := w.db.ExecContext(ctx, `
 		UPDATE outbox
 		SET status = 'pending', locked_by = NULL, locked_until = NULL
@@ -77,6 +100,10 @@ func (w *Worker) processBatch(ctx context.Context) error {
 		return err
 	}
 	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, "SELECT set_config('app.internal_execution_context', 'system_worker', true)"); err != nil {
+		return err
+	}
 
 	rows, err := tx.QueryContext(ctx, `
 		SELECT id, COALESCE(event_id::text, id::text), event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, attempts

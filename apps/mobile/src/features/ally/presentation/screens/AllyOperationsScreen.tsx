@@ -10,6 +10,7 @@ import {
   ScrollView,
   Pressable,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -60,9 +61,11 @@ export function AllyOperationsScreen() {
   const navigation = useNavigation<AllyNav>();
   const [operations, setOperations] = useState<Operation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadOperations = useCallback(async () => {
+  const loadOperations = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
     setLoading(true);
     setError(null);
     try {
@@ -90,7 +93,7 @@ export function AllyOperationsScreen() {
       const msg = err instanceof Error ? err.message : t.errorBody;
       setError(msg);
     } finally {
-      setLoading(false);
+      if (isRefresh) setRefreshing(false); else setLoading(false);
     }
   }, []);
 
@@ -128,7 +131,7 @@ export function AllyOperationsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <ScreenHeader title={t.operationsTitle} onBack={() => navigation.goBack()} />
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadOperations(true)} tintColor={colors.primary} />}>
           <Skeleton.List rows={3} height={80} />
         </ScrollView>
       </SafeAreaView>
@@ -155,7 +158,7 @@ export function AllyOperationsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadOperations(true)} tintColor={colors.primary} />}>
         <ScreenHeader title={t.operationsTitle} onBack={() => navigation.goBack()} />
         <Text style={styles.subtitle}>{t.subtitle}</Text>
 

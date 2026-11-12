@@ -255,5 +255,8 @@ export const screensTexts = {
   workoutList: {
     loadErrorTitle: 'Error al cargar',
     loadErrorMessage: 'No se pudieron cargar los entrenamientos.',
+    monthAll: 'Todos los meses',
+    monthThis: 'Este mes',
+    monthLast: 'Mes pasado',
   },
 } as const;

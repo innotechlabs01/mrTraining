@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { goFetchServer } from '@/lib/api/go-client';
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(req: Request) {
   try {
     const { userId } = await auth();

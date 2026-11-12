@@ -108,7 +108,7 @@ function DashboardCard({
       transition={{ duration: 0.45, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ y: -3 }}
       className={cn(
-        'relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1 p-5 transition-colors hover:border-white/10',
+        'relative overflow-hidden rounded-lg border border-white/5 bg-surface-1 p-5 transition-colors hover:border-white/10',
         className,
       )}
     >
@@ -321,7 +321,7 @@ export default function CoachDashboard() {
         />
         <div className="relative flex flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/5 ring-1 ring-white/10">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-white/5 ring-1 ring-white/10">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/images/icon/icon_mr_rp.png"
@@ -342,7 +342,7 @@ export default function CoachDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <div className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
               <div className="rounded-xl bg-orange-500/15 p-2 text-orange-400">
                 <Flame size={20} />
               </div>
@@ -353,7 +353,7 @@ export default function CoachDashboard() {
                 <p className="text-[11px] text-white/40">días seguidos</p>
               </div>
             </div>
-            <div className="hidden items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 sm:flex">
+            <div className="hidden items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 sm:flex">
               <div className="rounded-xl bg-yellow-500/15 p-2 text-yellow-400">
                 <Trophy size={20} />
               </div>
@@ -392,7 +392,7 @@ export default function CoachDashboard() {
       </div>
 
       {/* Athlete Readiness */}
-      <div className="rounded-2xl border border-white/5 bg-surface-1 p-4">
+      <div className="rounded-lg border border-white/5 bg-surface-1 p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-white/80">Athlete Readiness</h3>
           <Link href="/coach/users" className="text-xs text-brand-primary hover:text-brand-primary-hover">

@@ -25,6 +25,7 @@ Si no sabes que regla aplica, lee `apps/rules/MASTER_PROMPT.md` primero.
 | **Coding style / Linting** | `12-coding-standards.md` |
 | **Testing** | `13-testing.md` |
 | **Team workflow / Caveman** | `14-team-workflow.md` |
+| **Git workflow / Changelog** | `15-git-workflow-changelog.md` |
 | **Mobile / React Native** | `mobile-rules/*` (ver seccion abajo) |
 | **Cualquier cosa** | `MASTER_PROMPT.md` (siempre) |
 

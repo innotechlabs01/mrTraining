@@ -3,6 +3,7 @@ package videoview
 import (
 	"context"
 	"database/sql"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 
 	"github.com/innotechlabs01/mr-training-api/internal/domain/videoview"
@@ -10,17 +11,18 @@ import (
 
 // Repository implements the videoview.Repository interface using libsql.
 type Repository struct {
-	db *sql.DB
+	db   *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new video view repository.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
 }
 
 // RecordVideoView inserts a video view event.
 func (r *Repository) RecordVideoView(ctx context.Context, vv *videoview.VideoView) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO video_views (id, athlete_id, exercise_id, action, progress_pct, watch_duration_seconds, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, NOW())
 	`, vv.ID, vv.AthleteID, vv.ExerciseID, vv.Action, vv.ProgressPct, vv.WatchDuration)
@@ -36,7 +38,7 @@ func (r *Repository) ListVideoViews(ctx context.Context, athleteID, exerciseID s
 	var err error
 
 	if exerciseID != "" {
-		rows, err = r.db.QueryContext(ctx, `
+		rows, err = r.exec.QueryContext(ctx, `
 			SELECT id, athlete_id, exercise_id, action, progress_pct, watch_duration_seconds, created_at
 			FROM video_views
 			WHERE athlete_id = $1 AND exercise_id = $2
@@ -44,7 +46,7 @@ func (r *Repository) ListVideoViews(ctx context.Context, athleteID, exerciseID s
 			LIMIT 100
 		`, athleteID, exerciseID)
 	} else {
-		rows, err = r.db.QueryContext(ctx, `
+		rows, err = r.exec.QueryContext(ctx, `
 			SELECT id, athlete_id, exercise_id, action, progress_pct, watch_duration_seconds, created_at
 			FROM video_views
 			WHERE athlete_id = $1
@@ -75,4 +77,16 @@ func (r *Repository) ListVideoViews(ctx context.Context, athleteID, exerciseID s
 		views = append(views, &vv)
 	}
 	return views, nil
+}
+// SetExecutor sets the executor for queries (e.g. *sql.Tx).
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a shallow copy of the repository using the given executor.
+func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
 }

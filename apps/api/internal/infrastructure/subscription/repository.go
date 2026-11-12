@@ -93,10 +93,10 @@ func (r *Repository) update(ctx context.Context, s *subscription.Subscription, e
 		    grace_period_days = $13, payment_due_date = $14,
 		    version = $15, updated_at = NOW()
 		WHERE id = $16 AND version = $17`,
-		s.ID, s.AthleteID, s.CoachID, s.PlanID, s.PlanName, s.PlanPrice,
+		s.AthleteID, s.CoachID, s.PlanID, s.PlanName, s.PlanPrice,
 		s.Currency, s.BillingPeriod, string(s.Status), s.CancelAtPeriodEnd,
 		nullTime(s.CanceledAt), s.CurrentPeriodStart, s.CurrentPeriodEnd,
-		s.GracePeriodDays, s.PaymentDueDate, s.Version+1, existingVersion,
+		s.GracePeriodDays, s.PaymentDueDate, s.Version+1, s.ID, existingVersion,
 	)
 	if err != nil {
 		return fmt.Errorf("update subscription: %w", err)
@@ -200,6 +200,22 @@ func (r *Repository) GetPaymentByProviderID(ctx context.Context, providerPayment
 		       amount, currency, status, period_start, period_end, paid_at, created_at
 		FROM subscription_payments WHERE provider_payment_id = $1 LIMIT 1`, providerPaymentID)
 	return scanPayment(row)
+}
+
+// HasApprovedPayment reports whether an approved payment exists for the
+// subscription.
+func (r *Repository) HasApprovedPayment(ctx context.Context, subscriptionID string) (bool, error) {
+	var one int
+	err := r.exec.QueryRowContext(ctx,
+		`SELECT 1 FROM subscription_payments WHERE subscription_id = $1 AND status = 'approved' LIMIT 1`,
+		subscriptionID).Scan(&one)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("check approved payment: %w", err)
+	}
+	return true, nil
 }
 
 type scannable interface {

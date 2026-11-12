@@ -120,7 +120,7 @@ export function PaymentModal({ open, onClose, plan }: PaymentModalProps) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={step === 'form' ? onClose : undefined} />
 
-      <div className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+      <div className="relative z-10 w-full max-w-md bg-white rounded-lg shadow-2xl overflow-hidden">
         {step === 'loading' && (
           <div className="flex flex-col items-center justify-center py-20 px-8">
             <Loader2 className="w-16 h-16 text-brand-primary animate-spin" />

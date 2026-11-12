@@ -38,7 +38,7 @@ function MiniSparkline({ readings }: { readings: number[] }) {
 
 export default function HRVCard({ data }: { data: HRVData }) {
   return (
-    <div className="bg-surface-1 rounded-2xl p-5 border border-white/5">
+    <div className="bg-surface-1 rounded-lg p-5 border border-white/5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-green-400" />

@@ -21,7 +21,7 @@ export function EmptyState({ icon: Icon, title, description, action, className }
       className,
     )}>
       {Icon && (
-        <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-surface-3 ring-1 ring-surface-4 mb-5">
+        <div className="flex items-center justify-center w-16 h-16 rounded-lg bg-surface-3 ring-1 ring-surface-4 mb-5">
           <Icon className="w-7 h-7 text-text-muted" />
         </div>
       )}
@@ -43,7 +43,7 @@ export function EmptyState({ icon: Icon, title, description, action, className }
 
 export function EmptyStateInline({ icon: Icon, title, description, action }: EmptyStateProps) {
   return (
-    <div className="flex items-center gap-4 p-5 rounded-2xl border border-dashed border-surface-4 bg-surface-2/50">
+    <div className="flex items-center gap-4 p-5 rounded-lg border border-dashed border-surface-4 bg-surface-2/50">
       {Icon && (
         <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-surface-3">
           <Icon className="w-5 h-5 text-text-muted" />

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, type RouteProp } from '@react-navigation/native';
@@ -76,7 +76,7 @@ export function LeaderboardScreen() {
   const { challengeId } = route.params;
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ['leaderboard', challengeId],
     queryFn: async () => {
       const { data } = await apiClient.get(`/challenges/${challengeId}/leaderboard`);
@@ -141,6 +141,7 @@ export function LeaderboardScreen() {
         </View>
       ) : (
         <FlashList
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={colors.primary} />}
           data={data}
           keyExtractor={keyExtractor}
           renderItem={renderItem}

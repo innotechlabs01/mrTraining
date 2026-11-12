@@ -9,6 +9,8 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { goFetchServer } from '@/lib/api/go-client'
 
+export const dynamic = 'force-dynamic'
+
 interface FormMetricStat {
   athlete_id: string;
   athlete_name: string;
@@ -40,7 +42,7 @@ export async function GET() {
       `/api/v1/coach/form-metrics`,
       token,
     );
-    return NextResponse.json(stats ?? [])
+    return NextResponse.json(stats ?? [], { headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' } });
   } catch (error) {
     console.error('Error fetching form metrics:', error)
     return NextResponse.json(

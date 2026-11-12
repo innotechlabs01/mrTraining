@@ -30,6 +30,7 @@ export function CoachHero({ coach }: CoachHeroProps) {
                   height={160}
                   className="object-cover"
                   priority
+                  quality={85}
                 />
               ) : (
                 <span className="text-4xl font-display font-bold text-brand-primary">
@@ -48,7 +49,7 @@ export function CoachHero({ coach }: CoachHeroProps) {
           </div>
 
           <div className="space-y-6">
-            <div className="border border-[var(--border)] bg-surface-1 rounded-2xl p-6">
+            <div className="border border-[var(--border)] bg-surface-1 rounded-lg p-6">
               <h2 className="text-h4 font-display text-[var(--text)] mb-4">
                 Acerca de
               </h2>
@@ -59,7 +60,7 @@ export function CoachHero({ coach }: CoachHeroProps) {
             </div>
 
             {coach.services.length > 0 && (
-              <div className="border border-[var(--border)] bg-surface-1 rounded-2xl p-6">
+              <div className="border border-[var(--border)] bg-surface-1 rounded-lg p-6">
                 <h2 className="text-h4 font-display text-[var(--text)] mb-4">
                   Servicios
                 </h2>

@@ -66,7 +66,7 @@ function isExactActive(pathname: string, href: string): boolean {
   return pathname.startsWith(href)
 }
 
-export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function CoachSidebar({ open, onClose, membershipStatus }: { open: boolean; onClose: () => void; membershipStatus: 'active' | 'omitted' }) {
   const pathname = usePathname()
   const router = useRouter()
   const { blocks, isLoading: timelineLoading } = useToday()
@@ -197,51 +197,18 @@ export function CoachSidebar({ open, onClose }: { open: boolean; onClose: () => 
 
         <div className="my-3 mx-2 h-px bg-gradient-to-r from-transparent via-surface-3 to-transparent" />
 
-        <div>
-          <button
-            onClick={() => setTimelineOpen(!timelineOpen)}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-text-muted hover:text-text-secondary hover:bg-surface-3 transition-all duration-200"
-          >
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-3 text-text-muted">
-              <Clock size={15} />
-            </div>
-            <span className="flex-1 text-left text-xs uppercase tracking-wider font-semibold">
-              Today&apos;s Timeline
+        <div className="mx-3 mt-auto p-3 rounded-xl bg-surface-2 border border-surface-3">
+          <div className="flex items-center gap-2 text-xs font-medium">
+            <span className="text-text-muted">Membresía</span>
+            <span className={cn(
+              'px-2 py-0.5 rounded-full text-xs font-semibold',
+              membershipStatus === 'active' 
+                ? 'bg-emerald-500/20 text-emerald-400' 
+                : 'bg-amber-500/20 text-amber-400'
+            )}>
+              {membershipStatus === 'active' ? 'Activa' : 'Omitida'}
             </span>
-            <ChevronDown
-              size={14}
-              className={cn(
-                'transition-transform duration-200',
-                timelineOpen && 'rotate-180',
-              )}
-            />
-          </button>
-          {timelineOpen && (
-            <div className="mt-1 space-y-0.5">
-              {timelineLoading ? (
-                <div className="flex justify-center py-3">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-brand-primary border-t-transparent" />
-                </div>
-              ) : blocks.length === 0 ? (
-                <div className="px-4 py-3 text-center">
-                  <Circle size={14} className="mx-auto mb-1 text-text-muted" />
-                  <p className="text-xs text-text-muted">No blocks configured</p>
-                </div>
-              ) : (
-                blocks.map((block) => (
-                  <TimeBlockCard
-                    key={block.id}
-                    block={block}
-                    isActive={block.id === currentBlockId}
-                    onClick={() => {
-                      router.push(`/coach/today/${block.id}`)
-                      onClose()
-                    }}
-                  />
-                ))
-              )}
-            </div>
-          )}
+          </div>
         </div>
       </nav>
     </div>

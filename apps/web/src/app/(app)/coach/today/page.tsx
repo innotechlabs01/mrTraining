@@ -132,7 +132,7 @@ export default function CoachTodayPage() {
                 transition={{ duration: 0.35, delay: 0.05 * i, ease: 'easeOut' }}
                 onClick={() => openBlock(block.id as TimeBlockId)}
                 className={cn(
-                  'group relative flex w-full items-center gap-4 rounded-2xl border p-3.5 text-left transition-all',
+                  'group relative flex w-full items-center gap-4 rounded-lg border p-3.5 text-left transition-all',
                   block.status === 'current'
                     ? 'border-brand-primary/40 bg-brand-primary/[0.06]'
                     : 'border-white/5 bg-surface-1 hover:border-white/10 hover:bg-surface-2',
@@ -205,7 +205,7 @@ export default function CoachTodayPage() {
         {todaysSessions.length === 0 ? (
           <button
             onClick={() => router.push('/coach/live-session')}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/10 bg-surface-1 px-4 py-6 text-sm text-white/40 transition hover:border-brand-primary/30 hover:text-brand-primary"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/10 bg-surface-1 px-4 py-6 text-sm text-white/40 transition hover:border-brand-primary/30 hover:text-brand-primary"
           >
             <PlusSM /> Añadir una sesión en vivo
           </button>
@@ -230,7 +230,7 @@ export default function CoachTodayPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.35, delay: 0.05 * i, ease: 'easeOut' }}
                   onClick={() => router.push('/coach/live-session')}
-                  className="group relative flex w-full items-center gap-4 rounded-2xl border border-white/5 bg-surface-1 p-3.5 text-left transition-all hover:border-white/10 hover:bg-surface-2"
+                  className="group relative flex w-full items-center gap-4 rounded-lg border border-white/5 bg-surface-1 p-3.5 text-left transition-all hover:border-white/10 hover:bg-surface-2"
                 >
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-white/10 bg-surface-1 text-brand-primary">
                     <Icon size={15} />

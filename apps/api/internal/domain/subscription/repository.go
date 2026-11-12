@@ -25,6 +25,10 @@ type Repository interface {
 	RecordPayment(ctx context.Context, payment *Payment) error
 	// GetPaymentByProviderID returns a payment by the provider's payment id.
 	GetPaymentByProviderID(ctx context.Context, providerPaymentID string) (*Payment, error)
+	// HasApprovedPayment reports whether an approved payment exists for the
+	// subscription. The subscription row is created BEFORE the payer pays, so
+	// its own status cannot be used to tell whether the money arrived.
+	HasApprovedPayment(ctx context.Context, subscriptionID string) (bool, error)
 }
 
 // Payment records a payment collected through a payment provider for a

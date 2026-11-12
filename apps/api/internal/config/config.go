@@ -64,7 +64,8 @@ type Config struct {
 	WompiEnv             string // sandbox | production
 	WompiWebhookURL      string // URL del webhook registrada en el dashboard de Wompi
 
-	AppURL                 string // URL base de la app (para back_urls)
+	AppURL                 string // URL base de la API (para back_urls server-to-server)
+	WebAppURL              string // URL base del frontend (destino de las redirecciones de pago)
 
 // Email (para notificaciones a coaches)
 	EmailSMTPHost         string // Servidor SMTP (ej: smtp.gmail.com)
@@ -73,6 +74,9 @@ type Config struct {
 	EmailSMTPPassword     string // Contraseña SMTP (contraseña o App Password)
 	EmailFromName         string // Nombre del remitente
 	EmailEnabled          bool     // Cuando true, envía emails reales; false = modo solo-log
+
+	// Discord (error tracking webhook — optional)
+	DiscordWebhookURL string // Discord webhook URL for error notifications
 
 	// Logging
 	LogLevel string // Log level: debug, info, warn, error
@@ -108,6 +112,8 @@ func Load() (*Config, error) {
 
 		PlatformSuperAdminClerkID: getEnv("PLATFORM_SUPER_ADMIN_CLERK_ID", ""),		NATSURL:  getEnv("NATS_URL", "nats://localhost:4222"),
 
+		DiscordWebhookURL: getEnv("ERROR_WEBHOOK_DISCOR", ""),
+
 		TrustedProxies:     splitCSV(getEnv("TRUSTED_PROXIES", "")),
 		RateLimitMax:       getEnvInt("RATE_LIMIT_MAX", 100),
 		RateLimitWindowSec: getEnvInt("RATE_LIMIT_WINDOW", 60),
@@ -126,6 +132,10 @@ func Load() (*Config, error) {
 		WompiEnv:             getEnv("WOMPI_ENV", "sandbox"),
 		WompiWebhookURL:      getEnv("WOMPI_WEBHOOK_URL", ""),
 		AppURL:                getEnv("APP_URL", ""),
+		// The frontend base URL is where the payment provider sends the payer
+		// back. It MUST NOT fall back to APP_URL: that points at this API and
+		// every return URL would 404.
+		WebAppURL:             getEnv("WEB_APP_URL", defaultWebAppURL()),
 	}
 
 	cfg.PlatformSuperAdminClerkIDs = splitCSV(cfg.PlatformSuperAdminClerkID)
@@ -179,6 +189,15 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// defaultWebAppURL returns the development fallback for the frontend base
+// URL. Production must set WEB_APP_URL explicitly.
+func defaultWebAppURL() string {
+	if os.Getenv("APP_ENV") == "production" {
+		return ""
+	}
+	return "http://localhost:3000"
 }
 
 // getEnvInt returns the positive integer value of an environment variable,

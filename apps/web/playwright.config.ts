@@ -15,6 +15,16 @@ export default defineConfig({
   },
   projects: [
     {
+      name: 'chromium-public',
+      testMatch: /tests\/public\/.*\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'api-tests',
+      testMatch: /tests\/api\/.*\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'setup-coach',
       testMatch: /.*\.setup\.ts/,
       testIgnore: /.*\.spec\.ts/,
@@ -26,6 +36,7 @@ export default defineConfig({
     },
     {
       name: 'chromium',
+      testIgnore: [/tests\/public\/.*\.spec\.ts/, /tests\/api\/.*\.spec\.ts/],
       use: { 
         ...devices['Desktop Chrome'],
         storageState: '.auth/coach.json',
@@ -34,6 +45,7 @@ export default defineConfig({
     },
     {
       name: 'chromium-athlete',
+      testIgnore: [/tests\/public\/.*\.spec\.ts/, /tests\/api\/.*\.spec\.ts/],
       use: { 
         ...devices['Desktop Chrome'],
         storageState: '.auth/athlete.json',

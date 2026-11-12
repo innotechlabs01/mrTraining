@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { goFetchServer } from '@/lib/api/go-client';
+import { goFetchServer, GoApiError } from '@/lib/api/go-client';
+
+export const dynamic = 'force-dynamic'
 
 interface GoAthleteProfile {
   id: string;
@@ -46,6 +48,9 @@ export async function GET() {
     );
     return NextResponse.json(data, { status: 200 });
   } catch (error) {
+    if (error instanceof GoApiError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('Error fetching athletes:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -76,6 +81,9 @@ export async function POST(req: Request) {
     );
     return NextResponse.json({ success: true, id });
   } catch (error) {
+    if (error instanceof GoApiError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('Error creating athlete:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

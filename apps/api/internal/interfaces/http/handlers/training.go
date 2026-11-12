@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	runningapp "github.com/innotechlabs01/mr-training-api/internal/application/running"
 	trainingdomain "github.com/innotechlabs01/mr-training-api/internal/domain/training"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/logger"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
@@ -23,11 +25,48 @@ import (
 // TrainingHandler handles HTTP requests for the training domain.
 type TrainingHandler struct {
 	service *trainingapp.Service
+	db      *sql.DB
 }
 
 // NewTrainingHandler creates a new TrainingHandler with the given application service.
-func NewTrainingHandler(service *trainingapp.Service) *TrainingHandler {
-	return &TrainingHandler{service: service}
+func NewTrainingHandler(service *trainingapp.Service, dbs ...*sql.DB) *TrainingHandler {
+	h := &TrainingHandler{service: service}
+	if len(dbs) > 0 && dbs[0] != nil {
+		h.db = dbs[0]
+	}
+	return h
+}
+
+// withTx executes fn inside a transaction with Postgres tenant context injected.
+func (h *TrainingHandler) withTx(c *fiber.Ctx, fn func(*trainingapp.Service) error) error {
+	userID := middleware.GetUserID(c)
+	coachID := middleware.GetCoachID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	if coachID == "" {
+		coachID = userID
+	}
+
+	if h.db == nil {
+		return fn(h.service)
+	}
+
+	uow := database.NewUnitOfWork(h.db)
+	if err := uow.Begin(c.Context(), userID, coachID, middleware.GetUserRole(c)); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
+	}
+	defer uow.Rollback(c.Context())
+
+	svc := h.service.SetExecutor(uow.Tx())
+	if err := fn(svc); err != nil {
+		return err
+	}
+
+	if err := uow.Commit(c.Context()); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to commit transaction")
+	}
+	return nil
 }
 
 // ListExercises handles GET /exercises.
@@ -265,28 +304,27 @@ func (h *TrainingHandler) CreateWorkoutTemplate(c *fiber.Ctx) error {
 }
 
 // AssignWorkout handles POST /workouts/assign.
-// Assigns a workout template to an athlete.
+// Assigns a workout template to an athlete with transactional tenant context.
 func (h *TrainingHandler) AssignWorkout(c *fiber.Ctx) error {
-	userID := middleware.GetUserID(c)
-	if userID == "" {
-		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
-	}
+	return h.withTx(c, func(svc *trainingapp.Service) error {
+		userID := middleware.GetUserID(c)
 
-	var req dto.AssignWorkoutRequest
-	if err := c.BodyParser(&req); err != nil {
-		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
-	}
+		var req dto.AssignWorkoutRequest
+		if err := c.BodyParser(&req); err != nil {
+			return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+		}
 
-	if validationErrs := validator.ValidateAssignWorkout(&req); len(validationErrs) > 0 {
-		return h.handleValidationError(c, validationErrs)
-	}
+		if validationErrs := validator.ValidateAssignWorkout(&req); len(validationErrs) > 0 {
+			return h.handleValidationError(c, validationErrs)
+		}
 
-	assigned, err := h.service.AssignWorkout(c.Context(), userID, req)
-	if err != nil {
-		return h.handleError(c, err)
-	}
+		assigned, err := svc.AssignWorkout(c.Context(), userID, req)
+		if err != nil {
+			return h.handleError(c, err)
+		}
 
-	return appresponse.Success(c, toAssignedWorkoutResponse(assigned))
+		return appresponse.Success(c, toAssignedWorkoutResponse(assigned))
+	})
 }
 
 // GetAssignedWorkouts handles GET /workouts.

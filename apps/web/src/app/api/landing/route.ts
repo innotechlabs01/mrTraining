@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { goFetchServer } from '@/lib/api/go-client';
 
+export const dynamic = 'force-dynamic'
+
 interface LandingData {
   version: number;
   navLinks: string[];
@@ -20,17 +22,23 @@ interface LandingData {
 export async function GET() {
   try {
     // Public landing content — proxied to Go /public/landing (no auth needed).
-    const data = await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/public/landing`, {
-      cache: 'no-store',
-    });
-    if (!data.ok) {
-      return NextResponse.json({ error: 'Failed to fetch landing content' }, { status: 502 });
+    const goUrl = process.env.NEXT_PUBLIC_GO_API_URL || ''
+    const res = await fetch(`${goUrl}/public/landing`, {
+      cache: 'force-cache',
+      next: { revalidate: 3600 },
+    })
+    if (!res.ok) {
+      return NextResponse.json({ error: 'Failed to fetch landing content' }, { status: 502 })
     }
-    const json = (await data.json()) as LandingData;
-    return NextResponse.json(json);
+    const json = (await res.json()) as LandingData
+    return NextResponse.json(json, {
+      headers: {
+        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+      },
+    })
   } catch (error) {
-    console.error('Error fetching landing content:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error fetching landing content:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 

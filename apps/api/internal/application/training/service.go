@@ -5,6 +5,7 @@ package training
 
 import (
 	"context"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 	"strings"
 
@@ -557,4 +558,38 @@ func (s *Service) ListByAthlete(ctx context.Context, athleteID, from string, lim
 		return nil, fmt.Errorf("list athlete training sessions: %w", err)
 	}
 	return sessions, nil
+}
+
+// SetExecutor propagates a transactional SQL executor into child repositories.
+func (s *Service) SetExecutor(exec database.Executor) *Service {
+	workoutRepo := s.workoutRepo
+	if r, ok := s.workoutRepo.(interface{ WithExecutor(database.Executor) training.WorkoutRepository }); ok {
+		workoutRepo = r.WithExecutor(exec)
+	} else if r, ok := s.workoutRepo.(interface{ SetExecutor(database.Executor) }); ok {
+		r.SetExecutor(exec)
+	}
+
+	exerciseRepo := s.exerciseRepo
+	if r, ok := s.exerciseRepo.(interface{ WithExecutor(database.Executor) training.ExerciseRepository }); ok {
+		exerciseRepo = r.WithExecutor(exec)
+	} else if r, ok := s.exerciseRepo.(interface{ SetExecutor(database.Executor) }); ok {
+		r.SetExecutor(exec)
+	}
+
+	progressRepo := s.progressRepo
+	if r, ok := s.progressRepo.(interface{ SetExecutor(database.Executor) }); ok {
+		r.SetExecutor(exec)
+	}
+
+	sessionRepo := s.trainingSessionRepo
+	if r, ok := s.trainingSessionRepo.(interface{ SetExecutor(database.Executor) }); ok {
+		r.SetExecutor(exec)
+	}
+
+	return &Service{
+		exerciseRepo:        exerciseRepo,
+		workoutRepo:         workoutRepo,
+		progressRepo:        progressRepo,
+		trainingSessionRepo: sessionRepo,
+	}
 }

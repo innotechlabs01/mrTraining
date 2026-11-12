@@ -82,10 +82,12 @@ func TestAdapterVerifySignatureMalformed(t *testing.T) {
 	require.ErrorIs(t, a.VerifySignature(b2, "x"), subscription.ErrInvalidSignature)
 }
 
-func TestAdapterVerifySignatureEmptySecretAllows(t *testing.T) {
-	// Adapter with no events secret skips verification entirely.
+func TestAdapterVerifySignatureEmptySecretRejects(t *testing.T) {
+	// Without an events secret the signature cannot be verified, so the
+	// webhook must fail closed: an unverified event could mark a checkout as
+	// paid.
 	a := NewAdapterWithURL(&config.Config{WompiEnv: "sandbox"}, "http://unused")
-	require.NoError(t, a.VerifySignature([]byte("{}"), "x"))
+	require.ErrorIs(t, a.VerifySignature([]byte("{}"), "x"), subscription.ErrInvalidSignature)
 }
 
 func TestAdapterFetchPaymentApproved(t *testing.T) {

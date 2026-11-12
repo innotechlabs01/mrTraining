@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -21,7 +22,11 @@ type fakeRepoStatus struct {
 }
 
 func (f fakeRepoStatus) GetByAthleteID(ctx context.Context, athleteID string) (*domainmembership.Membership, error) {
+	now := time.Now().UTC()
 	if f.pastDue {
+		// Past due: period ended in the past, but payment due date is in the future (within grace period)
+		periodEnd := now.AddDate(0, 0, -3).Format("2006-01-02")
+		paymentDue := now.AddDate(0, 0, 5).Format("2006-01-02")
 		return &domainmembership.Membership{
 			ID:                 "mem-1",
 			AthleteID:          athleteID,
@@ -30,11 +35,12 @@ func (f fakeRepoStatus) GetByAthleteID(ctx context.Context, athleteID string) (*
 			PlanPrice:          100000,
 			BillingPeriod:      "monthly",
 			Status:             "active",
-			CurrentPeriodStart: "2026-10-01",
-			CurrentPeriodEnd:   "2026-10-31",
-			PaymentDueDate:     "2026-11-10",
+			CurrentPeriodStart: now.AddDate(0, -1, 0).Format("2006-01-02"),
+			CurrentPeriodEnd:   periodEnd,
+			PaymentDueDate:     paymentDue,
 		}, nil
 	}
+	// Active: period end is in the future
 	return &domainmembership.Membership{
 		ID:                 "mem-1",
 		AthleteID:          athleteID,
@@ -43,9 +49,9 @@ func (f fakeRepoStatus) GetByAthleteID(ctx context.Context, athleteID string) (*
 		PlanPrice:          100000,
 		BillingPeriod:      "monthly",
 		Status:             "active",
-		CurrentPeriodStart: "2026-11-01",
-		CurrentPeriodEnd:   "2026-12-31",
-		PaymentDueDate:     "2027-01-05",
+		CurrentPeriodStart: now.AddDate(0, 0, -5).Format("2006-01-02"),
+		CurrentPeriodEnd:   now.AddDate(0, 1, 0).Format("2006-01-02"),
+		PaymentDueDate:     now.AddDate(0, 1, 5).Format("2006-01-02"),
 	}, nil
 }
 func (fakeRepoStatus) GetByID(ctx context.Context, id string) (*domainmembership.Membership, error) { return nil, nil }

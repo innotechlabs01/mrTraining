@@ -16,6 +16,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.39.0
 	github.com/clerk/clerk-sdk-go/v2 v2.7.0
 	github.com/gofiber/websocket/v2 v2.2.1
+	github.com/google/wire v0.7.0
 	github.com/nats-io/nats.go v1.39.0
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/stretchr/testify v1.11.1

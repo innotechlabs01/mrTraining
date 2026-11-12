@@ -77,7 +77,7 @@ export function InviteAthleteModal({ isOpen, onClose }: InviteAthleteModalProps)
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="bg-surface-1 border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl"
+          className="bg-surface-1 border border-white/10 rounded-lg w-full max-w-md p-6 shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between mb-6">

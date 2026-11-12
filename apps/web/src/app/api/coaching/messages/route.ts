@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { goFetchServer } from '@/lib/api/go-client';
+import { goFetchServer, GoApiError } from '@/lib/api/go-client';
+
+export const dynamic = 'force-dynamic'
 
 interface GoMessageThread {
   id: string;
@@ -30,6 +32,9 @@ export async function GET() {
     const threads = await goFetchServer<GoMessageThread[]>('/api/v1/messages', token);
     return NextResponse.json(threads, { status: 200 });
   } catch (error) {
+    if (error instanceof GoApiError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('Error fetching message threads:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -56,6 +61,9 @@ export async function PUT(req: Request) {
 
     return NextResponse.json({ success: true, id: created.id }, { status: 201 });
   } catch (error) {
+    if (error instanceof GoApiError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('Error creating message thread:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -87,6 +95,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, id: messageId.id }, { status: 201 });
   } catch (error) {
+    if (error instanceof GoApiError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('Error sending message:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

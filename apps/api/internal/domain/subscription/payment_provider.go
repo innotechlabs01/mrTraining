@@ -20,6 +20,7 @@ type CheckoutRequest struct {
 	Description       string // human-readable description shown to the payer
 	Amount            float64
 	Currency          string
+	TRM               float64 // TRM for currency conversion (USD to COP)
 	SuccessURL        string
 	FailureURL        string
 	PendingURL        string

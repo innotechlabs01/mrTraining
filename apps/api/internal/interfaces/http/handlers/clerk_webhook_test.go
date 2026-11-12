@@ -4,12 +4,15 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/valyala/fasthttp"
@@ -91,12 +94,31 @@ func (m *mockInviteService) AcceptInvite(ctx context.Context, code, athleteID st
 	return nil, errors.New("not implemented")
 }
 
+// currentSvixTimestamp returns the svix timestamp of right now.
+func currentSvixTimestamp() string {
+	return strconv.FormatInt(time.Now().Unix(), 10)
+}
+
 func svixSignature(secret, timestamp string, body []byte) string {
 	secret = strings.TrimPrefix(secret, "whsec_")
 	signedPayload := "msg_123." + timestamp + "." + string(body)
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(signedPayload))
 	return "v1=" + hex.EncodeToString(mac.Sum(nil))
+}
+
+// svixSignatureBase64 builds the signature the way svix/Clerk actually send
+// it: base64 of the raw HMAC, with the secret decoded from base64.
+func svixSignatureBase64(secret, timestamp string, body []byte) string {
+	secret = strings.TrimPrefix(secret, "whsec_")
+	key, err := base64.StdEncoding.DecodeString(secret)
+	if err != nil {
+		key = []byte(secret)
+	}
+	signedPayload := "msg_123." + timestamp + "." + string(body)
+	mac := hmac.New(sha256.New, key)
+	mac.Write([]byte(signedPayload))
+	return "v1," + base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
 func postWebhook(t *testing.T, handler *ClerkWebhookHandler, body []byte, signature string) (int, string) {
@@ -110,7 +132,7 @@ func postWebhook(t *testing.T, handler *ClerkWebhookHandler, body []byte, signat
 	ctx.Request.Header.SetMethod(http.MethodPost)
 	ctx.Request.Header.SetContentType("application/json")
 	ctx.Request.Header.Set("svix-id", "msg_123")
-	ctx.Request.Header.Set("svix-timestamp", "1704067200")
+	ctx.Request.Header.Set("svix-timestamp", strconv.FormatInt(time.Now().Unix(), 10))
 	if signature != "" {
 		ctx.Request.Header.Set("svix-signature", signature)
 	}
@@ -135,7 +157,7 @@ func TestClerkWebhook_ValidSignature_UserCreatedCoach(t *testing.T) {
 			"unsafe_metadata": {}
 		}
 	}`)
-	sig := svixSignature(secret, "1704067200", body)
+	sig := svixSignature(secret, currentSvixTimestamp(), body)
 
 	var ensureCalled bool
 	var ensureCoachCalled bool
@@ -181,6 +203,52 @@ func TestClerkWebhook_ValidSignature_UserCreatedCoach(t *testing.T) {
 	}
 	if !ensureCoachCalled {
 		t.Error("expected EnsureCoach to be called")
+	}
+}
+
+func TestClerkWebhook_RealSvixBase64Signature_IsAccepted(t *testing.T) {
+	// This is the format svix (and therefore Clerk) actually sends:
+	// "v1,<base64 of the raw HMAC>" with the secret decoded from base64.
+	secret := "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+	body := []byte(`{
+		"type": "user.created",
+		"data": {
+			"id": "user_signed",
+			"email_addresses": [{"email_address": "signed@example.com"}],
+			"public_metadata": {"role": "coach"},
+			"unsafe_metadata": {}
+		}
+	}`)
+	sig := svixSignatureBase64(secret, currentSvixTimestamp(), body)
+
+	svc := &mockUserService{
+		ensureUserFn:  func(ctx context.Context, id, email, name, role string) error { return nil },
+		ensureCoachFn: func(ctx context.Context, userID, email, name string) error { return nil },
+		getCoachByIDFn: func(ctx context.Context, userID string) (*user.Coach, error) {
+			return &user.Coach{ID: userID, CoachCode: "MR-REAL"}, nil
+		},
+		updateAvatarFn: func(ctx context.Context, userID, avatarURL string) error { return nil },
+	}
+	handler := NewClerkWebhookHandler(svc, nil, "clerk_sk_test", secret)
+
+	status, respBody := postWebhook(t, handler, body, sig)
+	if status != 200 {
+		t.Fatalf("expected status 200 for a real svix base64 signature, got %d (%s)", status, respBody)
+	}
+}
+
+func TestClerkWebhook_StaleTimestamp_IsRejected(t *testing.T) {
+	secret := "whsec_test123"
+	body := []byte(`{"type":"user.created","data":{"id":"user_123"}}`)
+	// A correctly signed event with an old timestamp is a replay and must be
+	// rejected.
+	sig := svixSignature(secret, strconv.FormatInt(time.Now().Add(-2*time.Hour).Unix(), 10), body)
+
+	handler := NewClerkWebhookHandler(nil, nil, "", secret)
+	status, _ := postWebhook(t, handler, body, sig)
+
+	if status != 400 {
+		t.Fatalf("expected status 400 for a stale timestamp, got %d", status)
 	}
 }
 
@@ -230,7 +298,7 @@ func TestClerkWebhook_UserDeleted(t *testing.T) {
 		"type": "user.deleted",
 		"data": {"id": "user_123"}
 	}`)
-	sig := svixSignature(secret, "1704067200", body)
+	sig := svixSignature(secret, currentSvixTimestamp(), body)
 
 	var softDeleted bool
 	svc := &mockUserService{
@@ -267,7 +335,7 @@ func TestClerkWebhook_UserDeleted_RepoError(t *testing.T) {
 		"type": "user.deleted",
 		"data": {"id": "user_123"}
 	}`)
-	sig := svixSignature(secret, "1704067200", body)
+	sig := svixSignature(secret, currentSvixTimestamp(), body)
 
 	svc := &mockUserService{
 		softDeleteUserFn: func(ctx context.Context, userID string) error {
@@ -312,5 +380,161 @@ func TestClerkWebhook_NoSecretConfigured(t *testing.T) {
 	status, _ := postWebhook(t, handler, body, "")
 	if status == 400 {
 		t.Fatal("expected signature check to be skipped when no secret configured")
+	}
+}
+
+// mockMetadataWriter records the public metadata patches applied by the handler.
+type mockMetadataWriter struct {
+	patches []map[string]interface{}
+}
+
+func (m *mockMetadataWriter) MergePublicMetadata(ctx context.Context, userID string, patch map[string]interface{}) error {
+	m.patches = append(m.patches, patch)
+	return nil
+}
+
+func TestClerkWebhook_PublicMetadataRoleAthlete_ProvisionsAthlete(t *testing.T) {	secret := "whsec_test123"
+	body := []byte(`{
+		"type": "user.created",
+		"data": {
+			"id": "user_athlete",
+			"email_addresses": [{"email_address": "athlete@example.com"}],
+			"public_metadata": {"role": "athlete"},
+			"unsafe_metadata": {}
+		}
+	}`)
+	sig := svixSignature(secret, currentSvixTimestamp(), body)
+
+	var ensuredRole string
+	var ensureCoachCalled bool
+	svc := &mockUserService{
+		ensureUserFn: func(ctx context.Context, id, email, name, role string) error {
+			ensuredRole = role
+			return nil
+		},
+		ensureCoachFn: func(ctx context.Context, userID, email, name string) error {
+			ensureCoachCalled = true
+			return nil
+		},
+	}
+	invSvc := &mockInviteService{
+		getByCodeFn: func(ctx context.Context, code string) (*invite.Invite, error) {
+			return &invite.Invite{CoachID: "coach_1"}, nil
+		},
+		acceptInviteFn: func(ctx context.Context, code, athleteID string) (*invite.AcceptResult, error) {
+			return &invite.AcceptResult{CoachName: "Coach One"}, nil
+		},
+	}
+	writer := &mockMetadataWriter{}
+	handler := NewClerkWebhookHandler(svc, invSvc, "clerk_sk_test", secret).WithMetadataWriter(writer)
+
+	status, _ := postWebhook(t, handler, body, sig)
+	if status != 200 {
+		t.Fatalf("expected status 200, got %d", status)
+	}
+	if ensuredRole != "athlete" {
+		t.Errorf("expected role athlete from public_metadata, got %q", ensuredRole)
+	}
+	if ensureCoachCalled {
+		t.Error("expected coach NOT to be provisioned for an athlete")
+	}
+	if len(writer.patches) != 1 {
+		t.Fatalf("expected 1 metadata patch, got %d", len(writer.patches))
+	}
+	if writer.patches[0]["role"] != "athlete" {
+		t.Errorf("expected role athlete mirrored to public metadata, got %v", writer.patches[0]["role"])
+	}
+}
+
+func TestClerkWebhook_AthleteWithoutCoachCode_IsProvisionedWithoutCoach(t *testing.T) {
+	secret := "whsec_test123"
+	body := []byte(`{
+		"type": "user.created",
+		"data": {
+			"id": "user_athlete",
+			"email_addresses": [{"email_address": "athlete@example.com"}],
+			"public_metadata": {"role": "athlete"},
+			"unsafe_metadata": {}
+		}
+	}`)
+	sig := svixSignature(secret, currentSvixTimestamp(), body)
+
+	var ensuredRole string
+	var athleteProfileCreated bool
+	var inviteLookedUp bool
+	svc := &mockUserService{
+		ensureUserFn: func(ctx context.Context, id, email, name, role string) error {
+			ensuredRole = role
+			return nil
+		},
+		ensureAthleteFn: func(ctx context.Context, userID, email, name string) error {
+			athleteProfileCreated = true
+			return nil
+		},
+	}
+	invSvc := &mockInviteService{
+		getByCodeFn: func(ctx context.Context, code string) (*invite.Invite, error) {
+			inviteLookedUp = true
+			return nil, errors.New("must not be called")
+		},
+	}
+	writer := &mockMetadataWriter{}
+	handler := NewClerkWebhookHandler(svc, invSvc, "clerk_sk_test", secret).WithMetadataWriter(writer)
+
+	status, _ := postWebhook(t, handler, body, sig)
+	if status != 200 {
+		t.Fatalf("expected status 200, got %d", status)
+	}
+	if ensuredRole != "athlete" {
+		t.Errorf("expected role athlete, got %q", ensuredRole)
+	}
+	if !athleteProfileCreated {
+		t.Error("expected the athlete profile to be created")
+	}
+	if inviteLookedUp {
+		t.Error("expected no invite lookup for an athlete without a coach code")
+	}
+	if len(writer.patches) != 1 || writer.patches[0]["role"] != "athlete" {
+		t.Errorf("expected the athlete role mirrored to public metadata, got %v", writer.patches)
+	}
+}
+
+func TestClerkWebhook_CoachMirrorsRoleAndCoachCodeToPublicMetadata(t *testing.T) {
+	secret := "whsec_test123"
+	body := []byte(`{
+		"type": "user.created",
+		"data": {
+			"id": "user_coach",
+			"email_addresses": [{"email_address": "coach@example.com"}],
+			"public_metadata": {"role": "coach"},
+			"unsafe_metadata": {}
+		}
+	}`)
+	sig := svixSignature(secret, currentSvixTimestamp(), body)
+
+	svc := &mockUserService{
+		ensureUserFn:  func(ctx context.Context, id, email, name, role string) error { return nil },
+		ensureCoachFn: func(ctx context.Context, userID, email, name string) error { return nil },
+		getCoachByIDFn: func(ctx context.Context, userID string) (*user.Coach, error) {
+			return &user.Coach{ID: userID, CoachCode: "MR-ABCD"}, nil
+		},
+		updateAvatarFn: func(ctx context.Context, userID, avatarURL string) error { return nil },
+	}
+	writer := &mockMetadataWriter{}
+	handler := NewClerkWebhookHandler(svc, nil, "clerk_sk_test", secret).WithMetadataWriter(writer)
+
+	status, _ := postWebhook(t, handler, body, sig)
+	if status != 200 {
+		t.Fatalf("expected status 200, got %d", status)
+	}
+	if len(writer.patches) != 1 {
+		t.Fatalf("expected 1 metadata patch, got %d", len(writer.patches))
+	}
+	patch := writer.patches[0]
+	if patch["role"] != "coach" {
+		t.Errorf("expected role coach, got %v", patch["role"])
+	}
+	if patch["coachCode"] != "MR-ABCD" {
+		t.Errorf("expected coachCode MR-ABCD, got %v", patch["coachCode"])
 	}
 }

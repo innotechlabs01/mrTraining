@@ -63,7 +63,7 @@ export function HowItWorksSection() {
               <div className="w-12 h-12 rounded-full bg-indigo-600 text-white text-lg font-bold flex items-center justify-center mx-auto mb-6 relative z-10 shadow-lg shadow-indigo-200">
                 {step.number}
               </div>
-              <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-5">
+              <div className="w-14 h-14 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-5">
                 <step.icon className="w-7 h-7" />
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-2">{step.title}</h3>

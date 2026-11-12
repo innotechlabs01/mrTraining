@@ -162,14 +162,14 @@ function InviteContent() {
         </div>
 
         {!code ? (
-          <div className="rounded-2xl border border-white/10 bg-surface-1 p-6 text-center">
+          <div className="rounded-lg border border-white/10 bg-surface-1 p-6 text-center">
             <p className="text-text-secondary">
               Link de invitación inválido. Solicita un nuevo código a tu coach.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="rounded-2xl border border-brand-primary/20 bg-brand-primary/5 p-6 text-center">
+            <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-6 text-center">
               <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">Código del equipo</p>
               <p className="text-4xl font-mono font-bold text-brand-primary tracking-[0.2em]">
                 {code}
@@ -183,7 +183,7 @@ function InviteContent() {
               </button>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-surface-1 p-6 space-y-4">
+            <div className="rounded-lg border border-white/10 bg-surface-1 p-6 space-y-4">
               <div className="flex flex-col items-center gap-3">
                 <div className="w-40 h-40 rounded-xl overflow-hidden bg-white p-2">
                   <img
@@ -198,7 +198,7 @@ function InviteContent() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-surface-1 p-6 space-y-4">
+            <div className="rounded-lg border border-white/10 bg-surface-1 p-6 space-y-4">
               <h2 className="text-sm font-semibold text-text-primary text-center">Paso 1: Descarga Expo Go</h2>
 
               <a
@@ -216,7 +216,7 @@ function InviteContent() {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-surface-1 p-6 space-y-4">
+            <div className="rounded-lg border border-white/10 bg-surface-1 p-6 space-y-4">
               <h2 className="text-sm font-semibold text-text-primary text-center">Paso 2: Abrir MR Training</h2>
 
               {/* Option 1: Open in installed app */}
@@ -293,7 +293,7 @@ function InviteContent() {
                )}
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-surface-1 p-5">
+            <div className="rounded-lg border border-white/10 bg-surface-1 p-5">
               <h3 className="text-sm font-semibold text-text-primary mb-3">Cómo unirte</h3>
               <ol className="space-y-3 text-sm text-text-secondary">
                 <li className="flex items-start gap-3">
