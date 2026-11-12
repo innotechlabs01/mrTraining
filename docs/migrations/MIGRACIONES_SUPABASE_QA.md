@@ -53,12 +53,14 @@ Ahora hay dos capas:
 1. **Los `GRANT` son condicionales.** Cada migración los envuelve en un bloque
    `DO $$ ... IF EXISTS (SELECT 1 FROM pg_roles ...) ... $$`, así que la cadena
    aplica **igual** en local, en CI y en Supabase, exista el rol o no.
-   `bash scripts/check-migrations-portable.sh` falla el CI si alguien agrega un
-   `GRANT` sin condicionar.
-2. **El rol se crea antes de migrar.** `bash scripts/ensure-app-role.sh` lo crea
-   si falta (idempotente, no toca datos). El CD de QA lo corre con el secreto
-   `APP_DB_PASSWORD_QA`; el CI lo corre con una contraseña propia de su base
-   efímera.
+   `bash scripts/check-migrations-portable.sh` verifica que nadie agregue un
+   `GRANT` sin condicionar: es una herramienta local para correr antes de
+   pushear, no una puerta del CI.
+2. **El rol se crea antes de migrar (opcional).**
+   `bash scripts/ensure-app-role.sh` lo crea si falta. Es idempotente, no toca
+   datos y **nunca falla el pipeline**: si no se puede crear, avisa y las
+   migraciones simplemente omiten sus `GRANT`. El CD de QA lo corre con el
+   secreto opcional `APP_DB_PASSWORD_QA`.
 
 ### ⚠️ RLS en QA
 

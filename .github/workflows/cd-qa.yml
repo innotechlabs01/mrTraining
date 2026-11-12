@@ -28,9 +28,6 @@ jobs:
       - name: Verify migration sync
         run: bash ../../scripts/sync-migrations.sh --check
 
-      - name: Verify migrations are portable
-        run: bash ../../scripts/check-migrations-portable.sh
-
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25"

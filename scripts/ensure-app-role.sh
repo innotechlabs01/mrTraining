@@ -35,7 +35,16 @@ if ! command -v psql >/dev/null 2>&1; then
   exit 0
 fi
 
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
-  -v app_role="$ROLE" \
-  -v app_role_password="$PASSWORD" \
-  -f "${SCRIPT_DIR}/ensure-app-role.sql"
+# El bootstrap NUNCA debe tumbar el pipeline: las migraciones son portables
+# (los GRANT son condicionales), así que que el rol no se pueda crear sólo
+# significa que los permisos se omiten, no que la migración falle.
+if ! output="$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+      -v app_role="$ROLE" \
+      -v app_role_password="$PASSWORD" \
+      -f "${SCRIPT_DIR}/ensure-app-role.sql" 2>&1)"; then
+  echo "⚠️  No se pudo preparar el rol '$ROLE': las migraciones omitirán sus grants." >&2
+  echo "$output" | sed 's/^/     /' >&2
+  exit 0
+fi
+
+echo "$output" | sed 's/^/  /'
