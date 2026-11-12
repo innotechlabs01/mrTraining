@@ -86,6 +86,7 @@ jobs:
             --env="${{ env.INFISICAL_ENV }}" \
             --path="${{ env.INFISICAL_PATH }}" \
             --projectId="${{ env.INFISICAL_PROJECT_ID }}" \
+            --url="${INFISICAL_URL}" \
             --format=json)
 
           echo "$SECRETS_JSON" | jq -r 'to_entries[] | "\(.key) \(.value)"' | while read -r key value; do
