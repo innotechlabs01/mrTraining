@@ -27,6 +27,7 @@
 #   - VERCEL_TOKEN            → token de despliegue de Vercel (para desplegar web en QA)
 #   - VERCEL_ORG_ID           → teamId de Vercel (team_ANEIvJ4euu5lD1X9Zq2XumVa)
 #   - VERCEL_PROJECT_ID       → id del proyecto Vercel (prj_OILOwz2lZRvqw24nV7tmrKyz3vhw)
+#   - APP_DB_PASSWORD_QA      → password del rol mr_training_app en QA (para migraciones)
 
 name: CD - QA API a Cloud Run (Secret Manager)
 
@@ -103,6 +104,28 @@ jobs:
               || printf '%s' "$value" | gcloud secrets versions add "$secret_name" --data-file=-
             echo "✅ $secret_name poblado en Secret Manager"
           done
+
+      - name: Aplicar migraciones y crear rol mr_training_app en QA
+        env:
+          APP_DB_PASSWORD_QA: ${{ secrets.APP_DB_PASSWORD_QA }}
+        run: |
+          # El secreto DATABASE_URL_QA ya está en Secret Manager y se inyectará como env var
+          # pero para migraciones necesitamos la URL completa con password del rol de la app
+          if [ -z "$APP_DB_PASSWORD_QA" ]; then
+            echo "⚠️ APP_DB_PASSWORD_QA no configurado; saltando creación de rol y migraciones"
+          else
+            # Construir DATABASE_URL con el rol de la app
+            DB_HOST="db.gqipolozqustybfcoqlf.supabase.co"
+            DB_PORT="5432"
+            DB_NAME="postgres"
+            APP_DB_URL="postgresql://mr_training_app:${APP_DB_PASSWORD_QA}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
+            
+            echo "🔧 Creando rol mr_training_app y aplicando migraciones..."
+            cd apps/api
+            DATABASE_URL="$APP_DB_URL" go run ./cmd/migrate -dir migrations/postgres
+            echo "✅ Migraciones aplicadas con rol mr_training_app"
+          fi
+        working-directory: apps/api
 
       - name: Construir y push imagen de la API
         working-directory: apps/api
