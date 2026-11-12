@@ -1,6 +1,12 @@
 -- seed_local_dev_landing.sql — datos de prueba para la landing pública (solo local)
 -- Idempotente: IDs fijos + ON CONFLICT DO NOTHING.
 
+-- El coach de la landing: los testimonios lo referencian con foreign key, así
+-- que tiene que existir antes (en una base recién creada no existe).
+INSERT INTO coaches (id, email, name, is_active, created_at, updated_at)
+VALUES ('coach-001', 'juan@mrtraining.test', 'Juan Pérez', 1, NOW(), NOW())
+ON CONFLICT (id) DO NOTHING;
+
 INSERT INTO plans (id, coach_id, name, description, price, currency, billing_period,
   max_athletes, max_sessions_per_week, is_active, athlete_count, trm,
   discount_type, discount_value, discount_label)

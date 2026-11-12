@@ -76,14 +76,20 @@ CREATE INDEX IF NOT EXISTS idx_athlete_session_progress_org
     ON athlete_session_progress (organization_id) WHERE organization_id IS NOT NULL;
 
 -- Row-Level Security: tenant isolation for these projection tables.
+-- PostgreSQL does NOT support "CREATE POLICY IF NOT EXISTS": the policy has to
+-- be dropped first. The previous form failed with "syntax error at or near
+-- NOT", which broke the migration step of every CI run.
 ALTER TABLE athlete_prs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS athlete_prs_tenant_isolation ON athlete_prs
+DROP POLICY IF EXISTS athlete_prs_tenant_isolation ON athlete_prs;
+CREATE POLICY athlete_prs_tenant_isolation ON athlete_prs
     FOR ALL USING (organization_id = current_setting('app.current_organization_id', true)::uuid);
 
 ALTER TABLE athlete_session_stats ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS athlete_session_stats_tenant_isolation ON athlete_session_stats
+DROP POLICY IF EXISTS athlete_session_stats_tenant_isolation ON athlete_session_stats;
+CREATE POLICY athlete_session_stats_tenant_isolation ON athlete_session_stats
     FOR ALL USING (organization_id = current_setting('app.current_organization_id', true)::uuid);
 
 ALTER TABLE athlete_session_progress ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS athlete_session_progress_tenant_isolation ON athlete_session_progress
+DROP POLICY IF EXISTS athlete_session_progress_tenant_isolation ON athlete_session_progress;
+CREATE POLICY athlete_session_progress_tenant_isolation ON athlete_session_progress
     FOR ALL USING (organization_id = current_setting('app.current_organization_id', true)::uuid);

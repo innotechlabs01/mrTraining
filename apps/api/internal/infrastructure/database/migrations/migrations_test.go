@@ -224,3 +224,75 @@ INSERT INTO t (note) VALUES ('x;y'); -- trailing
 		t.Fatalf("second statement mangled: %q", got[1])
 	}
 }
+
+// A dollar-quoted body holds semicolons of its own: a DO block or a
+// function definition must stay a single statement, otherwise the migration
+// is split and the database rejects the fragments.
+func TestSplitStatements_DollarQuotedBodyIsOneStatement(t *testing.T) {
+	script := `
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mr_training_app') THEN
+        GRANT SELECT ON TABLE public.users TO mr_training_app;
+    END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS demo (id TEXT PRIMARY KEY);
+`
+	got := SplitStatements(script)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 statements, got %d: %v", len(got), got)
+	}
+	if !strings.Contains(got[0], "GRANT SELECT") || !strings.Contains(got[0], "END $$") {
+		t.Errorf("the DO block was split: %q", got[0])
+	}
+	if !strings.Contains(got[1], "CREATE TABLE") {
+		t.Errorf("unexpected second statement: %q", got[1])
+	}
+}
+
+// A tagged dollar quote ($$tag$ ... $tag$) is valid too.
+func TestSplitStatements_TaggedDollarQuote(t *testing.T) {
+	script := `
+CREATE FUNCTION demo() RETURNS void AS $body$
+BEGIN
+    PERFORM 1;
+END;
+$body$ LANGUAGE plpgsql;
+
+CREATE TABLE demo (id TEXT PRIMARY KEY);
+`
+	got := SplitStatements(script)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 statements, got %d: %v", len(got), got)
+	}
+}
+
+// Rollback scripts are not migrations: applying them with the chain used to
+// run a rollback right before the matching forward migration.
+func TestList_SkipsRollbackScripts(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{
+		"001_first.sql",
+		"002_second.down.sql",
+		"003_third.sql",
+		"004_fourth.down.sql",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("SELECT 1;"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	files, err := List(dir)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(files) != 2 {
+		t.Fatalf("expected 2 migration files, got %v", files)
+	}
+	for _, f := range files {
+		if strings.HasSuffix(f, ".down.sql") {
+			t.Errorf("rollback script listed as a migration: %s", f)
+		}
+	}
+}

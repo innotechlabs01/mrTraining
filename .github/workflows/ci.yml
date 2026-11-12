@@ -37,7 +37,7 @@ jobs:
         run: go build ./...
         
       - name: Run tests
-        run: go test ./internal/... -v -race -count=1
+        run: go test -p 1 ./internal/... -v -race -count=1
         
       - name: Run lint
         uses: golangci/golangci-lint-action@v6

@@ -14,12 +14,27 @@
 ALTER TABLE commission_agreements
   ADD COLUMN IF NOT EXISTS coach_id TEXT NOT NULL DEFAULT '';
 
+-- 2. commission_entries needs the coach that owns the entry too: the RLS
+-- policy filters on it. The column was only present in the databases built
+-- with the original migration set, so it is added here when missing.
+ALTER TABLE commission_entries
+  ADD COLUMN IF NOT EXISTS coach_id TEXT NOT NULL DEFAULT '';
+
 -- Backfill coach_id from the relationship for existing rows.
-UPDATE commission_agreements ca
-SET coach_id = car.coach_id
-FROM coach_ally_relationships car
-WHERE ca.relationship_id = car.id
-  AND ca.coach_id = '';
+-- The relationship table is not created by this migration set, so the backfill
+-- only runs when it is there: on a fresh database there is nothing to
+-- backfill and the statement would abort the whole migration.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables
+               WHERE table_schema = 'public' AND table_name = 'coach_ally_relationships') THEN
+        UPDATE commission_agreements ca
+        SET coach_id = car.coach_id
+        FROM coach_ally_relationships car
+        WHERE ca.relationship_id = car.id
+          AND ca.coach_id = '';
+    END IF;
+END $$;
 
 -- Index for RLS policy lookups.
 CREATE INDEX IF NOT EXISTS idx_commission_agreements_coach

@@ -49,7 +49,7 @@ jobs:
       - env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/mr_training_test?sslmode=disable
           APP_ENV: development
-        run: go test ./internal/... -race -count=1
+        run: go test -p 1 ./internal/... -race -count=1
 
   web:
     name: Web (QA)

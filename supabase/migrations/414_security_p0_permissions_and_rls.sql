@@ -69,7 +69,7 @@ CREATE POLICY assigned_workout_exercises_rls_sel ON public.assigned_workout_exer
 USING (
     EXISTS (
         SELECT 1 FROM public.assigned_workouts aw
-        WHERE aw.id = assigned_workout_exercises.assigned_workout_id
+        WHERE aw.id = assigned_workout_exercises.workout_id
           AND (
             aw.coach_id = NULLIF(current_setting('app.current_coach_id', true), '')
             OR aw.athlete_id = NULLIF(current_setting('app.current_user_id', true), '')
@@ -82,38 +82,50 @@ CREATE POLICY assigned_workout_exercises_rls_dml ON public.assigned_workout_exer
 USING (
     EXISTS (
         SELECT 1 FROM public.assigned_workouts aw
-        WHERE aw.id = assigned_workout_exercises.assigned_workout_id
+        WHERE aw.id = assigned_workout_exercises.workout_id
           AND aw.coach_id = NULLIF(current_setting('app.current_coach_id', true), '')
     )
 )
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.assigned_workouts aw
-        WHERE aw.id = assigned_workout_exercises.assigned_workout_id
+        WHERE aw.id = assigned_workout_exercises.workout_id
           AND aw.coach_id = NULLIF(current_setting('app.current_coach_id', true), '')
     )
 );
 
 -- workout_set_logs
+-- The table does not carry athlete_id: a set log belongs to a session
+-- (workout_session_logs), which carries the athlete and the workout. The
+-- scoping goes through that relation, and the coach is reached through the
+-- assigned workout of the session.
 ALTER TABLE public.workout_set_logs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS workout_set_logs_rls ON public.workout_set_logs;
 CREATE POLICY workout_set_logs_rls ON public.workout_set_logs FOR ALL
 USING (
-    athlete_id = NULLIF(current_setting('app.current_user_id', true), '')
+    EXISTS (
+        SELECT 1 FROM public.workout_session_logs wsl
+        WHERE wsl.id = workout_set_logs.session_id
+          AND wsl.athlete_id = NULLIF(current_setting('app.current_user_id', true), '')
+    )
     OR EXISTS (
-        SELECT 1 FROM public.coach_athlete_links cal
-        WHERE cal.athlete_id = workout_set_logs.athlete_id
-          AND cal.coach_id = NULLIF(current_setting('app.current_coach_id', true), '')
-          AND cal.status = 'active'
+        SELECT 1 FROM public.workout_session_logs wsl
+        JOIN public.assigned_workouts aw ON aw.id = wsl.workout_id
+        WHERE wsl.id = workout_set_logs.session_id
+          AND aw.coach_id = NULLIF(current_setting('app.current_coach_id', true), '')
     )
 )
 WITH CHECK (
-    athlete_id = NULLIF(current_setting('app.current_user_id', true), '')
+    EXISTS (
+        SELECT 1 FROM public.workout_session_logs wsl
+        WHERE wsl.id = workout_set_logs.session_id
+          AND wsl.athlete_id = NULLIF(current_setting('app.current_user_id', true), '')
+    )
     OR EXISTS (
-        SELECT 1 FROM public.coach_athlete_links cal
-        WHERE cal.athlete_id = workout_set_logs.athlete_id
-          AND cal.coach_id = NULLIF(current_setting('app.current_coach_id', true), '')
-          AND cal.status = 'active'
+        SELECT 1 FROM public.workout_session_logs wsl
+        JOIN public.assigned_workouts aw ON aw.id = wsl.workout_id
+        WHERE wsl.id = workout_set_logs.session_id
+          AND aw.coach_id = NULLIF(current_setting('app.current_coach_id', true), '')
     )
 );
 
@@ -127,7 +139,7 @@ USING (
         WHERE wt.id = workout_exercises.workout_id
           AND (
             wt.coach_id = NULLIF(current_setting('app.current_coach_id', true), '')
-            OR wt.is_custom = 0
+            OR wt.is_public = true
           )
     )
 )
