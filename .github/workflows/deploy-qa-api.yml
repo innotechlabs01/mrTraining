@@ -23,6 +23,9 @@
 #   - GCP_CLOUD_RUN_SA
 #   - CORS_ORIGINS_QA         → lista de orígenes permitidos (texto, no secreto)
 #   - GCP_ARTIFACT_REGISTRY   → us-central1-docker.pkg.dev (o el registry del proyecto)
+#   - VERCEL_TOKEN            → token de despliegue de Vercel (para desplegar web en QA)
+#   - VERCEL_ORG_ID           → teamId de Vercel (team_ANEIvJ4euu5lD1X9Zq2XumVa)
+#   - VERCEL_PROJECT_ID       → id del proyecto Vercel (prj_OILOwz2lZRvqw24nV7tmrKyz3vhw)
 
 name: CD - QA API a Cloud Run (Secret Manager)
 
@@ -46,6 +49,8 @@ env:
   INFISICAL_PROJECT_ID: 7218cfde-d9ad-4722-8ffa-9009b1cc40a8
   INFISICAL_ENV: qa
   INFISICAL_PATH: /api
+  VERCEL_ORG_ID: team_ANEIvJ4euu5lD1X9Zq2XumVa
+  VERCEL_PROJECT_ID: prj_OILOwz2lZRvqw24nV7tmrKyz3vhw
 
 jobs:
   deploy:
@@ -131,3 +136,14 @@ jobs:
       - name: Anotar URL para Innotech-secrets
         run: |
           echo "Agrega esta URL a Innotech-secrets (ruta /api, entorno qa): ${{ env.URL_CLOUD_RUN }}"
+
+      - name: Desplegar Web en Vercel (solo rama QA)
+        run: |
+          npm install -g vercel@latest
+          vercel --prod \
+            --token "${{ secrets.VERCEL_TOKEN }}" \
+            --scope "${{ env.VERCEL_ORG_ID }}" \
+            --project "${{ env.VERCEL_PROJECT_ID }}" \
+            --yes
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
