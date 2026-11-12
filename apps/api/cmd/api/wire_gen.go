@@ -9,6 +9,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"os"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/wire"
 	"github.com/innotechlabs01/mr-training-api/internal/config"
@@ -145,9 +146,13 @@ type HTTPServer struct {
 }
 
 func ProvideHTTPServer(app *fiber.App, cfg *config.Config, log *zap.Logger) *HTTPServer {
+	httpPort := cfg.AppPort
+	if p := os.Getenv("PORT"); p != "" {
+		httpPort = p
+	}
 	return &HTTPServer{
 		App:    app,
-		Addr:   ":" + cfg.AppPort,
+		Addr:   ":" + httpPort,
 		Logger: log,
 	}
 }

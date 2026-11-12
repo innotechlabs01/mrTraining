@@ -8,6 +8,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"os"
 	"time"
 
 	"github.com/google/wire"
@@ -136,9 +137,13 @@ type HTTPServer struct {
 }
 
 func ProvideHTTPServer(app *fiber.App, cfg *config.Config, log *zap.Logger) *HTTPServer {
+	httpPort := cfg.AppPort
+	if p := os.Getenv("PORT"); p != "" {
+		httpPort = p
+	}
 	return &HTTPServer{
 		App:    app,
-		Addr:   ":" + cfg.AppPort,
+		Addr:   ":" + httpPort,
 		Logger: log,
 	}
 }
