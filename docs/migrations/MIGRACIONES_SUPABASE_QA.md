@@ -28,12 +28,16 @@ Para que el entorno de QA ejecute las migraciones de forma controlada y el CD de
 
 | Secreto / Variable | Descripción | Ejemplo / Formato |
 |--------------------|-------------|-------------------|
-| `DATABASE_URL_QA` | String de conexión directo a PostgreSQL de Supabase en QA (usado por `cmd/migrate` en CD y Cloud Run). | `postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?sslmode=require` o puerto `5432` directo. |
+| `DATABASE_URL_QA` | String de conexión directo a PostgreSQL de Supabase en QA (usado por `cmd/migrate` en CD y Cloud Run). **Importante**: Para operaciones DDL/migraciones debe ser conexión directa (puerto `5432`) o Session Pooler (puerto `5432`), **NO** Transaction Pooler (puerto `6543`) ya que este último no soporta declaraciones transaccionales de migración o bloqueos DDL completos. | `postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres?sslmode=require` o directo `db.[ref].supabase.co:5432`. |
 | `SUPABASE_ACCESS_TOKEN` *(opcional)* | Token de acceso personal de Supabase para operaciones vía Supabase CLI. | `sbp_...` |
 | `SUPABASE_PROJECT_ID_QA` *(opcional)* | ID de referencia del proyecto en Supabase para vincular el CLI (`supabase link --project-ref`). | `abcdefghijklmno` |
 | `CLERK_SECRET_KEY_QA` | Llave secreta de Clerk para autenticación de API en QA. | `sk_test_...` |
 | `CLERK_PUBLISHABLE_KEY_QA` | Llave pública de Clerk en QA. | `pk_test_...` |
 | `CORS_ORIGINS_QA` | Orígenes permitidos en QA. | `https://qa.mrtraining.app,http://localhost:3000` |
+
+### Consideraciones de Conexión y Pooler de Supabase
+- **Puerto 5432 (Conexión Directa / Session Mode)**: Requerido para la ejecución de migraciones (`cmd/migrate`) y DDL. Permite transacciones con variables de sesión (`SET LOCAL app.current_user_id`), bloqueos de tabla y sentencias DDL.
+- **Puerto 6543 (Transaction Mode Pooler / PgBouncer)**: Adecuado únicamente para consultas de aplicación sin estado de sesión prolongado. **No debe usarse en `cmd/migrate`** porque falla al ejecutar transacciones que modifican tipos de datos o tablas con múltiples sentencias preparadas.
 
 ---
 
@@ -74,11 +78,12 @@ Para que el entorno de QA ejecute las migraciones de forma controlada y el CD de
 ## 4. Flujo de Trabajo CI / CD
 
 ### En Pull Requests y Pushes a `dev` / `QA` (CI)
-1. El script `scripts/sync-migrations.sh --ci` comprueba que las migraciones en `apps/api/migrations/postgres` y `supabase/migrations` estén sincronizadas. Si falta alguna, la sincroniza automáticamente.
+1. El script `scripts/sync-migrations.sh --ci` comprueba que las migraciones en `apps/api/migrations/postgres` y `supabase/migrations` estén sincronizadas. Si falta alguna o difiere, la sincroniza automáticamente en el workspace de CI para permitir continuar y probar.
 2. Se compila la API Go y se corre un dry-run de las migraciones contra una base de datos limpia de PostgreSQL (`postgres:16-alpine`).
 3. Se aplican las migraciones de Postgres y se ejecutan las pruebas automatizadas (`go test`, `pnpm test`).
 
 ### En Despliegue a QA (CD)
-1. El job `migrate` en `cd-qa.yml` ejecuta `scripts/sync-migrations.sh --check` para garantizar consistencia.
-2. Aplica las migraciones pendientes en el proyecto Supabase QA utilizando la conexión `DATABASE_URL_QA`.
-3. Una vez completadas exitosamente las migraciones, el job `deploy` compila la imagen Docker de la API y la despliega en Google Cloud Run.
+1. El job `migrate` en `cd-qa.yml` ejecuta `scripts/sync-migrations.sh --check` para garantizar consistencia previa al despliegue.
+2. Aplica las migraciones pendientes en el proyecto Supabase QA utilizando la conexión `DATABASE_URL_QA` mediante `go run ./cmd/migrate -dir migrations/postgres`.
+3. La tabla `schema_migrations` en la base de datos de Supabase registra cada archivo aplicado, garantizando idempotencia total.
+4. Una vez completadas exitosamente las migraciones, el job `deploy` compila la imagen Docker de la API y la despliega en Google Cloud Run.
