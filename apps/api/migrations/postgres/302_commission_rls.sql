@@ -51,10 +51,16 @@ ALTER TABLE commission_entries ENABLE ROW LEVEL SECURITY;
 -- 4. RLS policies: a row is visible only if coach_id matches the session's
 --    current coach. The session variable app.current_coach_id is set by the
 --    UnitOfWork (transaction-local) or by the request-scoped RLS middleware.
+-- The policy may already exist: this migration was numbered 032 before and
+-- the environments that applied it keep the policy.
+DROP POLICY IF EXISTS commission_agreements_tenant_isolation ON commission_agreements;
 CREATE POLICY commission_agreements_tenant_isolation ON commission_agreements
   FOR ALL
   USING (coach_id = current_setting('app.current_coach_id', true)::text);
 
+-- The policy may already exist: this migration was numbered 032 before and
+-- the environments that applied it keep the policy.
+DROP POLICY IF EXISTS commission_entries_tenant_isolation ON commission_entries;
 CREATE POLICY commission_entries_tenant_isolation ON commission_entries
   FOR ALL
   USING (coach_id = current_setting('app.current_coach_id', true)::text);
