@@ -47,7 +47,7 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REPOSITORY: mr-training
   SERVICE: mr-training-backend
-  IMAGE: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/api
+  IMAGE: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/mr-training/api
   INFISICAL_PROJECT_ID: 7218cfde-d9ad-4722-8ffa-9009b1cc40a8
   INFISICAL_ENV: qa
   INFISICAL_PATH: /api

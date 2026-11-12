@@ -1,28 +1,49 @@
-# Changelog — Últimos 20 commits en `main`
+# Changelog
 
-## 🏃‍♂️ Running / GPS (S0–S11)
-- **feat(running)**: implementar tracking engine y evaluación de código abierto (`3c4463f`)
-- **feat**: 7-day membership trial (`ba2abde`)
-- **feat**: morning readiness check-in (`5eb2bb8`)
-- **feat**: Garmin manual sync + mobile bridge + Settings wearables (`904bbf2`)
-- **feat(api)**: activity import (GPX/TCX/FIT) + Garmin provider + webhook (`fdf5580`)
-- **feat(mobile)**: GPS run recording con cola offline-first (`2e76ae0`)
-- **feat**: workout detail con IA insights en web y mobile (`6fade8f`)
-- **feat(api)**: training AI insights — `GET /workouts/:id/ai-insights` (`72d81d2`)
-- **feat(api)**: real analytics repository + rutas `/analytics` (`c39400e`)
-- **feat(web)**: running history + detail pages con mapa, live tracker (`b94a519`)
-- **feat(api)**: running session lifecycle — PATCH/DELETE, GPS batch, rate limit (`0f5f56a`)
-- **feat(web)**: running API client + `RunningRouteMap` SSR-safe (`c2b4ec0`)
-- **feat**: GPS running detail + live-location endpoint (`b2a72a4`)
+All notable changes to this project will be documented in this file.
 
-## 🔧 API / Backend
-- **feat(api)**: agregar herramienta segura de migración de datos Turso → PostgreSQL (`a82982f`)
-- **test(api)**: agregar unit tests y mejorar resiliencia de data-migrate (`cd440e6`)
-- **style(api)**: gofmt handlers y running service test (`4f4c582`)
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 📚 Documentación
-- **docs**: agregar commercial audit para monetización MR Training SaaS (`bac5012`)
-- **docs**: close out fitness improvement plan v2 (S0–S11 done, S12 bloqueado) (`949be8d`)
+## [Unreleased]
 
-## 🔄 Otros
-- **chore**: sincronizar cambios pendientes del equipo entre api, web y mobile (`c890546`)
+### Added
+- [db] New role: dev-database (Supabase/PostgreSQL expert with RLS focus) — @orca-team (internal)
+- [in] Git workflow + changelog rules (15-git-workflow-changelog.md) — @orca-team (internal)
+
+### Changed
+- [in] Added dev-database role to orca-team pipeline and 14-team-workflow.md — @orca-team (internal)
+
+---
+
+## [1.0.0] - 2026-XX-XX
+
+### Added - Running / GPS (S0–S11)
+- [fe] Running history + detail pages with map, live tracker — @dev-front (PR #?)
+- [fe] Running API client + `RunningRouteMap` SSR-safe — @dev-front (PR #?)
+- [fe] GPS running detail + live-location endpoint — @dev-front (PR #?)
+- [be] Activity import (GPX/TCX/FIT) + Garmin provider + webhook — @dev-backend (PR #?)
+- [be] Training AI insights — `GET /workouts/:id/ai-insights` — @dev-backend (PR #?)
+- [be] Real analytics repository + routes `/analytics` — @dev-backend (PR #?)
+- [be] Running session lifecycle — PATCH/DELETE, GPS batch, rate limit — @dev-backend (PR #?)
+- [mo] GPS run recording with offline-first queue — @dev-react-native (PR #?)
+- [mo] Workout detail with AI insights on web and mobile — @dev-react-native (PR #?)
+
+### Added - API / Backend
+- [be] Secure data migration tool Turso → PostgreSQL — @dev-backend (PR #?)
+- [be] Unit tests + improved resilience for data-migrate — @dev-backend (PR #?)
+
+### Added - Features
+- [fe] 7-day membership trial — @dev-front (PR #?)
+- [fe] Morning readiness check-in — @dev-front (PR #?)
+- [fe] Garmin manual sync + mobile bridge + Settings wearables — @dev-front (PR #?)
+
+### Documentation
+- [in] Commercial audit for MR Training SaaS monetization — @dev-backend (PR #?)
+- [in] Fitness improvement plan v2 closeout (S0–S11 done) — @dev-backend (PR #?)
+
+### Changed
+- [be] gofmt handlers and running service test — @dev-backend (PR #?)
+
+### Other
+- [in] Sync pending team changes across api, web, mobile — @dev-backend (PR #?)

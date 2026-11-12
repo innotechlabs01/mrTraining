@@ -95,6 +95,7 @@ Max 3 loops por stage; al 4to fallo, escalar al usuario.
 **Roles (el architect decide, el coordinator confirma):**
 - `dev-front` — Next.js/React (apps/web)
 - `dev-backend` — Go/API/DB (apps/api)
+- `dev-database` — Supabase/PostgreSQL expert, RLS, migrations, security (apps/api DB layer)
 - `dev-react-native` — React Native (apps/mobile)
 - `dev-flutter` — Flutter/Dart (si aplica)
 - `ux-ui-designer` — diseño ANTES de código cuando cambia UX visible
@@ -125,6 +126,7 @@ Mapa fijo rol → template + reglas que el worker DEBE leer:
 | `architect` | `architect.md` | `pipeline-init`, `mr-context` | spec + reglas de arquitectura que apliquen |
 | `dev-front` | `dev-front.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md`, `00-product-vision.md`, `03-ux-workflows.md`, `06-frontend-architecture.md`, `08-api-specification.md` |
 | `dev-backend` | `dev-backend.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md`, `04-database-design.md`, `05-backend-architecture.md`, `08-api-specification.md` |
+| `dev-database` | `dev-database.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md`, `04-database-design.md`, `11-security.md` + migration rules |
 | `dev-react-native` | `dev-react-native.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md` + `mobile-rules/*` |
 | `dev-flutter` | `dev-flutter.md` | `pipeline-init`, `mr-context` | reglas que apliquen + spec |
 | `ux-ui-designer` | `ux-ui-designer.md` | `pipeline-init`, `mr-context` | `01-brand-guidelines.md`, `02-design-system.md`, `03-ux-workflows.md` |
