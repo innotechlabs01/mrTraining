@@ -134,7 +134,9 @@ func (a *Adapter) CreateCheckout(ctx context.Context, req subscription.CheckoutR
 func (a *Adapter) VerifySignature(body []byte, signatureHeader string) error {
 	secret := a.cfg.WompiEventsSecret
 	if secret == "" {
-		return nil
+		// Fail closed: without a secret the signature cannot be verified, and
+		// an unverified webhook could mark a checkout as paid.
+		return subscription.ErrInvalidSignature
 	}
 
 	var event struct {

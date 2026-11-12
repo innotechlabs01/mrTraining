@@ -7,6 +7,7 @@ import (
 
 	"github.com/innotechlabs01/mr-training-api/internal/config"
 	subscriptionapp "github.com/innotechlabs01/mr-training-api/internal/application/subscription"
+	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
 	checkoutdomain "github.com/innotechlabs01/mr-training-api/internal/domain/checkout"
 	plandomain "github.com/innotechlabs01/mr-training-api/internal/domain/plan"
 	subscriptiondomain "github.com/innotechlabs01/mr-training-api/internal/domain/subscription"
@@ -55,6 +56,7 @@ func (f *fakeCheckoutRepo) Save(ctx context.Context, c *checkoutdomain.Checkout)
 type fakeProvider struct {
 	checkout *subscriptiondomain.CheckoutResponse
 	request  subscriptiondomain.CheckoutRequest
+	payment  *subscriptiondomain.ProviderPayment
 }
 
 func (f *fakeProvider) CreateCheckout(ctx context.Context, req subscriptiondomain.CheckoutRequest) (*subscriptiondomain.CheckoutResponse, error) {
@@ -67,9 +69,26 @@ func (f *fakeProvider) CreateCheckout(ctx context.Context, req subscriptiondomai
 
 func (f *fakeProvider) VerifySignature(body []byte, signatureHeader string) error { return nil }
 func (f *fakeProvider) FetchPayment(ctx context.Context, paymentID string) (*subscriptiondomain.ProviderPayment, error) {
-	return nil, errors.New("not implemented")
+	if f.payment == nil {
+		return nil, errors.New("not implemented")
+	}
+	return f.payment, nil
 }
 func (f *fakeProvider) Refund(ctx context.Context, paymentID string) error { return nil }
+
+// fakeIdentity resolves the verified identity of a user.
+type fakeIdentity struct {
+	email    string
+	verified bool
+	err      error
+}
+
+func (f *fakeIdentity) GetVerifiedIdentity(ctx context.Context, userID string) (string, bool, error) {
+	if f.err != nil {
+		return "", false, f.err
+	}
+	return f.email, f.verified, nil
+}
 
 // fakePlanRepo returns a fixed plan.
 type fakePlanRepo struct {
@@ -198,7 +217,8 @@ func TestStart_RecoversAPaidCheckoutForTheSameEmail(t *testing.T) {
 func TestClaim_RefusesAnUnpaidCheckout(t *testing.T) {
 	repo := newFakeCheckoutRepo()
 	coaches := &fakeCoaches{}
-	svc := NewService(testConfig(), repo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, coaches, &fakeSubscriptions{})
+	svc := NewService(testConfig(), repo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, coaches, &fakeSubscriptions{}).
+		WithIdentityReader(&fakeIdentity{email: "coach@example.com", verified: true})
 
 	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "coach@example.com"})
 	if err != nil {
@@ -218,12 +238,21 @@ func TestClaim_ProvisionsTheCoachAndAttachesTheSubscription(t *testing.T) {
 	repo := newFakeCheckoutRepo()
 	coaches := &fakeCoaches{}
 	subs := &fakeSubscriptions{}
-	svc := NewService(testConfig(), repo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, coaches, subs)
+	provider := &fakeProvider{payment: &subscriptiondomain.ProviderPayment{
+		ID:                "pay_1",
+		Status:            "approved",
+		ExternalReference: "checkout:PLACEHOLDER",
+		TransactionAmount: 59,
+		Currency:          "USD",
+	}}
+	svc := NewService(testConfig(), repo, provider, &fakePlanRepo{plan: newPlan()}, coaches, subs).
+		WithIdentityReader(&fakeIdentity{email: "coach@example.com", verified: true})
 
 	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "coach@example.com"})
 	if err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
+	provider.payment.ExternalReference = "checkout:" + created.CheckoutID
 	if err := repo.byID[created.CheckoutID].MarkPaid("pay_1", 59, "USD"); err != nil {
 		t.Fatalf("MarkPaid failed: %v", err)
 	}
@@ -253,12 +282,20 @@ func TestClaim_IsIdempotent(t *testing.T) {
 	repo := newFakeCheckoutRepo()
 	coaches := &fakeCoaches{}
 	subs := &fakeSubscriptions{}
-	svc := NewService(testConfig(), repo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, coaches, subs)
+	provider := &fakeProvider{payment: &subscriptiondomain.ProviderPayment{
+		ID:                "pay_1",
+		Status:            "approved",
+		TransactionAmount: 59,
+		Currency:          "USD",
+	}}
+	svc := NewService(testConfig(), repo, provider, &fakePlanRepo{plan: newPlan()}, coaches, subs).
+		WithIdentityReader(&fakeIdentity{email: "coach@example.com", verified: true})
 
 	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "coach@example.com"})
 	if err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
+	provider.payment.ExternalReference = "checkout:" + created.CheckoutID
 	if err := repo.byID[created.CheckoutID].MarkPaid("pay_1", 59, "USD"); err != nil {
 		t.Fatalf("MarkPaid failed: %v", err)
 	}
@@ -276,5 +313,143 @@ func TestClaim_IsIdempotent(t *testing.T) {
 	}
 	if len(subs.calls) != 1 {
 		t.Errorf("the subscription must be attached once, got %d", len(subs.calls))
+	}
+}
+
+// A paid checkout belongs to the PAYER: another account must not be able to
+// claim it and get the plan for free.
+func TestClaim_RefusesACheckoutPaidBySomebodyElse(t *testing.T) {
+	repo := newFakeCheckoutRepo()
+	coaches := &fakeCoaches{}
+	subs := &fakeSubscriptions{}
+	provider := &fakeProvider{payment: &subscriptiondomain.ProviderPayment{
+		ID:                "pay_1",
+		Status:            "approved",
+		TransactionAmount: 59,
+		Currency:          "USD",
+	}}
+	// The attacker signed up with ANOTHER email.
+	svc := NewService(testConfig(), repo, provider, &fakePlanRepo{plan: newPlan()}, coaches, subs).
+		WithIdentityReader(&fakeIdentity{email: "attacker@example.com", verified: true})
+
+	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "victim@example.com"})
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	provider.payment.ExternalReference = "checkout:" + created.CheckoutID
+	if err := repo.byID[created.CheckoutID].MarkPaid("pay_1", 59, "USD"); err != nil {
+		t.Fatalf("MarkPaid failed: %v", err)
+	}
+
+	_, err = svc.Claim(context.Background(), ClaimCommand{CheckoutID: created.CheckoutID, UserID: "attacker_1"})
+	if err == nil {
+		t.Fatal("expected the claim of another payer's checkout to be refused")
+	}
+	appErr, ok := err.(*apperrors.AppError)
+	if !ok || appErr.Status != 403 {
+		t.Fatalf("expected a 403, got %v", err)
+	}
+	if len(coaches.calls) != 0 {
+		t.Error("the coach must not be provisioned for a checkout paid by somebody else")
+	}
+	if len(subs.calls) != 0 {
+		t.Error("no subscription may be attached to a checkout paid by somebody else")
+	}
+}
+
+// An account with an UNVERIFIED email cannot claim a payment: otherwise the
+// attacker would sign up with the victim's email and take their plan.
+func TestClaim_RefusesAnUnverifiedEmail(t *testing.T) {
+	repo := newFakeCheckoutRepo()
+	coaches := &fakeCoaches{}
+	provider := &fakeProvider{payment: &subscriptiondomain.ProviderPayment{
+		ID: "pay_1", Status: "approved", TransactionAmount: 59, Currency: "USD",
+	}}
+	svc := NewService(testConfig(), repo, provider, &fakePlanRepo{plan: newPlan()}, coaches, &fakeSubscriptions{}).
+		WithIdentityReader(&fakeIdentity{email: "victim@example.com", verified: false})
+
+	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "victim@example.com"})
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	provider.payment.ExternalReference = "checkout:" + created.CheckoutID
+	if err := repo.byID[created.CheckoutID].MarkPaid("pay_1", 59, "USD"); err != nil {
+		t.Fatalf("MarkPaid failed: %v", err)
+	}
+
+	_, err = svc.Claim(context.Background(), ClaimCommand{CheckoutID: created.CheckoutID, UserID: "attacker_1"})
+	if err == nil {
+		t.Fatal("expected the claim to be refused for an unverified email")
+	}
+	appErr, ok := err.(*apperrors.AppError)
+	if !ok || appErr.Status != 403 {
+		t.Fatalf("expected a 403, got %v", err)
+	}
+}
+
+// The webhook is only a notification: the claim re-checks the payment with
+// the provider, so a forged webhook cannot grant a plan.
+func TestClaim_RefusesAPaymentTheProviderDoesNotConfirm(t *testing.T) {
+	repo := newFakeCheckoutRepo()
+	coaches := &fakeCoaches{}
+	subs := &fakeSubscriptions{}
+	// The provider does not know the transaction (the webhook was forged).
+	provider := &fakeProvider{}
+	svc := NewService(testConfig(), repo, provider, &fakePlanRepo{plan: newPlan()}, coaches, subs).
+		WithIdentityReader(&fakeIdentity{email: "coach@example.com", verified: true})
+
+	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "coach@example.com"})
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	if err := repo.byID[created.CheckoutID].MarkPaid("forged_txn", 59, "USD"); err != nil {
+		t.Fatalf("MarkPaid failed: %v", err)
+	}
+
+	_, err = svc.Claim(context.Background(), ClaimCommand{CheckoutID: created.CheckoutID, UserID: "user_1"})
+	if err == nil {
+		t.Fatal("expected the claim to be refused when the provider does not confirm the payment")
+	}
+	if len(subs.calls) != 0 {
+		t.Error("no subscription may be attached without a confirmed payment")
+	}
+}
+
+// The payment must belong to THIS checkout: a payment confirmed for another
+// checkout cannot be reused.
+func TestClaim_RefusesAPaymentOfAnotherCheckout(t *testing.T) {
+	repo := newFakeCheckoutRepo()
+	coaches := &fakeCoaches{}
+	provider := &fakeProvider{payment: &subscriptiondomain.ProviderPayment{
+		ID: "pay_1", Status: "approved", ExternalReference: "checkout:someone_else",
+		TransactionAmount: 59, Currency: "USD",
+	}}
+	svc := NewService(testConfig(), repo, provider, &fakePlanRepo{plan: newPlan()}, coaches, &fakeSubscriptions{}).
+		WithIdentityReader(&fakeIdentity{email: "coach@example.com", verified: true})
+
+	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "coach@example.com"})
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	if err := repo.byID[created.CheckoutID].MarkPaid("pay_1", 59, "USD"); err != nil {
+		t.Fatalf("MarkPaid failed: %v", err)
+	}
+
+	_, err = svc.Claim(context.Background(), ClaimCommand{CheckoutID: created.CheckoutID, UserID: "user_1"})
+	if err == nil {
+		t.Fatal("expected the claim to be refused for a payment of another checkout")
+	}
+}
+
+// The email is stored and echoed back in the return URLs: it must be a sane
+// address.
+func TestStart_RejectsAMalformedEmail(t *testing.T) {
+	repo := newFakeCheckoutRepo()
+	svc := NewService(testConfig(), repo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, &fakeCoaches{}, &fakeSubscriptions{})
+
+	for _, email := range []string{"", "not-an-email", "a@b", "a b@example.com", "a@example.com; DROP TABLE users"} {
+		if _, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: email}); err == nil {
+			t.Errorf("expected the email %q to be rejected", email)
+		}
 	}
 }

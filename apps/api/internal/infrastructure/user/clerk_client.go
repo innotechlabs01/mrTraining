@@ -40,6 +40,10 @@ type ClerkUserData struct {
 	PublicMetadata map[string]interface{}
 	// UnsafeMetadata is the server-written metadata (plan selection, ...).
 	UnsafeMetadata map[string]interface{}
+	// EmailVerified reports whether the primary email address is verified.
+	// It gates the actions that prove ownership of an email (claiming a paid
+	// checkout, for instance).
+	EmailVerified bool
 }
 
 type clerkUserResponse struct {
@@ -47,10 +51,15 @@ type clerkUserResponse struct {
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 	EmailAddresses []struct {
+		ID           string `json:"id"`
 		EmailAddress string `json:"email_address"`
+		Verification *struct {
+			Status string `json:"status"`
+		} `json:"verification"`
 	} `json:"email_addresses"`
-	PublicMetadata map[string]interface{} `json:"public_metadata"`
-	UnsafeMetadata map[string]interface{} `json:"unsafe_metadata"`
+	PrimaryEmailAddressID string                 `json:"primary_email_address_id"`
+	PublicMetadata        map[string]interface{} `json:"public_metadata"`
+	UnsafeMetadata        map[string]interface{} `json:"unsafe_metadata"`
 }
 
 // FetchUser fetches a user's identity data from the Clerk Backend API.
@@ -83,10 +92,30 @@ func (c *ClerkClient) FetchUser(ctx context.Context, userID string) (*ClerkUserD
 		PublicMetadata: clerkUser.PublicMetadata,
 		UnsafeMetadata: clerkUser.UnsafeMetadata,
 	}
-	if len(clerkUser.EmailAddresses) > 0 {
-		data.Email = clerkUser.EmailAddresses[0].EmailAddress
+	// The PRIMARY email address is the one that identifies the user.
+	for _, addr := range clerkUser.EmailAddresses {
+		if clerkUser.PrimaryEmailAddressID != "" && addr.ID != clerkUser.PrimaryEmailAddressID {
+			continue
+		}
+		data.Email = addr.EmailAddress
+		if addr.Verification != nil && addr.Verification.Status == "verified" {
+			data.EmailVerified = true
+		}
+		if clerkUser.PrimaryEmailAddressID != "" {
+			break
+		}
 	}
 	return data, nil
+}
+
+// GetVerifiedIdentity returns the primary email address of a user and whether
+// it is verified. It gates the actions that prove ownership of an email.
+func (c *ClerkClient) GetVerifiedIdentity(ctx context.Context, userID string) (string, bool, error) {
+	data, err := c.FetchUser(ctx, userID)
+	if err != nil {
+		return "", false, err
+	}
+	return data.Email, data.EmailVerified, nil
 }
 
 // GenerateCoachCode generates a coach invite code like "MR-A7K2".

@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -18,6 +19,13 @@ import (
 	subscriptiondomain "github.com/innotechlabs01/mr-training-api/internal/domain/subscription"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 )
+
+// IdentityReader reads the verified identity of a user from the auth
+// provider. The claim is bound to the PAYER's email, so the provider — not
+// the request — has to vouch for it.
+type IdentityReader interface {
+	GetVerifiedIdentity(ctx context.Context, userID string) (email string, verified bool, err error)
+}
 
 // CoachProvisioner provisions the coach account of a claimed checkout.
 type CoachProvisioner interface {
@@ -31,17 +39,25 @@ type SubscriptionAttacher interface {
 
 // Service orchestrates the hybrid checkout.
 type Service struct {
-	cfg         *config.Config
-	repo        checkoutdomain.Repository
-	provider    subscriptiondomain.PaymentProvider
-	planRepo    plandomain.Repository
-	coaches     CoachProvisioner
+	cfg           *config.Config
+	repo          checkoutdomain.Repository
+	provider      subscriptiondomain.PaymentProvider
+	planRepo      plandomain.Repository
+	coaches       CoachProvisioner
 	subscriptions SubscriptionAttacher
+	identity      IdentityReader
 }
 
 // NewService creates a checkout service.
 func NewService(cfg *config.Config, repo checkoutdomain.Repository, provider subscriptiondomain.PaymentProvider, planRepo plandomain.Repository, coaches CoachProvisioner, subscriptions SubscriptionAttacher) *Service {
 	return &Service{cfg: cfg, repo: repo, provider: provider, planRepo: planRepo, coaches: coaches, subscriptions: subscriptions}
+}
+
+// WithIdentityReader injects the reader that resolves the VERIFIED identity of
+// the caller. Without it the claim cannot prove that the caller is the payer.
+func (s *Service) WithIdentityReader(r IdentityReader) *Service {
+	s.identity = r
+	return s
 }
 
 // StartCommand is the input to start a checkout.
@@ -69,8 +85,8 @@ func (s *Service) Start(ctx context.Context, cmd StartCommand) (*StartResult, er
 	if planID == "" {
 		return nil, errors.BadRequest("plan_id is required")
 	}
-	if email == "" {
-		return nil, errors.BadRequest("email is required")
+	if err := validateEmail(email); err != nil {
+		return nil, err
 	}
 
 	// Recover a checkout that was already paid for this email.
@@ -161,7 +177,17 @@ func (s *Service) Claim(ctx context.Context, cmd ClaimCommand) (*ClaimResult, er
 		return nil, errors.NotFound("PendingCheckout", cmd.CheckoutID)
 	}
 
-	// Already claimed: return the same result.
+	// The checkout belongs to the payer: only the payer may claim it. Without
+	// this check any authenticated user could claim somebody else's paid
+	// checkout and get the plan for free.
+	if co.UserID != "" && co.UserID != cmd.UserID {
+		return nil, errors.Forbidden("this checkout belongs to another account")
+	}
+	if err := s.assertPayer(ctx, co, cmd.UserID); err != nil {
+		return nil, err
+	}
+
+	// Already claimed by the same user: return the same result.
 	if co.Status == checkoutdomain.StatusClaimed {
 		return &ClaimResult{
 			CheckoutID: co.ID,
@@ -173,6 +199,12 @@ func (s *Service) Claim(ctx context.Context, cmd ClaimCommand) (*ClaimResult, er
 	}
 	if !co.IsPaid() {
 		return nil, errors.Conflict("the payment has not been confirmed yet")
+	}
+
+	// Re-verify the payment with the provider: the webhook is only a
+	// notification, and a forged one must not grant a plan.
+	if err := s.assertPaymentApproved(ctx, co); err != nil {
+		return nil, err
 	}
 
 	// Provision the coach: users + coaches rows, coach code and the role in
@@ -214,6 +246,53 @@ func (s *Service) Claim(ctx context.Context, cmd ClaimCommand) (*ClaimResult, er
 	}, nil
 }
 
+// assertPayer checks that the caller IS the payer of the checkout.
+//
+// The caller must have a VERIFIED email address and it must match the email
+// the checkout was created with. Without the verification the attacker could
+// create an account with the victim's email and claim their payment.
+func (s *Service) assertPayer(ctx context.Context, co *checkoutdomain.Checkout, userID string) error {
+	if s.identity == nil {
+		return errors.Internal("the checkout identity reader is not configured")
+	}
+
+	email, verified, err := s.identity.GetVerifiedIdentity(ctx, userID)
+	if err != nil {
+		return errors.Internal("the identity of the account could not be verified")
+	}
+	if !verified {
+		return errors.Forbidden("verify your email address before claiming the payment")
+	}
+	if !strings.EqualFold(strings.TrimSpace(email), co.Email) {
+		return errors.Forbidden("this checkout was paid with a different email address")
+	}
+	return nil
+}
+
+// assertPaymentApproved re-checks the payment with the provider. The webhook
+// is a notification; the provider is the source of truth.
+func (s *Service) assertPaymentApproved(ctx context.Context, co *checkoutdomain.Checkout) error {
+	if co.ProviderPaymentID == "" {
+		return errors.Conflict("the payment has not been confirmed yet")
+	}
+	if s.provider == nil {
+		return errors.Internal("the payment provider is not configured")
+	}
+
+	payment, err := s.provider.FetchPayment(ctx, co.ProviderPaymentID)
+	if err != nil {
+		return errors.Conflict("the payment could not be confirmed yet")
+	}
+	if payment == nil || !strings.EqualFold(payment.Status, "approved") {
+		return errors.Conflict("the payment was not approved")
+	}
+	// The payment must belong to THIS checkout.
+	if expected := co.Reference(); !strings.EqualFold(payment.ExternalReference, expected) {
+		return errors.Conflict("the payment does not belong to this checkout")
+	}
+	return nil
+}
+
 // MarkPaid records a confirmed payment for a pending checkout. It is called
 // by the webhook when the provider confirms a "checkout:<id>" payment.
 func (s *Service) MarkPaid(ctx context.Context, checkoutID, providerPaymentID string, amount float64, currency string) error {
@@ -243,6 +322,25 @@ func (s *Service) wompiWebhookURL() string {
 	}
 	return s.cfg.MercadoPagoWebhookURL
 }
+
+// validateEmail checks the shape of the payer email. The email is stored and
+// echoed back in the payment return URLs, so it must be a sane address.
+func validateEmail(email string) error {
+	if email == "" {
+		return errors.BadRequest("email is required")
+	}
+	if len(email) > 254 {
+		return errors.BadRequest("email is too long")
+	}
+	if !emailPattern.MatchString(email) {
+		return errors.BadRequest("email is not valid")
+	}
+	return nil
+}
+
+// emailPattern is a pragmatic address check: one @, a domain with a dot and
+// no spaces or control characters.
+var emailPattern = regexp.MustCompile(`^[^\s@,;<>()\[\]\\]+@[^\s@.,;:<>()\[\]\\]+(\.[^\s@.,;:<>()\[\]\\]+)+$`)
 
 // newCheckoutID returns a unique checkout id.
 //

@@ -216,7 +216,8 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	// buyer registered. The recorder is injected afterwards: both hold
 	// pointers, so the cycle is closed before the server starts serving.
 	checkoutRepo := checkoutinfrastructure.NewRepository(db.DB)
-	checkoutService := checkoutapp.NewService(cfg, checkoutRepo, wompiProvider, planRepo, userService, subscriptionService)
+	checkoutService := checkoutapp.NewService(cfg, checkoutRepo, wompiProvider, planRepo, userService, subscriptionService).
+		WithIdentityReader(clerkIdentity)
 	subscriptionService.WithCheckoutRecorder(checkoutService)
 	checkoutHandler := handlers.NewCheckoutHandler(checkoutService)
 	routes.RegisterMembershipRoutes(api, membershipHandler, planHandler, statusReader)
