@@ -20,6 +20,15 @@ type mockRepository struct {
 	listCoachesFn         func(ctx context.Context) ([]*userdomain.Coach, error)
 	listAthletesByCoachFn  func(ctx context.Context, coachID string) ([]*userdomain.AthleteProfile, error)
 	updateAthleteProfileFn func(ctx context.Context, userID string, profile *userdomain.AthleteProfile) error
+	updateCoachOnboardingFn func(ctx context.Context, userID string, coach *userdomain.Coach) error
+	softDeleteUserFn       func(ctx context.Context, userID string) error
+}
+
+func (m *mockRepository) SoftDeleteUser(ctx context.Context, userID string) error {
+	if m.softDeleteUserFn != nil {
+		return m.softDeleteUserFn(ctx, userID)
+	}
+	return nil
 }
 
 func (m *mockRepository) GetByID(ctx context.Context, id string) (*userdomain.User, error) {
@@ -56,6 +65,10 @@ func (m *mockRepository) ListAthletesByCoach(ctx context.Context, coachID string
 
 func (m *mockRepository) UpdateAthleteProfile(ctx context.Context, userID string, profile *userdomain.AthleteProfile) error {
 	return m.updateAthleteProfileFn(ctx, userID, profile)
+}
+
+func (m *mockRepository) UpdateCoachOnboarding(ctx context.Context, userID string, coach *userdomain.Coach) error {
+	return m.updateCoachOnboardingFn(ctx, userID, coach)
 }
 
 func (m *mockRepository) EnsureUser(ctx context.Context, id, email, name, role string) error {
@@ -354,5 +367,38 @@ func TestGetUser_NotFound(t *testing.T) {
 	_, err := svc.GetUser(context.Background(), "nonexistent")
 	if err == nil {
 		t.Fatal("expected error for nonexistent user")
+	}
+}
+
+func TestSoftDeleteUser_Success(t *testing.T) {
+	var deletedID string
+	mock := &mockRepository{
+		softDeleteUserFn: func(ctx context.Context, userID string) error {
+			deletedID = userID
+			return nil
+		},
+	}
+
+	svc := NewService(mock, nil)
+	err := svc.SoftDeleteUser(context.Background(), "user-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if deletedID != "user-1" {
+		t.Errorf("expected userID 'user-1', got '%s'", deletedID)
+	}
+}
+
+func TestSoftDeleteUser_RepoError(t *testing.T) {
+	mock := &mockRepository{
+		softDeleteUserFn: func(ctx context.Context, userID string) error {
+			return errors.NotFound("User", userID)
+		},
+	}
+
+	svc := NewService(mock, nil)
+	err := svc.SoftDeleteUser(context.Background(), "nonexistent")
+	if err == nil {
+		t.Fatal("expected error from repo")
 	}
 }

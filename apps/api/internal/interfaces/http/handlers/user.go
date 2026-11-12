@@ -111,8 +111,8 @@ func (h *UserHandler) ListCoaches(c *fiber.Ctx) error {
 	coachResponses := make([]dto.CoachResponse, len(coaches))
 	for i, coach := range coaches {
 		resp := toCoachResponse(coach)
-		// Never expose other coaches' invite codes in the public-ish roster;
-		// each coach only receives their own code via GET /users/me.
+		// Public roster must not expose emails or invite codes.
+		resp.Email = ""
 		resp.CoachCode = ""
 		coachResponses[i] = *resp
 	}
@@ -138,10 +138,20 @@ func (h *UserHandler) GetAthletesByCoach(c *fiber.Ctx) error {
 		coachID = middleware.GetUserID(c)
 	}
 
+	// A coach may only read its own athletes. No public/admin roster access
+	// without an explicit verified admin role.
+	authenticatedUserID := middleware.GetUserID(c)
+	if authenticatedUserID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	if coachID != authenticatedUserID {
+		return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view another coach's athletes")
+	}
 	athletes, err := h.service.GetAthletesByCoach(c.Context(), coachID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
+
 
 	athleteResponses := make([]dto.AthleteProfileResponse, len(athletes))
 	for i, athlete := range athletes {

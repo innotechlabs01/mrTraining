@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS athlete_memberships (
     current_period_end TEXT NOT NULL,
     grace_period_days INTEGER NOT NULL DEFAULT 5,
     payment_due_date TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (NOW()),
+    updated_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE INDEX IF NOT EXISTS idx_athlete_memberships_athlete_id ON athlete_memberships(athlete_id);
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS membership_payments (
     period_start TEXT NOT NULL,
     period_end TEXT NOT NULL,
     paid_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at TEXT NOT NULL DEFAULT (NOW()),
     FOREIGN KEY (membership_id) REFERENCES athlete_memberships(id) ON DELETE CASCADE
 );
 

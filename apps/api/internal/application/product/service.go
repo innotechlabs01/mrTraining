@@ -138,6 +138,15 @@ func (s *Service) DeleteProduct(ctx context.Context, coachID, id string) error {
 	return nil
 }
 
+// ListPublicProducts returns all shop products (is_shop = true) across all coaches.
+func (s *Service) ListPublicProducts(ctx context.Context) ([]*productdomain.Product, error) {
+	products, err := s.repo.ListPublicProducts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list public products: %w", err)
+	}
+	return products, nil
+}
+
 // GetSales returns all sales for the given coach.
 func (s *Service) GetSales(ctx context.Context, coachID string) ([]*productdomain.Sale, error) {
 	sales, err := s.repo.ListSalesByCoach(ctx, coachID)

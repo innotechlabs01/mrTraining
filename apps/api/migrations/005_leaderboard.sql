@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS leaderboard_entries (
     points INTEGER NOT NULL DEFAULT 0,
     rank INTEGER NOT NULL DEFAULT 0,
     week_start TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (NOW()),
+    updated_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE INDEX IF NOT EXISTS idx_leaderboard_group_week ON leaderboard_entries(group_id, week_start);

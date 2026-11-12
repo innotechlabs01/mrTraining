@@ -3,6 +3,8 @@ package videoanalytics
 import (
 	"context"
 	"database/sql"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 	"time"
 
@@ -11,20 +13,43 @@ import (
 
 // Repository implements the videoanalytics.Repository interface.
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new video analytics repository.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+// When set, all repository queries run against this executor instead of the
+// connection pool.
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) domain.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx (injected by a
+// UnitOfWork) rather than the connection pool.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 func (r *Repository) CreateSession(ctx context.Context, session *domain.SessionAnalysis) error {
-	if r.db == nil {
+	if r.exec == nil {
 		return nil
 	}
 	now := time.Now()
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO video_analytics_sessions (id, athlete_id, workout_id, exercise_id, exercise_name, duration_sec, rep_count, avg_form_score, min_form_score, max_form_score, video_url, status, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`, session.ID, session.AthleteID, session.WorkoutID, session.ExerciseID, session.ExerciseName,
@@ -37,14 +62,14 @@ func (r *Repository) CreateSession(ctx context.Context, session *domain.SessionA
 }
 
 func (r *Repository) GetSession(ctx context.Context, sessionID string) (*domain.SessionAnalysis, error) {
-	if r.db == nil {
+	if r.exec == nil {
 		return nil, nil
 	}
 	s := &domain.SessionAnalysis{}
-	err := r.db.QueryRowContext(ctx, `
+	err := r.exec.QueryRowContext(ctx, `
 		SELECT id, athlete_id, workout_id, exercise_id, exercise_name, duration_sec, rep_count, avg_form_score, min_form_score, max_form_score, video_url, status, created_at, updated_at
 		FROM video_analytics_sessions
-		WHERE id = $15
+		WHERE id = $1
 	`, sessionID).Scan(&s.ID, &s.AthleteID, &s.WorkoutID, &s.ExerciseID, &s.ExerciseName,
 		&s.DurationSec, &s.RepCount, &s.AvgFormScore, &s.MinFormScore,
 		&s.MaxFormScore, &s.VideoURL, &s.Status, &s.CreatedAt, &s.UpdatedAt)
@@ -55,15 +80,15 @@ func (r *Repository) GetSession(ctx context.Context, sessionID string) (*domain.
 }
 
 func (r *Repository) ListSessionsByAthlete(ctx context.Context, athleteID string, limit int, offset int) ([]*domain.SessionAnalysis, error) {
-	if r.db == nil {
+	if r.exec == nil {
 		return nil, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, athlete_id, workout_id, exercise_id, exercise_name, duration_sec, rep_count, avg_form_score, min_form_score, max_form_score, video_url, status, created_at, updated_at
 		FROM video_analytics_sessions
-		WHERE athlete_id = $16
+		WHERE athlete_id = $1
 		ORDER BY created_at DESC
-		LIMIT $17 OFFSET $18
+		LIMIT $2 OFFSET $3
 	`, athleteID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)
@@ -84,15 +109,15 @@ func (r *Repository) ListSessionsByAthlete(ctx context.Context, athleteID string
 }
 
 func (r *Repository) ListSessionsByExercise(ctx context.Context, athleteID string, exerciseID string, limit int) ([]*domain.SessionAnalysis, error) {
-	if r.db == nil {
+	if r.exec == nil {
 		return nil, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, athlete_id, workout_id, exercise_id, exercise_name, duration_sec, rep_count, avg_form_score, min_form_score, max_form_score, video_url, status, created_at, updated_at
 		FROM video_analytics_sessions
-		WHERE athlete_id = $19 AND exercise_id = $20
+		WHERE athlete_id = $1 AND exercise_id = $2
 		ORDER BY created_at DESC
-		LIMIT $21
+		LIMIT $3
 	`, athleteID, exerciseID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list sessions by exercise: %w", err)
@@ -113,11 +138,11 @@ func (r *Repository) ListSessionsByExercise(ctx context.Context, athleteID strin
 }
 
 func (r *Repository) GetSummary(ctx context.Context, athleteID string) (*domain.AnalyticsSummary, error) {
-	if r.db == nil {
+	if r.exec == nil {
 		return nil, nil
 	}
 	summary := &domain.AnalyticsSummary{}
-	err := r.db.QueryRowContext(ctx, `
+	err := r.exec.QueryRowContext(ctx, `
 		SELECT
 			COUNT(*) as total_sessions,
 			COALESCE(SUM(rep_count), 0) as total_reps,
@@ -125,7 +150,7 @@ func (r *Repository) GetSummary(ctx context.Context, athleteID string) (*domain.
 			COALESCE(SUM(duration_sec) / 60, 0) as total_duration_min,
 			COUNT(DISTINCT exercise_id) as exercise_count
 		FROM video_analytics_sessions
-		WHERE athlete_id = $22
+		WHERE athlete_id = $1
 	`, athleteID).Scan(&summary.TotalSessions, &summary.TotalReps, &summary.AvgFormScore,
 		&summary.TotalDurationMin, &summary.ExerciseCount)
 	if err != nil {
@@ -135,10 +160,10 @@ func (r *Repository) GetSummary(ctx context.Context, athleteID string) (*domain.
 }
 
 func (r *Repository) GetPerExercise(ctx context.Context, athleteID string) ([]*domain.ExerciseAnalytics, error) {
-	if r.db == nil {
+	if r.exec == nil {
 		return nil, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT
 			exercise_id,
 			exercise_name,
@@ -148,7 +173,7 @@ func (r *Repository) GetPerExercise(ctx context.Context, athleteID string) ([]*d
 			COALESCE(MAX(avg_form_score), 0) as best_form_score,
 			COALESCE(AVG(duration_sec), 0) as avg_duration
 		FROM video_analytics_sessions
-		WHERE athlete_id = $23
+		WHERE athlete_id = $1
 		GROUP BY exercise_id, exercise_name
 		ORDER BY total_sessions DESC
 	`, athleteID)

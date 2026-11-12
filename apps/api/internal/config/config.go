@@ -23,9 +23,10 @@ type Config struct {
 	DatabaseURL string // PostgreSQL connection URL (DATABASE_URL)
 
 	// Auth (Clerk)
-	ClerkSecretKey      string // Clerk secret key for backend API calls
-	ClerkPublishableKey string // Clerk publishable key for frontend
-	ClerkJWKSURL        string // Optional: Custom JWKS URL for token verification
+	ClerkSecretKey       string // Clerk secret key for backend API calls
+	ClerkPublishableKey  string // Clerk publishable key for frontend
+	ClerkJWKSURL         string // Optional: Custom JWKS URL for token verification
+	ClerkWebhookSecret   string // Clerk webhook signing secret (svix) for /webhooks/clerk
 
 	// Firebase (FCM — optional, skip if empty)
 	FirebaseProjectID   string // Firebase project ID for FCM
@@ -37,18 +38,34 @@ type Config struct {
 
 	// Cache (Redis — optional, disabled when empty)
 	RedisURL string // Redis connection URL; empty disables response caching
+	// Platform super admin (read-only MVP)
+	PlatformSuperAdminClerkID  string   // PLATFORM_SUPER_ADMIN_CLERK_ID (raw)
+	PlatformSuperAdminClerkIDs []string // Normalized, trimmed, non-empty
+
+	// NATS (JetStream event bus — optional, disabled when empty)
+	NATSURL string // NATS server URL; empty disables JetStream consumers
 
 	// Traffic / proxy
 	TrustedProxies     []string // IPs/CIDRs allowed to set X-Forwarded-For (empty = ignore forwarded headers)
 	RateLimitMax       int      // Max requests per window, per client IP
 	RateLimitWindowSec int      // Rate limit window in seconds
 
-	// MercadoPago
+	// MercadoPago (legacy, historical records preserved)
 	MercadoPagoWebhookURL  string // URL del webhook registrada en el dashboard de MP
 	MercadoPagoSecretKey   string // Access token (APP_USR-...) para llamar la API de MP
 	MercadoPagoPublicKey   string // Public key (APP_USR-...) — informativa, para el cliente
 	MercadoPagoWebhookKey  string // Webhook secret: firma x-signature de las notificaciones
-	AppURL                 string // URL base de la app (para back_urls)
+
+	// Wompi (active payment provider)
+	WompiPublicKey       string // pub_...
+	WompiPrivateKey      string // prv_...
+	WompiIntegritySecret string // Integrity secret used for widget/checkout signatures
+	WompiEventsSecret    string // Events secret used to verify webhooks
+	WompiEnv             string // sandbox | production
+	WompiWebhookURL      string // URL del webhook registrada en el dashboard de Wompi
+
+	AppURL                 string // URL base de la API (para back_urls server-to-server)
+	WebAppURL              string // URL base del frontend (destino de las redirecciones de pago)
 
 // Email (para notificaciones a coaches)
 	EmailSMTPHost         string // Servidor SMTP (ej: smtp.gmail.com)
@@ -57,6 +74,9 @@ type Config struct {
 	EmailSMTPPassword     string // Contraseña SMTP (contraseña o App Password)
 	EmailFromName         string // Nombre del remitente
 	EmailEnabled          bool     // Cuando true, envía emails reales; false = modo solo-log
+
+	// Discord (error tracking webhook — optional)
+	DiscordWebhookURL string // Discord webhook URL for error notifications
 
 	// Logging
 	LogLevel string // Log level: debug, info, warn, error
@@ -68,6 +88,7 @@ type Config struct {
 func Load() (*Config, error) {
 	// Attempt to load .env file; ignore if missing (Docker, CI)
 	_ = godotenv.Load()
+	_ = godotenv.Load("config/.env.local")
 
 	cfg := &Config{
 		AppEnv:  getEnv("APP_ENV", "development"),
@@ -79,6 +100,7 @@ func Load() (*Config, error) {
 		ClerkSecretKey:      getEnv("CLERK_SECRET_KEY", ""),
 		ClerkPublishableKey: getEnv("CLERK_PUBLISHABLE_KEY", ""),
 		ClerkJWKSURL:        getEnv("CLERK_JWKS_URL", ""),
+		ClerkWebhookSecret:  getEnv("CLERK_WEBHOOK_SECRET", ""),
 
 		FirebaseProjectID:   getEnv("FIREBASE_PROJECT_ID", ""),
 		FirebaseClientEmail: getEnv("FIREBASE_CLIENT_EMAIL", ""),
@@ -87,6 +109,10 @@ func Load() (*Config, error) {
 		CORSOrigins: getEnv("CORS_ORIGINS", "*"),
 
 		RedisURL: getEnv("REDIS_URL", ""),
+
+		PlatformSuperAdminClerkID: getEnv("PLATFORM_SUPER_ADMIN_CLERK_ID", ""),		NATSURL:  getEnv("NATS_URL", "nats://localhost:4222"),
+
+		DiscordWebhookURL: getEnv("ERROR_WEBHOOK_DISCOR", ""),
 
 		TrustedProxies:     splitCSV(getEnv("TRUSTED_PROXIES", "")),
 		RateLimitMax:       getEnvInt("RATE_LIMIT_MAX", 100),
@@ -98,11 +124,23 @@ func Load() (*Config, error) {
 		MercadoPagoSecretKey:  getEnv("MERCADO_PAGO_SECRET_KEY", ""),
 		MercadoPagoPublicKey:  getEnv("MERCADO_PAGO_PUBLIC_KEY", ""),
 		MercadoPagoWebhookKey: getEnv("MERCADO_PAG_SECRET_WEBHOOK", getEnv("MERCADO_PAGO_WEBHOOK_SECRET", "")),
+
+		WompiPublicKey:       getEnv("WOMPI_PUBLIC_KEY", getEnv("KEY_PUBLIC", "")),
+		WompiPrivateKey:      getEnv("WOMPI_PRIVATE_KEY", getEnv("KEY_PRIVATE", "")),
+		WompiIntegritySecret: getEnv("WOMPI_INTEGRITY_SECRET", ""),
+		WompiEventsSecret:    getEnv("WOMPI_EVENTS_SECRET", ""),
+		WompiEnv:             getEnv("WOMPI_ENV", "sandbox"),
+		WompiWebhookURL:      getEnv("WOMPI_WEBHOOK_URL", ""),
 		AppURL:                getEnv("APP_URL", ""),
+		// The frontend base URL is where the payment provider sends the payer
+		// back. It MUST NOT fall back to APP_URL: that points at this API and
+		// every return URL would 404.
+		WebAppURL:             getEnv("WEB_APP_URL", defaultWebAppURL()),
 	}
 
-	if err := cfg.validate(); err != nil {
-		return nil, fmt.Errorf("config validation failed: %w", err)
+	cfg.PlatformSuperAdminClerkIDs = splitCSV(cfg.PlatformSuperAdminClerkID)
+
+	if err := cfg.validate(); err != nil {		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
 
 	return cfg, nil
@@ -114,6 +152,7 @@ func Load() (*Config, error) {
 // of Load so they don't require unrelated production variables.
 func DatabaseConnection() (url string) {
 	_ = godotenv.Load()
+	_ = godotenv.Load("config/.env.local")
 	return getEnv("DATABASE_URL", "")
 }
 
@@ -150,6 +189,15 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// defaultWebAppURL returns the development fallback for the frontend base
+// URL. Production must set WEB_APP_URL explicitly.
+func defaultWebAppURL() string {
+	if os.Getenv("APP_ENV") == "production" {
+		return ""
+	}
+	return "http://localhost:3000"
 }
 
 // getEnvInt returns the positive integer value of an environment variable,

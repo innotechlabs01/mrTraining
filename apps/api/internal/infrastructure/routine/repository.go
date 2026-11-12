@@ -2,18 +2,20 @@ package routine
 
 import (
 	"database/sql"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"time"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/routine"
 )
 
 type repository struct {
-	db *sql.DB
+	db   *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new routine repository.
 func NewRepository(db *sql.DB) domain.Repository {
-	return &repository{db: db}
+	return &repository{db: db, exec: db}
 }
 
 func (r *repository) ListByAthleteID(athleteID string) ([]*domain.Routine, error) {
@@ -49,7 +51,7 @@ func (r *repository) GetByID(id string) (*domain.Routine, error) {
 	query := `
 		SELECT id, athlete_id, name, description, exercises, duration_min, created_at, updated_at
 		FROM athlete_routines
-		WHERE id = $2
+		WHERE id = $1
 	`
 
 	rt := &domain.Routine{}
@@ -67,7 +69,7 @@ func (r *repository) Create(rt *domain.Routine) error {
 	now := time.Now().UTC()
 	query := `
 		INSERT INTO athlete_routines (id, athlete_id, name, description, exercises, duration_min, created_at, updated_at)
-		VALUES ($3, $4, $5, $6, $7, $8, $9, $10)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 
 	if rt.ID == "" {
@@ -86,8 +88,8 @@ func (r *repository) Create(rt *domain.Routine) error {
 func (r *repository) Update(rt *domain.Routine) error {
 	query := `
 		UPDATE athlete_routines
-		SET name = $11, description = $12, exercises = $13, duration_min = $14, updated_at = $15
-		WHERE id = $16 AND athlete_id = $17
+		SET name = $1, description = $2, exercises = $3, duration_min = $4, updated_at = $5
+		WHERE id = $6 AND athlete_id = $7
 	`
 
 	rt.UpdatedAt = time.Now().UTC()
@@ -99,7 +101,20 @@ func (r *repository) Update(rt *domain.Routine) error {
 }
 
 func (r *repository) Delete(id, athleteID string) error {
-	query := `DELETE FROM athlete_routines WHERE id = $18 AND athlete_id = $19`
+	query := `DELETE FROM athlete_routines WHERE id = $1 AND athlete_id = $2`
 	_, err := r.db.Exec(query, id, athleteID)
 	return err
+}
+
+// SetExecutor sets the executor for queries (e.g. *sql.Tx).
+func (r *repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a shallow copy of the repository using the given executor.
+func (r *repository) WithExecutor(exec database.Executor) *repository {
+	return &repository{
+		db:   r.db,
+		exec: exec,
+	}
 }

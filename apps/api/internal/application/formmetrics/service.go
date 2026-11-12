@@ -46,3 +46,9 @@ func (s *Service) SyncBatch(ctx context.Context, athleteID string, metrics []*do
 func (s *Service) GetByAthlete(ctx context.Context, athleteID string) ([]*domain.ExerciseFormStats, error) {
 	return s.repo.GetByAthlete(ctx, athleteID)
 }
+
+// GetByCoach returns aggregated form metrics for all athletes of a coach,
+// grouped by athlete+exercise.
+func (s *Service) GetByCoach(ctx context.Context, coachID string) ([]*domain.CoachAthleteFormStats, error) {
+	return s.repo.GetByCoach(ctx, coachID)
+}

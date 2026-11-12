@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { MapPin, Timer, Gauge, Trophy, ChevronRight } from 'lucide-react'
 import { goFetch } from '@/features/shared/api/client'
 import type { RunningSession, RunningStats, RunningPRsResponse } from '@/features/shared/api/client'
@@ -9,7 +9,7 @@ interface AthleteRunningPanelProps {
   athleteId: string
 }
 
-export function AthleteRunningPanel({ athleteId }: AthleteRunningPanelProps) {
+export const AthleteRunningPanel = React.memo(function AthleteRunningPanel({ athleteId }: AthleteRunningPanelProps) {
   const [sessions, setSessions] = useState<RunningSession[]>([])
   const [stats, setStats] = useState<RunningStats | null>(null)
   const [prs, setPrs] = useState<RunningPRsResponse | null>(null)
@@ -157,5 +157,4 @@ export function AthleteRunningPanel({ athleteId }: AthleteRunningPanelProps) {
         )}
       </div>
     </section>
-  )
-}
+  )})

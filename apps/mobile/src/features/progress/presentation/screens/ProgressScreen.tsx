@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -72,7 +72,7 @@ export function ProgressScreen() {
   const athleteId = user?.id ?? "";
   const [period, setPeriod] = React.useState("week");
 
-  const { data: today, isLoading } = useQuery({
+  const { data: today, isLoading, refetch: refetchToday, isRefetching: refetchingToday } = useQuery({
     queryKey: ["athlete-today"],
     queryFn: async () => {
       const { data } = await apiClient.get("/athlete/today");
@@ -81,7 +81,7 @@ export function ProgressScreen() {
     staleTime: 60_000,
   });
 
-  const { data: metrics, isLoading: metricsLoading } = useQuery({
+  const { data: metrics, isLoading: metricsLoading, refetch: refetchMetrics, isRefetching: refetchingMetrics } = useQuery({
     queryKey: ["athlete-metrics", athleteId],
     queryFn: async () => {
       const { data } = await apiClient.get(`/athletes/${athleteId}/metrics`);
@@ -128,6 +128,7 @@ export function ProgressScreen() {
 
       <ScrollView
         contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refetchingToday || refetchingMetrics} onRefresh={() => { refetchToday(); refetchMetrics(); }} tintColor={colors.primary} />}
         showsVerticalScrollIndicator={false}
       >
         <SegmentedFilter

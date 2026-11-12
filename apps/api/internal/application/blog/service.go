@@ -44,6 +44,18 @@ func (s *Service) GetArticle(ctx context.Context, id string) (*blog.Article, err
 	return a, nil
 }
 
+// GetArticleBySlug returns a single published article by slug.
+func (s *Service) GetArticleBySlug(ctx context.Context, slug string) (*blog.Article, error) {
+	if slug == "" {
+		return nil, fmt.Errorf("article slug is required")
+	}
+	a, err := s.repo.GetArticleBySlug(ctx, slug)
+	if err != nil {
+		return nil, errors.NotFound("article", slug)
+	}
+	return a, nil
+}
+
 // ListByCoach returns all articles (drafts included) for a coach.
 func (s *Service) ListByCoach(ctx context.Context, coachID string) ([]*blog.Article, error) {
 	if coachID == "" {

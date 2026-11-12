@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS coach_feed_posts (
     media_url TEXT NOT NULL DEFAULT '',
     like_count INTEGER NOT NULL DEFAULT 0,
     comment_count INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (NOW()),
+    updated_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE INDEX IF NOT EXISTS idx_coach_feed_posts_coach ON coach_feed_posts(coach_id);
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS coach_feed_reactions (
     post_id TEXT NOT NULL,
     athlete_id TEXT NOT NULL,
     type TEXT NOT NULL DEFAULT 'like',
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at TEXT NOT NULL DEFAULT (NOW()),
     UNIQUE(post_id, athlete_id)
 );
 
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS coach_feed_comments (
     athlete_id TEXT NOT NULL,
     athlete_name TEXT NOT NULL DEFAULT '',
     content TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE INDEX IF NOT EXISTS idx_coach_feed_comments_post ON coach_feed_comments(post_id);

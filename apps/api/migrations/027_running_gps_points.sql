@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS running_gps_points (
   alt        REAL,
   timestamp  TEXT NOT NULL,    -- RFC3339 UTC
   accuracy   REAL,             -- meters
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE INDEX IF NOT EXISTS idx_running_gps_points_session ON running_gps_points(session_id);

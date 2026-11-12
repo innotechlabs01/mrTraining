@@ -33,7 +33,7 @@ func setupE2EApp(t *testing.T) (*fiber.App, *runningapp.Service, *runninginfra.R
 	db := newTestDB(t)
 	repo := runninginfra.NewRepository(db.DB)
 	svc := runningapp.NewService(repo, nil)
-	handler := handlers.NewRunningWorkoutHandler(svc)
+	handler := handlers.NewRunningWorkoutHandler(svc, db.DB)
 
 	app := fiber.New()
 
@@ -50,6 +50,9 @@ func setupE2EApp(t *testing.T) (*fiber.App, *runningapp.Service, *runninginfra.R
 				Role:   role,
 				Email:  userID + "@test.com",
 			})
+			if role == "coach" {
+				c.Locals(string(middleware.CoachIDKey), userID)
+			}
 		}
 		return c.Next()
 	})

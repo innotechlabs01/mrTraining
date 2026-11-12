@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, RefreshControl } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -30,8 +30,14 @@ import { CreateWorkoutCard } from "../components/CreateWorkoutCard";
 import type { RootStackParamList } from "../../../../navigation/Navigation";
 
 type Level = "All" | "Beginner" | "Intermediate" | "Advanced";
+type MonthFilter = "all" | "thisMonth" | "lastMonth";
 
 const LEVELS: Level[] = ["All", "Beginner", "Intermediate", "Advanced"];
+const MONTH_FILTERS: { key: MonthFilter; label: string }[] = [
+  { key: "all", label: texts.screens.workoutList.monthAll },
+  { key: "thisMonth", label: texts.screens.workoutList.monthThis },
+  { key: "lastMonth", label: texts.screens.workoutList.monthLast },
+];
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -55,12 +61,14 @@ export function WorkoutListScreen() {
   const { user } = useUser();
   const athleteId = user?.id ?? "";
   const [level, setLevel] = useState<Level>("All");
+  const [monthFilter, setMonthFilter] = useState<MonthFilter>("all");
 
   const {
     data: workouts,
     isLoading,
     isError,
     refetch,
+    isRefetching,
   } = useQuery({
     queryKey: ["athlete-workouts", athleteId],
     queryFn: async () => {
@@ -75,13 +83,34 @@ export function WorkoutListScreen() {
     staleTime: 60_000,
   });
 
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
   const filtered = useMemo(() => {
     if (!workouts) return [];
-    if (level === "All") return workouts;
-    return workouts.filter(
-      (w) => w.modality?.toLowerCase() === level.toLowerCase(),
-    );
-  }, [workouts, level]);
+    let list = workouts;
+    if (level !== "All") {
+      list = list.filter(
+        (w) => w.modality?.toLowerCase() === level.toLowerCase(),
+      );
+    }
+    if (monthFilter !== "all") {
+      list = list.filter((w) => {
+        if (!w.startDate) return false;
+        const d = new Date(w.startDate);
+        if (monthFilter === "thisMonth") {
+          return d >= thisMonthStart;
+        }
+        if (monthFilter === "lastMonth") {
+          return d >= lastMonthStart && d <= lastMonthEnd;
+        }
+        return true;
+      });
+    }
+    return list;
+  }, [workouts, level, monthFilter, thisMonthStart, lastMonthStart, lastMonthEnd]);
 
   const openWorkout = useCallback(
     (workoutId: string) => navigation.navigate("WorkoutDetail", { workoutId }),
@@ -156,6 +185,34 @@ export function WorkoutListScreen() {
         })}
       </View>
 
+      {/* Month filter pills */}
+      <View style={styles.filterRow}>
+        {MONTH_FILTERS.map((m) => {
+          const selected = monthFilter === m.key;
+          return (
+            <Pressable
+              key={m.key}
+              onPress={() => setMonthFilter(m.key)}
+              style={[
+                styles.pill,
+                selected ? styles.pillSelected : styles.pillUnselected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.pillText,
+                  selected
+                    ? styles.pillTextSelected
+                    : styles.pillTextUnselected,
+                ]}
+              >
+                {m.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       {/* Workout list */}
       {isLoading ? (
         <View style={styles.listContent}>
@@ -164,6 +221,7 @@ export function WorkoutListScreen() {
         </View>
       ) : (
         <FlashList
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={colors.primary} />}
           data={filtered}
           renderItem={renderItem}
           keyExtractor={keyExtractor}

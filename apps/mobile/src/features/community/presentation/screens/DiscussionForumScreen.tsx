@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, TextInput, Pressable } from "react-native";
+import { View, Text, StyleSheet, TextInput, Pressable, RefreshControl } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -88,6 +88,7 @@ export function DiscussionForumScreen() {
     isLoading,
     isError,
     refetch,
+    isRefetching,
   } = useQuery({
     queryKey: ["athlete-messages", athleteId],
     queryFn: () =>
@@ -129,6 +130,7 @@ export function DiscussionForumScreen() {
         </View>
       ) : (
         <FlashList
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={colors.primary} />}
           data={messages ?? []}
           renderItem={renderMessage}
           keyExtractor={keyExtractor}

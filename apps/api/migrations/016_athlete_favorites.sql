@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS athlete_favorites (
   item_id TEXT NOT NULL,
   item_title TEXT NOT NULL DEFAULT '',
   item_meta TEXT,
-  created_at DATETIME NOT NULL DEFAULT (datetime('now'))
+  created_at DATETIME NOT NULL DEFAULT (NOW())
 );
 
 CREATE INDEX IF NOT EXISTS idx_favorites_athlete ON athlete_favorites(athlete_id);

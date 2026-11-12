@@ -6,10 +6,8 @@ import { AuthShell } from '@/features/auth/components/AuthShell';
 import { SignUpForm } from '@/features/auth/components/SignUpForm';
 
 export default function SignUpPage() {
-  const router = useRouter();
-
   return (
-    <AuthShell title="Create your account" subtitle="Join MR Training today">
+    <AuthShell title="Crea tu cuenta" subtitle="Únete a MR Training hoy">
       <Suspense fallback={null}>
         <SignUpFormWrapper />
       </Suspense>
@@ -22,10 +20,14 @@ function SignUpFormWrapper() {
   const searchParams = useSearchParams();
   const plan = searchParams.get('plan');
 
+  // After the account exists the coach still has to pay: the payment is the
+  // step that activates the plan, and the profile onboarding happens after
+  // the payment is confirmed.
   return (
     <SignUpForm
-      role="coach"
-      onSuccess={() => router.push(plan ? '/coach/plan' : '/coach')}
+      onSuccess={() =>
+        router.push(plan ? `/payment/interstitial?plan=${encodeURIComponent(plan)}` : '/payment/interstitial')
+      }
       onBack={() => router.push('/')}
     />
   );

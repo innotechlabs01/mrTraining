@@ -143,6 +143,37 @@ func (s *Service) SaveAvailability(ctx context.Context, coachID string, slots []
 	}
 	return nil
 }
+// GetAthleteById retrieves a single coach-linked athlete by ID.
+func (s *Service) GetAthleteById(ctx context.Context, coachID string, athleteID string) (*coach.CoachAthlete, error) {
+	a, err := s.repo.GetAthleteById(ctx, coachID, athleteID)
+	if err != nil {
+		return nil, fmt.Errorf("get athlete by id: %w", err)
+	}
+	if a == nil {
+		return nil, nil
+	}
+	return a, nil
+}
+
+// SaveAthlete creates or updates a coach-linked athlete profile.
+func (s *Service) SaveAthlete(ctx context.Context, coachID string, a *coach.CoachAthlete) error {
+	if a.Name == "" {
+		return fmt.Errorf("name is required")
+	}
+	if err := s.repo.SaveAthlete(ctx, coachID, a); err != nil {
+		return fmt.Errorf("save athlete: %w", err)
+	}
+	return nil
+}
+
+// DeleteAthlete removes a coach-linked athlete profile.
+func (s *Service) DeleteAthlete(ctx context.Context, coachID string, athleteID string) error {
+	if err := s.repo.DeleteAthlete(ctx, coachID, athleteID); err != nil {
+		return fmt.Errorf("delete athlete: %w", err)
+	}
+	return nil
+}
+
 // sendAppointmentNotification sends email notification to coach when appointment is created
 func (s *Service) sendAppointmentNotification(ctx context.Context, appointment *coach.Appointment, coachEmail string) error {
 	// Log the appointment booking for notification

@@ -36,7 +36,7 @@ export function IronGymPrograms() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="rounded-2xl border border-gray-100 bg-white p-6 hover:border-brand-primary/30 hover:shadow-lg transition-all"
+              className="rounded-lg border border-gray-100 bg-white p-6 hover:border-brand-primary/30 hover:shadow-lg transition-all"
             >
               <p.Icon className={`${p.color} ${p.bg} w-14 h-14 rounded-xl flex items-center justify-center mb-4 text-2xl`} />
               <h3 className="text-xl font-semibold text-[#424242] mb-2">{p.title}</h3>

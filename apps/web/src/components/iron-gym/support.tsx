@@ -38,7 +38,7 @@ export function IronGymSupport() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 hover:border-white/10 hover:bg-white/[0.05] transition-colors"
+              className="rounded-lg border border-white/5 bg-white/[0.02] p-6 hover:border-white/10 hover:bg-white/[0.05] transition-colors"
             >
               <s.icon className="w-8 h-8 text-brand-primary mb-4" />
               <h3 className="text-xl font-semibold text-white mb-2">{s.title}</h3>

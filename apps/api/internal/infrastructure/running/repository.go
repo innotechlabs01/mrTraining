@@ -33,7 +33,7 @@ func (r *Repository) SetExecutor(exec database.Executor) {
 
 // WithExecutor returns a new Repository instance sharing the same connection
 // pool but using the given executor for all queries.
-func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+func (r *Repository) WithExecutor(exec database.Executor) domain.Repository {
 	return &Repository{
 		db:  r.db,
 		exec: exec,
@@ -106,19 +106,22 @@ func (r *Repository) GetSession(ctx context.Context, id string) (*domain.Running
 // ListSessionsByUser retrieves running sessions for a user within an optional date range.
 func (r *Repository) ListSessionsByUser(ctx context.Context, userID string, fromDate, toDate string, limit, offset int) ([]*domain.RunningSession, error) {
 	query := `SELECT ` + sessionColumns + `, ` + sessionDeviceColumns + `
-		 FROM running_sessions ` + sessionDeviceJoin + ` WHERE running_sessions.user_id = $15`
+		 FROM running_sessions ` + sessionDeviceJoin + ` WHERE running_sessions.user_id = $1`
 	args := []interface{}{userID}
 
+	next := 2
 	if fromDate != "" {
-		query += " AND date >= $16"
+		query += fmt.Sprintf(" AND date >= $%d", next)
 		args = append(args, fromDate)
+		next++
 	}
 	if toDate != "" {
-		query += " AND date <= $17"
+		query += fmt.Sprintf(" AND date <= $%d", next)
 		args = append(args, toDate)
+		next++
 	}
 
-	query += " ORDER BY running_sessions.date DESC LIMIT $18 OFFSET $19"
+	query += fmt.Sprintf(" ORDER BY running_sessions.date DESC LIMIT $%d OFFSET $%d", next, next+1)
 	args = append(args, limit, offset)
 
 	rows, err := r.exec.QueryContext(ctx, query, args...)
@@ -251,12 +254,32 @@ func (r *Repository) SaveGpsPoint(ctx context.Context, p *domain.GpsPoint) error
 	return nil
 }
 
-// SaveGpsPoints persists a batch of GPS samples in a single transaction.
-// Empty slices are a no-op. All-or-nothing: any failure rolls back.
+// SaveGpsPoints persists a batch of GPS samples.
+// When the repository is bound to an external transaction (exec is *sql.Tx),
+// all rows are written through that transaction and no internal commit occurs;
+// the caller owns commit/rollback. Otherwise (pool or db executor) the method
+// opens and commits its own transaction, preserving prior behavior.
 func (r *Repository) SaveGpsPoints(ctx context.Context, points []*domain.GpsPoint) error {
 	if len(points) == 0 {
 		return nil
 	}
+	if tx, ok := r.exec.(*sql.Tx); ok {
+		stmt, err := tx.PrepareContext(ctx,
+			`INSERT INTO running_gps_points (id, session_id, lat, lng, alt, timestamp, accuracy)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7)`)
+		if err != nil {
+			return fmt.Errorf("failed to prepare gps batch stmt: %w", err)
+		}
+		defer stmt.Close()
+
+		for _, p := range points {
+			if _, err := stmt.ExecContext(ctx, p.ID, p.SessionID, p.Lat, p.Lng, p.Alt, p.Timestamp, p.Accuracy); err != nil {
+				return fmt.Errorf("failed to save gps point in batch: %w", err)
+			}
+		}
+		return nil
+	}
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin gps batch tx: %w", err)
@@ -265,7 +288,7 @@ func (r *Repository) SaveGpsPoints(ctx context.Context, points []*domain.GpsPoin
 
 	stmt, err := tx.PrepareContext(ctx,
 		`INSERT INTO running_gps_points (id, session_id, lat, lng, alt, timestamp, accuracy)
-		 VALUES ($50, $51, $52, $53, $54, $55, $56)`)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare gps batch stmt: %w", err)
 	}
@@ -492,7 +515,7 @@ func (r *Repository) ListTemplatesByCoach(ctx context.Context, coachID string) (
 
 func (r *Repository) DeleteTemplate(ctx context.Context, id string) error {
 	result, err := r.exec.ExecContext(ctx, `
-		UPDATE running_workout_templates SET deleted_at = $2 WHERE id = $1 AND deleted_at IS NULL`,
+		UPDATE running_workout_templates SET deleted_at = $1 WHERE id = $2 AND deleted_at IS NULL`,
 		id, time.Now())
 	if err != nil {
 		return fmt.Errorf("delete running workout template: %w", err)
@@ -707,8 +730,8 @@ func (r *Repository) ListAssignmentsByCoach(ctx context.Context, coachID string)
 
 func (r *Repository) UpdateAssignmentStatus(ctx context.Context, id string, status domain.RunningWorkoutAssignmentStatus) error {
 	result, err := r.exec.ExecContext(ctx, `
-		UPDATE running_workout_assignments SET status = $2, updated_at = $3 WHERE id = $1 AND deleted_at IS NULL`,
-		id, status, time.Now())
+		UPDATE running_workout_assignments SET status = $1, updated_at = $2 WHERE id = $3 AND deleted_at IS NULL`,
+		status, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("update running workout assignment status: %w", err)
 	}
@@ -798,8 +821,8 @@ func (r *Repository) SaveOutbox(ctx context.Context, eventType, aggregateType, a
 	}
 
 	_, err = r.exec.ExecContext(ctx, `
-		INSERT INTO outbox (event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status)
-		VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'pending')
+		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, next_retry_at, attempts)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW(), 'pending', NOW(), 0)
 	`,
 		eventType, aggregateType, aggregateID, coachID, athleteID, payloadJSON)
 	if err != nil {

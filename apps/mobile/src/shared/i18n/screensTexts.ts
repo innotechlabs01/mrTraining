@@ -111,6 +111,11 @@ export const screensTexts = {
     syncing: 'Sincronizando…',
     syncComplete: 'Sincronizado',
     syncFailed: 'Error al sincronizar',
+    syncError: 'No se pudo sincronizar la sesión con el servidor.',
+    sessionStarted: 'Sesión iniciada',
+    sessionStartedMessage: 'Tus datos se sincronizan con tu coach mientras corres.',
+    pendingSync: 'Sincronización pendiente',
+    retry: 'Reintentar',
   },
   runningSessionSummary: {
     title: 'Resumen de la sesión',
@@ -250,5 +255,8 @@ export const screensTexts = {
   workoutList: {
     loadErrorTitle: 'Error al cargar',
     loadErrorMessage: 'No se pudieron cargar los entrenamientos.',
+    monthAll: 'Todos los meses',
+    monthThis: 'Este mes',
+    monthLast: 'Mes pasado',
   },
 } as const;

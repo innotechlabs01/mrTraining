@@ -41,4 +41,15 @@ type Repository interface {
 
 	// SaveAvailability replaces all availability slots for a coach (transactional delete + insert).
 	SaveAvailability(ctx context.Context, coachID string, slots []*CoachAvailability) error
+
+	// CoachAthlete CRUD
+
+	// GetAthleteById retrieves a single coach-linked athlete by ID.
+	GetAthleteById(ctx context.Context, coachID string, athleteID string) (*CoachAthlete, error)
+
+	// SaveAthlete creates or updates a coach-linked athlete profile.
+	SaveAthlete(ctx context.Context, coachID string, a *CoachAthlete) error
+
+	// DeleteAthlete removes a coach-linked athlete profile.
+	DeleteAthlete(ctx context.Context, coachID string, athleteID string) error
 }

@@ -5,6 +5,7 @@ package audit
 import (
 	"context"
 	"database/sql"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -15,12 +16,13 @@ import (
 // Repository reads audit events. Writes go through InsertTx so they always share
 // the transaction of the mutation they describe.
 type Repository struct {
-	db *sql.DB
+	db   *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new audit repository.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
 }
 
 // InsertTx appends an audit event using the caller's transaction. Because it uses
@@ -48,11 +50,11 @@ func (r *Repository) ListRecent(ctx context.Context, limit int) ([]*auditdomain.
 	if limit <= 0 || limit > 500 {
 		limit = 100
 	}
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, entity, entity_id, action, COALESCE(actor_id, ''), actor_type, COALESCE(payload, ''), created_at
 		FROM financial_audit_events
 		ORDER BY created_at DESC, id DESC
-		LIMIT $8
+		LIMIT $1
 	`, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list audit events: %w", err)
@@ -76,4 +78,17 @@ func nullable(s string) any {
 		return nil
 	}
 	return s
+}
+
+// SetExecutor sets the executor for queries (e.g. *sql.Tx).
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a shallow copy of the repository using the given executor.
+func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
 }

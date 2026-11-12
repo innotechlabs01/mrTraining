@@ -1,0 +1,93 @@
+appId: com.mrtraining.web
+---
+# Flujo de Maestro para probar el Admin CRM en web (Next.js localhost:3000)
+#
+# Requisitos previos:
+#   - Servidor Next.js corriendo en http://localhost:3000 (pnpm dev)
+#   - No requiere sesión (prueba los redirects sin autenticar)
+#
+# Ejecutar con:
+#   maestro run maestro/admin-crm-web.yaml
+#
+# Nota: el sign-in real con super_admin requiere OTP por email
+# (needs_second_factor) que no se puede automatizar sin leer el correo.
+# Este flujo valida los redirects de seguridad y que la app carga.
+
+- launchApp
+
+# 1. Todas las rutas de /admin/* deben redirigir a /sign-in sin sesión
+- openUrl:
+    url: http://localhost:3000/admin/dashboard
+- waitUntil:
+    elementExists:
+      text: /sign-in/
+- assertVisible:
+    text: /sign-in/
+
+- openUrl:
+    url: http://localhost:3000/admin/plans
+- waitUntil:
+    elementExists:
+      text: /sign-in/
+- assertVisible:
+    text: /sign-in/
+
+- openUrl:
+    url: http://localhost:3000/admin/settings
+- waitUntil:
+    elementExists:
+      text: /sign-in/
+- assertVisible:
+    text: /sign-in/
+
+- openUrl:
+    url: http://localhost:3000/admin/tickets
+- waitUntil:
+    elementExists:
+      text: /sign-in/
+- assertVisible:
+    text: /sign-in/
+
+- openUrl:
+    url: http://localhost:3000/admin/coaches
+- waitUntil:
+    elementExists:
+      text: /sign-in/
+- assertVisible:
+    text: /sign-in/
+
+# 2. La página pública de inicio debe cargar (200)
+- openUrl:
+    url: http://localhost:3000/
+- waitFor:
+    elementExists:
+      text: /MR Training|Dashboard|Planes|Tacos/
+- assertVisible:
+    text: /MR Training|Dashboard|Planes|Tacos/
+
+# 3. La página de sign-in carga con formulario
+- openUrl:
+    url: http://localhost:3000/sign-in
+- waitUntil:
+    elementExists:
+      id: identifier
+- assertVisible:
+    id: identifier
+
+# 4. Intento de sign-in con super_admin (llega hasta needs_second_factor)
+#    Se detiene aquí porque Clerk exige OTP por email que no se puede leer.
+- inputText:
+    text: anthonyrivera51@gmail.com
+    into:
+      id: identifier
+- inputText:
+    text: e2e-password-2026
+    into:
+      placeholder: /contraseña|password/i
+- tapOn:
+    text: /Iniciar|Sign in|Entrar/i
+- waitFor:
+    elementExists:
+      text: /código|code|verificación|verification|second factor/i
+- assertVisible:
+    text: /código|code|verificación|verification|second factor/i

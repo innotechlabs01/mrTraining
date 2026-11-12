@@ -2,18 +2,20 @@ package challenge
 
 import (
 	"database/sql"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"time"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/challenge"
 )
 
 type repository struct {
-	db *sql.DB
+	db   *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new challenge repository.
 func NewRepository(db *sql.DB) domain.Repository {
-	return &repository{db: db}
+	return &repository{db: db, exec: db}
 }
 
 // --- Challenge CRUD ---
@@ -56,7 +58,7 @@ func (r *repository) ListByCoach(coachID string) ([]*domain.Challenge, error) {
 		       duration_minutes, calories, target_sets, target_reps,
 		       scoring_type, difficulty_level, max_attempts, status,
 		       start_date, end_date, expires_at, created_at, updated_at
-		FROM challenges WHERE coach_id = $2
+		FROM challenges WHERE coach_id = $1
 		ORDER BY created_at DESC
 	`
 	return r.listQuery(query, coachID)
@@ -68,7 +70,7 @@ func (r *repository) ListActiveByCoach(coachID string) ([]*domain.Challenge, err
 		       duration_minutes, calories, target_sets, target_reps,
 		       scoring_type, difficulty_level, max_attempts, status,
 		       start_date, end_date, expires_at, created_at, updated_at
-		FROM challenges WHERE coach_id = $3 AND status = 'active'
+		FROM challenges WHERE coach_id = $1 AND status = 'active'
 		ORDER BY created_at DESC
 	`
 	return r.listQuery(query, coachID)
@@ -80,7 +82,7 @@ func (r *repository) ListDraftByCoach(coachID string) ([]*domain.Challenge, erro
 		       duration_minutes, calories, target_sets, target_reps,
 		       scoring_type, difficulty_level, max_attempts, status,
 		       start_date, end_date, expires_at, created_at, updated_at
-		FROM challenges WHERE coach_id = $4 AND status = 'draft'
+		FROM challenges WHERE coach_id = $1 AND status = 'draft'
 		ORDER BY created_at DESC
 	`
 	return r.listQuery(query, coachID)
@@ -94,7 +96,7 @@ func (r *repository) ListActiveForAthlete(athleteID string) ([]*domain.Challenge
 		       c.start_date, c.end_date, c.expires_at, c.created_at, c.updated_at
 		FROM challenges c
 		INNER JOIN coach_athlete_links cal ON c.coach_id = cal.coach_id
-		WHERE cal.athlete_id = $5
+		WHERE cal.athlete_id = $1
 		  AND c.status = 'active'
 		  AND (c.expires_at IS NULL OR datetime(c.expires_at) > NOW())
 		ORDER BY c.created_at DESC
@@ -110,7 +112,7 @@ func (r *repository) GetActiveForAthlete(athleteID string) (*domain.Challenge, e
 		       c.start_date, c.end_date, c.expires_at, c.created_at, c.updated_at
 		FROM challenges c
 		INNER JOIN coach_athlete_links cal ON c.coach_id = cal.coach_id
-		WHERE cal.athlete_id = $6
+		WHERE cal.athlete_id = $1
 		  AND c.status = 'active'
 		  AND (c.expires_at IS NULL OR datetime(c.expires_at) > NOW())
 		ORDER BY c.created_at DESC LIMIT 1
@@ -141,7 +143,7 @@ func (r *repository) Create(ch *domain.Challenge) error {
 		    video_url, duration_minutes, calories, target_sets, target_reps,
 		    scoring_type, difficulty_level, max_attempts, status,
 		    start_date, end_date, expires_at, created_at, updated_at)
-		VALUES ($7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 	`
 	if ch.ID == "" {
 		ch.ID = "ch-" + now.Format("20060102150405")
@@ -169,11 +171,11 @@ func (r *repository) Create(ch *domain.Challenge) error {
 func (r *repository) Update(ch *domain.Challenge) error {
 	query := `
 		UPDATE challenges
-		SET title = $26, description = $27, exercise_type = $28, video_url = $29,
-		    duration_minutes = $30, calories = $31, target_sets = $32, target_reps = $33,
-		    scoring_type = $34, difficulty_level = $35, max_attempts = $36,
-		    status = $37, start_date = $38, end_date = $39, expires_at = $40, updated_at = $41
-		WHERE id = $42
+		SET title = $1, description = $2, exercise_type = $3, video_url = $4,
+		    duration_minutes = $5, calories = $6, target_sets = $7, target_reps = $8,
+		    scoring_type = $9, difficulty_level = $10, max_attempts = $11,
+		    status = $12, start_date = $13, end_date = $14, expires_at = $15, updated_at = $16
+		WHERE id = $17
 	`
 	ch.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	_, err := r.db.Exec(query,
@@ -187,14 +189,14 @@ func (r *repository) Update(ch *domain.Challenge) error {
 }
 
 func (r *repository) Delete(id string) error {
-	_, err := r.db.Exec(`DELETE FROM challenges WHERE id = $43`, id)
+	_, err := r.db.Exec(`DELETE FROM challenges WHERE id = $1`, id)
 	return err
 }
 
 func (r *repository) HasAttempts(challengeID string) (bool, error) {
 	var count int
 	err := r.db.QueryRow(
-		`SELECT COUNT(*) FROM challenge_attempts WHERE challenge_id = $44`,
+		`SELECT COUNT(*) FROM challenge_attempts WHERE challenge_id = $1`,
 		challengeID,
 	).Scan(&count)
 	return count > 0, err
@@ -210,7 +212,7 @@ func (r *repository) CreateAttempt(a *domain.ChallengeAttempt) error {
 		    video_url, form_score, depth_score, alignment_score, tempo_score,
 		    sets_completed, reps_completed, total_volume, notes, status,
 		    completed_at, created_at)
-		VALUES ($45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 	`
 	if a.ID == "" {
 		a.ID = "ca-" + now.Format("20060102150405") + "-" + a.AthleteID
@@ -234,7 +236,7 @@ func (r *repository) GetAttempt(id string) (*domain.ChallengeAttempt, error) {
 		       video_url, form_score, depth_score, alignment_score, tempo_score,
 		       sets_completed, reps_completed, total_volume, notes, status,
 		       completed_at, created_at
-		FROM challenge_attempts WHERE id = $64
+		FROM challenge_attempts WHERE id = $1
 	`
 	a := &domain.ChallengeAttempt{}
 	var consentAt, completedAt sql.NullString
@@ -264,7 +266,7 @@ func (r *repository) ListAttemptsByChallenge(challengeID string) ([]*domain.Chal
 		       video_url, form_score, depth_score, alignment_score, tempo_score,
 		       sets_completed, reps_completed, total_volume, notes, status,
 		       completed_at, created_at
-		FROM challenge_attempts WHERE challenge_id = $65
+		FROM challenge_attempts WHERE challenge_id = $1
 		ORDER BY attempt_number DESC
 	`
 	return r.listAttempts(query, challengeID)
@@ -277,7 +279,7 @@ func (r *repository) ListAttemptsByAthlete(athleteID string) ([]*domain.Challeng
 		       video_url, form_score, depth_score, alignment_score, tempo_score,
 		       sets_completed, reps_completed, total_volume, notes, status,
 		       completed_at, created_at
-		FROM challenge_attempts WHERE athlete_id = $66
+		FROM challenge_attempts WHERE athlete_id = $1
 		ORDER BY created_at DESC
 	`
 	return r.listAttempts(query, athleteID)
@@ -286,7 +288,7 @@ func (r *repository) ListAttemptsByAthlete(athleteID string) ([]*domain.Challeng
 func (r *repository) GetAthleteAttemptCount(challengeID, athleteID string) (int, error) {
 	var count int
 	err := r.db.QueryRow(
-		`SELECT COUNT(*) FROM challenge_attempts WHERE challenge_id = $67 AND athlete_id = $68`,
+		`SELECT COUNT(*) FROM challenge_attempts WHERE challenge_id = $1 AND athlete_id = $2`,
 		challengeID, athleteID,
 	).Scan(&count)
 	return count, err
@@ -295,10 +297,10 @@ func (r *repository) GetAthleteAttemptCount(challengeID, athleteID string) (int,
 func (r *repository) UpdateAttempt(a *domain.ChallengeAttempt) error {
 	query := `
 		UPDATE challenge_attempts
-		SET video_url = $69, form_score = $70, depth_score = $71, alignment_score = $72,
-		    tempo_score = $73, sets_completed = $74, reps_completed = $75, total_volume = $76,
-		    notes = $77, status = $78, completed_at = $79
-		WHERE id = $80
+		SET video_url = $1, form_score = $2, depth_score = $3, alignment_score = $4,
+		    tempo_score = $5, sets_completed = $6, reps_completed = $7, total_volume = $8,
+		    notes = $9, status = $10, completed_at = $11
+		WHERE id = $12
 	`
 	_, err := r.db.Exec(query,
 		nullStr(a.VideoURL), a.FormScore, a.DepthScore, a.AlignmentScore,
@@ -333,7 +335,7 @@ func (r *repository) GetChallengeLeaderboard(challengeID string) ([]*domain.Lead
 		FROM challenge_attempts cp
 		JOIN challenges c ON cp.challenge_id = c.id
 		LEFT JOIN users u ON cp.athlete_id = u.id
-		WHERE cp.challenge_id = $81 AND cp.status = 'completed'
+		WHERE cp.challenge_id = $1 AND cp.status = 'completed'
 		GROUP BY cp.athlete_id, u.name, u.avatar_url, c.scoring_type
 		HAVING COUNT(cp.id) >= 1
 		ORDER BY score DESC
@@ -371,7 +373,7 @@ func (r *repository) GetAthleteChallengeAnalytics(athleteID string) (*domain.Ath
 		COALESCE(AVG(CASE WHEN cp.status = 'completed' THEN cp.form_score END), 0) as avg_form,
 		COALESCE(MAX(CASE WHEN cp.status = 'completed' THEN cp.form_score END), 0) as best_form
 		FROM challenge_attempts cp
-		WHERE cp.athlete_id = $82
+		WHERE cp.athlete_id = $1
 	`
 	a := &domain.AthleteChallengeAnalytics{AthleteID: athleteID}
 	err := r.db.QueryRow(query, athleteID).Scan(
@@ -397,7 +399,7 @@ func (r *repository) GetChallengeStats(challengeID string) (map[string]interface
 			COALESCE(AVG(form_score), 0) as avg_form_score,
 			COALESCE(MAX(form_score), 0) as best_form_score
 		FROM challenge_attempts
-		WHERE challenge_id = $83 AND status = 'completed'
+		WHERE challenge_id = $1 AND status = 'completed'
 	`
 	var totalAttempts, uniqueAthletes int
 	var avgFormScore, bestFormScore float64
@@ -420,7 +422,7 @@ func (r *repository) GetAthleteProgress(athleteID string, exerciseType string) (
 		SELECT cp.created_at, cp.form_score, cp.depth_score, cp.attempt_number
 		FROM challenge_attempts cp
 		JOIN challenges c ON cp.challenge_id = c.id
-		WHERE cp.athlete_id = $84 AND c.exercise_type = $85 AND cp.status = 'completed'
+		WHERE cp.athlete_id = $1 AND c.exercise_type = $2 AND cp.status = 'completed'
 		ORDER BY cp.created_at ASC
 	`
 	rows, err := r.db.Query(query, athleteID, exerciseType)
@@ -589,7 +591,7 @@ func (r *repository) GetExercisesByChallenge(challengeID string) ([]*domain.Chal
 		SELECT id, challenge_id, exercise_type, title, description, video_url,
 		       order_index, target_sets, target_reps, target_weight_kg,
 		       created_at, updated_at
-		FROM challenge_exercises WHERE challenge_id = $86
+		FROM challenge_exercises WHERE challenge_id = $1
 		ORDER BY order_index ASC
 	`
 	rows, err := r.db.Query(query, challengeID)
@@ -633,7 +635,7 @@ func (r *repository) CreateExercise(ex *domain.ChallengeExercise) error {
 		INSERT INTO challenge_exercises (id, challenge_id, exercise_type, title, description,
 		    video_url, order_index, target_sets, target_reps, target_weight_kg,
 		    created_at, updated_at)
-		VALUES ($87, $88, $89, $90, $91, $92, $93, $94, $95, $96, $97, $98)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
 	if ex.ID == "" {
 		ex.ID = "ce-" + now.Format("20060102150405")
@@ -653,10 +655,10 @@ func (r *repository) CreateExercise(ex *domain.ChallengeExercise) error {
 func (r *repository) UpdateExercise(ex *domain.ChallengeExercise) error {
 	query := `
 		UPDATE challenge_exercises
-		SET exercise_type = $99, title = $100, description = $101, video_url = $102,
-		    order_index = $103, target_sets = $104, target_reps = $105, target_weight_kg = $106,
-		    updated_at = $107
-		WHERE id = $108
+		SET exercise_type = $1, title = $2, description = $3, video_url = $4,
+		    order_index = $5, target_sets = $6, target_reps = $7, target_weight_kg = $8,
+		    updated_at = $9
+		WHERE id = $10
 	`
 	ex.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	_, err := r.db.Exec(query,
@@ -668,11 +670,24 @@ func (r *repository) UpdateExercise(ex *domain.ChallengeExercise) error {
 }
 
 func (r *repository) DeleteExercise(id string) error {
-	_, err := r.db.Exec(`DELETE FROM challenge_exercises WHERE id = $109`, id)
+	_, err := r.db.Exec(`DELETE FROM challenge_exercises WHERE id = $1`, id)
 	return err
 }
 
 func (r *repository) DeleteExercisesByChallenge(challengeID string) error {
-	_, err := r.db.Exec(`DELETE FROM challenge_exercises WHERE challenge_id = $110`, challengeID)
+	_, err := r.db.Exec(`DELETE FROM challenge_exercises WHERE challenge_id = $1`, challengeID)
 	return err
+}
+
+// SetExecutor sets the executor for queries (e.g. *sql.Tx).
+func (r *repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a shallow copy of the repository using the given executor.
+func (r *repository) WithExecutor(exec database.Executor) *repository {
+	return &repository{
+		db:   r.db,
+		exec: exec,
+	}
 }

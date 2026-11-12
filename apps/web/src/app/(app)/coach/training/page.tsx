@@ -32,7 +32,7 @@ export default function CoachTrainingPage() {
           <Link
             key={card.href}
             href={card.href}
-            className="rounded-2xl border border-white/5 bg-surface-1 p-6 hover:border-white/10 transition-all group"
+            className="rounded-lg border border-white/5 bg-surface-1 p-6 hover:border-white/10 transition-all group"
           >
             <div className={`w-10 h-10 rounded-xl ${card.color} flex items-center justify-center mb-4`}>
               <card.icon size={20} />

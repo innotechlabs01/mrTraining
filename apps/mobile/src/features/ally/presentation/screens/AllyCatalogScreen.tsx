@@ -1,6 +1,6 @@
 /**
  * AllyCatalogScreen — Catálogo de productos y servicios de aliados disponibles.
- * Permite al atleta navegar por el catálogo de un aliado y comprar productos o reservar servicios.
+ * Layout estilo Rappi: imagen cuadrada, título, descripción, precio y CTA primario.
  */
 import React, { useCallback, useState } from 'react';
 import {
@@ -11,6 +11,7 @@ import {
   Pressable,
   Alert,
   Linking,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -38,14 +39,14 @@ import {
   type AllyService,
 } from '../../services/allyService';
 
-type AllyCatalogNavProp = NativeStackNavigationProp<RootStackParamList, 'AllyCatalog'>;
-
 const t = {
   catalogTitle: 'Catálogo del Aliado',
+  subtitle: 'Productos y servicios disponibles',
   productsTitle: 'Productos',
   servicesTitle: 'Servicios',
-  buy: 'Comprar',
+  buy: 'Agregar',
   reserve: 'Reservar',
+  unit: '1 x',
   loading: 'Cargando catálogo...',
   empty: 'No hay productos ni servicios disponibles.',
   buySuccess: 'Compra iniciada',
@@ -61,10 +62,12 @@ export function AllyCatalogScreen() {
   const [products, setProducts] = useState<AllyProduct[]>([]);
   const [services, setServices] = useState<AllyService[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadCatalog = useCallback(async () => {
-    setLoading(true);
+  const loadCatalog = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     setError(null);
     try {
       const [productsData, servicesData] = await Promise.all([
@@ -79,7 +82,8 @@ export function AllyCatalogScreen() {
       setProducts([]);
       setServices([]);
     } finally {
-      setLoading(false);
+      if (isRefresh) setRefreshing(false);
+      else setLoading(false);
     }
   }, []);
 
@@ -122,7 +126,7 @@ export function AllyCatalogScreen() {
       <SafeAreaView style={styles.container}>
         <ScreenHeader title={t.catalogTitle} onBack={() => navigation.goBack()} />
         <ScrollView contentContainerStyle={styles.content}>
-          <Skeleton.List rows={4} height={120} />
+          <Skeleton.List rows={5} height={104} />
         </ScrollView>
       </SafeAreaView>
     );
@@ -149,25 +153,44 @@ export function AllyCatalogScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <ScreenHeader title={t.catalogTitle} onBack={() => navigation.goBack()} />
-
+      <ScreenHeader title={t.catalogTitle} subtitle={t.subtitle} onBack={() => navigation.goBack()} />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadCatalog(true)}
+            tintColor={colors.primary}
+          />
+        }
+      >
         {products.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t.productsTitle}</Text>
             {products.map((product) => (
-              <Pressable
-                key={product.id}
-                onPress={() => handleBuyProduct(product)}
-                style={styles.card}
-              >
-                <Text style={styles.cardTitle}>{product.name}</Text>
-                <Text style={styles.cardDesc}>{product.description}</Text>
-                <Text style={styles.cardPrice}>
-                  ${(product.priceCents / 100).toFixed(2)} {product.currency}
-                </Text>
-                <PrimaryButton label={t.buy} variant="outline" style={styles.buyButton} onPress={() => {}} />
-              </Pressable>
+              <View key={product.id} style={styles.card}>
+                <View style={styles.cardImage} />
+                <View style={styles.cardBody}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>{product.name}</Text>
+                  <Text style={styles.cardDesc} numberOfLines={2}>{product.description}</Text>
+                  <View style={styles.cardFooter}>
+                    <View>
+                      <Text style={styles.cardUnit}>{t.unit}</Text>
+                      <Text style={styles.cardPrice}>
+                        ${(product.priceCents / 100).toFixed(2)} {product.currency}
+                      </Text>
+                    </View>
+                    <PrimaryButton
+                      label={t.buy}
+                      variant="primary"
+                      size="md"
+                      fullWidth={false}
+                      style={styles.ctaButton}
+                      onPress={() => handleBuyProduct(product)}
+                    />
+                  </View>
+                </View>
+              </View>
             ))}
           </View>
         )}
@@ -176,18 +199,29 @@ export function AllyCatalogScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t.servicesTitle}</Text>
             {services.map((service) => (
-              <Pressable
-                key={service.id}
-                onPress={() => handleReserveService(service)}
-                style={styles.card}
-              >
-                <Text style={styles.cardTitle}>{service.name}</Text>
-                <Text style={styles.cardDesc}>{service.description}</Text>
-                <Text style={styles.cardPrice}>
-                  ${(service.priceCents / 100).toFixed(2)} {service.currency}
-                </Text>
-                <PrimaryButton label={t.reserve} variant="outline" style={styles.buyButton} onPress={() => {}} />
-              </Pressable>
+              <View key={service.id} style={styles.card}>
+                <View style={styles.cardImage} />
+                <View style={styles.cardBody}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>{service.name}</Text>
+                  <Text style={styles.cardDesc} numberOfLines={2}>{service.description}</Text>
+                  <View style={styles.cardFooter}>
+                    <View>
+                      <Text style={styles.cardUnit}>{t.unit}</Text>
+                      <Text style={styles.cardPrice}>
+                        ${(service.priceCents / 100).toFixed(2)} {service.currency}
+                      </Text>
+                    </View>
+                    <PrimaryButton
+                      label={t.reserve}
+                      variant="primary"
+                      size="md"
+                      fullWidth={false}
+                      style={styles.ctaButton}
+                      onPress={() => handleReserveService(service)}
+                    />
+                  </View>
+                </View>
+              </View>
             ))}
           </View>
         )}
@@ -207,28 +241,52 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
+    flexDirection: 'row',
+    gap: spacing.md,
   },
+  cardImage: {
+    width: 92,
+    height: 92,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.border,
+    borderWidth: 1,
+  },
+  cardBody: { flex: 1, gap: spacing.xs },
   cardTitle: {
     ...typography.bodyStrong,
     color: colors.text,
-    marginBottom: spacing.xs,
+    fontSize: 16,
   },
   cardDesc: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginBottom: spacing.md,
+    lineHeight: 16,
+  },
+  cardFooter: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  cardUnit: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   cardPrice: {
-    ...typography.bodyBold,
+    ...typography.h3,
     color: colors.primary,
-    marginBottom: spacing.md,
+    fontSize: 20,
+    marginTop: 2,
   },
-  buyButton: {
-    alignSelf: 'flex-start',
+  ctaButton: {
+    alignSelf: 'flex-end',
+    minWidth: 96,
   },
 });

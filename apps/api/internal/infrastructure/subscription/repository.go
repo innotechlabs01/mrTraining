@@ -32,6 +32,21 @@ func (r *Repository) SetExecutor(exec database.Executor) {
 	r.exec = exec
 }
 
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) subscription.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
+}
+
 // Save persists a subscription aggregate. On insert it sets created_at/updated_at;
 // on update it bumps the version column optimistically.
 func (r *Repository) Save(ctx context.Context, s *subscription.Subscription) error {
@@ -71,17 +86,17 @@ func (r *Repository) insert(ctx context.Context, s *subscription.Subscription) e
 func (r *Repository) update(ctx context.Context, s *subscription.Subscription, existingVersion int) error {
 	result, err := r.exec.ExecContext(ctx, `
 		UPDATE subscriptions
-		SET athlete_id = $2, coach_id = $3, plan_id = $4, plan_name = $5,
-		    plan_price = $6, currency = $7, billing_period = $8, status = $9,
-		    cancel_at_period_end = $10, canceled_at = $11,
-		    current_period_start = $12, current_period_end = $13,
-		    grace_period_days = $14, payment_due_date = $15,
-		    version = $16, updated_at = NOW()
-		WHERE id = $1 AND version = $17`,
-		s.ID, s.AthleteID, s.CoachID, s.PlanID, s.PlanName, s.PlanPrice,
+		SET athlete_id = $1, coach_id = $2, plan_id = $3, plan_name = $4,
+		    plan_price = $5, currency = $6, billing_period = $7, status = $8,
+		    cancel_at_period_end = $9, canceled_at = $10,
+		    current_period_start = $11, current_period_end = $12,
+		    grace_period_days = $13, payment_due_date = $14,
+		    version = $15, updated_at = NOW()
+		WHERE id = $16 AND version = $17`,
+		s.AthleteID, s.CoachID, s.PlanID, s.PlanName, s.PlanPrice,
 		s.Currency, s.BillingPeriod, string(s.Status), s.CancelAtPeriodEnd,
 		nullTime(s.CanceledAt), s.CurrentPeriodStart, s.CurrentPeriodEnd,
-		s.GracePeriodDays, s.PaymentDueDate, s.Version+1, existingVersion,
+		s.GracePeriodDays, s.PaymentDueDate, s.Version+1, s.ID, existingVersion,
 	)
 	if err != nil {
 		return fmt.Errorf("update subscription: %w", err)
@@ -185,6 +200,22 @@ func (r *Repository) GetPaymentByProviderID(ctx context.Context, providerPayment
 		       amount, currency, status, period_start, period_end, paid_at, created_at
 		FROM subscription_payments WHERE provider_payment_id = $1 LIMIT 1`, providerPaymentID)
 	return scanPayment(row)
+}
+
+// HasApprovedPayment reports whether an approved payment exists for the
+// subscription.
+func (r *Repository) HasApprovedPayment(ctx context.Context, subscriptionID string) (bool, error) {
+	var one int
+	err := r.exec.QueryRowContext(ctx,
+		`SELECT 1 FROM subscription_payments WHERE subscription_id = $1 AND status = 'approved' LIMIT 1`,
+		subscriptionID).Scan(&one)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("check approved payment: %w", err)
+	}
+	return true, nil
 }
 
 type scannable interface {

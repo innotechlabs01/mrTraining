@@ -20,6 +20,15 @@ interface SignInFormProps {
 type Step = 'email' | 'password' | 'code';
 type CodeContext = 'first' | 'second';
 
+/**
+ * Reports whether Clerk refused the sign-in because the browser already
+ * holds an active session for that account.
+ */
+function isSessionAlreadyActive(err: unknown): boolean {
+  const code = (err as { errors?: { code?: string }[] })?.errors?.[0]?.code;
+  return code === 'session_exists' || code === 'session_already_exists';
+}
+
 export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignInFormProps) {
   const searchParams = useSearchParams();
   const { signIn, isLoaded, setActive } = useSignIn();
@@ -98,6 +107,12 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignIn
       });
       setStep('code');
     } catch (err: unknown) {
+      // The browser already holds a session for this account. That is not an
+      // error: continue as the signed-in user instead of showing a dead end.
+      if (isSessionAlreadyActive(err)) {
+        onSuccess?.();
+        return;
+      }
       setError(translateClerkError(err, 'No se pudo enviar el código. Inténtalo de nuevo.'));
     } finally {
       setIsLoading(false);
@@ -364,7 +379,7 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignIn
             animate="animate"
             exit="exit"
             variants={stepVariants}
-            transition={{ duration: 0.25, ease: 'ease-out' }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
             className="flex flex-col gap-4"
           >
             <button

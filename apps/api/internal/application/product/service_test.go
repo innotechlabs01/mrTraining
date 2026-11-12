@@ -20,6 +20,7 @@ type mockRepository struct {
 	listSalesByCoachFn func(ctx context.Context, coachID string) ([]*productdomain.Sale, error)
 	createSaleFn      func(ctx context.Context, sale *productdomain.Sale) error
 	deleteSaleFn      func(ctx context.Context, saleID string) error
+	listPublicProductsFn func(ctx context.Context) ([]*productdomain.Product, error)
 }
 
 func (m *mockRepository) ListByCoach(ctx context.Context, coachID string) ([]*productdomain.Product, error) {
@@ -59,6 +60,13 @@ func (m *mockRepository) DeleteSale(ctx context.Context, saleID string) error {
 		return m.deleteSaleFn(ctx, saleID)
 	}
 	return nil
+}
+
+func (m *mockRepository) ListPublicProducts(ctx context.Context) ([]*productdomain.Product, error) {
+	if m.listPublicProductsFn != nil {
+		return m.listPublicProductsFn(ctx)
+	}
+	return []*productdomain.Product{}, nil
 }
 
 func TestListProducts_Success(t *testing.T) {

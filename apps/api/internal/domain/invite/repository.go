@@ -12,4 +12,6 @@ type Repository interface {
 	ValidateCode(ctx context.Context, code string) (bool, error)
 	// GetCoachIDByAthleteID resolves the coach linked to an athlete via coach_athlete_links.
 	GetCoachIDByAthleteID(ctx context.Context, athleteID string) (string, error)
+	// CreatePendingInvite stores a clerk-issued invitation for a coach.
+	CreatePendingInvite(ctx context.Context, inv *PendingInvite) error
 }

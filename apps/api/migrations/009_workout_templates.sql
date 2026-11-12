@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS workout_templates (
     difficulty_level TEXT,       -- beginner, intermediate, advanced
     duration_minutes INTEGER,    -- estimated total duration
     is_public BOOLEAN NOT NULL DEFAULT 0, -- visible to other coaches
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (NOW()),
+    updated_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE INDEX IF NOT EXISTS idx_workout_templates_coach ON workout_templates(coach_id);
@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS workout_template_exercises (
     rest_seconds INTEGER NOT NULL DEFAULT 90,
     rpe_target REAL,             -- target RPE (1-10)
     notes TEXT,                  -- coaching cues for this exercise in this template
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (NOW()),
+    updated_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE INDEX IF NOT EXISTS idx_workout_template_exercises_template ON workout_template_exercises(template_id);

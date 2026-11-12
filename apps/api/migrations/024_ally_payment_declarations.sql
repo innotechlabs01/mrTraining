@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS ally_payment_declarations (
   reviewed_by  TEXT,
   reviewed_at  TEXT,
   review_note  TEXT,
-  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at   TEXT NOT NULL DEFAULT (NOW()),
   UNIQUE (operation_id, version),
   CHECK (amount_cents >= 0),
   CHECK (currency IN ('COP')),

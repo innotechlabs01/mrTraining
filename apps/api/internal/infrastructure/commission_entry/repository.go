@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	domain "github.com/innotechlabs01/mr-training-api/internal/domain/commission_entry"
 	auditdomain "github.com/innotechlabs01/mr-training-api/internal/domain/audit"
+	domain "github.com/innotechlabs01/mr-training-api/internal/domain/commission_entry"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
@@ -19,7 +19,7 @@ import (
 // Todas las mutaciones financieras se escriben en la misma transacción que el
 // evento de auditoría (H-05).
 type Repository struct {
-	db  *sql.DB
+	db   *sql.DB
 	exec database.Executor
 }
 
@@ -42,9 +42,9 @@ func (r *Repository) SetExecutor(exec database.Executor) {
 // WithExecutor returns a new Repository instance sharing the same connection
 // pool but using the given executor for all queries. This allows request-scoped
 // transactional usage without mutating the shared repository instance.
-func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+func (r *Repository) WithExecutor(exec database.Executor) domain.Repository {
 	return &Repository{
-		db:  r.db,
+		db:   r.db,
 		exec: exec,
 	}
 }
@@ -116,16 +116,16 @@ func (r *Repository) createCommissionEntryTx(ctx context.Context, in domain.Crea
 	}
 
 	ev := auditdomain.NewEvent("commission_entry", "commission_entry.accrued", actorID, map[string]any{
-		"operation_id":        in.OperationID,
-		"relationship_id":     in.RelationshipID,
-		"coach_id":            in.CoachID,
-		"agreement_id":        in.AgreementID,
-		"agreement_version":   in.AgreementVersion,
-		"base_cents":          in.BaseCents,
-		"rate_bps":            in.RateBps,
-		"fixed_amount_cents":  in.FixedAmountCents,
-		"amount_cents":        in.AmountCents,
-		"currency":            currency,
+		"operation_id":       in.OperationID,
+		"relationship_id":    in.RelationshipID,
+		"coach_id":           in.CoachID,
+		"agreement_id":       in.AgreementID,
+		"agreement_version":  in.AgreementVersion,
+		"base_cents":         in.BaseCents,
+		"rate_bps":           in.RateBps,
+		"fixed_amount_cents": in.FixedAmountCents,
+		"amount_cents":       in.AmountCents,
+		"currency":           currency,
 	})
 	tx, err := asTx(exec)
 	if err != nil {
@@ -136,20 +136,20 @@ func (r *Repository) createCommissionEntryTx(ctx context.Context, in domain.Crea
 	}
 
 	return &domain.CommissionEntry{
-		ID:                 id,
-		OperationID:        in.OperationID,
-		RelationshipID:     in.RelationshipID,
-		CoachID:            in.CoachID,
-		AgreementID:        in.AgreementID,
-		AgreementVersion:   in.AgreementVersion,
-		BaseCents:          in.BaseCents,
-		RateBps:            in.RateBps,
-		FixedAmountCents:   in.FixedAmountCents,
-		AmountCents:        in.AmountCents,
-		Currency:           currency,
-		Status:             "accrued",
-		ComputedAt:         computedAt,
-		CreatedAt:          t,
+		ID:               id,
+		OperationID:      in.OperationID,
+		RelationshipID:   in.RelationshipID,
+		CoachID:          in.CoachID,
+		AgreementID:      in.AgreementID,
+		AgreementVersion: in.AgreementVersion,
+		BaseCents:        in.BaseCents,
+		RateBps:          in.RateBps,
+		FixedAmountCents: in.FixedAmountCents,
+		AmountCents:      in.AmountCents,
+		Currency:         currency,
+		Status:           "accrued",
+		ComputedAt:       computedAt,
+		CreatedAt:        t,
 	}, nil
 }
 
@@ -355,14 +355,14 @@ func (r *Repository) createFinancialAdjustmentTx(ctx context.Context, in domain.
 	}
 
 	return &domain.FinancialAdjustment{
-		ID:          id,
-		EntryID:     in.EntryID,
+		ID:           id,
+		EntryID:      in.EntryID,
 		SettlementID: in.SettlementID,
-		Kind:        in.Kind,
-		AmountCents: in.AmountCents,
-		Reason:      in.Reason,
-		CreatedBy:   in.CreatedBy,
-		CreatedAt:   t,
+		Kind:         in.Kind,
+		AmountCents:  in.AmountCents,
+		Reason:       in.Reason,
+		CreatedBy:    in.CreatedBy,
+		CreatedAt:    t,
 	}, nil
 }
 

@@ -143,7 +143,7 @@ export function IronGymTestimonials() {
             onClick={() => setOpen(false)}
           />
 
-          <div className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+          <div className="relative z-10 w-full max-w-md bg-white rounded-lg shadow-2xl overflow-hidden">
             <div className="relative px-6 pt-6 pb-4 border-b border-gray-100">
               <button
                 onClick={() => setOpen(false)}

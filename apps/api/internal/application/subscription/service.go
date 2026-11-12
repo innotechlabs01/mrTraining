@@ -11,24 +11,59 @@ import (
 	"time"
 
 	"github.com/innotechlabs01/mr-training-api/internal/config"
+	checkoutdomain "github.com/innotechlabs01/mr-training-api/internal/domain/checkout"
+	commissionentrydomain "github.com/innotechlabs01/mr-training-api/internal/domain/commission_entry"
 	plandomain "github.com/innotechlabs01/mr-training-api/internal/domain/plan"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/subscription"
+	paymentledgerdomain "github.com/innotechlabs01/mr-training-api/internal/domain/payment_ledger"
+	paymentledgersvc "github.com/innotechlabs01/mr-training-api/internal/application/payment_ledger"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 )
+
+// CheckoutRecorder records a payment confirmed for a pending checkout (a
+// checkout paid before the buyer registered).
+type CheckoutRecorder interface {
+	MarkPaid(ctx context.Context, checkoutID, providerPaymentID string, amount float64, currency string) error
+}
+
+// MetadataWriter mirrors the subscription entitlements into the auth
+// provider's PUBLIC metadata, so the frontend can know what the user may see
+// and do without a round trip to the database.
+type MetadataWriter interface {
+	MergePublicMetadata(ctx context.Context, userID string, patch map[string]interface{}) error
+}
 
 // Service orchestrates subscription use cases: subscribe, cancel, and webhook
 // fulfillment. It depends only on interfaces (Repository, PaymentProvider,
 // plan.Repository), making it testable with fakes.
 type Service struct {
-	cfg      *config.Config
-	subRepo  subscription.Repository
-	provider subscription.PaymentProvider
-	planRepo plandomain.Repository
+	cfg             *config.Config
+	subRepo         subscription.Repository
+	provider        subscription.PaymentProvider
+	planRepo        plandomain.Repository
+	ledgerSvc       *paymentledgersvc.Service
+	commissionEntry commissionentrydomain.Repository
+	metadata        MetadataWriter
+	checkouts       CheckoutRecorder
 }
 
 // NewService creates a new subscription application service.
-func NewService(cfg *config.Config, subRepo subscription.Repository, provider subscription.PaymentProvider, planRepo plandomain.Repository) *Service {
-	return &Service{cfg: cfg, subRepo: subRepo, provider: provider, planRepo: planRepo}
+func NewService(cfg *config.Config, subRepo subscription.Repository, provider subscription.PaymentProvider, planRepo plandomain.Repository, ledgerSvc *paymentledgersvc.Service, commissionEntry commissionentrydomain.Repository) *Service {
+	return &Service{cfg: cfg, subRepo: subRepo, provider: provider, planRepo: planRepo, ledgerSvc: ledgerSvc, commissionEntry: commissionEntry}
+}
+
+// WithMetadataWriter injects the auth-provider metadata writer used to mirror
+// the plan entitlements.
+func (s *Service) WithMetadataWriter(w MetadataWriter) *Service {
+	s.metadata = w
+	return s
+}
+
+// WithCheckoutRecorder injects the recorder for checkouts paid before the
+// buyer registered.
+func (s *Service) WithCheckoutRecorder(r CheckoutRecorder) *Service {
+	s.checkouts = r
+	return s
 }
 
 // SubscribeCommand is the input to the subscribe use case.
@@ -87,10 +122,19 @@ func (s *Service) Subscribe(ctx context.Context, cmd SubscribeCommand) (*Subscri
 		Description:       "Suscripción " + plan.Name + " (" + plan.BillingPeriod + ")",
 		Amount:            plan.Price,
 		Currency:          plan.Currency,
-		SuccessURL:        s.cfg.AppURL + "/payment/success",
-		FailureURL:        s.cfg.AppURL + "/payment/failed",
-		PendingURL:        s.cfg.AppURL + "/payment/pending",
-		NotificationURL:   s.cfg.MercadoPagoWebhookURL,
+		TRM:               plan.TRM,
+		// The payer comes back to the FRONTEND, not to this API. Building
+		// these from APP_URL pointed at the Go API and every return URL
+		// 404'd right after the payment.
+		SuccessURL:        s.cfg.WebAppURL + "/payment/success",
+		FailureURL:        s.cfg.WebAppURL + "/payment/failed",
+		PendingURL:        s.cfg.WebAppURL + "/payment/pending",
+		NotificationURL:   func() string {
+			if s.cfg.WompiWebhookURL != "" {
+				return s.cfg.WompiWebhookURL
+			}
+			return s.cfg.MercadoPagoWebhookURL
+		}(),
 		PayerEmail:        "",
 	})
 	if err != nil {
@@ -100,6 +144,11 @@ func (s *Service) Subscribe(ctx context.Context, cmd SubscribeCommand) (*Subscri
 	if err := s.subRepo.Save(ctx, sub); err != nil {
 		return nil, fmt.Errorf("save subscription: %w", err)
 	}
+
+	// Mirror the selected plan into the subscriber's public metadata so the
+	// frontend knows what the user is on. The status stays "pending" until
+	// the provider confirms the payment.
+	s.mirrorEntitlements(ctx, cmd.AthleteID, plan.ID, plan.Name, "pending")
 
 	// Publish domain events after successful persistence.
 	for _, event := range sub.DomainEvents() {
@@ -148,9 +197,173 @@ func (s *Service) Cancel(ctx context.Context, cmd CancelCommand) error {
 	return nil
 }
 
+// AttachPaidCheckoutCommand describes the subscription to create for a checkout
+// that was already paid for.
+type AttachPaidCheckoutCommand struct {
+	UserID    string
+	CoachID   string
+	PlanID    string
+	PaymentID string
+	Amount    float64
+	Currency  string
+	PaidAt    *time.Time
+}
+
+// AttachPaidCheckout creates the subscription for a checkout that was paid
+// BEFORE the user registered, attaches the payment that was already made and
+// activates it.
+//
+// It is the mirror of Subscribe: no new checkout is issued, because the payer
+// already went through the provider.
+func (s *Service) AttachPaidCheckout(ctx context.Context, cmd AttachPaidCheckoutCommand) (*subscription.Subscription, error) {
+	if cmd.UserID == "" {
+		return nil, errors.BadRequest("user_id is required")
+	}
+	if cmd.PaymentID == "" {
+		return nil, errors.BadRequest("payment_id is required")
+	}
+
+	plan, err := s.planRepo.GetByID(ctx, cmd.PlanID)
+	if err != nil {
+		return nil, errors.NotFound("Plan", cmd.PlanID)
+	}
+	if !plan.IsActive {
+		return nil, errors.BadRequest("plan is not active")
+	}
+
+	// Idempotency: the provider payment id is unique, so a claim that already
+	// attached the payment must reuse that subscription instead of creating a
+	// second one.
+	if existing, err := s.subRepo.GetPaymentByProviderID(ctx, cmd.PaymentID); err == nil && existing != nil {
+		if sub, ferr := s.subRepo.FindByID(ctx, existing.SubscriptionID); ferr == nil && sub != nil {
+			s.mirrorEntitlements(ctx, cmd.UserID, sub.PlanID, sub.PlanName, "active")
+			return sub, nil
+		}
+	}
+
+	coachID := cmd.CoachID
+	if coachID == "" {
+		coachID = cmd.UserID
+	}
+
+	id := subscription.NewSubscriptionID()
+	sub, err := subscription.NewSubscription(
+		id, cmd.UserID, coachID, plan.ID, plan.Name, plan.Price,
+		plan.Currency, plan.BillingPeriod, 5,
+	)
+	if err != nil {
+		return nil, errors.BadRequest(err.Error())
+	}
+
+	periodStart := time.Now().UTC()
+	if cmd.PaidAt != nil {
+		periodStart = *cmd.PaidAt
+	}
+	periodEnd := subscription.ComputePeriodEnd(periodStart, plan.BillingPeriod)
+
+	amount := cmd.Amount
+	if amount <= 0 {
+		amount = plan.Price
+	}
+	currency := cmd.Currency
+	if currency == "" {
+		currency = plan.Currency
+	}
+
+	// The payment references the subscription, so the row must exist first.
+	if err := s.subRepo.Save(ctx, sub); err != nil {
+		return nil, fmt.Errorf("save subscription: %w", err)
+	}
+
+	payment := &subscription.Payment{
+		ID:                subscription.NewSubscriptionID(),
+		SubscriptionID:    sub.ID,
+		ProviderPaymentID: cmd.PaymentID,
+		ExternalReference: "subscription:" + sub.ID,
+		Amount:            amount,
+		Currency:          currency,
+		Status:            "approved",
+		PeriodStart:       periodStart,
+		PeriodEnd:         periodEnd,
+		PaidAt:            cmd.PaidAt,
+		CreatedAt:         time.Now().UTC(),
+	}
+	if err := s.subRepo.RecordPayment(ctx, payment); err != nil {
+		return nil, fmt.Errorf("record payment: %w", err)
+	}
+
+	if err := sub.ActivateAfterPayment(payment.ID, payment.Amount, periodStart, periodEnd); err != nil {
+		return nil, fmt.Errorf("activate subscription: %w", err)
+	}
+	if err := s.subRepo.Save(ctx, sub); err != nil {
+		return nil, fmt.Errorf("save subscription: %w", err)
+	}
+
+	// The subscriber now owns the plan: mirror the entitlements.
+	s.mirrorEntitlements(ctx, cmd.UserID, sub.PlanID, sub.PlanName, "active")
+
+	return sub, nil
+}
+
+// mirrorEntitlements writes the plan entitlements into the auth provider's
+// public metadata. It is best-effort: the subscription is already persisted,
+// and the webhook can be replayed to sync the metadata again.
+func (s *Service) mirrorEntitlements(ctx context.Context, userID, planID, planName, status string) {
+	if s.metadata == nil || userID == "" {
+		return
+	}
+	patch := map[string]interface{}{
+		"plan":       planID,
+		"planName":   planName,
+		"planStatus": status,
+	}
+	_ = s.metadata.MergePublicMetadata(ctx, userID, patch)
+}
+
 // GetByAthlete returns the athlete's current subscription.
 func (s *Service) GetByAthlete(ctx context.Context, athleteID string) (*subscription.Subscription, error) {
 	return s.subRepo.FindByAthlete(ctx, athleteID)
+}
+
+// Payment status values returned by GetPaymentStatus.
+const (
+	// PaymentStatusNone means there is no subscription for the user yet.
+	PaymentStatusNone = "none"
+	// PaymentStatusPending means the subscription exists but no approved
+	// payment has been recorded for it yet.
+	PaymentStatusPending = "pending"
+	// PaymentStatusApproved means the payment provider confirmed the payment.
+	PaymentStatusApproved = "approved"
+)
+
+// GetPaymentStatus reports whether the payment for the given subscriber has
+// been confirmed by the provider.
+//
+// The subscription row is created BEFORE the payer pays (the checkout needs
+// it to attach the payment to), so the subscription status is always "active"
+// from the start. The approved PAYMENT is the only trustworthy signal, and it
+// is recorded by the provider webhook.
+func (s *Service) GetPaymentStatus(ctx context.Context, subscriberID string) (string, *subscription.Subscription, error) {
+	if subscriberID == "" {
+		return PaymentStatusNone, nil, errors.BadRequest("subscriber_id is required")
+	}
+
+	sub, err := s.subRepo.FindByAthlete(ctx, subscriberID)
+	if err != nil {
+		return PaymentStatusNone, nil, err
+	}
+	if sub == nil {
+		return PaymentStatusNone, nil, nil
+	}
+
+	approved, err := s.subRepo.HasApprovedPayment(ctx, sub.ID)
+	if err != nil {
+		return PaymentStatusNone, nil, err
+	}
+	if approved {
+		return PaymentStatusApproved, sub, nil
+	}
+	return PaymentStatusPending, sub, nil
 }
 
 // ListByCoach returns all subscriptions for a coach's athletes.
@@ -171,16 +384,25 @@ func (s *Service) FulfillWebhook(ctx context.Context, req subscription.WebhookRe
 	if err != nil {
 		return errors.BadRequest("invalid webhook body: " + err.Error())
 	}
-	if notif.Type != "payment" {
+
+	paymentID := notif.Data.ID
+	if notif.Data.Transaction.ID != "" {
+		paymentID = notif.Data.Transaction.ID
+	}
+	isPayment := notif.Type == "payment" || notif.Event == "transaction.updated" || notif.Event == "transaction.created" || paymentID != ""
+	if !isPayment {
 		// Non-payment notifications are acknowledged and ignored.
 		return nil
 	}
-	if notif.Data.ID == "" {
+	if paymentID == "" {
 		return errors.BadRequest("provider payment id missing")
+	}
+	if notif.Data.ID == "" {
+		notif.Data.ID = paymentID
 	}
 
 	// Never trust the notification body alone for money movements.
-	payment, err := s.provider.FetchPayment(ctx, notif.Data.ID)
+	payment, err := s.provider.FetchPayment(ctx, paymentID)
 	if err != nil {
 		return err
 	}
@@ -199,6 +421,16 @@ func (s *Service) FulfillWebhook(ctx context.Context, req subscription.WebhookRe
 	if ref == "" {
 		return errors.BadRequest("external_reference missing")
 	}
+
+	// A checkout paid BEFORE the buyer registered: the payment is recorded on
+	// the pending checkout and the claim creates the subscription later.
+	if checkoutID, ok := checkoutdomain.ParseReference(ref); ok {
+		if s.checkouts == nil {
+			return nil
+		}
+		return s.checkouts.MarkPaid(ctx, checkoutID, payment.ID, payment.TransactionAmount, payment.Currency)
+	}
+
 	subscriptionID, ok := trimSubscriptionRef(ref)
 	if !ok {
 		return errors.BadRequest("invalid external_reference: " + ref)
@@ -239,6 +471,67 @@ func (s *Service) FulfillWebhook(ctx context.Context, req subscription.WebhookRe
 	if err := s.subRepo.Save(ctx, sub); err != nil {
 		return fmt.Errorf("save subscription: %w", err)
 	}
+
+	// The payment is confirmed: the subscriber now has the plan. Mirror it
+	// into the public metadata so the frontend can gate features without a
+	// round trip to the database.
+	s.mirrorEntitlements(ctx, sub.AthleteID, sub.PlanID, sub.PlanName, "active")
+
+	// --- Record payment in ledger + commission entry for coach ---
+	if s.ledgerSvc != nil && s.commissionEntry != nil && payment.Status == "approved" {
+		periodStartStr := periodStart.Format("2006-01-02")
+		periodEndStr := periodEnd.Format("2006-01-02")
+		amountCents := int64(payment.TransactionAmount * 100)
+
+		// Resolve commission term for the coach (platform fee + processing)
+		term, termErr := s.ledgerSvc.GetActiveTerm(ctx, sub.CoachID, periodStartStr)
+		_ = termErr
+
+		// Record ledger entry (computes processing_fee, platform_commission, coach_net_payable)
+		ledgerEntry, ledErr := s.ledgerSvc.RecordPayment(ctx, paymentledgerdomain.CreateLedgerEntryInput{
+			WompiTransactionID: payment.ID,
+			SourceType:         paymentledgerdomain.SourceTypeMembership,
+			SubscriptionID:     sub.ID,
+			AthleteID:          sub.AthleteID,
+			CoachID:            sub.CoachID,
+			GrossAmountCents:   amountCents,
+			Currency:           payment.Currency,
+			PeriodStart:        periodStartStr,
+			PeriodEnd:          periodEndStr,
+			Status:             paymentledgerdomain.StatusApproved,
+			IdempotencyKey:     "sub_" + payment.ID,
+		}, sub.CoachID)
+		if ledErr != nil {
+			// Ledger failure should not fail the webhook fulfillment; log and continue
+			_ = ledErr
+		} else if ledgerEntry != nil {
+			// Create commission entry for the coach (net payable from platform)
+			rateBps := int64(0)
+			fixedFeeCents := int64(0)
+			if term != nil {
+				rateBps = term.RateBps
+				fixedFeeCents = term.FixedFeeCents
+			}
+
+			_, cErr := s.commissionEntry.CreateCommissionEntryDirect(ctx, commissionentrydomain.CreateCommissionEntryInput{
+				OperationID:        sub.ID,
+				RelationshipID:     "", // subscriptions have no ally relationship
+				CoachID:            sub.CoachID,
+				AgreementID:        ledgerEntry.CommissionTermID,
+				AgreementVersion:   ledgerEntry.CommissionTermVersion,
+				BaseCents:          ledgerEntry.GrossAmountCents,
+				RateBps:            rateBps,
+				FixedAmountCents:   fixedFeeCents,
+				AmountCents:        ledgerEntry.CoachNetPayableCents,
+				Currency:           payment.Currency,
+				ComputedAt:         time.Now().UTC().Format("2006-01-02 15:04:05"),
+			}, sub.CoachID)
+			if cErr != nil {
+				_ = cErr
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -250,9 +543,13 @@ func newSubscriptionID() string {
 // --- notification parsing (internal) ---
 
 type mpNotification struct {
-	Type string `json:"type"`
-	Data struct {
-		ID string `json:"id"`
+	Type  string `json:"type"`
+	Event string `json:"event"`
+	Data  struct {
+		ID          string `json:"id"`
+		Transaction struct {
+			ID string `json:"id"`
+		} `json:"transaction"`
 	} `json:"data"`
 }
 

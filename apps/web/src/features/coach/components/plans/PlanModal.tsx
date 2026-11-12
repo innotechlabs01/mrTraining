@@ -178,7 +178,7 @@ export function PlanModal({ open, plan, onClose, onSave }: PlanModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="plan-modal-title"
-        className="relative z-10 w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-surface-1 border border-white/10 rounded-2xl shadow-2xl"
+        className="relative z-10 w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-surface-1 border border-white/10 rounded-lg shadow-2xl"
       >
         <header className="sticky top-0 z-20 flex items-center justify-between px-6 py-4 bg-surface-1 border-b border-white/10">
           <h3 id="plan-modal-title" className="text-lg font-display font-bold text-white">

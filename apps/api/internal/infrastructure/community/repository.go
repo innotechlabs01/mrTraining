@@ -3,6 +3,7 @@ package community
 import (
 	"context"
 	"database/sql"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 	"strings"
 
@@ -11,12 +12,13 @@ import (
 
 // Repository implements the community.Repository interface using libsql.
 type Repository struct {
-	db *sql.DB
+	db   *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new community repository.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
 }
 
 // ListPosts returns legacy posts (stub to satisfy interface).
@@ -24,7 +26,7 @@ func (r *Repository) ListPosts(ctx context.Context, coachID string) ([]*communit
 	if r.db == nil {
 		return []*community.Post{}, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `SELECT id, author_id, content FROM community_posts WHERE author_id = $1 ORDER BY id DESC`, coachID)
+	rows, err := r.exec.QueryContext(ctx, `SELECT id, author_id, content FROM community_posts WHERE author_id = $1 ORDER BY id DESC`, coachID)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
 			return []*community.Post{}, nil
@@ -51,7 +53,7 @@ func (r *Repository) CreatePost(ctx context.Context, post *community.Post) error
 	if r.db == nil {
 		return fmt.Errorf("database not configured")
 	}
-	_, err := r.db.ExecContext(ctx, `INSERT INTO community_posts (id, author_id, content) VALUES ($2, $3, $4)`, post.ID, post.AuthorID, post.Content)
+	_, err := r.exec.ExecContext(ctx, `INSERT INTO community_posts (id, author_id, content) VALUES ($1, $2, $3)`, post.ID, post.AuthorID, post.Content)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
 			return nil
@@ -66,7 +68,7 @@ func (r *Repository) ListForums(ctx context.Context) ([]*community.ForumTopic, e
 	if r.db == nil {
 		return []*community.ForumTopic{}, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, title, description, category
 		FROM community_forums
 		ORDER BY title ASC
@@ -105,7 +107,7 @@ func (r *Repository) ListChallenges(ctx context.Context) ([]*community.Challenge
 	if r.db == nil {
 		return []*community.Challenge{}, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, title, description, duration_minutes, calories, participants_count
 		FROM community_challenges
 		ORDER BY title ASC
@@ -154,10 +156,10 @@ func (r *Repository) ListMessages(ctx context.Context, forumID string) ([]*commu
 	if strings.TrimSpace(forumID) == "" {
 		forumID = "default"
 	}
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, forum_id, user_id, user_name, message, created_at
 		FROM community_messages
-		WHERE forum_id = $5
+		WHERE forum_id = $1
 		ORDER BY created_at ASC
 	`, forumID)
 	if err != nil {
@@ -194,9 +196,9 @@ func (r *Repository) CreateMessage(ctx context.Context, msg *community.Message) 
 	if r.db == nil {
 		return fmt.Errorf("database not configured")
 	}
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO community_messages (id, forum_id, user_id, user_name, message, created_at)
-		VALUES ($6, $7, $8, $9, $10, NOW())
+		VALUES ($1, $2, $3, $4, $5, NOW())
 	`, msg.ID, msg.ForumID, msg.UserID, msg.UserName, msg.Message)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
@@ -205,4 +207,17 @@ func (r *Repository) CreateMessage(ctx context.Context, msg *community.Message) 
 		return fmt.Errorf("failed to create message: %w", err)
 	}
 	return nil
+}
+
+// SetExecutor sets the executor for queries (e.g. *sql.Tx).
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a shallow copy of the repository using the given executor.
+func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
 }

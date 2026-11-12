@@ -7,6 +7,8 @@ type Repository interface {
 	// ListByCoach returns plans for a coach. When activeOnly is true only
 	// published plans (is_active=1) are returned. Never returns nil on success.
 	ListByCoach(ctx context.Context, coachID string, activeOnly bool) ([]*Plan, error)
+	// ListAllActive returns all active (published) plans across all coaches.
+	ListAllActive(ctx context.Context) ([]*Plan, error)
 	// GetByID returns a single plan. Returns NotFound error if missing.
 	GetByID(ctx context.Context, id string) (*Plan, error)
 	// Create persists a new plan.

@@ -1,72 +1,135 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { listWorkoutTemplates, saveWorkoutTemplate } from '@/lib/db';
 
-// GET /api/coach/workout-templates — the coach's saved builder plans.
-export async function GET() {
-  try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+const GO = process.env.NEXT_PUBLIC_GO_API_URL || '';
 
-    const templates = await listWorkoutTemplates(userId);
-    return NextResponse.json({ templates }, { status: 200 });
-  } catch (error) {
-    console.error('Error listing workout templates:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+// Shape returned by Go API: GET /api/v1/workout-templates (list) and
+// GET/PUT/POST /api/v1/workout-templates/:id (single). All camelCase.
+interface GoTemplateExercise {
+  id: string;
+  templateId: string;
+  name: string;
+  sets: number;
+  reps: number;
+  weightKg: number;
+  restSeconds: number;
+  sortOrder: number;
+  notes: string;
+  mode: string;
+  phase: string;
+  supersetGroup: string;
+  bodyPart: string;
+  muscleGroups: string;
+  libraryExerciseId: string;
 }
 
-const numOrNull = (v: unknown): number | null =>
-  v == null || v === '' ? null : Number.isFinite(Number(v)) ? Number(v) : null;
+interface GoWorkoutTemplate {
+  id: string;
+  coachId: string;
+  name: string;
+  description: string;
+  goal: string;
+  estimatedDurationMinutes: number | null;
+  createdAt: string;
+  updatedAt: string;
+  exercises: GoTemplateExercise[];
+}
 
-const normalizeExercise = (ex: unknown) => {
-  const e = ex as Record<string, unknown>;
-  return {
-    name: typeof e.name === 'string' ? e.name : '',
-    sets: Number.isFinite(Number(e.sets)) ? Number(e.sets) : 0,
-    reps: Number.isFinite(Number(e.reps)) ? Number(e.reps) : 0,
-    weightKg: e.weightKg == null ? null : Number.isFinite(Number(e.weightKg)) ? Number(e.weightKg) : null,
-    restSeconds: e.restSeconds == null ? null : Number.isFinite(Number(e.restSeconds)) ? Number(e.restSeconds) : null,
-    notes: typeof e.notes === 'string' ? e.notes : null,
-    sortOrder: Number.isFinite(Number(e.sortOrder)) ? Number(e.sortOrder) : 0,
-    muscleGroups: Array.isArray(e.muscleGroups) ? e.muscleGroups.map(String) : [],
-    libraryExerciseId: typeof e.libraryExerciseId === 'string' ? e.libraryExerciseId : null,
-    mode: typeof e.mode === 'string' ? e.mode : 'reps',
-    phase: typeof e.phase === 'string' ? e.phase : 'work',
-    supersetGroup: typeof e.supersetGroup === 'string' ? e.supersetGroup : null,
-    repsMin: e.repsMin == null ? null : Number.isFinite(Number(e.repsMin)) ? Number(e.repsMin) : null,
-    repsMax: e.repsMax == null ? null : Number.isFinite(Number(e.repsMax)) ? Number(e.repsMax) : null,
-    prog: typeof e.prog === 'string' ? e.prog : null,
-    inc: e.inc == null ? null : Number.isFinite(Number(e.inc)) ? Number(e.inc) : null,
-    sec: e.sec == null ? null : Number.isFinite(Number(e.sec)) ? Number(e.sec) : null,
-    minutes: e.minutes == null ? null : Number.isFinite(Number(e.minutes)) ? Number(e.minutes) : null,
-    speed: e.speed == null ? null : Number.isFinite(Number(e.speed)) ? Number(e.speed) : null,
-    perSide: Number.isFinite(Number(e.perSide)) ? Number(e.perSide) : 0,
-    bodyPart: typeof e.bodyPart === 'string' ? e.bodyPart : null,
-  };
-};
+interface GoTemplatesList {
+  data: GoWorkoutTemplate[];
+  total: number;
+  page: number;
+  limit: number;
+}
 
-// POST /api/coach/workout-templates — save (or update) a builder plan with its exercises.
+/**
+ * Server-side fetch to the Go API, forwarding the Clerk bearer token.
+ * Multi-tenant isolation is enforced by Go (Authenticate + TenantContext middleware
+ * set `app.current_organization_id` for RLS from the JWT + X-Organization-ID).
+ */
+async function goFetch<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${GO}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(init.headers as Record<string, string>),
+    },
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error || `Go API error: ${res.status}`);
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json();
+}
+
+// GET /api/coach/workout-templates — list the coach's templates.
+// ?id= returns a single template (get).
+export async function GET(req: Request) {
+  const { userId, getToken } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const token = await getToken();
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const id = new URL(req.url).searchParams.get('id');
+  if (id) {
+    const template = await goFetch<GoWorkoutTemplate>(`/api/v1/workout-templates/${id}`, token);
+    return NextResponse.json({ template }, { status: 200 });
+  }
+
+  const { data } = await goFetch<GoTemplatesList>('/api/v1/workout-templates', token);
+  return NextResponse.json({ templates: data }, { status: 200 });
+}
+
+// POST /api/coach/workout-templates — create (or upsert when id provided).
 export async function POST(req: Request) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { userId, getToken } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const token = await getToken();
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const body = await req.json().catch(() => null);
-    const name = typeof body?.name === 'string' ? body.name.trim() : '';
-    if (!name) return NextResponse.json({ error: 'name is required' }, { status: 400 });
+  const body = await req.json().catch(() => null);
+  const name = typeof body?.name === 'string' ? body.name.trim() : '';
+  if (!name) return NextResponse.json({ error: 'name is required' }, { status: 400 });
 
-    const id = await saveWorkoutTemplate(userId, {
-      id: typeof body?.id === 'string' ? body.id : undefined,
+  const template = await goFetch<GoWorkoutTemplate>('/api/v1/workout-templates', token, {
+    method: 'POST',
+    body: JSON.stringify({
       name,
       description: typeof body?.description === 'string' ? body.description : '',
       goal: typeof body?.goal === 'string' ? body.goal : '',
-      estimatedDurationMinutes: numOrNull(body?.estimatedDurationMinutes),
-      exercises: Array.isArray(body?.exercises) ? body.exercises.map(normalizeExercise) : [],
-    });
-    return NextResponse.json({ id }, { status: 201 });
-  } catch (error) {
-    console.error('Error saving workout template:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+      estimatedDurationMinutes:
+        body?.estimatedDurationMinutes == null ? null : Number(body.estimatedDurationMinutes),
+      exercises: Array.isArray(body?.exercises) ? body.exercises : [],
+    }),
+  });
+  return NextResponse.json({ id: template.id }, { status: 201 });
+}
+
+// PUT /api/coach/workout-templates — update (id via ?id= or body.id).
+export async function PUT(req: Request) {
+  const { userId, getToken } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const token = await getToken();
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const id = new URL(req.url).searchParams.get('id');
+  const body = await req.json().catch(() => null);
+  const templateId = id ?? (typeof body?.id === 'string' ? body.id : '');
+  if (!templateId) return NextResponse.json({ error: 'template id is required' }, { status: 400 });
+
+  await goFetch<GoWorkoutTemplate>(`/api/v1/workout-templates/${templateId}`, token, {
+    method: 'PUT',
+    body: JSON.stringify({
+      name: typeof body?.name === 'string' ? body.name : '',
+      description: typeof body?.description === 'string' ? body.description : '',
+      goal: typeof body?.goal === 'string' ? body.goal : '',
+      estimatedDurationMinutes:
+        body?.estimatedDurationMinutes == null ? null : Number(body.estimatedDurationMinutes),
+      exercises: Array.isArray(body?.exercises) ? body.exercises : [],
+    }),
+  });
+  return NextResponse.json({ id: templateId }, { status: 200 });
 }

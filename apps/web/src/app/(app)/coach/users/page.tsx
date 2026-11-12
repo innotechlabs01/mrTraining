@@ -23,6 +23,7 @@ type MembershipSummary = {
 const STATUS_BADGE: Record<string, { label: string; className: string; icon: React.ElementType }> = {
   active: { label: 'Al dia', className: 'bg-green-500/10 text-green-400 border-green-500/20', icon: ShieldCheck },
   grace_period: { label: 'Por vencer', className: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: ShieldAlert },
+  past_due: { label: 'Por vencer', className: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: ShieldAlert },
   suspended: { label: 'Suspendido', className: 'bg-red-500/10 text-red-400 border-red-500/20', icon: ShieldX },
   cancelled: { label: 'Cancelado', className: 'bg-gray-500/10 text-gray-400 border-gray-500/20', icon: ShieldX },
   expired: { label: 'Vencido', className: 'bg-red-500/10 text-red-400 border-red-500/20', icon: ShieldX },
@@ -33,6 +34,7 @@ const STATUS_BADGE: Record<string, { label: string; className: string; icon: Rea
 const STATUS_CARD: Record<string, string> = {
   active: 'border-green-500/40 bg-green-500/[0.04]',
   grace_period: 'border-amber-500/40 bg-amber-500/[0.04]',
+  past_due: 'border-amber-500/40 bg-amber-500/[0.04]',
   suspended: 'border-red-500/40 bg-red-500/[0.04]',
   expired: 'border-red-500/40 bg-red-500/[0.04]',
   cancelled: 'border-white/10 bg-surface-1',
@@ -134,6 +136,7 @@ export default function CoachUsersPage() {
   const statusCounts = {
     active: memberships.filter(m => m.status === 'active').length,
     grace_period: memberships.filter(m => m.status === 'grace_period').length,
+    past_due: memberships.filter(m => m.status === 'past_due').length,
     suspended: memberships.filter(m => m.status === 'suspended').length,
   }
 
@@ -190,7 +193,7 @@ export default function CoachUsersPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-brand-primary/10 to-surface-1 p-5">
+      <div className="rounded-lg border border-white/10 bg-gradient-to-br from-brand-primary/10 to-surface-1 p-5">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-xl bg-brand-primary/20 flex items-center justify-center shrink-0">
@@ -272,7 +275,7 @@ export default function CoachUsersPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
               className={cn(
-                'w-full text-left rounded-2xl border p-4 hover:border-brand-primary/30 hover:bg-surface-2 transition-all group',
+                'w-full text-left rounded-lg border p-4 hover:border-brand-primary/30 hover:bg-surface-2 transition-all group',
                 membership && statusInfo ? STATUS_CARD[membership.status] ?? 'border-white/5 bg-surface-1' : 'border-white/5 bg-surface-1',
               )}
             >

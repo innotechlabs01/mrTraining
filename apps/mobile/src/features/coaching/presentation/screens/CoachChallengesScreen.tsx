@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, RefreshControl } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -40,7 +40,7 @@ function keyExtractor(item: Challenge): string {
 export function CoachChallengesScreen() {
   const navigation = useNavigation<Nav>();
 
-  const { data: challenges, isLoading, isError, refetch } = useQuery({
+  const { data: challenges, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['coach-challenges'],
     queryFn: fetchCoachChallenges,
     staleTime: 30_000,
@@ -110,6 +110,7 @@ export function CoachChallengesScreen() {
         />
       ) : (
         <FlashList
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={colors.primary} />}
           data={challenges}
           renderItem={renderChallenge}
           keyExtractor={keyExtractor}

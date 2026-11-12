@@ -22,7 +22,7 @@ export interface MembershipSummary {
 
 export interface MembershipStatus {
   hasActiveMembership: boolean;
-  status: 'active' | 'trial' | 'past_due' | 'suspended' | 'no_membership' | 'none';
+  status: 'active' | 'trial' | 'past_due' | 'suspended' | 'cancelled' | 'expired' | 'no_membership' | 'none';
   isInGracePeriod: boolean;
   daysRemaining: number | null;
   expiresAt: string | null;

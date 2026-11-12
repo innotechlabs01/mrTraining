@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS challenge_exercises (
   target_sets INTEGER DEFAULT 3,
   target_reps INTEGER DEFAULT 10,
   target_weight_kg REAL,              -- optional weight target
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (NOW()),
+  updated_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE INDEX IF NOT EXISTS idx_challenge_exercises_challenge ON challenge_exercises(challenge_id);

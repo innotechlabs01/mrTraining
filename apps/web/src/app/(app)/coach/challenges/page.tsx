@@ -184,7 +184,7 @@ export default function CoachChallengesPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
-              className="rounded-2xl border border-white/5 bg-surface-1 p-4"
+              className="rounded-lg border border-white/5 bg-surface-1 p-4"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -261,7 +261,7 @@ export default function CoachChallengesPage() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-surface-1 p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-lg border border-white/10 bg-surface-1 p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-white">{editing ? 'Editar desafío' : 'Nuevo desafío'}</h3>
 
             <div className="space-y-4">
@@ -585,7 +585,7 @@ export default function CoachChallengesPage() {
 
       {detail && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-surface-1 p-6">
+          <div className="w-full max-w-sm rounded-lg border border-white/10 bg-surface-1 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <Trophy size={18} className="text-brand-primary" />

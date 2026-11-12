@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Location from 'expo-location';
-import { apiClient } from '../../../infrastructure/api/client';
+import { apiClient, MAX_GPS_BATCH_POINTS, GPS_ACCURACY_FILTER_METERS } from '../../../infrastructure/api/client';
 
 export interface GpsPoint {
   latitude: number;
@@ -31,14 +31,47 @@ export function useGpsTracking({
   const starting = useRef(false);
   const onPointRef = useRef(onPoint);
   onPointRef.current = onPoint;
+  const buffer = useRef<GpsPoint[]>([]);
+  const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushBatch = useCallback(async () => {
+    const batch = buffer.current.splice(0, buffer.current.length);
+    if (batch.length === 0) return;
+    try {
+      await apiClient.post(`/running/sessions/${workoutId}/live-location`, {
+        session_id: workoutId,
+        points: batch.map((p) => ({
+          session_id: workoutId,
+          lat: p.latitude,
+          lng: p.longitude,
+          alt: p.altitude,
+          timestamp: p.timestamp,
+          accuracy: p.accuracy,
+        })),
+      });
+    } catch {
+      // Best-effort batch send. Points are dropped from the buffer so the queue
+      // cannot grow unbounded; a retryable failure is surfaced as an error banner.
+      void setError('No se pudo sincronizar la ubicación.');
+    }
+  }, [workoutId]);
 
   const stopTracking = useCallback(() => {
     generation.current += 1;
     starting.current = false;
+    if (flushTimer.current) {
+      clearInterval(flushTimer.current);
+      flushTimer.current = null;
+    }
     watcher.current?.remove();
     watcher.current = null;
     setIsTracking(false);
-  }, []);
+    // Flush any remaining buffered points before stopping.
+    if (upload && buffer.current.length > 0) {
+      void flushBatch();
+    }
+    buffer.current = [];
+  }, [upload, flushBatch]);
 
   const startTracking = useCallback(async () => {
     if (!enabled || watcher.current || starting.current) return;
@@ -55,7 +88,9 @@ export function useGpsTracking({
       const subscription = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, distanceInterval: 10, timeInterval: 5000 },
         location => {
-          if (attempt !== generation.current || (location.coords.accuracy ?? Infinity) > 50) return;
+          if (attempt !== generation.current) return;
+          // Drop low-accuracy samples client-side (server also drops > 50 m).
+          if ((location.coords.accuracy ?? Infinity) > GPS_ACCURACY_FILTER_METERS) return;
           const point: GpsPoint = {
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
@@ -66,11 +101,10 @@ export function useGpsTracking({
           setPoints(previous => [...previous, point]);
           onPointRef.current?.(point);
           if (upload) {
-            // Each sample is sent once. Completion also includes the full route.
-            void apiClient.post(`/running/sessions/${workoutId}/live-location`, {
-              lat: point.latitude, lng: point.longitude, alt: point.altitude,
-              timestamp: point.timestamp, accuracy: point.accuracy,
-            }).catch(() => setError('No se pudo sincronizar la ubicación.'));
+            buffer.current.push(point);
+            if (buffer.current.length >= MAX_GPS_BATCH_POINTS) {
+              void flushBatch();
+            }
           }
         },
       );
@@ -80,12 +114,16 @@ export function useGpsTracking({
       }
       watcher.current = subscription;
       setIsTracking(true);
+      // Periodic flush so points are not held indefinitely while running.
+      if (upload) {
+        flushTimer.current = setInterval(() => void flushBatch(), 15000);
+      }
     } catch {
       if (attempt === generation.current) setError('No se pudo iniciar el GPS.');
     } finally {
       if (attempt === generation.current) starting.current = false;
     }
-  }, [enabled, upload, workoutId]);
+  }, [enabled, upload, workoutId, flushBatch, GPS_ACCURACY_FILTER_METERS, MAX_GPS_BATCH_POINTS]);
 
   useEffect(() => {
     setPoints([]);
