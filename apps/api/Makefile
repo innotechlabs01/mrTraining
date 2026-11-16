@@ -348,3 +348,54 @@ argocd-sync:
 	@echo "$(GREEN)🔄 Syncing Argo CD application...$(NC)"
 	@kubectl annotate application -n argocd mr-training-api "argocd.argoproj.io/refresh"="$$(date +%s)" --overwrite 2>&1
 	@echo "$(GREEN)✅ Sync triggered$(NC)"
+
+# ============================================
+# Docker manual - solo API + tu Postgres local
+# Evita hacer docker rm / docker run a mano
+# ============================================
+DOCKER_IMAGE   := mr-training-api:latest
+DOCKER_CONTAINER := mr-training-api
+HOST_PORT      := 9090
+
+# Tu PostgreSQL local (host). Ajustá DB_HOST/DB_PORT/DB_NAME si difieren.
+DB_HOST     ?= host.docker.internal
+DB_PORT     ?= 5435
+DB_NAME     ?= mr_tanning_migration
+DB_USER     ?= mr_training_app
+DB_PASSWORD ?= MrTrainingApp_LocalOnly_!2026
+
+DATABASE_URL ?= postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable
+
+.PHONY: docker-build docker-stop docker-rm docker-run docker-restart docker-logs docker-health
+
+docker-build:
+	@echo "$(GREEN)🔨 Building $(DOCKER_IMAGE)...$(NC)"
+	docker build -t $(DOCKER_IMAGE) .
+
+docker-stop:
+	@echo "$(YELLOW)🛑 Stopping $(DOCKER_CONTAINER)...$(NC)"
+	docker stop $(DOCKER_CONTAINER) 2>/dev/null || true
+
+docker-rm: docker-stop
+	@echo "$(YELLOW)🗑️  Removing $(DOCKER_CONTAINER)...$(NC)"
+	docker rm $(DOCKER_CONTAINER) 2>/dev/null || true
+
+docker-run: docker-build
+	@echo "$(GREEN)🚀 Running $(DOCKER_CONTAINER) on port $(HOST_PORT)...$(NC)"
+	docker run -d --name $(DOCKER_CONTAINER) -p $(HOST_PORT):9090 \
+	  --add-host=host.docker.internal:host-gateway \
+	  -e DATABASE_URL="$(DATABASE_URL)" \
+	  -e APP_ENV=development \
+	  -e LOG_LEVEL=debug \
+	  -e APP_PORT=9090 \
+	  $(DOCKER_IMAGE)
+
+docker-restart: docker-rm docker-run
+	@echo "$(GREEN)✅ API desplegada en http://localhost:$(HOST_PORT)$(NC)"
+
+docker-logs:
+	docker logs -f $(DOCKER_CONTAINER)
+
+docker-health:
+	@curl -sf http://localhost:$(HOST_PORT)/health && echo ""
+	@curl -sf http://localhost:$(HOST_PORT)/ready && echo ""
