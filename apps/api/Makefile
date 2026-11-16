@@ -357,10 +357,11 @@ DOCKER_IMAGE   := mr-training-api:latest
 DOCKER_CONTAINER := mr-training-api
 HOST_PORT      := 9090
 
-# Tu PostgreSQL local (host). Ajustá DB_HOST/DB_PORT/DB_NAME si difieren.
+# PostgreSQL del docker-compose.yml (puerto expuesto al host: 5436, base: mr_tanning)
+# Usá host.docker.internal para llegar desde el contenedor de la API al host.
 DB_HOST     ?= host.docker.internal
-DB_PORT     ?= 5435
-DB_NAME     ?= mr_tanning_migration
+DB_PORT     ?= 5436
+DB_NAME     ?= mr_tanning
 DB_USER     ?= mr_training_app
 DB_PASSWORD ?= MrTrainingApp_LocalOnly_!2026
 
