@@ -14,4 +14,5 @@
 ## Review
 
 ## Done
+- [x] T-009: Auth entry UX — "Empezar gratis" reconoce usuarios existentes; flujos checkout y login separados; plan sobrevive el redirect — APPROVED by @user — commits cc80d0c, d74e842, 1de68c0 (QA PASS 7/7, review PASS, security PASS)
 - [x] T-008: Wompi payment return flow broken — redirect to sign-in loses checkout claim, no coach role assigned, user sent to landing instead of dashboard — APPROVED by @user — committed b8daeda
