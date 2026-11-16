@@ -8,6 +8,7 @@ import { PlanSummaryCard } from '@/features/auth/components/PlanSummaryCard';
 import { ErrorState } from '@/features/auth/components/ErrorState';
 import { useSelectedPlan } from '@/features/auth/hooks/useSelectedPlan';
 import { useAuth, useUser } from '@clerk/nextjs';
+import { resolveRole, fetchCoachSubscriptionStatus } from '@/app/(auth)/sign-up/signUpGuard';
 
 type Phase = 'activating' | 'ready' | 'error';
 
@@ -23,35 +24,6 @@ export default function PaymentInterstitialPage() {
   const [error, setError] = useState('');
   const [isPaying, setIsPaying] = useState(false);
 
-  /**
-   * Extrae el rol de la sesión desde los claims públicos de Clerk.
-   */
-  function resolveRole(sessionClaims: unknown, user: unknown): string | undefined {
-    const claims = sessionClaims as { publicMetadata?: Record<string, unknown> } | null | undefined;
-    return (
-      (claims?.publicMetadata?.role ??
-        (user as { publicMetadata?: Record<string, unknown> } | undefined)?.publicMetadata?.role) as
-      | string
-      | undefined
-    );
-  }
-
-  /**
-   * Consulta el estado de la suscripción. active/trial = pagado, cualquier
-   * otro estado = pago pendiente.
-   */
-  async function checkSubscriptionStatus(): Promise<'paid' | 'pending'> {
-    try {
-      const res = await fetch('/api/coach/subscription/status', { cache: 'no-store' });
-      if (!res.ok) return 'pending';
-      const data = await res.json().catch(() => ({}));
-      const status = data.status as string | undefined;
-      return status === 'active' || status === 'trial' ? 'paid' : 'pending';
-    } catch {
-      return 'pending';
-    }
-  }
-
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -60,7 +32,9 @@ export default function PaymentInterstitialPage() {
     // Ya hay sesión activa.
     if (isSignedIn) {
       if (metadataRole === 'coach') {
-        void checkSubscriptionStatus().then((result) => {
+        let cancelled = false;
+        void fetchCoachSubscriptionStatus().then((result) => {
+          if (cancelled) return;
           if (result === 'paid') {
             // Suscripción confirmada: salta directamente al onboarding.
             router.replace(
@@ -71,10 +45,12 @@ export default function PaymentInterstitialPage() {
             setPhase('ready');
           }
         });
-      } else {
-        // Sesión activa pero sin rol de coach: no aplica este flujo.
-        setPhase('ready');
+        return () => {
+          cancelled = true;
+        };
       }
+      // Sesión activa pero sin rol de coach: no aplica este flujo.
+      setPhase('ready');
       return;
     }
 

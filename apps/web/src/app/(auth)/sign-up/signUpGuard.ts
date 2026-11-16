@@ -18,6 +18,30 @@ export function resolveRole(sessionClaims: unknown, user: unknown): string | und
 }
 
 /**
+ * Indica si el usuario es super admin por id de allow-list o por rol en metadata.
+ * `id` debe venir resuelto ya como `userId ?? user?.id`.
+ */
+export function isSuperAdmin(id: string | undefined, metadataRole: string | undefined): boolean {
+  return (id !== undefined && SUPER_ADMIN_IDS.includes(id)) || metadataRole === 'super_admin';
+}
+
+/**
+ * Consulta el estado de la suscripción del coach.
+ * active/trial = pagado, cualquier otro estado (incluido error de red) = pago pendiente.
+ */
+export async function fetchCoachSubscriptionStatus(): Promise<'paid' | 'pending'> {
+  try {
+    const res = await fetch('/api/coach/subscription/status', { cache: 'no-store' });
+    if (!res.ok) return 'pending';
+    const data = await res.json().catch(() => ({}));
+    const status = data.status as string | undefined;
+    return status === 'active' || status === 'trial' ? 'paid' : 'pending';
+  } catch {
+    return 'pending';
+  }
+}
+
+/**
  * Resuelve el destino del guardia de sesión de sign-up.
  *
  * Devuelve la URL de redirección o null si aún se está comprobando la

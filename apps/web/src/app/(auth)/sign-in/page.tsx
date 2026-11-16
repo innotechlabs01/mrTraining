@@ -6,9 +6,7 @@ import { useAuth, useUser } from '@clerk/nextjs';
 import { AuthShell } from '@/features/auth/components/AuthShell';
 import { SignInForm } from '@/features/auth/components/SignInForm';
 import { useI18n } from '@/features/shared/hooks/useI18n';
-
-const SUPER_ADMIN_IDS = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
-
+import { resolveRole, isSuperAdmin } from '@/app/(auth)/sign-up/signUpGuard';
 import { destinationFor } from './destinationFor';
 
 export default function SignInPage() {
@@ -38,16 +36,11 @@ function SignInContent() {
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
 
-    // sessionClaims are on the session token, so they are available as soon
-    // as the session exists. The `user` object can still be loading and was
-    // what stalled this redirect after POST /sign-in.
-    const claims = sessionClaims as { publicMetadata?: Record<string, unknown> } | null | undefined;
-    const metadataRole = (claims?.publicMetadata?.role ??
-      (user?.publicMetadata as Record<string, unknown> | undefined)?.role) as string | undefined;
+    const metadataRole = resolveRole(sessionClaims, user);
     const id = userId ?? user?.id;
-    const isSuperAdmin = (id !== undefined && SUPER_ADMIN_IDS.includes(id)) || metadataRole === 'super_admin';
+    const isSuperAdminUser = isSuperAdmin(id, metadataRole);
 
-    if (isSuperAdmin) {
+    if (isSuperAdminUser) {
       router.replace(destinationFor(searchParams, true, metadataRole));
       return;
     }
@@ -74,13 +67,11 @@ function SignInContent() {
   // reading roles here can be stale. We only act when the role is unambiguous;
   // otherwise the effect above routes once isSignedIn flips.
   const handleSuccess = () => {
-    const claims = sessionClaims as { publicMetadata?: Record<string, unknown> } | null | undefined;
-    const metadataRole = (claims?.publicMetadata?.role ??
-      (user?.publicMetadata as Record<string, unknown> | undefined)?.role) as string | undefined;
+    const metadataRole = resolveRole(sessionClaims, user);
     const id = userId ?? user?.id;
-    const isSuperAdmin = (id !== undefined && SUPER_ADMIN_IDS.includes(id)) || metadataRole === 'super_admin';
+    const isSuperAdminUser = isSuperAdmin(id, metadataRole);
 
-    if (isSuperAdmin) {
+    if (isSuperAdminUser) {
       router.push(destinationFor(searchParams, true, metadataRole));
     } else if (metadataRole === 'coach') {
       router.push(destinationFor(searchParams, false, metadataRole));

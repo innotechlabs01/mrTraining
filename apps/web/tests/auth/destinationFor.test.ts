@@ -45,4 +45,24 @@ describe('destinationFor()', () => {
       expect(destinationFor(sp, true, undefined)).toBe('/admin/dashboard');
     });
   });
+
+  describe('plan absent or empty', () => {
+    it('falls back to role home when plan is absent', () => {
+      const sp = new URLSearchParams();
+      expect(destinationFor(sp, false, 'coach')).toBe('/coach/plan');
+    });
+
+    it('treats an empty plan as absent and falls back to role home', () => {
+      const sp = searchParamsFrom([['plan', '']]);
+      expect(destinationFor(sp, false, 'coach')).toBe('/coach/plan');
+    });
+  });
+
+  describe('unknown-role fallback', () => {
+    it('falls back to landing for a role that is neither coach nor super admin', () => {
+      const sp = new URLSearchParams();
+      expect(destinationFor(sp, false, 'athlete')).toBe('/');
+      expect(destinationFor(sp, false, 'admin')).toBe('/');
+    });
+  });
 });
