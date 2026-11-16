@@ -9,6 +9,8 @@ import { useI18n } from '@/features/shared/hooks/useI18n';
 
 const SUPER_ADMIN_IDS = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
 
+import { destinationFor } from './destinationFor';
+
 export default function SignInPage() {
   const { t } = useI18n('common');
 
@@ -26,39 +28,6 @@ function SignInContent() {
   const { isSignedIn, isLoaded, sessionClaims, userId } = useAuth();
   const { user } = useUser();
   const searchParams = useSearchParams();
-
-  /**
-   * Where to land after the sign-in.
-   *
-   * An internal `redirect_url` wins (that is how the payment flow keeps the
-   * plan context), otherwise the user goes to the home of their role.
-   */
-  const destinationFor = (isSuperAdmin: boolean, role?: string): string => {
-    const redirect = searchParams.get('redirect_url');
-    if (redirect) {
-      let target = redirect;
-      // Accept both relative paths (/payment/success?checkout=...) and same-origin
-      // absolute URLs (http://localhost:3000/payment/success?checkout=...).
-      // Absolute URLs are reduced to pathname + search so we never navigate
-      // off-site and the checkout query param is preserved.
-      try {
-        const u = new URL(redirect);
-        if (u.origin === window.location.origin) {
-          target = u.pathname + u.search;
-        } else {
-          target = '';
-        }
-      } catch {
-        // Not an absolute URL: keep as-is when it is a relative path.
-      }
-      if (target.startsWith('/') && !target.startsWith('//')) {
-        return target;
-      }
-    }
-    if (isSuperAdmin) return '/admin/dashboard';
-    if (role === 'coach') return '/coach/plan';
-    return '/';
-  };
 
   /**
    * Resolves where a signed-in user belongs.
@@ -79,12 +48,12 @@ function SignInContent() {
     const isSuperAdmin = (id !== undefined && SUPER_ADMIN_IDS.includes(id)) || metadataRole === 'super_admin';
 
     if (isSuperAdmin) {
-      router.replace(destinationFor(true, metadataRole));
+      router.replace(destinationFor(searchParams, true, metadataRole));
       return;
     }
 
     if (metadataRole === 'coach') {
-      router.replace(destinationFor(false, metadataRole));
+      router.replace(destinationFor(searchParams, false, metadataRole));
       return;
     }
 
@@ -97,7 +66,7 @@ function SignInContent() {
 
     // Athletes live on mobile and users without a role belong on the public
     // landing. Never /coach or /sign-in: the middleware bounces both back.
-    router.replace(destinationFor(false, metadataRole));
+    router.replace(destinationFor(searchParams, false, metadataRole));
   }, [isLoaded, isSignedIn, sessionClaims, userId, user, router, searchParams]);
 
   // NOTE: SignInForm calls this the instant attemptFirstFactor() completes —
@@ -112,9 +81,9 @@ function SignInContent() {
     const isSuperAdmin = (id !== undefined && SUPER_ADMIN_IDS.includes(id)) || metadataRole === 'super_admin';
 
     if (isSuperAdmin) {
-      router.push(destinationFor(true, metadataRole));
+      router.push(destinationFor(searchParams, true, metadataRole));
     } else if (metadataRole === 'coach') {
-      router.push(destinationFor(false, metadataRole));
+      router.push(destinationFor(searchParams, false, metadataRole));
     }
     // Unknown role: do nothing, let the effect decide.
   };

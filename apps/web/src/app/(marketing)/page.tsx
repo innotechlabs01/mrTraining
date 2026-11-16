@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useAuth, useUser } from '@clerk/nextjs';
+import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { HeroSection } from './components/HeroSection';
 import { HowItWorksSection } from './components/HowItWorksSection';
 import { PlansSection } from './components/PlansSection';
@@ -63,10 +65,31 @@ const NAV_LINKS = [
   { name: 'Contacto', href: '#contacto' },
 ];
 
+const SUPER_ADMIN_IDS = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
+
+/**
+ * Extrae el rol de la sesión desde los claims públicos de Clerk.
+ * Los roles los escribe únicamente la Go API en Clerk publicMetadata;
+ * el cliente nunca puede forjarlos.
+ */
+function resolveRole(sessionClaims: unknown, user: unknown): string | undefined {
+  const claims = sessionClaims as { publicMetadata?: Record<string, unknown> } | null | undefined;
+  return (
+    (claims?.publicMetadata?.role ??
+      (user as { publicMetadata?: Record<string, unknown> } | undefined)?.publicMetadata?.role) as
+    | string
+    | undefined
+  );
+}
+
 export default function MarketingLandingPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loading, setLoading] = useState(true);
+  const { isSignedIn, isLoaded, sessionClaims, userId } = useAuth();
+  const { user } = useUser();
+  const [ctaDestination, setCtaDestination] = useState<string | null>(null);
+  const [ctaChecking, setCtaChecking] = useState(false);
 
   useEffect(() => {
     Promise.all([fetchPlans(), fetchTestimonials()]).then(
@@ -78,10 +101,97 @@ export default function MarketingLandingPage() {
     );
   }, []);
 
+  // Resuelve el destino del CTA según la sesión de Clerk (client-side,
+  // sin flash del CTA de no-sesión antes de saber si hay sesión).
+  useEffect(() => {
+    if (!isLoaded) {
+      setCtaDestination(null);
+      return;
+    }
+    if (!isSignedIn) {
+      setCtaDestination('/sign-up?plan=plan-seed-starter');
+      return;
+    }
+
+    const metadataRole = resolveRole(sessionClaims, user);
+    const id = userId ?? user?.id;
+    const isSuperAdmin = (id !== undefined && SUPER_ADMIN_IDS.includes(id)) || metadataRole === 'super_admin';
+
+    if (isSuperAdmin || metadataRole === 'coach') {
+      setCtaChecking(true);
+      fetch('/api/coach/subscription/status', { cache: 'no-store' })
+        .then(async (res) => {
+          if (!res.ok) return 'pending';
+          const data = await res.json().catch(() => ({}));
+          const status = data.status as string | undefined;
+          return status === 'active' || status === 'trial' ? 'paid' : 'pending';
+        })
+        .then((result) => {
+          setCtaChecking(false);
+          setCtaDestination(
+            result === 'paid'
+              ? '/coach/plan'
+              : '/payment/interstitial?plan=plan-seed-starter',
+          );
+        })
+        .catch(() => {
+          setCtaChecking(false);
+          setCtaDestination('/payment/interstitial?plan=plan-seed-starter');
+        });
+      return;
+    }
+
+    // Sin rol (atleta): se queda en la landing pública, sin redirección.
+    setCtaDestination(null);
+  }, [isLoaded, isSignedIn, sessionClaims, userId, user]);
+
+  const ctaLoading = !isLoaded || ctaChecking;
+
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
+
+  /**
+   * CTA condicional. Durante la resolución de la sesión muestra un spinner
+   * (nunca el CTA de no-sesión, para evitar flash y redirección). Cuando no
+   * hay destino (usuario sin rol), renderiza un botón no clickeable.
+   */
+  function Cta({ children, className }: { children: React.ReactNode; className?: string }) {
+    if (ctaLoading) {
+      return (
+        <button
+          type="button"
+          disabled
+          className={cn(
+            'flex h-12 w-full items-center justify-center gap-2 rounded-md bg-surface-2 text-text-secondary cursor-not-allowed',
+            className,
+          )}
+        >
+          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+        </button>
+      );
+    }
+    const href = ctaDestination;
+    if (!href) {
+      return (
+        <button
+          type="button"
+          className={cn(
+            'flex h-12 w-full items-center justify-center gap-2 rounded-md bg-surface-2 text-text-secondary cursor-not-allowed',
+            className,
+          )}
+        >
+          {children}
+        </button>
+      );
+    }
+    return (
+      <a href={href} className={cn('flex h-12 w-full items-center justify-center gap-2 rounded-md bg-brand-primary text-white text-sm font-medium hover:bg-brand-primary/90 transition-colors', className)}>
+        {children}
+      </a>
+    );
+  }
 
   return (
     <div className="bg-[#0a0a0a] text-text-primary min-h-screen font-sans">
@@ -107,9 +217,7 @@ export default function MarketingLandingPage() {
                   {link.name}
                 </a>
               ))}
-              <a href="/sign-up?plan=plan-seed-starter" className="px-4 py-2 rounded-lg bg-brand-primary text-white text-sm font-medium hover:bg-brand-primary/90">
-                Empezar gratis
-              </a>
+              <Cta className="whitespace-nowrap">Empezar gratis</Cta>
             </div>
             <div className="flex items-center gap-2">
               <button className="px-3 py-2 rounded-lg bg-surface-1 border border-surface-6 text-white hover:bg-surface-2 transition-colors">
@@ -130,9 +238,9 @@ export default function MarketingLandingPage() {
           <h2 className="text-2xl font-bold text-white mb-4">¿Listo para empezar?</h2>
           <p className="text-text-secondary mb-8">Únete a cientos de coaches que ya usan MR Training</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/sign-up?plan=plan-seed-starter" className="flex-1 lg:flex-none px-6 py-4 rounded-xl bg-brand-primary text-white text-lg font-semibold hover:bg-brand-primary/90 transition-colors">
+            <Cta className="flex-1 lg:flex-none px-6 py-4 rounded-xl text-lg font-semibold">
               Empezar gratis
-            </Link>
+            </Cta>
             <a href="#como-funciona" className="flex-1 lg:flex-none px-6 py-4 rounded-lg border border-surface-6 text-white hover:bg-surface-2 transition-colors">
               Más información
             </a>
