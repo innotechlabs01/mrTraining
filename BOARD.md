@@ -14,4 +14,4 @@
 ## Review
 
 ## Done
-- [x] T-008: Wompi payment return flow broken — redirect to sign-in loses checkout claim, no coach role assigned, user sent to landing instead of dashboard — APPROVED by @user — commit pending
+- [x] T-008: Wompi payment return flow broken — redirect to sign-in loses checkout claim, no coach role assigned, user sent to landing instead of dashboard — APPROVED by @user — committed b8daeda
