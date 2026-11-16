@@ -379,6 +379,8 @@ docker-stop:
 docker-rm: docker-stop
 	@echo "$(YELLOW)🗑️  Removing $(DOCKER_CONTAINER)...$(NC)"
 	docker rm $(DOCKER_CONTAINER) 2>/dev/null || true
+	@echo "$(YELLOW)🗑️  Removing image $(DOCKER_IMAGE)...$(NC)"
+	docker rmi -f $(DOCKER_IMAGE) 2>/dev/null || true
 
 docker-run: docker-build
 	@echo "$(GREEN)🚀 Running $(DOCKER_CONTAINER) on port $(HOST_PORT)...$(NC)"
