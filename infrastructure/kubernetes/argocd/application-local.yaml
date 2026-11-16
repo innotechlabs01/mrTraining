@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mr-training-api-local
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/innotechlabs01/mrTraining.git
+    targetRevision: main
+    path: infrastructure/kubernetes/overlays/local
+    kustomize:
+      version: ""
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mr-training
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground

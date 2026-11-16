@@ -80,6 +80,16 @@ type Config struct {
 
 	// Logging
 	LogLevel string // Log level: debug, info, warn, error
+
+	// Infisical (secrets management)
+	InfisicalEnabled      bool
+	InfisicalBaseURL      string
+	InfisicalClientID     string
+	InfisicalClientSecret string
+	InfisicalProjectID    string
+	InfisicalEnvironment  string
+	InfisicalSecretPath   string
+	InfisicalCacheTTL     string
 }
 
 // Load reads configuration from environment variables and .env file.
@@ -110,7 +120,8 @@ func Load() (*Config, error) {
 
 		RedisURL: getEnv("REDIS_URL", ""),
 
-		PlatformSuperAdminClerkID: getEnv("PLATFORM_SUPER_ADMIN_CLERK_ID", ""),		NATSURL:  getEnv("NATS_URL", "nats://localhost:4222"),
+		PlatformSuperAdminClerkID: getEnv("PLATFORM_SUPER_ADMIN_CLERK_ID", ""),
+		NATSURL:  getEnv("NATS_URL", "nats://localhost:4222"),
 
 		DiscordWebhookURL: getEnv("ERROR_WEBHOOK_DISCOR", ""),
 
@@ -119,6 +130,16 @@ func Load() (*Config, error) {
 		RateLimitWindowSec: getEnvInt("RATE_LIMIT_WINDOW", 60),
 
 		LogLevel: getEnv("LOG_LEVEL", "info"),
+
+		// Infisical (secrets management)
+		InfisicalEnabled:      getEnvBool("INFISICAL_ENABLED", false),
+		InfisicalBaseURL:      getEnv("INFISICAL_BASE_URL", "http://localhost:80"),
+		InfisicalClientID:     getEnv("INFISICAL_CLIENT_ID", ""),
+		InfisicalClientSecret: getEnv("INFISICAL_CLIENT_SECRET", ""),
+		InfisicalProjectID:    getEnv("INFISICAL_PROJECT_ID", ""),
+		InfisicalEnvironment:  getEnv("INFISICAL_ENVIRONMENT", "dev"),
+		InfisicalSecretPath:   getEnv("INFISICAL_SECRET_PATH", "/"),
+		InfisicalCacheTTL:     getEnv("INFISICAL_CACHE_TTL", "5m"),
 
 		MercadoPagoWebhookURL: getEnv("MERCADO_PAGO_WEBHOOK_URL", ""),
 		MercadoPagoSecretKey:  getEnv("MERCADO_PAGO_SECRET_KEY", ""),
@@ -206,6 +227,17 @@ func getEnvInt(key string, fallback int) int {
 	if value, exists := os.LookupEnv(key); exists {
 		if n, err := strconv.Atoi(value); err == nil && n > 0 {
 			return n
+		}
+	}
+	return fallback
+}
+
+// getEnvBool returns the boolean value of an environment variable,
+// or fallback when the variable is unset or unparsable.
+func getEnvBool(key string, fallback bool) bool {
+	if value, exists := os.LookupEnv(key); exists {
+		if parsed, err := strconv.ParseBool(value); err == nil {
+			return parsed
 		}
 	}
 	return fallback

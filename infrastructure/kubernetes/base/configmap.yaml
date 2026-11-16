@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mr-training-api-config
+  namespace: mr-training
+  labels:
+    app: mr-training-api
+    component: config
+data:
+  # Application configuration
+  APP_ENV: "development"
+  APP_PORT: "9090"
+  APP_NAME: "mr-training-api"
+  LOG_LEVEL: "debug"
+
+  # Database (references secret for URL)
+  # DATABASE_URL: from secret
+
+  # Redis (references secret for URL)
+  # REDIS_URL: from secret
+
+  # NATS (references secret for URL, optional)
+  # NATS_URL: from secret
+
+  # Clerk Auth (references secrets)
+  # CLERK_SECRET_KEY: from secret
+  # CLERK_WEBHOOK_SECRET: from secret
+
+  # Wompi (references secrets)
+  # WOMPI_PRIVATE_KEY: from secret
+  # WOMPI_EVENTS_SECRET: from secret
+  # WOMPI_INTEGRITY_SECRET: from secret
+  WOMPI_ENV: "sandbox"
+  WOMPI_WEBHOOK_URL: "http://mr-training-api.mr-training.svc.cluster.local:9090/webhooks/wompi"
+
+  # Application URLs
+  APP_URL: "http://mr-training-api.mr-training.svc.cluster.local:9090"
+  WEB_APP_URL: "http://localhost:3000"
+
+  # CORS
+  CORS_ORIGINS: "http://localhost:3000,http://localhost:8081,exp://localhost:8081"
+
+  # Rate limiting
+  RATE_LIMIT_MAX: "100"
+  RATE_LIMIT_WINDOW: "60"
+
+  # Platform super admin
+  PLATFORM_SUPER_ADMIN_CLERK_ID: ""
+
+  # Infisical (secrets management)
+  INFISICAL_ENABLED: "false"
+  INFISICAL_BASE_URL: "http://infisical.infisical-network.svc.cluster.local:8080"
+  INFISICAL_CLIENT_ID: ""
+  INFISICAL_CLIENT_SECRET: ""
+  INFISICAL_PROJECT_ID: ""
+  INFISICAL_ENVIRONMENT: "dev"
+  INFISICAL_SECRET_PATH: "/"
+  INFISICAL_CACHE_TTL: "5m"
+
+  # Email (optional)
+  EMAIL_ENABLED: "false"
+  EMAIL_FROM_NAME: "MR Training"

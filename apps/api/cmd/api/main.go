@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/innotechlabs01/mr-training-api/internal/config"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/infisical"
 	cacheinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/cache"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	natsInfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/nats"
@@ -51,7 +52,82 @@ func main() {
 		zap.String("version", Version),
 	)
 
-	// Connect database.
+	// Load secrets from Infisical if enabled.
+	if cfg.InfisicalEnabled {
+		infisicalConfig := &infisical.Config{
+			Enabled:      cfg.InfisicalEnabled,
+			BaseURL:      cfg.InfisicalBaseURL,
+			ClientID:     cfg.InfisicalClientID,
+			ClientSecret: cfg.InfisicalClientSecret,
+			ProjectID:    cfg.InfisicalProjectID,
+			Environment:  cfg.InfisicalEnvironment,
+			SecretPath:   cfg.InfisicalSecretPath,
+			CacheTTL:     5 * time.Minute, // default, will parse from config if needed
+		}
+
+		loader, err := infisical.NewSecretLoader(infisicalConfig)
+		if err != nil {
+			log.Fatal("failed to create infisical secret loader", zap.Error(err))
+		}
+
+		// Load secrets at startup
+		if err := loader.Load(ctx); err != nil {
+			log.Fatal("failed to load secrets from Infisical", zap.Error(err))
+		}
+
+		// Override config values with secrets from Infisical
+		// Only override if not already set via environment
+		if cfg.ClerkSecretKey == "" {
+			if val, err := loader.Get(ctx, "CLERK_SECRET_KEY"); err == nil {
+				cfg.ClerkSecretKey = val
+				log.Info("loaded CLERK_SECRET_KEY from Infisical")
+			}
+		}
+		if cfg.DatabaseURL == "" {
+			if val, err := loader.Get(ctx, "DATABASE_URL"); err == nil {
+				cfg.DatabaseURL = val
+				log.Info("loaded DATABASE_URL from Infisical")
+			}
+		}
+		if cfg.RedisURL == "" {
+			if val, err := loader.Get(ctx, "REDIS_URL"); err == nil {
+				cfg.RedisURL = val
+				log.Info("loaded REDIS_URL from Infisical")
+			}
+		}
+		if cfg.NATSURL == "" {
+			if val, err := loader.Get(ctx, "NATS_URL"); err == nil {
+				cfg.NATSURL = val
+				log.Info("loaded NATS_URL from Infisical")
+			}
+		}
+		if cfg.WompiPrivateKey == "" {
+			if val, err := loader.Get(ctx, "WOMPI_PRIVATE_KEY"); err == nil {
+				cfg.WompiPrivateKey = val
+				log.Info("loaded WOMPI_PRIVATE_KEY from Infisical")
+			}
+		}
+		if cfg.WompiEventsSecret == "" {
+			if val, err := loader.Get(ctx, "WOMPI_EVENTS_SECRET"); err == nil {
+				cfg.WompiEventsSecret = val
+				log.Info("loaded WOMPI_EVENTS_SECRET from Infisical")
+			}
+		}
+		if cfg.WompiIntegritySecret == "" {
+			if val, err := loader.Get(ctx, "WOMPI_INTEGRITY_SECRET"); err == nil {
+				cfg.WompiIntegritySecret = val
+				log.Info("loaded WOMPI_INTEGRITY_SECRET from Infisical")
+			}
+		}
+		if cfg.ClerkWebhookSecret == "" {
+			if val, err := loader.Get(ctx, "CLERK_WEBHOOK_SECRET"); err == nil {
+				cfg.ClerkWebhookSecret = val
+				log.Info("loaded CLERK_WEBHOOK_SECRET from Infisical")
+			}
+		}
+
+		log.Info("Infisical secrets loaded successfully")
+	}
 	var db *database.DB
 	if cfg.DatabaseURL != "" {
 		db, err = database.Connect(cfg.DatabaseURL)
