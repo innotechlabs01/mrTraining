@@ -357,9 +357,11 @@ DOCKER_IMAGE   := mr-training-api:latest
 DOCKER_CONTAINER := mr-training-api
 HOST_PORT      := 9090
 
+# IP IPv4 del host (desde dentro del contenedor para llegar a tu Postgres local)
+HOST_IP := $(shell ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo "127.0.0.1")
+
 # PostgreSQL del docker-compose.yml (puerto expuesto al host: 5436, base: mr_tanning)
-# Usá host.docker.internal para llegar desde el contenedor de la API al host.
-DB_HOST     ?= host.docker.internal
+DB_HOST     ?= $(HOST_IP)
 DB_PORT     ?= 5436
 DB_NAME     ?= mr_tanning
 DB_USER     ?= mr_training_app
@@ -393,7 +395,9 @@ docker-run: docker-build
 	  -e APP_PORT=9090 \
 	  $(DOCKER_IMAGE)
 
-docker-restart: docker-rm docker-run
+docker-restart:
+	$(MAKE) docker-rm
+	$(MAKE) docker-run
 	@echo "$(GREEN)✅ API desplegada en http://localhost:$(HOST_PORT)$(NC)"
 
 docker-logs:
