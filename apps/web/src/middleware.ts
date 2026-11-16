@@ -105,7 +105,11 @@ export default clerkMiddleware(async (auth, request) => {
   // Block unauthenticated access to private routes
   if (!isApiRoute && isPrivate && !userId && !isPublicCoachPage && !isAuthPage) {
     const signInUrl = new URL('/sign-in', request.url);
-    signInUrl.searchParams.set('redirect_url', request.url);
+    // Store a relative redirect_url (pathname + search) so the sign-in page's
+    // startsWith('/') check accepts it. An absolute request.url would be
+    // ignored by destinationFor and the user would be routed by role instead
+    // of back to the page they were trying to reach.
+    signInUrl.searchParams.set('redirect_url', request.nextUrl.pathname + request.nextUrl.search);
     return NextResponse.redirect(signInUrl);
   }
 

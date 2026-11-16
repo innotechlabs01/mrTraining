@@ -104,6 +104,23 @@ func (c *Checkout) MarkClaimed(userID, coachCode string) error {
 	return nil
 }
 
+// MarkFailed records that the payment was rejected by the provider.
+// A paid checkout is final: a rejected webhook must not flip it to failed.
+func (c *Checkout) MarkFailed(providerPaymentID string) error {
+	if providerPaymentID == "" {
+		return fmt.Errorf("provider payment id is required")
+	}
+	if c.Status == StatusClaimed {
+		return fmt.Errorf("checkout is already claimed")
+	}
+	if c.Status == StatusPaid {
+		return fmt.Errorf("checkout is already paid")
+	}
+	c.ProviderPaymentID = providerPaymentID
+	c.Status = StatusFailed
+	return nil
+}
+
 // Repository is the persistence port for pending checkouts.
 type Repository interface {
 	// Create inserts a pending checkout.

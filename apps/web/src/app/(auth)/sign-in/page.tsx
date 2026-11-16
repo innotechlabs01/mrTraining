@@ -35,8 +35,25 @@ function SignInContent() {
    */
   const destinationFor = (isSuperAdmin: boolean, role?: string): string => {
     const redirect = searchParams.get('redirect_url');
-    if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
-      return redirect;
+    if (redirect) {
+      let target = redirect;
+      // Accept both relative paths (/payment/success?checkout=...) and same-origin
+      // absolute URLs (http://localhost:3000/payment/success?checkout=...).
+      // Absolute URLs are reduced to pathname + search so we never navigate
+      // off-site and the checkout query param is preserved.
+      try {
+        const u = new URL(redirect);
+        if (u.origin === window.location.origin) {
+          target = u.pathname + u.search;
+        } else {
+          target = '';
+        }
+      } catch {
+        // Not an absolute URL: keep as-is when it is a relative path.
+      }
+      if (target.startsWith('/') && !target.startsWith('//')) {
+        return target;
+      }
     }
     if (isSuperAdmin) return '/admin/dashboard';
     if (role === 'coach') return '/coach/plan';

@@ -24,6 +24,8 @@ import (
 // checkout paid before the buyer registered).
 type CheckoutRecorder interface {
 	MarkPaid(ctx context.Context, checkoutID, providerPaymentID string, amount float64, currency string) error
+	// MarkFailed records that a pending checkout's payment was rejected.
+	MarkFailed(ctx context.Context, checkoutID, providerPaymentID string) error
 }
 
 // MetadataWriter mirrors the subscription entitlements into the auth
@@ -334,6 +336,8 @@ const (
 	PaymentStatusPending = "pending"
 	// PaymentStatusApproved means the payment provider confirmed the payment.
 	PaymentStatusApproved = "approved"
+	// PaymentStatusFailed means the payment provider rejected the payment.
+	PaymentStatusFailed = "failed"
 )
 
 // GetPaymentStatus reports whether the payment for the given subscriber has
@@ -363,6 +367,15 @@ func (s *Service) GetPaymentStatus(ctx context.Context, subscriberID string) (st
 	if approved {
 		return PaymentStatusApproved, sub, nil
 	}
+
+	failed, err := s.subRepo.HasFailedPayment(ctx, sub.ID)
+	if err != nil {
+		return PaymentStatusNone, nil, err
+	}
+	if failed {
+		return PaymentStatusFailed, sub, nil
+	}
+
 	return PaymentStatusPending, sub, nil
 }
 
@@ -412,11 +425,6 @@ func (s *Service) FulfillWebhook(ctx context.Context, req subscription.WebhookRe
 		return nil
 	}
 
-	if payment.Status != "approved" {
-		// Rejected/pending payments leave the subscription unchanged.
-		return nil
-	}
-
 	ref := payment.ExternalReference
 	if ref == "" {
 		return errors.BadRequest("external_reference missing")
@@ -428,12 +436,49 @@ func (s *Service) FulfillWebhook(ctx context.Context, req subscription.WebhookRe
 		if s.checkouts == nil {
 			return nil
 		}
-		return s.checkouts.MarkPaid(ctx, checkoutID, payment.ID, payment.TransactionAmount, payment.Currency)
+		switch payment.Status {
+		case "approved":
+			return s.checkouts.MarkPaid(ctx, checkoutID, payment.ID, payment.TransactionAmount, payment.Currency)
+		case "rejected":
+			return s.checkouts.MarkFailed(ctx, checkoutID, payment.ID)
+		default:
+			// Pending or other statuses: leave the checkout unchanged.
+			return nil
+		}
 	}
 
+	// A subscription payment: record it and activate when approved.
 	subscriptionID, ok := trimSubscriptionRef(ref)
 	if !ok {
 		return errors.BadRequest("invalid external_reference: " + ref)
+	}
+
+	if payment.Status != "approved" {
+		// Rejected/pending payments: record the rejected payment so the
+		// status endpoint can report "failed". Pending payments leave the
+		// subscription unchanged.
+		if payment.Status == "rejected" {
+			sub, err := s.subRepo.FindByID(ctx, subscriptionID)
+			if err != nil {
+				return err
+			}
+			p := &subscription.Payment{
+				ID:                subscription.NewSubscriptionID(),
+				SubscriptionID:    sub.ID,
+				ProviderPaymentID: payment.ID,
+				ExternalReference: ref,
+				Amount:            payment.TransactionAmount,
+				Currency:          payment.Currency,
+				Status:            "rejected",
+				PeriodStart:       time.Now().UTC(),
+				PeriodEnd:         time.Now().UTC(),
+				CreatedAt:         time.Now().UTC(),
+			}
+			if err := s.subRepo.RecordPayment(ctx, p); err != nil {
+				return fmt.Errorf("record payment: %w", err)
+			}
+		}
+		return nil
 	}
 
 	sub, err := s.subRepo.FindByID(ctx, subscriptionID)

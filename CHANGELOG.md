@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - [in] Added dev-database role to orca-team pipeline and 14-team-workflow.md — @orca-team (internal)
 
+### Fixed
+- [be] Fix Wompi payment return flow: checkout claim ownership check + StatusPaid guards on MarkFailed/RecoverPayment + coach role written to Clerk publicMetadata — @dev-backend (PR pending)
+- [fe] Fix Wompi payment return: redirect_url preservation on sign-in + middleware coach role routing to /coach/plan — @dev-front (PR pending)
+
 ---
 
 ## [1.0.0] - 2026-XX-XX

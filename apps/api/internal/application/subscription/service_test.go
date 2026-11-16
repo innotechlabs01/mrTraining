@@ -47,6 +47,8 @@ type fakeSubRepo struct {
 	getPaymentErr error
 	// hasApprovedPayment drives the payment status reported by the service.
 	hasApprovedPayment bool
+	// hasFailedPayment drives the "failed" payment status reported by the service.
+	hasFailedPayment bool
 }
 
 func (f *fakeSubRepo) Save(ctx context.Context, s *subscriptiondomain.Subscription) error {
@@ -90,6 +92,10 @@ func (f *fakeSubRepo) GetPaymentByProviderID(ctx context.Context, providerPaymen
 
 func (f *fakeSubRepo) HasApprovedPayment(ctx context.Context, subscriptionID string) (bool, error) {
 	return f.hasApprovedPayment, nil
+}
+
+func (f *fakeSubRepo) HasFailedPayment(ctx context.Context, subscriptionID string) (bool, error) {
+	return f.hasFailedPayment, nil
 }
 
 // fakeMetadataWriter records the entitlement patches mirrored to Clerk.
@@ -425,6 +431,24 @@ func TestGetPaymentStatus_FlipsToApprovedAfterTheWebhook(t *testing.T) {
 	assert.Equal(t, PaymentStatusApproved, status)
 }
 
+// The payment status must report "failed" when the provider rejected the payment.
+func TestGetPaymentStatus_FlipsToFailedAfterRejectedPayment(t *testing.T) {
+	ctx := context.Background()
+	sub := &subscriptiondomain.Subscription{
+		ID:            "sub_1",
+		AthleteID:     "coach_1",
+		CoachID:       "coach_1",
+		BillingPeriod: "monthly",
+		Status:        subscriptiondomain.StatusActive,
+	}
+	subRepo := &fakeSubRepo{byID: sub, byAthlete: sub, hasFailedPayment: true}
+	svc := NewService(&config.Config{}, subRepo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, nil, nil)
+
+	status, _, err := svc.GetPaymentStatus(ctx, "coach_1")
+	require.NoError(t, err)
+	assert.Equal(t, PaymentStatusFailed, status)
+}
+
 // fakeCheckoutRecorder records the payments confirmed for a pending checkout.
 type fakeCheckoutRecorder struct {
 	checkoutID string
@@ -432,6 +456,8 @@ type fakeCheckoutRecorder struct {
 	amount     float64
 	currency   string
 	calls      int
+	failedID   string
+	failedCalls int
 }
 
 func (f *fakeCheckoutRecorder) MarkPaid(ctx context.Context, checkoutID, providerPaymentID string, amount float64, currency string) error {
@@ -440,6 +466,13 @@ func (f *fakeCheckoutRecorder) MarkPaid(ctx context.Context, checkoutID, provide
 	f.amount = amount
 	f.currency = currency
 	f.calls++
+	return nil
+}
+
+func (f *fakeCheckoutRecorder) MarkFailed(ctx context.Context, checkoutID, providerPaymentID string) error {
+	f.checkoutID = checkoutID
+	f.paymentID = providerPaymentID
+	f.failedCalls++
 	return nil
 }
 
@@ -496,9 +529,11 @@ func TestServiceFulfillWebhookNotApproved(t *testing.T) {
 	svc := NewService(&config.Config{}, subRepo, provider, &fakePlanRepo{plan: newPlan()}, nil, nil)
 
 	require.NoError(t, svc.FulfillWebhook(ctx, subscriptiondomain.WebhookRequest{Body: []byte(`{"type":"payment","data":{"id":"pay_1"}}`), SignatureHeader: "ts=1,v1=abc"}))
-	// Rejected payment: subscription untouched, nothing recorded
+	// Rejected payment: subscription status untouched, but the rejected payment is recorded
+	// so the status endpoint can report "failed".
 	assert.Equal(t, subscriptiondomain.StatusActive, sub.Status)
-	assert.Len(t, subRepo.recorded, 0)
+	assert.Len(t, subRepo.recorded, 1)
+	assert.Equal(t, "rejected", subRepo.recorded[0].Status)
 	assert.Len(t, subRepo.saved, 0)
 }
 

@@ -453,3 +453,208 @@ func TestStart_RejectsAMalformedEmail(t *testing.T) {
 		}
 	}
 }
+
+// MarkFailed records a rejected payment on a pending checkout and flips its
+// status to "failed".
+func TestMarkFailed_RecordsRejectedPayment(t *testing.T) {
+	repo := newFakeCheckoutRepo()
+	svc := NewService(testConfig(), repo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, &fakeCoaches{}, &fakeSubscriptions{})
+
+	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "coach@example.com"})
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	if err := svc.MarkFailed(context.Background(), created.CheckoutID, "pay_rejected_1"); err != nil {
+		t.Fatalf("MarkFailed failed: %v", err)
+	}
+
+	stored := repo.byID[created.CheckoutID]
+	if stored.Status != checkoutdomain.StatusFailed {
+		t.Errorf("expected status %q, got %q", checkoutdomain.StatusFailed, stored.Status)
+	}
+	if stored.ProviderPaymentID != "pay_rejected_1" {
+		t.Errorf("expected provider payment id %q, got %q", "pay_rejected_1", stored.ProviderPaymentID)
+	}
+}
+
+// MarkFailed on an already claimed checkout is a no-op.
+func TestMarkFailed_OnClaimedCheckout_IsNoop(t *testing.T) {
+	repo := newFakeCheckoutRepo()
+	svc := NewService(testConfig(), repo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, &fakeCoaches{}, &fakeSubscriptions{})
+
+	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "coach@example.com"})
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	if err := repo.byID[created.CheckoutID].MarkPaid("pay_1", 59, "USD"); err != nil {
+		t.Fatalf("MarkPaid failed: %v", err)
+	}
+	if err := repo.byID[created.CheckoutID].MarkClaimed("user_1", "MR-TEST"); err != nil {
+		t.Fatalf("MarkClaimed failed: %v", err)
+	}
+	if err := repo.Save(context.Background(), repo.byID[created.CheckoutID]); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	if err := svc.MarkFailed(context.Background(), created.CheckoutID, "pay_rejected_1"); err != nil {
+		t.Fatalf("MarkFailed failed: %v", err)
+	}
+
+	stored := repo.byID[created.CheckoutID]
+	if stored.Status != checkoutdomain.StatusClaimed {
+		t.Errorf("expected status %q (claimed checkout must not be flipped), got %q", checkoutdomain.StatusClaimed, stored.Status)
+	}
+}
+
+// MarkFailed on an already paid checkout is a no-op: a rejected webhook
+// must not flip a paid checkout to failed.
+func TestMarkFailed_OnPaidCheckout_IsNoop(t *testing.T) {
+	repo := newFakeCheckoutRepo()
+	svc := NewService(testConfig(), repo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, &fakeCoaches{}, &fakeSubscriptions{})
+
+	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "coach@example.com"})
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	if err := repo.byID[created.CheckoutID].MarkPaid("pay_1", 59, "USD"); err != nil {
+		t.Fatalf("MarkPaid failed: %v", err)
+	}
+	if err := repo.Save(context.Background(), repo.byID[created.CheckoutID]); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	if err := svc.MarkFailed(context.Background(), created.CheckoutID, "pay_rejected_1"); err != nil {
+		t.Fatalf("MarkFailed failed: %v", err)
+	}
+
+	stored := repo.byID[created.CheckoutID]
+	if stored.Status != checkoutdomain.StatusPaid {
+		t.Errorf("expected status %q (paid checkout must not be flipped), got %q", checkoutdomain.StatusPaid, stored.Status)
+	}
+	if stored.ProviderPaymentID != "pay_1" {
+		t.Errorf("expected provider payment id %q (must not be overwritten), got %q", "pay_1", stored.ProviderPaymentID)
+	}
+}
+
+// RecoverPayment marks a pending checkout as paid for its authenticated payer.
+func TestRecoverPayment_MarksPendingCheckoutAsPaid(t *testing.T) {
+	repo := newFakeCheckoutRepo()
+	svc := NewService(testConfig(), repo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, &fakeCoaches{}, &fakeSubscriptions{}).
+		WithIdentityReader(&fakeIdentity{email: "coach@example.com", verified: true})
+
+	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "coach@example.com"})
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	if err := svc.RecoverPayment(context.Background(), "user_1", created.CheckoutID); err != nil {
+		t.Fatalf("RecoverPayment failed: %v", err)
+	}
+
+	stored := repo.byID[created.CheckoutID]
+	if stored.Status != checkoutdomain.StatusPaid {
+		t.Errorf("expected status %q, got %q", checkoutdomain.StatusPaid, stored.Status)
+	}
+	if stored.ProviderPaymentID != "checkout:"+created.CheckoutID {
+		t.Errorf("expected provider payment id %q, got %q", "checkout:"+created.CheckoutID, stored.ProviderPaymentID)
+	}
+}
+
+// RecoverPayment on an already paid checkout is a no-op: it must not
+// overwrite ProviderPaymentID with "checkout:<id>", which would break
+// Claim's assertPaymentApproved.
+func TestRecoverPayment_OnPaidCheckout_DoesNotOverwriteProviderPaymentID(t *testing.T) {
+	repo := newFakeCheckoutRepo()
+	svc := NewService(testConfig(), repo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, &fakeCoaches{}, &fakeSubscriptions{}).
+		WithIdentityReader(&fakeIdentity{email: "coach@example.com", verified: true})
+
+	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "coach@example.com"})
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	// Simulate the webhook having confirmed the payment.
+	if err := repo.byID[created.CheckoutID].MarkPaid("wompi_txn_42", 59, "USD"); err != nil {
+		t.Fatalf("MarkPaid failed: %v", err)
+	}
+	if err := repo.Save(context.Background(), repo.byID[created.CheckoutID]); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	if err := svc.RecoverPayment(context.Background(), "user_1", created.CheckoutID); err != nil {
+		t.Fatalf("RecoverPayment failed: %v", err)
+	}
+
+	stored := repo.byID[created.CheckoutID]
+	if stored.Status != checkoutdomain.StatusPaid {
+		t.Errorf("expected status %q, got %q", checkoutdomain.StatusPaid, stored.Status)
+	}
+	if stored.ProviderPaymentID != "wompi_txn_42" {
+		t.Errorf("expected provider payment id %q (must not be overwritten), got %q", "wompi_txn_42", stored.ProviderPaymentID)
+	}
+}
+
+// RecoverPayment must not mark a checkout paid when the caller's verified
+// email does not match the checkout email: another user's payment must not be
+// flippable to paid.
+func TestRecoverPayment_RefusesACheckoutPaidBySomebodyElse(t *testing.T) {
+	repo := newFakeCheckoutRepo()
+	svc := NewService(testConfig(), repo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, &fakeCoaches{}, &fakeSubscriptions{}).
+		WithIdentityReader(&fakeIdentity{email: "attacker@example.com", verified: true})
+
+	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "victim@example.com"})
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	err = svc.RecoverPayment(context.Background(), "attacker_1", created.CheckoutID)
+	if err == nil {
+		t.Fatal("expected RecoverPayment of another payer's checkout to be refused")
+	}
+	appErr, ok := err.(*apperrors.AppError)
+	if !ok || appErr.Status != 403 {
+		t.Fatalf("expected a 403, got %v", err)
+	}
+	stored := repo.byID[created.CheckoutID]
+	if stored.Status != checkoutdomain.StatusCreated {
+		t.Errorf("expected the checkout to stay pending, got %q", stored.Status)
+	}
+}
+
+// RecoverPayment must refuse an account with an UNVERIFIED email: otherwise
+// the attacker would sign up with the victim's email and take their plan.
+func TestRecoverPayment_RefusesAnUnverifiedEmail(t *testing.T) {
+	repo := newFakeCheckoutRepo()
+	svc := NewService(testConfig(), repo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, &fakeCoaches{}, &fakeSubscriptions{}).
+		WithIdentityReader(&fakeIdentity{email: "victim@example.com", verified: false})
+
+	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "victim@example.com"})
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	err = svc.RecoverPayment(context.Background(), "attacker_1", created.CheckoutID)
+	if err == nil {
+		t.Fatal("expected RecoverPayment to be refused for an unverified email")
+	}
+	appErr, ok := err.(*apperrors.AppError)
+	if !ok || appErr.Status != 403 {
+		t.Fatalf("expected a 403, got %v", err)
+	}
+}
+
+// RecoverPayment returns not found when the checkout does not exist.
+func TestRecoverPayment_NotFound(t *testing.T) {
+	repo := newFakeCheckoutRepo()
+	svc := NewService(testConfig(), repo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, &fakeCoaches{}, &fakeSubscriptions{}).
+		WithIdentityReader(&fakeIdentity{email: "coach@example.com", verified: true})
+
+	err := svc.RecoverPayment(context.Background(), "user_1", "no_such_checkout")
+	if err == nil {
+		t.Fatal("expected RecoverPayment to fail for a missing checkout")
+	}
+	appErr, ok := err.(*apperrors.AppError)
+	if !ok || appErr.Status != 404 {
+		t.Fatalf("expected a 404, got %v", err)
+	}
+}

@@ -218,6 +218,22 @@ func (r *Repository) HasApprovedPayment(ctx context.Context, subscriptionID stri
 	return true, nil
 }
 
+// HasFailedPayment reports whether a rejected payment exists for the
+// subscription.
+func (r *Repository) HasFailedPayment(ctx context.Context, subscriptionID string) (bool, error) {
+	var one int
+	err := r.exec.QueryRowContext(ctx,
+		`SELECT 1 FROM subscription_payments WHERE subscription_id = $1 AND status = 'rejected' LIMIT 1`,
+		subscriptionID).Scan(&one)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("check failed payment: %w", err)
+	}
+	return true, nil
+}
+
 type scannable interface {
 	Scan(dest ...interface{}) error
 }

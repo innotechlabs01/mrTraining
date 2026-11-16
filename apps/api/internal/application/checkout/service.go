@@ -316,6 +316,29 @@ func (s *Service) MarkPaid(ctx context.Context, checkoutID, providerPaymentID st
 	return nil
 }
 
+// MarkFailed records that a pending checkout's payment was rejected by the
+// provider. It is called by the webhook when a "checkout:<id>" payment is
+// declined.
+func (s *Service) MarkFailed(ctx context.Context, checkoutID, providerPaymentID string) error {
+	co, err := s.repo.GetByID(ctx, checkoutID)
+	if err != nil {
+		return fmt.Errorf("get pending checkout: %w", err)
+	}
+	if co == nil {
+		return errors.NotFound("PendingCheckout", checkoutID)
+	}
+	if co.Status == checkoutdomain.StatusClaimed || co.Status == checkoutdomain.StatusPaid {
+		return nil // Already claimed or paid, nothing to do
+	}
+	if err := co.MarkFailed(providerPaymentID); err != nil {
+		return errors.BadRequest(err.Error())
+	}
+	if err := s.repo.Save(ctx, co); err != nil {
+		return fmt.Errorf("save pending checkout: %w", err)
+	}
+	return nil
+}
+
 // wompiWebhookURL returns the provider webhook that confirms the payments.
 func (s *Service) wompiWebhookURL() string {
 	if s.cfg.WompiWebhookURL != "" {
@@ -353,4 +376,50 @@ func newCheckoutID() string {
 		return fmt.Sprintf("chk_%d", time.Now().UTC().UnixNano()%1e18)
 	}
 	return "chk_" + hex.EncodeToString(b[:])
+}
+
+// RecoverPayment manually marks a pending checkout as paid. This is used for
+// the hybrid payment flow where the buyer paid before registering and the
+// Wompi webhook did not fire (e.g., because the API was started after the
+// payment was completed). The caller must be the authenticated payer of the
+// checkout: ownership is proved by a VERIFIED email that matches the checkout
+// email. After calling this, the claim() endpoint can be executed to assign
+// the coach role and create the subscription.
+//
+// The provider_payment_id should be in the format "checkout:<id>" as returned
+// by Wompi, or can be set to the checkout ID reference.
+func (s *Service) RecoverPayment(ctx context.Context, userID, checkoutID string) error {
+	co, err := s.repo.GetByID(ctx, checkoutID)
+	if err != nil {
+		return fmt.Errorf("get pending checkout: %w", err)
+	}
+	if co == nil {
+		return errors.NotFound("PendingCheckout", checkoutID)
+	}
+
+	// Only the checkout owner (or authorized actor) may mark it as paid.
+	// Without this check any authenticated user could flip somebody else's
+	// checkout to paid and claim the plan for free.
+	if co.UserID != "" && co.UserID != userID {
+		return errors.Forbidden("this checkout belongs to another account")
+	}
+	if err := s.assertPayer(ctx, co, userID); err != nil {
+		return err
+	}
+
+	if co.Status == checkoutdomain.StatusClaimed || co.Status == checkoutdomain.StatusPaid {
+		return nil // Already claimed or paid, nothing to do. Do not overwrite
+		// ProviderPaymentID on an already-paid checkout: Claim's
+		// assertPaymentApproved depends on it matching the provider's record.
+	}
+	// Mark the payment as approved using the checkout reference format
+	// "checkout:<id>" which is what Wompi returns as provider_payment_id
+	providerPaymentID := "checkout:" + co.ID
+	if err := co.MarkPaid(providerPaymentID, co.Amount, co.Currency); err != nil {
+		return errors.BadRequest(err.Error())
+	}
+	if err := s.repo.Save(ctx, co); err != nil {
+		return fmt.Errorf("save pending checkout: %w", err)
+	}
+	return nil
 }

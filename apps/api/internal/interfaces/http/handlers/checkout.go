@@ -18,6 +18,7 @@ import (
 type checkoutService interface {
 	Start(ctx context.Context, cmd checkoutapp.StartCommand) (*checkoutapp.StartResult, error)
 	Claim(ctx context.Context, cmd checkoutapp.ClaimCommand) (*checkoutapp.ClaimResult, error)
+	RecoverPayment(ctx context.Context, userID, checkoutID string) error
 }
 
 // CheckoutHandler handles the hybrid checkout endpoints: paying before the
@@ -39,10 +40,11 @@ func NewCheckoutHandler(svc checkoutService) *CheckoutHandler {
 func (h *CheckoutHandler) RegisterCheckoutRoutes(api fiber.Router, pub fiber.Router) {
 	pub.Post("/checkouts", middleware.RateLimit(20, 60), h.HandleStart)
 	api.Post("/checkouts/:id/claim", h.HandleClaim)
+	api.Post("/checkouts/:id/recover", h.HandleRecoverPayment)
 }
 
 // HandleStart handles POST /public/checkouts.
-//
+////
 // It issues the payment link for the chosen plan. The buyer does not need an
 // account yet: the payment is recorded on a pending checkout and claimed
 // after they register.
@@ -91,6 +93,53 @@ func (h *CheckoutHandler) HandleClaim(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "checkout id is required")
 	}
 
+	result, err := h.svc.Claim(c.Context(), checkoutapp.ClaimCommand{
+		CheckoutID: checkoutID,
+		UserID:     userID,
+	})
+	if err != nil {
+		return handleCheckoutError(c, err)
+	}
+
+	return appresponse.Success(c, dto.ClaimCheckoutResponse{
+		CheckoutID: result.CheckoutID,
+		CoachID:    result.CoachID,
+		CoachCode:  result.CoachCode,
+		PlanID:     result.PlanID,
+		PlanName:   result.PlanName,
+	})
+}
+
+// HandleRecoverPayment handles POST /api/v1/checkouts/:id/recover.
+//
+// This endpoint is used for the hybrid payment flow where the buyer paid
+// before registering. It manually marks the payment as approved when the
+// Wompi webhook did not fire (e.g., because the API was started after the
+// payment was completed). Only the authenticated payer of the checkout may
+// mark it as paid: ownership is verified by the service before anything is
+// changed, so another user cannot flip somebody else's checkout to paid.
+//
+// After marking the payment approved, it triggers the claim flow to assign
+// the coach role and create the subscription.
+func (h *CheckoutHandler) HandleRecoverPayment(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	checkoutID := c.Params("id")
+	if checkoutID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "checkout id is required")
+	}
+
+	// Mark the payment as approved manually for the hybrid flow. The service
+	// verifies that the caller owns the checkout before marking it paid.
+	err := h.svc.RecoverPayment(c.Context(), userID, checkoutID)
+	if err != nil {
+		return handleCheckoutError(c, err)
+	}
+
+	// Now execute the claim to assign the coach role and create subscription
 	result, err := h.svc.Claim(c.Context(), checkoutapp.ClaimCommand{
 		CheckoutID: checkoutID,
 		UserID:     userID,
