@@ -65,12 +65,18 @@ func PrintReport(report *DiffReport) {
 		fmt.Println("  ------------------------------------------------------------")
 		for _, c := range report.Comparisons {
 			statusIcon := getStatusIcon(c.Status)
+			// En status deleted el nombre vive en TargetName (SourceName está vacío)
+			displayName := c.SourceName
+			if displayName == "" {
+				displayName = c.TargetName
+			}
 			fmt.Printf("  %s %-30s | %-12s | %-40s\n",
 				statusIcon,
-				c.SourceName,
+				displayName,
 				string(c.Status),
 				c.Reason)
-			if !c.Allowed {
+			// El aviso de allowlist solo aplica a secretos que se promoverían
+			if !c.Allowed && (c.Status == SecretNew || c.Status == SecretChanged) {
 				fmt.Printf("      ^ No permitido para promoción (no está en allowlist)\n")
 			}
 			if c.Status == SecretBlocked {

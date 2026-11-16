@@ -96,7 +96,7 @@ func (c *InfisicalClient) GetSecretNames(ctx context.Context, projectID, environ
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		c.baseURL+"/api/v3/secrets?"+params.Encode(), nil)
+		c.baseURL+"/api/v4/secrets?"+params.Encode(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("crear request de secretos: %w", err)
 	}
@@ -120,7 +120,7 @@ func (c *InfisicalClient) GetSecretNames(ctx context.Context, projectID, environ
 
 	var result struct {
 		Secrets []struct {
-			Key string `json:"key"`
+			Key string `json:"secretKey"`
 		} `json:"secrets"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -141,12 +141,11 @@ func (c *InfisicalClient) GetSecretValue(ctx context.Context, projectID, environ
 	}
 
 	params := url.Values{}
-	params.Set("projectId", projectID)
+	params.Set("workspaceId", projectID)
 	params.Set("environment", environment)
 	if secretPath != "" {
 		params.Set("secretPath", secretPath)
 	}
-	params.Set("secretName", secretKey)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		c.baseURL+"/api/v3/secrets/raw/"+url.PathEscape(secretKey)+"?"+params.Encode(), nil)
@@ -173,8 +172,8 @@ func (c *InfisicalClient) GetSecretValue(ctx context.Context, projectID, environ
 
 	var result struct {
 		Secret struct {
-			Key   string `json:"key"`
-			Value string `json:"value"`
+			Key   string `json:"secretKey"`
+			Value string `json:"secretValue"`
 		} `json:"secret"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -216,6 +215,16 @@ func (s *SyncEngine) log(format string, args ...interface{}) {
 	}
 }
 
+// infisicalProjectID devuelve el UUID del proyecto en Infisical.
+// Usa infisical.project_id de la config; si está vacío, cae al valor
+// histórico (google_secret_manager.project_id) para no romper configs antiguas.
+func infisicalProjectID(env *EnvironmentConfig) string {
+	if env.Infisical.ProjectID != "" {
+		return env.Infisical.ProjectID
+	}
+	return env.GoogleSecretManager.ProjectID
+}
+
 // Sync compara y sincroniza secretos entre Infisical y GCP Secret Manager
 // Devuelve un SyncResult con el resultado de la operación
 func (s *SyncEngine) Sync(ctx context.Context, sourceEnv, targetEnv *EnvironmentConfig, ciPassed bool) (*SyncResult, *DiffReport, error) {
@@ -229,7 +238,7 @@ func (s *SyncEngine) Sync(ctx context.Context, sourceEnv, targetEnv *Environment
 
 	// 1. Obtener secretos de Infisical (origen)
 	s.logger("Obteniendo nombres de secretos de Infisical %s...", sourceEnv.Infisical.Environment)
-	infisicalNames, err := s.infisicalClient.GetSecretNames(ctx, sourceEnv.GoogleSecretManager.ProjectID, sourceEnv.Infisical.Environment, sourceEnv.Infisical.SecretPath)
+	infisicalNames, err := s.infisicalClient.GetSecretNames(ctx, infisicalProjectID(sourceEnv), sourceEnv.Infisical.Environment, sourceEnv.Infisical.SecretPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("obtener secretos de Infisical: %w", err)
 	}
@@ -244,7 +253,7 @@ func (s *SyncEngine) Sync(ctx context.Context, sourceEnv, targetEnv *Environment
 			continue
 		}
 
-		value, err := s.infisicalClient.GetSecretValue(ctx, sourceEnv.GoogleSecretManager.ProjectID, sourceEnv.Infisical.Environment, sourceEnv.Infisical.SecretPath, name)
+		value, err := s.infisicalClient.GetSecretValue(ctx, infisicalProjectID(sourceEnv), sourceEnv.Infisical.Environment, sourceEnv.Infisical.SecretPath, name)
 		if err != nil {
 			s.logger("  ⚠️  No se pudo obtener valor de %s: %v", name, err)
 			continue
@@ -311,7 +320,7 @@ func (s *SyncEngine) Sync(ctx context.Context, sourceEnv, targetEnv *Environment
 		}
 
 		// Obtener el valor real desde Infisical
-		value, err := s.infisicalClient.GetSecretValue(ctx, sourceEnv.GoogleSecretManager.ProjectID, sourceEnv.Infisical.Environment, sourceEnv.Infisical.SecretPath, c.SourceName)
+		value, err := s.infisicalClient.GetSecretValue(ctx, infisicalProjectID(sourceEnv), sourceEnv.Infisical.Environment, sourceEnv.Infisical.SecretPath, c.SourceName)
 		if err != nil {
 			result.Errors = append(result.Errors, SyncError{
 				SecretName: c.SourceName,

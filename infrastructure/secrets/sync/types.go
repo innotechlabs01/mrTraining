@@ -148,6 +148,9 @@ type InfisicalConfig struct {
 	Environment string `yaml:"environment"`
 	SecretPath  string `yaml:"secret_path"`
 	CacheTTL    string `yaml:"cache_ttl"`
+	// ProjectID es el UUID del proyecto en Infisical (NO confundir con el
+	// project ID de GCP). Si está vacío se recae a GoogleSecretManager.ProjectID.
+	ProjectID string `yaml:"project_id"`
 }
 
 // GoogleSecretManagerConfig describe el proyecto destino de Secret Manager.

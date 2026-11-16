@@ -10,18 +10,28 @@ import (
 	"net/http"
 	"time"
 
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
 
-// GCPClient es un cliente REST para Google Secret Manager
-type GCPClient struct {
-	httpClient *http.Client
-	baseURL    string
-	token      string
-	tokenExp   time.Time
+// apiError representa una respuesta no-2xx del API de Secret Manager.
+type apiError struct {
+	StatusCode int
+	Body       string
 }
 
-// NewGCPClient crea un cliente REST para Secret Manager usando credenciales por defecto (WIF)
+func (e *apiError) Error() string {
+	return fmt.Sprintf("API error (%d): %s", e.StatusCode, e.Body)
+}
+
+// GCPClient es un cliente REST para Google Secret Manager
+type GCPClient struct {
+	httpClient  *http.Client
+	baseURL     string
+	tokenSource oauth2.TokenSource
+}
+
+// NewGCPClient crea un cliente REST para Secret Manager usando credenciales por defecto (ADC/WIF)
 func NewGCPClient(ctx context.Context) (*GCPClient, error) {
 	creds, err := google.FindDefaultCredentials(ctx)
 	if err != nil {
@@ -29,23 +39,21 @@ func NewGCPClient(ctx context.Context) (*GCPClient, error) {
 	}
 
 	return &GCPClient{
-		httpClient: &http.Client{Timeout: 30 * time.Second},
-		baseURL:    "https://secretmanager.googleapis.com/v1",
-		token:      string(creds.JSON),
+		httpClient:  &http.Client{Timeout: 30 * time.Second},
+		baseURL:     "https://secretmanager.googleapis.com/v1",
+		tokenSource: creds.TokenSource,
 	}, nil
 }
 
-// getAccessToken obtiene un token de acceso OAuth2 (simplificado para WIF)
-// En producción con WIF, el token se obtiene del metadata server automáticamente
+// getAccessToken obtiene un token de acceso OAuth2 válido.
+// El TokenSource se encarga del refresh automático (ADC local, cuenta de
+// servicio o WIF en GitHub Actions) — el token NUNCA se cachea en crudo.
 func (c *GCPClient) getAccessToken(ctx context.Context) (string, error) {
-	if c.token != "" && time.Now().Add(5*time.Minute).Before(c.tokenExp) {
-		return c.token, nil
+	tok, err := c.tokenSource.Token()
+	if err != nil {
+		return "", fmt.Errorf("obtener token de acceso: %w", err)
 	}
-
-	// Para WIF en GitHub Actions, el token se obtiene del entorno
-	// Aquí usamos un enfoque simplificado: las credenciales de Google FindDefaultCredentials
-	// incluyen el token necesario para autenticación
-	return c.token, nil
+	return tok.AccessToken, nil
 }
 
 // doRequest realiza una petición autenticada a la API de Secret Manager
@@ -86,7 +94,7 @@ func (c *GCPClient) doRequest(ctx context.Context, method, path string, body int
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("API error (%d): %s", resp.StatusCode, string(respBody))
+		return nil, &apiError{StatusCode: resp.StatusCode, Body: string(respBody)}
 	}
 
 	return respBody, nil
@@ -207,12 +215,20 @@ func (c *GCPClient) CreateSecret(ctx context.Context, projectID, secretID string
 		},
 	}
 	_, err := c.doRequest(ctx, "POST", path, body)
-	return err
+	if err != nil {
+		// 409 = ya existe: crear la versión siguiente es suficiente (idempotente)
+		if ae, ok := err.(*apiError); ok && ae.StatusCode == http.StatusConflict {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 // CreateSecretVersion crea una nueva versión de un secreto
 func (c *GCPClient) CreateSecretVersion(ctx context.Context, projectID, secretID, value string) (string, error) {
-	path := fmt.Sprintf("/projects/%s/secrets/%s/versions:add", projectID, secretID)
+	// El API expone addVersion en el recurso secreto: projects/*/secrets/*:addVersion
+	path := fmt.Sprintf("/projects/%s/secrets/%s:addVersion", projectID, secretID)
 	body := map[string]interface{}{
 		"payload": map[string]interface{}{
 			"data": base64.StdEncoding.EncodeToString([]byte(value)),
@@ -234,7 +250,8 @@ func (c *GCPClient) CreateSecretVersion(ctx context.Context, projectID, secretID
 
 // DestroySecretVersion destruye una versión de secreto
 func (c *GCPClient) DestroySecretVersion(ctx context.Context, projectID, secretID, versionID string) error {
+	// El API expone destroy como POST sobre projects/*/secrets/*/versions/*:destroy
 	path := fmt.Sprintf("/projects/%s/secrets/%s/versions/%s:destroy", projectID, secretID, versionID)
-	_, err := c.doRequest(ctx, "DELETE", path, nil)
+	_, err := c.doRequest(ctx, "POST", path, nil)
 	return err
 }

@@ -106,12 +106,14 @@ func (a *PromotionAllowlist) IsAllowedPromotion(source, target string) (bool, st
 }
 
 // IsSourceAllowed verifica si un secreto de origen está en la allowlist.
+// Coincide con el nombre de origen (lado DEV) o con el nombre destino (lado
+// QA), para que sincronizaciones qa->qa reconozcan las claves ya sufijadas.
 func (a *PromotionAllowlist) IsSourceAllowed(source string) (bool, string) {
 	if a == nil {
 		return false, ""
 	}
 	for _, promotion := range a.AllowedPromotions {
-		if promotion.Source == source {
+		if promotion.Source == source || promotion.Target == source {
 			return true, promotion.Reason
 		}
 	}

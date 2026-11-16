@@ -51,6 +51,7 @@ func CompareSecrets(source, target map[string]string, allowlist *PromotionAllowl
 		if !existsInTarget {
 			// Nuevo en origen
 			comp.Status = SecretNew
+			comp.TargetName = sourceName // nombre con el que se creará en destino
 			comp.Reason = "nuevo en origen, no existe en destino"
 			comp.Promotable = false // Nuevo, necesita aprobación
 		} else if HashValue(sourceValue) != HashValue(targetValue) {
