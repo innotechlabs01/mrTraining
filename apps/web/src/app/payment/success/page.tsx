@@ -50,6 +50,7 @@ function CheckoutClaim({ checkoutId }: { checkoutId: string }) {
     try {
       const res = await fetch(`/api/checkout/${encodeURIComponent(checkoutId)}/claim`, {
         method: 'POST',
+        credentials: 'include',
       });
       const data = await res.json().catch(() => ({}));
 

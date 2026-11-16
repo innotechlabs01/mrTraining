@@ -27,6 +27,12 @@ function SignInContent() {
   const { user } = useUser();
   const searchParams = useSearchParams();
 
+  // Prefill sign-in email from the Wompi URL email param. The email may arrive
+  // as a top-level search param, or nested inside redirect_url (when the
+  // middleware redirected from /payment/success?checkout=...&email=...).
+  const emailFromUrl: string | undefined =
+    searchParams.get('email') ?? extractEmailFromRedirectUrl(searchParams.get('redirect_url')) ?? undefined;
+
   /**
    * Resolves where a signed-in user belongs.
    *
@@ -93,6 +99,30 @@ function SignInContent() {
     <SignInForm
       onSuccess={handleSuccess}
       onForgotPassword={() => router.push('/forgot-password')}
+      initialEmail={emailFromUrl}
     />
   );
+}
+
+/**
+ * Extracts the `email` query param from a `redirect_url` value.
+ *
+ * The middleware stores the full `pathname + search` as redirect_url, so the
+ * email param lives inside it (e.g. `/payment/success?checkout=abc&email=x@y.com`).
+ * Handles both relative paths and same-origin absolute URLs.
+ */
+function extractEmailFromRedirectUrl(redirectUrl: string | null): string | null {
+  if (!redirectUrl) return null;
+  try {
+    const u = new URL(redirectUrl);
+    if (u.origin === window.location.origin) {
+      return u.searchParams.get('email') ?? null;
+    }
+    return null;
+  } catch {
+    // Not an absolute URL: parse as a relative path with query string.
+    const [, search] = redirectUrl.split('?', 2);
+    if (!search) return null;
+    return new URLSearchParams(search).get('email') ?? null;
+  }
 }
