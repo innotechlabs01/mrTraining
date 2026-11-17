@@ -295,7 +295,10 @@ export function useLandingCanvas(): UseLandingCanvasReturn {
         );
         setLandings((prev) =>
           prev.map((l) =>
-            l.id === document!.id ? { ...l, isPublished } : l,
+            // Se sincroniza con el documento ACTUAL (con las ediciones
+            // pendientes), no con la copia de `landings`: usar `l` hacia
+            // atrás el documento y descartaba las ediciones no guardadas.
+            l.id === document!.id ? { ...document!, isPublished } : l,
           ),
         );
         toast.success(

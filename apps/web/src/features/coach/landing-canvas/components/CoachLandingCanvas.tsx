@@ -68,6 +68,17 @@ export function CoachLandingCanvas(): JSX.Element {
     addBlock(createBlockForType(type));
   };
 
+  /**
+   * Genera el HTML del documento actual y abre el dialogo de descarga.
+   * Sin esto, `exportHtml()` devolvia el string y el resultado se perdia:
+   * el dialogo nunca se abria y la exportacion era inaccesible (AC10).
+   */
+  const handleExportHtml = () => {
+    const html = exportHtml();
+    setExportHtmlContent(html);
+    setShowExportDialog(true);
+  };
+
   const handleDownloadHtml = (html: string) => {
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
@@ -183,7 +194,7 @@ export function CoachLandingCanvas(): JSX.Element {
         slug={currentDoc.slug}
         onSave={saveDocument}
         onPublish={publishDocument}
-        onExportHtml={exportHtml}
+        onExportHtml={handleExportHtml}
       />
 
       {/* Cuerpo: paleta | lienzo | inspector */}
