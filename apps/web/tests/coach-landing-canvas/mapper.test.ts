@@ -79,6 +79,30 @@ describe('mapCoachLandingDocument (F1)', () => {
     const doc = mapCoachLandingDocument(baseWire({ is_published: false }));
     expect(doc.isPublished).toBe(false);
   });
+
+  it('R4 — sections como JSON objeto (no array) devuelve [] sin lanzar', () => {
+    const doc = mapCoachLandingDocument(baseWire({ sections: '{"foo":1}' }));
+    expect(Array.isArray(doc.sections)).toBe(true);
+    expect(doc.sections).toEqual([]);
+  });
+
+  it('R4 — images como JSON objeto (no array) devuelve [] sin lanzar', () => {
+    const doc = mapCoachLandingDocument(baseWire({ images: '{"bar":2}' }));
+    expect(Array.isArray(doc.images)).toBe(true);
+    expect(doc.images).toEqual([]);
+  });
+
+  it('R4 — config como JSON no-objeto aplica defaults sin lanzar', () => {
+    const doc = mapCoachLandingDocument(baseWire({ config: '[1,2,3]' }));
+    expect(doc.config.primaryColor).toBe('#15AAF2');
+    expect(doc.config.fontFamily).toBe('system-ui, -apple-system, sans-serif');
+    expect(doc.config.backgroundColor).toBe('#0a0a0a');
+  });
+
+  it('R4 — sections como JSON invalido devuelve [] sin lanzar', () => {
+    const doc = mapCoachLandingDocument(baseWire({ sections: 'no es json' }));
+    expect(doc.sections).toEqual([]);
+  });
 });
 
 describe('mapCoachLandingDocuments (F1)', () => {

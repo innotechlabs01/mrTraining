@@ -60,33 +60,45 @@ function safeJsonParse<T>(raw: unknown, fallback: T): T {
 }
 
 /**
- * Normaliza `config`: si falta o es invalido, aplica el config por defecto.
- * Si ya es objeto, lo usa tal cual (pero con fallback por campo por si falta alguno).
+ * Devuelve true solo para objetos planos (no arrays, no null, no primitivos).
+ * Se usa para no confiar ciegamente en el JSON parseado de la DB (R4).
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Normaliza `config`: si falta o no es un objeto plano, aplica el default.
  */
 function normalizeConfig(raw: string | CanvasConfig | undefined): CanvasConfig {
-  const parsed =
+  const defaults = defaultCanvasConfig();
+  const parsed: unknown =
     typeof raw === 'string'
-      ? safeJsonParse<CanvasConfig>(raw, defaultCanvasConfig())
-      : raw ?? defaultCanvasConfig();
+      ? safeJsonParse<unknown>(raw, defaults)
+      : raw ?? defaults;
+  if (!isPlainObject(parsed)) {
+    return defaults;
+  }
   return {
-    primaryColor: parsed.primaryColor ?? defaultCanvasConfig().primaryColor,
-    fontFamily: parsed.fontFamily ?? defaultCanvasConfig().fontFamily,
-    backgroundColor: parsed.backgroundColor ?? defaultCanvasConfig().backgroundColor,
+    primaryColor: (parsed.primaryColor as string | undefined) ?? defaults.primaryColor,
+    fontFamily: (parsed.fontFamily as string | undefined) ?? defaults.fontFamily,
+    backgroundColor: (parsed.backgroundColor as string | undefined) ?? defaults.backgroundColor,
   };
 }
 
 /**
- * Normaliza `sections`: array o [] si falta/invalido.
+ * Normaliza `sections`: array o [] si falta/invalido/no-es-array.
  */
 function normalizeSections(raw: string | CoachLandingBlock[] | undefined): CoachLandingBlock[] {
   if (Array.isArray(raw)) {
     return raw;
   }
-  return safeJsonParse<CoachLandingBlock[]>(raw, []);
+  const parsed = safeJsonParse<unknown>(raw, []);
+  return Array.isArray(parsed) ? (parsed as CoachLandingBlock[]) : [];
 }
 
 /**
- * Normaliza `images`: array o [] si falta/invalido.
+ * Normaliza `images`: array o [] si falta/invalido/no-es-array.
  */
 function normalizeImages(
   raw: string | ImageAssetWire[] | undefined,
@@ -94,7 +106,8 @@ function normalizeImages(
   if (Array.isArray(raw)) {
     return raw;
   }
-  return safeJsonParse<ImageAssetWire[]>(raw, []);
+  const parsed = safeJsonParse<unknown>(raw, []);
+  return Array.isArray(parsed) ? (parsed as ImageAssetWire[]) : [];
 }
 
 /**
