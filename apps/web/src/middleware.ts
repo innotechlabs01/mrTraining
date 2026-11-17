@@ -91,7 +91,7 @@ export default clerkMiddleware(async (auth, request) => {
   // protected, so we fail CLOSED against an explicit list of reserved slugs.
   // The public landing is also served independently at /l/[slug].
   const COACH_DASHBOARD_SLUGS = new Set([
-    'events', 'landing-builder', 'users', 'earnings', 'agendamiento', 'support',
+    'events', 'landing-canvas', 'users', 'earnings', 'agendamiento', 'support',
     'planes', 'landing', 'blog', 'ally', 'settings', 'ventas', 'plans',
     'live-session', 'polizas', 'today', 'video-analytics', 'workouts',
     'challenges', 'training', 'plan',
