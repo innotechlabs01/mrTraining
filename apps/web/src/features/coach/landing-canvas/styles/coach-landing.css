@@ -47,6 +47,24 @@
   margin-right: auto;
 }
 
+/* ---------- Editor: seleccion de bloques ---------- */
+/* Solo el editor agrega estas clases; el markup publico no cambia. */
+.coach-landing-block-selectable {
+  cursor: pointer;
+  outline: 1px solid transparent;
+  outline-offset: 4px;
+}
+
+.coach-landing-block-selectable:hover {
+  outline-color: rgba(21, 170, 242, 0.55);
+}
+
+.coach-landing-block-selectable:focus-visible,
+.coach-landing-block-selected {
+  outline: 2px solid var(--coach-primary);
+  outline-offset: 4px;
+}
+
 /* ---------- Hero ---------- */
 .coach-landing-hero {
   min-height: 60vh;

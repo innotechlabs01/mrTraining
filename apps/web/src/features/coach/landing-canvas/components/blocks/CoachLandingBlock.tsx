@@ -21,6 +21,7 @@ import type {
   SocialLinksBlockProps,
   ContactBlockProps,
   SocialLink,
+  CoachLandingBlockInteractionProps,
 } from '@/features/coach/landing-canvas/types';
 import { assertNever } from '@/features/coach/landing-canvas/utils/block-utils';
 import { HeroBlock } from './HeroBlock';
@@ -32,7 +33,7 @@ import { DividerBlock } from './DividerBlock';
 import { SocialLinksBlock } from './SocialLinksBlock';
 import { ContactBlock } from './ContactBlock';
 
-interface CoachLandingBlockProps {
+interface CoachLandingBlockProps extends CoachLandingBlockInteractionProps {
   block: CoachLandingBlock;
   config: CanvasConfig;
 }
@@ -40,24 +41,82 @@ interface CoachLandingBlockProps {
 export function CoachLandingBlock({
   block,
   config,
+  onSelectBlock,
+  selectedBlockId,
 }: CoachLandingBlockProps): JSX.Element {
   switch (block.type) {
     case 'hero':
-      return <HeroBlock block={block} config={config} />;
+      return (
+        <HeroBlock
+          block={block}
+          config={config}
+          onSelectBlock={onSelectBlock}
+          selectedBlockId={selectedBlockId}
+        />
+      );
     case 'heading':
-      return <HeadingBlock block={block} config={config} />;
+      return (
+        <HeadingBlock
+          block={block}
+          config={config}
+          onSelectBlock={onSelectBlock}
+          selectedBlockId={selectedBlockId}
+        />
+      );
     case 'text':
-      return <TextBlock block={block} config={config} />;
+      return (
+        <TextBlock
+          block={block}
+          config={config}
+          onSelectBlock={onSelectBlock}
+          selectedBlockId={selectedBlockId}
+        />
+      );
     case 'image':
-      return <ImageBlock block={block} config={config} />;
+      return (
+        <ImageBlock
+          block={block}
+          config={config}
+          onSelectBlock={onSelectBlock}
+          selectedBlockId={selectedBlockId}
+        />
+      );
     case 'button':
-      return <ButtonBlock block={block} config={config} />;
+      return (
+        <ButtonBlock
+          block={block}
+          config={config}
+          onSelectBlock={onSelectBlock}
+          selectedBlockId={selectedBlockId}
+        />
+      );
     case 'divider':
-      return <DividerBlock block={block} config={config} />;
+      return (
+        <DividerBlock
+          block={block}
+          config={config}
+          onSelectBlock={onSelectBlock}
+          selectedBlockId={selectedBlockId}
+        />
+      );
     case 'social-links':
-      return <SocialLinksBlock block={block} config={config} />;
+      return (
+        <SocialLinksBlock
+          block={block}
+          config={config}
+          onSelectBlock={onSelectBlock}
+          selectedBlockId={selectedBlockId}
+        />
+      );
     case 'contact':
-      return <ContactBlock block={block} config={config} />;
+      return (
+        <ContactBlock
+          block={block}
+          config={config}
+          onSelectBlock={onSelectBlock}
+          selectedBlockId={selectedBlockId}
+        />
+      );
     default:
       return assertNever(block);
   }

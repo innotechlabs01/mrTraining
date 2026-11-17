@@ -6,20 +6,28 @@ import type {
   SocialLinksBlockProps,
   CanvasConfig,
   SocialLink,
+  CoachLandingBlockInteractionProps,
 } from '@/features/coach/landing-canvas/types';
 import { cn } from '@/lib/utils';
 import { sanitizeUrl } from '@/features/coach/landing-canvas/utils/block-utils';
+import { getBlockInteractionState } from './block-interaction';
 
-interface SocialLinksBlockPropsInjected {
-  block: { props: SocialLinksBlockProps };
+interface SocialLinksBlockPropsInjected extends CoachLandingBlockInteractionProps {
+  block: { id: string; props: SocialLinksBlockProps };
   config: CanvasConfig;
 }
 
 export function SocialLinksBlock({
   block,
   config: _config,
+  onSelectBlock,
+  selectedBlockId,
 }: SocialLinksBlockPropsInjected): JSX.Element {
   const p = block.props;
+  const interaction = getBlockInteractionState(block.id, {
+    onSelectBlock,
+    selectedBlockId,
+  });
   const blockStyle: React.CSSProperties = {};
   if (p.backgroundColor) blockStyle.backgroundColor = p.backgroundColor;
   if (p.textColor) blockStyle.color = p.textColor;
@@ -31,8 +39,20 @@ export function SocialLinksBlock({
 
   return (
     <div
-      className={cn('coach-landing-social-links', p.width === 'full' ? 'w-full' : '')}
+      className={cn(
+        'coach-landing-social-links',
+        p.width === 'full' ? 'w-full' : '',
+        interaction.isSelectable && 'coach-landing-block-selectable',
+        interaction.isSelected && 'coach-landing-block-selected',
+      )}
       style={blockStyle}
+      role={interaction.isSelectable ? 'button' : undefined}
+      tabIndex={interaction.isSelectable ? 0 : undefined}
+      aria-pressed={
+        interaction.isSelectable ? interaction.isSelected : undefined
+      }
+      onClick={interaction.handleClick}
+      onKeyDown={interaction.handleKeyDown}
     >
       <div
         className={cn(

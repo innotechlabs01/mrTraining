@@ -5,20 +5,28 @@
 import type {
   HeroBlockProps,
   CanvasConfig,
+  CoachLandingBlockInteractionProps,
 } from '@/features/coach/landing-canvas/types';
 import { cn } from '@/lib/utils';
 import { sanitizeUrl } from '@/features/coach/landing-canvas/utils/block-utils';
+import { getBlockInteractionState } from './block-interaction';
 
-interface HeroBlockPropsInjected {
-  block: { props: HeroBlockProps };
+interface HeroBlockPropsInjected extends CoachLandingBlockInteractionProps {
+  block: { id: string; props: HeroBlockProps };
   config: CanvasConfig;
 }
 
 export function HeroBlock({
   block,
   config,
+  onSelectBlock,
+  selectedBlockId,
 }: HeroBlockPropsInjected): JSX.Element {
   const p = block.props;
+  const interaction = getBlockInteractionState(block.id, {
+    onSelectBlock,
+    selectedBlockId,
+  });
   const blockStyle: React.CSSProperties = {};
   if (p.backgroundColor) blockStyle.backgroundColor = p.backgroundColor;
   if (p.textColor) blockStyle.color = p.textColor;
@@ -31,8 +39,17 @@ export function HeroBlock({
       className={cn(
         'coach-landing-hero',
         p.width === 'full' ? 'w-full' : 'coach-landing-boxed',
+        interaction.isSelectable && 'coach-landing-block-selectable',
+        interaction.isSelected && 'coach-landing-block-selected',
       )}
       style={blockStyle}
+      role={interaction.isSelectable ? 'button' : undefined}
+      tabIndex={interaction.isSelectable ? 0 : undefined}
+      aria-pressed={
+        interaction.isSelectable ? interaction.isSelected : undefined
+      }
+      onClick={interaction.handleClick}
+      onKeyDown={interaction.handleKeyDown}
     >
       {p.mediaUrl && (
         <div className="coach-landing-hero-media">

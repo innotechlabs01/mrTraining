@@ -96,6 +96,15 @@ export interface CanvasConfig {
   backgroundColor: string;
 }
 
+/**
+ * Interaccion opcional del renderer para el modo editor. Cuando
+ * `onSelectBlock` no se pasa, el markup publico permanece sin cambios.
+ */
+export interface CoachLandingBlockInteractionProps {
+  onSelectBlock?: ((id: string) => void) | undefined;
+  selectedBlockId?: string | null | undefined;
+}
+
 export interface ImageAsset {
   id: string;
   url: string;

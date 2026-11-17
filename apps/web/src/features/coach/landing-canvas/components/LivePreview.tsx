@@ -15,15 +15,21 @@
 import type {
   CoachLandingBlock as CoachLandingBlockType,
   CanvasConfig,
+  CoachLandingBlockInteractionProps,
 } from '@/features/coach/landing-canvas/types';
 import { CoachLandingDocumentView } from '@/features/coach/landing-canvas/components/CoachLandingDocumentView';
 
-interface LivePreviewProps {
+interface LivePreviewProps extends CoachLandingBlockInteractionProps {
   sections: CoachLandingBlockType[];
   config: CanvasConfig;
 }
 
-export function LivePreview({ sections, config }: LivePreviewProps): JSX.Element {
+export function LivePreview({
+  sections,
+  config,
+  onSelectBlock,
+  selectedBlockId,
+}: LivePreviewProps): JSX.Element {
   return (
     <div className="coach-live-preview min-h-full bg-surface-0">
       {sections.length === 0 ? (
@@ -31,7 +37,12 @@ export function LivePreview({ sections, config }: LivePreviewProps): JSX.Element
           <p className="text-sm">El lienzo esta vacio. Agrega un bloque desde la paleta.</p>
         </div>
       ) : (
-        <CoachLandingDocumentView sections={sections} config={config} />
+        <CoachLandingDocumentView
+          sections={sections}
+          config={config}
+          onSelectBlock={onSelectBlock}
+          selectedBlockId={selectedBlockId}
+        />
       )}
     </div>
   );

@@ -18,7 +18,9 @@
 
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { CoachLandingCanvas } from '@/features/coach/landing-canvas/components/CoachLandingCanvas';
+import { CoachLandingDocumentView } from '@/features/coach/landing-canvas/components/CoachLandingDocumentView';
 import { exportDocumentToHtml } from '@/features/coach/landing-canvas/utils/html-export';
 import type { CoachLandingDocument } from '@/features/coach/landing-canvas/types';
 
@@ -119,13 +121,15 @@ function installGoApiMock(wire: Record<string, unknown> = createLandingWire()) {
   });
 }
 
-/** Monta el editor con createRoot dentro de act(). */
-function renderCanvas(container: HTMLElement): Root {
+/** Monta el editor con createRoot y espera la carga inicial dentro de act(). */
+async function renderCanvas(container: HTMLElement): Promise<Root> {
   let root!: Root;
-  act(() => {
+  await act(async () => {
     root = createRoot(container);
     root.render(<CoachLandingCanvas />);
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
+  await flush();
   return root;
 }
 
@@ -259,7 +263,7 @@ describe('CoachLandingCanvas — interacciones del editor (AC1, AC3, AC4, AC10)'
   let container: HTMLDivElement;
   let root: Root;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
     createObjectURLMock.mockClear();
     revokeObjectURLMock.mockClear();
@@ -267,7 +271,7 @@ describe('CoachLandingCanvas — interacciones del editor (AC1, AC3, AC4, AC10)'
 
     container = document.createElement('div');
     document.body.appendChild(container);
-    root = renderCanvas(container);
+    root = await renderCanvas(container);
   });
 
   afterEach(() => {
@@ -575,11 +579,11 @@ describe('CoachLandingCanvas — interacciones del editor (AC1, AC3, AC4, AC10)'
           },
         ]),
       });
-      installGoApiMock(wire);
-
       act(() => {
-        root.render(<CoachLandingCanvas />);
+        root.unmount();
       });
+      installGoApiMock(wire);
+      root = await renderCanvas(container);
       await flush();
 
       clickPalette(container, 'Texto');
@@ -658,6 +662,318 @@ describe('CoachLandingCanvas — interacciones del editor (AC1, AC3, AC4, AC10)'
       );
       expect(html).not.toContain('href="javascript:');
       expect(html).toContain('href="#"');
+    });
+  });
+
+  describe('F16 — Seleccion de bloques en el canvas', () => {
+    async function remountWithWire(wire: Record<string, unknown>): Promise<void> {
+      act(() => {
+        root.unmount();
+      });
+      installGoApiMock(wire);
+      root = await renderCanvas(container);
+    }
+
+    it('clickear un bloque selecciona ese bloque y sus acciones Subir/Bajar/Eliminar lo usan', async () => {
+      const wire = createLandingWire({
+        sections: JSON.stringify([
+          {
+            id: 'block-hero-1',
+            type: 'hero',
+            order: 0,
+            props: {
+              headline: 'Titular original',
+              subheadline: 'Subtitulo original',
+              ctaLabel: 'Comenzar',
+              ctaUrl: '/',
+            },
+          },
+          {
+            id: 'block-heading-1',
+            type: 'heading',
+            order: 1,
+            props: {
+              level: 'h2',
+              text: 'Titular seleccionable',
+            },
+          },
+        ]),
+      });
+      await remountWithWire(wire);
+      await flush();
+
+      const preview = getPreview(container);
+      const heading = preview.querySelector('.coach-landing-heading') as HTMLElement | null;
+      expect(heading).not.toBeNull();
+
+      act(() => {
+        heading?.click();
+      });
+      await flush();
+
+      const inspector = container.querySelector('.coach-inspector');
+      expect(findControlByLabel(inspector as HTMLElement, 'Nivel')).not.toBeNull();
+      expect(
+        Array.from(inspector?.querySelectorAll('input') ?? []).some(
+          (input) => input.value === 'Titular seleccionable',
+        ),
+      ).toBe(true);
+      expect(heading?.classList.contains('coach-landing-block-selected')).toBe(true);
+
+      // Clickear el bloque ya seleccionado no lo deselecciona.
+      act(() => {
+        heading?.click();
+      });
+      await flush();
+      expect(container.querySelector('.coach-inspector')?.textContent).toContain(
+        'Nivel',
+      );
+
+      const upButton = container.querySelector(
+        'button[title="Subir"]',
+      ) as HTMLButtonElement | null;
+      const downButton = container.querySelector(
+        'button[title="Bajar"]',
+      ) as HTMLButtonElement | null;
+      const deleteButton = container.querySelector(
+        'button[title="Eliminar"]',
+      ) as HTMLButtonElement | null;
+      expect(upButton).not.toBeNull();
+      expect(downButton).not.toBeNull();
+      expect(deleteButton).not.toBeNull();
+
+      clickButton(upButton);
+      await flush();
+      const page = preview.querySelector('.coach-landing-page');
+      expect(page?.children[0]?.classList.contains('coach-landing-heading')).toBe(
+        true,
+      );
+
+      clickButton(downButton);
+      await flush();
+      expect(page?.children[0]?.classList.contains('coach-landing-hero')).toBe(
+        true,
+      );
+
+      clickButton(deleteButton);
+      await flush();
+      expect(preview.querySelector('.coach-landing-heading')).toBeNull();
+      expect(container.querySelector('.coach-inspector')?.textContent).toContain(
+        'Selecciona un bloque para editar sus propiedades.',
+      );
+    });
+
+    it('mantiene exactamente el markup publico cuando no hay props de interaccion', () => {
+      const sections: CoachLandingDocument['sections'] = [
+        {
+          id: 'block-text-1',
+          type: 'text',
+          order: 0,
+          props: {
+            body: 'Cuerpo publico',
+          },
+        },
+      ];
+
+      const markup = renderToStaticMarkup(
+        <CoachLandingDocumentView
+          sections={sections}
+          config={{
+            primaryColor: '#15AAF2',
+            fontFamily: 'Montserrat, sans-serif',
+            backgroundColor: '#0a0a0a',
+          }}
+        />,
+      );
+
+      expect(markup).toBe(
+        '<main class="coach-landing-page" style="--coach-primary:#15AAF2;--coach-bg:#0a0a0a;--coach-font:Montserrat, sans-serif"><div class="coach-landing-text">Cuerpo publico</div></main>',
+      );
+      expect(markup).not.toContain('tabindex');
+      expect(markup).not.toContain('role="button"');
+      expect(markup).not.toContain('coach-landing-block-selectable');
+      expect(markup).not.toContain('coach-landing-block-selected');
+    });
+
+    it('selecciona un bloque con enlace sin ejecutar la navegacion del href', async () => {
+      const wire = createLandingWire({
+        sections: JSON.stringify([
+          {
+            id: 'block-button-1',
+            type: 'button',
+            order: 0,
+            props: {
+              label: 'Boton enlazado',
+              url: '#no-navigation',
+              variant: 'primary',
+              size: 'md',
+            },
+          },
+        ]),
+      });
+      await remountWithWire(wire);
+      await flush();
+
+      const preview = getPreview(container);
+      const link = preview.querySelector('a.coach-landing-button');
+      expect(link).not.toBeNull();
+      const initialHash = window.location.hash;
+      const clickEvent = new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+      });
+
+      act(() => {
+        link?.dispatchEvent(clickEvent);
+      });
+      await flush();
+
+      expect(clickEvent.defaultPrevented).toBe(true);
+      expect(window.location.hash).toBe(initialHash);
+      expect(findControlByLabel(container, 'Etiqueta')).not.toBeNull();
+    });
+
+    it('permite seleccionar bloques con Enter y Espacio desde el teclado', async () => {
+      const wire = createLandingWire({
+        sections: JSON.stringify([
+          {
+            id: 'block-heading-1',
+            type: 'heading',
+            order: 0,
+            props: {
+              level: 'h2',
+              text: 'Titular por teclado',
+            },
+          },
+        ]),
+      });
+      await remountWithWire(wire);
+      await flush();
+
+      const heading = getPreview(container).querySelector(
+        '.coach-landing-heading',
+      );
+      expect(heading).not.toBeNull();
+
+      act(() => {
+        heading?.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: 'Enter',
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      });
+      await flush();
+      expect(findControlByLabel(container, 'Nivel')).not.toBeNull();
+
+      clickButton(findButtonByText(container, 'Deseleccionar'));
+      await flush();
+      expect(container.querySelector('.coach-inspector')?.textContent).toContain(
+        'Selecciona un bloque para editar sus propiedades.',
+      );
+
+      act(() => {
+        heading?.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: ' ',
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      });
+      await flush();
+      expect(findControlByLabel(container, 'Nivel')).not.toBeNull();
+      expect(heading?.classList.contains('coach-landing-block-selected')).toBe(true);
+    });
+
+    it('hace seleccionables los ocho tipos de bloque del canvas', async () => {
+      const wire = createLandingWire({
+        sections: JSON.stringify([
+          {
+            id: 'block-hero-1',
+            type: 'hero',
+            order: 0,
+            props: {
+              headline: 'Hero',
+              subheadline: 'Subtitulo',
+              ctaLabel: 'Comenzar',
+              ctaUrl: '/',
+            },
+          },
+          {
+            id: 'block-heading-1',
+            type: 'heading',
+            order: 1,
+            props: { level: 'h2', text: 'Titulo' },
+          },
+          {
+            id: 'block-text-1',
+            type: 'text',
+            order: 2,
+            props: { body: 'Texto' },
+          },
+          {
+            id: 'block-image-1',
+            type: 'image',
+            order: 3,
+            props: { src: '/imagen.jpg', alt: 'Imagen' },
+          },
+          {
+            id: 'block-button-1',
+            type: 'button',
+            order: 4,
+            props: {
+              label: 'Boton',
+              url: '/',
+              variant: 'primary',
+              size: 'md',
+            },
+          },
+          {
+            id: 'block-divider-1',
+            type: 'divider',
+            order: 5,
+            props: { style: 'solid', thickness: '1px' },
+          },
+          {
+            id: 'block-social-links-1',
+            type: 'social-links',
+            order: 6,
+            props: {
+              links: [{ label: 'Instagram', url: 'https://instagram.com' }],
+            },
+          },
+          {
+            id: 'block-contact-1',
+            type: 'contact',
+            order: 7,
+            props: {
+              email: 'coach@example.com',
+              socialLinks: [],
+            },
+          },
+        ]),
+      });
+      await remountWithWire(wire);
+      await flush();
+
+      const selectableBlocks = Array.from(
+        getPreview(container).querySelectorAll<HTMLElement>(
+          '.coach-landing-block-selectable',
+        ),
+      );
+      expect(selectableBlocks).toHaveLength(8);
+
+      for (const blockElement of selectableBlocks) {
+        act(() => {
+          blockElement.click();
+        });
+        await flush();
+        expect(blockElement.classList.contains('coach-landing-block-selected')).toBe(
+          true,
+        );
+      }
     });
   });
 });

@@ -17,11 +17,12 @@
 import type {
   CoachLandingBlock as CoachLandingBlockType,
   CanvasConfig,
+  CoachLandingBlockInteractionProps,
 } from '@/features/coach/landing-canvas/types';
 import { buildCoachLandingCssVars } from '@/features/coach/landing-canvas/utils/block-utils';
 import { CoachLandingBlock } from '@/features/coach/landing-canvas/components/blocks/CoachLandingBlock';
 
-interface CoachLandingDocumentViewProps {
+interface CoachLandingDocumentViewProps extends CoachLandingBlockInteractionProps {
   sections: CoachLandingBlockType[];
   config: CanvasConfig;
 }
@@ -29,13 +30,21 @@ interface CoachLandingDocumentViewProps {
 export function CoachLandingDocumentView({
   sections,
   config,
+  onSelectBlock,
+  selectedBlockId,
 }: CoachLandingDocumentViewProps): JSX.Element {
   const vars = buildCoachLandingCssVars(config);
 
   return (
     <main className="coach-landing-page" style={vars}>
       {sections.map((block) => (
-        <CoachLandingBlock key={block.id} block={block} config={config} />
+        <CoachLandingBlock
+          key={block.id}
+          block={block}
+          config={config}
+          onSelectBlock={onSelectBlock}
+          selectedBlockId={selectedBlockId}
+        />
       ))}
     </main>
   );
