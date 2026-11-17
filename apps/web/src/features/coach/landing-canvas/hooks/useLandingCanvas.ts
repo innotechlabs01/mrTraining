@@ -109,9 +109,14 @@ export function useLandingCanvas(): UseLandingCanvasReturn {
     try {
       const list = await getCoachLandings();
       setLandings(list);
-      if (list.length > 0 && !selectedLandingId) {
-        setSelectedLandingId(list[0].id);
-        setDocument(list[0]);
+      if (list.length > 0) {
+        // El setter funcional evita depender de `selectedLandingId`: antes el
+        // callback lo incluia en sus deps y el effect que lo dispara volvia a
+        // pedir la lista cada vez que se fijaba la landing (GET duplicado).
+        setSelectedLandingId((current) => {
+          if (current && list.some((l) => l.id === current)) return current;
+          return list[0].id;
+        });
       }
     } catch {
       // Si no hay landing aun, no es error: lista vacia.
@@ -119,7 +124,7 @@ export function useLandingCanvas(): UseLandingCanvasReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedLandingId]);
+  }, []);
 
   useEffect(() => {
     void loadLandings();
