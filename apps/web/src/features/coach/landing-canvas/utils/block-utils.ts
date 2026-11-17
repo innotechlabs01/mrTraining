@@ -375,6 +375,92 @@ export function safeFontFamily(value: string | undefined, fallback: string): str
 }
 
 /**
+ * Allowlist para el nivel de encabezado (h1..h4). Los datos que vienen de la
+ * DB nunca se confian aunque TypeScript los tipese como un nivel valido (R3).
+ * Default 'h2', igual que createHeadingBlock.
+ */
+export const SAFE_HEADING_LEVELS: ReadonlyArray<'h1' | 'h2' | 'h3' | 'h4'> = [
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+];
+
+export function safeHeadingLevel(
+  value: string | undefined,
+  fallback: string = 'h2',
+): 'h1' | 'h2' | 'h3' | 'h4' {
+  if (
+    typeof value === 'string' &&
+    SAFE_HEADING_LEVELS.includes(value as 'h1' | 'h2' | 'h3' | 'h4')
+  ) {
+    return value as 'h1' | 'h2' | 'h3' | 'h4';
+  }
+  return fallback as 'h1' | 'h2' | 'h3' | 'h4';
+}
+
+/**
+ * Allowlist para la alineacion de texto (R3). Default 'center'.
+ */
+export const SAFE_ALIGNS: ReadonlyArray<'left' | 'center' | 'right' | 'justify'> = [
+  'left',
+  'center',
+  'right',
+  'justify',
+];
+
+export function safeAlign(
+  value: string | undefined,
+  fallback: string = 'center',
+): 'left' | 'center' | 'right' | 'justify' {
+  if (
+    typeof value === 'string' &&
+    SAFE_ALIGNS.includes(value as 'left' | 'center' | 'right' | 'justify')
+  ) {
+    return value as 'left' | 'center' | 'right' | 'justify';
+  }
+  return fallback as 'left' | 'center' | 'right' | 'justify';
+}
+
+/**
+ * Valida el grosor del separador: solo enteros 1..20 seguidos de 'px'.
+ * Default '1px' (igual que createDividerBlock). (R3)
+ */
+export function safeThickness(
+  value: string | undefined,
+  fallback: string = '1px',
+): string {
+  if (typeof value !== 'string') return fallback;
+  const m = value.match(/^(\d{1,2})px$/);
+  if (!m) return fallback;
+  const n = parseInt(m[1], 10);
+  if (n < 1 || n > 20) return fallback;
+  return `${n}px`;
+}
+
+/**
+ * Allowlist para el estilo del separador (R3). Default 'solid'.
+ */
+export const SAFE_DIVIDER_STYLES: ReadonlyArray<'solid' | 'dashed' | 'dotted'> = [
+  'solid',
+  'dashed',
+  'dotted',
+];
+
+export function safeDividerStyle(
+  value: string | undefined,
+  fallback: string = 'solid',
+): 'solid' | 'dashed' | 'dotted' {
+  if (
+    typeof value === 'string' &&
+    SAFE_DIVIDER_STYLES.includes(value as 'solid' | 'dashed' | 'dotted')
+  ) {
+    return value as 'solid' | 'dashed' | 'dotted';
+  }
+  return fallback as 'solid' | 'dashed' | 'dotted';
+}
+
+/**
  * Construye las variables CSS del tema del coach a partir del config global:
  * --coach-primary, --coach-bg y --coach-font, con valores sanitizados.
  * Inyectado por CoachLandingDocumentView en el contenedor de pagina para que

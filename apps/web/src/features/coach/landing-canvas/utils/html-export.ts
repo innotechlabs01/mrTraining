@@ -12,6 +12,10 @@ import {
   safeColor,
   safeFontFamily,
   defaultCanvasConfig,
+  safeHeadingLevel,
+  safeAlign,
+  safeThickness,
+  safeDividerStyle,
 } from './block-utils';
 
 /**
@@ -46,7 +50,7 @@ function blockStyleAttr(s: {
   if (s.marginBottom) parts.push(`margin-bottom:${cssString(s.marginBottom)}`);
   if (s.width === 'full') parts.push('width:100%');
   if (s.width === 'boxed') parts.push('max-width:800px;margin-left:auto;margin-right:auto');
-  if (s.align) parts.push(`text-align:${s.align}`);
+  if (s.align) parts.push(`text-align:${safeAlign(s.align, 'center')}`);
   return parts.length ? ` style="${htmlAttrEscape(parts.join('; '))}"` : '';
 }
 
@@ -73,7 +77,7 @@ function renderBlockToHtml(block: CoachLandingBlock, config: CanvasConfig): stri
     }
     case 'heading': {
       const p = block.props;
-      const tag = p.level as 'h1' | 'h2' | 'h3' | 'h4';
+      const tag = safeHeadingLevel(p.level, 'h2');
       return `<${tag} class="export-block export-heading${blockStyleAttr(p)}">${htmlEscape(p.text)}</${tag}>`;
     }
     case 'text': {
@@ -96,8 +100,10 @@ function renderBlockToHtml(block: CoachLandingBlock, config: CanvasConfig): stri
     }
     case 'divider': {
       const p = block.props;
+      const thickness = safeThickness(p.thickness, '1px');
+      const dividerStyle = safeDividerStyle(p.style, 'solid');
       const dividerColor = safeColor(p.textColor || config.primaryColor, defaults.primaryColor);
-      return `<hr class="export-block export-divider${blockStyleAttr(p)}" style="border:none;border-top:${p.thickness} ${p.style} ${dividerColor};margin:0;">`;
+      return `<hr class="export-block export-divider${blockStyleAttr(p)}" style="border:none;border-top:${thickness} ${dividerStyle} ${dividerColor};margin:0;">`;
     }
     case 'social-links': {
       const p = block.props;

@@ -113,4 +113,93 @@ describe('exportDocumentToHtml (F7, F8)', () => {
     expect(html).toContain('font-family: Montserrat, sans-serif');
   });
 
+  // --- R3 — Valores del coach usados como tag/atributo sin validar ---
+
+  it('R3 — level malicioso no produce un tag ejecutable (usa default h2)', () => {
+    const evil = document({
+      sections: [
+        {
+          id: 'block-1',
+          type: 'heading',
+          order: 0,
+          props: {
+            level: 'script>alert(1)<script',
+            text: 'Titular inyectado',
+          } as any,
+        },
+      ],
+    });
+    const html = exportDocumentToHtml(evil);
+    // No aparece el payload crudo ni se crea un tag <script>.
+    expect(html).not.toContain('script>alert(1)<script');
+    expect(html).not.toContain('<script');
+    // Se usa el default permitido: h2.
+    expect(html).toContain('<h2 class="export-block export-heading');
+    expect(html).toContain('Titular inyectado');
+  });
+
+  it('R3 — align malicioso no inyecta atributos en style', () => {
+    const evil = document({
+      sections: [
+        {
+          id: 'block-1',
+          type: 'text',
+          order: 0,
+          props: {
+            body: 'Texto',
+            align: 'center" onmouseover="alert(1)',
+          } as any,
+        },
+      ],
+    });
+    const html = exportDocumentToHtml(evil);
+    // No aparece el payload crudo ni el atributo inyectado.
+    expect(html).not.toContain('onmouseover');
+    expect(html).not.toContain('center" onmouseover');
+    // Se usa el default permitido: center.
+    expect(html).toContain('text-align:center');
+  });
+
+  it('R3 — thickness malicioso no inyecta atributos en el divider', () => {
+    const evil = document({
+      sections: [
+        {
+          id: 'block-1',
+          type: 'divider',
+          order: 0,
+          props: {
+            style: 'solid',
+            thickness: '1px solid" onmouseover="alert(1)',
+          } as any,
+        },
+      ],
+    });
+    const html = exportDocumentToHtml(evil);
+    expect(html).not.toContain('onmouseover');
+    expect(html).not.toContain('1px solid" onmouseover');
+    // Se usa el default permitido: 1px.
+    expect(html).toContain('border-top:1px solid');
+  });
+
+  it('R3 — style del divider malicioso no inyecta atributos', () => {
+    const evil = document({
+      sections: [
+        {
+          id: 'block-1',
+          type: 'divider',
+          order: 0,
+          props: {
+            style: 'solid" onmouseover="alert(1)',
+            thickness: '1px',
+          } as any,
+        },
+      ],
+    });
+    const html = exportDocumentToHtml(evil);
+    expect(html).not.toContain('onmouseover');
+    expect(html).not.toContain('solid" onmouseover');
+    // Se usa el default permitido: solid.
+    expect(html).toContain('border-top:1px solid');
+  });
+
 });
