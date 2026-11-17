@@ -16,9 +16,9 @@
 - [ ] T-011: Coach Landing Canvas (WYSIWYG) + publish sin redeploy — menu "Landing Page" → `/coach/landing-canvas`; editor por bloques con vista previa en vivo; publicar = flag `is_published` en DB (nunca deploy Vercel); `/l/[slug]` renderiza los mismos bloques (WYSIWYG real); export HTML standalone
   - architect: DONE — plan `docs/superpower/plans/T-011-coach-landing-canvas-plan.md`
   - dev-backend: DONE (ctx_2d5c28872150) — commit `1cdc95e` (panic `coach_id` + 13 tests E1-E6)
-  - dev-front: DONE (ctx_1805ed95440a) + FIX ROUNDS 1 y 2 (ctx_f28c8b0022b7, ctx_92a081a3ebb8) — commits `a4c6ac5`, `4e711c0`, `b9f198b` (F1-F15 corregidos y verificados por el coordinador)
-  - QA: IN PROGRESS
-  - code-reviewer: pendiente
+  - dev-front: DONE (ctx_1805ed95440a) + FIX ROUNDS 1-4 (ctx_f28c8b0022b7, ctx_92a081a3ebb8, ctx_6069de0a50b9, ctx_d2303d2979ff) — commits `a4c6ac5`, `4e711c0`, `b9f198b`, `ff496c9`, `2306a49` (F1-F16 corregidos y verificados por el coordinador)
+  - QA: DONE (ctx_03145d40a979 + follow-up ctx_2588c7291581) — PASS con limitaciones: AC1/AC3/AC4/AC10 no verificables en navegador por el auth gate de Clerk; mitigado con 17 tests jsdom del editor
+  - code-reviewer: IN PROGRESS (ctx_3084b94f6fcd)
   - security-hacker: pendiente
 
 ## Done
