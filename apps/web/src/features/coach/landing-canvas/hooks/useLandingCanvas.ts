@@ -34,6 +34,18 @@ import {
 import { exportDocumentToHtml } from '@/features/coach/landing-canvas/utils/html-export';
 import { toast } from 'sonner';
 
+/**
+ * Reindexa `order` de forma consecutiva (0..n-1) sobre un array nuevo de
+ * bloques, sin mutar los objetos originales. Se usa despues de add/remove/move
+ * para que `order` nunca quede desincronizado (F9).
+ */
+function reindexSections(sections: CoachLandingBlock[]): CoachLandingBlock[] {
+  return sections.map((s, index) => ({
+    ...s,
+    order: index,
+  }));
+}
+
 interface UseLandingCanvasReturn {
   // Datos del documento actual
   document: CoachLandingDocument | null;
@@ -131,9 +143,10 @@ export function useLandingCanvas(): UseLandingCanvasReturn {
       setDocument((prev) => {
         if (!prev) return prev;
         const ordered: CoachLandingBlock = { ...block, order: prev.sections.length };
+        const next = reindexSections([...prev.sections, ordered]);
         return {
           ...prev,
-          sections: [...prev.sections, ordered] as CoachLandingBlock[],
+          sections: next as CoachLandingBlock[],
           updatedAt: new Date().toISOString(),
         } as CoachLandingDocument;
       });
@@ -146,9 +159,12 @@ export function useLandingCanvas(): UseLandingCanvasReturn {
     (id: string) => {
       setDocument((prev) => {
         if (!prev) return prev;
+        const next = reindexSections(
+          prev.sections.filter((s) => s.id !== id),
+        );
         return {
           ...prev,
-          sections: prev.sections.filter((s) => s.id !== id),
+          sections: next as CoachLandingBlock[],
           updatedAt: new Date().toISOString(),
         } as CoachLandingDocument;
       });
@@ -165,11 +181,9 @@ export function useLandingCanvas(): UseLandingCanvasReturn {
         if (idx <= 0) return prev;
         const next = [...prev.sections];
         [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
-        next[idx - 1].order = idx - 1;
-        next[idx].order = idx;
         return {
           ...prev,
-          sections: next as CoachLandingBlock[],
+          sections: reindexSections(next) as CoachLandingBlock[],
           updatedAt: new Date().toISOString(),
         } as CoachLandingDocument;
       });
@@ -185,11 +199,9 @@ export function useLandingCanvas(): UseLandingCanvasReturn {
         if (idx < 0 || idx >= prev.sections.length - 1) return prev;
         const next = [...prev.sections];
         [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
-        next[idx].order = idx;
-        next[idx + 1].order = idx + 1;
         return {
           ...prev,
-          sections: next as CoachLandingBlock[],
+          sections: reindexSections(next) as CoachLandingBlock[],
           updatedAt: new Date().toISOString(),
         } as CoachLandingDocument;
       });

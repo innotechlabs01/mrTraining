@@ -7,6 +7,7 @@ import type {
   CanvasConfig,
 } from '@/features/coach/landing-canvas/types';
 import { cn } from '@/lib/utils';
+import { sanitizeUrl } from '@/features/coach/landing-canvas/utils/block-utils';
 
 interface HeroBlockPropsInjected {
   block: { props: HeroBlockProps };
@@ -27,7 +28,10 @@ export function HeroBlock({
 
   return (
     <section
-      className={cn('coach-landing-hero', p.width === 'full' ? 'w-full' : 'max-w-boxed mx-auto')}
+      className={cn(
+        'coach-landing-hero',
+        p.width === 'full' ? 'w-full' : 'coach-landing-boxed',
+      )}
       style={blockStyle}
     >
       {p.mediaUrl && (
@@ -46,11 +50,12 @@ export function HeroBlock({
       )}
       {p.ctaLabel && (
         <a
-          href={p.ctaUrl}
-          className={cn(
-            'coach-landing-hero-cta inline-block',
-            config.primaryColor ? `bg-[${config.primaryColor}] text-black` : '',
-          )}
+          href={sanitizeUrl(p.ctaUrl)}
+          className="coach-landing-hero-cta inline-block"
+          style={{
+            backgroundColor: config.primaryColor,
+            color: '#000',
+          }}
         >
           {p.ctaLabel}
         </a>

@@ -5,6 +5,7 @@
  * No contiene logica de negocio; solo compone la feature.
  */
 import { CoachLandingCanvas } from '@/features/coach/landing-canvas';
+import '@/features/coach/landing-canvas/styles/coach-landing.css';
 
 export default function CoachLandingCanvasPage(): JSX.Element {
   return <CoachLandingCanvas />;

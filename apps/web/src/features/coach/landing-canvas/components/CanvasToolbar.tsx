@@ -1,39 +1,34 @@
 /**
  * CanvasToolbar — Barra de herramientas superior: Guardar, Publicar, Exportar HTML.
  * Client Component.
+ *
+ * Recibe todos los handlers por props (una sola instancia de useLandingCanvas
+ * vive en CoachLandingCanvas; F2). No llama a useLandingCanvas().
  */
 'use client';
 
-import { useLandingCanvas } from '@/features/coach/landing-canvas/hooks/useLandingCanvas';
 import { Save, Send, Code2, Eye, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CanvasToolbarProps {
   isPublished: boolean;
-  onPreview: () => void;
-  onExport: (html: string) => void;
-  documentId: string | null;
+  onSave: () => void;
+  onPublish: (next: boolean) => void;
+  onExportHtml: () => void;
+  isSaving: boolean;
+  slug: string;
 }
 
 export function CanvasToolbar({
   isPublished,
-  onPreview,
-  onExport,
-  documentId,
+  onSave,
+  onPublish,
+  onExportHtml,
+  isSaving,
+  slug,
 }: CanvasToolbarProps): JSX.Element {
-  const {
-    saveDocument,
-    publishDocument,
-    exportHtml,
-    isSaving,
-  } = useLandingCanvas();
-
-  const handleExport = () => {
-    if (!documentId) return;
-    const html = exportHtml();
-    if (html) {
-      onExport(html);
-    }
+  const handlePreview = () => {
+    window.open(`/l/${slug}`, '_blank');
   };
 
   return (
@@ -46,8 +41,8 @@ export function CanvasToolbar({
 
       <div className="flex items-center gap-2">
         <button
-          onClick={saveDocument}
-          disabled={isSaving || !documentId}
+          onClick={onSave}
+          disabled={isSaving}
           className={cn(
             'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50',
             isSaving
@@ -64,8 +59,8 @@ export function CanvasToolbar({
         </button>
 
         <button
-          onClick={() => publishDocument(!isPublished)}
-          disabled={isSaving || !documentId}
+          onClick={() => onPublish(!isPublished)}
+          disabled={isSaving}
           className={cn(
             'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50',
             isSaving
@@ -84,8 +79,7 @@ export function CanvasToolbar({
         </button>
 
         <button
-          onClick={handleExport}
-          disabled={!documentId}
+          onClick={onExportHtml}
           className={cn(
             'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50',
             'bg-surface-2 border border-surface-3 text-text-primary hover:bg-surface-3',
@@ -95,7 +89,7 @@ export function CanvasToolbar({
         </button>
 
         <button
-          onClick={onPreview}
+          onClick={handlePreview}
           className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-surface-2 border border-surface-3 text-text-primary hover:bg-surface-3"
         >
           <Eye size={16} /> Vista previa publica

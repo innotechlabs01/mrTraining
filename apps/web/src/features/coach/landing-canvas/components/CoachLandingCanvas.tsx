@@ -6,6 +6,10 @@
  * landing. Usa `useLandingCanvas` para el estado y la persistencia (E1-E4).
  *
  * Client Component: gestiona estado de edicion y llama a la API de Go.
+ *
+ * F2: aqui vive la UNICA instancia de useLandingCanvas() de la feature.
+ * Los handlers se pasan por props a CanvasToolbar, BlockInspector y
+ * BlockPalette; ninguno de ellos vuelve a llamar al hook.
  */
 'use client';
 
@@ -21,7 +25,7 @@ import { LivePreview } from '@/features/coach/landing-canvas/components/LivePrev
 import { CanvasToolbar } from '@/features/coach/landing-canvas/components/CanvasToolbar';
 import {
   defaultCanvasConfig,
-  createHeroBlock,
+  createBlockForType,
 } from '@/features/coach/landing-canvas/utils/block-utils';
 import { toast } from 'sonner';
 
@@ -31,10 +35,7 @@ export function CoachLandingCanvas(): JSX.Element {
     sections,
     config,
     landings,
-    selectedLandingId,
-    setSelectedLandingId,
     isLoading,
-    isSaving,
     selectedBlockId,
     setSelectedBlockId,
     addBlock,
@@ -43,8 +44,11 @@ export function CoachLandingCanvas(): JSX.Element {
     moveBlockDown,
     updateBlock,
     updateConfig,
+    isSaving,
+    saveDocument,
+    publishDocument,
+    exportHtml,
     createLanding,
-    deleteDocument,
   } = useLandingCanvas();
 
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -56,18 +60,12 @@ export function CoachLandingCanvas(): JSX.Element {
     ? currentDoc.sections.find((b) => b.id === selectedBlockId) ?? null
     : null;
 
-  const handleAddBlock = (block: { type: BlockType }) => {
-    let newBlock: CoachLandingDocument extends never
-      ? never
-      : ReturnType<typeof createHeroBlock>;
-    switch (block.type) {
-      case 'hero':
-        newBlock = createHeroBlock();
-        break;
-      default:
-        newBlock = createHeroBlock();
-    }
-    addBlock(newBlock);
+  const selectedIndex = currentDoc
+    ? currentDoc.sections.findIndex((b) => b.id === selectedBlockId)
+    : -1;
+
+  const handleAddBlock = (type: BlockType) => {
+    addBlock(createBlockForType(type));
   };
 
   const handleDownloadHtml = (html: string) => {
@@ -94,7 +92,9 @@ export function CoachLandingCanvas(): JSX.Element {
     return (
       <div className="flex flex-col h-full p-8">
         <div className="max-w-xl mx-auto bg-surface-1 rounded-xl border border-surface-3 p-8">
-          <h1 className="text-2xl font-bold text-text-primary mb-2">Crear tu landing</h1>
+          <h1 className="text-2xl font-bold text-text-primary mb-2">
+            Crear tu landing
+          </h1>
           <p className="text-text-secondary mb-6">
             Aun no tienes una landing publicada. Crea la primera para empezar a disenar.
           </p>
@@ -114,7 +114,7 @@ export function CoachLandingCanvas(): JSX.Element {
                 title,
                 subtitle: subtitle || '',
                 config: JSON.stringify(defaultCanvasConfig()),
-                sections: JSON.stringify([createHeroBlock()]),
+                sections: JSON.stringify([createBlockForType('hero')]),
                 images: JSON.stringify([]),
               };
               void createLanding(input);
@@ -122,7 +122,9 @@ export function CoachLandingCanvas(): JSX.Element {
             className="space-y-4"
           >
             <div>
-              <label className="block text-xs text-text-secondary mb-1">Slug (URL)</label>
+              <label className="block text-xs text-text-secondary mb-1">
+                Slug (URL)
+              </label>
               <input
                 name="slug"
                 type="text"
@@ -131,7 +133,9 @@ export function CoachLandingCanvas(): JSX.Element {
               />
             </div>
             <div>
-              <label className="block text-xs text-text-secondary mb-1">Titulo</label>
+              <label className="block text-xs text-text-secondary mb-1">
+                Titulo
+              </label>
               <input
                 name="title"
                 type="text"
@@ -140,7 +144,9 @@ export function CoachLandingCanvas(): JSX.Element {
               />
             </div>
             <div>
-              <label className="block text-xs text-text-secondary mb-1">Subtitulo</label>
+              <label className="block text-xs text-text-secondary mb-1">
+                Subtitulo
+              </label>
               <input
                 name="subtitle"
                 type="text"
@@ -173,14 +179,11 @@ export function CoachLandingCanvas(): JSX.Element {
       {/* Toolbar */}
       <CanvasToolbar
         isPublished={currentDoc.isPublished}
-        onPreview={() => {
-          window.open(`/l/${currentDoc.slug}`, '_blank');
-        }}
-        onExport={(html) => {
-          setExportHtmlContent(html);
-          setShowExportDialog(true);
-        }}
-        documentId={currentDoc.id}
+        isSaving={isSaving}
+        slug={currentDoc.slug}
+        onSave={saveDocument}
+        onPublish={publishDocument}
+        onExportHtml={exportHtml}
       />
 
       {/* Cuerpo: paleta | lienzo | inspector */}
@@ -197,7 +200,7 @@ export function CoachLandingCanvas(): JSX.Element {
             <div className="p-3 bg-surface-1 border-t border-surface-3 flex items-center gap-3">
               <button
                 onClick={() => moveBlockUp(selectedBlock.id)}
-                disabled={selectedBlock.order === 0}
+                disabled={selectedIndex === 0}
                 className="flex items-center justify-center w-8 h-8 rounded-lg text-text-secondary hover:bg-surface-3 disabled:opacity-30"
                 title="Subir"
               >
@@ -206,8 +209,7 @@ export function CoachLandingCanvas(): JSX.Element {
               <button
                 onClick={() => moveBlockDown(selectedBlock.id)}
                 disabled={
-                  selectedBlock.order >=
-                  currentDoc.sections.length - 1
+                  selectedIndex >= currentDoc.sections.length - 1
                 }
                 className="flex items-center justify-center w-8 h-8 rounded-lg text-text-secondary hover:bg-surface-3 disabled:opacity-30"
                 title="Bajar"
@@ -228,14 +230,22 @@ export function CoachLandingCanvas(): JSX.Element {
           )}
         </div>
 
-        <BlockInspector block={selectedBlock} />
+        <BlockInspector
+          block={selectedBlock}
+          config={config}
+          onUpdateBlock={updateBlock}
+          onUpdateConfig={updateConfig}
+          onDeselect={() => setSelectedBlockId(null)}
+        />
       </div>
 
       {/* Dialog de exportacion HTML */}
       {showExportDialog && exportHtmlContent && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
           <div className="bg-surface-1 rounded-xl border border-surface-3 p-6 max-w-lg w-full mx-4">
-            <h3 className="text-lg font-bold text-text-primary mb-2">Exportar HTML</h3>
+            <h3 className="text-lg font-bold text-text-primary mb-2">
+              Exportar HTML
+            </h3>
             <p className="text-sm text-text-secondary mb-4">
               Descarga un archivo HTML autonomo que se abre en cualquier navegador y muestra lo mismo que la vista previa.
             </p>

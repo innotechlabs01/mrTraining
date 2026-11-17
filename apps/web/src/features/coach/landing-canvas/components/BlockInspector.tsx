@@ -1,11 +1,18 @@
 /**
  * BlockInspector — Panel de propiedades para editar el bloque seleccionado.
  * Client Component.
+ *
+ * Recibe los handlers por props (una sola instancia de useLandingCanvas vive
+ * en CoachLandingCanvas; F2). No llama a useLandingCanvas().
+ *
+ * El switch de editores es exhaustivo: assertNever solo en el default (F3),
+ * asi que nunca se ejecuta con un bloque valido y el inspector no crashea.
  */
 'use client';
 
 import type {
   CoachLandingBlock,
+  CanvasConfig,
   HeroBlockProps,
   HeadingBlockProps,
   TextBlockProps,
@@ -16,31 +23,38 @@ import type {
   ContactBlockProps,
   SocialLink,
 } from '@/features/coach/landing-canvas/types';
-import { useLandingCanvas } from '@/features/coach/landing-canvas/hooks/useLandingCanvas';
 import { assertNever } from '@/features/coach/landing-canvas/utils/block-utils';
 import { cn } from '@/lib/utils';
 
 interface BlockInspectorProps {
   block: CoachLandingBlock | null;
+  config: CanvasConfig;
+  onUpdateBlock: (
+    id: string,
+    patch: Partial<CoachLandingBlock['props']>,
+  ) => void;
+  onUpdateConfig: (patch: Partial<CanvasConfig>) => void;
+  onDeselect: () => void;
 }
 
-export function BlockInspector({ block }: BlockInspectorProps): JSX.Element {
-  const {
-    updateBlock,
-    updateConfig,
-    config,
-    setSelectedBlockId,
-  } = useLandingCanvas();
-
+export function BlockInspector({
+  block,
+  config,
+  onUpdateBlock,
+  onUpdateConfig,
+  onDeselect,
+}: BlockInspectorProps): JSX.Element {
   if (!block) {
     return (
       <div className="coach-inspector p-4 bg-surface-1 border-l border-surface-3">
-        <p className="text-sm text-text-muted">Selecciona un bloque para editar sus propiedades.</p>
+        <p className="text-sm text-text-muted">
+          Selecciona un bloque para editar sus propiedades.
+        </p>
       </div>
     );
   }
 
-  const { type, props } = block;
+  const { props } = block;
 
   return (
     <div className="coach-inspector p-4 bg-surface-1 border-l border-surface-3 flex flex-col gap-4">
@@ -49,7 +63,7 @@ export function BlockInspector({ block }: BlockInspectorProps): JSX.Element {
           Propiedades
         </span>
         <button
-          onClick={() => setSelectedBlockId(null)}
+          onClick={onDeselect}
           className="text-xs text-text-muted hover:text-text-primary underline"
         >
           Deseleccionar
@@ -58,17 +72,21 @@ export function BlockInspector({ block }: BlockInspectorProps): JSX.Element {
 
       {/* Estilos comunes a todos los bloques */}
       <section className="space-y-3 pt-2 border-t border-surface-3">
-        <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Estilo</h4>
+        <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+          Estilo
+        </h4>
         <div className="grid grid-cols-2 gap-3">
           <ColorInput
             label="Fondo"
             value={props.backgroundColor ?? ''}
-            onChange={(v) => updateBlock(block.id, { backgroundColor: v || undefined })}
+            onChange={(v) =>
+              onUpdateBlock(block.id, { backgroundColor: v || undefined })
+            }
           />
           <ColorInput
             label="Texto"
             value={props.textColor ?? ''}
-            onChange={(v) => updateBlock(block.id, { textColor: v || undefined })}
+            onChange={(v) => onUpdateBlock(block.id, { textColor: v || undefined })}
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -76,56 +94,90 @@ export function BlockInspector({ block }: BlockInspectorProps): JSX.Element {
             label="Padding"
             value={props.padding ?? ''}
             placeholder="1rem"
-            onChange={(v) => updateBlock(block.id, { padding: v || undefined })}
+            onChange={(v) => onUpdateBlock(block.id, { padding: v || undefined })}
           />
           <TextInput
             label="Margin inferior"
             value={props.marginBottom ?? ''}
             placeholder="1rem"
-            onChange={(v) => updateBlock(block.id, { marginBottom: v || undefined })}
+            onChange={(v) =>
+              onUpdateBlock(block.id, { marginBottom: v || undefined })
+            }
           />
         </div>
         <div className="flex gap-2">
-          <AlignButtons value={props.align ?? 'left'} onChange={(v) => updateBlock(block.id, { align: v })} />
+          <AlignButtons
+            value={props.align ?? 'left'}
+            onChange={(v) => onUpdateBlock(block.id, { align: v })}
+          />
         </div>
       </section>
 
-      {/* Props especificas por tipo de bloque */}
+      {/* Props especificas por tipo de bloque (switch exhaustivo, F3) */}
       <section className="space-y-3">
-        <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Contenido</h4>
-        {type === 'hero' && <HeroBlockEditor block={block} updateBlock={updateBlock} />}
-        {type === 'heading' && <HeadingBlockEditor block={block} updateBlock={updateBlock} />}
-        {type === 'text' && <TextBlockEditor block={block} updateBlock={updateBlock} />}
-        {type === 'image' && <ImageBlockEditor block={block} updateBlock={updateBlock} />}
-        {type === 'button' && <ButtonBlockEditor block={block} updateBlock={updateBlock} />}
-        {type === 'divider' && <DividerBlockEditor block={block} updateBlock={updateBlock} />}
-        {type === 'social-links' && <SocialLinksBlockEditor block={block} updateBlock={updateBlock} />}
-        {type === 'contact' && <ContactBlockEditor block={block} updateBlock={updateBlock} />}
-        {assertNever(block as never)}
+        <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+          Contenido
+        </h4>
+        {renderBlockEditor(block, onUpdateBlock)}
       </section>
 
       {/* Config global del canvas */}
       <section className="mt-4 pt-4 border-t border-surface-3 space-y-3">
-        <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Diseno global</h4>
+        <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+          Diseno global
+        </h4>
         <ColorInput
           label="Color primario"
           value={config.primaryColor}
-          onChange={(v) => updateConfig({ primaryColor: v })}
+          onChange={(v) => onUpdateConfig({ primaryColor: v })}
         />
         <TextInput
           label="Tipografia (font-family)"
           value={config.fontFamily}
           placeholder="system-ui, -apple-system, sans-serif"
-          onChange={(v) => updateConfig({ fontFamily: v })}
+          onChange={(v) => onUpdateConfig({ fontFamily: v })}
         />
         <ColorInput
           label="Fondo de pagina"
           value={config.backgroundColor}
-          onChange={(v) => updateConfig({ backgroundColor: v })}
+          onChange={(v) => onUpdateConfig({ backgroundColor: v })}
         />
       </section>
     </div>
   );
+}
+
+/**
+ * Renderiza el editor correspondiente al tipo de bloque.
+ * Switch exhaustivo sobre la union discriminada: assertNever solo en default.
+ */
+function renderBlockEditor(
+  block: CoachLandingBlock,
+  onUpdateBlock: (
+    id: string,
+    patch: Partial<CoachLandingBlock['props']>,
+  ) => void,
+): JSX.Element {
+  switch (block.type) {
+    case 'hero':
+      return <HeroBlockEditor block={block} updateBlock={onUpdateBlock} />;
+    case 'heading':
+      return <HeadingBlockEditor block={block} updateBlock={onUpdateBlock} />;
+    case 'text':
+      return <TextBlockEditor block={block} updateBlock={onUpdateBlock} />;
+    case 'image':
+      return <ImageBlockEditor block={block} updateBlock={onUpdateBlock} />;
+    case 'button':
+      return <ButtonBlockEditor block={block} updateBlock={onUpdateBlock} />;
+    case 'divider':
+      return <DividerBlockEditor block={block} updateBlock={onUpdateBlock} />;
+    case 'social-links':
+      return <SocialLinksBlockEditor block={block} updateBlock={onUpdateBlock} />;
+    case 'contact':
+      return <ContactBlockEditor block={block} updateBlock={onUpdateBlock} />;
+    default:
+      return assertNever(block);
+  }
 }
 
 /* ---------- Editores por tipo de bloque ---------- */
@@ -139,14 +191,38 @@ function HeroBlockEditor({ block, updateBlock }: CommonEditorProps) {
   const p = block.props as unknown as HeroBlockProps;
   return (
     <div className="space-y-3">
-      <TextInput label="Titular" value={p.headline} onChange={(v) => updateBlock(block.id, { headline: v })} />
-      <TextInput label="Subtitular" value={p.subheadline} onChange={(v) => updateBlock(block.id, { subheadline: v })} />
+      <TextInput
+        label="Titular"
+        value={p.headline}
+        onChange={(v) => updateBlock(block.id, { headline: v })}
+      />
+      <TextInput
+        label="Subtitular"
+        value={p.subheadline}
+        onChange={(v) => updateBlock(block.id, { subheadline: v })}
+      />
       <div className="grid grid-cols-2 gap-3">
-        <TextInput label="Etiqueta CTA" value={p.ctaLabel} onChange={(v) => updateBlock(block.id, { ctaLabel: v })} />
-        <TextInput label="URL CTA" value={p.ctaUrl} onChange={(v) => updateBlock(block.id, { ctaUrl: v })} />
+        <TextInput
+          label="Etiqueta CTA"
+          value={p.ctaLabel}
+          onChange={(v) => updateBlock(block.id, { ctaLabel: v })}
+        />
+        <TextInput
+          label="URL CTA"
+          value={p.ctaUrl}
+          onChange={(v) => updateBlock(block.id, { ctaUrl: v })}
+        />
       </div>
-      <TextInput label="URL de imagen" value={p.mediaUrl ?? ''} onChange={(v) => updateBlock(block.id, { mediaUrl: v || undefined })} />
-      <TextInput label="Alt de imagen" value={p.mediaAlt ?? ''} onChange={(v) => updateBlock(block.id, { mediaAlt: v || undefined })} />
+      <TextInput
+        label="URL de imagen"
+        value={p.mediaUrl ?? ''}
+        onChange={(v) => updateBlock(block.id, { mediaUrl: v || undefined })}
+      />
+      <TextInput
+        label="Alt de imagen"
+        value={p.mediaAlt ?? ''}
+        onChange={(v) => updateBlock(block.id, { mediaAlt: v || undefined })}
+      />
     </div>
   );
 }
@@ -155,12 +231,18 @@ function HeadingBlockEditor({ block, updateBlock }: CommonEditorProps) {
   const p = block.props as unknown as HeadingBlockProps;
   return (
     <div className="space-y-3">
-      <TextInput label="Texto" value={p.text} onChange={(v) => updateBlock(block.id, { text: v })} />
+      <TextInput
+        label="Texto"
+        value={p.text}
+        onChange={(v) => updateBlock(block.id, { text: v })}
+      />
       <SelectInput
         label="Nivel"
         value={p.level}
         options={['h1', 'h2', 'h3', 'h4']}
-        onChange={(v) => updateBlock(block.id, { level: v as 'h1' | 'h2' | 'h3' | 'h4' })}
+        onChange={(v) =>
+          updateBlock(block.id, { level: v as 'h1' | 'h2' | 'h3' | 'h4' })
+        }
       />
     </div>
   );
@@ -183,19 +265,31 @@ function ImageBlockEditor({ block, updateBlock }: CommonEditorProps) {
   const p = block.props as unknown as ImageBlockProps;
   return (
     <div className="space-y-3">
-      <TextInput label="URL de imagen" value={p.src} onChange={(v) => updateBlock(block.id, { src: v })} />
-      <TextInput label="Texto alternativo" value={p.alt} onChange={(v) => updateBlock(block.id, { alt: v })} />
+      <TextInput
+        label="URL de imagen"
+        value={p.src}
+        onChange={(v) => updateBlock(block.id, { src: v })}
+      />
+      <TextInput
+        label="Texto alternativo"
+        value={p.alt}
+        onChange={(v) => updateBlock(block.id, { alt: v })}
+      />
       <SelectInput
         label="Ancho"
         value={p.width ?? 'auto'}
         options={['auto', 'full']}
-        onChange={(v) => updateBlock(block.id, { width: v as 'auto' | 'full' })}
+        onChange={(v) =>
+          updateBlock(block.id, { width: v as 'auto' | 'full' })
+        }
       />
       <div className="flex items-center gap-2">
         <input
           type="checkbox"
           checked={p.rounded ?? false}
-          onChange={(e) => updateBlock(block.id, { rounded: e.target.checked })}
+          onChange={(e) =>
+            updateBlock(block.id, { rounded: e.target.checked })
+          }
         />
         <label className="text-sm text-text-secondary">Esquinas redondeadas</label>
       </div>
@@ -207,19 +301,31 @@ function ButtonBlockEditor({ block, updateBlock }: CommonEditorProps) {
   const p = block.props as unknown as ButtonBlockProps;
   return (
     <div className="space-y-3">
-      <TextInput label="Etiqueta" value={p.label} onChange={(v) => updateBlock(block.id, { label: v })} />
-      <TextInput label="URL" value={p.url} onChange={(v) => updateBlock(block.id, { url: v })} />
+      <TextInput
+        label="Etiqueta"
+        value={p.label}
+        onChange={(v) => updateBlock(block.id, { label: v })}
+      />
+      <TextInput
+        label="URL"
+        value={p.url}
+        onChange={(v) => updateBlock(block.id, { url: v })}
+      />
       <SelectInput
         label="Variante"
         value={p.variant}
         options={['primary', 'secondary', 'ghost']}
-        onChange={(v) => updateBlock(block.id, { variant: v as 'primary' | 'secondary' | 'ghost' })}
+        onChange={(v) =>
+          updateBlock(block.id, { variant: v as 'primary' | 'secondary' | 'ghost' })
+        }
       />
       <SelectInput
         label="Tamano"
         value={p.size ?? 'md'}
         options={['sm', 'md', 'lg']}
-        onChange={(v) => updateBlock(block.id, { size: v as 'sm' | 'md' | 'lg' })}
+        onChange={(v) =>
+          updateBlock(block.id, { size: v as 'sm' | 'md' | 'lg' })
+        }
       />
     </div>
   );
@@ -233,13 +339,17 @@ function DividerBlockEditor({ block, updateBlock }: CommonEditorProps) {
         label="Estilo"
         value={p.style}
         options={['solid', 'dashed', 'dotted']}
-        onChange={(v) => updateBlock(block.id, { style: v as 'solid' | 'dashed' | 'dotted' })}
+        onChange={(v) =>
+          updateBlock(block.id, { style: v as 'solid' | 'dashed' | 'dotted' })
+        }
       />
       <SelectInput
         label="Grosor"
         value={p.thickness}
         options={['1px', '2px']}
-        onChange={(v) => updateBlock(block.id, { thickness: v as '1px' | '2px' })}
+        onChange={(v) =>
+          updateBlock(block.id, { thickness: v as '1px' | '2px' })
+        }
       />
     </div>
   );
@@ -253,7 +363,9 @@ function SocialLinksBlockEditor({ block, updateBlock }: CommonEditorProps) {
         label="Diseno"
         value={p.layout ?? 'row'}
         options={['row', 'column']}
-        onChange={(v) => updateBlock(block.id, { layout: v as 'row' | 'column' })}
+        onChange={(v) =>
+          updateBlock(block.id, { layout: v as 'row' | 'column' })
+        }
       />
       <div className="space-y-2">
         {p.links.map((link: SocialLink, i: number) => (
@@ -296,10 +408,26 @@ function ContactBlockEditor({ block, updateBlock }: CommonEditorProps) {
   const p = block.props as unknown as ContactBlockProps;
   return (
     <div className="space-y-3">
-      <TextInput label="Email" value={p.email ?? ''} onChange={(v) => updateBlock(block.id, { email: v || undefined })} />
-      <TextInput label="Telefono" value={p.phone ?? ''} onChange={(v) => updateBlock(block.id, { phone: v || undefined })} />
-      <TextInput label="WhatsApp" value={p.whatsapp ?? ''} onChange={(v) => updateBlock(block.id, { whatsapp: v || undefined })} />
-      <TextInput label="Ciudad" value={p.city ?? ''} onChange={(v) => updateBlock(block.id, { city: v || undefined })} />
+      <TextInput
+        label="Email"
+        value={p.email ?? ''}
+        onChange={(v) => updateBlock(block.id, { email: v || undefined })}
+      />
+      <TextInput
+        label="Telefono"
+        value={p.phone ?? ''}
+        onChange={(v) => updateBlock(block.id, { phone: v || undefined })}
+      />
+      <TextInput
+        label="WhatsApp"
+        value={p.whatsapp ?? ''}
+        onChange={(v) => updateBlock(block.id, { whatsapp: v || undefined })}
+      />
+      <TextInput
+        label="Ciudad"
+        value={p.city ?? ''}
+        onChange={(v) => updateBlock(block.id, { city: v || undefined })}
+      />
     </div>
   );
 }

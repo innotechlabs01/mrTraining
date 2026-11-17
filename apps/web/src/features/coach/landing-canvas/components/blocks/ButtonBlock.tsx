@@ -6,6 +6,7 @@ import type {
   CanvasConfig,
 } from '@/features/coach/landing-canvas/types';
 import { cn } from '@/lib/utils';
+import { sanitizeUrl } from '@/features/coach/landing-canvas/utils/block-utils';
 
 interface ButtonBlockPropsInjected {
   block: { props: ButtonBlockProps };
@@ -31,10 +32,16 @@ export function ButtonBlock({
   };
 
   const variantClasses: Record<string, string> = {
-    primary: `coach-landing-btn-primary ${config.primaryColor ? `bg-[${config.primaryColor}] text-black` : ''}`,
+    primary: 'coach-landing-btn-primary',
     secondary: 'coach-landing-btn-secondary border border-current',
     ghost: 'coach-landing-btn-ghost text-current underline-offset-4 hover:underline',
   };
+
+  const buttonStyle: React.CSSProperties = {};
+  if (p.variant === 'primary') {
+    buttonStyle.backgroundColor = config.primaryColor;
+    buttonStyle.color = '#000';
+  }
 
   return (
     <div
@@ -42,7 +49,7 @@ export function ButtonBlock({
       style={blockStyle}
     >
       <a
-        href={p.url}
+        href={sanitizeUrl(p.url)}
         className={cn(
           'coach-landing-button inline-flex items-center justify-center rounded-lg font-medium transition-colors',
           sizeClasses[p.size ?? 'md'],
@@ -50,6 +57,7 @@ export function ButtonBlock({
           p.align === 'center' ? 'mx-auto' : '',
           p.align === 'right' ? 'ml-auto' : '',
         )}
+        style={buttonStyle}
       >
         {p.label}
       </a>

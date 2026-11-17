@@ -20,6 +20,12 @@ import type {
   CoachLandingDocument,
   CoachLandingListItem,
 } from '@/features/coach/landing-canvas/types';
+import type { CoachLandingWire } from './mappers';
+import {
+  mapCoachLandingDocument,
+  mapCoachLandingDocuments,
+  mapCoachLandingListItem,
+} from './mappers';
 
 const COACH_LANDING_BASE = '/api/v1/coach/landing';
 
@@ -50,25 +56,29 @@ export interface UploadLandingMediaResponse {
 
 /**
  * E1 — Lista de landings del coach (respuesta: array plano).
+ * Mapea el wire format (snake_case + JSON strings) al documento del dominio.
  */
 export async function getCoachLandings(): Promise<CoachLandingDocument[]> {
-  return goFetch<CoachLandingDocument[]>(COACH_LANDING_BASE, {
+  const raw = await goFetch<CoachLandingWire[]>(COACH_LANDING_BASE, {
     method: 'GET',
     auth: true,
   });
+  return mapCoachLandingDocuments(raw);
 }
 
 /**
  * E2 — Crea una nueva landing del coach.
+ * Mapea el wire format de la respuesta al documento del dominio.
  */
 export async function createCoachLanding(
   input: CreateCoachLandingInput,
 ): Promise<CoachLandingDocument> {
-  return goFetch<CoachLandingDocument>(COACH_LANDING_BASE, {
+  const raw = await goFetch<CoachLandingWire>(COACH_LANDING_BASE, {
     method: 'POST',
     body: JSON.stringify(input),
     auth: true,
   });
+  return mapCoachLandingDocument(raw);
 }
 
 /**
@@ -116,12 +126,14 @@ export async function deleteCoachLanding(id: string): Promise<{ deleted: boolean
  * E6 — Obtiene una landing publicada por slug (público, sin auth, raiz del Go API).
  * Se usa tanto en server components (/l/[slug]) como en el cliente cuando
  * se necesita el documento publico sin sesion de coach.
+ * Mapea el wire format al documento del dominio.
  */
 export async function getPublicCoachLanding(slug: string): Promise<CoachLandingDocument> {
-  return goFetch<CoachLandingDocument>(`/l/${slug}`, {
+  const raw = await goFetch<CoachLandingWire>(`/l/${slug}`, {
     method: 'GET',
     auth: false,
   });
+  return mapCoachLandingDocument(raw);
 }
 
 /**
@@ -145,12 +157,5 @@ export async function uploadLandingMedia(file: File): Promise<UploadLandingMedia
  */
 export async function getCoachLandingList(): Promise<CoachLandingListItem[]> {
   const docs = await getCoachLandings();
-  return docs.map((d) => ({
-    id: d.id,
-    slug: d.slug,
-    title: d.title,
-    subtitle: d.subtitle,
-    isPublished: d.isPublished,
-    updatedAt: d.updatedAt,
-  }));
+  return docs.map((d) => mapCoachLandingListItem(d));
 }

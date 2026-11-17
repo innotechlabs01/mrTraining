@@ -8,6 +8,7 @@ import type {
   SocialLink,
 } from '@/features/coach/landing-canvas/types';
 import { cn } from '@/lib/utils';
+import { sanitizeUrl } from '@/features/coach/landing-canvas/utils/block-utils';
 
 interface SocialLinksBlockPropsInjected {
   block: { props: SocialLinksBlockProps };
@@ -16,7 +17,7 @@ interface SocialLinksBlockPropsInjected {
 
 export function SocialLinksBlock({
   block,
-  config,
+  config: _config,
 }: SocialLinksBlockPropsInjected): JSX.Element {
   const p = block.props;
   const blockStyle: React.CSSProperties = {};
@@ -44,7 +45,7 @@ export function SocialLinksBlock({
         {p.links.map((link: SocialLink) => (
           <a
             key={link.url}
-            href={link.url}
+            href={sanitizeUrl(link.url)}
             className={cn(
               'coach-landing-social-link text-current hover:opacity-75 transition-colors',
               link.icon ? '' : 'underline-offset-2 hover:underline',
