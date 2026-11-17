@@ -8,6 +8,7 @@ import type {
   SocialLink,
 } from '@/features/coach/landing-canvas/types';
 import { cn } from '@/lib/utils';
+import { sanitizeUrl } from '@/features/coach/landing-canvas/utils/block-utils';
 
 interface ContactBlockPropsInjected {
   block: { props: ContactBlockProps };
@@ -34,7 +35,10 @@ export function ContactBlock({
       {p.email && (
         <div className="coach-landing-contact-row">
           <span className="coach-landing-contact-label">Email:</span>
-          <a href={`mailto:${p.email}`} className="coach-landing-contact-value">
+          <a
+            href={sanitizeUrl(`mailto:${encodeURIComponent(p.email)}`)}
+            className="coach-landing-contact-value"
+          >
             {p.email}
           </a>
         </div>
@@ -42,7 +46,7 @@ export function ContactBlock({
       {p.phone && (
         <div className="coach-landing-contact-row">
           <span className="coach-landing-contact-label">Tel:</span>
-          <a href={`tel:${p.phone}`} className="coach-landing-contact-value">
+          <a href={sanitizeUrl(`tel:${p.phone}`)} className="coach-landing-contact-value">
             {p.phone}
           </a>
         </div>
@@ -50,7 +54,10 @@ export function ContactBlock({
       {p.whatsapp && (
         <div className="coach-landing-contact-row">
           <span className="coach-landing-contact-label">WhatsApp:</span>
-          <a href={`https://wa.me/${p.whatsapp}`} className="coach-landing-contact-value">
+          <a
+            href={sanitizeUrl(`https://wa.me/${encodeURIComponent(p.whatsapp)}`)}
+            className="coach-landing-contact-value"
+          >
             {p.whatsapp}
           </a>
         </div>
@@ -67,7 +74,7 @@ export function ContactBlock({
             {p.socialLinks.map((link: SocialLink) => (
               <a
                 key={link.url}
-                href={link.url}
+                href={sanitizeUrl(link.url)}
                 className="coach-landing-social-link text-current hover:opacity-75 transition-colors"
               >
                 {link.label}

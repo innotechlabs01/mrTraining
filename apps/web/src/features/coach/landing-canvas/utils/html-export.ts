@@ -4,13 +4,26 @@ import type {
   CanvasConfig,
   SocialLink,
 } from '@/features/coach/landing-canvas/types';
-import { htmlEscape, htmlAttrEscape, assertNever } from './block-utils';
+import {
+  htmlEscape,
+  htmlAttrEscape,
+  assertNever,
+  sanitizeUrl,
+  safeColor,
+} from './block-utils';
 
 /**
  * Escapes a CSS string value for use inside a <style> block.
+ * Escapes \, ", <, > and & so coach-provided values can never break out of
+ * the style block (F7).
  */
 function cssString(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"');
 }
 
 /**
@@ -25,8 +38,8 @@ function blockStyleAttr(s: {
   align?: string;
 }): string {
   const parts: string[] = [];
-  if (s.backgroundColor) parts.push(`background-color:${cssString(s.backgroundColor)}`);
-  if (s.textColor) parts.push(`color:${cssString(s.textColor)}`);
+  if (s.backgroundColor) parts.push(`background-color:${safeColor(s.backgroundColor, 'transparent')}`);
+  if (s.textColor) parts.push(`color:${safeColor(s.textColor, '#fff')}`);
   if (s.padding) parts.push(`padding:${cssString(s.padding)}`);
   if (s.marginBottom) parts.push(`margin-bottom:${cssString(s.marginBottom)}`);
   if (s.width === 'full') parts.push('width:100%');
@@ -49,9 +62,9 @@ function renderBlockToHtml(block: CoachLandingBlock, config: CanvasConfig): stri
       return `
         <section class="export-block export-hero${blockStyleAttr(p)}">
           ${media}
-          <h1 style="font-size:2.5rem;font-weight:800;margin:0 0 1rem;line-height:1.1;color:${cssString(config.primaryColor)}">${htmlEscape(p.headline)}</h1>
+          <h1 style="font-size:2.5rem;font-weight:800;margin:0 0 1rem;line-height:1.1;color:${safeColor(config.primaryColor, '#15AAF2')}">${htmlEscape(p.headline)}</h1>
           ${p.subheadline ? `<p style="font-size:1.25rem;opacity:0.8;max-width:600px;margin:0 0 2rem;">${htmlEscape(p.subheadline)}</p>` : ''}
-          ${p.ctaLabel ? `<a href="${htmlAttrEscape(p.ctaUrl)}" class="export-btn">${htmlEscape(p.ctaLabel)}</a>` : ''}
+          ${p.ctaLabel ? `<a href="${htmlAttrEscape(sanitizeUrl(p.ctaUrl))}" class="export-btn">${htmlEscape(p.ctaLabel)}</a>` : ''}
         </section>
       `;
     }
@@ -70,16 +83,17 @@ function renderBlockToHtml(block: CoachLandingBlock, config: CanvasConfig): stri
     }
     case 'button': {
       const p = block.props;
+      const primary = safeColor(config.primaryColor, '#15AAF2');
       const variantStyles: Record<string, string> = {
-        primary: `background:${cssString(config.primaryColor)};color:#000;border-radius:0.5rem;padding:0.75rem 1.5rem;text-decoration:none;font-weight:600;display:inline-block;`,
-        secondary: `border:1px solid ${cssString(config.primaryColor)};color:${cssString(config.primaryColor)};border-radius:0.5rem;padding:0.75rem 1.5rem;text-decoration:none;font-weight:600;display:inline-block;`,
-        ghost: `color:${cssString(config.primaryColor)};text-decoration:none;padding:0.75rem 1.5rem;display:inline-block;`,
+        primary: `background:${primary};color:#000;border-radius:0.5rem;padding:0.75rem 1.5rem;text-decoration:none;font-weight:600;display:inline-block;`,
+        secondary: `border:1px solid ${primary};color:${primary};border-radius:0.5rem;padding:0.75rem 1.5rem;text-decoration:none;font-weight:600;display:inline-block;`,
+        ghost: `color:${primary};text-decoration:none;padding:0.75rem 1.5rem;display:inline-block;`,
       };
-      return `<a href="${htmlAttrEscape(p.url)}" class="export-btn export-button" style="${variantStyles[p.variant]}">${htmlEscape(p.label)}</a>`;
+      return `<a href="${htmlAttrEscape(sanitizeUrl(p.url))}" class="export-btn export-button" style="${variantStyles[p.variant]}">${htmlEscape(p.label)}</a>`;
     }
     case 'divider': {
       const p = block.props;
-      return `<hr class="export-block export-divider${blockStyleAttr(p)}" style="border:none;border-top:${p.thickness} ${p.style} ${cssString(p.textColor || config.primaryColor)};margin:0;">`;
+      return `<hr class="export-block export-divider${blockStyleAttr(p)}" style="border:none;border-top:${p.thickness} ${p.style} ${safeColor(p.textColor || config.primaryColor, '#15AAF2')};margin:0;">`;
     }
     case 'social-links': {
       const p = block.props;
@@ -87,7 +101,7 @@ function renderBlockToHtml(block: CoachLandingBlock, config: CanvasConfig): stri
       const linksHtml = p.links
         .map(
           (l: SocialLink) =>
-            `<a href="${htmlAttrEscape(l.url)}" style="margin:0 0.5rem;color:${cssString(config.primaryColor)};text-decoration:none;">${htmlEscape(l.label)}</a>`,
+            `<a href="${htmlAttrEscape(sanitizeUrl(l.url))}" style="margin:0 0.5rem;color:${safeColor(config.primaryColor, '#15AAF2')};text-decoration:none;">${htmlEscape(l.label)}</a>`,
         )
         .join('');
       return `<div class="export-block export-social-links${blockStyleAttr(p)}" style="${dir}">${linksHtml}</div>`;
@@ -103,7 +117,7 @@ function renderBlockToHtml(block: CoachLandingBlock, config: CanvasConfig): stri
         ? `<div style="margin-top:0.5rem;">${p.socialLinks
             .map(
               (l: SocialLink) =>
-                `<a href="${htmlAttrEscape(l.url)}" style="margin:0 0.25rem;color:${cssString(config.primaryColor)};text-decoration:none;">${htmlEscape(l.label)}</a>`,
+                `<a href="${htmlAttrEscape(sanitizeUrl(l.url))}" style="margin:0 0.25rem;color:${safeColor(config.primaryColor, '#15AAF2')};text-decoration:none;">${htmlEscape(l.label)}</a>`,
             )
             .join('')}</div>`
         : '';

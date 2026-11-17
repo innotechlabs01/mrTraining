@@ -1,14 +1,14 @@
 /**
  * LivePreview — Vista previa en vivo del canvas.
  *
- * Renderiza CoachLandingBlock (Server Component puro, mismo import path que
- * /l/[slug]) para cada seccion del documento actual. Cuando el estado del
- * canvas cambia (cliente), este componente se re-renderiza y la vista previa
- * se actualiza sin recargar la pagina (AC3, AC4).
+ * Renderiza CoachLandingDocumentView (el mismo componente compartido que usa
+ * la pagina publica /l/[slug]) para cada seccion del documento actual. Cuando
+ * el estado del canvas cambia (cliente), este componente se re-renderiza y la
+ * vista previa se actualiza sin recargar la pagina (AC3, AC4).
  *
- * Nota: CoachLandingBlock se importa sin 'use client'. Es un Server Component
- * puro que se renderiza tanto en el servidor (/l/[slug]) como aqui (preview
- * del editor), garantizando WYSIWYG por construccion (D1, AC2).
+ * El unico marco adicional es el chrome del editor (fondo del lienzo, borde,
+ * etc.); el contenido (ancho, padding, gaps, fondo, tipografia, color) es
+ * identico al de la pagina publica, lo que garantiza WYSIWYG real (F12, F13).
  */
 'use client';
 
@@ -16,7 +16,7 @@ import type {
   CoachLandingBlock as CoachLandingBlockType,
   CanvasConfig,
 } from '@/features/coach/landing-canvas/types';
-import { CoachLandingBlock } from '@/features/coach/landing-canvas/components/blocks/CoachLandingBlock';
+import { CoachLandingDocumentView } from '@/features/coach/landing-canvas/components/CoachLandingDocumentView';
 
 interface LivePreviewProps {
   sections: CoachLandingBlockType[];
@@ -31,15 +31,7 @@ export function LivePreview({ sections, config }: LivePreviewProps): JSX.Element
           <p className="text-sm">El lienzo esta vacio. Agrega un bloque desde la paleta.</p>
         </div>
       ) : (
-        <main className="p-4 lg:p-8 max-w-4xl mx-auto space-y-8">
-          {sections.map((block) => (
-            <CoachLandingBlock
-              key={block.id}
-              block={block}
-              config={config}
-            />
-          ))}
-        </main>
+        <CoachLandingDocumentView sections={sections} config={config} />
       )}
     </div>
   );

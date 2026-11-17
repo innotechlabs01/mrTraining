@@ -5,6 +5,7 @@
  * from outside the feature.
  */
 export { CoachLandingCanvas } from './components/CoachLandingCanvas';
+export { CoachLandingDocumentView } from './components/CoachLandingDocumentView';
 export { useLandingCanvas } from './hooks/useLandingCanvas';
 export type {
   CoachLandingBlock,
@@ -38,3 +39,13 @@ export {
   type UpdateCoachLandingInput,
   type PublishCoachLandingInput,
 } from './api/coachLanding';
+export {
+  mapCoachLandingDocument,
+  mapCoachLandingDocuments,
+  type CoachLandingWire,
+} from './api/mappers';
+export {
+  safeColor,
+  safeFontFamily,
+  buildCoachLandingCssVars,
+} from './utils/block-utils';
