@@ -20,6 +20,11 @@ describe('sanitizeUrl (F8)', () => {
     ['data:text/html,<script>alert(1)</script>', '#'],
     ['vbscript:msgbox(1)', '#'],
     ['FILE:///etc/passwd', '#'],
+    // URLs protocol-relative: el navegador las resuelve como absolutas hacia un
+    // host externo (open redirect / phishing). Deben rechazarse.
+    ['//evil.com', '#'],
+    ['/\\evil.com', '#'],
+    ['\\\\evil.com', '#'],
     ['', '#'],
     ['   ', '#'],
   ])('rechaza %s y devuelve #', (input, expected) => {

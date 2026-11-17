@@ -303,9 +303,12 @@ export function htmlAttrEscape(text: string): string {
  * Sanitiza una URL para usarla en un atributo `href`.
  *
  * Permite solo esquemas http:, https:, mailto:, tel: y URLs relativas
- * (/..., #..., ./...). Cualquier otro esquema (javascript:, data:,
- * vbscript:, ...) devuelve '#' para evitar XSS almacenado en la pagina
- * publica y en el HTML exportado.
+ * (/..., #..., ./...). Rechaza las URLs protocol-relative (//host, \\host,
+ * /\host, \/host): el navegador las resuelve como absolutas hacia un host
+ * externo, lo que abre un open redirect / phishing desde la landing publica
+ * y el HTML exportado. Cualquier otro esquema (javascript:, data:,
+ * vbscript:, ...) o valor invalido devuelve '#' para evitar XSS almacenado
+ * en la pagina publica y en el HTML exportado.
  */
 export function sanitizeUrl(url: string): string {
   if (typeof url !== 'string' || url === '') {
@@ -313,6 +316,13 @@ export function sanitizeUrl(url: string): string {
   }
   const trimmed = url.trim();
   if (trimmed === '') {
+    return '#';
+  }
+  // URLs protocol-relative (//host, \\host, /\host, \/host): el navegador las
+  // resuelve como absolutas hacia un host externo, lo que abre un open redirect
+  // / phishing desde la landing publica y el HTML exportado. Se rechazan
+  // siempre devolviendo '#', nunca se pasan al href.
+  if (/^[/\\]{2,}/.test(trimmed)) {
     return '#';
   }
   // URLs relativas y anclas: permiten sin esquema.
