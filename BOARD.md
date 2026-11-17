@@ -6,27 +6,15 @@
 - [ ] T-003: Commerce System: Plans & Payments — Implement plan management and payment gateway (Stripe/MP) in Backend.
 - [ ] T-004: Coach Public Landing Pages — Build dynamic public profiles for coaches to sell plans.
 - [ ] T-005: Mobile Access Gate — Implement subscription check in mobile app.
-- [ ] T-012: RLS efectiva en `coach_landing_pages` — la policy actual (416) es decorativa porque el API conecta con rol owner (bypass RLS) y nunca hace `set_config('app.current_coach_id')` (a diferencia de `running`). Para que la RLS sea real: set_config por request en el repo + policy de SELECT público para `is_published = true` + policy de escritura tenant-scoped. Verificado por security-hacker (MEDIUM, defensa en profundidad; el aislamiento actual lo garantiza el `WHERE coach_id = $2` del repo + 13 tests).
-- [ ] T-013: Hardening del upload de media — `POST /api/v1/landing/media` (`handlers/landing.go:256-279`) valida extension pero no tiene limite de tamano ni verificacion de magic bytes (LOW, preexistente, fuera del diff de T-011).
+- [ ] T-013: Hardening del upload de media — `POST /api/v1/landing/media` (`handlers/landing.go:256-279`) valida extensión pero sin límite de tamaño ni verificación de magic bytes (LOW, preexistente, fuera del diff de T-011). IN PROGRESS en esta sesión.
+
+## In Progress
+- [x] T-012: RLS efectiva en `coach_landing_pages` — migración `417_coach_landing_pages_rls_harden.sql` (FORCE RLS + policy pública SELECT `is_published=true`) + repo setea `app.current_coach_id` por operación de coach (GetBySlug es público, no lo setea). Tests de integración condicionales (skip sin DATABASE_URL).
 - [x] T-006: Coach signup → Wompi → onboarding → dashboard E2E flow — IMPLEMENTED — QA PASS, review PASS, security PASS
 - [x] T-007: Hybrid checkout — pay first, register right after — IMPLEMENTED — QA PASS, review PASS, security PASS after the critical IDOR fix
 - [x] T-008: Wompi payment return flow — claim ownership + StatusPaid guards + coach role routing — APPROVED by @user — committed b8daeda, 62b2c72
 
 ## In Progress
-
-## Review
-- [ ] T-011: Coach Landing Canvas (WYSIWYG) + publish sin redeploy — menu "Landing Page" → `/coach/landing-canvas`; editor por bloques con vista previa en vivo; publicar = flag `is_published` en DB (nunca deploy Vercel); `/l/[slug]` renderiza los mismos bloques (WYSIWYG real); export HTML standalone
-  - architect: DONE — plan `docs/superpower/plans/T-011-coach-landing-canvas-plan.md`
-  - dev-backend: DONE (ctx_2d5c28872150) — commit `1cdc95e` (panic `coach_id` + 13 tests E1-E6)
-  - dev-front: DONE (ctx_1805ed95440a) + FIX ROUNDS 1-5 (ctx_f28c8b0022b7, ctx_92a081a3ebb8, ctx_6069de0a50b9, ctx_d2303d2979ff, ctx_d09f977ba6cb) — commits `a4c6ac5`, `4e711c0`, `b9f198b`, `ff496c9`, `2306a49`, `9d69b9f`, `9938ea2`, `2728f26`, `e350b29`, `0ecc4b1` (F1-F16 + R1-R4 corregidos y verificados por el coordinador)
-  - QA: DONE (ctx_03145d40a979 + follow-up ctx_2588c7291581) — PASS con limitaciones: AC1/AC3/AC4/AC10 no verificables en navegador por el auth gate de Clerk; mitigado con 17 tests jsdom del editor
-  - code-reviewer: RONDA 1 FAIL (ctx_3084b94f6fcd) → 4 bloqueantes corregidos en fix round 5; RONDA 2 (ctx_aa3a8a415dc7) FAIL con 1 bloqueante ADJUDICADO INVALIDO por el coordinador (ver nota abajo)
-  - security-hacker: PASS (ctx_bfdf2c2acc3b) — sin critical/high; 2 MEDIUM + 2 LOW: protocol-relative URLs (MEDIUM, introducido por T-011) -> CORREGIDO en fix round 6 (commit `b5310d2`); RLS decorativa (MEDIUM) -> T-012; upload sin limite de tamano/magic bytes (LOW, preexistente) -> T-013; estilos crudos en bloques React (LOW, React sanitiza style)
-  - dev-front FIX ROUND 6: DONE (ctx_a5ad6786e673) — commit `b5310d2` bloquea URLs protocol-relative en `sanitizeUrl` (+ tests)
-  - code-reviewer: PASS — ronda 1 (ctx_3084b94f6fcd) FAIL con 4 bloqueantes, todos corregidos y verificados; ronda 2 (ctx_aa3a8a415dc7) FAIL con 1 bloqueante ADJUDICADO INVALIDO por el coordinador (premise RSC incorrecta, refutado con evidencia del build de produccion)
-  - coordinador: verificacion final 2026-11-17 — web 249/249 tests, lint 0 errores, `tsc --noEmit` OK, `pnpm build` exit 0 con `/coach/landing-canvas` y `/l/[slug]`; api `go build ./...` OK y `go test ./...` verde
-  - USER GATE: PENDIENTE DE APROBACION DEL USUARIO
-  - Nota de adjudicación (code-review ronda 2): el reviewer sostuvo que `onSelectBlock` no funciona porque `CoachLandingDocumentView`/`CoachLandingBlock` son Server Components. Es FALSO: `LivePreview` tiene `'use client'`, asi que su import graph (incluidos esos modulos) se compila en el bundle de CLIENTE. Evidencia del build de produccion: `apps/web/.next/static/chunks/4949-*.js` contiene `onSelectBlock`, `handleClick` (preventDefault/stopPropagation), `role="button"`, `aria-pressed` y la clase `coach-landing-block-selected`, y esa chunk la carga la ruta `/coach/landing-canvas` (app-build-manifest). Si esos componentes fueran Server Components en el grafo del cliente, el build fallaria. No se introduce `'use client'` en el renderer compartido: la pagina publica `/l/[slug]` debe seguir renderizando en servidor (SSR/SEO).
 
 ## Done
 - [x] T-006: Coach signup → Wompi → onboarding → dashboard E2E flow — IMPLEMENTED — QA PASS, review PASS, security PASS
@@ -44,3 +32,11 @@
   - QA/web: DONE — E2E verified against localhost:3000; all 3 tests pass
   - Code reviewer: PASS — no blocking issues
   - Security hacker: PASS — no critical/high findings
+- [x] T-011: Coach Landing Canvas (WYSIWYG) + publish sin redeploy — menu "Landing Page" → `/coach/landing-canvas`; editor por bloques con vista previa en vivo; publicar = flag `is_published` en DB (nunca deploy Vercel); `/l/[slug]` renderiza los mismos bloques (WYSIWYG real); export HTML standalone — APPROVED by @user (2026-11-17)
+  - architect: DONE — plan `docs/superpower/plans/T-011-coach-landing-canvas-plan.md`
+  - dev-backend: DONE (ctx_2d5c28872150) — commit `1cdc95e` (panic `coach_id` + 13 tests E1-E6)
+  - dev-front: DONE + FIX ROUNDS 1-6 — commits `a4c6ac5`, `4e711c0`, `b9f198b`, `ff496c9`, `2306a49`, `9d69b9f`, `9938ea2`, `2728f26`, `e350b29`, `0ecc4b1`, `b5310d2` (F1-F16 + R1-R6 corregidos y verificados por el coordinador)
+  - QA: DONE — PASS con limitaciones: AC1/AC3/AC4/AC10 no verificables en navegador por el auth gate de Clerk; mitigado con 20+ tests jsdom del editor (249/249 total)
+  - Code reviewer: PASS — ronda 1 (4 bloqueantes, todos corregidos en fix round 5); ronda 2 (1 bloqueante adjudicado inválido: premise RSC incorrecta, refutado con evidencia del build de producción)
+  - Security hacker: PASS — sin critical/high; protocol-relative URLs (MEDIUM) corregido en `b5310d2`; RLS decorativa y upload sin límite quedan como T-012/T-013
+  - coordinador: verificación final 2026-11-17 — web 249/249 tests, lint 0 errores, `tsc --noEmit` OK, `pnpm build` exit 0 con `/coach/landing-canvas` y `/l/[slug]`; api `go build ./...` OK y `go test ./...` verde
