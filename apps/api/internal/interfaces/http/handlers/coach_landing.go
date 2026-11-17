@@ -7,6 +7,7 @@ import (
 	coachlandingapp "github.com/innotechlabs01/mr-training-api/internal/application/coach_landing"
 	coachlandingdomain "github.com/innotechlabs01/mr-training-api/internal/domain/coach_landing"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
@@ -33,7 +34,7 @@ func (h *CoachLandingHandler) RegisterRoutes(api fiber.Router) {
 
 // Create maneja POST /coach/landing.
 func (h *CoachLandingHandler) Create(c *fiber.Ctx) error {
-	coachID := c.Locals("coach_id").(string)
+	coachID := middleware.GetCoachID(c)
 	if coachID == "" {
 		return appresponse.Error(c, fiber.StatusForbidden, "coach context requerido")
 	}
@@ -71,7 +72,7 @@ func (h *CoachLandingHandler) Create(c *fiber.Ctx) error {
 
 // GetByCoach maneja GET /coach/landing (lista de landings del coach autenticado).
 func (h *CoachLandingHandler) GetByCoach(c *fiber.Ctx) error {
-	coachID := c.Locals("coach_id").(string)
+	coachID := middleware.GetCoachID(c)
 	if coachID == "" {
 		return appresponse.Error(c, fiber.StatusForbidden, "coach context requerido")
 	}
@@ -132,7 +133,7 @@ func (h *CoachLandingHandler) GetBySlug(c *fiber.Ctx) error {
 // Update maneja PUT /coach/landing/:id.
 func (h *CoachLandingHandler) Update(c *fiber.Ctx) error {
 	id := c.Params("id")
-	coachID := c.Locals("coach_id").(string)
+	coachID := middleware.GetCoachID(c)
 	if coachID == "" {
 		return appresponse.Error(c, fiber.StatusForbidden, "coach context requerido")
 	}
@@ -167,7 +168,7 @@ func (h *CoachLandingHandler) Update(c *fiber.Ctx) error {
 // Publish maneja PUT /coach/landing/:id/publish.
 func (h *CoachLandingHandler) Publish(c *fiber.Ctx) error {
 	id := c.Params("id")
-	coachID := c.Locals("coach_id").(string)
+	coachID := middleware.GetCoachID(c)
 	if coachID == "" {
 		return appresponse.Error(c, fiber.StatusForbidden, "coach context requerido")
 	}
@@ -192,7 +193,7 @@ func (h *CoachLandingHandler) Publish(c *fiber.Ctx) error {
 // Delete maneja DELETE /coach/landing/:id.
 func (h *CoachLandingHandler) Delete(c *fiber.Ctx) error {
 	id := c.Params("id")
-	coachID := c.Locals("coach_id").(string)
+	coachID := middleware.GetCoachID(c)
 	if coachID == "" {
 		return appresponse.Error(c, fiber.StatusForbidden, "coach context requerido")
 	}
