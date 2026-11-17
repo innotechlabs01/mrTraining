@@ -26,6 +26,17 @@ interface PublicLandingPageProps {
   params: { slug: string };
 }
 
+interface Plan {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+  billing_period: string;
+  is_active: boolean;
+  coach_id: string;
+}
+
 const getPublicLanding = cache(async (slug: string) => {
   const baseUrl = process.env.NEXT_PUBLIC_GO_API_URL || '';
   const res = await fetch(`${baseUrl}/l/${slug}`, {
@@ -36,6 +47,26 @@ const getPublicLanding = cache(async (slug: string) => {
   }
   const raw = await res.json();
   return mapCoachLandingDocument(raw as CoachLandingWire);
+});
+
+/** Obtiene los planes publicados de un coach para la pagina publica.
+ *  Endpoint publico (sin auth), fuera de /api/v1. Nunca bloquea la landing:
+ *  ante cualquier error devuelve [].
+ */
+const getPublicPlans = cache(async (coachId: string): Promise<Plan[]> => {
+  if (!coachId) return [];
+  const baseUrl = process.env.NEXT_PUBLIC_GO_API_URL || '';
+  try {
+    const res = await fetch(`${baseUrl}/public/coaches/${coachId}/plans`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) return [];
+    const raw = await res.json();
+    const data = (raw as { data?: Plan[] })?.data ?? [];
+    return data.filter((p) => p.is_active);
+  } catch {
+    return [];
+  }
 });
 
 export async function generateMetadata({
@@ -66,5 +97,39 @@ export default async function PublicLandingPage({
 
   const { sections, config } = document;
 
-  return <CoachLandingDocumentView sections={sections} config={config} />;
+  // Planes publicados del coach (opcionales: no bloquean la landing)
+  const plans = await getPublicPlans(document.coachId);
+
+  return (
+    <>
+      <CoachLandingDocumentView sections={sections} config={config} />
+      {plans.length > 0 && (
+        <section className="coach-landing-plans">
+          <h2 className="coach-landing-plans-title">Planes disponibles</h2>
+          <div className="coach-landing-plans-grid">
+            {plans.map((plan) => (
+              <article key={plan.id} className="coach-landing-plan-card">
+                <h3 className="coach-landing-plan-name">{plan.name}</h3>
+                {plan.description && (
+                  <p className="coach-landing-plan-description">
+                    {plan.description}
+                  </p>
+                )}
+                <p className="coach-landing-plan-price">
+                  {plan.price.toFixed(2)} {plan.currency} /
+                  {plan.billing_period === 'annual' ? 'año' : 'mes'}
+                </p>
+                <a
+                  href={`/checkout?planId=${plan.id}`}
+                  className="coach-landing-plan-cta"
+                >
+                  Suscribirse
+                </a>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+    </>
+  );
 }
