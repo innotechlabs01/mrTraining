@@ -1,9 +1,9 @@
 # Team Board - MR Training
 
 ## TODO
-- [ ] T-005: Mobile Access Gate — Implement subscription check in mobile app.
 
 ## In Progress
+- [x] T-005: Mobile Access Gate — Implement subscription check in mobile app. — DONE, spec `docs/superpowers/specs/T-005-mobile-access-gate.md`. AccessGate (fail-closed) protege AthleteTabs (Today, History, Events, Recovery, Profile) en Navigation.tsx:142. Verificado: mobile tsc --noEmit OK, Jest 89 suites/505 tests PASS (incluye AccessGate.test.tsx).
 
 ## Done
 - [x] T-001: Activation of Athlete Handlers in Go API — Implement endpoints for workout logging, metrics, and messaging. — DONE, spec `docs/superpowers/specs/T-001-athlete-handlers.md`. Código ya existía y está verificado: `go build ./...` OK, `go test ./...` 60 paquetes OK sin FAIL.
