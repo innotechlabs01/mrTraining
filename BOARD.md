@@ -6,10 +6,8 @@
 - [ ] T-003: Commerce System: Plans & Payments — Implement plan management and payment gateway (Stripe/MP) in Backend.
 - [ ] T-004: Coach Public Landing Pages — Build dynamic public profiles for coaches to sell plans.
 - [ ] T-005: Mobile Access Gate — Implement subscription check in mobile app.
-- [ ] T-013: Hardening del upload de media — `POST /api/v1/landing/media` (`handlers/landing.go:256-279`) valida extensión pero sin límite de tamaño ni verificación de magic bytes (LOW, preexistente, fuera del diff de T-011). IN PROGRESS en esta sesión.
 
 ## In Progress
-- [x] T-012: RLS efectiva en `coach_landing_pages` — migración `417_coach_landing_pages_rls_harden.sql` (FORCE RLS + policy pública SELECT `is_published=true`) + repo setea `app.current_coach_id` por operación de coach (GetBySlug es público, no lo setea). Tests de integración condicionales (skip sin DATABASE_URL).
 - [x] T-006: Coach signup → Wompi → onboarding → dashboard E2E flow — IMPLEMENTED — QA PASS, review PASS, security PASS
 - [x] T-007: Hybrid checkout — pay first, register right after — IMPLEMENTED — QA PASS, review PASS, security PASS after the critical IDOR fix
 - [x] T-008: Wompi payment return flow — claim ownership + StatusPaid guards + coach role routing — APPROVED by @user — committed b8daeda, 62b2c72
@@ -40,3 +38,14 @@
   - Code reviewer: PASS — ronda 1 (4 bloqueantes, todos corregidos en fix round 5); ronda 2 (1 bloqueante adjudicado inválido: premise RSC incorrecta, refutado con evidencia del build de producción)
   - Security hacker: PASS — sin critical/high; protocol-relative URLs (MEDIUM) corregido en `b5310d2`; RLS decorativa y upload sin límite quedan como T-012/T-013
   - coordinador: verificación final 2026-11-17 — web 249/249 tests, lint 0 errores, `tsc --noEmit` OK, `pnpm build` exit 0 con `/coach/landing-canvas` y `/l/[slug]`; api `go build ./...` OK y `go test ./...` verde
+
+
+- [x] T-012: RLS efectiva en `coach_landing_pages` — DONE, commit `28dde00`
+  - Migración `417_coach_landing_pages_rls_harden.sql`: FORCE ROW LEVEL SECURITY (ni el owner salta RLS) + policy pública `SELECT is_published=true` para `GET /l/:slug` sin auth.
+  - Repositorio `coach_landing` setea `app.current_coach_id` en cada operación de coach sobre una conexión dedicada (`db.Conn`), aislando a nivel de base de datos (no solo en el `WHERE coach_id` del SQL). `GetBySlug` (público) no setea contexto: se rige por la policy pública.
+  - Tests de integración `TestRepo_RLS_CoachIsolation` + `TestRepo_RLS_PublicRead_OnlyPublished` (skip si no hay `DATABASE_URL`).
+
+- [x] T-013: Hardening del upload de media — DONE, commit `28dde00`
+  - `POST /api/v1/landing/media` (`handlers/landing.go`) rechaza archivos > 10 MB (imagen) / > 100 MB (video) y cuyo contenido no coincida con los magic bytes de la extensión (JPEG/PNG/GIF/WEBP/MP4/MOV/WEBM).
+  - Tests: `TestValidateMediaMagicBytes` (válidos e inválidos por extensión), `TestLandingMaxMediaSize` (límites por tipo); `TestHandlerUploadLandingMedia_SavesImage` actualizado a bytes PNG reales.
+  - Verificación: `go build ./...` OK, `go vet ./...` limpio, `go test ./...` → 60 paquetes OK, sin FAIL.
