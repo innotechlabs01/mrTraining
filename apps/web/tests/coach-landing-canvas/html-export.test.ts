@@ -72,4 +72,45 @@ describe('exportDocumentToHtml (F7, F8)', () => {
     // Se sustituyen por '#'
     expect(html).toContain('href="#"');
   });
+
+  // --- R2 — Config malicioso no inyecta CSS en el <style> ni en estilos inline ---
+
+  it('R2 — fontFamily malicioso no aparece crudo ni rompe el bloque <style>', () => {
+    const evil = document({
+      config: {
+        primaryColor: '#15AAF2',
+        fontFamily: 'x; } body { background: url(https://evil/x) } .a {',
+        backgroundColor: '#0a0a0a',
+      },
+    });
+    const html = exportDocumentToHtml(evil);
+    // El valor invalido de font-family se reemplaza por el default, no se inyecta crudo.
+    expect(html).not.toContain('x; } body { background: url(https://evil/x) } .a {');
+    expect(html).toContain('font-family: system-ui, -apple-system, sans-serif');
+    // El bloque <style> permanece cerrado (no hay </style> inyectado por el font).
+    const styleOpen = (html.match(/<style>/g) ?? []).length;
+    const styleClose = (html.match(/<\/style>/g) ?? []).length;
+    expect(styleOpen).toBe(styleClose);
+  });
+
+  it('R2 — primaryColor/backgroundColor maliciosos no aparecen crudo', () => {
+    const evil = document({
+      config: {
+        primaryColor: 'red; } body { background: url(https://evil/x) } .a {',
+        fontFamily: 'Montserrat, sans-serif',
+        backgroundColor: 'green; @import url(https://evil/x);',
+      },
+    });
+    const html = exportDocumentToHtml(evil);
+    expect(html).not.toContain('red; } body { background: url(https://evil/x) } .a {');
+    expect(html).not.toContain('green; @import url(https://evil/x);');
+    // primaryColor invalido -> default #15AAF2 (boton). backgroundColor invalido -> default #0a0a0a (body).
+    expect(html).toContain('.export-btn {');
+    expect(html).toContain('background: #15AAF2');
+    expect(html).toContain('body {');
+    expect(html).toContain('background: #0a0a0a');
+    // fontFamily es valido ('Montserrat, sans-serif'), no se reemplaza por default.
+    expect(html).toContain('font-family: Montserrat, sans-serif');
+  });
+
 });

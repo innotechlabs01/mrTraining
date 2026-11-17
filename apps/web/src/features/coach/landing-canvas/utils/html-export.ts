@@ -10,6 +10,8 @@ import {
   assertNever,
   sanitizeUrl,
   safeColor,
+  safeFontFamily,
+  defaultCanvasConfig,
 } from './block-utils';
 
 /**
@@ -53,6 +55,7 @@ function blockStyleAttr(s: {
  * All coach-provided text is escaped; no dangerouslySetInnerHTML equivalent.
  */
 function renderBlockToHtml(block: CoachLandingBlock, config: CanvasConfig): string {
+  const defaults = defaultCanvasConfig();
   switch (block.type) {
     case 'hero': {
       const p = block.props;
@@ -62,7 +65,7 @@ function renderBlockToHtml(block: CoachLandingBlock, config: CanvasConfig): stri
       return `
         <section class="export-block export-hero${blockStyleAttr(p)}">
           ${media}
-          <h1 style="font-size:2.5rem;font-weight:800;margin:0 0 1rem;line-height:1.1;color:${safeColor(config.primaryColor, '#15AAF2')}">${htmlEscape(p.headline)}</h1>
+          <h1 style="font-size:2.5rem;font-weight:800;margin:0 0 1rem;line-height:1.1;color:${safeColor(config.primaryColor, defaults.primaryColor)}">${htmlEscape(p.headline)}</h1>
           ${p.subheadline ? `<p style="font-size:1.25rem;opacity:0.8;max-width:600px;margin:0 0 2rem;">${htmlEscape(p.subheadline)}</p>` : ''}
           ${p.ctaLabel ? `<a href="${htmlAttrEscape(sanitizeUrl(p.ctaUrl))}" class="export-btn">${htmlEscape(p.ctaLabel)}</a>` : ''}
         </section>
@@ -83,7 +86,7 @@ function renderBlockToHtml(block: CoachLandingBlock, config: CanvasConfig): stri
     }
     case 'button': {
       const p = block.props;
-      const primary = safeColor(config.primaryColor, '#15AAF2');
+      const primary = safeColor(config.primaryColor, defaults.primaryColor);
       const variantStyles: Record<string, string> = {
         primary: `background:${primary};color:#000;border-radius:0.5rem;padding:0.75rem 1.5rem;text-decoration:none;font-weight:600;display:inline-block;`,
         secondary: `border:1px solid ${primary};color:${primary};border-radius:0.5rem;padding:0.75rem 1.5rem;text-decoration:none;font-weight:600;display:inline-block;`,
@@ -93,7 +96,8 @@ function renderBlockToHtml(block: CoachLandingBlock, config: CanvasConfig): stri
     }
     case 'divider': {
       const p = block.props;
-      return `<hr class="export-block export-divider${blockStyleAttr(p)}" style="border:none;border-top:${p.thickness} ${p.style} ${safeColor(p.textColor || config.primaryColor, '#15AAF2')};margin:0;">`;
+      const dividerColor = safeColor(p.textColor || config.primaryColor, defaults.primaryColor);
+      return `<hr class="export-block export-divider${blockStyleAttr(p)}" style="border:none;border-top:${p.thickness} ${p.style} ${dividerColor};margin:0;">`;
     }
     case 'social-links': {
       const p = block.props;
@@ -101,7 +105,7 @@ function renderBlockToHtml(block: CoachLandingBlock, config: CanvasConfig): stri
       const linksHtml = p.links
         .map(
           (l: SocialLink) =>
-            `<a href="${htmlAttrEscape(sanitizeUrl(l.url))}" style="margin:0 0.5rem;color:${safeColor(config.primaryColor, '#15AAF2')};text-decoration:none;">${htmlEscape(l.label)}</a>`,
+            `<a href="${htmlAttrEscape(sanitizeUrl(l.url))}" style="margin:0 0.5rem;color:${safeColor(config.primaryColor, defaults.primaryColor)};text-decoration:none;">${htmlEscape(l.label)}</a>`,
         )
         .join('');
       return `<div class="export-block export-social-links${blockStyleAttr(p)}" style="${dir}">${linksHtml}</div>`;
@@ -117,7 +121,7 @@ function renderBlockToHtml(block: CoachLandingBlock, config: CanvasConfig): stri
         ? `<div style="margin-top:0.5rem;">${p.socialLinks
             .map(
               (l: SocialLink) =>
-                `<a href="${htmlAttrEscape(sanitizeUrl(l.url))}" style="margin:0 0.25rem;color:${safeColor(config.primaryColor, '#15AAF2')};text-decoration:none;">${htmlEscape(l.label)}</a>`,
+                `<a href="${htmlAttrEscape(sanitizeUrl(l.url))}" style="margin:0 0.25rem;color:${safeColor(config.primaryColor, defaults.primaryColor)};text-decoration:none;">${htmlEscape(l.label)}</a>`,
             )
             .join('')}</div>`
         : '';
@@ -142,6 +146,7 @@ export function exportDocumentToHtml(document: CoachLandingDocument): string {
   const primaryColor = config.primaryColor;
   const bgColor = config.backgroundColor;
   const fontFamily = config.fontFamily;
+  const defaults = defaultCanvasConfig();
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -152,8 +157,8 @@ export function exportDocumentToHtml(document: CoachLandingDocument): string {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: ${cssString(fontFamily)};
-      background: ${cssString(bgColor)};
+      font-family: ${safeFontFamily(fontFamily, defaults.fontFamily)};
+      background: ${safeColor(bgColor, defaults.backgroundColor)};
       color: #fff;
       margin: 0;
       line-height: 1.6;
@@ -174,14 +179,14 @@ export function exportDocumentToHtml(document: CoachLandingDocument): string {
       align-items: center;
       text-align: center;
       padding: 2rem;
-      background: linear-gradient(135deg, ${cssString(bgColor)} 0%, #1a1a1a 100%);
+      background: linear-gradient(135deg, ${safeColor(bgColor, defaults.backgroundColor)} 0%, #1a1a1a 100%);
     }
     .export-hero-media { margin-bottom: 1rem; }
     .export-hero h1 { font-size: 3rem; font-weight: 800; margin-bottom: 1rem; line-height: 1.1; }
     .export-hero p { font-size: 1.25rem; opacity: 0.8; max-width: 600px; margin: 0 auto 2rem; }
     .export-btn {
       display: inline-block;
-      background: ${cssString(primaryColor)};
+      background: ${safeColor(primaryColor, defaults.primaryColor)};
       color: #000;
       padding: 0.75rem 1.5rem;
       border-radius: 0.5rem;
@@ -199,7 +204,7 @@ export function exportDocumentToHtml(document: CoachLandingDocument): string {
 <body>
   <div class="export-page">
     <header class="export-block export-hero">
-      <h1 style="font-size:2.5rem;font-weight:800;margin:0 0 1rem;line-height:1.1;color:${cssString(primaryColor)}">${htmlEscape(title)}</h1>
+      <h1 style="font-size:2.5rem;font-weight:800;margin:0 0 1rem;line-height:1.1;color:${safeColor(primaryColor, defaults.primaryColor)}">${htmlEscape(title)}</h1>
       ${subtitle ? `<p style="font-size:1.25rem;opacity:0.8;max-width:600px;margin:0 0 2rem;">${htmlEscape(subtitle)}</p>` : ''}
     </header>
     <main class="export-sections">${sectionsHtml}</main>
