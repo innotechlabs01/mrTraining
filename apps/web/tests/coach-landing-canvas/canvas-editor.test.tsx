@@ -60,6 +60,12 @@ if (typeof global.crypto.randomUUID === 'undefined') {
 
 const mockGoFetch = jest.fn();
 
+/** Fuerza que la siguiente llamada PUT de update falle (para probar R1). */
+let mockUpdateShouldFail = false;
+function setUpdateShouldFail(v: boolean) {
+  mockUpdateShouldFail = v;
+}
+
 // --- Helpers ---
 
 /** Wire format real del Go API (apps/api/internal/domain/coach_landing/models.go). */
@@ -110,6 +116,9 @@ function installGoApiMock(wire: Record<string, unknown> = createLandingWire()) {
       return Promise.resolve({ published: true });
     }
     if (path === '/api/v1/coach/landing/landing-1' && options?.method === 'PUT') {
+      if (mockUpdateShouldFail) {
+        return Promise.reject(new Error('update fallo'));
+      }
       return Promise.resolve({ updated: true });
     }
     if (path === '/api/v1/coach/landing/landing-1' && options?.method === 'DELETE') {
@@ -524,6 +533,91 @@ describe('CoachLandingCanvas — interacciones del editor (AC1, AC3, AC4, AC10)'
       expect(getPreview(container).textContent).toContain(
         'EDICION QUE DEBE SOBREVIVIR A PUBLICAR',
       );
+    });
+  });
+
+  // --- R1 — Publicar persiste las ediciones pendientes (AC5) ---
+
+  describe('R1 — Publicar persiste las ediciones pendientes', () => {
+    beforeEach(() => {
+      setUpdateShouldFail(false);
+    });
+
+    it('al publicar ejecuta PUT update con el contenido EDITADO y luego PUT publish', async () => {
+      await flush();
+
+      clickPalette(container, 'Texto');
+      await flush();
+
+      const textarea = findControlByLabel(container, 'Cuerpo') as HTMLTextAreaElement;
+      const edited = 'EDITADO ANTES DE PUBLICAR';
+      fireEdit(textarea, edited);
+      await flush();
+
+      clickButton(findButtonByText(container, 'Publicar'));
+      await flush();
+
+      // 1. PUT update llamado con el contenido editado (no la version original).
+      const updateCalls = mockGoFetch.mock.calls.filter(
+        (call) =>
+          call[0] === '/api/v1/coach/landing/landing-1' &&
+          (call[1] as { method?: string })?.method === 'PUT' &&
+          !(call[0] as string).endsWith('/publish'),
+      );
+      expect(updateCalls.length).toBe(1);
+      const updateBody = JSON.parse(
+        (updateCalls[0][1] as { body: string }).body,
+      ) as { sections: string };
+      expect(updateBody.sections).toContain(edited);
+
+      // 2. Despues del update, se llama a PUT publish (orden garantizado).
+      const updateIdx = mockGoFetch.mock.calls.findIndex(
+        (call) =>
+          call[0] === '/api/v1/coach/landing/landing-1' &&
+          (call[1] as { method?: string })?.method === 'PUT' &&
+          !(call[0] as string).endsWith('/publish'),
+      );
+      const publishIdx = mockGoFetch.mock.calls.findIndex(
+        (call) =>
+          (call[0] as string).endsWith('/publish') &&
+          (call[1] as { method?: string })?.method === 'PUT',
+      );
+      expect(updateIdx).toBeGreaterThanOrEqual(0);
+      expect(publishIdx).toBeGreaterThan(updateIdx);
+      expect(mockGoFetch).toHaveBeenCalledWith(
+        '/api/v1/coach/landing/landing-1/publish',
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({ is_published: true }),
+        }),
+      );
+    });
+
+    it('si el guardado falla NO se llama al publish', async () => {
+      setUpdateShouldFail(true);
+
+      await flush();
+      clickPalette(container, 'Texto');
+      await flush();
+
+      const textarea = findControlByLabel(container, 'Cuerpo') as HTMLTextAreaElement;
+      fireEdit(textarea, 'EDITADO PERO GUARDADO FALLA');
+      await flush();
+
+      // Publicar con guardado fallido: el catch corta el flujo y NO se
+      // publica. Tampoco propaga el error (sin throw), por lo que no hay
+      // promesa rechazada flotante. Lo que importa es que publish nunca se
+      // dispare y que se muestre el toast de error.
+      clickButton(findButtonByText(container, 'Publicar'));
+      await flush();
+
+      // El publish nunca se dispara porque el guardado previo fallo.
+      const publishCalls = mockGoFetch.mock.calls.filter(
+        (call) =>
+          (call[0] as string).endsWith('/publish') &&
+          (call[1] as { method?: string })?.method === 'PUT',
+      );
+      expect(publishCalls).toHaveLength(0);
     });
   });
 

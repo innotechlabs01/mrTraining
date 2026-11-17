@@ -294,17 +294,23 @@ export function useLandingCanvas(): UseLandingCanvasReturn {
       if (!document) return;
       setIsSaving(true);
       try {
+        // Persistir las ediciones pendientes ANTES de publicar, para que la
+        // version publicada en DB sea exactamente lo que el coach ve en el
+        // preview (AC5). Publicar sin guardar dejaría la version OLD.
+        await updateCoachLanding(document.id, {
+          title: document.title,
+          subtitle: document.subtitle,
+          config: JSON.stringify(document.config),
+          sections: JSON.stringify(document.sections),
+          images: JSON.stringify(document.images),
+        });
+        // Solo si el guardado tuvo exito, publicar. Si el guardado falla,
+        // el catch corta el flujo y NO se publica.
         await publishCoachLanding(document.id, { is_published: isPublished });
-        setDocument((prev) =>
-          prev ? { ...prev, isPublished } : null,
-        );
+        const publishedDoc = { ...document, isPublished };
+        setDocument(publishedDoc);
         setLandings((prev) =>
-          prev.map((l) =>
-            // Se sincroniza con el documento ACTUAL (con las ediciones
-            // pendientes), no con la copia de `landings`: usar `l` hacia
-            // atrás el documento y descartaba las ediciones no guardadas.
-            l.id === document!.id ? { ...document!, isPublished } : l,
-          ),
+          prev.map((l) => (l.id === document.id ? publishedDoc : l)),
         );
         toast.success(
           isPublished
@@ -313,7 +319,8 @@ export function useLandingCanvas(): UseLandingCanvasReturn {
         );
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Error publicando la landing');
-        throw err;
+        // El catch corta el flujo: no se publica ni se propaga el error (evita
+        // una promesa rechazada sin manejar; el onClick del boton no la espera).
       } finally {
         setIsSaving(false);
       }
