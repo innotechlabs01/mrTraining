@@ -98,6 +98,23 @@ export async function mockUseAuth(page: Page): Promise<void> {
 
       const listeners: Array<(e: unknown) => void> = [];
 
+      interface MockClerk {
+        loaded: boolean;
+        session: unknown;
+        user: unknown;
+        isSignedIn: boolean;
+        client: unknown;
+        organization: unknown;
+        __internal_state: unknown;
+        telemetry: { record: () => undefined };
+        frontendApi: string;
+        instanceType: string;
+        isStandardBrowser: boolean;
+        sdkMetadata: { name: string; version: string; environment: string };
+        load(): Promise<void>;
+        addListener(listener: (e: unknown) => void): () => void;
+      }
+
       (window as unknown as Record<string, unknown>).Clerk = {
         loaded: false,
         session: null,
@@ -145,7 +162,7 @@ export async function mockUseAuth(page: Page): Promise<void> {
         emit(event: unknown): void {
           listeners.forEach((l) => l(event));
         },
-      };
+      } as MockClerk;
     },
     COACH_CLERK_USER_ID,
   );
