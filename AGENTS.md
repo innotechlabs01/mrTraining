@@ -167,7 +167,7 @@ NEVER report PASS when the real mobile UI was not actually tested.
 Recibes una tarea
   ↓
 0. Invoca el skill `pipeline-init` (carga mr-context + herdr-setup,
-   y herdr si HERDR_ENV=1). Trabajá SIEMPRE en `main` en el checkout
+   y herdr si HERDR_ENV=1). Trabajá SIEMPRE en `dev` en el checkout
    `mr-training` (SIN branches ni worktrees). Los agentes se activan
    como worker-tasks sobre ese checkout.
    Detalle: 14-team-workflow.md

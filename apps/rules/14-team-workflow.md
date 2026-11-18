@@ -29,23 +29,26 @@ principal, un directorio por branch).
 ### Convención de branches
 
 ```
-main                  # siempre deployable — direct push PROHIBIDO
-  ├── feature/<desc>  # features nuevas (vida corta: 1-3 días)
-  ├── fix/<desc>      # bugs
-  ├── chore/<desc>    # deps, tooling, docs
-  └── refactor/<desc> # refactor sin cambio de comportamiento
+main                  # productivo — solo release desde QA. Direct push PROHIBIDO.
+  ├── QA              # rama de QA/testing — PR desde dev.
+        ├── dev       # rama de desarrollo / integración continua — PR desde feature/*.
+              ├── feature/<desc>  # features nuevas (vida corta: 1-3 días)
+              ├── fix/<desc>      # bugs
+              ├── chore/<desc>    # deps, tooling, docs
+              └── refactor/<desc> # refactor sin cambio de comportamiento
 ```
 
 ### Flujo completo por tarea
 
 ```
-1. scripts/worktree.sh sync              # main al día
-2. scripts/worktree.sh new feature/x     # worktree dedicado
-3. cd ../mr-training-worktrees/x         # trabajar AHÍ, no en main
+1. scripts/worktree.sh sync              # dev al día
+2. scripts/worktree.sh new feature/x     # worktree dedicado desde dev
+3. cd ../mr-training-worktrees/x         # trabajar AHÍ, no en dev/main
 4. Commits atómicos (ver 12-coding-standards.md §7.2)
 5. git push -u origin feature/x
-6. PR a main (ver 12-coding-standards.md §7.3)
-7. Tras merge: scripts/worktree.sh remove feature/x
+6. PR a QA (ver 12-coding-standards.md §7.3)  # destino: QA, no main
+7. Tras merge a dev y validación en QA: release QA → main solo en release aprobado
+8. scripts/worktree.sh remove feature/x
 ```
 
 Cada worktree necesita su propio `pnpm install` (lo hace el script). Un mismo

@@ -3,12 +3,13 @@
 ## 1. Branch Strategy (GitFlow simplificado)
 
 ```
-main                    # protegida, solo merge vía PR aprobado
-  └── dev               # rama de integración continua, protegida
-        ├── feature/<siglas>-<descripcion-corta>  # ej: feature/db-rls-policies
-        ├── fix/<siglas>-<descripcion-corta>
-        ├── chore/<siglas>-<descripcion-corta>
-        └── refactor/<siglas>-<descripcion-corta>
+main                    # productivo, solo release desde QA. Direct push PROHIBIDO.
+  └── QA                # rama de QA/testing, protegida. PR desde dev.
+        └── dev         # rama de integración continua / desarrollo, protegida.
+              ├── feature/<siglas>-<descripcion-corta>  # ej: feature/db-rls-policies
+              ├── fix/<siglas>-<descripcion-corta>
+              ├── chore/<siglas>-<descripcion-corta>
+              └── refactor/<siglas>-<descripcion-corta>
 ```
 
 **Siglas por área:**
@@ -20,7 +21,11 @@ main                    # protegida, solo merge vía PR aprobado
 - `se` — Seguridad
 - `ux` — UX/UI
 
-**Regla:** Todo trabajo NUEVO sale de `dev` → `feature/<siglas>-<desc>`. PR siempre `feature/* → dev`. `dev → main` solo en release.
+**Regla:** Todo trabajo NUEVO sale de `dev` → `feature/<siglas>-<desc>`.
+PR de features: `feature/* → dev`.
+PR de integración QA: `dev → QA`.
+PR de release: `QA → main` solo en release aprobado.
+`main` nunca recibe PR directo de features ni de dev.
 
 ## 2. Flujo Obligatorio por Tarea
 
@@ -34,7 +39,18 @@ main                    # protegida, solo merge vía PR aprobado
 7. USER GATE: aprobación explícita
 8. Merge a dev (squash o merge commit, no rebase)
 9. Borrar branch remoto y local
+
+Flujo QA / Release:
+10. git checkout QA && git pull origin QA
+11. git merge --no-ff dev (o abrir PR: dev → QA)
+12. QA valida en entorno de pruebas
+13. USER GATE: aprobación para release
+14. git checkout main && git pull origin main
+15. git merge --no-ff QA (o abrir PR: QA → main)
+16. Tag release vX.Y.Z
 ```
+
+`main` solo se toca en paso 15 (release). Nunca recibe PR directo de features.
 
 ## 3. Changelog Obligatorio
 
