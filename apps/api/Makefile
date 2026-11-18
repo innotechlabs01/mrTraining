@@ -350,58 +350,43 @@ argocd-sync:
 	@echo "$(GREEN)✅ Sync triggered$(NC)"
 
 # ============================================
-# Docker manual - solo API + tu Postgres local
-# Evita hacer docker rm / docker run a mano
+# Docker - API via docker compose
+# Siempre reconstruye la imagen que compose usa (api-api) y recrea el
+# container, para que un cambio en el backend quede aplicado de verdad.
+# Host 9091 -> container 9090 (ver ports en docker-compose.yml).
 # ============================================
-DOCKER_IMAGE   := mr-training-api:latest
 DOCKER_CONTAINER := mr-training-api
-HOST_PORT      := 9090
+HOST_PORT        := 9091
+CONTAINER_PORT   := 9090
 
-# IP IPv4 del host (desde dentro del contenedor para llegar a tu Postgres local)
-HOST_IP := $(shell ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo "127.0.0.1")
-
-# PostgreSQL del docker-compose.yml (puerto expuesto al host: 5436, base: mr_tanning)
-DB_HOST     ?= $(HOST_IP)
-DB_PORT     ?= 5436
-DB_NAME     ?= mr_tanning
-DB_USER     ?= mr_training_app
-DB_PASSWORD ?= MrTrainingApp_LocalOnly_!2026
-
-DATABASE_URL ?= postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable
-
-.PHONY: docker-build docker-stop docker-rm docker-run docker-restart docker-logs docker-health
+.PHONY: docker-build docker-stop docker-rm docker-run docker-restart doctor-restart docker-logs docker-health
 
 docker-build:
-	@echo "$(GREEN)🔨 Building $(DOCKER_IMAGE)...$(NC)"
-	docker build -t $(DOCKER_IMAGE) .
+	@echo "$(GREEN)🔨 Building api image...$(NC)"
+	$(COMPOSE) build api
 
 docker-stop:
 	@echo "$(YELLOW)🛑 Stopping $(DOCKER_CONTAINER)...$(NC)"
-	docker stop $(DOCKER_CONTAINER) 2>/dev/null || true
+	$(COMPOSE) stop api
 
 docker-rm: docker-stop
 	@echo "$(YELLOW)🗑️  Removing $(DOCKER_CONTAINER)...$(NC)"
-	docker rm $(DOCKER_CONTAINER) 2>/dev/null || true
-	@echo "$(YELLOW)🗑️  Removing image $(DOCKER_IMAGE)...$(NC)"
-	docker rmi -f $(DOCKER_IMAGE) 2>/dev/null || true
+	$(COMPOSE) rm -sf api
 
 docker-run: docker-build
-	@echo "$(GREEN)🚀 Running $(DOCKER_CONTAINER) on port $(HOST_PORT)...$(NC)"
-	docker run -d --name $(DOCKER_CONTAINER) -p $(HOST_PORT):9090 \
-	  --add-host=host.docker.internal:host-gateway \
-	  -e DATABASE_URL="$(DATABASE_URL)" \
-	  -e APP_ENV=development \
-	  -e LOG_LEVEL=debug \
-	  -e APP_PORT=9090 \
-	  $(DOCKER_IMAGE)
+	@echo "$(GREEN)🚀 Running $(DOCKER_CONTAINER) on $(HOST_PORT):$(CONTAINER_PORT)...$(NC)"
+	$(COMPOSE) up -d api
 
-docker-restart:
-	$(MAKE) docker-rm
-	$(MAKE) docker-run
+docker-restart: docker-build
+	@echo "$(GREEN)♻️  Recreating $(DOCKER_CONTAINER)...$(NC)"
+	$(COMPOSE) up -d --force-recreate api
 	@echo "$(GREEN)✅ API desplegada en http://localhost:$(HOST_PORT)$(NC)"
 
+# Alias usado en el día a día: mismo flujo que docker-restart.
+doctor-restart: docker-restart
+
 docker-logs:
-	docker logs -f $(DOCKER_CONTAINER)
+	$(COMPOSE) logs -f --tail=100 api
 
 docker-health:
 	@curl -sf http://localhost:$(HOST_PORT)/health && echo ""

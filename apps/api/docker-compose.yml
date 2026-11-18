@@ -133,10 +133,10 @@ services:
     env_file:
       - .env.local
     environment:
+      # APP_PORT y DATABASE_URL NO se fijan aquí: los toma de .env.local
+      # (env_file) para que ese archivo sea la única fuente de verdad local.
       - APP_ENV=development
       - LOG_LEVEL=debug
-      - APP_PORT=9090
-      - DATABASE_URL=postgresql://mr_training_app:MrTrainingApp_LocalOnly_!2026@postgres:5432/mr_training?sslmode=disable
       - REDIS_URL=redis:6379
       - NATS_URL=nats://nats:4222
       # Infisical configuration (loaded from .env.local)
