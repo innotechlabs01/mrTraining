@@ -238,10 +238,10 @@ func (r *Repository) GetRevenueStats(ctx context.Context) (*domain.RevenueStats,
 	// Se excluyen coaches inactivos y links inactivos/borrados para no contar
 	// pagos de relaciones que ya no vigilan.
 	coachAndAthleteScope := `(
-	    SELECT c.id FROM coaches c WHERE c.is_active = true
+	    SELECT c.id FROM coaches c WHERE c.is_active = 1
 	    UNION
 	    SELECT cal.athlete_id FROM coach_athlete_links cal
-	    WHERE cal.coach_id IN (SELECT id FROM coaches WHERE is_active = true)
+	    WHERE cal.coach_id IN (SELECT id FROM coaches WHERE is_active = 1)
 	      AND cal.status = 'active'
 	)`
 
