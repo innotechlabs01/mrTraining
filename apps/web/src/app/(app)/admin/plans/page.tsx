@@ -13,7 +13,13 @@ import {
   CreditCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Link from 'next/link';
+import {
+  Badge,
+  EmptyState,
+  PageHeader,
+  SearchField,
+  primaryButtonClass,
+} from '@/components/admin/ui';
 
 interface Plan {
   id: string;
@@ -78,6 +84,7 @@ export default function AdminPlansPage() {
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [trmRate, setTrmRate] = useState<{ value: number; fetchedAt: string } | null>(null);
   const [fetchingTrm, setFetchingTrm] = useState(false);
+  const [search, setSearch] = useState('');
 
   const superAdminIds = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
   const metadataRole = (user?.publicMetadata as Record<string, unknown> | undefined)?.role;
@@ -245,6 +252,15 @@ export default function AdminPlansPage() {
     }
   }
 
+  const filteredPlans = plans.filter((plan) => {
+    const term = search.trim().toLowerCase();
+    if (!term) return true;
+    return (
+      plan.name.toLowerCase().includes(term) ||
+      (plan.description || '').toLowerCase().includes(term)
+    );
+  });
+
   const statusBadge = (active: boolean) => (
     <span className={`px-2 py-1 rounded text-xs font-medium ${active ? 'bg-success/10 text-success border border-success/20' : 'bg-error/10 text-error border border-error/20'}`}>
       {active ? 'Activo' : 'Inactivo'}
@@ -297,23 +313,15 @@ export default function AdminPlansPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Planes</h1>
-          <p className="text-text-secondary mt-1">
-            Gestión de planes de suscripción: costos, periodos y disponibilidad.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={openCreate}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-primary text-text-inverse text-sm font-medium hover:bg-brand-primary/90 transition-colors"
-          >
-            <Plus size={16} /> Nuevo Plan
+      <PageHeader
+        title="Planes"
+        description="Gestión de planes de suscripción: costos, periodos y disponibilidad."
+        actions={
+          <button onClick={openCreate} className={primaryButtonClass}>
+            <Plus size={16} /> Nuevo plan
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {error && (
         <div className="p-3 rounded-lg bg-error/10 text-error border border-error/20">
@@ -328,18 +336,19 @@ export default function AdminPlansPage() {
 
       {/* Plans table */}
       <div className="rounded-xl border border-surface-6 bg-surface-1 overflow-hidden">
-        <div className="p-4 border-b border-surface-6 flex flex-col lg:flex-row gap-4 items-center justify-between">
-          <h2 className="text-lg font-bold text-text-primary">Planes disponibles</h2>
+        <div className="flex flex-col gap-3 border-b border-surface-6 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <input
-              type="search"
-              placeholder="Buscar plan..."
-              className="w-64 pl-10 pr-4 py-2 rounded-lg bg-surface-2 border border-surface-3 text-text-primary placeholder:text-text-secondary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary text-sm"
-            />
-            <CreditCard size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" aria-hidden="true" />
+            <h2 className="text-base font-semibold text-text-primary">Planes disponibles</h2>
+            <Badge>{filteredPlans.length}</Badge>
           </div>
+          <SearchField value={search} onChange={setSearch} placeholder="Buscar plan..." />
         </div>
-        <div className="overflow-x-auto">
+        <div
+          role="region"
+          aria-label="Listado de planes"
+          tabIndex={0}
+          className="hidden overflow-x-auto md:block"
+        >
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-surface-6 text-text-secondary text-left">
@@ -353,14 +362,16 @@ export default function AdminPlansPage() {
               </tr>
             </thead>
             <tbody>
-              {plans.length === 0 ? (
+              {filteredPlans.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-6 text-text-secondary text-center">
-                    No hay planes registrados.
+                    {plans.length === 0
+                      ? 'No hay planes registrados.'
+                      : 'Ningún plan coincide con la búsqueda.'}
                   </td>
                 </tr>
               ) : (
-                plans.map((plan) => (
+                filteredPlans.map((plan) => (
                   <tr key={plan.id} className="border-b border-surface-1 hover:bg-surface-2 transition-colors">
                     <td className="p-3">
                       <div className="flex items-center gap-2">
@@ -411,25 +422,92 @@ export default function AdminPlansPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile cards */}
+        <ul className="divide-y divide-surface-6 md:hidden">
+          {filteredPlans.map((plan) => (
+            <li key={plan.id} className="space-y-3 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-text-primary">{plan.name}</p>
+                  <p className="truncate text-xs text-text-secondary">{plan.description || 'Sin descripción'}</p>
+                </div>
+                <Badge tone={plan.is_active ? 'success' : 'error'}>
+                  {plan.is_active ? 'Activo' : 'Inactivo'}
+                </Badge>
+              </div>
+              <dl className="grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <dt className="text-text-secondary">Precio</dt>
+                  <dd className="tabular-nums text-text-primary">
+                    ${plan.price.toLocaleString()} {plan.currency}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-text-secondary">Periodo</dt>
+                  <dd className="text-text-primary">{plan.billing_period}</dd>
+                </div>
+                <div>
+                  <dt className="text-text-secondary">Atletas</dt>
+                  <dd className="tabular-nums text-text-primary">{plan.max_athletes}</dd>
+                </div>
+              </dl>
+              <div className="flex items-center justify-end gap-1">
+                <button
+                  onClick={() => openEdit(plan)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-surface-6 bg-surface-2 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:text-brand-primary"
+                  aria-label={`Editar ${plan.name}`}
+                >
+                  <Edit2 size={14} /> Editar
+                </button>
+                <button
+                  onClick={() => deletePlan(plan.id)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-surface-6 bg-surface-2 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:text-error"
+                  aria-label={`Eliminar ${plan.name}`}
+                >
+                  <Trash2 size={14} /> Eliminar
+                </button>
+              </div>
+            </li>
+          ))}
+          {filteredPlans.length === 0 && (
+            <li>
+              <EmptyState
+                title={plans.length === 0 ? 'No hay planes registrados' : 'Sin resultados'}
+                description={
+                  plans.length === 0
+                    ? 'Crea el primer plan de suscripción de la plataforma.'
+                    : 'Ajusta la búsqueda para encontrar el plan.'
+                }
+              />
+            </li>
+          )}
+        </ul>
       </div>
 
       {/* Create / Edit modal */}
       {open && (
-        <div className="fixed inset-0 z-50" aria-hidden="true">
+        <div className="fixed inset-0 z-50 overflow-y-auto">
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setOpen(false)}
           />
+          {/* Centrado por flex: framer-motion escribe `transform` inline y
+              anularía cualquier -translate-x/y-1/2 de Tailwind. */}
+          <div className="relative flex min-h-full items-start justify-center p-4 sm:items-center">
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="plan-modal-title"
+            initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
-            className="fixed left-1/2 top-1/2 z-50 w-full max-w-2xl mx-0 -translate-x-1/2 -translate-y-1/2 bg-surface-1 rounded-2xl border border-surface-6 shadow-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto"
+            className="relative w-full max-w-2xl bg-surface-1 rounded-2xl border border-surface-6 shadow-2xl p-6 sm:p-8 max-h-[calc(100vh-2rem)] overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-lg font-bold text-text-primary">
+                <h2 id="plan-modal-title" className="text-lg font-bold text-text-primary">
                   {editing ? 'Editar plan' : 'Crear plan'}
                 </h2>
                 <p className="text-xs text-text-secondary">
@@ -649,6 +727,7 @@ export default function AdminPlansPage() {
               </div>
             </form>
           </motion.div>
+          </div>
         </div>
       )}
 

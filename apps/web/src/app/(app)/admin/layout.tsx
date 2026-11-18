@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useUser, useAuth } from '@clerk/nextjs';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
   Users,
@@ -15,7 +14,6 @@ import {
   ChevronRight,
   LogOut,
   Menu,
-  Bell,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -30,8 +28,72 @@ const NAV_ITEMS = [
   { href: '/admin/settings', label: 'Configuración', icon: Settings },
 ];
 
-const SIDEBAR_OPEN_WIDTH = 260;
-const SIDEBAR_CLOSED_WIDTH = 72;
+// 02-design-system.md §2.4: top bar 56px, sidebar 240px (64px icon-only).
+const TOP_BAR_HEIGHT = 'h-14';
+const SIDEBAR_OPEN_WIDTH = 'w-60';
+const SIDEBAR_CLOSED_WIDTH = 'w-16';
+const CONTENT_OFFSET_OPEN = 'lg:pl-60';
+const CONTENT_OFFSET_CLOSED = 'lg:pl-16';
+
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0';
+
+function BrandLockup({ compact = false }: { compact?: boolean }) {
+  return (
+    <span className="flex items-center gap-2 overflow-hidden">
+      <span className="text-base font-extrabold leading-none tracking-tight text-brand-primary">
+        MR
+      </span>
+      {!compact && (
+        <span className="truncate text-sm font-bold uppercase leading-none tracking-[0.18em] text-text-primary">
+          Training
+        </span>
+      )}
+    </span>
+  );
+}
+
+function NavItem({
+  href,
+  label,
+  icon: Icon,
+  active,
+  collapsed = false,
+  onNavigate,
+}: {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  active: boolean;
+  collapsed?: boolean;
+  onNavigate?: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onNavigate}
+      aria-current={active ? 'page' : undefined}
+      title={collapsed ? label : undefined}
+      className={cn(
+        'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150',
+        FOCUS_RING,
+        collapsed && 'justify-center px-0',
+        active
+          ? 'bg-surface-4 font-medium text-brand-primary'
+          : 'text-text-secondary hover:bg-surface-4 hover:text-text-primary',
+      )}
+    >
+      {active && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-brand-primary"
+        />
+      )}
+      <Icon size={20} className="shrink-0" aria-hidden="true" />
+      {!collapsed && <span className="truncate">{label}</span>}
+    </Link>
+  );
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
@@ -56,38 +118,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.replace('/');
   }, [isLoaded, user, isSuperAdmin, router]);
 
-  // Never render an empty viewport: a blank screen while Clerk resolves reads
-  // as a broken app. Keep the shell dimensions and show a spinner instead.
-  if (!isLoaded || !user) {
-    return (
-      <div className="min-h-screen bg-surface-0 flex items-center justify-center">
-        <div
-          className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-primary"
-          role="status"
-          aria-label="Cargando"
-        ></div>
-      </div>
-    );
-  }
-
-  if (!isSuperAdmin) {
-    return (
-      <div className="min-h-screen bg-surface-0 flex flex-col items-center justify-center gap-4 p-6 text-center">
-        <h1 className="text-h3 font-semibold text-text-primary">Acceso denegado</h1>
-        <p className="text-body-sm text-text-secondary max-w-sm">
-          Esta sección es exclusiva del super admin de la plataforma.
-        </p>
-        <a
-          href="/"
-          className="mt-2 inline-flex items-center justify-center rounded-md bg-brand-primary px-5 py-3 text-body-sm font-medium text-text-inverse transition-colors hover:bg-brand-primary-hover"
-        >
-          Volver al inicio
-        </a>
-      </div>
-    );
-  }
-
-  const sidebarWidth = sidebarOpen ? SIDEBAR_OPEN_WIDTH : SIDEBAR_CLOSED_WIDTH;
+  const currentItem = NAV_ITEMS.find(
+    (i) => pathname === i.href || pathname.startsWith(i.href + '/'),
+  );
+  const currentLabel =
+    pathname === '/admin' ? 'Vista de plataforma' : currentItem?.label ?? 'Dashboard';
 
   const handleSignOut = async () => {
     try {
@@ -98,161 +133,242 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.replace('/sign-in');
   };
 
+  // Never render an empty viewport: a blank screen while Clerk resolves reads
+  // as a broken app. Keep the shell dimensions and show a spinner instead.
+  if (!isLoaded || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-0">
+        <div
+          className="h-8 w-8 animate-spin rounded-full border-2 border-surface-6 border-t-brand-primary"
+          role="status"
+          aria-label="Cargando"
+        />
+      </div>
+    );
+  }
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-0 p-6 text-center">
+        <h1 className="text-h3 font-semibold text-text-primary">Acceso denegado</h1>
+        <p className="max-w-sm text-body-sm text-text-secondary">
+          Esta sección es exclusiva del super admin de la plataforma.
+        </p>
+        <a
+          href="/"
+          className={cn(
+            'mt-2 inline-flex items-center justify-center rounded-lg bg-brand-primary px-5 py-3 text-body-sm font-medium text-text-inverse transition-colors hover:bg-brand-primary-pressed',
+            FOCUS_RING,
+          )}
+        >
+          Volver al inicio
+        </a>
+      </div>
+    );
+  }
+
+  const displayName =
+    user.firstName || user.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Super Admin';
+  const initials = displayName.charAt(0).toUpperCase();
+
   return (
-    <div className="min-h-screen bg-surface-0 relative">
-      {/* Desktop sidebar (collapsible, hidden on mobile — the mobile drawer handles navigation there) */}
-      <motion.aside
-        initial={{ width: 0, opacity: 0 }}
-        animate={{ width: sidebarWidth, opacity: 1 }}
-        exit={{ width: 0, opacity: 0 }}
-        transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="hidden lg:flex fixed left-0 top-0 h-screen bg-surface-1 border-r border-surface-6 z-50 flex flex-col"
-        style={{ width: sidebarWidth }}
+    <div className="min-h-screen bg-surface-0">
+      {/* Desktop sidebar — hidden on mobile, where the drawer handles navigation. */}
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-surface-6 bg-surface-2 transition-[width] duration-300 ease-out lg:flex',
+          sidebarOpen ? SIDEBAR_OPEN_WIDTH : SIDEBAR_CLOSED_WIDTH,
+        )}
       >
-        <div className="flex items-center justify-between h-16 px-4 border-b border-surface-6 shrink-0">
-          <Link href="/admin/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-brand-primary flex items-center justify-center text-text-inverse font-bold text-sm">
-              M
-            </div>
-            <span className={cn('sidebar-text truncate', !sidebarOpen && 'hidden')}>
-              MR<span className="text-brand-primary">Training</span>
-            </span>
+        <div
+          className={cn(
+            'flex shrink-0 items-center border-b border-surface-6 px-4',
+            TOP_BAR_HEIGHT,
+            !sidebarOpen && 'justify-center px-0',
+          )}
+        >
+          <Link
+            href="/admin/dashboard"
+            aria-label="MR Training — inicio del panel"
+            className={cn('rounded-md', FOCUS_RING)}
+          >
+            <BrandLockup compact={!sidebarOpen} />
           </Link>
+        </div>
+
+        <nav aria-label="Navegación principal" className="flex-1 overflow-y-auto p-2">
+          <ul className="space-y-1">
+            {NAV_ITEMS.map((item) => (
+              <li key={item.href}>
+                <NavItem
+                  href={item.href}
+                  label={item.label}
+                  icon={item.icon}
+                  active={currentItem?.href === item.href}
+                  collapsed={!sidebarOpen}
+                />
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div className="shrink-0 border-t border-surface-6 p-2">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors shrink-0"
             aria-label={sidebarOpen ? 'Colapsar menú' : 'Expandir menú'}
+            aria-expanded={sidebarOpen}
+            title={sidebarOpen ? 'Colapsar menú' : 'Expandir menú'}
+            className={cn(
+              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-text-secondary transition-colors hover:bg-surface-4 hover:text-text-primary',
+              FOCUS_RING,
+              !sidebarOpen && 'justify-center px-0',
+            )}
           >
-            {sidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+            {sidebarOpen ? (
+              <ChevronLeft size={20} className="shrink-0" aria-hidden="true" />
+            ) : (
+              <ChevronRight size={20} className="shrink-0" aria-hidden="true" />
+            )}
+            {sidebarOpen && <span className="truncate">Colapsar</span>}
           </button>
         </div>
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto shrink-0">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link key={item.href} href={item.href}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200',
-                  !sidebarOpen && 'justify-center',
-                  pathname === item.href || pathname.startsWith(item.href + '/')
-                    ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20'
-                    : 'text-text-secondary hover:text-text-primary hover:bg-surface-2',
-                  !sidebarOpen && 'px-0',
-                )}>
-                <Icon size={20} className="shrink-0" aria-hidden="true" />
-                <span className={cn('sidebar-text truncate', !sidebarOpen && 'hidden')}>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="p-3 border-t border-surface-6 shrink-0">
-          <div className="flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-surface-2 transition-colors">
-            <div className="w-8 h-8 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary font-bold text-sm shrink-0">
-              {user?.firstName?.charAt(0) || user?.primaryEmailAddress?.emailAddress?.charAt(0) || 'A'}
-            </div>
-            <div className={cn('flex-1 min-w-0', !sidebarOpen && 'hidden')}>
-              <p className="text-sm font-medium text-text-primary truncate">{user?.firstName || user?.primaryEmailAddress?.emailAddress?.charAt(0) || 'Super Admin'}</p>
-              <p className="text-xs text-text-secondary truncate">Super Admin</p>
-            </div>
-            <button className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors shrink-0" aria-label="Cerrar sesión" onClick={handleSignOut}>
-              <LogOut size={16} />
-            </button>
-          </div>
-        </div>
-      </motion.aside>
+      </aside>
 
-      {/* Mobile drawer overlay */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMobileMenuOpen(false)}
-              className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm lg:hidden"
-            />
-            <motion.aside
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 400 }}
-              className="fixed inset-y-0 right-0 h-screen w-full max-w-md bg-surface-1 border-l border-surface-6 z-50 flex flex-col lg:hidden"
-            >
-              <div className="flex items-center justify-between h-16 px-4 border-b border-surface-6 shrink-0">
-                <span className="text-lg font-bold text-text-primary">MR Training</span>
-                <button onClick={() => setMobileMenuOpen(false)} className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-2">
+      {/* Mobile drawer */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden">
+          <div
+            onClick={() => setMobileMenuOpen(false)}
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+          />
+          <aside
+            aria-label="Navegación del panel"
+            className="fixed inset-y-0 left-0 z-50 flex w-[280px] max-w-[85vw] flex-col border-r border-surface-6 bg-surface-2 lg:hidden"
+          >
+              <div className={cn('flex shrink-0 items-center justify-between border-b border-surface-6 px-4', TOP_BAR_HEIGHT)}>
+                <BrandLockup />
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  aria-label="Cerrar menú"
+                  className={cn(
+                    'flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-surface-4 hover:text-text-primary',
+                    FOCUS_RING,
+                  )}
+                >
                   <X size={20} />
                 </button>
               </div>
-              <nav className="flex-1 p-4 space-y-2 overflow-y-auto shrink-0">
-                {NAV_ITEMS.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}
-                      className={cn(
-                        'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors',
-                        pathname === item.href || pathname.startsWith(item.href + '/')
-                          ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20'
-                          : 'text-text-secondary hover:text-text-primary hover:bg-surface-2',
-                      )}>
-                      <Icon size={20} className="shrink-0" aria-hidden="true" />
-                      <span className="text-sm font-medium">{item.label}</span>
-                    </Link>
-                  );
-                })}
+              <nav aria-label="Navegación principal" className="flex-1 overflow-y-auto p-2">
+                <ul className="space-y-1">
+                  {NAV_ITEMS.map((item) => (
+                    <li key={item.href}>
+                      <NavItem
+                        href={item.href}
+                        label={item.label}
+                        icon={item.icon}
+                        active={currentItem?.href === item.href}
+                        onNavigate={() => setMobileMenuOpen(false)}
+                      />
+                    </li>
+                  ))}
+                </ul>
               </nav>
-              <div className="p-4 border-t border-surface-6 shrink-0">
-                <button onClick={() => { setMobileMenuOpen(false); handleSignOut(); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors" aria-label="Cerrar sesión">
-                  <LogOut size={16} /> Cerrar sesión
-                </button>
-              </div>
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
+            <div className="shrink-0 border-t border-surface-6 p-2">
+              <button
+                onClick={handleSignOut}
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-text-secondary transition-colors hover:bg-surface-4 hover:text-text-primary',
+                  FOCUS_RING,
+                )}
+              >
+                <LogOut size={18} className="shrink-0" aria-hidden="true" />
+                <span>Cerrar sesión</span>
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
 
-      <header className={cn('fixed top-0 h-16 bg-surface-0/80 backdrop-blur-md border-b border-surface-6 z-50 flex-all transition-all duration-300', sidebarOpen ? 'lg:left-[260px] lg:w-[calc(100%-260px)] lg:right-0' : 'lg:left-[72px] lg:w-[calc(100%-72px)] lg:right-0')}>
-        <div className="flex items-center justify-between h-full px-6 lg:pr-0">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors" aria-label="Abrir menú">
-              <Menu size={24} />
+      {/* Top bar — 56px, fixed, no duplicated page title: pages own their H1. */}
+      <header
+        className={cn(
+          'fixed right-0 top-0 z-30 flex items-center border-b border-surface-6 bg-surface-1 transition-[left] duration-300 ease-out',
+          TOP_BAR_HEIGHT,
+          'left-0',
+          sidebarOpen ? 'lg:left-60' : 'lg:left-16',
+        )}
+      >
+        <div className="flex h-full w-full items-center justify-between gap-3 px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Abrir menú"
+              aria-expanded={mobileMenuOpen}
+              className={cn(
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-surface-4 hover:text-text-primary lg:hidden',
+                FOCUS_RING,
+              )}
+            >
+              <Menu size={20} />
             </button>
-            <h1 className="text-lg font-semibold text-text-primary hidden sm:block">
-              {NAV_ITEMS.find(i => pathname === i.href || pathname.startsWith(i.href + '/'))?.label || 'Dashboard'}
-            </h1>
+            <span className="flex min-w-0 items-center gap-2 text-sm lg:hidden">
+              <BrandLockup compact />
+              <span className="sr-only">MR Training — panel de plataforma</span>
+            </span>
+            <nav aria-label="Breadcrumb" className="hidden min-w-0 items-center gap-2 text-sm lg:flex">
+              <Link
+                href="/admin/dashboard"
+                className={cn('rounded text-text-secondary transition-colors hover:text-text-primary', FOCUS_RING)}
+              >
+                Admin
+              </Link>
+              <span aria-hidden="true" className="text-text-secondary/60">
+                /
+              </span>
+              <span aria-current="page" className="truncate font-medium text-text-primary">
+                {currentLabel}
+              </span>
+            </nav>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <button className="relative p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors" aria-label="Notificaciones">
-                <Bell size={20} />
-              </button>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="flex items-center gap-2.5">
+              <span
+                aria-hidden="true"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-3 text-xs font-semibold uppercase text-text-primary"
+              >
+                {initials}
+              </span>
+              <span className="hidden text-left leading-tight sm:block">
+                <span className="block max-w-[160px] truncate text-sm font-medium text-text-primary">
+                  {displayName}
+                </span>
+                <span className="block text-xs text-text-secondary">Super Admin</span>
+              </span>
             </div>
-            <div className="relative">
-              <button className="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-2 transition-colors" aria-label="Menú de usuario">
-                <div className="w-8 h-8 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary font-bold text-sm">
-                  {user?.firstName?.charAt(0) || user?.primaryEmailAddress?.emailAddress?.charAt(0) || 'A'}
-                </div>
-                <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium text-text-primary">{user?.firstName || 'Admin'}</p>
-                  <p className="text-xs text-text-secondary">Super Admin</p>
-                </div>
-                <ChevronLeft size={16} className="text-text-secondary" />
-              </button>
-            </div>
+            <button
+              onClick={handleSignOut}
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
+              className={cn(
+                'flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-surface-4 hover:text-text-primary',
+                FOCUS_RING,
+              )}
+            >
+              <LogOut size={18} aria-hidden="true" />
+            </button>
           </div>
         </div>
       </header>
 
-      <main className={cn('min-h-screen bg-surface-0 pt-16 transition-all duration-300', sidebarOpen ? 'lg:ml-[260px] lg:w-[calc(100%-260px)]' : 'lg:ml-[72px] lg:w-[calc(100%-72px)]')}>
-        <div className="p-6 lg:p-8">
-          {children}
-        </div>
+      <main
+        className={cn(
+          'min-h-screen bg-surface-0 pt-14 transition-[padding] duration-300 ease-out',
+          sidebarOpen ? CONTENT_OFFSET_OPEN : CONTENT_OFFSET_CLOSED,
+        )}
+      >
+        <div className="mx-auto w-full max-w-[1280px] p-6 lg:p-8">{children}</div>
       </main>
-
-      <button onClick={() => setMobileMenuOpen(true)} className="fixed bottom-6 right-6 lg:hidden z-50 p-4 rounded-full bg-brand-primary text-text-inverse shadow-lg shadow-brand-primary/30" aria-label="Abrir menú">
-        <Menu size={24} />
-      </button>
     </div>
   );
 }

@@ -3,13 +3,20 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
-  TicketCheck, Plus, Filter, Search, ChevronRight, ChevronLeft,
+  Plus, Search, ChevronLeft,
   MessageSquare, Send, Image, X, CheckCheck, RotateCcw, AlertCircle,
-  CircleDot, CheckCircle2, MoreVertical, Flag, Archive
+  CircleDot, CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  EmptyState,
+  Modal,
+  PageHeader,
+  SearchField,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from '@/components/admin/ui';
 
 interface Ticket {
   id: string;
@@ -77,6 +84,7 @@ export default function AdminTicketsPage() {
   const [filter, setFilter] = useState<'all' | string>('all');
   const [search, setSearch] = useState('');
   const [composing, setComposing] = useState(false);
+  const [showDetailMobile, setShowDetailMobile] = useState(false);
   const [reply, setReply] = useState('');
   const [img, setImg] = useState<string | undefined>(undefined);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -228,32 +236,34 @@ export default function AdminTicketsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Tickets / Soporte</h1>
-          <p className="text-text-secondary mt-1">Gestión de tickets de coaches</p>
-        </div>
-        <div className="flex items-center gap-3 mt-4 lg:mt-0">
-          <button
-            onClick={() => setComposing(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-primary text-text-inverse text-sm font-medium hover:bg-brand-primary/90"
-          >
-            <Plus size={16} /> Nuevo Ticket
+      <PageHeader
+        title="Tickets / Soporte"
+        description="Bandeja de soporte de coaches: prioriza, responde y cierra tickets."
+        actions={
+          <button onClick={() => setComposing(true)} className={primaryButtonClass}>
+            <Plus size={16} /> Nuevo ticket
           </button>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="mt-5 grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
+      <div className="grid grid-cols-1 gap-4 lg:h-[calc(100dvh-16rem)] lg:grid-cols-[340px_1fr]">
         {/* Ticket List */}
-        <div className="flex min-h-0 flex-col rounded-lg border border-surface-6 bg-surface-1">
-          <div className="flex gap-1 border-b border-surface-6 p-2">
+        <div
+          className={cn(
+            'min-h-0 flex-col rounded-xl border border-surface-6 bg-surface-1',
+            showDetailMobile ? 'hidden lg:flex' : 'flex',
+          )}
+        >
+          <div className="border-b border-surface-6 p-3">
+            <SearchField value={search} onChange={setSearch} placeholder="Buscar ticket..." />
+          </div>
+          <div className="flex gap-1 overflow-x-auto border-b border-surface-6 p-2">
             {(['all', 'open', 'in_progress', 'resolved'] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
                 className={cn(
-                  'flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors',
+                  'flex-1 whitespace-nowrap rounded-lg px-2 py-1.5 text-xs font-medium transition-colors',
                   filter === f ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20' : 'text-text-secondary hover:text-text-inverse hover:bg-surface-2'
                 )}
               >
@@ -261,14 +271,21 @@ export default function AdminTicketsPage() {
               </button>
             ))}
           </div>
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3 max-h-[60vh] lg:max-h-none">
             {visible.length === 0 && (
-              <p className="p-4 text-center text-xs text-text-secondary">Sin tickets aquí.</p>
+              <EmptyState
+                icon={<Search size={18} />}
+                title="Sin tickets aquí"
+                description="Cambia el filtro o crea un ticket nuevo."
+              />
             )}
             {visible.map((t) => (
               <button
                 key={t.id}
-                onClick={() => setSelectedId(t.id)}
+                onClick={() => {
+                  setSelectedId(t.id);
+                  setShowDetailMobile(true);
+                }}
                 className={cn(
                   'w-full rounded-xl border p-3 text-left transition-colors',
                   selected?.id === t.id
@@ -298,11 +315,17 @@ export default function AdminTicketsPage() {
         </div>
 
         {/* Ticket Detail */}
-        <div className="min-h-0 overflow-hidden rounded-lg border border-surface-6 bg-surface-1">
+        <div
+          className={cn(
+            'min-h-0 overflow-hidden rounded-xl border border-surface-6 bg-surface-1',
+            showDetailMobile ? 'block' : 'hidden lg:block',
+          )}
+        >
           {selected ? (
             <TicketDetail
               key={selected.id}
               ticket={selected}
+              onBack={() => setShowDetailMobile(false)}
               onResolve={() => resolveTicket(selected.id)}
               onReopen={() => reopenTicket(selected.id)}
               onReply={addMessage}
@@ -322,28 +345,26 @@ export default function AdminTicketsPage() {
         </div>
       </div>
 
-      {/* New Ticket Modal */}
-      <AnimatePresence>
-        {composing && (
-          <NewTicketModal
-            nextNumber={nextNum}
-            onClose={() => setComposing(false)}
-            onCreate={async (input) => {
-              const ticketId = await createTicket(input);
-              if (ticketId) {
-                setSelectedId(ticketId);
-                setComposing(false);
-              }
-            }}
-          />
-        )}
-      </AnimatePresence>
+      <NewTicketModal
+        open={composing}
+        nextNumber={nextNum}
+        onClose={() => setComposing(false)}
+        onCreate={async (input) => {
+          const ticketId = await createTicket(input);
+          if (ticketId) {
+            setSelectedId(ticketId);
+            setShowDetailMobile(true);
+            setComposing(false);
+          }
+        }}
+      />
     </div>
   );
 }
 
 function TicketDetail({
   ticket,
+  onBack,
   onResolve,
   onReopen,
   onReply,
@@ -356,6 +377,7 @@ function TicketDetail({
   fileRef,
 }: {
   ticket: Ticket;
+  onBack: () => void;
   onResolve: () => void;
   onReopen: () => void;
   onReply: (body: string, imageUrl?: string) => void;
@@ -375,8 +397,18 @@ function TicketDetail({
 
   return (
     <div className="flex h-full flex-col">
+      {/* Mobile: back to the ticket list (both panes are visible on lg) */}
+      <div className="border-b border-surface-6 p-2 lg:hidden">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary"
+        >
+          <ChevronLeft size={16} /> Todos los tickets
+        </button>
+      </div>
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 border-b border-surface-6 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-surface-6 p-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-semibold text-text-secondary tabular-nums">#{ticket.ticket_number}</span>
@@ -524,10 +556,12 @@ function TicketDetail({
 }
 
 function NewTicketModal({
+  open,
   nextNumber,
   onClose,
   onCreate,
 }: {
+  open: boolean;
   nextNumber: number;
   onClose: () => void;
   onCreate: (input: {
@@ -551,31 +585,28 @@ function NewTicketModal({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg overflow-hidden rounded-lg border border-surface-6 bg-surface-1"
-      >
-        <div className="flex items-center justify-between border-b border-surface-6 p-4">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-text-primary">
-            <TicketCheck size={16} className="text-brand-primary" /> Nuevo ticket
-            <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-xs text-text-secondary tabular-nums">#{nextNumber}</span>
-          </h2>
-          <button onClick={onClose} className="text-text-secondary hover:text-text-primary">
-            <X size={18} />
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={`Nuevo ticket #${nextNumber}`}
+      size="max-w-lg"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className={secondaryButtonClass}>
+            Cancelar
           </button>
-        </div>
-
-        <div className="space-y-3 p-4">
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!subject.trim() || !body.trim()}
+            className={primaryButtonClass}
+          >
+            <MessageSquare size={15} /> Crear ticket #{nextNumber}
+          </button>
+        </>
+      }
+    >
+        <div className="space-y-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-text-secondary">Asunto</label>
             <input
@@ -586,10 +617,10 @@ function NewTicketModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-medium text-text-secondary">Tipo</label>
-              <div className="flex gap-1">
+              <div className="flex flex-wrap gap-1">
                 {(Object.keys(CATEGORY) as (keyof typeof CATEGORY)[]).map((c) => (
                   <button
                     key={c}
@@ -607,7 +638,7 @@ function NewTicketModal({
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-text-secondary">Prioridad</label>
-              <div className="flex gap-1">
+              <div className="flex flex-wrap gap-1">
                 {(Object.keys(PRIORITY) as (keyof typeof PRIORITY)[]).map((p) => (
                   <button
                     key={p}
@@ -675,24 +706,7 @@ function NewTicketModal({
             </span>
           </div>
         </div>
-
-        <div className="flex justify-end gap-2 border-t border-surface-6 p-4">
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-surface-6 px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-2"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={submit}
-            disabled={!subject.trim() || !body.trim()}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-text-inverse transition-colors hover:bg-brand-primary-hover disabled:opacity-40"
-          >
-            <MessageSquare size={15} /> Crear ticket #{nextNumber}
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
+    </Modal>
   );
 }
 
