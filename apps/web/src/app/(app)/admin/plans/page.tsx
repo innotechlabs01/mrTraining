@@ -49,6 +49,7 @@ interface PlanFormValues {
   max_athletes: string;
   max_sessions_per_week: string;
   is_active: boolean;
+  trm: string;
 }
 
 const DEFAULT_FORM: PlanFormValues = {
@@ -60,6 +61,7 @@ const DEFAULT_FORM: PlanFormValues = {
   max_athletes: '10',
   max_sessions_per_week: '12',
   is_active: true,
+  trm: '',
 };
 
 export default function AdminPlansPage() {
@@ -135,6 +137,9 @@ export default function AdminPlansPage() {
         max_athletes: parseInt(form.max_athletes, 10) || 10,
         max_sessions_per_week: parseInt(form.max_sessions_per_week, 10) || 12,
         is_active: form.is_active,
+        ...(form.currency === 'USD' && form.trm
+          ? { trm: parseFloat(form.trm) }
+          : {}),
       };
 
       const method = editing ? 'PUT' : 'POST';
@@ -183,6 +188,7 @@ export default function AdminPlansPage() {
       max_athletes: String(plan.max_athletes),
       max_sessions_per_week: String(plan.max_sessions_per_week),
       is_active: plan.is_active,
+      trm: String(plan.trm ?? ''),
     });
     setError(null);
     setMessage(null);
@@ -384,7 +390,8 @@ export default function AdminPlansPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed left-1/2 top-1/2 z-50 w-full max-w-md mx-0 -translate-x-1/2 -translate-y-1/2 bg-surface-1 rounded-xl border border-surface-6 shadow-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg mx-0 -translate-x-1/2 -translate-y-1/2 bg-surface-1 rounded-xl border border-surface-6 shadow-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-text-primary">
@@ -441,6 +448,41 @@ export default function AdminPlansPage() {
                       <option value="COP">COP</option>
                       <option value="USD">USD</option>
                     </select>
+                    {form.currency === 'USD' && (
+                      <div className="mt-2">
+                        <label className="block text-xs font-medium text-text-secondary mb-1">
+                          TRM (pesos COP por 1 USD)
+                        </label>
+                        <input
+                          name="trm"
+                          type="number"
+                          step="0.01"
+                          value={form.trm}
+                          onChange={(e) =>
+                            setForm({ ...form, trm: e.target.value })
+                          }
+                          placeholder="Ej. 4000"
+                          className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                        />
+                        {form.price && form.trm && (
+                          <p className="text-xs text-text-secondary mt-1">
+                            ≈ ${(parseFloat(form.price) * parseFloat(form.trm)).toLocaleString()} COP (TRM: {form.trm})
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Precio en COP (aprox.)
+                    </label>
+                    <p className="text-sm text-text-secondary">
+                      {form.currency === 'USD' && form.price && form.trm
+                        ? `≈ $${(parseFloat(form.price) * parseFloat(form.trm)).toLocaleString()} COP`
+                        : form.currency === 'COP' && form.price
+                        ? `$${parseFloat(form.price).toLocaleString()} COP`
+                        : 'Ingresa precio y, si es USD, la TRM'}
+                    </p>
                   </div>
                 </div>
                 <div className="mb-4">
