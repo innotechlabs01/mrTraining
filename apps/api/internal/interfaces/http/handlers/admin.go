@@ -381,7 +381,7 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 	// y separado de ID (que puede ser un Clerk users.id). Idempotente.
 	if _, err := h.db.ExecContext(ctx, `
 		INSERT INTO coaches (id, email, name, skip_subscription, is_active, created_at, updated_at)
-		SELECT gen_random_uuid(), u.email, COALESCE(NULLIF(u.name, ''), u.email), false, u.is_active, u.created_at, u.updated_at
+		SELECT gen_random_uuid(), u.email, COALESCE(NULLIF(u.name, ''), u.email), false::integer, u.is_active::integer, u.created_at, u.updated_at
 		FROM users u
 		WHERE u.role = 'coach'
 		  AND NOT EXISTS (
