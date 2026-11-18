@@ -44,8 +44,8 @@ func TestRepo_RLS_CoachIsolation(t *testing.T) {
 	coachB := "coach-b-rls"
 
 	// Crea landings no publicadas (la policy pública solo expone publicadas).
-	lpA := &domain.LandingPage{CoachID: coachA, Slug: "landing-a", Title: "A", IsPublished: false}
-	lpB := &domain.LandingPage{CoachID: coachB, Slug: "landing-b", Title: "B", IsPublished: false}
+	lpA := &domain.LandingPage{CoachID: coachA, Slug: "landing-a", Title: "A", Config: "{}", Sections: "[]", Images: "[]", IsPublished: false}
+	lpB := &domain.LandingPage{CoachID: coachB, Slug: "landing-b", Title: "B", Config: "{}", Sections: "[]", Images: "[]", IsPublished: false}
 	require.NoError(t, repo.Create(ctx, lpA))
 	require.NoError(t, repo.Create(ctx, lpB))
 
@@ -76,8 +76,8 @@ func TestRepo_RLS_PublicRead_OnlyPublished(t *testing.T) {
 	ctx := context.Background()
 
 	coachA := "coach-a-rls-public"
-	lpUnpublished := &domain.LandingPage{CoachID: coachA, Slug: "unpublished-rls", Title: "No publicada", IsPublished: false}
-	lpPublished := &domain.LandingPage{CoachID: coachA, Slug: "published-rls", Title: "Publicada", IsPublished: true}
+	lpUnpublished := &domain.LandingPage{CoachID: coachA, Slug: "unpublished-rls", Title: "No publicada", Config: "{}", Sections: "[]", Images: "[]", IsPublished: false}
+	lpPublished := &domain.LandingPage{CoachID: coachA, Slug: "published-rls", Title: "Publicada", Config: "{}", Sections: "[]", Images: "[]", IsPublished: true}
 	require.NoError(t, repo.Create(ctx, lpUnpublished))
 	require.NoError(t, repo.Create(ctx, lpPublished))
 
