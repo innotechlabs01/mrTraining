@@ -760,6 +760,7 @@ func RegisterAdminRoutes(api fiber.Router, handler *handlers.AdminHandler, allow
 	admin.Delete("/plans/:id", handler.DeleteAdminPlan)
 	admin.Get("/settings", handler.GetSettings)
 	admin.Put("/settings", handler.PutSettings)
+	admin.Get("/settings/trm", handler.GetTRMSetting)
 }
 
 // RegisterErrorRoutes registers error tracking routes on the auth-protected API group.
@@ -776,7 +777,8 @@ func RegisterErrorWebhookRoutes(app fiber.Router, handler *handlers.ErrorHandler
 
 // RegisterCRMRoutes registers super admin CRM routes on the auth-protected API group.
 // Routes: GET /admin/coaches, /admin/coaches/expiring, /admin/coaches/expired,
-//         /admin/revenue, /admin/coaches/:id/payments.
+//
+//	/admin/revenue, /admin/coaches/:id/payments.
 func RegisterCRMRoutes(api fiber.Router, handler *handlers.CRMHandler) {
 	handler.RegisterRoutes(api)
 }

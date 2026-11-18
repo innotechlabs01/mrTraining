@@ -14,12 +14,12 @@ import (
 
 func TestAdminHandler_AuthorizationMatrix(t *testing.T) {
 	allowedID := "allowed-admin"
-	h := NewAdminHandler(nil, nil)
+	h := NewAdminHandler(nil, nil, nil)
 
 	cases := []struct {
-		name   string
-		cfg    *middleware.TestAuthConfig
-		want   int
+		name string
+		cfg  *middleware.TestAuthConfig
+		want int
 	}{
 		{name: "anonymous", cfg: nil, want: http.StatusUnauthorized},
 		{name: "athlete", cfg: &middleware.TestAuthConfig{UserID: "athlete-1", Role: "athlete"}, want: http.StatusForbidden},
@@ -49,7 +49,7 @@ func TestAdminHandler_AuthorizationMatrix(t *testing.T) {
 }
 
 func TestAdminHandler_UnauthorizedMatrixAllEndpoints(t *testing.T) {
-	h := NewAdminHandler(nil, nil)
+	h := NewAdminHandler(nil, nil, nil)
 	allowedID := "allowed-admin"
 	endpoints := []string{
 		"/admin/dashboard",

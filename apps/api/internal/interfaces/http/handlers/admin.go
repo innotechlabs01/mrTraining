@@ -13,73 +13,81 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	trmapp "github.com/innotechlabs01/mr-training-api/internal/application/trm"
 	userinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/user"
 
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
+// trmReader is the subset of trm.Service used by the admin handler.
+type trmReader interface {
+	GetCurrent(context.Context) (*trmapp.Rate, error)
+	GetStored(context.Context) (*trmapp.Rate, error)
+}
+
 // AdminHandler handles read-only platform administration endpoints. It never
 // exposes athlete private data: only aggregated counts are returned.
 type AdminHandler struct {
-	db         *sql.DB
+	db          *sql.DB
 	clerkClient *userinfrastructure.ClerkClient
+	trmService  trmReader
 }
 
 // NewAdminHandler creates a new AdminHandler bound to the supplied database.
 // A nil database keeps the handler functional for degraded health reporting.
-func NewAdminHandler(db *sql.DB, clerkClient *userinfrastructure.ClerkClient) *AdminHandler {
-	return &AdminHandler{db: db, clerkClient: clerkClient}
+func NewAdminHandler(db *sql.DB, clerkClient *userinfrastructure.ClerkClient, trmService trmReader) *AdminHandler {
+	return &AdminHandler{db: db, clerkClient: clerkClient, trmService: trmService}
 }
 
 // AdminDashboardResponse is the aggregated, tenant-agnostic dashboard payload.
 type AdminDashboardResponse struct {
-	CoachesCount           int64 `json:"coaches_count"`
-	ActiveCoachesCount     int64 `json:"active_coaches_count"`
-	UsersCount             int64 `json:"users_count"`
-	MembershipsCount       int64 `json:"memberships_count"`
-	ActiveMemberships      int64 `json:"active_memberships_count"`
-	LinkedAthletes         int64 `json:"linked_athletes_count"`
-	ExpiringCoachesCount   int64 `json:"expiring_coaches_count"`
-	SkippedSubscriptions   int64 `json:"skipped_subscriptions"`
+	CoachesCount         int64 `json:"coaches_count"`
+	ActiveCoachesCount   int64 `json:"active_coaches_count"`
+	UsersCount           int64 `json:"users_count"`
+	MembershipsCount     int64 `json:"memberships_count"`
+	ActiveMemberships    int64 `json:"active_memberships_count"`
+	LinkedAthletes       int64 `json:"linked_athletes_count"`
+	ExpiringCoachesCount int64 `json:"expiring_coaches_count"`
+	SkippedSubscriptions int64 `json:"skipped_subscriptions"`
 }
 
 // AdminCoachSummary is a privacy-safe coach row (no athlete identities).
 type AdminCoachSummary struct {
-	ID                  string `json:"id"`
-	Name                string `json:"name"`
-	Email               string `json:"email"`
-	IsActive            bool   `json:"is_active"`
-	AthletesCount       int64  `json:"athletes_count"`
-	MembershipsCount    int64  `json:"memberships_count"`
-	ActiveMemberships   int64  `json:"active_memberships_count"`
-	CreatedAt           string `json:"created_at"`
-	PlanName            string `json:"plan_name"`
-	PlanPrice           float64 `json:"plan_price"`
-	PlanStatus          string `json:"plan_status"`
-	PlanExpiresAt       string `json:"plan_expires_at"`
-	SkipSubscription    bool    `json:"skip_subscription"`
+	ID                string  `json:"id"`
+	Name              string  `json:"name"`
+	Email             string  `json:"email"`
+	IsActive          bool    `json:"is_active"`
+	AthletesCount     int64   `json:"athletes_count"`
+	MembershipsCount  int64   `json:"memberships_count"`
+	ActiveMemberships int64   `json:"active_memberships_count"`
+	CreatedAt         string  `json:"created_at"`
+	PlanName          string  `json:"plan_name"`
+	PlanPrice         float64 `json:"plan_price"`
+	PlanStatus        string  `json:"plan_status"`
+	PlanExpiresAt     string  `json:"plan_expires_at"`
+	SkipSubscription  bool    `json:"skip_subscription"`
 }
 
 // AdminCoachesResponse wraps a paginated, privacy-safe coach listing.
 type AdminCoachesResponse struct {
-	Data      []AdminCoachSummary `json:"data"`
-	Search    string              `json:"search"`
-	Page      int                 `json:"page"`
-	PageSize  int                 `json:"page_size"`
-	Total     int64               `json:"total"`
+	Data     []AdminCoachSummary `json:"data"`
+	Search   string              `json:"search"`
+	Page     int                 `json:"page"`
+	PageSize int                 `json:"page_size"`
+	Total    int64               `json:"total"`
 }
 
 // AdminCoachDetailResponse contains aggregate coach information only.
 type AdminCoachDetailResponse struct {
-	ID                  string `json:"id"`
-	Name                string `json:"name"`
-	Email               string `json:"email"`
-	IsActive            bool   `json:"is_active"`
-	AthletesCount       int64  `json:"athletes_count"`
-	MembershipsCount    int64  `json:"memberships_count"`
-	ActiveMemberships   int64  `json:"active_memberships_count"`
-	CreatedAt           string `json:"created_at"`
-	SkipSubscription    bool    `json:"skip_subscription"`
+	ID                string `json:"id"`
+	Name              string `json:"name"`
+	Email             string `json:"email"`
+	IsActive          bool   `json:"is_active"`
+	AthletesCount     int64  `json:"athletes_count"`
+	MembershipsCount  int64  `json:"memberships_count"`
+	ActiveMemberships int64  `json:"active_memberships_count"`
+	CreatedAt         string `json:"created_at"`
+	SkipSubscription  bool   `json:"skip_subscription"`
 }
 
 // AdminServiceHealthResponse reports basic dependency health.
@@ -90,21 +98,21 @@ type AdminServiceHealthResponse struct {
 
 // AdminPlan is a platform plan exposed to the admin CRM.
 type AdminPlan struct {
-	ID                 string     `json:"id"`
-	Name               string     `json:"name"`
-	Description        string     `json:"description"`
-	Price              float64    `json:"price"`
-	Currency           string     `json:"currency"`
-	BillingPeriod      string     `json:"billing_period"`
-	MaxAthletes        int        `json:"max_athletes"`
-	MaxSessionsPerWeek int        `json:"max_sessions_per_week"`
-	IsActive           bool       `json:"is_active"`
-	AthleteCount       int        `json:"athlete_count"`
-	CoachID            string     `json:"coach_id"`
-	CoachName          string     `json:"coach_name,omitempty"`
-	TRM                float64    `json:"trm"`
-	CreatedAt          string     `json:"created_at"`
-	UpdatedAt          *string    `json:"updated_at,omitempty"`
+	ID                 string  `json:"id"`
+	Name               string  `json:"name"`
+	Description        string  `json:"description"`
+	Price              float64 `json:"price"`
+	Currency           string  `json:"currency"`
+	BillingPeriod      string  `json:"billing_period"`
+	MaxAthletes        int     `json:"max_athletes"`
+	MaxSessionsPerWeek int     `json:"max_sessions_per_week"`
+	IsActive           bool    `json:"is_active"`
+	AthleteCount       int     `json:"athlete_count"`
+	CoachID            string  `json:"coach_id"`
+	CoachName          string  `json:"coach_name,omitempty"`
+	TRM                float64 `json:"trm"`
+	CreatedAt          string  `json:"created_at"`
+	UpdatedAt          *string `json:"updated_at,omitempty"`
 }
 
 // AdminPlansResponse wraps a plan listing.
@@ -143,6 +151,15 @@ type UpdateAdminPlanRequest struct {
 // AdminSettingsResponse is the platform settings payload (flat key -> value).
 type AdminSettingsResponse struct {
 	Settings map[string]interface{} `json:"settings"`
+}
+
+// TRMSettingResponse is the payload for GET /api/v1/admin/settings/trm.
+type TRMSettingResponse struct {
+	Value         float64 `json:"value"`
+	VigenciaDesde string  `json:"vigencia_desde"`
+	FetchedAt     string  `json:"fetched_at"`
+	MarginPct     int     `json:"margin_pct"`
+	Source        string  `json:"source"`
 }
 
 // UpsertSettingRequest sets a single platform setting.
@@ -267,9 +284,9 @@ func (h *AdminHandler) GetServicesHealth(c *fiber.Ctx) error {
 }
 
 // Aliases for callers/tests that use alternate naming.
-func (h *AdminHandler) GetCoachByID(c *fiber.Ctx) error { return h.GetCoach(c) }
-func (h *AdminHandler) ServiceHealth(c *fiber.Ctx) error { return h.GetServicesHealth(c) }
-func (h *AdminHandler) ServicesHealth(c *fiber.Ctx) error { return h.GetServicesHealth(c) }
+func (h *AdminHandler) GetCoachByID(c *fiber.Ctx) error     { return h.GetCoach(c) }
+func (h *AdminHandler) ServiceHealth(c *fiber.Ctx) error    { return h.GetServicesHealth(c) }
+func (h *AdminHandler) ServicesHealth(c *fiber.Ctx) error   { return h.GetServicesHealth(c) }
 func (h *AdminHandler) GetServiceHealth(c *fiber.Ctx) error { return h.GetServicesHealth(c) }
 
 func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, offset int) ([]AdminCoachSummary, int64, error) {
@@ -289,7 +306,7 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 	listArgs := append([]interface{}{}, args...)
 	next := len(listArgs) + 1
 	limitPH := "$" + strconv.Itoa(next)
-	offsetPH := "$" + strconv.Itoa(next + 1)
+	offsetPH := "$" + strconv.Itoa(next+1)
 	listArgs = append(listArgs, limit, offset)
 
 	query := `
@@ -661,6 +678,33 @@ func (h *AdminHandler) PutSettings(c *fiber.Ctx) error {
 		}
 	}
 	return appresponse.Success(c, AdminSettingsResponse{Settings: raw})
+}
+
+// GetTRMSetting handles GET /api/v1/admin/settings/trm.
+// Devuelve la TRM con margen del 8% aplicado, vigencia y fecha de actualización.
+func (h *AdminHandler) GetTRMSetting(c *fiber.Ctx) error {
+	ctx := c.Context()
+
+	var rate *trmapp.Rate
+	var err error
+	if h.trmService != nil {
+		rate, err = h.trmService.GetCurrent(ctx)
+		if err != nil {
+			// Si el servicio falla, intentar leer el valor persistido en DB.
+			rate, err = h.trmService.GetStored(ctx)
+		}
+	}
+	if err != nil || rate == nil {
+		return appresponse.Error(c, fiber.StatusServiceUnavailable, "trm unavailable")
+	}
+
+	return appresponse.Success(c, TRMSettingResponse{
+		Value:         rate.Value,
+		VigenciaDesde: rate.VigenciaD,
+		FetchedAt:     rate.FetchedAt.UTC().Format(time.RFC3339),
+		MarginPct:     rate.MarginPct,
+		Source:        rate.Source,
+	})
 }
 
 // clerkIDSuffix returns the last n characters of a Clerk id, or the whole id

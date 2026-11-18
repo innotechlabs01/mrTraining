@@ -10,27 +10,28 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 
-	analyticsapp "github.com/innotechlabs01/mr-training-api/internal/application/analytics"
-	checkoutapp "github.com/innotechlabs01/mr-training-api/internal/application/checkout"
-	athleteapp "github.com/innotechlabs01/mr-training-api/internal/application/athlete"
+	alertapp "github.com/innotechlabs01/mr-training-api/internal/application/alert"
 	allyapp "github.com/innotechlabs01/mr-training-api/internal/application/ally"
 	allycatalogapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_catalog"
 	allyopsapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_operations"
 	allypaymentdeclarationapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_payment_declaration"
 	allypurchaseapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_purchase"
+	analyticsapp "github.com/innotechlabs01/mr-training-api/internal/application/analytics"
+	athleteapp "github.com/innotechlabs01/mr-training-api/internal/application/athlete"
 	blogapp "github.com/innotechlabs01/mr-training-api/internal/application/blog"
 	challengeapp "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
 	checkinapp "github.com/innotechlabs01/mr-training-api/internal/application/checkin"
+	checkoutapp "github.com/innotechlabs01/mr-training-api/internal/application/checkout"
 	coachapp "github.com/innotechlabs01/mr-training-api/internal/application/coach"
+	coachlandingapp "github.com/innotechlabs01/mr-training-api/internal/application/coach_landing"
 	coachsetapp "github.com/innotechlabs01/mr-training-api/internal/application/coach_settlement"
 	coachfeedapp "github.com/innotechlabs01/mr-training-api/internal/application/coachfeed"
-	coachlandingapp "github.com/innotechlabs01/mr-training-api/internal/application/coach_landing"
-	crmapp "github.com/innotechlabs01/mr-training-api/internal/application/crm"
 	commissionapp "github.com/innotechlabs01/mr-training-api/internal/application/commission"
 	commissionentryapp "github.com/innotechlabs01/mr-training-api/internal/application/commission_entry"
 	communityapp "github.com/innotechlabs01/mr-training-api/internal/application/community"
-	errorapp "github.com/innotechlabs01/mr-training-api/internal/application/error_tracking"
+	crmapp "github.com/innotechlabs01/mr-training-api/internal/application/crm"
 	earningsapp "github.com/innotechlabs01/mr-training-api/internal/application/earnings"
+	errorapp "github.com/innotechlabs01/mr-training-api/internal/application/error_tracking"
 	eventapp "github.com/innotechlabs01/mr-training-api/internal/application/event"
 	favoriteapp "github.com/innotechlabs01/mr-training-api/internal/application/favorite"
 	formmetricsapp "github.com/innotechlabs01/mr-training-api/internal/application/formmetrics"
@@ -48,42 +49,41 @@ import (
 	paymentledgersvc "github.com/innotechlabs01/mr-training-api/internal/application/payment_ledger"
 	planapp "github.com/innotechlabs01/mr-training-api/internal/application/plan"
 	productapp "github.com/innotechlabs01/mr-training-api/internal/application/product"
-	testimonialapp "github.com/innotechlabs01/mr-training-api/internal/application/testimonial"
 	routineapp "github.com/innotechlabs01/mr-training-api/internal/application/routine"
 	runningapp "github.com/innotechlabs01/mr-training-api/internal/application/running"
 	storeapp "github.com/innotechlabs01/mr-training-api/internal/application/store"
 	subscriptionapp "github.com/innotechlabs01/mr-training-api/internal/application/subscription"
 	supportapp "github.com/innotechlabs01/mr-training-api/internal/application/support"
+	testimonialapp "github.com/innotechlabs01/mr-training-api/internal/application/testimonial"
 	todayapp "github.com/innotechlabs01/mr-training-api/internal/application/today"
 	trainingapp "github.com/innotechlabs01/mr-training-api/internal/application/training"
 	trainingaiapp "github.com/innotechlabs01/mr-training-api/internal/application/trainingai"
 	trmapp "github.com/innotechlabs01/mr-training-api/internal/application/trm"
 	userapp "github.com/innotechlabs01/mr-training-api/internal/application/user"
 	vaapp "github.com/innotechlabs01/mr-training-api/internal/application/videoanalytics"
-	wompiavailapp "github.com/innotechlabs01/mr-training-api/internal/application/wompiavailability"
 	videoviewapp "github.com/innotechlabs01/mr-training-api/internal/application/videoview"
+	wompiavailapp "github.com/innotechlabs01/mr-training-api/internal/application/wompiavailability"
 	"github.com/innotechlabs01/mr-training-api/internal/config"
-	alertapp "github.com/innotechlabs01/mr-training-api/internal/application/alert"
 	alertinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/alert"
 	allyinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally"
 	allycataloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_catalog"
 	allyopsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_operations"
 	allypaymentdeclarationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_payment_declaration"
+	analyticsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/analytics"
 	athleteinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/athlete"
 	auditinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
-	analyticsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/analytics"
 	bloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/blog"
-	checkoutinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/checkout"
 	challengeinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/challenge"
 	checkininfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/checkin"
+	checkoutinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/checkout"
 	coachinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach"
+	coachlandinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach_landing"
 	coachsetinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach_settlement"
 	coachfeedinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coachfeed"
 	commissioninfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission"
 	commissionentryinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission_entry"
-	coachlandinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach_landing"
-	crminfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/crm"
 	communityinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/community"
+	crminfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/crm"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	errorinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/error_tracking"
 	eventinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/event"
@@ -101,7 +101,6 @@ import (
 	notificationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/notification"
 	onboardinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/onboarding"
 	paymentledgerinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/payment_ledger"
-	testimonialinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/testimonial"
 	planinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/plan"
 	productinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/product"
 	routineinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/routine"
@@ -110,6 +109,7 @@ import (
 	subscriptioninfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/subscription"
 	wompiinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/subscription/wompi"
 	supportinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/support"
+	testimonialinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/testimonial"
 	todayinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/today"
 	traininginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/training"
 	trainingaiinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/trainingai"
@@ -117,9 +117,9 @@ import (
 	vainfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/videoanalytics"
 	videoviewinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/videoview"
 	ws "github.com/innotechlabs01/mr-training-api/internal/infrastructure/websocket"
-	"github.com/innotechlabs01/mr-training-api/internal/jobs"
 	handlers "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/routes"
+	"github.com/innotechlabs01/mr-training-api/internal/jobs"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 )
 
@@ -195,7 +195,7 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	log.Info("clerk webhook registered", zap.String("path", "/webhooks/clerk"))
 
 	// --- Plan ---
-	trmService := trmapp.NewService()
+	trmService := trmapp.NewService(db.DB)
 	planRepo := planinfrastructure.NewRepository(db.DB)
 	planService := planapp.NewService(planRepo)
 	planHandler := handlers.NewPlanHandler(planService, trmService, inviteService, cfg.PlatformSuperAdminClerkIDs...)
@@ -512,7 +512,7 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	if db != nil {
 		adminDB = db.DB
 	}
-	adminHandler := handlers.NewAdminHandler(adminDB, clerkIdentity)
+	adminHandler := handlers.NewAdminHandler(adminDB, clerkIdentity, trmService)
 	routes.RegisterAdminRoutes(api, adminHandler, cfg.PlatformSuperAdminClerkIDs)
 
 	// --- Coach activation ---
