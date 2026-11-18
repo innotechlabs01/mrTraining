@@ -237,8 +237,17 @@ func (r *Repository) GetRevenueStats(ctx context.Context) (*domain.RevenueStats,
 	// No filtra por un coach ni atleta específico: engloba toda la plataforma.
 	// Se excluyen coaches inactivos y links inactivos/borrados para no contar
 	// pagos de relaciones que ya no vigilan.
+	// El scope incluye tanto coaches.id (interno) como users.id (Clerk ID) y
+	// emails, porque wompi_payment_ledger.coach_id puede contener cualquiera
+	// de esos valores.
 	coachAndAthleteScope := `(
 	    SELECT c.id FROM coaches c WHERE c.is_active = 1
+	    UNION
+	    SELECT u.id FROM users u WHERE u.role = 'coach' AND u.is_active = 1
+	    UNION
+	    SELECT c.email FROM coaches c WHERE c.is_active = 1 AND c.email <> ''
+	    UNION
+	    SELECT u.email FROM users u WHERE u.role = 'coach' AND u.is_active = 1 AND u.email <> ''
 	    UNION
 	    SELECT cal.athlete_id FROM coach_athlete_links cal
 	    WHERE cal.coach_id IN (SELECT id FROM coaches WHERE is_active = 1)
