@@ -503,7 +503,13 @@ export default function AdminPlansPage() {
                       <select
                         name="currency"
                         value={form.currency}
-                        onChange={(e) => setForm({ ...form, currency: e.target.value as 'COP' | 'USD' })}
+                        onChange={(e) => {
+                          const next = e.target.value as 'COP' | 'USD';
+                          setForm({ ...form, currency: next });
+                          if (next === 'USD') {
+                            void fetchTRM();
+                          }
+                        }}
                         className="bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
                       >
                         <option value="COP">COP</option>
