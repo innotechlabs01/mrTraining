@@ -431,38 +431,39 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 		       COALESCE((
 		         SELECT COUNT(*) FROM (
 		           SELECT cal.athlete_id AS athlete_id FROM coach_athlete_links cal
-		           WHERE cal.coach_id = ac.id AND (cal.status = 'active' OR cal.status IS NULL)
+		           WHERE (cal.coach_id = ac.id OR cal.coach_id = ac.email)
+		             AND (cal.status = 'active' OR cal.status IS NULL)
 		           UNION
-		           SELECT ca.id AS athlete_id FROM coach_athletes ca WHERE ca.coach_id = ac.id
+		           SELECT ca.id AS athlete_id FROM coach_athletes ca WHERE ca.coach_id = ac.id OR ca.coach_id = ac.email
 		         ) roster
 		       ), 0),
-		       COALESCE((SELECT COUNT(*) FROM athlete_memberships am WHERE am.coach_id = ac.id), 0),
-		       COALESCE((SELECT COUNT(*) FROM athlete_memberships am WHERE am.coach_id = ac.id AND am.status = 'active'), 0),
+		       COALESCE((SELECT COUNT(*) FROM athlete_memberships am WHERE am.coach_id = ac.id OR am.coach_id = ac.email), 0),
+		       COALESCE((SELECT COUNT(*) FROM athlete_memberships am WHERE am.coach_id = ac.id OR am.coach_id = ac.email AND am.status = 'active'), 0),
 		       ac.skip_subscription,
 		       COALESCE((
 		         SELECT s.plan_name FROM subscriptions s
-		         WHERE s.coach_id = ac.id AND s.status = 'active'
+		         WHERE (s.coach_id = ac.id OR s.coach_id = ac.email) AND s.status = 'active'
 		         ORDER BY s.current_period_end DESC LIMIT 1
 		       ), ''),
 		       COALESCE((
 		         SELECT s.plan_price FROM subscriptions s
-		         WHERE s.coach_id = ac.id AND s.status = 'active'
+		         WHERE (s.coach_id = ac.id OR s.coach_id = ac.email) AND s.status = 'active'
 		         ORDER BY s.current_period_end DESC LIMIT 1
 		       ), 0),
 		       COALESCE((
 		         SELECT pl.max_athletes FROM subscriptions s
 		         JOIN plans pl ON pl.id = s.plan_id
-		         WHERE s.coach_id = ac.id AND s.status = 'active'
+		         WHERE (s.coach_id = ac.id OR s.coach_id = ac.email) AND s.status = 'active'
 		         ORDER BY s.current_period_end DESC LIMIT 1
 		       ), 0),
 		       COALESCE((
 		         SELECT s.status FROM subscriptions s
-		         WHERE s.coach_id = ac.id AND s.status = 'active'
+		         WHERE (s.coach_id = ac.id OR s.coach_id = ac.email) AND s.status = 'active'
 		         ORDER BY s.current_period_end DESC LIMIT 1
 		       ), 'none'),
 		       COALESCE((
 		         SELECT s.current_period_end::text FROM subscriptions s
-		         WHERE s.coach_id = ac.id AND s.status = 'active'
+		         WHERE (s.coach_id = ac.id OR s.coach_id = ac.email) AND s.status = 'active'
 		         ORDER BY s.current_period_end DESC LIMIT 1
 		       ), ''),
 		       COALESCE((
@@ -471,13 +472,13 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 		         ), 0)
 		         FROM wompi_payment_ledger l
 		         WHERE l.status NOT IN ('pending', 'reversed')
-		           AND l.coach_id = ac.id
+		           AND (l.coach_id = ac.id OR l.coach_id = ac.email)
 		       ), 0),
 		       COALESCE((
 		         SELECT COALESCE(SUM(l.gross_amount_cents/100.0), 0)
 		         FROM wompi_payment_ledger l
 		         WHERE l.status NOT IN ('pending', 'reversed')
-		           AND l.coach_id = ac.id
+		           AND (l.coach_id = ac.id OR l.coach_id = ac.email)
 		       ), 0),
 		       ac.updated_at::text
 		FROM all_coaches ac
