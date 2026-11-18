@@ -46,7 +46,7 @@ main                  # productivo — solo release desde QA. Direct push PROHIB
 3. cd ../mr-training-worktrees/x         # trabajar AHÍ, no en dev/main
 4. Commits atómicos (ver 12-coding-standards.md §7.2)
 5. git push -u origin feature/x
-6. PR a QA (ver 12-coding-standards.md §7.3)  # destino: QA, no main
+6. PR a dev (ver 12-coding-standards.md §7.3)  # destino: dev, no main
 7. Tras merge a dev y validación en QA: release QA → main solo en release aprobado
 8. scripts/worktree.sh remove feature/x
 ```
