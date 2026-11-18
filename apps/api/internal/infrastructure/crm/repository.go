@@ -226,112 +226,65 @@ func (r *Repository) ListCoaches(ctx context.Context) ([]*domain.CoachSummary, e
 }
 
 // GetRevenueStats devuelve estadísticas de ganancias para el CRM global.
-// El super admin no filtra por coach_id ni athlete_id específicos: suma todos
-// los pagos del ledger donde el pagador (coach_id) o el atleta (athlete_id)
-// pertenezca a un coach de la plataforma o a sus atletas asociados.
+// El super admin suma TODOS los pagos del ledger que no sean pending ni
+// reversed, independientemente de coach_id o athlete_id. Si RLS bloquea la
+// lectura de wompi_payment_ledger (política de isolación por coach), aplicar
+// la migración 427 que permite SELECT sin contexto de coach.
 func (r *Repository) GetRevenueStats(ctx context.Context) (*domain.RevenueStats, error) {
 	stats := &domain.RevenueStats{}
-	var err error
-
-	// Alcance global del CRM: coaches activos y sus atletas asociados activos.
-	// No filtra por un coach ni atleta específico: engloba toda la plataforma.
-	// Se excluyen coaches inactivos y links inactivos/borrados para no contar
-	// pagos de relaciones que ya no vigilan.
-	// El scope incluye tanto coaches.id (interno) como users.id (Clerk ID) y
-	// emails, porque wompi_payment_ledger.coach_id puede contener cualquiera
-	// de esos valores.
-	coachAndAthleteScope := `(
-	    SELECT c.id FROM coaches c WHERE c.is_active = 1
-	    UNION
-	    SELECT u.id FROM users u WHERE u.role = 'coach' AND u.is_active = 1
-	    UNION
-	    SELECT c.email FROM coaches c WHERE c.is_active = 1 AND c.email <> ''
-	    UNION
-	    SELECT u.email FROM users u WHERE u.role = 'coach' AND u.is_active = 1 AND u.email <> ''
-	    UNION
-	    SELECT cal.athlete_id FROM coach_athlete_links cal
-	    WHERE cal.coach_id IN (SELECT id FROM coaches WHERE is_active = 1)
-	      AND cal.status = 'active'
-	)`
 
 	// Today
-	todayQuery := fmt.Sprintf(`
+	err := r.exec.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(gross_amount_cents/100.0), 0)
 		FROM wompi_payment_ledger
 		WHERE status NOT IN ('pending', 'reversed')
-		  AND (
-		    coach_id IN %s
-		    OR athlete_id IN %s
-		  )
 		  AND period_start::date = CURRENT_DATE
-	`, coachAndAthleteScope, coachAndAthleteScope)
-	err = r.exec.QueryRowContext(ctx, todayQuery).Scan(&stats.Today)
+	`).Scan(&stats.Today)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("get today revenue: %w", err)
 	}
 
 	// This month
-	thisMonthQuery := fmt.Sprintf(`
+	err = r.exec.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(gross_amount_cents/100.0), 0)
 		FROM wompi_payment_ledger
 		WHERE status NOT IN ('pending', 'reversed')
-		  AND (
-		    coach_id IN %s
-		    OR athlete_id IN %s
-		  )
 		  AND period_start::timestamp >= date_trunc('month', NOW())
-	`, coachAndAthleteScope, coachAndAthleteScope)
-	err = r.exec.QueryRowContext(ctx, thisMonthQuery).Scan(&stats.ThisMonth)
+	`).Scan(&stats.ThisMonth)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("get this month revenue: %w", err)
 	}
 
 	// This year
-	thisYearQuery := fmt.Sprintf(`
+	err = r.exec.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(gross_amount_cents/100.0), 0)
 		FROM wompi_payment_ledger
 		WHERE status NOT IN ('pending', 'reversed')
-		  AND (
-		    coach_id IN %s
-		    OR athlete_id IN %s
-		  )
 		  AND period_start::timestamp >= date_trunc('year', NOW())
-	`, coachAndAthleteScope, coachAndAthleteScope)
-	err = r.exec.QueryRowContext(ctx, thisYearQuery).Scan(&stats.ThisYear)
+	`).Scan(&stats.ThisYear)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("get this year revenue: %w", err)
 	}
 
 	// Total
-	totalQuery := fmt.Sprintf(`
+	err = r.exec.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(gross_amount_cents/100.0), 0)
 		FROM wompi_payment_ledger
 		WHERE status NOT IN ('pending', 'reversed')
-		  AND (
-		    coach_id IN %s
-		    OR athlete_id IN %s
-		  )
-	`, coachAndAthleteScope, coachAndAthleteScope)
-	err = r.exec.QueryRowContext(ctx, totalQuery).Scan(&stats.Total)
+	`).Scan(&stats.Total)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("get total revenue: %w", err)
 	}
 
 	// By month (last 12 months)
-	byMonthQuery := fmt.Sprintf(`
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT to_char(period_start::timestamp, 'YYYY-MM') as month,
 		       SUM(gross_amount_cents/100.0) as amount
 		FROM wompi_payment_ledger
 		WHERE status NOT IN ('pending', 'reversed')
-		  AND (
-		    coach_id IN %s
-		    OR athlete_id IN %s
-		  )
-		  AND period_start::timestamp >= date_trunc('month', NOW()) - interval '11 months'
 		GROUP BY to_char(period_start::timestamp, 'YYYY-MM')
 		ORDER BY month
-	`, coachAndAthleteScope, coachAndAthleteScope)
-	rows, err := r.exec.QueryContext(ctx, byMonthQuery)
+	`)
 	if err != nil {
 		return nil, fmt.Errorf("get monthly revenue: %w", err)
 	}
