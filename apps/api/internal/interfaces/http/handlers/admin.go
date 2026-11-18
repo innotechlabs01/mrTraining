@@ -182,13 +182,26 @@ func (h *AdminHandler) GetDashboard(c *fiber.Ctx) error {
 
 	ctx := c.Context()
 
-	// Fuente de verdad: tabla coaches (no users). Todas las consultas
-	// verifican su error: nunca devolvemos 0 silenciosamente si la DB falla.
-	if err := h.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM coaches`).Scan(&resp.CoachesCount); err != nil {
+	// Fuente de verdad: todos los coaches, ya sea que tengan fila en coaches
+	// o solo en users (role = coach). UNION dedupe los que están en ambas.
+	// Nunca devolvemos 0 silenciosamente si la DB falla.
+	if err := h.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM (
+			SELECT id FROM users WHERE role = 'coach'
+			UNION
+			SELECT id FROM coaches
+		) all_coaches
+	`).Scan(&resp.CoachesCount); err != nil {
 		fmt.Fprintf(os.Stderr, "[admin dashboard] count coaches: %v\n", err)
 		return appresponse.Error(c, fiber.StatusInternalServerError, "no se pudieron contar los coaches")
 	}
-	if err := h.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM coaches WHERE is_active = true`).Scan(&resp.ActiveCoachesCount); err != nil {
+	if err := h.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM (
+			SELECT id FROM users WHERE role = 'coach' AND is_active
+			UNION
+			SELECT id FROM coaches WHERE is_active = 1
+		) active_coaches
+	`).Scan(&resp.ActiveCoachesCount); err != nil {
 		fmt.Fprintf(os.Stderr, "[admin dashboard] count active coaches: %v\n", err)
 		return appresponse.Error(c, fiber.StatusInternalServerError, "no se pudieron contar los coaches activos")
 	}
@@ -332,12 +345,32 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 	where := "TRUE"
 	args := []interface{}{}
 	if search != "" {
-		where = "(c.name ILIKE $1 OR c.email ILIKE $1)"
+		where = "(ac.name ILIKE $1 OR ac.email ILIKE $1)"
 		args = append(args, "%"+search+"%")
 	}
 
+	// all_coaches une coaches y users (role = coach) que no tienen fila en
+	// coaches, así los coaches sin perfil de coaches (p.ej. solo en users)
+	// aparecen en el listado del CRM sin romper el aislamiento por coach.
+	baseCTE := `
+		WITH all_coaches AS (
+			SELECT c.id, c.name, c.email, c.is_active, c.created_at,
+			       c.skip_subscription, c.updated_at
+			FROM coaches c
+			UNION
+			SELECT u.id, u.name, u.email, u.is_active::integer, u.created_at,
+			       false::boolean, u.updated_at
+			FROM users u
+			WHERE u.role = 'coach'
+			  AND NOT EXISTS (
+				SELECT 1 FROM coaches c2
+				WHERE c2.id = u.id OR lower(c2.email) = lower(u.email)
+			  )
+		)
+	`
+
 	var total int64
-	countQuery := "SELECT COUNT(*) FROM coaches c LEFT JOIN users u ON u.email = c.email WHERE " + where
+	countQuery := baseCTE + `SELECT COUNT(*) FROM all_coaches ac WHERE ` + where
 	if err := h.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
@@ -348,43 +381,43 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 	offsetPH := "$" + strconv.Itoa(next+1)
 	listArgs = append(listArgs, limit, offset)
 
-	query := `
-		SELECT c.id, c.name, c.email, c.is_active, c.created_at,
+	query := baseCTE + `
+		SELECT ac.id, ac.name, ac.email, ac.is_active, ac.created_at,
 		       COALESCE((
 		         SELECT COUNT(*) FROM (
 		           SELECT cal.athlete_id AS athlete_id FROM coach_athlete_links cal
-		           WHERE cal.coach_id = c.id AND (cal.status = 'active' OR cal.status IS NULL)
+		           WHERE cal.coach_id = ac.id AND (cal.status = 'active' OR cal.status IS NULL)
 		           UNION
-		           SELECT ca.id AS athlete_id FROM coach_athletes ca WHERE ca.coach_id = c.id
+		           SELECT ca.id AS athlete_id FROM coach_athletes ca WHERE ca.coach_id = ac.id
 		         ) roster
 		       ), 0),
-		       COALESCE((SELECT COUNT(*) FROM athlete_memberships am WHERE am.coach_id = c.id), 0),
-		       COALESCE((SELECT COUNT(*) FROM athlete_memberships am WHERE am.coach_id = c.id AND am.status = 'active'), 0),
-		       c.skip_subscription,
+		       COALESCE((SELECT COUNT(*) FROM athlete_memberships am WHERE am.coach_id = ac.id), 0),
+		       COALESCE((SELECT COUNT(*) FROM athlete_memberships am WHERE am.coach_id = ac.id AND am.status = 'active'), 0),
+		       ac.skip_subscription,
 		       COALESCE((
 		         SELECT s.plan_name FROM subscriptions s
-		         WHERE s.coach_id = c.id AND s.status = 'active'
+		         WHERE s.coach_id = ac.id AND s.status = 'active'
 		         ORDER BY s.current_period_end DESC LIMIT 1
 		       ), ''),
 		       COALESCE((
 		         SELECT s.plan_price FROM subscriptions s
-		         WHERE s.coach_id = c.id AND s.status = 'active'
+		         WHERE s.coach_id = ac.id AND s.status = 'active'
 		         ORDER BY s.current_period_end DESC LIMIT 1
 		       ), 0),
 		       COALESCE((
 		         SELECT pl.max_athletes FROM subscriptions s
 		         JOIN plans pl ON pl.id = s.plan_id
-		         WHERE s.coach_id = c.id AND s.status = 'active'
+		         WHERE s.coach_id = ac.id AND s.status = 'active'
 		         ORDER BY s.current_period_end DESC LIMIT 1
 		       ), 0),
 		       COALESCE((
 		         SELECT s.status FROM subscriptions s
-		         WHERE s.coach_id = c.id AND s.status = 'active'
+		         WHERE s.coach_id = ac.id AND s.status = 'active'
 		         ORDER BY s.current_period_end DESC LIMIT 1
 		       ), 'none'),
 		       COALESCE((
 		         SELECT s.current_period_end::text FROM subscriptions s
-		         WHERE s.coach_id = c.id AND s.status = 'active'
+		         WHERE s.coach_id = ac.id AND s.status = 'active'
 		         ORDER BY s.current_period_end DESC LIMIT 1
 		       ), ''),
 		       COALESCE((
@@ -393,18 +426,18 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 		         ), 0)
 		         FROM wompi_payment_ledger l
 		         WHERE l.status NOT IN ('pending', 'reversed')
-		           AND l.coach_id = c.id
+		           AND l.coach_id = ac.id
 		       ), 0),
 		       COALESCE((
 		         SELECT COALESCE(SUM(l.gross_amount_cents/100.0), 0)
 		         FROM wompi_payment_ledger l
 		         WHERE l.status NOT IN ('pending', 'reversed')
-		           AND l.coach_id = c.id
+		           AND l.coach_id = ac.id
 		       ), 0),
-		       c.updated_at::text
-		FROM coaches c
+		       ac.updated_at::text
+		FROM all_coaches ac
 		WHERE ` + where + `
-		ORDER BY c.created_at DESC
+		ORDER BY ac.created_at DESC
 		LIMIT ` + limitPH + ` OFFSET ` + offsetPH
 
 	rows, err := h.db.QueryContext(ctx, query, listArgs...)
@@ -461,6 +494,9 @@ func (h *AdminHandler) ToggleSkipSubscription(c *fiber.Ctx) error {
 
 	// El CRM entrega users.id (clerk_id) como id del coach. Se opera sobre ese
 	// ID canónico y, si el coach todavía no tiene fila en coaches, se crea.
+	// Fallback: algunos coaches existen en users pero no como Clerk ID
+	// (p.ej. coach-001), o existen solo en coaches por email. Si users no
+	// devuelve nada, se intenta coaches por id o email antes de rendirse.
 	var coachID, email, name string
 	var isActive int
 	err := h.db.QueryRowContext(ctx, `
@@ -468,10 +504,19 @@ func (h *AdminHandler) ToggleSkipSubscription(c *fiber.Ctx) error {
 		FROM users
 		WHERE id = $1 AND role = 'coach'
 	`, id).Scan(&coachID, &email, &name, &isActive)
-	if err != nil {
+	if err == sql.ErrNoRows {
+		err = h.db.QueryRowContext(ctx, `
+			SELECT id, email, COALESCE(NULLIF(name, ''), email), is_active
+			FROM coaches
+			WHERE id = $1 OR lower(email) = lower($2)
+		`, id, id).Scan(&coachID, &email, &name, &isActive)
 		if err == sql.ErrNoRows {
 			return appresponse.Error(c, fiber.StatusNotFound, "coach not found")
 		}
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to get coach")
+		}
+	} else if err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to get coach")
 	}
 
