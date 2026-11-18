@@ -241,6 +241,14 @@ export default function AdminDashboardPage() {
     (sum, c) => sum + Number(c.revenue_month || 0),
     0,
   );
+  // Si /revenue devuelve 0 (pagos pendientes de confirmación en wompi_payment_ledger)
+  // pero los coaches ya tienen revenue_month > 0, mostrar una nota en lugar de un 0 silencioso.
+  // Así el super admin no interpreta el 0 como "sin ingresos" cuando hay ingresos pendientes.
+  const revenuePendingNote =
+    totalRevenueMonth > 0 &&
+    (revenueStats?.this_month === 0 || revenueStats?.this_month == null)
+      ? 'ingresos pendientes de confirmación'
+      : null;
   // Distribución por plan adquirido. Se calcula sobre los coaches que pasan
   // el filtro de búsqueda del dashboard para que el gráfico responda al filtro.
   const planDistribution = useMemo(() => {
@@ -317,9 +325,12 @@ export default function AdminDashboardPage() {
             />
             <StatCard
               title="Ingresos mes (planes)"
-              value={`$${(revenueStats?.this_month || totalRevenueMonth).toLocaleString() || '0'}`}
+              value={
+                revenuePendingNote ??
+                `$${(revenueStats?.this_month || totalRevenueMonth).toLocaleString() || '0'}`
+              }
               icon={<DollarSign size={20} />}
-              tone="bg-brand-primary/10 text-brand-primary"
+              tone={revenuePendingNote ? 'bg-warning/10 text-warning' : 'bg-brand-primary/10 text-brand-primary'}
             />
             <StatCard
               title="Suscripciones omitidas"

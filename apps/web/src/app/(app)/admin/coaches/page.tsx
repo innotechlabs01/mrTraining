@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 
 interface Coach {
   id: string;
+  coach_id: string;
   name: string;
   email: string;
   plan_name: string;
@@ -84,12 +85,18 @@ export default function AdminCoachesPage() {
     void loadCoaches();
   }, [user, isSuperAdmin, loadCoaches]);
 
-  async function toggleSkipSubscription(coachId: string, currentValue: boolean) {
+  async function toggleSkipSubscription(coach: Coach, currentValue: boolean) {
+    // Nunca enviar un Clerk ID (coach.id) en la URL: usar siempre el ID interno
+    // de la tabla coaches (coach.coach_id). Si falta, bloquear la acción.
+    if (!coach.coach_id) {
+      setError('No se puede omitir la suscripción: el coach no tiene ID interno asignado.');
+      return;
+    }
     setSaving(true);
     try {
       const token = await getToken();
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/coaches/${coachId}/skip-subscription`,
+        `${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/coaches/${coach.coach_id}/skip-subscription`,
         {
           method: 'POST',
           headers: {
@@ -101,7 +108,7 @@ export default function AdminCoachesPage() {
       );
       if (!res.ok) throw new Error('No se pudo actualizar la membresía');
       setCoaches((prev) =>
-        prev.map((c) => (c.id === coachId ? { ...c, skip_subscription: !c.skip_subscription } : c)),
+        prev.map((c) => (c.id === coach.id ? { ...c, skip_subscription: !c.skip_subscription } : c)),
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo actualizar la membresía');
@@ -128,23 +135,27 @@ export default function AdminCoachesPage() {
   );
 
   function MembershipToggle({ coach }: { coach: Coach }) {
+    const disabled = saving || !coach.coach_id;
     return (
       <label
         className={cn(
           'inline-flex cursor-pointer items-center gap-2',
+          disabled && 'cursor-not-allowed opacity-50',
           saving && 'cursor-wait opacity-50',
         )}
         title={
-          coach.skip_subscription
-            ? 'El coach paga membresía (click para omitir)'
-            : 'El coach no paga membresía (click para cobrar)'
+          !coach.coach_id
+            ? 'El coach no tiene ID interno asignado: no se puede omitir la suscripción.'
+            : coach.skip_subscription
+              ? 'El coach paga membresía (click para omitir)'
+              : 'El coach no paga membresía (click para cobrar)'
         }
       >
         <input
           type="checkbox"
           checked={coach.skip_subscription}
-          onChange={() => void toggleSkipSubscription(coach.id, coach.skip_subscription)}
-          disabled={saving}
+          onChange={() => void toggleSkipSubscription(coach, coach.skip_subscription)}
+          disabled={disabled}
           className="peer sr-only"
         />
         <span className="relative h-6 w-11 rounded-full bg-surface-3 transition-colors peer-checked:bg-success peer-focus-visible:ring-2 peer-focus-visible:ring-brand-primary peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-surface-0">

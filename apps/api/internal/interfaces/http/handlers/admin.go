@@ -15,7 +15,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	trmapp "github.com/innotechlabs01/mr-training-api/internal/application/trm"
-	userinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/user"
 
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
@@ -30,13 +29,18 @@ type trmReader interface {
 // exposes athlete private data: only aggregated counts are returned.
 type AdminHandler struct {
 	db          *sql.DB
-	clerkClient *userinfrastructure.ClerkClient
+	clerkClient clerkMetadataUpdater
 	trmService  trmReader
+}
+
+// clerkMetadataUpdater es el subconjunto de ClerkClient usado por AdminHandler.
+type clerkMetadataUpdater interface {
+	UpdatePublicMetadata(ctx context.Context, userID string, metadata map[string]interface{}) error
 }
 
 // NewAdminHandler creates a new AdminHandler bound to the supplied database.
 // A nil database keeps the handler functional for degraded health reporting.
-func NewAdminHandler(db *sql.DB, clerkClient *userinfrastructure.ClerkClient, trmService trmReader) *AdminHandler {
+func NewAdminHandler(db *sql.DB, clerkClient clerkMetadataUpdater, trmService trmReader) *AdminHandler {
 	return &AdminHandler{db: db, clerkClient: clerkClient, trmService: trmService}
 }
 
@@ -53,8 +57,11 @@ type AdminDashboardResponse struct {
 }
 
 // AdminCoachSummary is a privacy-safe coach row (no athlete identities).
+// ID es el identificador público (puede ser un Clerk users.id). CoachID es el
+// identificador interno de la tabla coaches, garantizado y separado de ID.
 type AdminCoachSummary struct {
 	ID                string  `json:"id"`
+	CoachID           string  `json:"coach_id"`
 	Name              string  `json:"name"`
 	Email             string  `json:"email"`
 	IsActive          bool    `json:"is_active"`
@@ -369,6 +376,23 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 		)
 	`
 
+	// Reparación: asegura que todo coach con rol en users tenga una fila en
+	// coaches, de modo que CoachID (interno de coaches) esté siempre garantizado
+	// y separado de ID (que puede ser un Clerk users.id). Idempotente.
+	if _, err := h.db.ExecContext(ctx, `
+		INSERT INTO coaches (id, email, name, skip_subscription, is_active, created_at, updated_at)
+		SELECT gen_random_uuid(), u.email, COALESCE(NULLIF(u.name, ''), u.email), false, u.is_active, u.created_at, u.updated_at
+		FROM users u
+		WHERE u.role = 'coach'
+		  AND NOT EXISTS (
+			SELECT 1 FROM coaches c
+			WHERE c.id = u.id OR lower(c.email) = lower(u.email)
+		  )
+		ON CONFLICT (id) DO NOTHING
+	`); err != nil {
+		return nil, 0, err
+	}
+
 	var total int64
 	countQuery := baseCTE + `SELECT COUNT(*) FROM all_coaches ac WHERE ` + where
 	if err := h.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
@@ -382,7 +406,7 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 	listArgs = append(listArgs, limit, offset)
 
 	query := baseCTE + `
-		SELECT ac.id, ac.name, ac.email, ac.is_active, ac.created_at,
+		SELECT ac.id, ac.id AS coach_id, ac.name, ac.email, ac.is_active, ac.created_at,
 		       COALESCE((
 		         SELECT COUNT(*) FROM (
 		           SELECT cal.athlete_id AS athlete_id FROM coach_athlete_links cal
@@ -451,7 +475,7 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 		var item AdminCoachSummary
 		var isActive int
 		var createdAt interface{}
-		if err := rows.Scan(&item.ID, &item.Name, &item.Email, &isActive, &createdAt,
+		if err := rows.Scan(&item.ID, &item.CoachID, &item.Name, &item.Email, &isActive, &createdAt,
 			&item.AthletesCount, &item.MembershipsCount, &item.ActiveMemberships,
 			&item.SkipSubscription,
 			&item.PlanName, &item.PlanPrice, &item.PlanMaxAthletes,
@@ -474,9 +498,9 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 // ToggleSkipSubscription handles POST /api/v1/admin/coaches/:id/skip-subscription.
 // Toggles the coach's skip_subscription status and updates Clerk publicMetadata.
 //
-// The :id path parameter can be either a users.id (Clerk ID) or a coaches.id.
-// The frontend must not expose Clerk IDs in URLs; this endpoint accepts them
-// for backward compatibility but resolves them through users/coaches tables.
+// The :id path parameter is resolved as a coaches.id (internal, tabla coaches).
+// Se mantiene un fallback por users.id (Clerk ID) solo para retrocompatibilidad;
+// ese fallback está deprecado y nunca se registra el valor crudo del Clerk ID en logs.
 func (h *AdminHandler) ToggleSkipSubscription(c *fiber.Ctx) error {
 	if h.db == nil {
 		return appresponse.Error(c, fiber.StatusServiceUnavailable, "database unavailable")
@@ -496,49 +520,74 @@ func (h *AdminHandler) ToggleSkipSubscription(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	// Resolve the coach: try users table first (Clerk ID), then coaches table
-	// by id or email. This handles both Clerk IDs and legacy coach IDs.
+	// Resolve el coach. Primero intenta por coaches.id (canónico interno).
+	// Si no existe, usa el fallback deprecado por users.id (Clerk ID) y repara
+	// creando/reutilizando la fila en coaches.
 	var coachID, email, name string
 	var isActive int
 	err := h.db.QueryRowContext(ctx, `
 		SELECT id, email, COALESCE(NULLIF(name, ''), email), is_active
-		FROM users
-		WHERE id = $1 AND role = 'coach'
+		FROM coaches
+		WHERE id = $1
 	`, id).Scan(&coachID, &email, &name, &isActive)
 	if err == sql.ErrNoRows {
-		// Fallback: coach exists in coaches table but maybe not as users row,
-		// or the :id is a coaches.id not a users.id.
+		// Fallback deprecado: :id es un users.id (Clerk ID).
+		// users.is_active es BOOLEAN; coaches.is_active es INTEGER.
+		var isActiveBool bool
 		err = h.db.QueryRowContext(ctx, `
-			SELECT id, email, COALESCE(NULLIF(name, ''), email), is_active
-			FROM coaches
-			WHERE id = $1 OR lower(email) = lower($2)
-		`, id, id).Scan(&coachID, &email, &name, &isActive)
+			SELECT u.id, u.email, COALESCE(NULLIF(u.name, ''), u.email), u.is_active
+			FROM users u
+			WHERE u.id = $1 AND u.role = 'coach'
+		`, id).Scan(&coachID, &email, &name, &isActiveBool)
 		if err == sql.ErrNoRows {
-			return appresponse.Error(c, fiber.StatusNotFound, "coach not found")
-		}
-		if err != nil {
+			// Último recurso: coincidencia por email en coaches (legacy).
+			err = h.db.QueryRowContext(ctx, `
+				SELECT id, email, COALESCE(NULLIF(name, ''), email), is_active
+				FROM coaches
+				WHERE lower(email) = lower($1)
+			`, id).Scan(&coachID, &email, &name, &isActive)
+			if err == sql.ErrNoRows {
+				return appresponse.Error(c, fiber.StatusNotFound, "coach not found")
+			}
+			if err != nil {
+				return appresponse.Error(c, fiber.StatusInternalServerError, "failed to look up coach")
+			}
+		} else if err != nil {
 			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to look up coach")
+		} else {
+			if isActiveBool {
+				isActive = 1
+			}
+		}
+
+		// Repara: asegura existencia de fila en coaches para este users.id.
+		_, err = h.db.ExecContext(ctx, `
+			INSERT INTO coaches (id, email, name, skip_subscription, is_active, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				email = EXCLUDED.email,
+				name = EXCLUDED.name,
+				is_active = EXCLUDED.is_active,
+				updated_at = NOW()
+		`, coachID, email, name, req.SkipSubscription, isActive)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to ensure coach row")
 		}
 	} else if err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to look up coach")
 	}
 
-	// Upsert on coaches table: creates the row if missing, updates if exists.
-	// This repairs legacy coaches that didn't have a coaches row.
+	// Actualiza skip_subscription en la tabla coaches por id interno.
 	_, err = h.db.ExecContext(ctx, `
-		INSERT INTO coaches (id, email, name, skip_subscription, is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-		ON CONFLICT (id) DO UPDATE SET
-			skip_subscription = EXCLUDED.skip_subscription,
-			email = EXCLUDED.email,
-			name = EXCLUDED.name,
-			updated_at = NOW()
-	`, coachID, email, name, req.SkipSubscription, isActive)
+		UPDATE coaches
+		SET skip_subscription = $1, updated_at = NOW()
+		WHERE id = $2
+	`, req.SkipSubscription, coachID)
 	if err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to update skip_subscription")
 	}
 
-	// Keep legacy coaches rows that share the same email in sync.
+	// Mantiene sincronizadas las filas legacy de coaches que comparten el email.
 	if email != "" {
 		_, err = h.db.ExecContext(ctx, `
 			UPDATE coaches SET skip_subscription = $1, updated_at = NOW()
@@ -549,7 +598,8 @@ func (h *AdminHandler) ToggleSkipSubscription(c *fiber.Ctx) error {
 		}
 	}
 
-	// Update Clerk publicMetadata with membership status
+	// Actualiza Clerk publicMetadata con el estado de membresía.
+	// Nunca se registra el Clerk ID crudo: solo un sufijo para diagnóstico.
 	if h.clerkClient != nil && coachID != "" {
 		metadata := map[string]interface{}{
 			"membership_status": map[string]interface{}{
@@ -558,7 +608,7 @@ func (h *AdminHandler) ToggleSkipSubscription(c *fiber.Ctx) error {
 			},
 		}
 		if err := h.clerkClient.UpdatePublicMetadata(c.Context(), coachID, metadata); err != nil {
-			fmt.Printf("warning: failed to update Clerk publicMetadata for coach %s: %v\n", coachID, err)
+			fmt.Printf("warning: failed to update Clerk publicMetadata for coach %s: %v\n", clerkIDSuffix(coachID, 8), err)
 		}
 	}
 

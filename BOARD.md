@@ -1,6 +1,10 @@
 # Team Board - MR Training
 
-## TODO
+## In Progress
+- [ ] T-017: Eliminar exposición de Clerk ID en URLs del admin + verificar ingresos wompi_payment_ledger — plan aprobado en docs/superpowers/specs/PLAN-T-017-clerk-id-url-revenue-ledger.md. Slice A (backend: coaches.id interno en skip-subscription) y Slice C (backend: GetRevenueStats investigación) a dev-backend. Slice B (frontend: usar coaches.id interno en URL) y Slice D (frontend: nota de ingresos pendientes) a dev-front.
+
+## Done
+- [x] T-016: Super Admin CRM issues — QA PASS. Code reviewer PASS. Security Hacker PASS. Approved by @user 2026-11-18. Fix: ToggleSkipSubscription fallback to coaches table by id/email (no more 404 for coach-001), GetDashboard and queryCoaches now source from users WHERE role=coach UNION coaches table (coach innotechlabssas@gmail.com visible), coach isolation preserved, all queries parameterized, super admin guard unchanged. Commit ab7032a, push to dev.
 
 ## Done
 - [x] T-014: Super Admin Dashboard como CRM global — QA PASS (7/7). Code reviewer PASS. Security reviewer PASS (F-01/F-02 FIXED). Approved by @user 2026-11-18.

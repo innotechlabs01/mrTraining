@@ -24,12 +24,10 @@ func TestSave_UpdatesAnExistingSubscription(t *testing.T) {
 
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
-		t.Skip("skipping: DATABASE_URL not set")
 	}
 
 	db, err := database.Connect(url)
 	if err != nil {
-		t.Skipf("skipping: cannot connect to the database: %v", err)
 	}
 	defer db.Close()
 
