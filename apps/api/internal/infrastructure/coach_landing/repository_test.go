@@ -30,7 +30,6 @@ func pruebaConexionDisponible(t *testing.T) bool {
 // 416 y 417 aplicadas.
 func TestRepo_RLS_CoachIsolation(t *testing.T) {
 	if !pruebaConexionDisponible(t) {
-		t.Skip("DATABASE_URL no configurada: prueba de integración RLS omitida")
 	}
 
 	db, err := sql.Open("pgx", dsnFromEnv())
@@ -65,7 +64,6 @@ func TestRepo_RLS_CoachIsolation(t *testing.T) {
 // solo se pueden leer landings publicadas (policy pública de RLS).
 func TestRepo_RLS_PublicRead_OnlyPublished(t *testing.T) {
 	if !pruebaConexionDisponible(t) {
-		t.Skip("DATABASE_URL no configurada: prueba de integración RLS omitida")
 	}
 
 	db, err := sql.Open("pgx", dsnFromEnv())

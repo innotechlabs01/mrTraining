@@ -69,7 +69,6 @@ func newTestDB(t *testing.T) *database.DB {
 	url := "postgresql://postgres@127.0.0.1:5435/mr_training_migration?sslmode=disable"
 	db, err := database.Connect(url)
 	if err != nil {
-		t.Skipf("skipping: cannot connect to PostgreSQL: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
 	return db

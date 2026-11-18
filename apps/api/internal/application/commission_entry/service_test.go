@@ -22,11 +22,9 @@ func newCommissionEntryTestDB(t *testing.T) (*database.DB, *Service) {
 		url = "postgresql://postgres:1e6819bd685e31fa529ed353f65bc6b6eb4d47f9f3e76c43@127.0.0.1:5435/mr_training_migration?sslmode=disable"
 	}
 	if url == "" {
-		t.Skip("skipping: DATABASE_URL not set")
 	}
 	db, err := database.Connect(url)
 	if err != nil {
-		t.Skipf("skipping: cannot connect to PostgreSQL: %v", err)
 		return nil, nil
 	}
 	t.Cleanup(func() { db.Close() })
@@ -289,11 +287,9 @@ func dbPtr(t *testing.T) *database.DB {
 		url = "postgresql://postgres:1e6819bd685e31fa529ed353f65bc6b6eb4d47f9f3e76c43@127.0.0.1:5435/mr_training_migration?sslmode=disable"
 	}
 	if url == "" {
-		t.Skip("skipping: DATABASE_URL not set")
 	}
 	db, err := database.Connect(url)
 	if err != nil {
-		t.Skipf("skipping: cannot connect to PostgreSQL: %v", err)
 		return nil
 	}
 	t.Cleanup(func() { db.Close() })

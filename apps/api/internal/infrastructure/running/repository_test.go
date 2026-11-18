@@ -28,7 +28,6 @@ func newTestRepo(t *testing.T) (*Repository, *sql.DB) {
 
 	conn, err := database.Connect(url)
 	if err != nil {
-		t.Skipf("skipping: cannot connect to PostgreSQL: %v", err)
 		return nil, nil
 	}
 	sqlDB := conn.DB

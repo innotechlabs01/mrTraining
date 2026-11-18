@@ -48,7 +48,6 @@ func newSuperDB(t *testing.T) *database.DB {
 	url := resolveSuperDBURL()
 	db, err := database.Connect(url)
 	if err != nil {
-		t.Skipf("skipping: cannot connect to PostgreSQL: %v", err)
 	}
 	verifySuperRole(t, db)
 	t.Cleanup(func() { db.Close() })
@@ -74,7 +73,6 @@ func newAppDB(t *testing.T) *database.DB {
 	t.Helper()
 	db, err := database.Connect(appRoleURL)
 	if err != nil {
-		t.Skipf("skipping: cannot connect to app PostgreSQL: %v", err)
 	}
 	verifyAppRole(t, db)
 	t.Cleanup(func() { db.Close() })
