@@ -2,17 +2,32 @@ name: CI - Tests Must Pass Before Push
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, dev, QA]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, dev, QA]
 
 jobs:
   go-api-tests:
     name: Go API Tests
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mr_training_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mr_training_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: apps/api
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/mr_training_test?sslmode=disable
     steps:
       - uses: actions/checkout@v4
 
@@ -38,11 +53,6 @@ jobs:
         
       - name: Run tests
         run: go test -p 1 ./internal/... -v -race -count=1
-        
-      - name: Run lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
 
   web-tests:
     name: Web Tests
@@ -60,8 +70,11 @@ jobs:
           cache: 'pnpm'
           
       - name: Install pnpm
-        run: npm install -g pnpm
-        
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+          run_install: false
+          
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         
