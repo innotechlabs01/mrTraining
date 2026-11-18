@@ -249,7 +249,21 @@ func (h *AdminHandler) GetDashboard(c *fiber.Ctx) error {
 	}
 
 	// Suscripciones omitidas (coaches con skip_subscription = true).
-	if err := h.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM coaches WHERE skip_subscription = true`).Scan(&resp.SkippedSubscriptions); err != nil {
+	// Usa all_coaches (users UNION coaches) para incluir coaches que solo
+	// tienen fila en users. skip_subscription solo existe en coaches, así que
+	// coaches sin fila ahí cuentan como no omitidos (false).
+	if err := h.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM (
+			SELECT c.id, c.skip_subscription FROM coaches c
+			UNION
+			SELECT u.id, false::boolean FROM users u WHERE u.role = 'coach'
+			  AND NOT EXISTS (
+			    SELECT 1 FROM coaches c2
+			    WHERE c2.id = u.id OR lower(c2.email) = lower(u.email)
+			  )
+		) ac
+		WHERE ac.skip_subscription = true
+	`).Scan(&resp.SkippedSubscriptions); err != nil {
 		fmt.Fprintf(os.Stderr, "[admin dashboard] count skipped subscriptions: %v\n", err)
 		return appresponse.Error(c, fiber.StatusInternalServerError, "no se pudieron contar las suscripciones omitidas")
 	}
