@@ -51,6 +51,9 @@ jobs:
       - name: Build
         run: go build ./...
         
+      - name: Apply SQL migrations
+        run: go run ./cmd/migrate
+        
       - name: Run tests
         run: go test -p 1 ./internal/... -v -race -count=1
 
