@@ -230,10 +230,17 @@ func (h *AdminHandler) GetDashboard(c *fiber.Ctx) error {
 	}
 
 	// Coaches con plan expirando en los próximos 7 días (suscripción activa).
+	// Usa all_coaches (users UNION coaches) para incluir coaches que solo
+	// tienen fila en users (role='coach') sin fila en coaches. Hace JOIN con
+	// subscriptions por coach_id (puede ser users.id o coaches.id).
 	if err := h.db.QueryRowContext(ctx, `
 		SELECT COUNT(DISTINCT c.id)
-		FROM coaches c
-		JOIN subscriptions s ON s.coach_id = c.id
+		FROM (
+			SELECT c.id, c.email FROM coaches c
+			UNION
+			SELECT u.id, u.email FROM users u WHERE u.role = 'coach'
+		) c
+		JOIN subscriptions s ON s.coach_id = c.id OR s.coach_id = c.email
 		WHERE s.status = 'active'
 		  AND s.current_period_end::timestamp BETWEEN NOW() AND NOW() + interval '7 days'
 	`).Scan(&resp.ExpiringCoachesCount); err != nil {
