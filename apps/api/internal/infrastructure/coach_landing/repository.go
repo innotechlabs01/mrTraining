@@ -80,7 +80,7 @@ func (r *Repository) Create(ctx context.Context, lp *domain.LandingPage) error {
 		_, err := exec.ExecContext(ctx, `
 			INSERT INTO coach_landing_pages
 				(id, coach_id, slug, title, subtitle, config, sections, images, is_published, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			VALUES ($1, $2, $3, $4, $5, COALESCE(NULLIF($6, ''), '{}')::jsonb, COALESCE(NULLIF($7, ''), '[]')::jsonb, COALESCE(NULLIF($8, ''), '[]')::jsonb, $9, $10, $11)
 		`,
 			lp.ID, lp.CoachID, lp.Slug, lp.Title, lp.Subtitle, lp.Config, lp.Sections, lp.Images,
 			lp.IsPublished, lp.CreatedAt, lp.UpdatedAt,
