@@ -160,7 +160,7 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	coachService := coachapp.NewService(coachRepo)
 
 	// Membership status reader.
-	statusReader := middleware.NewMembershipStatusReader(membershipService)
+	statusReader := middleware.NewMembershipStatusReader(membershipService, db.DB)
 
 	routes.RegisterTrainingRoutes(api, trainingHandler, statusReader)
 
@@ -298,7 +298,7 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	routes.RegisterOnboardingRoutes(api, onboardingHandler)
 
 	// --- Invite routes ---
-	inviteHandler := handlers.NewInviteHandler(inviteService, userService, cfg.ClerkSecretKey)
+	inviteHandler := handlers.NewInviteHandler(inviteService, userService, cfg.ClerkSecretKey, db.DB)
 	routes.RegisterInviteRoutes(api, inviteHandler)
 
 	// --- Favorite ---
@@ -386,10 +386,19 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	routes.RegisterTestimonialRoutes(api, testimonialHandler)
 	routes.RegisterPublicTestimonialRoutes(pub, testimonialHandler)
 
+	// --- Admin (registrado antes que CRM para que ListCoaches con búsqueda,
+	// paginación y todos los campos de plan tenga prioridad sobre /admin/coaches) ---
+	var adminDB *sql.DB
+	if db != nil {
+		adminDB = db.DB
+	}
+	adminHandler := handlers.NewAdminHandler(adminDB, clerkIdentity, trmService)
+	routes.RegisterAdminRoutes(api, adminHandler, cfg.PlatformSuperAdminClerkIDs)
+
 	// --- CRM Super Admin ---
 	crmRepo := crminfrastructure.NewRepository(db.DB)
 	crmSvc := crmapp.NewService(crmRepo)
-	crmHandler := handlers.NewCRMHandler(crmSvc)
+	crmHandler := handlers.NewCRMHandler(crmSvc, cfg.PlatformSuperAdminClerkIDs)
 	routes.RegisterCRMRoutes(api, crmHandler)
 
 	// --- Alert ---
@@ -507,13 +516,7 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	schedulingHandler := handlers.NewAthleteSchedulingHandler(coachService)
 	routes.RegisterAthleteSchedulingRoutes(api, schedulingHandler)
 
-	// --- Admin ---
-	var adminDB *sql.DB
-	if db != nil {
-		adminDB = db.DB
-	}
-	adminHandler := handlers.NewAdminHandler(adminDB, clerkIdentity, trmService)
-	routes.RegisterAdminRoutes(api, adminHandler, cfg.PlatformSuperAdminClerkIDs)
+	// --- Admin (ya registrado arriba con prioridad sobre CRM) ---
 
 	// --- Coach activation ---
 	// Server-authoritative coach provisioning: the role is decided by the Go

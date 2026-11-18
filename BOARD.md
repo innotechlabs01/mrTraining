@@ -2,6 +2,10 @@
 
 ## TODO
 
+## Done
+- [x] T-014: Super Admin Dashboard como CRM global — QA PASS (7/7). Code reviewer PASS. Security reviewer PASS (F-01/F-02 FIXED). Approved by @user 2026-11-18.
+- [x] T-015: GetRevenueStats CRM global — Architect PASS. Security reviewer PASS (no Critical/High). Approved by @user 2026-11-18. Cambios: crm/repository.go GetRevenueStats (alcance global coaches + atletas activos, ventana 12 meses), admin.go error handling explícito, crm.go super-admin guard, routes_setup.go orden Admin antes CRM, dashboard page.tsx ??→||, migración 427 RLS super admin. Verificado: go build OK, go test ./... OK, tsc OK, pnpm test 249 OK, pnpm build OK.
+
 ## In Progress
 - [x] T-005: Mobile Access Gate — Implement subscription check in mobile app. — DONE, spec `docs/superpowers/specs/T-005-mobile-access-gate.md`. AccessGate (fail-closed) protege AthleteTabs (Today, History, Events, Recovery, Profile) en Navigation.tsx:142. Verificado: mobile tsc --noEmit OK, Jest 89 suites/505 tests PASS (incluye AccessGate.test.tsx).
 

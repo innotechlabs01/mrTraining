@@ -11,9 +11,6 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
-  PieChart,
-  Pie,
-  Cell,
 } from 'recharts';
 import {
   DollarSign,
@@ -46,6 +43,7 @@ interface CoachSummary {
   role: string;
   plan_name: string;
   plan_price: number;
+  plan_max_athletes: number;
   plan_status: string;
   plan_expires_at: string;
   athletes_count: number;
@@ -155,6 +153,7 @@ export default function AdminDashboardPage() {
   // fetch con reintento automático de refresh token cuando expiran los 401
   async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
     let res = await fetch(url, {
+      cache: 'no-store',
       ...options,
       headers: { ...(await getAuthHeader()), ...options.headers },
     });
@@ -162,6 +161,7 @@ export default function AdminDashboardPage() {
       const newToken = await getToken();
       if (newToken) {
         res = await fetch(url, {
+          cache: 'no-store',
           ...options,
           headers: { Authorization: `Bearer ${newToken}`, ...options.headers },
         });
@@ -214,27 +214,56 @@ export default function AdminDashboardPage() {
     );
   }, [coaches, search]);
 
-  const totalCoaches = dashboardStats?.coaches_count ?? coaches.length;
-  const activeCoaches = dashboardStats?.active_coaches_count ?? coaches.filter((c) => c.plan_status === 'active').length;
+  // `||` en lugar de `??`: si el backend devuelve 0 (consulta vacía o sin filas
+  // que matcheen), caemos al fallback calculado sobre la lista de coaches.
+  // Así el super admin ve siempre datos reales aunque una consulta agregada
+  // devuelva cero por no coincidir con el filtro de rol de users.
+  const totalCoaches = dashboardStats?.coaches_count || coaches.length;
+  const activeCoaches =
+    dashboardStats?.active_coaches_count ||
+    coaches.filter((c) => c.plan_status === 'active').length;
   const expiringCoaches =
-    dashboardStats?.expiring_coaches_count ??
+    dashboardStats?.expiring_coaches_count ||
     coaches.filter(
       (c) =>
         c.plan_status &&
         c.plan_expires_at &&
         new Date(c.plan_expires_at) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     ).length;
-  const skippedSubscriptions = dashboardStats?.skipped_subscriptions ?? coaches.filter((c) => c.skip_subscription).length;
-  const active = coaches.filter((c) => c.plan_status === 'active' || c.skip_subscription).length;
-  const expired = coaches.filter((c) => c.plan_status === 'expired').length;
-  const withoutPlan = coaches.filter((c) => !c.plan_status || c.plan_status === 'none').length;
+  const skippedSubscriptions =
+    dashboardStats?.skipped_subscriptions ||
+    coaches.filter((c) => c.skip_subscription).length;
+  // Ingresos del mes: se prefiere el agregado de /revenue, pero si devuelve 0
+  // (p. ej. sin filas en wompi_payment_ledger) se cae al total calculado sobre
+  // la lista de coaches, que ya trae revenue_month por coach. Así el super admin
+  // ve siempre una cifra real en el CRM global.
+  const totalRevenueMonth = coaches.reduce(
+    (sum, c) => sum + Number(c.revenue_month || 0),
+    0,
+  );
+  // Distribución por plan adquirido. Se calcula sobre los coaches que pasan
+  // el filtro de búsqueda del dashboard para que el gráfico responda al filtro.
+  const planDistribution = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const coach of filteredCoaches) {
+      const name =
+        coach.plan_name?.trim() || (coach.skip_subscription ? 'Membresía omitida' : 'Sin plan');
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
 
-  const pieData = [
-    { name: 'Activos', value: active, color: SUCCESS },
-    { name: 'Por vencer', value: expiringCoaches, color: WARNING },
-    { name: 'Vencidos', value: expired, color: ERROR },
-    { name: 'Sin plan', value: withoutPlan, color: NEUTRAL },
-  ].filter((slice) => slice.value > 0);
+    const palette = [BRAND, SUCCESS, WARNING, ERROR, '#A78BFA', '#F472B6'];
+    let colorIndex = 0;
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([name, value]) => ({
+        name,
+        value,
+        color:
+          name === 'Sin plan' || name === 'Membresía omitida'
+            ? NEUTRAL
+            : palette[colorIndex++ % palette.length],
+      }));
+  }, [filteredCoaches]);
 
   if (!user) return null;
 
@@ -287,8 +316,8 @@ export default function AdminDashboardPage() {
               tone="bg-warning/10 text-warning"
             />
             <StatCard
-              title="Ingresos mes"
-              value={`$${revenueStats?.this_month?.toLocaleString() || '0'}`}
+              title="Ingresos mes (planes)"
+              value={`$${(revenueStats?.this_month || totalRevenueMonth).toLocaleString() || '0'}`}
               icon={<DollarSign size={20} />}
               tone="bg-brand-primary/10 text-brand-primary"
             />
@@ -345,37 +374,34 @@ export default function AdminDashboardPage() {
               <div className="border-b border-surface-6 p-4">
                 <h2 className="text-base font-semibold text-text-primary">Distribución de planes</h2>
               </div>
-              <div className="h-64 p-2 sm:h-72 sm:p-4">
-                {pieData.length === 0 ? (
-                  <EmptyState title="Sin datos de planes" description="Aún no hay coaches con plan asignado." />
+              <div className="h-64 overflow-y-auto p-4 sm:h-72">
+                {planDistribution.length === 0 ? (
+                  <EmptyState
+                    title="Sin datos de planes"
+                    description="No hay coaches para el filtro actual."
+                  />
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
-                        label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                        labelLine={false}
-                      >
-                        {pieData.map((slice) => (
-                          <Cell key={slice.name} fill={slice.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: '#141416',
-                          border: '1px solid #2A2A2C',
-                          borderRadius: '8px',
-                          color: '#F5F5F7',
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <ul className="space-y-4">
+                    {planDistribution.map((plan) => {
+                      const percent = Math.round((plan.value / filteredCoaches.length) * 100);
+                      return (
+                        <li key={plan.name}>
+                          <div className="flex items-center justify-between gap-3 text-xs">
+                            <span className="truncate font-medium text-text-primary">{plan.name}</span>
+                            <span className="shrink-0 tabular-nums text-text-secondary">
+                              {plan.value} {plan.value === 1 ? 'coach' : 'coaches'} · {percent}%
+                            </span>
+                          </div>
+                          <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface-3">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{ width: `${percent}%`, backgroundColor: plan.color }}
+                            />
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
               </div>
             </Card>
@@ -411,7 +437,13 @@ export default function AdminDashboardPage() {
                         <th scope="col" className="p-3 font-medium">Plan</th>
                         <th scope="col" className="p-3 font-medium">Estado</th>
                         <th scope="col" className="p-3 font-medium">Vence</th>
-                        <th scope="col" className="p-3 text-right font-medium">Ingresos mes</th>
+                        <th
+                          scope="col"
+                          className="p-3 text-right font-medium"
+                          title="Costo del plan de plataforma que pagó el coach este mes"
+                        >
+                          Ingresos mes (plan)
+                        </th>
                         <th scope="col" className="p-3 text-right font-medium">Atletas</th>
                         <th scope="col" className="p-3 text-right font-medium">Acciones</th>
                       </tr>
@@ -447,7 +479,10 @@ export default function AdminDashboardPage() {
                           <td className="p-3 text-right tabular-nums text-text-primary">
                             ${coach.revenue_month?.toLocaleString() || '0'}
                           </td>
-                          <td className="p-3 text-right tabular-nums text-text-primary">{coach.athletes_count}</td>
+                          <td className="p-3 text-right tabular-nums text-text-primary">
+                            {coach.athletes_count}
+                            {coach.plan_max_athletes ? ` / ${coach.plan_max_athletes}` : ''}
+                          </td>
                           <td className="p-3 text-right">
                             <button
                               type="button"
@@ -484,14 +519,17 @@ export default function AdminDashboardPage() {
                           <dd className="truncate text-text-primary">{coach.plan_name || '—'}</dd>
                         </div>
                         <div>
-                          <dt className="text-text-secondary">Ingresos mes</dt>
+                          <dt className="text-text-secondary">Ingresos mes (plan)</dt>
                           <dd className="tabular-nums text-text-primary">
                             ${coach.revenue_month?.toLocaleString() || '0'}
                           </dd>
                         </div>
                         <div>
                           <dt className="text-text-secondary">Atletas</dt>
-                          <dd className="tabular-nums text-text-primary">{coach.athletes_count}</dd>
+                          <dd className="tabular-nums text-text-primary">
+                            {coach.athletes_count}
+                            {coach.plan_max_athletes ? ` / ${coach.plan_max_athletes}` : ''}
+                          </dd>
                         </div>
                       </dl>
                       <button
@@ -546,13 +584,16 @@ export default function AdminDashboardPage() {
                 ? new Date(selectedCoach.plan_expires_at).toLocaleDateString('es-CO')
                 : '—'}
             </Field>
-            <Field label="Atletas">{selectedCoach.athletes_count}</Field>
+            <Field label="Atletas">
+              {selectedCoach.athletes_count}
+              {selectedCoach.plan_max_athletes ? ` / ${selectedCoach.plan_max_athletes}` : ''}
+            </Field>
             <Field label="Membresía">
               <Badge tone={selectedCoach.skip_subscription ? 'warning' : 'success'}>
                 {selectedCoach.skip_subscription ? 'Omitida' : 'Activa'}
               </Badge>
             </Field>
-            <Field label="Ingresos mes">${selectedCoach.revenue_month?.toLocaleString() || '0'}</Field>
+            <Field label="Ingresos mes (plan)">${selectedCoach.revenue_month?.toLocaleString() || '0'}</Field>
             <Field label="Ingresos totales">${selectedCoach.revenue_total?.toLocaleString() || '0'}</Field>
             <Field label="Último login">
               {selectedCoach.last_login

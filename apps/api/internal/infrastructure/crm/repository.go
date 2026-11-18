@@ -42,41 +42,140 @@ func (r *Repository) isTx() bool {
 }
 
 // ListCoaches devuelve todos los coaches con su plan y estado.
+//
+// Un coach puede tener más de un usuario con el mismo email (datos legacy de
+// Clerk). Se deduplica por email para que el CRM muestre una sola fila y se
+// prioriza el usuario que ya tiene fila en coaches.
+//
+// Los joins aceptan tanto users.id (canónico) como coaches.id (legacy) para no
+// perder plan, atletas ni pagos de coaches creados antes de unificar ambos IDs.
 func (r *Repository) ListCoaches(ctx context.Context) ([]*domain.CoachSummary, error) {
 	rows, err := r.exec.QueryContext(ctx, `
 		SELECT
 			u.id, u.email, u.name, u.role,
-			p.plan_name as plan_name, p.plan_price as plan_price, p.status as plan_status,
-			p.current_period_end as plan_expires_at,
-			COALESCE(c.skip_subscription, false) as skip_subscription,
+			COALESCE(p.plan_name, pc.plan_name) AS plan_name,
+			COALESCE(p.plan_price, pc.amount) AS plan_price,
+			COALESCE(p.plan_max_athletes, pc.plan_max_athletes, 0) AS plan_max_athletes,
+			COALESCE(p.plan_status, CASE WHEN pc.status IN ('paid','claimed') THEN 'active' END) AS plan_status,
+			p.plan_expires_at,
+			COALESCE(cp.skip_subscription, false) as skip_subscription,
 			COALESCE(a.athletes_count, 0) as athletes_count,
 			COALESCE(r.revenue_month, 0) as revenue_month,
 			COALESCE(r.revenue_total, 0) as revenue_total,
 			u.updated_at as last_login
-		FROM users u
-		LEFT JOIN coaches c ON c.email = u.email
-		LEFT JOIN (
-			SELECT DISTINCT ON (coach_id) coach_id, plan_name as plan_name, plan_price as plan_price, status,
-			       current_period_end
-			FROM subscriptions
-			WHERE status = 'active'
-			ORDER BY coach_id, current_period_end::timestamp DESC
-		) p ON p.coach_id = c.id
-		LEFT JOIN (
-			SELECT coach_id, COUNT(*) as athletes_count
-			FROM coach_athlete_links
-			WHERE status = 'active'
-			GROUP BY coach_id
-		) a ON a.coach_id = c.id
-		LEFT JOIN (
-			SELECT coach_id,
-			       SUM(CASE WHEN period_start::timestamp >= date_trunc('month', NOW()) THEN gross_amount_cents/100.0 ELSE 0 END) as revenue_month,
-			       SUM(gross_amount_cents/100.0) as revenue_total
-			FROM wompi_payment_ledger
-			WHERE status = 'approved'
-			GROUP BY coach_id
-		) r ON r.coach_id = c.id
-		WHERE u.role = 'coach'
+		FROM (
+			SELECT DISTINCT ON (CASE WHEN u.email = '' THEN u.id ELSE lower(u.email) END)
+			       u.id, u.email, u.name, u.role, u.is_active, u.updated_at
+			FROM users u
+			WHERE u.role = 'coach'
+			ORDER BY CASE WHEN u.email = '' THEN u.id ELSE lower(u.email) END,
+			         (EXISTS (SELECT 1 FROM coaches c WHERE c.id = u.id)) DESC,
+			         (CASE WHEN u.name = '' OR lower(u.name) = lower(u.email) THEN 1 ELSE 0 END) ASC,
+			         u.is_active DESC, u.updated_at DESC, u.id
+		) u
+		LEFT JOIN LATERAL (
+			SELECT c0.skip_subscription
+			FROM coaches c0
+			WHERE c0.id = u.id OR (c0.email <> '' AND lower(c0.email) = lower(u.email))
+			ORDER BY (c0.id = u.id) DESC, c0.updated_at DESC
+			LIMIT 1
+		) cp ON true
+		-- Fallback para coaches que pagaron antes de crear la cuenta: el
+		-- checkout queda en pending_checkouts con el plan y el monto.
+		LEFT JOIN LATERAL (
+			SELECT pc0.plan_name, pc0.amount, pc0.status, pl.max_athletes AS plan_max_athletes
+			FROM pending_checkouts pc0
+			LEFT JOIN plans pl ON pl.id = pc0.plan_id
+			WHERE pc0.email <> ''
+			  AND lower(pc0.email) = lower(u.email)
+			  AND pc0.status IN ('paid', 'claimed')
+			ORDER BY pc0.updated_at DESC
+			LIMIT 1
+		) pc ON true
+		LEFT JOIN LATERAL (
+			SELECT COALESCE(NULLIF(s.plan_name, ''), pl.name) AS plan_name,
+			       COALESCE(NULLIF(s.plan_price, 0), pl.price) AS plan_price,
+			       pl.max_athletes AS plan_max_athletes,
+			       s.status AS plan_status,
+			       s.current_period_end AS plan_expires_at
+			FROM subscriptions s
+			LEFT JOIN plans pl ON pl.id = s.plan_id
+			WHERE s.athlete_id <> ''
+			  AND (
+			    s.athlete_id = u.id
+			    OR s.athlete_id IN (
+			      SELECT u2.id FROM users u2
+			      WHERE u2.email <> '' AND lower(u2.email) = lower(u.email)
+			    )
+			    OR s.athlete_id IN (
+			      SELECT c1.id FROM coaches c1
+			      WHERE c1.email <> '' AND lower(c1.email) = lower(u.email)
+			    )
+			  )
+			ORDER BY CASE s.status
+			           WHEN 'active' THEN 0 WHEN 'trial' THEN 1 WHEN 'past_due' THEN 2 ELSE 3
+			         END,
+			         s.current_period_end DESC
+			LIMIT 1
+		) p ON true
+		LEFT JOIN LATERAL (
+			-- Atletas del roster (coach_athletes) y atletas con cuenta
+			-- vinculada (coach_athlete_links). El admin debe ver el total real
+			-- y actualizado de atletas que entrena el coach.
+			SELECT COUNT(*) AS athletes_count
+			FROM (
+			  SELECT cal.athlete_id AS athlete_id
+			  FROM coach_athlete_links cal
+			  WHERE cal.status = 'active'
+			    AND (
+			      cal.coach_id = u.id
+			      OR cal.coach_id IN (
+			        SELECT u2.id FROM users u2
+			        WHERE u2.email <> '' AND lower(u2.email) = lower(u.email)
+			      )
+			      OR cal.coach_id IN (
+			        SELECT c2.id FROM coaches c2
+			        WHERE c2.email <> '' AND lower(c2.email) = lower(u.email)
+			      )
+			    )
+			  UNION
+			  SELECT ca.id AS athlete_id
+			  FROM coach_athletes ca
+			  WHERE (
+			    ca.coach_id = u.id
+			    OR ca.coach_id IN (
+			      SELECT u2.id FROM users u2
+			      WHERE u2.email <> '' AND lower(u2.email) = lower(u.email)
+			    )
+			    OR ca.coach_id IN (
+			      SELECT c2.id FROM coaches c2
+			      WHERE c2.email <> '' AND lower(c2.email) = lower(u.email)
+			    )
+			  )
+			) roster
+		) a ON true
+		LEFT JOIN LATERAL (
+			SELECT
+			  COALESCE(SUM(l.gross_amount_cents/100.0) FILTER (
+			    WHERE l.period_start::timestamp >= date_trunc('month', NOW())
+			  ), 0) AS revenue_month,
+			  COALESCE(SUM(l.gross_amount_cents/100.0), 0) AS revenue_total
+			FROM wompi_payment_ledger l
+			WHERE l.status NOT IN ('pending', 'reversed')
+			  -- El coach es el pagador de su propio plan: athlete_id es el
+			  -- subscriber, aunque coach_id haya quedado con un ID legacy.
+			  AND (
+			    l.athlete_id = u.id
+			    OR l.athlete_id IN (
+			      SELECT u2.id FROM users u2
+			      WHERE u2.email <> '' AND lower(u2.email) = lower(u.email)
+			    )
+			    OR l.athlete_id IN (
+			      SELECT c3.id FROM coaches c3
+			      WHERE c3.email <> '' AND lower(c3.email) = lower(u.email)
+			    )
+			  )
+		) r ON true
 		ORDER BY u.name
 	`)
 	if err != nil {
@@ -89,10 +188,10 @@ func (r *Repository) ListCoaches(ctx context.Context) ([]*domain.CoachSummary, e
 		var c domain.CoachSummary
 		var planName, planStatus, planExpires sql.NullString
 		var planPrice, revenueMonth, revenueTotal sql.NullFloat64
-		var athletesCount sql.NullInt64
+		var athletesCount, planMaxAthletes sql.NullInt64
 		var lastLogin sql.NullString
 		err := rows.Scan(&c.ID, &c.Email, &c.Name, &c.Role,
-			&planName, &planPrice, &planStatus, &planExpires,
+			&planName, &planPrice, &planMaxAthletes, &planStatus, &planExpires,
 			&c.SkipSubscription,
 			&athletesCount, &revenueMonth, &revenueTotal, &lastLogin)
 		if err != nil {
@@ -101,6 +200,9 @@ func (r *Repository) ListCoaches(ctx context.Context) ([]*domain.CoachSummary, e
 		c.PlanName = planName.String
 		if planPrice.Valid {
 			c.PlanPrice = planPrice.Float64
+		}
+		if planMaxAthletes.Valid {
+			c.PlanMaxAthletes = int(planMaxAthletes.Int64)
 		}
 		c.PlanStatus = planStatus.String
 		if planExpires.Valid {
@@ -123,63 +225,104 @@ func (r *Repository) ListCoaches(ctx context.Context) ([]*domain.CoachSummary, e
 	return out, rows.Err()
 }
 
-// GetRevenueStats devuelve estadísticas de ganancias.
+// GetRevenueStats devuelve estadísticas de ganancias para el CRM global.
+// El super admin no filtra por coach_id ni athlete_id específicos: suma todos
+// los pagos del ledger donde el pagador (coach_id) o el atleta (athlete_id)
+// pertenezca a un coach de la plataforma o a sus atletas asociados.
 func (r *Repository) GetRevenueStats(ctx context.Context) (*domain.RevenueStats, error) {
 	stats := &domain.RevenueStats{}
+	var err error
+
+	// Alcance global del CRM: coaches activos y sus atletas asociados activos.
+	// No filtra por un coach ni atleta específico: engloba toda la plataforma.
+	// Se excluyen coaches inactivos y links inactivos/borrados para no contar
+	// pagos de relaciones que ya no vigilan.
+	coachAndAthleteScope := `(
+	    SELECT c.id FROM coaches c WHERE c.is_active = true
+	    UNION
+	    SELECT cal.athlete_id FROM coach_athlete_links cal
+	    WHERE cal.coach_id IN (SELECT id FROM coaches WHERE is_active = true)
+	      AND cal.status = 'active'
+	)`
 
 	// Today
-	err := r.exec.QueryRowContext(ctx, `
+	todayQuery := fmt.Sprintf(`
 		SELECT COALESCE(SUM(gross_amount_cents/100.0), 0)
 		FROM wompi_payment_ledger
-		WHERE status = 'approved'
+		WHERE status NOT IN ('pending', 'reversed')
+		  AND (
+		    coach_id IN %s
+		    OR athlete_id IN %s
+		  )
 		  AND period_start::date = CURRENT_DATE
-	`).Scan(&stats.Today)
+	`, coachAndAthleteScope, coachAndAthleteScope)
+	err = r.exec.QueryRowContext(ctx, todayQuery).Scan(&stats.Today)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("get today revenue: %w", err)
 	}
 
 	// This month
-	err = r.exec.QueryRowContext(ctx, `
+	thisMonthQuery := fmt.Sprintf(`
 		SELECT COALESCE(SUM(gross_amount_cents/100.0), 0)
 		FROM wompi_payment_ledger
-		WHERE status = 'approved'
-		  AND period_start >= date_trunc('month', NOW())
-	`).Scan(&stats.ThisMonth)
+		WHERE status NOT IN ('pending', 'reversed')
+		  AND (
+		    coach_id IN %s
+		    OR athlete_id IN %s
+		  )
+		  AND period_start::timestamp >= date_trunc('month', NOW())
+	`, coachAndAthleteScope, coachAndAthleteScope)
+	err = r.exec.QueryRowContext(ctx, thisMonthQuery).Scan(&stats.ThisMonth)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("get this month revenue: %w", err)
 	}
 
 	// This year
-	err = r.exec.QueryRowContext(ctx, `
+	thisYearQuery := fmt.Sprintf(`
 		SELECT COALESCE(SUM(gross_amount_cents/100.0), 0)
 		FROM wompi_payment_ledger
-		WHERE status = 'approved'
-		  AND period_start >= date_trunc('year', NOW())
-	`).Scan(&stats.ThisYear)
+		WHERE status NOT IN ('pending', 'reversed')
+		  AND (
+		    coach_id IN %s
+		    OR athlete_id IN %s
+		  )
+		  AND period_start::timestamp >= date_trunc('year', NOW())
+	`, coachAndAthleteScope, coachAndAthleteScope)
+	err = r.exec.QueryRowContext(ctx, thisYearQuery).Scan(&stats.ThisYear)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("get this year revenue: %w", err)
 	}
 
 	// Total
-	err = r.exec.QueryRowContext(ctx, `
+	totalQuery := fmt.Sprintf(`
 		SELECT COALESCE(SUM(gross_amount_cents/100.0), 0)
 		FROM wompi_payment_ledger
-		WHERE status = 'approved'
-	`).Scan(&stats.Total)
+		WHERE status NOT IN ('pending', 'reversed')
+		  AND (
+		    coach_id IN %s
+		    OR athlete_id IN %s
+		  )
+	`, coachAndAthleteScope, coachAndAthleteScope)
+	err = r.exec.QueryRowContext(ctx, totalQuery).Scan(&stats.Total)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("get total revenue: %w", err)
 	}
 
 	// By month (last 12 months)
-	rows, err := r.exec.QueryContext(ctx, `
-		SELECT to_char(period_start, 'YYYY-MM') as month,
+	byMonthQuery := fmt.Sprintf(`
+		SELECT to_char(period_start::timestamp, 'YYYY-MM') as month,
 		       SUM(gross_amount_cents/100.0) as amount
 		FROM wompi_payment_ledger
-		WHERE status = 'approved'
-		  AND period_start >= date_trunc('year', NOW()) - interval '11 months'
-		GROUP BY to_char(period_start, 'YYYY-MM')
+		WHERE status NOT IN ('pending', 'reversed')
+		  AND (
+		    coach_id IN %s
+		    OR athlete_id IN %s
+		  )
+		  AND period_start::timestamp >= date_trunc('month', NOW()) - interval '11 months'
+		GROUP BY to_char(period_start::timestamp, 'YYYY-MM')
 		ORDER BY month
-	`)
+	`, coachAndAthleteScope, coachAndAthleteScope)
+	rows, err := r.exec.QueryContext(ctx, byMonthQuery)
 	if err != nil {
 		return nil, fmt.Errorf("get monthly revenue: %w", err)
 	}
@@ -248,11 +391,18 @@ func (r *Repository) GetCoachPayments(ctx context.Context, coachID string) ([]*d
 func (r *Repository) GetExpiringCoaches(ctx context.Context) ([]*domain.CoachSummary, error) {
 	rows, err := r.exec.QueryContext(ctx, `
 		SELECT u.id, u.email, u.name, u.role,
-			p.name as plan_name, p.price as plan_price,
+			p.plan_name, p.plan_price, p.status as plan_status,
 			p.current_period_end as plan_expires_at,
 			COALESCE(a.athletes_count, 0) as athletes_count
 		FROM users u
-		JOIN subscriptions p ON p.coach_id = u.id AND p.status = 'active'
+		JOIN subscriptions p ON p.status = 'active'
+		  AND (
+		    p.athlete_id = u.id
+		    OR p.athlete_id IN (
+		      SELECT u2.id FROM users u2
+		      WHERE u2.email <> '' AND lower(u2.email) = lower(u.email)
+		    )
+		  )
 		LEFT JOIN (
 			SELECT coach_id, COUNT(*) as athletes_count
 			FROM coach_athlete_links WHERE status = 'active'
@@ -298,11 +448,18 @@ func (r *Repository) GetExpiringCoaches(ctx context.Context) ([]*domain.CoachSum
 func (r *Repository) GetExpiredCoaches(ctx context.Context) ([]*domain.CoachSummary, error) {
 	rows, err := r.exec.QueryContext(ctx, `
 		SELECT u.id, u.email, u.name, u.role,
-			p.plan_name as plan_name, p.plan_price as plan_price, p.status as plan_status,
+			p.plan_name, p.plan_price, p.status as plan_status,
 			p.current_period_end as plan_expires_at,
 			COALESCE(a.athletes_count, 0) as athletes_count
 		FROM users u
-		JOIN subscriptions p ON p.coach_id = u.id AND p.status != 'active'
+		JOIN subscriptions p ON p.status != 'active'
+		  AND (
+		    p.athlete_id = u.id
+		    OR p.athlete_id IN (
+		      SELECT u2.id FROM users u2
+		      WHERE u2.email <> '' AND lower(u2.email) = lower(u.email)
+		    )
+		  )
 		LEFT JOIN (
 			SELECT coach_id, COUNT(*) as athletes_count
 			FROM coach_athlete_links WHERE status = 'active'
