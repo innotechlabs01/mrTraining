@@ -24,11 +24,30 @@ type Coach = {
   id: string
   name: string
   email: string
-  is_active: boolean
-  athletes_count: number
-  memberships_count: number
-  active_memberships_count: number
-  created_at?: string
+  plan_name?: string
+  plan_price?: number
+  plan_max_athletes?: number
+  plan_status?: string
+  plan_expires_at?: string
+  athletes_count?: number
+  revenue_month?: number
+  skip_subscription?: boolean
+}
+
+type CoachesResponse = Coach[] | { data?: Coach[] }
+
+function planTone(coach: Coach): 'success' | 'error' | 'warning' | 'neutral' {
+  if (coach.skip_subscription) return 'warning'
+  if (coach.plan_status === 'active') return 'success'
+  if (coach.plan_status === 'expired') return 'error'
+  return 'neutral'
+}
+
+function planLabel(coach: Coach): string {
+  if (coach.skip_subscription) return 'Omitida'
+  if (coach.plan_status === 'active') return 'Activo'
+  if (coach.plan_status === 'expired') return 'Vencido'
+  return coach.plan_status || 'Sin plan'
 }
 
 type ServiceHealth = {
@@ -56,11 +75,13 @@ export default async function AdminPage() {
 
   const [dashboard, coachesResponse, health] = await Promise.all([
     token ? goGet<Dashboard>('/api/v1/admin/dashboard', token) : Promise.resolve(null),
-    token ? goGet<{ data?: Coach[]; total?: number }>('/api/v1/admin/coaches', token) : Promise.resolve(null),
+    token ? goGet<CoachesResponse>('/api/v1/admin/coaches', token) : Promise.resolve(null),
     token ? goGet<ServiceHealth>('/api/v1/admin/services/health', token) : Promise.resolve(null),
   ])
 
-  const coaches = coachesResponse?.data ?? []
+  const coaches = Array.isArray(coachesResponse)
+    ? coachesResponse
+    : coachesResponse?.data ?? []
   const metrics: { label: string; value: number }[] = [
     { label: 'Coaches', value: dashboard?.coaches_count ?? 0 },
     { label: 'Coaches activos', value: dashboard?.active_coaches_count ?? 0 },
@@ -75,7 +96,7 @@ export default async function AdminPage() {
     <div className="space-y-6">
       <PageHeader
         title="Vista de plataforma"
-        description="Resumen agregado de la plataforma. No expone datos privados de coaches ni atletas."
+        description="CRM general: todos los coaches, sus planes, atletas e ingresos de la plataforma."
         actions={
           <a href="/admin/dashboard" className={SecondaryLinkClass}>
             Ir al CRM
@@ -142,12 +163,11 @@ export default async function AdminPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-surface-6 text-left text-text-secondary">
-                    <th className="p-3 font-medium">Nombre</th>
-                    <th className="p-3 font-medium">Email</th>
-                    <th className="p-3 text-center font-medium">Activo</th>
+                    <th className="p-3 font-medium">Coach</th>
+                    <th className="p-3 font-medium">Plan</th>
                     <th className="p-3 text-right font-medium">Atletas</th>
-                    <th className="p-3 text-right font-medium">Membresías</th>
-                    <th className="p-3 text-right font-medium">Activas</th>
+                    <th className="p-3 text-center font-medium">Vence</th>
+                    <th className="p-3 text-center font-medium">Estado</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -156,17 +176,24 @@ export default async function AdminPage() {
                       key={coach.id}
                       className="border-b border-surface-6 transition-colors last:border-0 hover:bg-surface-2"
                     >
-                      <td className="p-3 font-medium text-text-primary">{coach.name}</td>
-                      <td className="p-3 text-text-secondary">{coach.email}</td>
-                      <td className="p-3 text-center">
-                        <Badge tone={coach.is_active ? 'success' : 'neutral'}>
-                          {coach.is_active ? 'Sí' : 'No'}
-                        </Badge>
+                      <td className="p-3 font-medium text-text-primary">
+                        <span className="block">{coach.name}</span>
+                        <span className="block text-xs font-normal text-text-secondary">
+                          {coach.email}
+                        </span>
                       </td>
-                      <td className="p-3 text-right tabular-nums text-text-primary">{coach.athletes_count}</td>
-                      <td className="p-3 text-right tabular-nums text-text-primary">{coach.memberships_count}</td>
+                      <td className="p-3 text-text-secondary">{coach.plan_name || 'Sin plan'}</td>
                       <td className="p-3 text-right tabular-nums text-text-primary">
-                        {coach.active_memberships_count}
+                        {coach.athletes_count ?? 0}
+                        {coach.plan_max_athletes ? ` / ${coach.plan_max_athletes}` : ''}
+                      </td>
+                      <td className="p-3 text-center text-text-secondary">
+                        {coach.plan_expires_at
+                          ? new Date(coach.plan_expires_at).toLocaleDateString('es-CO')
+                          : '—'}
+                      </td>
+                      <td className="p-3 text-center">
+                        <Badge tone={planTone(coach)}>{planLabel(coach)}</Badge>
                       </td>
                     </tr>
                   ))}
@@ -183,22 +210,27 @@ export default async function AdminPage() {
                       <p className="truncate text-sm font-medium text-text-primary">{coach.name}</p>
                       <p className="truncate text-xs text-text-secondary">{coach.email}</p>
                     </div>
-                    <Badge tone={coach.is_active ? 'success' : 'neutral'}>
-                      {coach.is_active ? 'Activo' : 'Inactivo'}
-                    </Badge>
+                    <Badge tone={planTone(coach)}>{planLabel(coach)}</Badge>
                   </div>
                   <dl className="grid grid-cols-3 gap-2 text-xs">
                     <div>
+                      <dt className="text-text-secondary">Plan</dt>
+                      <dd className="truncate text-text-primary">{coach.plan_name || 'Sin plan'}</dd>
+                    </div>
+                    <div>
                       <dt className="text-text-secondary">Atletas</dt>
-                      <dd className="tabular-nums text-text-primary">{coach.athletes_count}</dd>
+                      <dd className="tabular-nums text-text-primary">
+                        {coach.athletes_count ?? 0}
+                        {coach.plan_max_athletes ? ` / ${coach.plan_max_athletes}` : ''}
+                      </dd>
                     </div>
                     <div>
-                      <dt className="text-text-secondary">Membresías</dt>
-                      <dd className="tabular-nums text-text-primary">{coach.memberships_count}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-text-secondary">Activas</dt>
-                      <dd className="tabular-nums text-text-primary">{coach.active_memberships_count}</dd>
+                      <dt className="text-text-secondary">Vence</dt>
+                      <dd className="text-text-primary">
+                        {coach.plan_expires_at
+                          ? new Date(coach.plan_expires_at).toLocaleDateString('es-CO')
+                          : '—'}
+                      </dd>
                     </div>
                   </dl>
                 </li>

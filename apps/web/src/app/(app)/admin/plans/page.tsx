@@ -356,7 +356,7 @@ export default function AdminPlansPage() {
                 <th className="p-3">Descripción</th>
                 <th className="p-3 text-right">Precio</th>
                 <th className="p-3 text-center">Periodo</th>
-                <th className="p-3 text-center">Atletas</th>
+                <th className="p-3 text-center">Máx. atletas</th>
                 <th className="p-3 text-center">Estado</th>
                 <th className="p-3 text-right">Acciones</th>
               </tr>
@@ -448,7 +448,7 @@ export default function AdminPlansPage() {
                   <dd className="text-text-primary">{plan.billing_period}</dd>
                 </div>
                 <div>
-                  <dt className="text-text-secondary">Atletas</dt>
+                  <dt className="text-text-secondary">Máx. atletas</dt>
                   <dd className="tabular-nums text-text-primary">{plan.max_athletes}</dd>
                 </div>
               </dl>

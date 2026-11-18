@@ -6,14 +6,21 @@
  * callers.
  */
 
+import { isAxiosError } from 'axios';
+
 import { apiClient } from '@/infrastructure/api/client';
 import {
   MembershipStatusSchema,
   SubscriptionSchema,
   type MembershipStatusDto,
+  type MembershipSummaryDto,
   type SubscriptionDto,
 } from './subscriptionSchemas';
-import type { MembershipStatus, Subscription } from '../domain/subscription';
+import type {
+  MembershipStatus,
+  MembershipSummary,
+  Subscription,
+} from '../domain/subscription';
 
 function mapSubscription(dto: SubscriptionDto): Subscription {
   return {
@@ -36,15 +43,33 @@ function mapSubscription(dto: SubscriptionDto): Subscription {
   };
 }
 
+function mapMembershipSummary(dto: MembershipSummaryDto): MembershipSummary {
+  return {
+    id: dto.id,
+    planName: dto.planName,
+    planPrice: dto.planPrice,
+    billingPeriod: dto.billingPeriod,
+    currentPeriodStart: dto.currentPeriodStart,
+    currentPeriodEnd: dto.currentPeriodEnd,
+    paymentDueDate: dto.paymentDueDate,
+    athleteId: dto.athleteId,
+    coachId: dto.coachId,
+  };
+}
+
 function mapMembershipStatus(dto: MembershipStatusDto): MembershipStatus {
   return {
-    hasActiveMembership: dto.has_active_membership,
+    hasActiveMembership: dto.hasActiveMembership,
     status: dto.status,
-    isInGracePeriod: dto.is_in_grace_period,
-    daysRemaining: dto.days_remaining,
-    expiresAt: dto.expires_at,
-    membership: dto.membership ? mapSubscription(dto.membership) : null,
-    membershipId: dto.membership_id,
+    isInGracePeriod: dto.isInGracePeriod,
+    daysRemaining: dto.daysRemaining,
+    expiresAt: dto.expiresAt,
+    membership: dto.membership ? mapMembershipSummary(dto.membership) : null,
+    membershipId: dto.membershipId,
+    coachPlanLimitExceeded: dto.coachPlanLimitExceeded,
+    coachPlanMaxAthletes: dto.coachPlanMaxAthletes,
+    coachAthletesCount: dto.coachAthletesCount,
+    coachPlanName: dto.coachPlanName,
   };
 }
 
@@ -56,9 +81,17 @@ function mapMembershipStatus(dto: MembershipStatusDto): MembershipStatus {
  * Throws a Zod error if the response shape is invalid.
  */
 export async function getMySubscription(): Promise<Subscription | null> {
-  const { data } = await apiClient.get<SubscriptionDto>('/subscriptions/me');
-  const parsed = SubscriptionSchema.parse(data);
-  return mapSubscription(parsed);
+  try {
+    const { data } = await apiClient.get<SubscriptionDto>('/subscriptions/me');
+    const parsed = SubscriptionSchema.parse(data);
+    return mapSubscription(parsed);
+  } catch (error) {
+    // No subscription row is a valid state, not a gate error.
+    if (isAxiosError(error) && error.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 /**

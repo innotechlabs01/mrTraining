@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,9 +12,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	invitedomain "github.com/innotechlabs01/mr-training-api/internal/domain/invite"
 	inviteapp "github.com/innotechlabs01/mr-training-api/internal/application/invite"
 	userapp "github.com/innotechlabs01/mr-training-api/internal/application/user"
+	invitedomain "github.com/innotechlabs01/mr-training-api/internal/domain/invite"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
@@ -21,18 +22,23 @@ import (
 
 // InviteHandler handles coach invitation HTTP requests.
 type InviteHandler struct {
-	service       *inviteapp.Service
-	userService   *userapp.Service
+	service        *inviteapp.Service
+	userService    *userapp.Service
 	clerkSecretKey string
+	db             *sql.DB
 }
 
 // NewInviteHandler creates a new InviteHandler.
-func NewInviteHandler(service *inviteapp.Service, userService *userapp.Service, clerkSecretKey string) *InviteHandler {
-	return &InviteHandler{
+func NewInviteHandler(service *inviteapp.Service, userService *userapp.Service, clerkSecretKey string, db ...*sql.DB) *InviteHandler {
+	handler := &InviteHandler{
 		service:        service,
 		userService:    userService,
 		clerkSecretKey: clerkSecretKey,
 	}
+	if len(db) > 0 {
+		handler.db = db[0]
+	}
+	return handler
 }
 
 // AcceptInvite handles POST /invites/accept.
@@ -98,13 +104,33 @@ func (h *InviteHandler) CoachInvite(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusNotFound, "coach not found")
 	}
 
-	// Count current active athletes.
-	athletes, err := h.userService.GetAthletesByCoach(c.Context(), userID)
-	if err != nil {
-		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to count athletes")
-	}
-	if len(athletes) >= coach.MaxAthletes {
-		return appresponse.Error(c, fiber.StatusBadRequest, "max athletes reached")
+	// Count current athletes. The platform plan (when active) is the source
+	// of truth for the athlete limit; fall back to the coach profile limit
+	// only when the coach has no platform plan.
+	if h.db != nil {
+		capacity, capErr := middleware.GetCoachPlanCapacity(c.Context(), h.db, userID)
+		if capErr == nil && capacity.MaxAthletes > 0 {
+			if capacity.AthletesCount >= capacity.MaxAthletes {
+				return appresponse.Error(c, fiber.StatusBadRequest,
+					"límite de atletas del plan alcanzado — actualiza el plan para invitar más atletas")
+			}
+		} else {
+			athletes, err := h.userService.GetAthletesByCoach(c.Context(), userID)
+			if err != nil {
+				return appresponse.Error(c, fiber.StatusInternalServerError, "failed to count athletes")
+			}
+			if len(athletes) >= coach.MaxAthletes {
+				return appresponse.Error(c, fiber.StatusBadRequest, "max athletes reached")
+			}
+		}
+	} else {
+		athletes, err := h.userService.GetAthletesByCoach(c.Context(), userID)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to count athletes")
+		}
+		if len(athletes) >= coach.MaxAthletes {
+			return appresponse.Error(c, fiber.StatusBadRequest, "max athletes reached")
+		}
 	}
 
 	// Create the Clerk invitation.
@@ -116,13 +142,13 @@ func (h *InviteHandler) CoachInvite(c *fiber.Ctx) error {
 	// Persist the pending invite.
 	expiresAt := time.Now().Add(7 * 24 * time.Hour).Format(time.RFC3339)
 	if err := h.service.CreatePendingInvite(c.Context(), &invitedomain.PendingInvite{
-		ID:                 clerkInvID,
-		CoachID:            userID,
-		Email:              email,
-		ClerkInvitationID:  clerkInvID,
-		Status:             "pending",
-		ExpiresAt:          expiresAt,
-		CreatedAt:          time.Now().Format(time.RFC3339),
+		ID:                clerkInvID,
+		CoachID:           userID,
+		Email:             email,
+		ClerkInvitationID: clerkInvID,
+		Status:            "pending",
+		ExpiresAt:         expiresAt,
+		CreatedAt:         time.Now().Format(time.RFC3339),
 	}); err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to save invite")
 	}

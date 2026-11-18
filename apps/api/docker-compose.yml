@@ -136,6 +136,11 @@ services:
       # APP_PORT y DATABASE_URL NO se fijan aquí: los toma de .env.local
       # (env_file) para que ese archivo sea la única fuente de verdad local.
       - APP_ENV=development
+      # Allowlist del super admin de plataforma. Vive en .env (Compose lo usa
+      # para interpolar), no en .env.local. Sin esta línea el contenedor
+      # arranca con la allowlist vacía y RequirePlatformSuperAdmin responde
+      # 403 "platform super admin access required" a TODO /api/v1/admin/*.
+      - PLATFORM_SUPER_ADMIN_CLERK_ID=${PLATFORM_SUPER_ADMIN_CLERK_ID:-}
       - LOG_LEVEL=debug
       - REDIS_URL=redis:6379
       - NATS_URL=nats://nats:4222

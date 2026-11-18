@@ -21,6 +21,7 @@ interface Coach {
   email: string;
   plan_name: string;
   plan_price: number;
+  plan_max_athletes: number;
   plan_status: string;
   plan_expires_at: string;
   athletes_count: number;
@@ -65,6 +66,7 @@ export default function AdminCoachesPage() {
     try {
       const token = await getToken();
       const res = await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/coaches`, {
+        cache: 'no-store',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error(`Error ${res.status} al cargar coaches`);
@@ -156,7 +158,7 @@ export default function AdminCoachesPage() {
         <span
           className={cn(
             'text-xs font-medium',
-            coach.skip_subscription ? 'text-success' : 'text-warning',
+                          coach.skip_subscription ? 'text-warning' : 'text-success',
           )}
         >
           {coach.skip_subscription ? 'Omitida' : 'Activa'}
@@ -239,7 +241,13 @@ export default function AdminCoachesPage() {
                     <th scope="col" className="p-3 font-medium">Estado</th>
                     <th scope="col" className="p-3 font-medium">Vence</th>
                     <th scope="col" className="p-3 text-right font-medium">Atletas</th>
-                    <th scope="col" className="p-3 text-right font-medium">Ingresos mes</th>
+                    <th
+                      scope="col"
+                      className="p-3 text-right font-medium"
+                      title="Costo del plan de plataforma que pagó el coach este mes"
+                    >
+                      Ingresos mes (plan)
+                    </th>
                     <th scope="col" className="p-3 text-right font-medium">Membresía</th>
                   </tr>
                 </thead>
@@ -265,7 +273,10 @@ export default function AdminCoachesPage() {
                       <td className="p-3 text-text-secondary">
                         {coach.plan_expires_at ? coach.plan_expires_at.slice(0, 10) : '—'}
                       </td>
-                      <td className="p-3 text-right tabular-nums text-text-primary">{coach.athletes_count}</td>
+                      <td className="p-3 text-right tabular-nums text-text-primary">
+                        {coach.athletes_count}
+                        {coach.plan_max_athletes ? ` / ${coach.plan_max_athletes}` : ''}
+                      </td>
                       <td className="p-3 text-right tabular-nums text-text-primary">
                         {coach.revenue_month?.toLocaleString() || '0'}
                       </td>
@@ -299,10 +310,13 @@ export default function AdminCoachesPage() {
                     </div>
                     <div>
                       <dt className="text-text-secondary">Atletas</dt>
-                      <dd className="tabular-nums text-text-primary">{coach.athletes_count}</dd>
+                      <dd className="tabular-nums text-text-primary">
+                        {coach.athletes_count}
+                        {coach.plan_max_athletes ? ` / ${coach.plan_max_athletes}` : ''}
+                      </dd>
                     </div>
                     <div>
-                      <dt className="text-text-secondary">Ingresos mes</dt>
+                      <dt className="text-text-secondary">Ingresos mes (plan)</dt>
                       <dd className="tabular-nums text-text-primary">
                         ${coach.revenue_month?.toLocaleString() || '0'}
                       </dd>

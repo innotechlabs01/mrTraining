@@ -182,7 +182,7 @@ Recibes una tarea
   ↓
 5. Verifica con lint, build, tests segun 13-testing.md
   ↓
-6. Commit atomico convencional + PR a main. Sin worktrees: trabajá en mr-training.
+6. Commit atomico convencional + PR a dev (no a main). Sin worktrees: trabajá en mr-training.
 ```
 
 ---
