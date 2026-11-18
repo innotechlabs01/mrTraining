@@ -19,10 +19,18 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-const g = globalThis as any;
-g.fetch = jest.fn();
-const mockFetch = g.fetch as jest.MockedFunction<typeof fetch>;
-g.IS_REACT_ACT_ENVIRONMENT = true;
+const mockFetchFn = jest.fn();
+Object.defineProperty(globalThis, 'fetch', {
+  value: mockFetchFn,
+  writable: true,
+  configurable: true,
+});
+const mockFetch = mockFetchFn as jest.MockedFunction<typeof fetch>;
+Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
+  value: true,
+  writable: true,
+  configurable: true,
+});
 
 let container: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
