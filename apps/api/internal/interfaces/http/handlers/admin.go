@@ -473,6 +473,10 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 
 // ToggleSkipSubscription handles POST /api/v1/admin/coaches/:id/skip-subscription.
 // Toggles the coach's skip_subscription status and updates Clerk publicMetadata.
+//
+// The :id path parameter can be either a users.id (Clerk ID) or a coaches.id.
+// The frontend must not expose Clerk IDs in URLs; this endpoint accepts them
+// for backward compatibility but resolves them through users/coaches tables.
 func (h *AdminHandler) ToggleSkipSubscription(c *fiber.Ctx) error {
 	if h.db == nil {
 		return appresponse.Error(c, fiber.StatusServiceUnavailable, "database unavailable")
@@ -492,11 +496,8 @@ func (h *AdminHandler) ToggleSkipSubscription(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	// El CRM entrega users.id (clerk_id) como id del coach. Se opera sobre ese
-	// ID canónico y, si el coach todavía no tiene fila en coaches, se crea.
-	// Fallback: algunos coaches existen en users pero no como Clerk ID
-	// (p.ej. coach-001), o existen solo en coaches por email. Si users no
-	// devuelve nada, se intenta coaches por id o email antes de rendirse.
+	// Resolve the coach: try users table first (Clerk ID), then coaches table
+	// by id or email. This handles both Clerk IDs and legacy coach IDs.
 	var coachID, email, name string
 	var isActive int
 	err := h.db.QueryRowContext(ctx, `
@@ -505,6 +506,8 @@ func (h *AdminHandler) ToggleSkipSubscription(c *fiber.Ctx) error {
 		WHERE id = $1 AND role = 'coach'
 	`, id).Scan(&coachID, &email, &name, &isActive)
 	if err == sql.ErrNoRows {
+		// Fallback: coach exists in coaches table but maybe not as users row,
+		// or the :id is a coaches.id not a users.id.
 		err = h.db.QueryRowContext(ctx, `
 			SELECT id, email, COALESCE(NULLIF(name, ''), email), is_active
 			FROM coaches
@@ -514,14 +517,14 @@ func (h *AdminHandler) ToggleSkipSubscription(c *fiber.Ctx) error {
 			return appresponse.Error(c, fiber.StatusNotFound, "coach not found")
 		}
 		if err != nil {
-			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to get coach")
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to look up coach")
 		}
 	} else if err != nil {
-		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to get coach")
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to look up coach")
 	}
 
-	// Upsert sobre users.id: evita depender de un join por email y repara
-	// coaches legacy que no tenían fila en coaches.
+	// Upsert on coaches table: creates the row if missing, updates if exists.
+	// This repairs legacy coaches that didn't have a coaches row.
 	_, err = h.db.ExecContext(ctx, `
 		INSERT INTO coaches (id, email, name, skip_subscription, is_active, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
@@ -535,13 +538,15 @@ func (h *AdminHandler) ToggleSkipSubscription(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to update skip_subscription")
 	}
 
-	// Keep legacy coaches rows that share the same email in sync, so the
-	// omission is not lost when another query resolves the coach by email.
+	// Keep legacy coaches rows that share the same email in sync.
 	if email != "" {
-		_, _ = h.db.ExecContext(ctx, `
+		_, err = h.db.ExecContext(ctx, `
 			UPDATE coaches SET skip_subscription = $1, updated_at = NOW()
 			WHERE email <> '' AND lower(email) = lower($2)
 		`, req.SkipSubscription, email)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to sync legacy coach rows")
+		}
 	}
 
 	// Update Clerk publicMetadata with membership status
