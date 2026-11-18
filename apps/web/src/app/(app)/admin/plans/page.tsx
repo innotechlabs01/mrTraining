@@ -76,6 +76,8 @@ export default function AdminPlansPage() {
   const [form, setForm] = useState<PlanFormValues>(DEFAULT_FORM);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [trmRate, setTrmRate] = useState<{ value: number; fetchedAt: string } | null>(null);
+  const [fetchingTrm, setFetchingTrm] = useState(false);
 
   const superAdminIds = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
   const metadataRole = (user?.publicMetadata as Record<string, unknown> | undefined)?.role;
@@ -84,6 +86,33 @@ export default function AdminPlansPage() {
   async function getAuthHeader(): Promise<{ [key: string]: string }> {
     const token = await getToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  async function fetchTRM() {
+    setFetchingTrm(true);
+    try {
+      const authHeaders = await getAuthHeader();
+      const res = await fetch('/api/v1/admin/settings/trm', {
+        headers: { Accept: 'application/json', ...authHeaders },
+        cache: 'no-store',
+      });
+      if (!res.ok) throw new Error('No se pudo obtener la TRM');
+      const data = await res.json();
+      // data: { value, vigencia_desde, fetched_at, margin_pct, source }
+      setTrmRate({
+        value: data.value,
+        fetchedAt: data.fetched_at || data.vigencia_desde || '',
+      });
+      setForm((prev) => ({ ...prev, trm: String(data.value) }));
+      setMessage({
+        text: `TRM actualizada: $${data.value} COP por 1 USD (margen +8% aplicado)`,
+        type: 'success',
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error obteniendo la TRM');
+    } finally {
+      setFetchingTrm(false);
+    }
   }
 
   useEffect(() => {
@@ -175,6 +204,8 @@ export default function AdminPlansPage() {
     setError(null);
     setMessage(null);
     setOpen(true);
+    // Obtener TRM actual al abrir el modal para crear
+    void fetchTRM();
   }
 
   function openEdit(plan: Plan) {
@@ -193,6 +224,9 @@ export default function AdminPlansPage() {
     setError(null);
     setMessage(null);
     setOpen(true);
+    if (plan.currency === 'USD') {
+      void fetchTRM();
+    }
   }
 
   async function deletePlan(id: string) {
@@ -379,7 +413,7 @@ export default function AdminPlansPage() {
         </div>
       </div>
 
-      {/* Create / Edit modal (only mounted when open, so the backdrop never blocks the table) */}
+      {/* Create / Edit modal */}
       {open && (
         <div className="fixed inset-0 z-50" aria-hidden="true">
           <div
@@ -391,12 +425,19 @@ export default function AdminPlansPage() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             onClick={(e) => e.stopPropagation()}
-            className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg mx-0 -translate-x-1/2 -translate-y-1/2 bg-surface-1 rounded-xl border border-surface-6 shadow-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto"
+            className="fixed left-1/2 top-1/2 z-50 w-full max-w-2xl mx-0 -translate-x-1/2 -translate-y-1/2 bg-surface-1 rounded-2xl border border-surface-6 shadow-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-text-primary">
-                {editing ? 'Editar plan' : 'Crear plan'}
-              </h2>
+              <div>
+                <h2 className="text-lg font-bold text-text-primary">
+                  {editing ? 'Editar plan' : 'Crear plan'}
+                </h2>
+                <p className="text-xs text-text-secondary">
+                  {editing
+                    ? 'Modifica los datos de este plan de suscripción.'
+                    : 'Crea un nuevo plan que tus atletas podrán comprar.'}
+                </p>
+              </div>
               <button
                 onClick={() => setOpen(false)}
                 className="rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors"
@@ -406,135 +447,185 @@ export default function AdminPlansPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Nombre del plan</label>
-                  <input
-                    name="name"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="Ej. Plan Starter"
-                    className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                  />
-                </div>
-                <div className="mb-4 md:col-span-2">
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Descripción</label>
-                  <input
-                    name="description"
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    placeholder="Qué incluye el plan"
-                    className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Precio</label>
-                  <div className="flex items-center gap-2">
+            <form onSubmit={handleSave} className="space-y-5">
+              {/* Sección: Información básica */}
+              <section className="space-y-4">
+                <h3 className="text-xs font-semibold text-text-secondary tracking-wide uppercase mb-3">
+                  Información básica
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Nombre del plan
+                    </label>
                     <input
-                      name="price"
-                      type="number"
-                      value={form.price}
-                      onChange={(e) => setForm({ ...form, price: e.target.value })}
-                      placeholder="0"
-                      className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                      name="name"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="Ej. Plan Starter"
+                      className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
                     />
-                    <select
-                      name="currency"
-                      value={form.currency}
-                      onChange={(e) => setForm({ ...form, currency: e.target.value as 'COP' | 'USD' })}
-                      className="bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                    >
-                      <option value="COP">COP</option>
-                      <option value="USD">USD</option>
-                    </select>
+                  </div>
+                  <div className="mb-4 md:col-span-2">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Descripción
+                    </label>
+                    <input
+                      name="description"
+                      value={form.description}
+                      onChange={(e) => setForm({ ...form, description: e.target.value })}
+                      placeholder="Qué incluye el plan"
+                      className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {/* Sección: Precio y moneda */}
+              <section className="space-y-4">
+                <h3 className="text-xs font-semibold text-text-secondary tracking-wide uppercase mb-3">
+                  Precio y moneda
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Precio
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        name="price"
+                        type="number"
+                        value={form.price}
+                        onChange={(e) => setForm({ ...form, price: e.target.value })}
+                        placeholder="0"
+                        className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                      />
+                      <select
+                        name="currency"
+                        value={form.currency}
+                        onChange={(e) => setForm({ ...form, currency: e.target.value as 'COP' | 'USD' })}
+                        className="bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                      >
+                        <option value="COP">COP</option>
+                        <option value="USD">USD</option>
+                      </select>
+                    </div>
                     {form.currency === 'USD' && (
-                      <div className="mt-2">
-                        <label className="block text-xs font-medium text-text-secondary mb-1">
-                          TRM (pesos COP por 1 USD)
-                        </label>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-sm font-medium text-text-secondary mb-1">
+                            TRM (COP por 1 USD) + 8% margen
+                          </label>
+                          <button
+                            onClick={fetchTRM}
+                            disabled={fetchingTrm}
+                            className="text-xs text-brand-primary hover:text-brand-primary/80 hover:bg-brand-primary/5 rounded px-2 py-1 transition-colors disabled:opacity-50"
+                          >
+                            {fetchingTrm ? 'Actualizando…' : 'Obtener TRM actual'}
+                          </button>
+                        </div>
                         <input
                           name="trm"
                           type="number"
                           step="0.01"
                           value={form.trm}
-                          onChange={(e) =>
-                            setForm({ ...form, trm: e.target.value })
-                          }
-                          placeholder="Ej. 4000"
-                          className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                          readOnly
+                          placeholder="–"
+                          className="w-full bg-surface-3/50 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary cursor-not-allowed"
                         />
+                        <p className="text-xs text-text-secondary">
+                          La TRM se obtiene automáticamente del Banco de la República con un
+                          margen del +8% aplicado. Campo no editable.
+                        </p>
                         {form.price && form.trm && (
-                          <p className="text-xs text-text-secondary mt-1">
-                            ≈ ${(parseFloat(form.price) * parseFloat(form.trm)).toLocaleString()} COP (TRM: {form.trm})
-                          </p>
+                          <>
+                            <p className="text-sm font-semibold text-text-primary">
+                              ≈ {(
+                                parseFloat(form.price) *
+                                parseFloat(form.trm)
+                              ).toLocaleString()} COP
+                              <span className="text-text-secondary">
+                                (precio USD × TRM con margen +8%)
+                              </span>
+                            </p>
+                          </>
                         )}
                       </div>
                     )}
+                    {form.currency === 'COP' && (
+                      <p className="text-xs text-text-secondary">
+                        El precio se guarda directamente en COP.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              {/* Sección: Límites y estado */}
+              <section className="space-y-4">
+                <h3 className="text-xs font-semibold text-text-secondary tracking-wide uppercase mb-3">
+                  Límites y estado
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Periodo de facturación
+                    </label>
+                    <select
+                      name="billing_period"
+                      value={form.billing_period}
+                      onChange={(e) => setForm({ ...form, billing_period: e.target.value })}
+                      className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                    >
+                      <option value="monthly">Mensual</option>
+                      <option value="quarterly">Trimestral</option>
+                      <option value="yearly">Anual</option>
+                    </select>
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-text-secondary mb-1">
-                      Precio en COP (aprox.)
+                      Máx. atletas
                     </label>
-                    <p className="text-sm text-text-secondary">
-                      {form.currency === 'USD' && form.price && form.trm
-                        ? `≈ $${(parseFloat(form.price) * parseFloat(form.trm)).toLocaleString()} COP`
-                        : form.currency === 'COP' && form.price
-                        ? `$${parseFloat(form.price).toLocaleString()} COP`
-                        : 'Ingresa precio y, si es USD, la TRM'}
-                    </p>
+                    <input
+                      name="max_athletes"
+                      type="number"
+                      value={form.max_athletes}
+                      onChange={(e) => setForm({ ...form, max_athletes: e.target.value })}
+                      placeholder="10"
+                      className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Máx. sesiones/semana
+                    </label>
+                    <input
+                      name="max_sessions_per_week"
+                      type="number"
+                      value={form.max_sessions_per_week}
+                      onChange={(e) => setForm({ ...form, max_sessions_per_week: e.target.value })}
+                      placeholder="12"
+                      className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        name="is_active"
+                        type="checkbox"
+                        checked={form.is_active}
+                        onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                        className="rounded bg-surface-2 border-surface-3 text-brand-primary focus:ring-brand-primary"
+                      />
+                      <span className="text-sm text-text-secondary">
+                        Plan activo (visible para coaches y atletas)
+                      </span>
+                    </label>
                   </div>
                 </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Periodo de facturación</label>
-                  <select
-                    name="billing_period"
-                    value={form.billing_period}
-                    onChange={(e) => setForm({ ...form, billing_period: e.target.value })}
-                    className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                  >
-                    <option value="monthly">Mensual</option>
-                    <option value="quarterly">Trimestral</option>
-                    <option value="yearly">Anual</option>
-                  </select>
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Máx. atletas</label>
-                  <input
-                    name="max_athletes"
-                    type="number"
-                    value={form.max_athletes}
-                    onChange={(e) => setForm({ ...form, max_athletes: e.target.value })}
-                    placeholder="10"
-                    className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Máx. sesiones/semana</label>
-                  <input
-                    name="max_sessions_per_week"
-                    type="number"
-                    value={form.max_sessions_per_week}
-                    onChange={(e) => setForm({ ...form, max_sessions_per_week: e.target.value })}
-                    placeholder="12"
-                    className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      name="is_active"
-                      type="checkbox"
-                      checked={form.is_active}
-                      onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-                      className="rounded bg-surface-2 border-surface-3 text-brand-primary focus:ring-brand-primary"
-                    />
-                    <span className="text-sm text-text-secondary">Plan activo (visible para coaches y atletas)</span>
-                  </label>
-                </div>
-              </div>
+              </section>
 
-              <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-end sm:justify-end gap-3 sm:gap-2 w-full">
+              <div className="mt-8 flex flex-col sm:flex-row items-start sm:items-center justify-end sm:justify-end gap-3 sm:gap-2 w-full pt-4 border-t border-surface-6">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
@@ -547,7 +638,7 @@ export default function AdminPlansPage() {
                   disabled={saving}
                   className="flex-1 px-4 py-2.5 rounded-lg bg-brand-primary text-text-inverse text-sm font-medium hover:bg-brand-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors sm:flex-1 sm:max-w-[180px]"
                 >
-                  {saving ? 'Guardando...' : editing ? 'Actualizar' : 'Crear plan'}
+                  {saving ? 'Guardando…' : editing ? 'Actualizar' : 'Crear plan'}
                 </button>
               </div>
             </form>
