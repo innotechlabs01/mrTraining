@@ -2,10 +2,12 @@ import { fatigueByMuscle, balanceByMuscle, neglectedMuscles, classifyFatigue, ha
 import type { TrainingHistory } from '../types'
 
 const DAY = 86400000
+// Fecha base fija para que el test sea determinista en CI (no depende de Date.now()).
+const FIXED_NOW = Date.parse('2026-11-18T12:00:00Z')
 
 const workout = (ageDays: number, entries: TrainingHistory[number]['entries']): TrainingHistory[number] => ({
-  date: new Date(Date.now() - ageDays * DAY).toISOString().slice(0, 10),
-  startedAt: Date.now() - ageDays * DAY,
+  date: new Date(FIXED_NOW - ageDays * DAY).toISOString().slice(0, 10),
+  startedAt: FIXED_NOW - ageDays * DAY,
   entries,
 })
 
@@ -33,7 +35,7 @@ describe('fatigue', () => {
       const mk = (ageDays: number): TrainingHistory => [workout(ageDays, [
         { id: 'bench', target: { muscleGroups: ['chest'] }, sets: Array.from({ length: 4 }, () => ({ completed: 1, weightKg: 100, reps: 5 })) },
       ])]
-      const now = Date.now()
+      const now = FIXED_NOW
       const fresh = fatigueByMuscle(mk(0), now).get('chest')!.level
       const twoDays = fatigueByMuscle(mk(2), now).get('chest')!.level
       expect(twoDays).toBeLessThan(fresh)
@@ -67,7 +69,7 @@ describe('fatigue', () => {
       const history = (ageDays: number): TrainingHistory => [workout(ageDays, [
         { id: 'sq', target: { muscleGroups: ['legs'] }, sets: [{ completed: 1, weightKg: 140, reps: 5 }] },
       ])]
-      const now = Date.now()
+      const now = FIXED_NOW
       expect(fatigueByMuscle(history(1), now).get('legs')!.strength).toBe(1)
       const old = fatigueByMuscle(history(120), now).get('legs')!
       expect(old.strength).toBeGreaterThanOrEqual(STRENGTH_FLOOR)
