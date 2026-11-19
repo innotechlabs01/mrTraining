@@ -17,34 +17,6 @@ env:
   IMAGE: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/mr-training/api:${{ github.sha }}
 
 jobs:
-  migrate:
-    name: Run database migrations (QA)
-    runs-on: ubuntu-latest
-    environment: qa
-    needs: []
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.25.0"
-          check-latest: true
-
-      - name: Verify pending migrations (dry-run, no changes)
-        working-directory: apps/api
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_QA }}
-        run: |
-          go run ./cmd/migrate/main.go -dir migrations/postgres -dry-run
-
-      - name: Apply pending migrations
-        working-directory: apps/api
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_QA }}
-        run: |
-          go run ./cmd/migrate/main.go -dir migrations/postgres
-
   deploy:
     name: Deploy API to Cloud Run (QA)
     runs-on: ubuntu-latest
