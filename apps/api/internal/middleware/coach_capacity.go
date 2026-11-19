@@ -82,6 +82,23 @@ func GetCoachPlanCapacity(ctx context.Context, db *sql.DB, coachID string) (Coac
 		return capacity, err
 	}
 
+	// Check if this coach has their platform subscription explicitly skipped by super admin.
+	var skipSubscription bool
+	_ = db.QueryRowContext(ctx, `
+		SELECT COALESCE(c.skip_subscription, false)
+		FROM coaches c
+		WHERE c.id = $1
+		   OR (c.email <> '' AND lower(c.email) = (SELECT lower(email) FROM users WHERE id = $1))
+		LIMIT 1
+	`, coachID).Scan(&skipSubscription)
+
+	if skipSubscription {
+		capacity.PlanName = "Plan Especial (Omitido)"
+		capacity.MaxAthletes = 999999
+		capacity.Exceeded = false
+		return capacity, nil
+	}
+
 	// The coach's own platform subscription, not an athlete subscription that
 	// happens to have this coach_id.
 	err := db.QueryRowContext(ctx, `

@@ -208,7 +208,7 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	commissionEntryRepo := commissionentryinfra.NewRepository(db.DB)
 	subscriptionService := subscriptionapp.NewService(cfg, subRepo, wompiProvider, planRepo, ledgerSvc, commissionEntryRepo).
 		WithMetadataWriter(clerkIdentity)
-	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionService)
+	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionService).WithDB(db.DB)
 
 	// --- Hybrid checkout (pay before registering) ---
 	// The checkout service needs the subscription service, and the subscription

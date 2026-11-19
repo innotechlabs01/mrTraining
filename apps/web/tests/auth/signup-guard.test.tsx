@@ -5,7 +5,7 @@ jest.mock('@clerk/nextjs', () => ({
   useSignIn: jest.fn(),
 }));
 
-import { signUpGuardDestination } from '@/app/(auth)/sign-up/signUpGuard';
+import { signUpGuardDestination, isSubscriptionSkipped } from '@/app/(auth)/sign-up/signUpGuard';
 
 describe('signUpGuardDestination()', () => {
   describe('super admin', () => {
@@ -19,6 +19,11 @@ describe('signUpGuardDestination()', () => {
   describe('coach', () => {
     it('redirects paid coach to /coach/plan', () => {
       expect(signUpGuardDestination(false, 'coach', 'paid', 'plan-x')).toBe('/coach/plan');
+    });
+
+    it('redirects omitted coach directly to /coach/plan regardless of subscription check', () => {
+      expect(signUpGuardDestination(false, 'coach', null, 'plan-x', true)).toBe('/coach/plan');
+      expect(signUpGuardDestination(false, 'coach', 'pending', 'plan-x', true)).toBe('/coach/plan');
     });
 
     it('redirects pending coach to /payment/interstitial?plan=...', () => {
@@ -39,6 +44,25 @@ describe('signUpGuardDestination()', () => {
 
     it('returns null while subscription status is being checked', () => {
       expect(signUpGuardDestination(false, 'coach', null, 'plan-x')).toBeNull();
+    });
+  });
+
+  describe('isSubscriptionSkipped()', () => {
+    it('returns true when skip_subscription is set in publicMetadata', () => {
+      const claims = {
+        publicMetadata: {
+          membership_status: { skip_subscription: true },
+        },
+      };
+      expect(isSubscriptionSkipped(claims, null)).toBe(true);
+    });
+
+    it('returns false when skip_subscription is false or missing', () => {
+      expect(isSubscriptionSkipped(null, null)).toBe(false);
+      expect(isSubscriptionSkipped({ publicMetadata: {} }, null)).toBe(false);
+      expect(
+        isSubscriptionSkipped({ publicMetadata: { membership_status: { skip_subscription: false } } }, null),
+      ).toBe(false);
     });
   });
 

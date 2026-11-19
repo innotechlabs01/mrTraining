@@ -5,6 +5,8 @@
 package handlers
 
 import (
+	"database/sql"
+
 	"github.com/gofiber/fiber/v2"
 
 	subscriptionapp "github.com/innotechlabs01/mr-training-api/internal/application/subscription"
@@ -18,11 +20,18 @@ import (
 // SubscriptionHandler handles subscription HTTP requests.
 type SubscriptionHandler struct {
 	svc *subscriptionapp.Service
+	db  *sql.DB
 }
 
 // NewSubscriptionHandler creates a new subscription handler.
 func NewSubscriptionHandler(svc *subscriptionapp.Service) *SubscriptionHandler {
 	return &SubscriptionHandler{svc: svc}
+}
+
+// WithDB attaches a database connection to the handler.
+func (h *SubscriptionHandler) WithDB(db *sql.DB) *SubscriptionHandler {
+	h.db = db
+	return h
 }
 
 // RegisterSubscriptionRoutes mounts athlete- and coach-facing subscription
@@ -236,6 +245,25 @@ func (h *SubscriptionHandler) HandleCoachPlatformSubscriptionStatus(c *fiber.Ctx
 	coachID := middleware.GetUserID(c)
 	if coachID == "" {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	// Check if this coach has their platform membership bypassed/skipped by Super Admin.
+	if h.db != nil {
+		var skipSubscription bool
+		_ = h.db.QueryRowContext(c.Context(), `
+			SELECT COALESCE(c.skip_subscription, false)
+			FROM coaches c
+			WHERE c.id = $1
+			   OR (c.email <> '' AND lower(c.email) = (SELECT lower(email) FROM users WHERE id = $1))
+			LIMIT 1
+		`, coachID).Scan(&skipSubscription)
+
+		if skipSubscription {
+			return appresponse.Success(c, dto.CoachSubscriptionStatusResponse{
+				Status:   "omitted",
+				PlanName: "Membresía Omitida (VIP)",
+			})
+		}
 	}
 
 	status, sub, err := h.svc.GetPaymentStatus(c.Context(), coachID)

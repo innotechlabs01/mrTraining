@@ -26,8 +26,20 @@ export function isSuperAdmin(id: string | undefined, metadataRole: string | unde
 }
 
 /**
+ * Extrae si la membresía del coach fue omitida por el Super Admin.
+ */
+export function isSubscriptionSkipped(sessionClaims: unknown, user: unknown): boolean {
+  const claims = sessionClaims as { publicMetadata?: { membership_status?: { skip_subscription?: boolean } } } | null | undefined;
+  const userObj = user as { publicMetadata?: { membership_status?: { skip_subscription?: boolean } } } | null | undefined;
+  return Boolean(
+    claims?.publicMetadata?.membership_status?.skip_subscription ??
+      userObj?.publicMetadata?.membership_status?.skip_subscription
+  );
+}
+
+/**
  * Consulta el estado de la suscripción del coach.
- * active/trial = pagado, cualquier otro estado (incluido error de red) = pago pendiente.
+ * active/trial/approved/omitted = pagado, cualquier otro estado (incluido error de red) = pago pendiente.
  */
 export async function fetchCoachSubscriptionStatus(): Promise<'paid' | 'pending'> {
   try {
@@ -35,7 +47,7 @@ export async function fetchCoachSubscriptionStatus(): Promise<'paid' | 'pending'
     if (!res.ok) return 'pending';
     const data = await res.json().catch(() => ({}));
     const status = data.status as string | undefined;
-    return status === 'active' || status === 'trial' || status === 'approved' ? 'paid' : 'pending';
+    return status === 'active' || status === 'trial' || status === 'approved' || status === 'omitted' ? 'paid' : 'pending';
   } catch {
     return 'pending';
   }
@@ -52,10 +64,11 @@ export function signUpGuardDestination(
   role: string | undefined,
   subscriptionStatus: 'paid' | 'pending' | null,
   plan: string | null,
+  isOmitted?: boolean,
 ): string | null {
   if (isSuperAdmin) return '/admin/dashboard';
   if (role === 'coach') {
-    if (subscriptionStatus === 'paid') return '/coach/plan';
+    if (isOmitted || subscriptionStatus === 'paid') return '/coach/plan';
     if (subscriptionStatus === 'pending') {
       return plan ? `/payment/interstitial?plan=${encodeURIComponent(plan)}` : '/payment/interstitial';
     }

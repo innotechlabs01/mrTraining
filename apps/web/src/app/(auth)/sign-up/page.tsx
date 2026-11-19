@@ -6,7 +6,7 @@ import { useAuth, useUser } from '@clerk/nextjs';
 import { Loader2 } from 'lucide-react';
 import { AuthShell } from '@/features/auth/components/AuthShell';
 import { SignUpForm } from '@/features/auth/components/SignUpForm';
-import { resolveRole, signUpGuardDestination, SUPER_ADMIN_IDS } from './signUpGuard';
+import { resolveRole, signUpGuardDestination, SUPER_ADMIN_IDS, isSubscriptionSkipped } from './signUpGuard';
 
 export default function SignUpPage() {
   return (
@@ -40,9 +40,11 @@ function SignUpContent() {
     const isSuperAdmin =
       (id !== undefined && SUPER_ADMIN_IDS.includes(id)) || metadataRole === 'super_admin';
 
-    if (isSuperAdmin || metadataRole !== 'coach') {
-      // Super admin o sin rol: destino inmediato (sin consulta de suscripción).
-      const dest = signUpGuardDestination(isSuperAdmin, metadataRole, null, plan);
+    const isSkipped = isSubscriptionSkipped(sessionClaims, user);
+
+    if (isSuperAdmin || metadataRole !== 'coach' || isSkipped) {
+      // Super admin, coach con membresía omitida o sin rol: destino inmediato (sin consulta de suscripción).
+      const dest = signUpGuardDestination(isSuperAdmin, metadataRole, isSkipped ? 'paid' : null, plan, isSkipped);
       if (dest) router.replace(dest);
       return;
     }
@@ -54,7 +56,7 @@ function SignUpContent() {
         if (!res.ok) return 'pending';
         const data = await res.json().catch(() => ({}));
         const status = data.status as string | undefined;
-        return status === 'active' || status === 'trial' || status === 'approved' ? 'paid' : 'pending';
+        return status === 'active' || status === 'trial' || status === 'approved' || status === 'omitted' ? 'paid' : 'pending';
       })
       .then((status) => {
         if (cancelled) return;
