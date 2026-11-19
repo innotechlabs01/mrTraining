@@ -27,7 +27,7 @@ jobs:
       run:
         working-directory: apps/api
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/mr_training_test?sslmode=disable
+      DATABASE_URL: postgresql://mr_training_app:MrTrainingApp_LocalOnly_!2026@127.0.0.1:5436/mr_training?sslmode=disable
     steps:
       - uses: actions/checkout@v4
 
