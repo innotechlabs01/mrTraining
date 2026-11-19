@@ -9,3 +9,28 @@ jest.mock('@shopify/flash-list', () => {
     __esModule: true,
   };
 });
+
+// Mock react-navigation navigation hooks for component-level unit tests
+jest.mock('@react-navigation/native', () => {
+  const actualNav = jest.requireActual('@react-navigation/native');
+  return {
+    ...actualNav,
+    useNavigation: () => ({
+      navigate: jest.fn(),
+      goBack: jest.fn(),
+      replace: jest.fn(),
+      setOptions: jest.fn(),
+      addListener: jest.fn(() => jest.fn()),
+      removeListener: jest.fn(),
+      isFocused: jest.fn(() => true),
+      canGoBack: jest.fn(() => true),
+      dispatch: jest.fn(),
+    }),
+    useRoute: () => ({
+      params: {},
+      key: 'mock-route-key',
+      name: 'MockRoute',
+    }),
+    useIsFocused: () => true,
+  };
+});

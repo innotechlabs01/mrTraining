@@ -20,8 +20,9 @@ import {
   StyleProp,
   ViewStyle,
   TextStyle,
+  useColorScheme,
 } from 'react-native';
-import { useColorScheme } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import {
   LockIcon,
   CheckIcon,
@@ -68,12 +69,17 @@ const PAYWALL_FEATURES: PremiumFeature[] = [
 ];
 
 export function Paywall({ onPurchaseComplete }: Props = {}) {
+  const navigation = useNavigation<any>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme !== 'light';
 
   const handleSubscribePress = useCallback(() => {
-    void onPurchaseComplete?.();
-  }, [onPurchaseComplete]);
+    if (onPurchaseComplete) {
+      onPurchaseComplete();
+    } else {
+      navigation.navigate('Membership');
+    }
+  }, [onPurchaseComplete, navigation]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: isDark ? colors.base : '#FFFFFF' }]}>
@@ -160,19 +166,19 @@ export function Paywall({ onPurchaseComplete }: Props = {}) {
               { color: isDark ? colors.text : '#0B0F0E' },
             ]}
           >
-            Plan Premium
+            Planes de Entrenamiento
           </Text>
-          <Text style={styles.planPrice}>$49.000 / mes</Text>
+          <Text style={styles.planPrice}>Asignado por tu Coach</Text>
           <Text
             style={[
               styles.planSubtitle,
               { color: isDark ? colors.textSecondary : '#4B5563' },
             ]}
           >
-            Cancelá cuando quieras. Sin permanencia.
+            Consulta tu plan de entrenamiento asignado y activa tu acceso.
           </Text>
           <PrimaryButton
-            label="Ver planes y suscribirme"
+            label="Ver membresía y activar"
             onPress={handleSubscribePress}
             size="lg"
             fullWidth
