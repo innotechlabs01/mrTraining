@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -17,6 +18,10 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/config"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/subscription"
 )
+
+// webhookReplayTolerance is the maximum age or future drift allowed for an
+// incoming webhook event. Standard 5 minutes window against replay attacks.
+const webhookReplayTolerance = 5 * time.Minute
 
 type Adapter struct {
 	cfg            *config.Config
@@ -140,6 +145,8 @@ func (a *Adapter) VerifySignature(body []byte, signatureHeader string) error {
 	}
 
 	var event struct {
+		Timestamp int64  `json:"timestamp"`
+		SentAt    string `json:"sent_at"`
 		Signature struct {
 			Checksum   string   `json:"checksum"`
 			Properties []string `json:"properties"`
@@ -150,6 +157,27 @@ func (a *Adapter) VerifySignature(body []byte, signatureHeader string) error {
 	}
 	if event.Signature.Checksum == "" {
 		return subscription.ErrInvalidSignature
+	}
+
+	// Verify replay tolerance window if a timestamp or sent_at is present.
+	if event.Timestamp != 0 {
+		var eventTime time.Time
+		if event.Timestamp > 1e11 {
+			eventTime = time.UnixMilli(event.Timestamp)
+		} else {
+			eventTime = time.Unix(event.Timestamp, 0)
+		}
+		age := time.Since(eventTime)
+		if age > webhookReplayTolerance || age < -webhookReplayTolerance {
+			return subscription.ErrInvalidSignature
+		}
+	} else if event.SentAt != "" {
+		if t, err := time.Parse(time.RFC3339, event.SentAt); err == nil {
+			age := time.Since(t)
+			if age > webhookReplayTolerance || age < -webhookReplayTolerance {
+				return subscription.ErrInvalidSignature
+			}
+		}
 	}
 
 	var raw map[string]any
@@ -168,7 +196,11 @@ func (a *Adapter) VerifySignature(body []byte, signatureHeader string) error {
 	b.WriteString(secret)
 
 	sum := sha256.Sum256([]byte(b.String()))
-	if !strings.EqualFold(hex.EncodeToString(sum[:]), event.Signature.Checksum) {
+	expectedHex := hex.EncodeToString(sum[:])
+	providedHex := strings.ToLower(strings.TrimSpace(event.Signature.Checksum))
+
+	// Constant-time comparison to prevent timing side-channel attacks.
+	if len(expectedHex) != len(providedHex) || subtle.ConstantTimeCompare([]byte(expectedHex), []byte(providedHex)) != 1 {
 		return subscription.ErrInvalidSignature
 	}
 	return nil

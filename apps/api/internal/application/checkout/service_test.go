@@ -658,3 +658,30 @@ func TestRecoverPayment_NotFound(t *testing.T) {
 		t.Fatalf("expected a 404, got %v", err)
 	}
 }
+
+// Claim after RecoverPayment succeeds without needing Wompi payment ID lookup.
+func TestClaim_AfterRecoverPayment_SuccessfullyClaims(t *testing.T) {
+	repo := newFakeCheckoutRepo()
+	plan := newPlan()
+	coaches := &fakeCoaches{}
+	subs := &fakeSubscriptions{}
+	svc := NewService(testConfig(), repo, &fakeProvider{}, &fakePlanRepo{plan: plan}, coaches, subs).
+		WithIdentityReader(&fakeIdentity{email: "coach@example.com", verified: true})
+
+	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "coach@example.com"})
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	if err := svc.RecoverPayment(context.Background(), "user_1", created.CheckoutID); err != nil {
+		t.Fatalf("RecoverPayment failed: %v", err)
+	}
+
+	res, err := svc.Claim(context.Background(), ClaimCommand{CheckoutID: created.CheckoutID, UserID: "user_1", Email: "coach@example.com"})
+	if err != nil {
+		t.Fatalf("Claim failed: %v", err)
+	}
+	if res.CoachCode != "MR-TEST" {
+		t.Fatalf("expected coach code MR-TEST, got %s", res.CoachCode)
+	}
+}

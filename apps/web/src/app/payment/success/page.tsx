@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth, useUser } from '@clerk/nextjs';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { AuthShell } from '@/features/auth/components/AuthShell';
 import { PlanSummaryCard } from '@/features/auth/components/PlanSummaryCard';
@@ -41,12 +41,16 @@ function PaymentSuccessContent() {
 function CheckoutClaim({ checkoutId }: { checkoutId: string }) {
   const router = useRouter();
   const { isSignedIn, isLoaded } = useAuth();
+  const { user } = useUser();
   const [status, setStatus] = useState<ClaimStatus>('checking');
   const [error, setError] = useState('');
+  const [attemptCount, setAttemptCount] = useState(1);
 
-  const claim = useCallback(async () => {
+  const claim = useCallback(async (currentAttempt = 1) => {
     setStatus('claiming');
     setError('');
+    setAttemptCount(currentAttempt);
+
     try {
       const res = await fetch(`/api/checkout/${encodeURIComponent(checkoutId)}/claim`, {
         method: 'POST',
@@ -55,7 +59,25 @@ function CheckoutClaim({ checkoutId }: { checkoutId: string }) {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        throw new Error(data.error ?? 'No se pudo activar tu plan');
+        const errorMsg = data.error ?? 'No se pudo activar tu plan';
+        const isPendingConfirmation =
+          res.status === 409 ||
+          errorMsg.toLowerCase().includes('not been confirmed') ||
+          errorMsg.toLowerCase().includes('confirmad');
+
+        if (isPendingConfirmation && currentAttempt < 5) {
+          setTimeout(() => {
+            void claim(currentAttempt + 1);
+          }, 2000);
+          return;
+        }
+
+        throw new Error(errorMsg);
+      }
+
+      // Reload Clerk user session so the coach role and publicMetadata are active immediately
+      if (user) {
+        await user.reload().catch(() => {});
       }
 
       const planId = data.plan_id ? `?plan=${encodeURIComponent(data.plan_id)}` : '';
@@ -64,7 +86,7 @@ function CheckoutClaim({ checkoutId }: { checkoutId: string }) {
       setError(err instanceof Error ? err.message : 'No se pudo activar tu plan');
       setStatus('error');
     }
-  }, [checkoutId, router]);
+  }, [checkoutId, router, user]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -72,7 +94,7 @@ function CheckoutClaim({ checkoutId }: { checkoutId: string }) {
       setStatus('needs-account');
       return;
     }
-    void claim();
+    void claim(1);
   }, [isLoaded, isSignedIn, claim]);
 
   if (status === 'needs-account') {
@@ -84,19 +106,23 @@ function CheckoutClaim({ checkoutId }: { checkoutId: string }) {
             Tu pago está confirmado. Creá tu cuenta para activar el plan y empezar.
           </p>
         </div>
-        <SignUpForm onSuccess={() => void claim()} />
+        <SignUpForm onSuccess={() => void claim(1)} />
       </div>
     );
   }
 
   if (status === 'error') {
-    return <ErrorState message={error} onRetry={() => void claim()} />;
+    return <ErrorState message={error} onRetry={() => void claim(1)} />;
   }
 
   return (
     <div className="flex flex-col items-center gap-3 py-6 text-center" aria-live="polite">
       <Loader2 className="h-6 w-6 animate-spin text-brand-primary" aria-hidden="true" />
-      <p className="text-body-sm text-text-secondary">Activando tu plan...</p>
+      <p className="text-body-sm text-text-secondary">
+        {attemptCount > 1
+          ? `Confirmando la transacción con la pasarela de pagos (verificación ${attemptCount} de 5)...`
+          : 'Activando tu plan...'}
+      </p>
     </div>
   );
 }

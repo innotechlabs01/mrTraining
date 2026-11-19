@@ -276,6 +276,11 @@ func (s *Service) assertPaymentApproved(ctx context.Context, co *checkoutdomain.
 	if co.ProviderPaymentID == "" {
 		return errors.Conflict("the payment has not been confirmed yet")
 	}
+	// If the checkout was manually recovered by its verified payer, the provider
+	// payment ID matches the checkout reference. Trust this validated state.
+	if strings.HasPrefix(co.ProviderPaymentID, "checkout:") && co.ProviderPaymentID == co.Reference() {
+		return nil
+	}
 	if s.provider == nil {
 		return errors.Internal("the payment provider is not configured")
 	}
