@@ -31,7 +31,6 @@ func newCoachFixture(t *testing.T) (*Repository, string, string, func()) {
 	if err != nil {
 		t.Skipf("cannot connect to database: %v", err)
 	}
-	t.Cleanup(func() { db.Close() })
 
 	coachID := fmt.Sprintf("coach_invite_test_%d", os.Getpid())
 	// The code must be unique per run: the lookup matches on the code.
@@ -42,11 +41,13 @@ func newCoachFixture(t *testing.T) (*Repository, string, string, func()) {
 	tx, err := db.DB.BeginTx(context.Background(), nil)
 	if err != nil {
 		db.Close()
+		t.Fatalf("begin tx: %v", err)
 	}
 	if _, err := tx.ExecContext(context.Background(),
 		`SELECT set_config('app.current_user_id', $1, true)`, coachID); err != nil {
 		_ = tx.Rollback()
 		db.Close()
+		t.Fatalf("set rls context: %v", err)
 	}
 	if _, err := tx.ExecContext(context.Background(),
 		`INSERT INTO coaches (id, email, name, coach_code, is_active, created_at, updated_at)
@@ -55,9 +56,11 @@ func newCoachFixture(t *testing.T) (*Repository, string, string, func()) {
 		coachID, coachID+"@example.com", code); err != nil {
 		_ = tx.Rollback()
 		db.Close()
+		t.Fatalf("insert coach: %v", err)
 	}
 	if err := tx.Commit(); err != nil {
 		db.Close()
+		t.Fatalf("commit tx: %v", err)
 	}
 
 	cleanup := func() {

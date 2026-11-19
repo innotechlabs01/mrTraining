@@ -30,6 +30,7 @@ func pruebaConexionDisponible(t *testing.T) bool {
 // 416 y 417 aplicadas.
 func TestRepo_RLS_CoachIsolation(t *testing.T) {
 	if !pruebaConexionDisponible(t) {
+		t.Skip("DATABASE_URL no configurada: prueba de integración coach_landing omitida")
 	}
 
 	db, err := sql.Open("pgx", dsnFromEnv())
@@ -39,8 +40,22 @@ func TestRepo_RLS_CoachIsolation(t *testing.T) {
 	repo := NewRepository(db)
 	ctx := context.Background()
 
-	coachA := "coach-a-rls"
-	coachB := "coach-b-rls"
+	coachA := "coach-a-rls-" + uuid.NewString()[:8]
+	coachB := "coach-b-rls-" + uuid.NewString()[:8]
+
+	// Asegura que los coaches existan en la tabla coaches (FK)
+	_, err = db.ExecContext(ctx, `
+		INSERT INTO coaches (id, email, name, is_active, created_at, updated_at)
+		VALUES ($1, $2, 'Coach A', 1, NOW(), NOW()),
+		       ($3, $4, 'Coach B', 1, NOW(), NOW())
+		ON CONFLICT (id) DO NOTHING
+	`, coachA, coachA+"@example.com", coachB, coachB+"@example.com")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		_, _ = db.ExecContext(context.Background(), `DELETE FROM coach_landing_pages WHERE coach_id IN ($1, $2)`, coachA, coachB)
+		_, _ = db.ExecContext(context.Background(), `DELETE FROM coaches WHERE id IN ($1, $2)`, coachA, coachB)
+	})
 
 	// Crea landings no publicadas (la policy pública solo expone publicadas).
 	lpA := &domain.LandingPage{CoachID: coachA, Slug: "landing-a", Title: "A", Config: "{}", Sections: "[]", Images: "[]", IsPublished: false}
@@ -64,6 +79,7 @@ func TestRepo_RLS_CoachIsolation(t *testing.T) {
 // solo se pueden leer landings publicadas (policy pública de RLS).
 func TestRepo_RLS_PublicRead_OnlyPublished(t *testing.T) {
 	if !pruebaConexionDisponible(t) {
+		t.Skip("DATABASE_URL no configurada: prueba de integración coach_landing omitida")
 	}
 
 	db, err := sql.Open("pgx", dsnFromEnv())
@@ -73,18 +89,33 @@ func TestRepo_RLS_PublicRead_OnlyPublished(t *testing.T) {
 	repo := NewRepository(db)
 	ctx := context.Background()
 
-	coachA := "coach-a-rls-public"
-	lpUnpublished := &domain.LandingPage{CoachID: coachA, Slug: "unpublished-rls", Title: "No publicada", Config: "{}", Sections: "[]", Images: "[]", IsPublished: false}
-	lpPublished := &domain.LandingPage{CoachID: coachA, Slug: "published-rls", Title: "Publicada", Config: "{}", Sections: "[]", Images: "[]", IsPublished: true}
+	coachA := "coach-a-rls-public-" + uuid.NewString()[:8]
+	_, err = db.ExecContext(ctx, `
+		INSERT INTO coaches (id, email, name, is_active, created_at, updated_at)
+		VALUES ($1, $2, 'Coach A Public', 1, NOW(), NOW())
+		ON CONFLICT (id) DO NOTHING
+	`, coachA, coachA+"@example.com")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		_, _ = db.ExecContext(context.Background(), `DELETE FROM coach_landing_pages WHERE coach_id = $1`, coachA)
+		_, _ = db.ExecContext(context.Background(), `DELETE FROM coaches WHERE id = $1`, coachA)
+	})
+
+	slugPub := "published-rls-" + uuid.NewString()[:8]
+	slugUnpub := "unpublished-rls-" + uuid.NewString()[:8]
+
+	lpUnpublished := &domain.LandingPage{CoachID: coachA, Slug: slugUnpub, Title: "No publicada", Config: "{}", Sections: "[]", Images: "[]", IsPublished: false}
+	lpPublished := &domain.LandingPage{CoachID: coachA, Slug: slugPub, Title: "Publicada", Config: "{}", Sections: "[]", Images: "[]", IsPublished: true}
 	require.NoError(t, repo.Create(ctx, lpUnpublished))
 	require.NoError(t, repo.Create(ctx, lpPublished))
 
 	// Sin contexto de coach (GetBySlug usa el pool directo, no setea coach context).
-	got, err := repo.GetBySlug(ctx, "published-rls")
+	got, err := repo.GetBySlug(ctx, slugPub)
 	require.NoError(t, err)
 	require.Equal(t, lpPublished.ID, got.ID)
 
-	got, err = repo.GetBySlug(ctx, "unpublished-rls")
+	got, err = repo.GetBySlug(ctx, slugUnpub)
 	require.Error(t, err)
 	require.Equal(t, domain.ErrNotFound, err)
 

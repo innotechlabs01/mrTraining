@@ -7,122 +7,74 @@ import Link from 'next/link';
 import {
   LayoutDashboard,
   Users,
-  TicketCheck,
-  CreditCard,
+  Dumbbell,
+  UtensilsCrossed,
+  CalendarClock,
+  Award,
+  Receipt,
+  BarChart3,
+  Columns3,
   Settings,
-  ChevronLeft,
-  ChevronRight,
-  LogOut,
-  Menu,
   X,
+  Flame,
+  LogOut,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-// Nav items carry no counts: the previous badges rendered hardcoded numbers
-// ("3", "12", "4") that were not backed by any data.
-const NAV_ITEMS = [
-  { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/coaches', label: 'Coaches', icon: Users },
-  { href: '/admin/tickets', label: 'Tickets/Soporte', icon: TicketCheck },
-  { href: '/admin/plans', label: 'Planes', icon: CreditCard },
-  { href: '/admin/settings', label: 'Configuración', icon: Settings },
-];
-
-// 02-design-system.md §2.4: top bar 56px, sidebar 240px (64px icon-only).
-const TOP_BAR_HEIGHT = 'h-14';
-const SIDEBAR_OPEN_WIDTH = 'w-60';
-const SIDEBAR_CLOSED_WIDTH = 'w-16';
-const CONTENT_OFFSET_OPEN = 'lg:pl-60';
-const CONTENT_OFFSET_CLOSED = 'lg:pl-16';
+import { FitFlowSidebar, FITFLOW_NAV_ITEMS } from '@/components/admin/FitFlowSidebar';
+import { FitFlowHeader } from '@/components/admin/FitFlowHeader';
+import { CommandPalette } from '@/components/admin/CommandPalette';
+import { LoyaltyModal } from '@/components/admin/LoyaltyModal';
 
 const FOCUS_RING =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0';
-
-function BrandLockup({ compact = false }: { compact?: boolean }) {
-  return (
-    <span className="flex items-center gap-2 overflow-hidden">
-      <span className="text-base font-extrabold leading-none tracking-tight text-brand-primary">
-        MR
-      </span>
-      {!compact && (
-        <span className="truncate text-sm font-bold uppercase leading-none tracking-[0.18em] text-text-primary">
-          Training
-        </span>
-      )}
-    </span>
-  );
-}
-
-function NavItem({
-  href,
-  label,
-  icon: Icon,
-  active,
-  collapsed = false,
-  onNavigate,
-}: {
-  href: string;
-  label: string;
-  icon: typeof LayoutDashboard;
-  active: boolean;
-  collapsed?: boolean;
-  onNavigate?: () => void;
-}) {
-  return (
-    <Link
-      href={href}
-      onClick={onNavigate}
-      aria-current={active ? 'page' : undefined}
-      title={collapsed ? label : undefined}
-      className={cn(
-        'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150',
-        FOCUS_RING,
-        collapsed && 'justify-center px-0',
-        active
-          ? 'bg-surface-4 font-medium text-brand-primary'
-          : 'text-text-secondary hover:bg-surface-4 hover:text-text-primary',
-      )}
-    >
-      {active && (
-        <span
-          aria-hidden="true"
-          className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-brand-primary"
-        />
-      )}
-      <Icon size={20} className="shrink-0" aria-hidden="true" />
-      {!collapsed && <span className="truncate">{label}</span>}
-    </Link>
-  );
-}
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E07A3D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F0F12]';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
   const { signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Super admin is the env allow-list OR Clerk publicMetadata.role — the exact
-  // same rule middleware.ts and the sign-in page use. Checking only the env
-  // list here disagreed with every other layer and locked out admins that only
-  // carry the metadata role.
-  const superAdminIds = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [loyaltyModalOpen, setLoyaltyModalOpen] = useState(false);
+  const [dateRange, setDateRange] = useState('month');
+
+  // Load sidebar preference from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('fitflow_admin_sidebar_collapsed');
+      if (saved !== null) {
+        setSidebarCollapsed(saved === 'true');
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('fitflow_admin_sidebar_collapsed', String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const superAdminIds = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '')
+    .split(',')
+    .filter(Boolean);
   const metadataRole = (user?.publicMetadata as Record<string, unknown> | undefined)?.role;
   const isSuperAdmin = (!!user && superAdminIds.includes(user.id)) || metadataRole === 'super_admin';
 
   useEffect(() => {
     if (!isLoaded || !user || isSuperAdmin) return;
-    // Wrong role: leave the admin area for the landing page. Pushing /coach
-    // here just bounced straight back through the middleware gate.
     router.replace('/');
   }, [isLoaded, user, isSuperAdmin, router]);
-
-  const currentItem = NAV_ITEMS.find(
-    (i) => pathname === i.href || pathname.startsWith(i.href + '/'),
-  );
-  const currentLabel =
-    pathname === '/admin' ? 'Vista de plataforma' : currentItem?.label ?? 'Dashboard';
 
   const handleSignOut = async () => {
     try {
@@ -133,15 +85,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.replace('/sign-in');
   };
 
-  // Never render an empty viewport: a blank screen while Clerk resolves reads
-  // as a broken app. Keep the shell dimensions and show a spinner instead.
   if (!isLoaded || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-surface-0">
+      <div className="flex min-h-screen items-center justify-center bg-[#0F0F12]">
         <div
-          className="h-8 w-8 animate-spin rounded-full border-2 border-surface-6 border-t-brand-primary"
+          className="h-9 w-9 animate-spin rounded-full border-2 border-[#26262B] border-t-[#E07A3D]"
           role="status"
-          aria-label="Cargando"
+          aria-label="Cargando panel de administración"
         />
       </div>
     );
@@ -149,16 +99,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!isSuperAdmin) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-0 p-6 text-center">
-        <h1 className="text-h3 font-semibold text-text-primary">Acceso denegado</h1>
-        <p className="max-w-sm text-body-sm text-text-secondary">
-          Esta sección es exclusiva del super admin de la plataforma.
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#0F0F12] p-6 text-center text-white">
+        <h1 className="text-2xl font-bold text-white">Acceso Denegado</h1>
+        <p className="max-w-sm text-sm text-[#8E8E93]">
+          Esta sección es exclusiva del Super Admin de la plataforma.
         </p>
         <a
           href="/"
           className={cn(
-            'mt-2 inline-flex items-center justify-center rounded-lg bg-brand-primary px-5 py-3 text-body-sm font-medium text-text-inverse transition-colors hover:bg-brand-primary-pressed',
-            FOCUS_RING,
+            'mt-2 inline-flex items-center justify-center rounded-xl bg-[#E07A3D] px-5 py-2.5 text-sm font-bold text-white shadow hover:bg-[#D0692D] transition-colors',
+            FOCUS_RING
           )}
         >
           Volver al inicio
@@ -168,207 +118,134 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const displayName =
-    user.firstName || user.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Super Admin';
-  const initials = displayName.charAt(0).toUpperCase();
+    user.firstName || user.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Emon';
+  const avatarUrl = user.imageUrl;
 
   return (
-    <div className="min-h-screen bg-surface-0">
-      {/* Desktop sidebar — hidden on mobile, where the drawer handles navigation. */}
-      <aside
-        className={cn(
-          'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-surface-6 bg-surface-2 transition-[width] duration-300 ease-out lg:flex',
-          sidebarOpen ? SIDEBAR_OPEN_WIDTH : SIDEBAR_CLOSED_WIDTH,
-        )}
-      >
-        <div
-          className={cn(
-            'flex shrink-0 items-center border-b border-surface-6 px-4',
-            TOP_BAR_HEIGHT,
-            !sidebarOpen && 'justify-center px-0',
-          )}
-        >
-          <Link
-            href="/admin/dashboard"
-            aria-label="MR Training — inicio del panel"
-            className={cn('rounded-md', FOCUS_RING)}
-          >
-            <BrandLockup compact={!sidebarOpen} />
-          </Link>
-        </div>
+    <div className="min-h-screen bg-[#0F0F12] text-white selection:bg-[#E07A3D]/30 selection:text-white">
+      {/* Desktop Sidebar */}
+      <FitFlowSidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
+        onSignOut={handleSignOut}
+        onUpgradePlanClick={() => setLoyaltyModalOpen(true)}
+      />
 
-        <nav aria-label="Navegación principal" className="flex-1 overflow-y-auto p-2">
-          <ul className="space-y-1">
-            {NAV_ITEMS.map((item) => (
-              <li key={item.href}>
-                <NavItem
-                  href={item.href}
-                  label={item.label}
-                  icon={item.icon}
-                  active={currentItem?.href === item.href}
-                  collapsed={!sidebarOpen}
-                />
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        <div className="shrink-0 border-t border-surface-6 p-2">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            aria-label={sidebarOpen ? 'Colapsar menú' : 'Expandir menú'}
-            aria-expanded={sidebarOpen}
-            title={sidebarOpen ? 'Colapsar menú' : 'Expandir menú'}
-            className={cn(
-              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-text-secondary transition-colors hover:bg-surface-4 hover:text-text-primary',
-              FOCUS_RING,
-              !sidebarOpen && 'justify-center px-0',
-            )}
-          >
-            {sidebarOpen ? (
-              <ChevronLeft size={20} className="shrink-0" aria-hidden="true" />
-            ) : (
-              <ChevronRight size={20} className="shrink-0" aria-hidden="true" />
-            )}
-            {sidebarOpen && <span className="truncate">Colapsar</span>}
-          </button>
-        </div>
-      </aside>
-
-      {/* Mobile drawer */}
+      {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="lg:hidden">
           <div
             onClick={() => setMobileMenuOpen(false)}
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-40 bg-black/75 backdrop-blur-sm"
           />
           <aside
-            aria-label="Navegación del panel"
-            className="fixed inset-y-0 left-0 z-50 flex w-[280px] max-w-[85vw] flex-col border-r border-surface-6 bg-surface-2 lg:hidden"
+            aria-label="Navegación del panel móvil"
+            className="fixed inset-y-0 left-0 z-50 flex w-[280px] max-w-[85vw] flex-col border-r border-[#26262B] bg-[#0F0F12]"
           >
-              <div className={cn('flex shrink-0 items-center justify-between border-b border-surface-6 px-4', TOP_BAR_HEIGHT)}>
-                <BrandLockup />
-                <button
-                  onClick={() => setMobileMenuOpen(false)}
-                  aria-label="Cerrar menú"
-                  className={cn(
-                    'flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-surface-4 hover:text-text-primary',
-                    FOCUS_RING,
-                  )}
-                >
-                  <X size={20} />
-                </button>
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-[#26262B] px-5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E07A3D] text-white">
+                  <Flame size={18} className="fill-white" />
+                </div>
+                <span className="text-lg font-black text-white">
+                  Fit<span className="text-[#E07A3D]">flow</span>
+                </span>
               </div>
-              <nav aria-label="Navegación principal" className="flex-1 overflow-y-auto p-2">
-                <ul className="space-y-1">
-                  {NAV_ITEMS.map((item) => (
-                    <li key={item.href}>
-                      <NavItem
-                        href={item.href}
-                        label={item.label}
-                        icon={item.icon}
-                        active={currentItem?.href === item.href}
-                        onNavigate={() => setMobileMenuOpen(false)}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            <div className="shrink-0 border-t border-surface-6 p-2">
               <button
-                onClick={handleSignOut}
-                className={cn(
-                  'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-text-secondary transition-colors hover:bg-surface-4 hover:text-text-primary',
-                  FOCUS_RING,
-                )}
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-lg p-1 text-[#8E8E93] hover:text-white"
               >
-                <LogOut size={18} className="shrink-0" aria-hidden="true" />
-                <span>Cerrar sesión</span>
+                <X size={20} />
+              </button>
+            </div>
+
+            <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+              {FITFLOW_NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== '/admin/dashboard' && pathname.startsWith(item.href)) ||
+                  (item.href === '/admin/dashboard' && pathname === '/admin');
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                      'flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-colors',
+                      isActive
+                        ? 'bg-[#2A1D17] text-white font-bold'
+                        : 'text-[#8E8E93] hover:bg-[#1A1A1F] hover:text-white'
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon
+                        size={18}
+                        className={isActive ? 'text-[#E07A3D]' : 'text-[#8E8E93]'}
+                      />
+                      <span>{item.label}</span>
+                    </div>
+                    {item.badge && (
+                      <span className="rounded-full bg-[#202026] px-2 py-0.5 text-[10px] font-bold text-white">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="border-t border-[#26262B] p-4">
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-rose-400 hover:bg-[#1A1A1F]"
+              >
+                <LogOut size={16} /> Cerrar Sesión
               </button>
             </div>
           </aside>
         </div>
       )}
 
-      {/* Top bar — 56px, fixed, no duplicated page title: pages own their H1. */}
-      <header
+      {/* Main Content Area */}
+      <div
         className={cn(
-          'fixed right-0 top-0 z-30 flex items-center border-b border-surface-6 bg-surface-1 transition-[left] duration-300 ease-out',
-          TOP_BAR_HEIGHT,
-          'left-0',
-          sidebarOpen ? 'lg:left-60' : 'lg:left-16',
+          'transition-[padding] duration-300 ease-out',
+          sidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-[260px]'
         )}
       >
-        <div className="flex h-full w-full items-center justify-between gap-3 px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2">
-            <button
-              onClick={() => setMobileMenuOpen(true)}
-              aria-label="Abrir menú"
-              aria-expanded={mobileMenuOpen}
-              className={cn(
-                'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-surface-4 hover:text-text-primary lg:hidden',
-                FOCUS_RING,
-              )}
-            >
-              <Menu size={20} />
-            </button>
-            <span className="flex min-w-0 items-center gap-2 text-sm lg:hidden">
-              <BrandLockup compact />
-              <span className="sr-only">MR Training — panel de plataforma</span>
-            </span>
-            <nav aria-label="Breadcrumb" className="hidden min-w-0 items-center gap-2 text-sm lg:flex">
-              <Link
-                href="/admin/dashboard"
-                className={cn('rounded text-text-secondary transition-colors hover:text-text-primary', FOCUS_RING)}
-              >
-                Admin
-              </Link>
-              <span aria-hidden="true" className="text-text-secondary/60">
-                /
-              </span>
-              <span aria-current="page" className="truncate font-medium text-text-primary">
-                {currentLabel}
-              </span>
-            </nav>
-          </div>
+        {/* Top Header */}
+        <FitFlowHeader
+          displayName={displayName}
+          avatarUrl={avatarUrl}
+          onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+          onSignOut={handleSignOut}
+          onToggleMobileMenu={() => setMobileMenuOpen(true)}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+        />
 
-          <div className="flex shrink-0 items-center gap-2">
-            <div className="flex items-center gap-2.5">
-              <span
-                aria-hidden="true"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-3 text-xs font-semibold uppercase text-text-primary"
-              >
-                {initials}
-              </span>
-              <span className="hidden text-left leading-tight sm:block">
-                <span className="block max-w-[160px] truncate text-sm font-medium text-text-primary">
-                  {displayName}
-                </span>
-                <span className="block text-xs text-text-secondary">Super Admin</span>
-              </span>
-            </div>
-            <button
-              onClick={handleSignOut}
-              aria-label="Cerrar sesión"
-              title="Cerrar sesión"
-              className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-surface-4 hover:text-text-primary',
-                FOCUS_RING,
-              )}
-            >
-              <LogOut size={18} aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-      </header>
+        {/* Page Content Viewport */}
+        <main className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto min-h-[calc(100vh-80px)]">
+          {children}
+        </main>
+      </div>
 
-      <main
-        className={cn(
-          'min-h-screen bg-surface-0 pt-14 transition-[padding] duration-300 ease-out',
-          sidebarOpen ? CONTENT_OFFSET_OPEN : CONTENT_OFFSET_CLOSED,
-        )}
-      >
-        <div className="mx-auto w-full max-w-[1280px] p-6 lg:p-8">{children}</div>
-      </main>
+      {/* Global Command Palette (⌘K) */}
+      <CommandPalette
+        open={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        onOpenLoyaltyModal={() => setLoyaltyModalOpen(true)}
+      />
+
+      {/* Global Loyalty Setup Wizard */}
+      <LoyaltyModal
+        open={loyaltyModalOpen}
+        onClose={() => setLoyaltyModalOpen(false)}
+      />
     </div>
   );
 }

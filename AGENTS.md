@@ -52,9 +52,19 @@ Si no sabes que regla aplica, lee `apps/rules/MASTER_PROMPT.md` primero.
 
 Si un cambio requiere modificar la base de datos (tabla, columna, índice, restricción, FK), el agente debe:
 1. Crear el archivo de migración correspondiente en `apps/api/migrations/postgres/`.
-2. Aplicarlo en la base local de desarrollo (`DATABASE_URL` apuntando a PostgreSQL local).
-3. Verificar que `go build ./...` y los tests correspondientes pasen.
+2. Sincronizar y aplicar migraciones tanto localmente como en Supabase ejecutando `bash scripts/migrate-all.sh`. El hook de pre-commit (`.git/hooks/pre-commit`) ejecuta esta sincronización y aplicación automáticamente antes de cada commit.
+3. Verificar que `go build ./...` y los tests unitarios correspondientes pasen.
 4. Solo entonces tocar el código Go/TypeScript que dependa de ese esquema.
+
+---
+
+## REGLA CI/CD — SEPARACIÓN DE CI Y CD EN QA
+
+1. **El CI de QA (`ci-qa.yml`) es puramente de verificación estática, compilación y pruebas unitarias:**
+   - No levanta servicios de base de datos ni aplica migraciones en el pipeline de CI.
+   - Compila la API de Go (`go build ./...`) y ejecuta los tests unitarios sin dependencias de base de datos (`go test -p 1 ./internal/... -race -count=1`).
+2. **Las migraciones en QA se aplican durante el CD (`cd-qa.yml`) o mediante `scripts/migrate-all.sh`:**
+   - La base de datos de QA reside en Supabase y no debe inicializarse localmente en los runners de GitHub Actions para el test de CI.
 
 ---
 
