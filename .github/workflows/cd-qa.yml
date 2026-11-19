@@ -21,7 +21,6 @@ jobs:
     name: Deploy API to Cloud Run (QA)
     runs-on: ubuntu-latest
     environment: qa
-    needs: [migrate]
     steps:
       - uses: actions/checkout@v4
 
