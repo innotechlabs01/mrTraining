@@ -25,9 +25,18 @@ import (
 func newTestDB(t *testing.T) *database.DB {
 	t.Helper()
 
-	adminURL := resolveAdminURL()
+	url := os.Getenv("SUPER_DATABASE_URL")
+	if url == "" {
+		url = os.Getenv("POSTGRES_DATABASE_URL")
+	}
+	if url == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+
+	adminURL := url
 	admin, err := database.Connect(adminURL)
 	if err != nil {
+		t.Skipf("cannot connect to database: %v", err)
 	}
 	defer admin.Close()
 
@@ -43,6 +52,7 @@ func newTestDB(t *testing.T) *database.DB {
 
 	db, err := database.Connect(strings.Replace(adminURL, "/postgres?", "/"+name+"?", 1))
 	if err != nil {
+		t.Skipf("cannot connect to database: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
 

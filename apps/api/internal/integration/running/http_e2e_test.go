@@ -66,9 +66,16 @@ func setupE2EApp(t *testing.T) (*fiber.App, *runningapp.Service, *runninginfra.R
 // newTestDB connects to PostgreSQL for integration tests.
 func newTestDB(t *testing.T) *database.DB {
 	t.Helper()
-	url := "postgresql://postgres@127.0.0.1:5435/mr_training_migration?sslmode=disable"
+	url := os.Getenv("SUPER_DATABASE_URL")
+	if url == "" {
+		url = os.Getenv("POSTGRES_DATABASE_URL")
+	}
+	if url == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
 	db, err := database.Connect(url)
 	if err != nil {
+		t.Skipf("cannot connect to database: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
 	return db

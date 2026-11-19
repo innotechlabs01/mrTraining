@@ -24,11 +24,16 @@ func newCoachFixture(t *testing.T) (*Repository, string, string, func()) {
 
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
 	}
 
 	db, err := database.Connect(url)
 	if err != nil {
+		t.Skipf("cannot connect to database: %v", err)
 	}
+	t.Cleanup(func() { db.Close() })
+
+	coachID := fmt.Sprintf("coach_invite_test_%d", os.Getpid())
 
 	coachID := fmt.Sprintf("coach_invite_test_%d", os.Getpid())
 	// The code must be unique per run: the lookup matches on the code.

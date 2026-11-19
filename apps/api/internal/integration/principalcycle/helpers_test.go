@@ -28,8 +28,16 @@ func resolveSuperDBURL() string {
 
 func newSuperDB(t *testing.T) *database.DB {
 	t.Helper()
-	db, err := database.Connect(resolveSuperDBURL())
+	url := os.Getenv("SUPER_DATABASE_URL")
+	if url == "" {
+		url = os.Getenv("POSTGRES_DATABASE_URL")
+	}
+	if url == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+	db, err := database.Connect(url)
 	if err != nil {
+		t.Skipf("cannot connect to database: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
 	return db
@@ -37,8 +45,13 @@ func newSuperDB(t *testing.T) *database.DB {
 
 func newAppDB(t *testing.T) *database.DB {
 	t.Helper()
-	db, err := database.Connect(appRoleURL)
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+	db, err := database.Connect(url)
 	if err != nil {
+		t.Skipf("cannot connect to database: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
 	return db
