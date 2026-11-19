@@ -499,3 +499,29 @@ export interface ChallengeLeaderboardEntry {
   bestScore: number
   trend: string
 }
+
+// ---- Public coach landing page (GET /public/coach/:slug) ----
+
+// Mirrors Go DTO: dto.PlanCatalogItem (apps/api/internal/interfaces/http/dto/plan.go)
+export interface PlanCatalogItem {
+  id: string
+  name: string
+  description: string
+  price: number
+  currency: string
+  duration: string
+  benefits: string
+  ctaText: string
+}
+
+// Mirrors Go DTO: dto.CoachLandingResponse
+export interface CoachLandingResponse {
+  slug: string
+  coachName: string
+  coachPhoto: string
+  biography: string
+  specialities: string[]
+  services: string[]
+  planCatalog: PlanCatalogItem[]
+  ctaText: string
+}

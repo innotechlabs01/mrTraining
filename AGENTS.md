@@ -25,6 +25,7 @@ Si no sabes que regla aplica, lee `apps/rules/MASTER_PROMPT.md` primero.
 | **Coding style / Linting** | `12-coding-standards.md` |
 | **Testing** | `13-testing.md` |
 | **Team workflow / Caveman** | `14-team-workflow.md` |
+| **Git workflow / Changelog** | `15-git-workflow-changelog.md` |
 | **Mobile / React Native** | `mobile-rules/*` (ver seccion abajo) |
 | **Cualquier cosa** | `MASTER_PROMPT.md` (siempre) |
 
@@ -166,7 +167,7 @@ NEVER report PASS when the real mobile UI was not actually tested.
 Recibes una tarea
   ↓
 0. Invoca el skill `pipeline-init` (carga mr-context + herdr-setup,
-   y herdr si HERDR_ENV=1). Trabajá SIEMPRE en `main` en el checkout
+   y herdr si HERDR_ENV=1). Trabajá SIEMPRE en `dev` en el checkout
    `mr-training` (SIN branches ni worktrees). Los agentes se activan
    como worker-tasks sobre ese checkout.
    Detalle: 14-team-workflow.md
@@ -181,7 +182,7 @@ Recibes una tarea
   ↓
 5. Verifica con lint, build, tests segun 13-testing.md
   ↓
-6. Commit atomico convencional + PR a main. Sin worktrees: trabajá en mr-training.
+6. Commit atomico convencional + PR a dev (no a main). Sin worktrees: trabajá en mr-training.
 ```
 
 ---

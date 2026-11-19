@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS form_recordings (
   form_score REAL NOT NULL,              -- AI form analysis score
   form_metrics TEXT,                     -- raw JSON payload from the client (depth, alignment, tempo, ...)
   video_url TEXT NOT NULL,               -- served path, e.g. /uploads/form-recordings/<file>
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE INDEX IF NOT EXISTS idx_form_recordings_athlete ON form_recordings(athlete_id);

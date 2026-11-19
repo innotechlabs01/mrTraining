@@ -86,7 +86,7 @@ func (r *ProgramRepository) GetByID(ctx context.Context, id string) (*training.P
 	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, coach_id, name, description, goal, difficulty_level,
 		 duration_weeks, created_at, updated_at
-		 FROM programs WHERE id = $2`, id)
+		 FROM programs WHERE id = $1`, id)
 
 	p := &training.Program{}
 	err := row.Scan(&p.ID, &p.CoachID, &p.Name, &p.Description, &p.Goal,
@@ -117,7 +117,7 @@ func (r *ProgramRepository) Create(ctx context.Context, p *training.Program) err
 
 	_, err = tx.ExecContext(ctx,
 		`INSERT INTO programs (id, coach_id, name, description, goal, difficulty_level, duration_weeks)
-		 VALUES ($3, $4, $5, $6, $7, $8, $9)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		p.ID, p.CoachID, p.Name, p.Description, p.Goal, p.DifficultyLevel, p.DurationWeeks)
 	if err != nil {
 		return fmt.Errorf("failed to create program: %w", err)
@@ -126,7 +126,7 @@ func (r *ProgramRepository) Create(ctx context.Context, p *training.Program) err
 	for i, w := range p.Workouts {
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO program_workouts (id, program_id, template_id, order_index)
-			 VALUES ($10, $11, $12, $13)`,
+			 VALUES ($1, $2, $3, $4)`,
 			uuid.New().String(), p.ID, w.TemplateID, i); err != nil {
 			return fmt.Errorf("failed to create program workout: %w", err)
 		}
@@ -144,8 +144,8 @@ func (r *ProgramRepository) Update(ctx context.Context, p *training.Program) err
 	defer tx.Rollback()
 
 	result, err := tx.ExecContext(ctx,
-		`UPDATE programs SET name = $14, description = $15, goal = $16, difficulty_level = $17,
-		 duration_weeks = $18, updated_at = NOW() WHERE id = $19`,
+		`UPDATE programs SET name = $1, description = $2, goal = $3, difficulty_level = $4,
+		 duration_weeks = $5, updated_at = NOW() WHERE id = $6`,
 		p.Name, p.Description, p.Goal, p.DifficultyLevel, p.DurationWeeks, p.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update program: %w", err)
@@ -158,14 +158,14 @@ func (r *ProgramRepository) Update(ctx context.Context, p *training.Program) err
 		return errors.NotFound("Program", p.ID)
 	}
 
-	if _, err := tx.ExecContext(ctx, `DELETE FROM program_workouts WHERE program_id = $20`, p.ID); err != nil {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM program_workouts WHERE program_id = $1`, p.ID); err != nil {
 		return fmt.Errorf("failed to delete old program workouts: %w", err)
 	}
 
 	for i, w := range p.Workouts {
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO program_workouts (id, program_id, template_id, order_index)
-			 VALUES ($21, $22, $23, $24)`,
+			 VALUES ($1, $2, $3, $4)`,
 			uuid.New().String(), p.ID, w.TemplateID, i); err != nil {
 			return fmt.Errorf("failed to create program workout: %w", err)
 		}
@@ -182,10 +182,10 @@ func (r *ProgramRepository) Delete(ctx context.Context, id string) error {
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.ExecContext(ctx, `DELETE FROM program_workouts WHERE program_id = $25`, id); err != nil {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM program_workouts WHERE program_id = $1`, id); err != nil {
 		return fmt.Errorf("failed to delete program workouts: %w", err)
 	}
-	result, err := tx.ExecContext(ctx, `DELETE FROM programs WHERE id = $26`, id)
+	result, err := tx.ExecContext(ctx, `DELETE FROM programs WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete program: %w", err)
 	}
@@ -207,7 +207,7 @@ func (r *ProgramRepository) getProgramWorkouts(ctx context.Context, programID st
 		`SELECT pw.template_id, pw.order_index, COALESCE(wt.name, '')
 		 FROM program_workouts pw
 		 LEFT JOIN workout_templates wt ON wt.id = pw.template_id
-		 WHERE pw.program_id = $27
+		 WHERE pw.program_id = $1
 		 ORDER BY pw.order_index`, programID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list program workouts: %w", err)

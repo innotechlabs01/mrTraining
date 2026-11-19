@@ -7,6 +7,7 @@ import (
 	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/commission_entry"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Service handles commission entry business logic.
@@ -17,6 +18,17 @@ type Service struct {
 // NewService creates a new commission entry service.
 func NewService(repo domain.Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetExecutor returns a service instance bound to the supplied executor
+// (typically a UnitOfWork transaction), keeping the original unchanged.
+func (s *Service) SetExecutor(exec database.Executor) *Service {
+	if repo, ok := s.repo.(interface {
+		WithExecutor(database.Executor) domain.Repository
+	}); ok {
+		return &Service{repo: repo.WithExecutor(exec)}
+	}
+	return s
 }
 
 // CreateCommissionEntry calcula y crea una entrada de comisión para una operación.

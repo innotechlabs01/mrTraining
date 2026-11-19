@@ -1,14 +1,9 @@
 package payment
 
 import (
-	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -16,15 +11,25 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/config"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/membership"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/store"
+	"github.com/innotechlabs01/mr-training-api/internal/domain/subscription"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/subscription/wompi"
 )
 
-const mercadoPagoAPI = "https://api.mercadopago.com"
+// Provider is the payment gateway port used by this service. It intentionally
+// mirrors the subscription.PaymentProvider contract so the shared Wompi adapter
+// can be injected without a second implementation.
+type Provider interface {
+	CreateCheckout(ctx context.Context, req subscription.CheckoutRequest) (*subscription.CheckoutResponse, error)
+	VerifySignature(body []byte, signatureHeader string) error
+	FetchPayment(ctx context.Context, paymentID string) (*subscription.ProviderPayment, error)
+}
 
 type Service struct {
 	cfg           *config.Config
 	storeRepo     store.Repository
 	membershipSvc MembershipReader
+	provider      Provider
 }
 
 // MembershipReader is the read side of the membership service the payment
@@ -34,8 +39,18 @@ type MembershipReader interface {
 	ActivateAfterPayment(ctx context.Context, athleteID string, paymentID string, amount float64) error
 }
 
-func NewService(cfg *config.Config, storeRepo store.Repository, membershipSvc MembershipReader) *Service {
-	return &Service{cfg: cfg, storeRepo: storeRepo, membershipSvc: membershipSvc}
+func NewService(cfg *config.Config, storeRepo store.Repository, membershipSvc MembershipReader, providers ...Provider) *Service {
+	s := &Service{
+		cfg:           cfg,
+		storeRepo:     storeRepo,
+		membershipSvc: membershipSvc,
+	}
+	if len(providers) > 0 && providers[0] != nil {
+		s.provider = providers[0]
+	} else {
+		s.provider = wompi.NewAdapter(cfg)
+	}
+	return s
 }
 
 // --- Cart checkout ---
@@ -47,7 +62,7 @@ type CartPreferenceItem struct {
 }
 
 // CartPreferenceResponse is handed to the mobile client: it opens
-// InitPoint in a browser/in-app web view and polls OrderID afterwards.
+// CheckoutURL in a browser/in-app web view and polls OrderID afterwards.
 type CartPreferenceResponse struct {
 	OrderID   string  `json:"orderId"`
 	InitPoint string  `json:"initPoint"`
@@ -56,8 +71,8 @@ type CartPreferenceResponse struct {
 }
 
 // CreateCartPreference validates every product line against the DB
-// (existence + stock), persists a pending order, and creates the
-// MercadoPago preference with the order ID as external_reference.
+// (existence + stock), persists a pending order, and creates a Wompi
+// payment link with the order ID as external reference.
 func (s *Service) CreateCartPreference(ctx context.Context, athleteID string, items []CartPreferenceItem) (*CartPreferenceResponse, error) {
 	if len(items) == 0 {
 		return nil, errors.New("BAD_REQUEST", "el carrito está vacío", http.StatusBadRequest)
@@ -73,6 +88,7 @@ func (s *Service) CreateCartPreference(ctx context.Context, athleteID string, it
 	lines := make([]validated, 0, len(items))
 	total := 0.0
 	seen := map[string]bool{}
+	productNames := make([]string, 0, len(items))
 	for _, it := range items {
 		if it.Quantity <= 0 {
 			return nil, errors.New("BAD_REQUEST", "cantidad inválida", http.StatusBadRequest)
@@ -93,10 +109,9 @@ func (s *Service) CreateCartPreference(ctx context.Context, athleteID string, it
 		}
 		lines = append(lines, validated{product: product, qty: it.Quantity})
 		total += product.Price * float64(it.Quantity)
+		productNames = append(productNames, product.Name)
 	}
 
-	// Persist the pending order BEFORE calling MercadoPago so the webhook
-	// can always find it.
 	orderID := fmt.Sprintf("ord_%d", time.Now().UnixNano())
 	order := &store.Order{
 		ID:        orderID,
@@ -106,7 +121,6 @@ func (s *Service) CreateCartPreference(ctx context.Context, athleteID string, it
 		Currency:  "COP",
 	}
 	orderItems := make([]*store.OrderItem, 0, len(lines))
-	mpItems := make([]map[string]interface{}, 0, len(lines))
 	for i, l := range lines {
 		orderItems = append(orderItems, &store.OrderItem{
 			ID:          fmt.Sprintf("%s-it-%d", orderID, i),
@@ -116,27 +130,38 @@ func (s *Service) CreateCartPreference(ctx context.Context, athleteID string, it
 			UnitPrice:   l.product.Price,
 			Quantity:    l.qty,
 		})
-		mpItems = append(mpItems, map[string]interface{}{
-			"id":          l.product.ID,
-			"title":       l.product.Name,
-			"currency_id": "COP",
-			"category_id": "productos",
-			"quantity":    l.qty,
-			"unit_price":  l.product.Price,
-		})
 	}
 	if err := s.storeRepo.CreateOrderWithItems(ctx, order, orderItems); err != nil {
 		return nil, errors.New("INTERNAL", "no se pudo crear la orden", http.StatusInternalServerError)
 	}
 
-	preference, err := s.createPreference(ctx, mpItems, orderID, athleteID)
+	description := "MR Training store order " + orderID
+	if len(productNames) > 0 {
+		description = strings.Join(productNames, ", ")
+	}
+
+	notifURL := s.cfg.WompiWebhookURL
+
+	checkout, err := s.provider.CreateCheckout(ctx, subscription.CheckoutRequest{
+		ExternalReference: orderID,
+		Description:      description,
+		Amount:           total,
+		Currency:         "COP",
+		SuccessURL:       s.cfg.AppURL + "/payment/success",
+		FailureURL:       s.cfg.AppURL + "/payment/failed",
+		PendingURL:       s.cfg.AppURL + "/payment/pending",
+		NotificationURL:  notifURL,
+	})
 	if err != nil {
-		return nil, err
+		return nil, errors.New("BAD_GATEWAY", "Wompi no disponible: "+err.Error(), http.StatusBadGateway)
+	}
+	if checkout == nil || checkout.CheckoutURL == "" {
+		return nil, errors.New("INTERNAL", "Wompi no devolvió init_point", http.StatusInternalServerError)
 	}
 
 	return &CartPreferenceResponse{
 		OrderID:   orderID,
-		InitPoint: preference.InitPoint,
+		InitPoint: checkout.CheckoutURL,
 		Total:     total,
 		Currency:  "COP",
 	}, nil
@@ -158,8 +183,8 @@ type MembershipPreferenceResponse struct {
 	Currency     string  `json:"currency"`
 }
 
-// CreateMembershipPreference builds an MP preference for the athlete's
-// CURRENT membership plan (price set by the coach). external_reference is
+// CreateMembershipPreference builds a Wompi payment link for the athlete's
+// current membership plan (price set by the coach). external_reference is
 // "membership:<id>" so the webhook can activate the right membership.
 func (s *Service) CreateMembershipPreference(ctx context.Context, athleteID string) (*MembershipPreferenceResponse, error) {
 	if athleteID == "" {
@@ -175,172 +200,91 @@ func (s *Service) CreateMembershipPreference(ctx context.Context, athleteID stri
 	}
 
 	externalRef := "membership:" + m.ID
-	items := []map[string]interface{}{{
-		"id":          m.ID,
-		"title":       "Membresía " + m.PlanName,
-		"description": "Suscripción MR Training (" + m.BillingPeriod + ")",
-		"currency_id": "COP",
-		"category_id": "memberships",
-		"quantity":    1,
-		"unit_price":  m.PlanPrice,
-	}}
 
-	pref, err := s.createPreference(ctx, items, externalRef, athleteID)
+	notifURL := s.cfg.WompiWebhookURL
+
+	checkout, err := s.provider.CreateCheckout(ctx, subscription.CheckoutRequest{
+		ExternalReference: externalRef,
+		Description:      "Membresía " + m.PlanName,
+		Amount:           m.PlanPrice,
+		Currency:         "COP",
+		SuccessURL:       s.cfg.AppURL + "/payment/success",
+		FailureURL:       s.cfg.AppURL + "/payment/failed",
+		PendingURL:       s.cfg.AppURL + "/payment/pending",
+		NotificationURL:  notifURL,
+	})
 	if err != nil {
-		return nil, err
+		return nil, errors.New("BAD_GATEWAY", "Wompi no disponible: "+err.Error(), http.StatusBadGateway)
+	}
+	if checkout == nil || checkout.CheckoutURL == "" {
+		return nil, errors.New("INTERNAL", "Wompi no devolvió init_point", http.StatusInternalServerError)
 	}
 
 	return &MembershipPreferenceResponse{
 		MembershipID: m.ID,
 		PlanName:     m.PlanName,
-		InitPoint:    pref.point(),
+		InitPoint:    checkout.CheckoutURL,
 		Total:        m.PlanPrice,
 		Currency:     "COP",
 	}, nil
 }
 
-// mpPreference is the subset of MercadoPago's preference we consume.
-type mpPreference struct {
-	ID           string `json:"id"`
-	InitPoint    string `json:"init_point"`
-	SandboxPoint string `json:"sandbox_init_point"`
-}
-
-func (p mpPreference) point() string {
-	if p.InitPoint != "" {
-		return p.InitPoint
-	}
-	return p.SandboxPoint
-}
-
-// createPreference posts to MercadoPago /v1/preferences with the order ID as
-// external_reference — that's how the webhook maps a payment back to a order.
-func (s *Service) createPreference(ctx context.Context, items []map[string]interface{}, orderID, athleteID string) (*mpPreference, error) {
-	body := map[string]interface{}{
-		"items": items,
-		"back_urls": map[string]string{
-			"success": s.cfg.AppURL + "/payment/success",
-			"failure": s.cfg.AppURL + "/payment/failed",
-			"pending": s.cfg.AppURL + "/payment/pending",
-		},
-		"notification_url":     s.cfg.MercadoPagoWebhookURL,
-		"external_reference":  orderID,
-		"payer":                map[string]interface{}{},
-		"statement_descriptor": "MRTRAINING",
-	}
-
-	payload, err := json.Marshal(body)
-	if err != nil {
-		return nil, errors.New("INTERNAL", "no se pudo serializar la preference", http.StatusInternalServerError)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, mercadoPagoAPI+"/checkout/preferences", bytes.NewReader(payload))
-	if err != nil {
-		return nil, errors.New("INTERNAL", "no se pudo crear la request a MercadoPago", http.StatusInternalServerError)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.cfg.MercadoPagoSecretKey)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, errors.New("BAD_GATEWAY", "MercadoPago no disponible", http.StatusBadGateway)
-	}
-	defer resp.Body.Close()
-
-	respBody, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return nil, errors.New("BAD_GATEWAY",
-			fmt.Sprintf("MercadoPago error: status %d", resp.StatusCode), http.StatusBadGateway)
-	}
-
-	var pref mpPreference
-	if err := json.Unmarshal(respBody, &pref); err != nil {
-		return nil, errors.New("INTERNAL", "respuesta inválida de MercadoPago", http.StatusInternalServerError)
-	}
-	if pref.point() == "" {
-		return nil, errors.New("INTERNAL", "MercadoPago no devolvió init_point", http.StatusInternalServerError)
-	}
-	return &pref, nil
-}
-
 // --- Webhook ---
 
-// mpNotification is the generic webhook body MercadoPago sends.
-type mpNotification struct {
-	Type string `json:"type"`
-	Data struct {
-		ID string `json:"id"`
+// paymentNotification supports both MercadoPago (historical) and Wompi
+// notification shapes.
+type paymentNotification struct {
+	Type  string `json:"type"`
+	Event string `json:"event"`
+	Data  struct {
+		ID          string `json:"id"`
+		Transaction struct {
+			ID string `json:"id"`
+		} `json:"transaction"`
 	} `json:"data"`
 }
 
-// mpPayment is the subset of /v1/payments/{id} we consume.
-type mpPayment struct {
-	ID                 string  `json:"id"`
-	Status             string  `json:"status"`
-	ExternalReference  string  `json:"external_reference"`
-	TransactionAmount  float64 `json:"transaction_amount"`
+func parsePaymentNotification(body []byte) (*paymentNotification, error) {
+	var n paymentNotification
+	if err := json.Unmarshal(body, &n); err != nil {
+		return nil, err
+	}
+	return &n, nil
 }
 
-// VerifyWebhookSignature validates MercadoPago's x-signature header:
-//   x-signature: ts=<unix-ts>,v1=<hex HMAC-SHA256(ts + body, webhook secret)>
-func (s *Service) VerifyWebhookSignature(body []byte, signatureHeader string) (bool, error) {
-	if signatureHeader == "" {
-		return false, errors.New("UNAUTHORIZED", "firma webhook ausente", http.StatusUnauthorized)
-	}
-	if s.cfg.MercadoPagoWebhookKey == "" {
-		// Dev convenience: no secret configured → accept but log loudly.
-		return true, nil
-	}
-
-	var ts, v1 string
-	for _, part := range strings.Split(signatureHeader, ",") {
-		part = strings.TrimSpace(part)
-		if strings.HasPrefix(part, "ts=") {
-			ts = strings.TrimPrefix(part, "ts=")
-		} else if strings.HasPrefix(part, "v1=") {
-			v1 = strings.TrimPrefix(part, "v1=")
-		}
-	}
-	if ts == "" || v1 == "" {
-		return false, errors.New("UNAUTHORIZED", "firma webhook malformada", http.StatusUnauthorized)
-	}
-
-	mac := hmac.New(sha256.New, []byte(s.cfg.MercadoPagoWebhookKey))
-	mac.Write([]byte(ts))
-	mac.Write(body)
-	expected := hex.EncodeToString(mac.Sum(nil))
-	if !hmac.Equal([]byte(expected), []byte(v1)) {
-		return false, errors.New("UNAUTHORIZED", "firma webhook inválida", http.StatusUnauthorized)
-	}
-	return true, nil
-}
-
-// ProcessWebhook verifies, fetches the payment from MercadoPago and — when
+// ProcessWebhook verifies, fetches the payment from Wompi and — when
 // approved — fulfills the referenced order exactly once.
 func (s *Service) ProcessWebhook(ctx context.Context, body []byte, signatureHeader string) error {
-	if _, err := s.VerifyWebhookSignature(body, signatureHeader); err != nil {
-		return err
+	if err := s.provider.VerifySignature(body, signatureHeader); err != nil {
+		return errors.New("UNAUTHORIZED", "firma webhook inválida", http.StatusUnauthorized)
 	}
 
-	var notif mpNotification
-	if err := json.Unmarshal(body, &notif); err != nil {
+	notif, err := parsePaymentNotification(body)
+	if err != nil {
 		return errors.New("BAD_REQUEST", "body webhook inválido", http.StatusBadRequest)
 	}
-	if notif.Type != "payment" {
-		// Other notification types are acknowledged and ignored.
+
+	paymentID := notif.Data.ID
+	if notif.Data.Transaction.ID != "" {
+		paymentID = notif.Data.Transaction.ID
+	}
+	isPayment := notif.Type == "payment" || strings.HasPrefix(notif.Event, "transaction.") || paymentID != ""
+	if !isPayment {
 		return nil
 	}
-	if notif.Data.ID == "" {
+	if paymentID == "" {
 		return errors.New("BAD_REQUEST", "payment id ausente", http.StatusBadRequest)
 	}
+	if notif.Data.ID == "" {
+		notif.Data.ID = paymentID
+	}
 
-	payment, err := s.fetchPayment(ctx, notif.Data.ID)
+	payment, err := s.provider.FetchPayment(ctx, paymentID)
 	if err != nil {
-		return err
+		return errors.New("BAD_GATEWAY", "Wompi no disponible: "+err.Error(), http.StatusBadGateway)
 	}
 
 	if payment.Status != "approved" {
-		// Rejected/pending payments leave the referenced entity pending.
 		return nil
 	}
 
@@ -351,15 +295,12 @@ func (s *Service) ProcessWebhook(ctx context.Context, body []byte, signatureHead
 
 	switch {
 	case strings.HasPrefix(ref, "membership:"):
-		// Membership plan payment → record the payment and activate the
-		// athlete's membership for the next period.
 		membershipID := strings.TrimPrefix(ref, "membership:")
 		if err := s.fulfillMembership(ctx, membershipID, payment); err != nil {
 			return err
 		}
 		return nil
 	default:
-		// Store cart order → transactional stock fulfillment.
 		if _, err := s.storeRepo.FulfillOrder(ctx, ref, payment.ID); err != nil {
 			return errors.New("INTERNAL", "no se pudo cumplir la orden: "+err.Error(), http.StatusInternalServerError)
 		}
@@ -367,39 +308,19 @@ func (s *Service) ProcessWebhook(ctx context.Context, body []byte, signatureHead
 	}
 }
 
+// VerifyWebhookSignature remains available for compatibility; verification is
+// now delegated to the Wompi provider.
+func (s *Service) VerifyWebhookSignature(body []byte, signatureHeader string) (bool, error) {
+	if err := s.provider.VerifySignature(body, signatureHeader); err != nil {
+		return false, errors.New("UNAUTHORIZED", "firma webhook inválida", http.StatusUnauthorized)
+	}
+	return true, nil
+}
+
 // fulfillMembership records the payment and refreshes the membership period.
-// Idempotent: a repeated webhook for an already recorded MP payment is a
-// no-op (the MP payment id is used as the payment record key).
-func (s *Service) fulfillMembership(ctx context.Context, membershipID string, payment *mpPayment) error {
+func (s *Service) fulfillMembership(ctx context.Context, membershipID string, payment *subscription.ProviderPayment) error {
 	if err := s.membershipSvc.ActivateAfterPayment(ctx, membershipID, payment.ID, payment.TransactionAmount); err != nil {
 		return errors.New("INTERNAL", "no se pudo activar la membresía: "+err.Error(), http.StatusInternalServerError)
 	}
 	return nil
-}
-
-// fetchPayment reads the payment back from MercadoPago — never trust the
-// notification body alone for money movements.
-func (s *Service) fetchPayment(ctx context.Context, paymentID string) (*mpPayment, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mercadoPagoAPI+"/v1/payments/"+paymentID, nil)
-	if err != nil {
-		return nil, errors.New("INTERNAL", "no se pudo crear request de pago", http.StatusInternalServerError)
-	}
-	req.Header.Set("Authorization", "Bearer "+s.cfg.MercadoPagoSecretKey)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, errors.New("BAD_GATEWAY", "MercadoPago no disponible", http.StatusBadGateway)
-	}
-	defer resp.Body.Close()
-
-	respBody, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("BAD_GATEWAY", fmt.Sprintf("MercadoPago payments error: %d", resp.StatusCode), http.StatusBadGateway)
-	}
-
-	var p mpPayment
-	if err := json.Unmarshal(respBody, &p); err != nil {
-		return nil, errors.New("INTERNAL", "respuesta inválida de payments", http.StatusInternalServerError)
-	}
-	return &p, nil
 }

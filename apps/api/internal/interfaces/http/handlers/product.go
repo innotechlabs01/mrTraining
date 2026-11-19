@@ -140,6 +140,28 @@ func (h *ProductHandler) DeleteProduct(c *fiber.Ctx) error {
 	return appresponse.Success(c, fiber.Map{"message": "product deleted"})
 }
 
+// ListPublicProducts handles GET /public/products.
+// Returns all shop products (is_shop = true) for public marketing pages.
+// No authentication required.
+func (h *ProductHandler) ListPublicProducts(c *fiber.Ctx) error {
+	products, err := h.service.ListPublicProducts(c.Context())
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	responses := make([]dto.ProductResponse, len(products))
+	for i, p := range products {
+		responses[i] = *toProductResponse(p)
+	}
+
+	return appresponse.Success(c, dto.ListResponse[dto.ProductResponse]{
+		Data:  responses,
+		Total: len(responses),
+		Page:  1,
+		Limit: len(responses),
+	})
+}
+
 // GetSales handles GET /coaches/sales.
 // Returns all sales for the authenticated coach.
 func (h *ProductHandler) GetSales(c *fiber.Ctx) error {

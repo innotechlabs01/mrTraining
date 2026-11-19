@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, RefreshControl } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -45,6 +45,8 @@ type MealCardProps = {
 const MealCard = React.memo(function MealCard({ item, onPress }: MealCardProps) {
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Comida ${item.title}, ${item.calories} calorías`}
       onPress={() => onPress(item)}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
@@ -72,7 +74,7 @@ export function NutritionScreen() {
   const navigation = useNavigation<Nav>();
   const [filter, setFilter] = useState<MealFilterKey>('all');
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['athlete-nutrition'],
     queryFn: async () => {
       const { data: today } = await apiClient.get('/athlete/today');
@@ -134,6 +136,7 @@ export function NutritionScreen() {
         </View>
       ) : (
         <FlashList
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={colors.primary} />}
           data={meals}
           renderItem={renderMeal}
           keyExtractor={keyExtractor}

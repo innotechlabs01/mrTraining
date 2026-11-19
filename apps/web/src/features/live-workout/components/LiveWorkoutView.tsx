@@ -76,7 +76,7 @@ export function LiveWorkoutView() {
       </AnimatePresence>
 
       {isTransition && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-3 text-center text-sm text-orange-300">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-lg border border-orange-500/20 bg-orange-500/5 p-3 text-center text-sm text-orange-300">
           Get ready — next exercise starting
         </motion.div>
       )}
@@ -97,7 +97,7 @@ export function LiveWorkoutView() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             onClick={start}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 py-4 text-base font-semibold text-white shadow-lg shadow-orange-500/25 transition-transform active:scale-[0.98]"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 py-4 text-base font-semibold text-white shadow-lg shadow-orange-500/25 transition-transform active:scale-[0.98]"
           >
             <Play className="h-5 w-5" />
             Start Workout
@@ -107,7 +107,7 @@ export function LiveWorkoutView() {
             <button
               onClick={togglePause}
               className={cn(
-                'flex flex-1 items-center justify-center gap-2 rounded-2xl py-4 text-base font-semibold text-white transition-transform active:scale-[0.98]',
+                'flex flex-1 items-center justify-center gap-2 rounded-lg py-4 text-base font-semibold text-white transition-transform active:scale-[0.98]',
                 state.isRunning ? 'bg-white/10' : 'bg-orange-500 shadow-lg shadow-orange-500/25',
               )}
             >
@@ -115,7 +115,7 @@ export function LiveWorkoutView() {
             </button>
             <button
               onClick={skip}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-medium text-white/70 transition-colors hover:text-white"
+              className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-5 py-4 text-sm font-medium text-white/70 transition-colors hover:text-white"
             >
               {isRest ? 'Skip rest' : 'Skip'}
               <SkipForward className="h-4 w-4" />

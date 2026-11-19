@@ -139,7 +139,7 @@ export default function CoachSupportPage() {
 
       <div className="mt-5 grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
         {/* Ticket list */}
-        <div className="flex min-h-0 flex-col rounded-2xl border border-white/5 bg-surface-1">
+        <div className="flex min-h-0 flex-col rounded-lg border border-white/5 bg-surface-1">
           <div className="flex gap-1 border-b border-white/5 p-2">
             {(['all', 'open', 'resolved'] as const).map((f) => (
               <button
@@ -188,7 +188,7 @@ export default function CoachSupportPage() {
         </div>
 
         {/* Ticket detail */}
-        <div className="min-h-0 overflow-hidden rounded-2xl border border-white/5 bg-surface-1">
+        <div className="min-h-0 overflow-hidden rounded-lg border border-white/5 bg-surface-1">
           {selected ? (
             <TicketDetail
               key={selected.id}
@@ -302,7 +302,7 @@ function TicketDetail({
           >
             <div
               className={cn(
-                'max-w-[85%] rounded-2xl border p-3',
+                'max-w-[85%] rounded-lg border p-3',
                 m.author === 'coach'
                   ? 'border-brand-primary/30 bg-brand-primary/10'
                   : 'border-white/5 bg-white/[0.03]',
@@ -442,7 +442,7 @@ function NewTicketModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-surface-1"
+        className="w-full max-w-lg overflow-hidden rounded-lg border border-white/10 bg-surface-1"
       >
         <div className="flex items-center justify-between border-b border-white/5 p-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-white">

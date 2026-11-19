@@ -5,6 +5,7 @@ import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { showToast } from '../../../../shared/components/ui/Toast';
 import { getAvailablePlans, purchaseMembership, type Plan } from '../../services/membershipService';
 import { useClerkAuth } from '../../hooks/useClerkAuth';
+import { usePaymentAvailability } from '../../../payments/usePaymentAvailability';
 import { colors, layout, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
@@ -21,6 +22,7 @@ type Props = {
 
 export function MembershipPurchaseScreen({ navigation }: Props) {
   const { user } = useClerkAuth();
+  const { availability, checkoutAllowed } = usePaymentAvailability();
 
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,6 +54,10 @@ export function MembershipPurchaseScreen({ navigation }: Props) {
 
   const handlePurchase = useCallback(async () => {
     if (!selectedPlan || !user?.id) return;
+    if (!checkoutAllowed) {
+      showToast('error', t.checkoutFailedTitle, availability?.reason ?? t.checkoutFailedBody);
+      return;
+    }
     setIsPaying(true);
     try {
       const preference = await purchaseMembership();
@@ -66,7 +72,7 @@ export function MembershipPurchaseScreen({ navigation }: Props) {
       showToast('error', t.genericErrorTitle, msg);
       setIsPaying(false);
     }
-  }, [selectedPlan, user?.id, navigation]);
+  }, [selectedPlan, user?.id, navigation, checkoutAllowed, availability]);
 
   if (isLoading) {
     return (
@@ -116,6 +122,7 @@ export function MembershipPurchaseScreen({ navigation }: Props) {
           label={isPaying ? 'Procesando pago…' : t.payCta}
           onPress={handlePurchase}
           loading={isPaying}
+          disabled={!checkoutAllowed}
         />
       </ScrollView>
     </SafeAreaView>

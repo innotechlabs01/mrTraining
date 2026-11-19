@@ -9,6 +9,7 @@ import (
 	"time"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/membership"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 )
 
@@ -25,6 +26,14 @@ func NewService(repo domain.Repository) *Service {
 	return &Service{repo: repo}
 }
 
+// SetExecutor returns a service instance bound to the supplied executor
+// (typically a UnitOfWork transaction), keeping the original unchanged.
+func (s *Service) SetExecutor(exec database.Executor) *Service {
+	if repo, ok := s.repo.(interface{ WithExecutor(database.Executor) domain.Repository }); ok {
+		return &Service{repo: repo.WithExecutor(exec)}
+	}
+	return s
+}
 // GetMembership returns the athlete's current membership.
 // Recalculates status based on dates before returning.
 func (s *Service) GetMembership(ctx context.Context, athleteID string) (*domain.Membership, error) {

@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"database/sql"
+
 	"github.com/gofiber/fiber/v2"
 	supportapp "github.com/innotechlabs01/mr-training-api/internal/application/support"
 	supportdomain "github.com/innotechlabs01/mr-training-api/internal/domain/support"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
@@ -13,11 +16,41 @@ import (
 // SupportHandler handles support ticket HTTP requests.
 type SupportHandler struct {
 	service *supportapp.Service
+	db      *sql.DB
 }
 
 // NewSupportHandler creates a new support handler.
-func NewSupportHandler(service *supportapp.Service) *SupportHandler {
-	return &SupportHandler{service: service}
+func NewSupportHandler(service *supportapp.Service, db *sql.DB) *SupportHandler {
+	return &SupportHandler{service: service, db: db}
+}
+
+func (h *SupportHandler) withTx(c *fiber.Ctx, fn func(*supportapp.Service) error) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	coachID := middleware.GetCoachID(c)
+	if h.db == nil || coachID == "" {
+		return fn(h.service)
+	}
+
+	uow := database.NewUnitOfWork(h.db)
+	if err := uow.Begin(c.Context(), userID, coachID, middleware.GetUserRole(c)); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
+	}
+	defer uow.Rollback(c.Context())
+
+	svc := h.service.SetExecutor(uow.Tx())
+
+	if err := fn(svc); err != nil {
+		return err
+	}
+
+	if err := uow.Commit(c.Context()); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to commit transaction")
+	}
+	return nil
 }
 
 // Coach endpoints
@@ -32,16 +65,23 @@ func (h *SupportHandler) ListTickets(c *fiber.Ctx) error {
 		sts := supportdomain.TicketStatus(status)
 		s = &sts
 	}
-	tickets, err := h.service.ListTickets(c.Context(), coachID, s)
+
+	err := h.withTx(c, func(svc *supportapp.Service) error {
+		tickets, err := svc.ListTickets(c.Context(), coachID, s)
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, dto.ListResponse[*dto.SupportTicketResponse]{
+			Data:  toTicketResponses(tickets),
+			Total: len(tickets),
+			Page:  1,
+			Limit: len(tickets),
+		})
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
-	return appresponse.Success(c, dto.ListResponse[*dto.SupportTicketResponse]{
-		Data:  toTicketResponses(tickets),
-		Total: len(tickets),
-		Page:  1,
-		Limit: len(tickets),
-	})
+	return nil
 }
 
 func (h *SupportHandler) GetTicket(c *fiber.Ctx) error {
@@ -53,11 +93,18 @@ func (h *SupportHandler) GetTicket(c *fiber.Ctx) error {
 	if id == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "ticket ID is required")
 	}
-	ticket, err := h.service.GetTicket(c.Context(), coachID, id)
+
+	err := h.withTx(c, func(svc *supportapp.Service) error {
+		ticket, err := svc.GetTicket(c.Context(), coachID, id)
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, toTicketResponse(ticket))
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
-	return appresponse.Success(c, toTicketResponse(ticket))
+	return nil
 }
 
 func (h *SupportHandler) CreateTicket(c *fiber.Ctx) error {
@@ -69,18 +116,25 @@ func (h *SupportHandler) CreateTicket(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
-	ticket, err := h.service.CreateTicket(c.Context(), coachID, supportapp.CreateTicketRequest{
-		Subject:   req.Subject,
-		Body:      req.Body,
-		Category:  supportdomain.TicketCategory(req.Category),
-		Priority:  supportdomain.TicketPriority(req.Priority),
-		AthleteID: req.AthleteID,
-		ImageURL:  req.ImageURL,
+
+	err := h.withTx(c, func(svc *supportapp.Service) error {
+		ticket, err := svc.CreateTicket(c.Context(), coachID, supportapp.CreateTicketRequest{
+			Subject:   req.Subject,
+			Body:      req.Body,
+			Category:  supportdomain.TicketCategory(req.Category),
+			Priority:  supportdomain.TicketPriority(req.Priority),
+			AthleteID: req.AthleteID,
+			ImageURL:  req.ImageURL,
+		})
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, toTicketResponse(ticket))
 	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
-	return appresponse.Success(c, toTicketResponse(ticket))
+	return nil
 }
 
 func (h *SupportHandler) UpdateTicket(c *fiber.Ctx) error {
@@ -111,16 +165,23 @@ func (h *SupportHandler) UpdateTicket(c *fiber.Ctx) error {
 		cat := supportdomain.TicketCategory(*req.Category)
 		category = &cat
 	}
-	ticket, err := h.service.UpdateTicket(c.Context(), coachID, id, supportapp.UpdateTicketRequest{
-		Status:     status,
-		Priority:   priority,
-		Category:   category,
-		AssignedTo: req.AssignedTo,
+
+	err := h.withTx(c, func(svc *supportapp.Service) error {
+		ticket, err := svc.UpdateTicket(c.Context(), coachID, id, supportapp.UpdateTicketRequest{
+			Status:     status,
+			Priority:   priority,
+			Category:   category,
+			AssignedTo: req.AssignedTo,
+		})
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, toTicketResponse(ticket))
 	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
-	return appresponse.Success(c, toTicketResponse(ticket))
+	return nil
 }
 
 func (h *SupportHandler) DeleteTicket(c *fiber.Ctx) error {
@@ -132,10 +193,17 @@ func (h *SupportHandler) DeleteTicket(c *fiber.Ctx) error {
 	if id == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "ticket ID is required")
 	}
-	if err := h.service.DeleteTicket(c.Context(), coachID, id); err != nil {
+
+	err := h.withTx(c, func(svc *supportapp.Service) error {
+		if err := svc.DeleteTicket(c.Context(), coachID, id); err != nil {
+			return err
+		}
+		return appresponse.Success(c, fiber.Map{"deleted": true})
+	})
+	if err != nil {
 		return h.handleError(c, err)
 	}
-	return appresponse.Success(c, fiber.Map{"deleted": true})
+	return nil
 }
 
 // Athlete endpoints
@@ -150,16 +218,23 @@ func (h *SupportHandler) ListAthleteTickets(c *fiber.Ctx) error {
 		sts := supportdomain.TicketStatus(status)
 		s = &sts
 	}
-	tickets, err := h.service.ListAthleteTickets(c.Context(), athleteID, s)
+
+	err := h.withTx(c, func(svc *supportapp.Service) error {
+		tickets, err := svc.ListAthleteTickets(c.Context(), athleteID, s)
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, dto.ListResponse[*dto.SupportTicketResponse]{
+			Data:  toTicketResponses(tickets),
+			Total: len(tickets),
+			Page:  1,
+			Limit: len(tickets),
+		})
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
-	return appresponse.Success(c, dto.ListResponse[*dto.SupportTicketResponse]{
-		Data:  toTicketResponses(tickets),
-		Total: len(tickets),
-		Page:  1,
-		Limit: len(tickets),
-	})
+	return nil
 }
 
 func (h *SupportHandler) GetAthleteTicket(c *fiber.Ctx) error {
@@ -171,11 +246,18 @@ func (h *SupportHandler) GetAthleteTicket(c *fiber.Ctx) error {
 	if id == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "ticket ID is required")
 	}
-	ticket, err := h.service.GetAthleteTicket(c.Context(), athleteID, id)
+
+	err := h.withTx(c, func(svc *supportapp.Service) error {
+		ticket, err := svc.GetAthleteTicket(c.Context(), athleteID, id)
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, toTicketResponse(ticket))
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
-	return appresponse.Success(c, toTicketResponse(ticket))
+	return nil
 }
 
 func (h *SupportHandler) CreateAthleteTicket(c *fiber.Ctx) error {
@@ -187,17 +269,24 @@ func (h *SupportHandler) CreateAthleteTicket(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
-	ticket, err := h.service.CreateAthleteTicket(c.Context(), athleteID, supportapp.CreateAthleteTicketRequest{
-		Subject:  req.Subject,
-		Body:     req.Body,
-		Category: supportdomain.TicketCategory(req.Category),
-		Priority: supportdomain.TicketPriority(req.Priority),
-		ImageURL: req.ImageURL,
+
+	err := h.withTx(c, func(svc *supportapp.Service) error {
+		ticket, err := svc.CreateAthleteTicket(c.Context(), athleteID, supportapp.CreateAthleteTicketRequest{
+			Subject:  req.Subject,
+			Body:     req.Body,
+			Category: supportdomain.TicketCategory(req.Category),
+			Priority: supportdomain.TicketPriority(req.Priority),
+			ImageURL: req.ImageURL,
+		})
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, toTicketResponse(ticket))
 	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
-	return appresponse.Success(c, toTicketResponse(ticket))
+	return nil
 }
 
 // Messages (shared)
@@ -211,11 +300,18 @@ func (h *SupportHandler) ListMessages(c *fiber.Ctx) error {
 	if ticketID == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "ticket ID is required")
 	}
-	messages, err := h.service.ListMessages(c.Context(), userID, userRole, ticketID)
+
+	err := h.withTx(c, func(svc *supportapp.Service) error {
+		messages, err := svc.ListMessages(c.Context(), userID, userRole, ticketID)
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, toMessageResponses(messages))
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
-	return appresponse.Success(c, toMessageResponses(messages))
+	return nil
 }
 
 func (h *SupportHandler) AddMessage(c *fiber.Ctx) error {
@@ -232,11 +328,18 @@ func (h *SupportHandler) AddMessage(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
-	msg, err := h.service.AddMessage(c.Context(), userID, userRole, ticketID, req.Body, req.ImageURL)
+
+	err := h.withTx(c, func(svc *supportapp.Service) error {
+		msg, err := svc.AddMessage(c.Context(), userID, userRole, ticketID, req.Body, req.ImageURL)
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, toMessageResponse(msg))
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
-	return appresponse.Success(c, toMessageResponse(msg))
+	return nil
 }
 
 func (h *SupportHandler) MarkRead(c *fiber.Ctx) error {
@@ -249,10 +352,17 @@ func (h *SupportHandler) MarkRead(c *fiber.Ctx) error {
 	if ticketID == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "ticket ID is required")
 	}
-	if err := h.service.MarkRead(c.Context(), userID, userRole, ticketID); err != nil {
+
+	err := h.withTx(c, func(svc *supportapp.Service) error {
+		if err := svc.MarkRead(c.Context(), userID, userRole, ticketID); err != nil {
+			return err
+		}
+		return appresponse.Success(c, fiber.Map{"marked_read": true})
+	})
+	if err != nil {
 		return h.handleError(c, err)
 	}
-	return appresponse.Success(c, fiber.Map{"marked_read": true})
+	return nil
 }
 
 func (h *SupportHandler) GetUnreadCount(c *fiber.Ctx) error {
@@ -265,11 +375,18 @@ func (h *SupportHandler) GetUnreadCount(c *fiber.Ctx) error {
 	if ticketID == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "ticket ID is required")
 	}
-	count, err := h.service.GetUnreadCount(c.Context(), userID, userRole, ticketID)
+
+	err := h.withTx(c, func(svc *supportapp.Service) error {
+		count, err := svc.GetUnreadCount(c.Context(), userID, userRole, ticketID)
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, dto.UnreadCountResponse{Count: count})
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
-	return appresponse.Success(c, dto.UnreadCountResponse{Count: count})
+	return nil
 }
 
 func (h *SupportHandler) handleError(c *fiber.Ctx, err error) error {

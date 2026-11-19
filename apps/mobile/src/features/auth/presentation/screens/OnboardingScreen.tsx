@@ -11,11 +11,12 @@ import {
 import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { onboardingHeroes } from '../../../../shared/theme/onboardingImages';
+import { spacing } from '../../../../shared/theme/tokens';
 import { HERO_HEADINGS, STEP_TITLES } from '../components/onboarding/options';
 import { CoachScheduleModal } from './CoachScheduleModal';
 import { screenStyles as styles } from './onboarding/screenStyles';
-import { ActivityStep } from './onboarding/ActivityStep';
 import { AgeStep } from './onboarding/AgeStep';
+import { ActivityStep } from './onboarding/ActivityStep';
 import { STEP_COUNT } from './onboarding/constants';
 import { EquipmentStep } from './onboarding/EquipmentStep';
 import { FinalChoiceStep } from './onboarding/FinalChoiceStep';
@@ -54,14 +55,11 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     if (step === 0) return state.sports.length > 0;
     if (step === 1) return state.modality !== '' && state.level !== '';
     if (step === 2) return state.gender !== '';
-    if (step === 3) return true; // weight always has a default
-    if (step === 4) return true; // age default valid
-    if (step === 5) return true; // height default valid
-    if (step === 6) return state.goal !== '';
-    if (step === 7) return state.activityLevel !== '';
-    if (step === 8) return true;
-    if (step === 9) return state.equipment !== '';
-    if (step === 10) return true; // profile optional; could validate email format if needed
+    if (step === 3) return true; // weight/age/height have defaults
+    if (step === 4) return state.goal !== '';
+    if (step === 5) return state.activityLevel !== '';
+    if (step === 6) return state.equipment !== ''; // frequency/duration have defaults
+    if (step === 7) return true; // profile optional
     return true;
   };
 
@@ -128,41 +126,41 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           )}
           {step === 2 && <GenderStep gender={state.gender} onChange={state.setGender} />}
           {step === 3 && (
-            <WeightStep
-              weight={state.weight}
-              weightUnit={state.weightUnit}
-              onUnitChange={state.handleWeightUnitChange}
-              onWeightChange={state.setWeight}
-            />
+            <View style={localStyles.combinedSteps}>
+              <WeightStep
+                weight={state.weight}
+                weightUnit={state.weightUnit}
+                onUnitChange={state.handleWeightUnitChange}
+                onWeightChange={state.setWeight}
+              />
+              <AgeStep age={state.age} onAgeChange={state.setAge} />
+              <HeightStep
+                height={state.height}
+                heightUnit={state.heightUnit}
+                onUnitChange={state.handleHeightUnitChange}
+                onHeightChange={state.setHeight}
+              />
+            </View>
           )}
-          {step === 4 && <AgeStep age={state.age} onAgeChange={state.setAge} />}
+          {step === 4 && <GoalStep goal={state.goal} onGoalChange={state.setGoal} />}
           {step === 5 && (
-            <HeightStep
-              height={state.height}
-              heightUnit={state.heightUnit}
-              onUnitChange={state.handleHeightUnitChange}
-              onHeightChange={state.setHeight}
-            />
-          )}
-          {step === 6 && <GoalStep goal={state.goal} onGoalChange={state.setGoal} />}
-          {step === 7 && (
             <ActivityStep
               activityLevel={state.activityLevel}
               onActivityLevelChange={state.setActivityLevel}
             />
           )}
-          {step === 8 && (
-            <FrequencyDurationStep
-              frequency={state.frequency}
-              duration={state.duration}
-              onFrequencyChange={state.setFrequency}
-              onDurationChange={state.setDuration}
-            />
+          {step === 6 && (
+            <View style={localStyles.combinedSteps}>
+              <FrequencyDurationStep
+                frequency={state.frequency}
+                duration={state.duration}
+                onFrequencyChange={state.setFrequency}
+                onDurationChange={state.setDuration}
+              />
+              <EquipmentStep equipment={state.equipment} onEquipmentChange={state.setEquipment} />
+            </View>
           )}
-          {step === 9 && (
-            <EquipmentStep equipment={state.equipment} onEquipmentChange={state.setEquipment} />
-          )}
-          {step === 10 && (
+          {step === 7 && (
             <ProfileStep
               firstName={state.firstName}
               lastName={state.lastName}
@@ -175,8 +173,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
               onPhoneChange={state.setPhone}
             />
           )}
-          {step === 11 && <SummaryStep data={buildData()} />}
-          {step === 12 && (
+          {step === 8 && <SummaryStep data={buildData()} />}
+          {step === 9 && (
             <FinalChoiceStep
               onSchedule={() => setShowScheduleModal(true)}
               onAccept={() => onComplete(buildData())}
@@ -229,3 +227,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     </SafeAreaView>
   );
 }
+
+const localStyles = StyleSheet.create({
+  combinedSteps: {
+    gap: spacing.sm,
+  },
+});

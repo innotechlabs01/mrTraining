@@ -1,0 +1,200 @@
+version: "3.8"
+
+# Docker Compose for MR Training API local development
+#
+# Profiles:
+#   core    - API + PostgreSQL + Redis (default)
+#   full    - core + NATS JetStream
+#   infra   - full + Floci GCP + Infisical (connects to existing containers via external networks)
+#
+# Usage:
+#   docker compose --profile core up -d          # Basic API stack
+#   docker compose --profile full up -d          # With NATS event bus
+#   docker compose --profile infra up -d         # Full infra (connects to existing Floci/Infisical)
+#   docker compose --profile core down           # Stop core (preserves volumes)
+#
+# Prerequisites for 'infra' profile:
+#   - Floci GCP container must be running on network 'floci-network'
+#   - Infisical container must be running on network 'infisical-network'
+#   Run: docker network create floci-network && docker network create infisical-network
+#   Then connect existing containers: docker network connect floci-network floci-floci-gcp-1
+#   And: docker network connect infisical-network innotech-secrets-infisical
+
+services:
+  # ============================================
+  # PostgreSQL 17 - Isolated instance for MR Training API
+  # ============================================
+  postgres:
+    image: postgres:17-alpine
+    container_name: mr-training-postgres
+    profiles: ["core", "full", "infra"]
+    environment:
+      - POSTGRES_DB=mr_training
+      - POSTGRES_USER=mr_training_app
+      - POSTGRES_PASSWORD=MrTrainingApp_LocalOnly_!2026
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    volumes:
+      - mr-training-postgres-data:/var/lib/postgresql/data
+      - ./migrations/postgres:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mr_training_app -d mr_training"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - mr-training-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 256M
+          cpus: "0.25"
+
+  # ============================================
+  # Redis 7 - Response cache & session store
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: mr-training-redis
+    profiles: ["core", "full", "infra"]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - mr-training-redis-data:/data
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - mr-training-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+        reservations:
+          memory: 64M
+          cpus: "0.1"
+
+  # ============================================
+  # NATS JetStream - Event bus (optional, full profile)
+  # ============================================
+  nats:
+    image: nats:2.10-alpine
+    container_name: mr-training-nats
+    profiles: ["full", "infra"]
+    command: ["-js", "-m", "8222", "-sd", "/data/jetstream"]
+    volumes:
+      - mr-training-nats-data:/data
+      - mr-training-nats-streaming:/data/jetstream
+    ports:
+      - "4222:4222"   # Client connections
+      - "8222:8222"   # Monitoring HTTP
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--spider", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - mr-training-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+        reservations:
+          memory: 64M
+          cpus: "0.1"
+
+  # ============================================
+  # MR Training API - Go Fiber backend
+  # NATS is optional - app handles missing connection gracefully
+  # ============================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mr-training-api
+    profiles: ["core", "full", "infra"]
+    ports:
+      - "9091:9090"
+    env_file:
+      - .env.local
+    environment:
+      # APP_PORT y DATABASE_URL NO se fijan aquí: los toma de .env.local
+      # (env_file) para que ese archivo sea la única fuente de verdad local.
+      - APP_ENV=development
+      # Allowlist del super admin de plataforma. Vive en .env (Compose lo usa
+      # para interpolar), no en .env.local. Sin esta línea el contenedor
+      # arranca con la allowlist vacía y RequirePlatformSuperAdmin responde
+      # 403 "platform super admin access required" a TODO /api/v1/admin/*.
+      - PLATFORM_SUPER_ADMIN_CLERK_ID=${PLATFORM_SUPER_ADMIN_CLERK_ID:-}
+      - LOG_LEVEL=debug
+      - REDIS_URL=redis:6379
+      - NATS_URL=nats://nats:4222
+      # Infisical configuration (loaded from .env.local)
+      - INFISICAL_ENABLED=${INFISICAL_ENABLED:-false}
+      - INFISICAL_BASE_URL=${INFISICAL_BASE_URL:-http://infisical:8080}
+      - INFISICAL_CLIENT_ID=${INFISICAL_CLIENT_ID:-}
+      - INFISICAL_CLIENT_SECRET=${INFISICAL_CLIENT_SECRET:-}
+      - INFISICAL_PROJECT_ID=${INFISICAL_PROJECT_ID:-}
+      - INFISICAL_ENVIRONMENT=${INFISICAL_ENVIRONMENT:-dev}
+      - INFISICAL_SECRET_PATH=${INFISICAL_SECRET_PATH:-/}
+      - INFISICAL_CACHE_TTL=${INFISICAL_CACHE_TTL:-5m}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mr-training-network
+      - floci-network      # For Floci GCP emulator (infra profile)
+      - infisical-network  # For Infisical (infra profile)
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
+
+networks:
+  # Internal network for MR Training services
+  mr-training-network:
+    name: mr-training-network
+    driver: bridge
+
+  # External networks (must exist - created by existing Floci/Infisical stacks)
+  # For 'infra' profile: connect existing Floci/Infisical containers to these networks
+  floci-network:
+    name: floci-network
+    external: true
+
+  infisical-network:
+    name: infisical-network
+    external: true
+
+volumes:
+  # Persistent volumes - never removed by 'docker compose down'
+  mr-training-postgres-data:
+    name: mr-training-postgres-data
+  mr-training-redis-data:
+    name: mr-training-redis-data
+  mr-training-nats-data:
+    name: mr-training-nats-data
+  mr-training-nats-streaming:
+    name: mr-training-nats-streaming

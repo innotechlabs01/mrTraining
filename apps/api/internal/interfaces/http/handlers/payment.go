@@ -11,7 +11,7 @@ import (
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
-// PaymentHandler handles MercadoPago checkout endpoints.
+// PaymentHandler handles Wompi checkout endpoints.
 type PaymentHandler struct {
 	svc *payment.Service
 }

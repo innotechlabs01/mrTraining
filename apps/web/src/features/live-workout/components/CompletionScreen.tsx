@@ -67,7 +67,7 @@ export function CompletionScreen({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 + i * 0.1 }}
-            className="rounded-2xl border border-white/5 bg-surface-1 p-3"
+            className="rounded-lg border border-white/5 bg-surface-1 p-3"
           >
             <div className="mb-1 flex justify-center text-orange-400">{s.icon}</div>
             <p className="text-lg font-bold text-white">{s.value}</p>

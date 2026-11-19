@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS wearable_oauth_tokens (
   refresh_token TEXT,
   expires_at    TEXT,                       -- RFC3339 UTC
   scope         TEXT,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at    TEXT NOT NULL DEFAULT (NOW()),
+  updated_at    TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_wearable_tokens_user_platform

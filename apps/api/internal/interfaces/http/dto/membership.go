@@ -47,13 +47,21 @@ type PaymentResponse struct {
 
 // MembershipStatusResponse represents the gate-status payload for the membership status endpoint.
 type MembershipStatusResponse struct {
-	HasActiveMembership bool                  `json:"hasActiveMembership"`
-	Status              string                `json:"status"`
-	IsInGracePeriod     bool                  `json:"isInGracePeriod"`
-	DaysRemaining       int                   `json:"daysRemaining"`
-	ExpiresAt           string                `json:"expiresAt"`
-	Membership          *MembershipSummary    `json:"membership"`
-	MembershipID        string                `json:"membershipId"`
+	HasActiveMembership bool               `json:"hasActiveMembership"`
+	Status              string             `json:"status"`
+	IsInGracePeriod     bool               `json:"isInGracePeriod"`
+	DaysRemaining       int                `json:"daysRemaining"`
+	ExpiresAt           string             `json:"expiresAt"`
+	Membership          *MembershipSummary `json:"membership"`
+	MembershipID        string             `json:"membershipId"`
+
+	// Coach platform-plan capacity. When the coach has more active athletes
+	// than their plan allows, mobile blocks training and asks the athlete to
+	// contact the administration so the coach can upgrade.
+	CoachPlanLimitExceeded bool   `json:"coachPlanLimitExceeded"`
+	CoachPlanMaxAthletes   int    `json:"coachPlanMaxAthletes"`
+	CoachAthletesCount     int    `json:"coachAthletesCount"`
+	CoachPlanName          string `json:"coachPlanName"`
 }
 
 // MembershipSummary is a summary of membership details shown in the status response.

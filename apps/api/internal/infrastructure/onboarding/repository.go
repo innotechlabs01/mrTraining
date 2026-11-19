@@ -3,6 +3,7 @@ package onboarding
 import (
 	"context"
 	"database/sql"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -12,18 +13,19 @@ import (
 
 // Repository implements onboarding.Repository using database/sql with Turso.
 type Repository struct {
-	db *sql.DB
+	db   *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new onboarding repository.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
 }
 
 // Save persists the onboarding data (upsert by athlete).
 func (r *Repository) Save(ctx context.Context, d *onboarding.OnboardingData) error {
 	sportsJSON, _ := json.Marshal(d.Sports)
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO athlete_onboarding (athlete_id, sports, modality, experience_level, goal,
 		 sessions_per_week, session_duration, equipment, athlete_routine_accepted, updated_at)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
@@ -42,10 +44,10 @@ func (r *Repository) Save(ctx context.Context, d *onboarding.OnboardingData) err
 
 // Get retrieves the onboarding data for an athlete.
 func (r *Repository) Get(ctx context.Context, athleteID string) (*onboarding.OnboardingData, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT athlete_id, sports, modality, experience_level, goal,
 		 sessions_per_week, session_duration, equipment, athlete_routine_accepted
-		 FROM athlete_onboarding WHERE athlete_id = $10`, athleteID)
+		 FROM athlete_onboarding WHERE athlete_id = $1`, athleteID)
 
 	d := &onboarding.OnboardingData{}
 	var sportsJSON string
@@ -71,4 +73,17 @@ func parseJSONArray(raw string) []string {
 		return []string{}
 	}
 	return out
+}
+
+// SetExecutor sets the executor for queries (e.g. *sql.Tx).
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a shallow copy of the repository using the given executor.
+func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
 }

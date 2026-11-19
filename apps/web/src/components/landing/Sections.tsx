@@ -185,7 +185,7 @@ export function PlansSection({ plans, hydrated }: { plans: Plan[]; hydrated: boo
                   </ul>
                 )}
                 <Link
-                  href={`/planes?id=${plan.id}`}
+                  href={`/checkout?plan=${encodeURIComponent(plan.id)}`}
                   className="ig-btn ig-btn-outline"
                   style={{ width: '100%', marginTop: 'auto' }}
                 >

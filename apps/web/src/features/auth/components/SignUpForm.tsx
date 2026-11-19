@@ -9,28 +9,36 @@ import { cn } from '@/lib/utils';
 import { CodeInput } from './CodeInput';
 import { ErrorState } from './ErrorState';
 import { translateClerkError, ClerkApiError } from '../clerk-errors';
+import { useSelectedPlan, formatPlanPrice } from '../hooks/useSelectedPlan';
 
 interface SignUpFormProps {
   onSuccess?: () => void;
   onBack?: () => void;
-  role?: 'coach';
 }
 
 type Step = 'email' | 'verify' | 'password';
 
 const PASSWORD_REQUIREMENTS = [
-  { label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
-  { label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
-  { label: 'One number', test: (p: string) => /\d/.test(p) },
+  { label: 'Al menos 8 caracteres', test: (p: string) => p.length >= 8 },
+  { label: 'Una letra mayúscula', test: (p: string) => /[A-Z]/.test(p) },
+  { label: 'Un número', test: (p: string) => /\d/.test(p) },
 ];
 
-export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProps) {
+/**
+ * SignUpForm collects the credentials of a new coach account.
+ *
+ * The role is NOT set here: Clerk v6 ignores `publicMetadata` on sign-up, and
+ * letting the client declare its own role would be forgeable anyway. The role
+ * is decided server-side by `POST /api/v1/coach/activate`, which only the Go
+ * API (the holder of the Clerk secret key) can call.
+ */
+export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signUp, isLoaded, setActive } = useSignUp();
   const plan = searchParams.get('plan');
-  const planType = searchParams.get('planType');
   const initialEmail = searchParams.get('email') || '';
+  const { plan: selectedPlan, loading: planLoading } = useSelectedPlan(plan);
 
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState(initialEmail);
@@ -40,6 +48,31 @@ export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProp
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [resendCountdown, setResendCountdown] = useState(0);
+
+  // Sync local state with Clerk's signUp state on load
+  useEffect(() => {
+    if (isLoaded && signUp && signUp.status) {
+      const status = signUp.status as string;
+      // If there's an existing sign-up in progress, sync local state
+      if (signUp.emailAddress && !email) {
+        setEmail(signUp.emailAddress);
+      }
+      // Resume from the appropriate step based on signUp status
+      if (status === 'needs_second_factor' || status === 'needs_first_factor') {
+        if (signUp.emailAddress) {
+          setEmail(signUp.emailAddress);
+          if (signUp.verifications?.emailAddress?.status === 'verified') {
+            setStep('password');
+          } else {
+            setStep('verify');
+          }
+        }
+      }
+    }
+  }, [isLoaded, signUp]);
+
+  // Note: Clerk automatically abandons previous sign-up when create() is called with a different email
+  // No explicit abandon() method needed on SignUpResource
 
   const validateEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
@@ -66,17 +99,39 @@ export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProp
     setIsLoading(true);
     setError('');
 
+    // Determine the email to use (local state or existing signUp email)
+    const emailToUse = email || signUp.emailAddress;
+    
+    if (!emailToUse) {
+      setError('Por favor ingresa un email');
+      setIsLoading(false);
+      return;
+    }
+
     try {
+      // Only the plan selection travels in the metadata. It is not a
+      // privilege: the backend ignores it for authorization decisions.
       const unsafeMetadata: Record<string, string> = {};
       if (plan) unsafeMetadata.plan = plan;
-      if (planType) unsafeMetadata.planType = planType;
 
-      await signUp.create({
-        emailAddress: email,
-        unsafeMetadata: Object.keys(unsafeMetadata).length > 0 ? unsafeMetadata : undefined,
-        publicMetadata: { role } as unknown as never,
-      } as unknown as never);
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      // If there's already a sign-up for this email, resume it instead of creating new
+      if (signUp.emailAddress === emailToUse && signUp.status !== 'complete') {
+        // Resume existing sign-up
+        await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+        if (emailToUse !== email) {
+          setEmail(emailToUse); // Sync local state
+        }
+      } else {
+        // Create new sign-up
+        await signUp.create({
+          emailAddress: emailToUse,
+          unsafeMetadata: Object.keys(unsafeMetadata).length > 0 ? unsafeMetadata : undefined,
+        });
+        await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      }
+      if (emailToUse !== email) {
+        setEmail(emailToUse); // Sync local state
+      }
       setStep('verify');
       startResendCountdown();
     } catch (err: unknown) {
@@ -84,8 +139,18 @@ export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProp
       const code = clerkErr.errors?.[0]?.code;
       if (code === 'form_identifier_exists') {
         // Email already has an account — send them straight to sign-in, prefilled.
-        router.push(`/sign-in?email=${encodeURIComponent(email)}${plan ? `&plan=${plan}` : ''}`);
+        router.push(`/sign-in?email=${encodeURIComponent(emailToUse)}${plan ? `&plan=${plan}` : ''}`);
         return;
+      } else if (code === 'session_already_exists' || code === 'sign_up_already_exists') {
+        // Session already exists for this email - try to resume
+        if (signUp.emailAddress) {
+          await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+          setEmail(signUp.emailAddress); // Sync local state
+          setStep('verify');
+          startResendCountdown();
+        } else {
+          setError('Ya hay una sesión activa para otro email. Intenta con el mismo email o espera.');
+        }
       } else {
         setError(translateClerkError(err, 'No se pudo continuar. Inténtalo de nuevo.'));
       }
@@ -146,7 +211,6 @@ export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProp
     try {
       const unsafeMetadata: Record<string, string> = {};
       if (plan) unsafeMetadata.plan = plan;
-      if (planType) unsafeMetadata.planType = planType;
 
       await signUp.update({
         password,
@@ -197,6 +261,21 @@ export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProp
     <div className="flex flex-col gap-6">
       {error && error !== 'already_exists' && <ErrorState message={error} onRetry={() => setError('')} />}
 
+      {plan && (
+        <div
+          className="flex items-center justify-between gap-3 rounded-md border border-brand-primary/30 bg-brand-primary/5 px-4 py-3"
+          aria-live="polite"
+        >
+          <span className="text-body-sm text-text-secondary">
+            {planLoading || !selectedPlan ? (
+              'Cargando tu plan...'
+            ) : (
+              `Te estás registrando para ${selectedPlan.name} — ${formatPlanPrice(selectedPlan)}`
+            )}
+          </span>
+        </div>
+      )}
+
       <AnimatePresence mode="wait">
         {step === 'email' && (
           <motion.div
@@ -215,7 +294,7 @@ export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProp
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(''); }}
                 onKeyDown={(e) => e.key === 'Enter' && handleEmailSubmit()}
-                placeholder="Email address"
+                placeholder="Correo electrónico"
                 autoComplete="email"
                 autoFocus
                 className={cn(
@@ -241,7 +320,7 @@ export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProp
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                'Continue'
+                'Continuar'
               )}
             </button>
 
@@ -252,7 +331,7 @@ export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProp
                 className="flex items-center justify-center gap-1.5 text-body-sm text-text-secondary transition-colors duration-200 hover:text-text-primary"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Back to welcome
+                Volver al inicio
               </button>
             )}
           </motion.div>
@@ -270,7 +349,7 @@ export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProp
           >
             <div className="text-center">
               <p className="text-body-sm text-text-secondary">
-                Enter the verification code sent to
+                Ingresa el código que enviamos a
               </p>
               <p className="text-body-sm font-medium text-text-primary mt-1">{email}</p>
             </div>
@@ -286,7 +365,7 @@ export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProp
             <div className="text-center">
               {resendCountdown > 0 ? (
                 <p className="text-caption text-text-secondary">
-                  Resend code in{' '}
+                  Reenviar código en{' '}
                   <span className="font-medium text-text-primary">{resendCountdown}s</span>
                 </p>
               ) : (
@@ -296,7 +375,7 @@ export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProp
                   disabled={isLoading}
                   className="text-body-sm text-brand-primary transition-colors duration-200 hover:text-brand-primary-light disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? 'Sending...' : 'Resend code'}
+                  {isLoading ? 'Enviando...' : 'Reenviar código'}
                 </button>
               )}
             </div>
@@ -307,7 +386,7 @@ export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProp
               className="flex items-center justify-center gap-1.5 text-body-sm text-text-secondary transition-colors duration-200 hover:text-text-primary"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back
+              Volver
             </button>
           </motion.div>
         )}
@@ -329,7 +408,7 @@ export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProp
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(''); }}
                 onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
-                placeholder="Create a password"
+                placeholder="Crea una contraseña"
                 autoComplete="new-password"
                 autoFocus
                 className={cn(
@@ -389,7 +468,7 @@ export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProp
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                'Create Account'
+                'Crear cuenta'
               )}
             </button>
 
@@ -399,7 +478,7 @@ export function SignUpForm({ onSuccess, onBack, role = 'coach' }: SignUpFormProp
               className="flex items-center justify-center gap-1.5 text-body-sm text-text-secondary transition-colors duration-200 hover:text-text-primary"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back
+              Volver
             </button>
           </motion.div>
         )}

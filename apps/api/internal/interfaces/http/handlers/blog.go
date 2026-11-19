@@ -61,6 +61,21 @@ func (h *BlogHandler) GetArticle(c *fiber.Ctx) error {
 	return appresponse.Success(c, toArticleResponse(article))
 }
 
+// GetArticleBySlug handles GET /blog/:slug (public).
+func (h *BlogHandler) GetArticleBySlug(c *fiber.Ctx) error {
+	slug := c.Params("slug")
+	if slug == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "article slug is required")
+	}
+
+	article, err := h.service.GetArticleBySlug(c.Context(), slug)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, toArticleResponse(article))
+}
+
 // ListCoachArticles handles GET /coach/blog (drafts included).
 func (h *BlogHandler) ListCoachArticles(c *fiber.Ctx) error {
 	coachID := c.Locals("user_id").(string)

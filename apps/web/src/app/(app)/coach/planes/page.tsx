@@ -48,7 +48,7 @@ export default function CoachPlanesPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.08 }}
-              className="relative rounded-2xl border border-white/10 bg-surface-1 p-5 flex flex-col animate-pulse"
+              className="relative rounded-lg border border-white/10 bg-surface-1 p-5 flex flex-col animate-pulse"
             >
               <div className="h-4 w-3/4 bg-white/10 rounded mb-4" />
               <div className="h-32 bg-white/5 rounded" />
@@ -78,7 +78,7 @@ export default function CoachPlanesPage() {
       </div>
 
       {plans.length === 0 && (
-        <div className="rounded-2xl border border-white/10 bg-surface-1 p-12 text-center">
+        <div className="rounded-lg border border-white/10 bg-surface-1 p-12 text-center">
           <Tag className="w-12 h-12 mx-auto text-white/30 mb-4" />
           <h3 className="text-base font-semibold text-white">No hay planes aún</h3>
           <p className="text-sm text-white/40 mt-1">Crea tu primer plan para empezar a cobrar</p>
@@ -105,7 +105,7 @@ export default function CoachPlanesPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.08 }}
               className={cn(
-                'relative rounded-2xl border bg-surface-1 p-5 flex flex-col',
+                'relative rounded-lg border bg-surface-1 p-5 flex flex-col',
                 plan.isActive ? 'border-white/10' : 'border-white/5 opacity-60',
               )}
             >

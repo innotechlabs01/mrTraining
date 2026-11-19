@@ -15,6 +15,7 @@ function toExercise(e: ExerciseLibraryEntry): Exercise {
     difficulty: (e.difficulty ?? 'beginner') as Difficulty,
     instructions: Array.isArray(e.instructions) ? e.instructions : [],
     videoUrl: e.videoUrl ?? undefined,
+    imageUrl: e.imageUrl ?? undefined,
     createdAt: '',
   }
 }
@@ -36,6 +37,7 @@ function fromExercise(e: Partial<Exercise>): Record<string, unknown> {
       ? e.instructions.join('\n')
       : (e.instructions ?? ''),
     videoUrl: e.videoUrl,
+    imageUrl: e.imageUrl,
   }
 }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { HeartPulse, Moon, Watch, Activity, Zap, Droplets, Brain, Flame, ChevronRight } from 'lucide-react'
 import {
   trainingApi,
@@ -56,7 +56,7 @@ const METRIC_LABELS: Record<string, { label: string; unit: string; color: string
 
 function Panel({ title, icon: Icon, children, action }: { title: string; icon: LucideIcon; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 space-y-4">
+    <div className="rounded-lg border border-white/5 bg-surface-1 p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-white/70">
           <Icon size={15} className="text-brand-primary" />
@@ -148,7 +148,7 @@ function TrendChart({ data, metricType, height = 120 }: { data: HealthSeriesRow[
           contentStyle={{ backgroundColor: '#1C2320', border: '1px solid #374151', borderRadius: 8 }}
           labelStyle={{ color: '#fff' }}
           itemStyle={{ color: '#fff' }}
-          formatter={(value: any, name?: string | number) => [typeof value === 'number' ? Math.round(value) : value, String(name ?? '')]}
+          formatter={(value: unknown, name?: string | number) => [typeof value === 'number' ? Math.round(value) : String(value ?? ''), String(name ?? '')]}
         />
         <Area type="monotone" dataKey="value" stroke={color} fillOpacity={1} fill={`url(#color-${metricType})`} />
       </AreaChart>
@@ -201,7 +201,7 @@ function SleepQualityChart({ nights }: { nights: AthleteHealthResponse['sleepLog
           contentStyle={{ backgroundColor: '#1C2320', border: '1px solid #374151', borderRadius: 8 }}
           labelStyle={{ color: '#fff' }}
           itemStyle={{ color: '#fff' }}
-          formatter={(value: any, name?: string | number) => {
+          formatter={(value: unknown, name?: string | number) => {
             const labels: Record<string, string> = {
               efficiency: 'Eficiencia (%)',
               deep: 'Deep (h)',
@@ -311,7 +311,7 @@ function SleepQualityPanel({ sleepLogs }: { sleepLogs: AthleteHealthResponse['sl
   )
 }
 
-export function AthleteHealthPanels({ athleteId }: { athleteId: string }) {
+export const AthleteHealthPanels = React.memo(function AthleteHealthPanels({ athleteId }: { athleteId: string }) {
   const [health, setHealth] = useState<AthleteHealthResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -326,7 +326,7 @@ export function AthleteHealthPanels({ athleteId }: { athleteId: string }) {
   }, [athleteId])
 
   if (isLoading) {
-    return <div className="space-y-4">{[1,2,3,4].map(i => <div key={i} className="rounded-2xl border border-white/5 bg-surface-1 p-5 h-28 animate-pulse" />)}</div>
+    return <div className="space-y-4">{[1,2,3,4].map(i => <div key={i} className="rounded-lg border border-white/5 bg-surface-1 p-5 h-28 animate-pulse" />)}</div>
   }
   if (error || !health) return null
 
@@ -426,8 +426,7 @@ export function AthleteHealthPanels({ athleteId }: { athleteId: string }) {
       <HRZonesPanel athleteId={athleteId} />
       <VideoEngagementPanel athleteId={athleteId} />
     </div>
-  )
-}
+  )})
 
 const ZONE_COLORS = ['#22c55e', '#84cc16', '#eab308', '#f97316', '#ef4444'];
 const ZONE_LABELS = ['Zona 1 · Recuperación', 'Zona 2 · Aeróbica', 'Zona 3 · Tempo', 'Zona 4 · Umbral', 'Zona 5 · VO₂max'];
@@ -445,7 +444,7 @@ function HRZonesPanel({ athleteId }: { athleteId: string }) {
     return () => { cancelled = true }
   }, [athleteId])
 
-  if (loading) return <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 h-20 animate-pulse" />
+  if (loading) return <div className="rounded-lg border border-white/5 bg-surface-1 p-5 h-20 animate-pulse" />
   if (!zones || zones.totalTime === 0) return null
 
   const total = zones.totalTime
@@ -493,7 +492,7 @@ function VideoEngagementPanel({ athleteId }: { athleteId: string }) {
     return () => { cancelled = true }
   }, [athleteId])
 
-  if (loading) return <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 h-20 animate-pulse" />
+  if (loading) return <div className="rounded-lg border border-white/5 bg-surface-1 p-5 h-20 animate-pulse" />
   if (analytics.length === 0) return null
 
   return (

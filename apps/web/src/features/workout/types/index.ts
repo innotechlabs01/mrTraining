@@ -40,6 +40,7 @@ export interface Exercise {
   difficulty: Difficulty
   instructions: string[]
   videoUrl?: string
+  imageUrl?: string
   createdAt: string
 }
 

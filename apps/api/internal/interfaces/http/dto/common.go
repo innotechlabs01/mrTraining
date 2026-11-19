@@ -36,3 +36,8 @@ type ErrorBody struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
+
+// WebhookResponse is the response for public webhook endpoints.
+type WebhookResponse struct {
+	Received bool `json:"received"`
+}

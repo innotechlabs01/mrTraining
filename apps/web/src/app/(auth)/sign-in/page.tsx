@@ -1,69 +1,128 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@clerk/nextjs';
+import { Suspense, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth, useUser } from '@clerk/nextjs';
 import { AuthShell } from '@/features/auth/components/AuthShell';
 import { SignInForm } from '@/features/auth/components/SignInForm';
-import { motion } from 'framer-motion';
-import { ClipboardList } from 'lucide-react';
 import { useI18n } from '@/features/shared/hooks/useI18n';
-import { cn } from '@/lib/utils';
-
-const ROLES = [
-  { id: 'coach', label: 'Coach', icon: ClipboardList, desc: 'Manage athletes & create programs' },
-];
+import { resolveRole, isSuperAdmin } from '@/app/(auth)/sign-up/signUpGuard';
+import { destinationFor } from './destinationFor';
 
 export default function SignInPage() {
-  const router = useRouter();
-  const { isSignedIn, isLoaded } = useAuth();
-  const [role, setRole] = useState<string | null>(null);
   const { t } = useI18n('common');
-
-  useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      router.replace('/coach');
-    }
-  }, [isLoaded, isSignedIn, router]);
-
-  const handleSuccess = () => {
-    router.push('/coach');
-  };
 
   return (
     <AuthShell title={t('welcome')} subtitle={t('signInSubtitle')}>
       <Suspense fallback={null}>
-        {!role ? (
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-text-secondary text-center mb-2">{t('auth.iAm')}</p>
-            <div className="grid grid-col-6 gap-3">
-              {ROLES.map((r) => (
-                <motion.button
-                  key={r.id}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setRole(r.id)}
-                  className={cn(
-                    'flex flex-col items-center gap-3 p-5 rounded-xl border border-surface-3 bg-surface-1 hover:bg-surface-2 transition-colors text-center',
-                    role === r.id && 'border-brand-primary bg-brand-primary/5',
-                  )}
-                >
-                  <r.icon size={28} className="text-brand-primary" />
-                  <span className="text-sm font-semibold text-text-primary">{r.label}</span>
-                  <span className="text-xs text-text-secondary">{r.desc}</span>
-                </motion.button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <SignInForm
-            onSuccess={handleSuccess}
-            onForgotPassword={() => router.push('/forgot-password')}
-            onBack={() => setRole(null)}
-            role={role}
-          />
-        )}
+        <SignInContent />
       </Suspense>
     </AuthShell>
   );
+}
+
+function SignInContent() {
+  const router = useRouter();
+  const { isSignedIn, isLoaded, sessionClaims, userId } = useAuth();
+  const { user } = useUser();
+  const searchParams = useSearchParams();
+
+  // Prefill sign-in email from the Wompi URL email param. The email may arrive
+  // as a top-level search param, or nested inside redirect_url (when the
+  // middleware redirected from /payment/success?checkout=...&email=...).
+  const emailFromUrl: string | undefined =
+    searchParams.get('email') ?? extractEmailFromRedirectUrl(searchParams.get('redirect_url')) ?? undefined;
+
+  /**
+   * Resolves where a signed-in user belongs.
+   *
+   * The role comes from the Clerk PUBLIC metadata, which only the Go API
+   * writes — the client cannot forge it.
+   */
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+
+    const metadataRole = resolveRole(sessionClaims, user);
+    const id = userId ?? user?.id;
+    const isSuperAdminUser = isSuperAdmin(id, metadataRole);
+
+    if (isSuperAdminUser) {
+      router.replace(destinationFor(searchParams, true, metadataRole));
+      return;
+    }
+
+    if (metadataRole === 'coach') {
+      router.replace(destinationFor(searchParams, false, metadataRole));
+      return;
+    }
+
+    if (!user) {
+      // Role still undetermined and the user object has not arrived yet —
+      // keep waiting instead of guessing. The effect re-runs once `user`
+      // loads.
+      return;
+    }
+
+    // Athletes live on mobile and users without a role belong on the public
+    // landing. Never /coach or /sign-in: the middleware bounces both back.
+    router.replace(destinationFor(searchParams, false, metadataRole));
+  }, [isLoaded, isSignedIn, sessionClaims, userId, user, router, searchParams]);
+
+  // NOTE: SignInForm calls this the instant attemptFirstFactor() completes —
+  // Clerk's session state (and sessionClaims) may not have propagated yet, so
+  // reading roles here can be stale. We only act when the role is unambiguous;
+  // otherwise the effect above routes once isSignedIn flips.
+  const handleSuccess = () => {
+    const metadataRole = resolveRole(sessionClaims, user);
+    const id = userId ?? user?.id;
+    const isSuperAdminUser = isSuperAdmin(id, metadataRole);
+
+    if (isSuperAdminUser) {
+      router.push(destinationFor(searchParams, true, metadataRole));
+    } else if (metadataRole === 'coach') {
+      router.push(destinationFor(searchParams, false, metadataRole));
+    }
+    // Unknown role: do nothing, let the effect decide.
+  };
+
+  // An already signed-in user never sees the sign-in form: they are routed to
+  // their own home. The "Ya tienes una sesión activa" error is gone.
+  if (isLoaded && isSignedIn) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <SignInForm
+      onSuccess={handleSuccess}
+      onForgotPassword={() => router.push('/forgot-password')}
+      initialEmail={emailFromUrl}
+    />
+  );
+}
+
+/**
+ * Extracts the `email` query param from a `redirect_url` value.
+ *
+ * The middleware stores the full `pathname + search` as redirect_url, so the
+ * email param lives inside it (e.g. `/payment/success?checkout=abc&email=x@y.com`).
+ * Handles both relative paths and same-origin absolute URLs.
+ */
+function extractEmailFromRedirectUrl(redirectUrl: string | null): string | null {
+  if (!redirectUrl) return null;
+  try {
+    const u = new URL(redirectUrl);
+    if (u.origin === window.location.origin) {
+      return u.searchParams.get('email') ?? null;
+    }
+    return null;
+  } catch {
+    // Not an absolute URL: parse as a relative path with query string.
+    const [, search] = redirectUrl.split('?', 2);
+    if (!search) return null;
+    return new URLSearchParams(search).get('email') ?? null;
+  }
 }

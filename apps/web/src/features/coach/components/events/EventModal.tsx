@@ -131,7 +131,7 @@ export function EventModal({ open, event, onClose, onSave }: EventModalProps) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative z-10 w-full max-w-xl max-h-[90vh] overflow-y-auto bg-surface-1 border border-white/10 rounded-2xl shadow-2xl">
+      <div className="relative z-10 w-full max-w-xl max-h-[90vh] overflow-y-auto bg-surface-1 border border-white/10 rounded-lg shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 bg-surface-1 border-b border-white/10">
           <h3 className="text-lg font-display font-bold text-white">
             {isEditing ? 'Editar Evento' : 'Nuevo Evento'}

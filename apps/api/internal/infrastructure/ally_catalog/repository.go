@@ -4,6 +4,8 @@ package ally_catalog
 import (
 	"context"
 	"database/sql"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"errors"
 	"fmt"
 
@@ -14,13 +16,34 @@ import (
 
 // Repository implements ally_catalog.Repository using the libsql/SQLite driver.
 type Repository struct {
-	db *sql.DB
+	db   *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new ally catalog repository.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
 }
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) allycatalogdomain.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
+}
+
 
 // ResolveAllyID returns the ally the given user owns (allies.owner_user_id) or
 // belongs to (ally_members). When the user is linked to several allies the
@@ -29,7 +52,7 @@ func NewRepository(db *sql.DB) *Repository {
 func (r *Repository) ResolveAllyID(ctx context.Context, userID string) (string, error) {
 	var allyID string
 	var count int
-	err := r.db.QueryRowContext(ctx, `
+	err := r.exec.QueryRowContext(ctx, `
 		SELECT COUNT(*), COALESCE(MIN(a.id), '')
 		FROM allies a
 		WHERE a.owner_user_id = $1
@@ -50,7 +73,7 @@ func (r *Repository) ResolveAllyID(ctx context.Context, userID string) (string, 
 // ResolveAllyIDByCoachID returns the ally owned by the given coach (owner_user_id).
 func (r *Repository) ResolveAllyIDByCoachID(ctx context.Context, coachID string) (string, error) {
 	var allyID string
-	err := r.db.QueryRowContext(ctx, `SELECT id FROM allies WHERE owner_user_id = $3 LIMIT 1`, coachID).Scan(&allyID)
+	err := r.exec.QueryRowContext(ctx, `SELECT id FROM allies WHERE owner_user_id = $1 LIMIT 1`, coachID).Scan(&allyID)
 	if err == sql.ErrNoRows {
 		return "", allycatalogdomain.ErrNotFound
 	}
@@ -64,14 +87,14 @@ func (r *Repository) ResolveAllyIDByCoachID(ctx context.Context, coachID string)
 func (r *Repository) ListProducts(ctx context.Context, allyID string, activeOnly bool) ([]*allycatalogdomain.AllyProduct, error) {
 	query := `
 		SELECT id, ally_id, name, description, image_url, price_cents, currency, stock, active, created_at, updated_at
-		FROM ally_products WHERE ally_id = $4
+		FROM ally_products WHERE ally_id = $1
 	`
 	args := []any{allyID}
 	if activeOnly {
 		query += " AND active = 1"
 	}
-	query += " ORDER BY name COLLATE NOCASE"
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	query += " ORDER BY name "
+	rows, err := r.exec.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list products: %w", err)
 	}
@@ -81,9 +104,9 @@ func (r *Repository) ListProducts(ctx context.Context, allyID string, activeOnly
 
 // GetProduct returns a product only when it belongs to allyID.
 func (r *Repository) GetProduct(ctx context.Context, allyID, productID string) (*allycatalogdomain.AllyProduct, error) {
-	return scanProduct(r.db.QueryRowContext(ctx, `
+	return scanProduct(r.exec.QueryRowContext(ctx, `
 		SELECT id, ally_id, name, description, image_url, price_cents, currency, stock, active, created_at, updated_at
-		FROM ally_products WHERE id = $5 AND ally_id = $6
+		FROM ally_products WHERE id = $1 AND ally_id = $2
 	`, productID, allyID))
 }
 
@@ -94,9 +117,9 @@ func (r *Repository) CreateProduct(ctx context.Context, in allycatalogdomain.Cre
 	if in.Active {
 		active = 1
 	}
-	if _, err := r.db.ExecContext(ctx, `
+	if _, err := r.exec.ExecContext(ctx, `
 		INSERT INTO ally_products (id, ally_id, name, description, image_url, price_cents, currency, stock, active, created_at, updated_at)
-		VALUES ($7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
 	`, id, in.AllyID, in.Name, in.Description, in.ImageURL, in.PriceCents, in.Currency, in.Stock, active); err != nil {
 		return nil, fmt.Errorf("failed to insert product: %w", err)
 	}
@@ -109,41 +132,43 @@ func (r *Repository) UpdateProduct(ctx context.Context, allyID, productID string
 	sets := []string{"updated_at = NOW()"}
 	args := []any{}
 	if in.Name != nil {
-		sets = append(sets, "name = $16")
+		sets = append(sets, fmt.Sprintf("name = $%d", len(args)+1))
 		args = append(args, *in.Name)
 	}
 	if in.Description != nil {
-		sets = append(sets, "description = $17")
+		sets = append(sets, fmt.Sprintf("description = $%d", len(args)+1))
 		args = append(args, *in.Description)
 	}
 	if in.ImageURL != nil {
-		sets = append(sets, "image_url = $18")
+		sets = append(sets, fmt.Sprintf("image_url = $%d", len(args)+1))
 		args = append(args, *in.ImageURL)
 	}
 	if in.PriceCents != nil {
-		sets = append(sets, "price_cents = $19")
+		sets = append(sets, fmt.Sprintf("price_cents = $%d", len(args)+1))
 		args = append(args, *in.PriceCents)
 	}
 	if in.Currency != nil {
-		sets = append(sets, "currency = $20")
+		sets = append(sets, fmt.Sprintf("currency = $%d", len(args)+1))
 		args = append(args, *in.Currency)
 	}
 	if in.Stock != nil {
-		sets = append(sets, "stock = $21")
+		sets = append(sets, fmt.Sprintf("stock = $%d", len(args)+1))
 		args = append(args, *in.Stock)
 	}
 	if in.Active != nil {
-		sets = append(sets, "active = $22")
+		sets = append(sets, fmt.Sprintf("active = $%d", len(args)+1))
 		if *in.Active {
 			args = append(args, 1)
 		} else {
 			args = append(args, 0)
 		}
 	}
+	productPh := len(args) + 1
+	allyPh := len(args) + 2
 	args = append(args, productID, allyID)
 
-	res, err := r.db.ExecContext(ctx, `
-		UPDATE ally_products SET `+sets[0]+", "+stringsJoin(sets[1:], ", ")+` WHERE id = $23 AND ally_id = $24
+	res, err := r.exec.ExecContext(ctx, `
+		UPDATE ally_products SET `+sets[0]+", "+stringsJoin(sets[1:], ", ")+fmt.Sprintf(` WHERE id = $%d AND ally_id = $%d`, productPh, allyPh)+`
 	`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update product: %w", err)
@@ -158,14 +183,14 @@ func (r *Repository) UpdateProduct(ctx context.Context, allyID, productID string
 func (r *Repository) ListServices(ctx context.Context, allyID string, activeOnly bool) ([]*allycatalogdomain.AllyService, error) {
 	query := `
 		SELECT id, ally_id, name, description, image_url, price_cents, currency, duration_min, capacity, active, created_at, updated_at
-		FROM ally_services WHERE ally_id = $25
+		FROM ally_services WHERE ally_id = $1
 	`
 	args := []any{allyID}
 	if activeOnly {
 		query += " AND active = 1"
 	}
-	query += " ORDER BY name COLLATE NOCASE"
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	query += " ORDER BY name "
+	rows, err := r.exec.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list services: %w", err)
 	}
@@ -175,9 +200,9 @@ func (r *Repository) ListServices(ctx context.Context, allyID string, activeOnly
 
 // GetService returns a service only when it belongs to allyID.
 func (r *Repository) GetService(ctx context.Context, allyID, serviceID string) (*allycatalogdomain.AllyService, error) {
-	return scanService(r.db.QueryRowContext(ctx, `
+	return scanService(r.exec.QueryRowContext(ctx, `
 		SELECT id, ally_id, name, description, image_url, price_cents, currency, duration_min, capacity, active, created_at, updated_at
-		FROM ally_services WHERE id = $26 AND ally_id = $27
+		FROM ally_services WHERE id = $1 AND ally_id = $2
 	`, serviceID, allyID))
 }
 
@@ -188,9 +213,9 @@ func (r *Repository) CreateService(ctx context.Context, in allycatalogdomain.Cre
 	if in.Active {
 		active = 1
 	}
-	if _, err := r.db.ExecContext(ctx, `
+	if _, err := r.exec.ExecContext(ctx, `
 		INSERT INTO ally_services (id, ally_id, name, description, image_url, price_cents, currency, duration_min, capacity, active, created_at, updated_at)
-		VALUES ($28, $29, $30, $31, $32, $33, $34, $35, $36, $37, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
 	`, id, in.AllyID, in.Name, in.Description, in.ImageURL, in.PriceCents, in.Currency, in.DurationMin, in.Capacity, active); err != nil {
 		return nil, fmt.Errorf("failed to insert service: %w", err)
 	}
@@ -202,45 +227,47 @@ func (r *Repository) UpdateService(ctx context.Context, allyID, serviceID string
 	sets := []string{"updated_at = NOW()"}
 	args := []any{}
 	if in.Name != nil {
-		sets = append(sets, "name = $38")
+		sets = append(sets, fmt.Sprintf("name = $%d", len(args)+1))
 		args = append(args, *in.Name)
 	}
 	if in.Description != nil {
-		sets = append(sets, "description = $39")
+		sets = append(sets, fmt.Sprintf("description = $%d", len(args)+1))
 		args = append(args, *in.Description)
 	}
 	if in.ImageURL != nil {
-		sets = append(sets, "image_url = $40")
+		sets = append(sets, fmt.Sprintf("image_url = $%d", len(args)+1))
 		args = append(args, *in.ImageURL)
 	}
 	if in.PriceCents != nil {
-		sets = append(sets, "price_cents = $41")
+		sets = append(sets, fmt.Sprintf("price_cents = $%d", len(args)+1))
 		args = append(args, *in.PriceCents)
 	}
 	if in.Currency != nil {
-		sets = append(sets, "currency = $42")
+		sets = append(sets, fmt.Sprintf("currency = $%d", len(args)+1))
 		args = append(args, *in.Currency)
 	}
 	if in.DurationMin != nil {
-		sets = append(sets, "duration_min = $43")
+		sets = append(sets, fmt.Sprintf("duration_min = $%d", len(args)+1))
 		args = append(args, *in.DurationMin)
 	}
 	if in.Capacity != nil {
-		sets = append(sets, "capacity = $44")
+		sets = append(sets, fmt.Sprintf("capacity = $%d", len(args)+1))
 		args = append(args, *in.Capacity)
 	}
 	if in.Active != nil {
-		sets = append(sets, "active = $45")
+		sets = append(sets, fmt.Sprintf("active = $%d", len(args)+1))
 		if *in.Active {
 			args = append(args, 1)
 		} else {
 			args = append(args, 0)
 		}
 	}
+	servicePh := len(args) + 1
+	allyPh := len(args) + 2
 	args = append(args, serviceID, allyID)
 
-	res, err := r.db.ExecContext(ctx, `
-		UPDATE ally_services SET `+sets[0]+", "+stringsJoin(sets[1:], ", ")+` WHERE id = $46 AND ally_id = $47
+	res, err := r.exec.ExecContext(ctx, `
+		UPDATE ally_services SET `+sets[0]+", "+stringsJoin(sets[1:], ", ")+fmt.Sprintf(` WHERE id = $%d AND ally_id = $%d`, servicePh, allyPh)+`
 	`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update service: %w", err)
@@ -314,9 +341,9 @@ func scanServiceRow(row scanner) (*allycatalogdomain.AllyService, error) {
 // GetProductByID returns a product by ID regardless of which ally owns it.
 // Used by athletes purchasing through their coach's active relationship.
 func (r *Repository) GetProductByID(ctx context.Context, productID string) (*allycatalogdomain.AllyProduct, error) {
-	return scanProduct(r.db.QueryRowContext(ctx, `
+	return scanProduct(r.exec.QueryRowContext(ctx, `
 		SELECT id, ally_id, name, description, image_url, price_cents, currency, stock, active, created_at, updated_at
-		FROM ally_products WHERE id = $48
+		FROM ally_products WHERE id = $1
 	`, productID))
 }
 

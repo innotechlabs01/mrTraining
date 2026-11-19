@@ -46,3 +46,20 @@ type BatchSyncResponse struct {
 	Synced  int `json:"synced"`
 	Failed  int `json:"failed"`
 }
+
+// CoachAthleteFormStats represents aggregated form stats for one athlete+exercise.
+type CoachAthleteFormStats struct {
+	AthleteID    string  `json:"athlete_id"`
+	AthleteName  string  `json:"athlete_name"`
+	ExerciseID   string  `json:"exercise_id"`
+	ExerciseName string  `json:"exercise_name"`
+	LatestScore  float64 `json:"latest_score"`
+	AvgScore     float64 `json:"avg_score"`
+	BestScore    float64 `json:"best_score"`
+	WorstScore   float64 `json:"worst_score"`
+	Trend        string  `json:"trend"`
+	Sessions     int     `json:"sessions"`
+	AvgDepth     float64 `json:"avg_depth"`
+	AvgAlignment float64 `json:"avg_alignment"`
+	AvgTempo     float64 `json:"avg_tempo"`
+}

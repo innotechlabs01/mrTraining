@@ -15,30 +15,30 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'setup-coach',
-      testMatch: /.*\.setup\.ts/,
-      testIgnore: /.*\.spec\.ts/,
-    },
-    {
-      name: 'setup-athlete',
-      testMatch: /.*\.setup\.ts/,
+      name: 'setup-clerk-coach',
+      testMatch: /tests\/api\/setup-clerk-coach\.ts/,
       testIgnore: /.*\.spec\.ts/,
     },
     {
       name: 'chromium',
-      use: { 
+      testIgnore: [
+        /tests\/public\/.*\.spec\.ts/,
+        /tests\/api\/.*\.spec\.ts/,
+        /tests\/api\/setup-clerk-coach\.ts/,
+        // Jest unit tests (not Playwright E2E tests) — they use `jest` and
+        // cannot run under the Playwright runner.
+        /tests\/auth\//,
+      ],
+      use: {
         ...devices['Desktop Chrome'],
         storageState: '.auth/coach.json',
       },
-      dependencies: ['setup-coach'],
+      dependencies: ['setup-clerk-coach'],
     },
     {
-      name: 'chromium-athlete',
-      use: { 
-        ...devices['Desktop Chrome'],
-        storageState: '.auth/athlete.json',
-      },
-      dependencies: ['setup-athlete'],
+      name: 'api-tests',
+      testMatch: /tests\/api\/.*\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
     },
   ],
   webServer: {

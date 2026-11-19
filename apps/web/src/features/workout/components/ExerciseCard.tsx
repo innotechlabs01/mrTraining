@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { ExerciseDetail, MuscleGroup, Equipment, Difficulty, ExerciseCategory } from '../types'
 import { MUSCLE_GROUP_LABELS, EQUIPMENT_LABELS } from '../hooks/helpers'
 import { cn } from '@/lib/utils'
+import Image from 'next/image'
 import { Play, Plus, Info } from 'lucide-react'
 
 // Extended labels matching the new types
@@ -82,7 +83,15 @@ export function ExerciseCard({
         {!isCompact && (
           <div className="relative flex-shrink-0 w-16 h-16 rounded-md bg-[#1C1C1C] overflow-hidden">
             {exercise.thumbnailUrl ? (
-              <img src={exercise.thumbnailUrl} alt={exercise.name} className="w-full h-full object-cover" />
+              <Image
+                src={exercise.thumbnailUrl}
+                alt={exercise.name}
+                width={64}
+                height={64}
+                className="w-full h-full object-cover"
+                loading="lazy"
+                quality={85}
+              />
             ) : (
               <div className="flex items-center justify-center w-full h-full">
                 <Play className="w-6 h-6 text-[rgba(255,255,255,0.4)]" />

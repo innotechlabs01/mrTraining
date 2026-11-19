@@ -6,6 +6,7 @@ import (
 	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/coach_settlement"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Service handles coach settlement business logic.
@@ -16,6 +17,16 @@ type Service struct {
 // NewService creates a new settlement service.
 func NewService(repo domain.Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetExecutor returns a service instance bound to the supplied executor.
+func (s *Service) SetExecutor(exec database.Executor) *Service {
+	if repo, ok := s.repo.(interface {
+		WithExecutor(database.Executor) domain.Repository
+	}); ok {
+		return &Service{repo: repo.WithExecutor(exec)}
+	}
+	return s
 }
 
 // CreateSettlement creates a draft settlement for a coach+ally+period.

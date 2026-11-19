@@ -38,7 +38,7 @@ export function IronGymMore() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="rounded-2xl border border-gray-100 bg-white p-6 hover:border-brand-primary/30 hover:shadow-lg transition-all"
+              className="rounded-lg border border-gray-100 bg-white p-6 hover:border-brand-primary/30 hover:shadow-lg transition-all"
             >
               <m.icon className="w-8 h-8 text-brand-primary mb-4" />
               <h3 className="text-xl font-semibold text-[#424242] mb-2">{m.title}</h3>

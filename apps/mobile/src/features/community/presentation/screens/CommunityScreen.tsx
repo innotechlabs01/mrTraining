@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, RefreshControl } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -120,6 +120,7 @@ export function CommunityScreen() {
             )}
             keyExtractor={byId}
             contentContainerStyle={styles.listContent}
+            refreshControl={<RefreshControl refreshing={isLoading} onRefresh={() => refetch()} tintColor={colors.primary} />}
             showsVerticalScrollIndicator={false}
           />
         )
@@ -141,6 +142,7 @@ export function CommunityScreen() {
           renderItem={({ item }) => <ChallengeRow challenge={item} />}
           keyExtractor={byId}
           contentContainerStyle={styles.listContent}
+          refreshControl={<RefreshControl refreshing={challengesLoading} onRefresh={() => refetch()} tintColor={colors.primary} />}
           showsVerticalScrollIndicator={false}
         />
       )}

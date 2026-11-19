@@ -18,14 +18,14 @@ interface OnboardingStepperProps {
 export function OnboardingStepper({ steps, currentStep, className }: OnboardingStepperProps) {
   return (
     <nav aria-label="Onboarding progress" className={cn('w-full', className)}>
-      <ol className="flex items-center justify-between">
+      <ol className="flex items-start justify-between">
         {steps.map((step, index) => {
           const isCompleted = index < currentStep;
           const isCurrent = index === currentStep;
           const isFuture = index > currentStep;
 
           return (
-            <li key={step.id} className="relative flex flex-1 flex-col items-center">
+            <li key={step.id} className="relative flex min-w-0 flex-1 flex-col items-center">
               {index > 0 && (
                 <div
                   className={cn(
@@ -36,7 +36,7 @@ export function OnboardingStepper({ steps, currentStep, className }: OnboardingS
                 />
               )}
 
-              <div className="relative z-10 flex flex-col items-center">
+              <div className="relative z-10 flex w-full min-w-0 flex-col items-center">
                 <div
                   className={cn(
                     'flex h-8 w-8 items-center justify-center rounded-full transition-all duration-300',
@@ -45,6 +45,7 @@ export function OnboardingStepper({ steps, currentStep, className }: OnboardingS
                     isFuture && 'border-2 border-surface-6 bg-surface-2',
                   )}
                   aria-current={isCurrent ? 'step' : undefined}
+                  aria-hidden="true"
                 >
                   {isCompleted ? (
                     <Check className="h-4 w-4 text-white" />
@@ -61,21 +62,29 @@ export function OnboardingStepper({ steps, currentStep, className }: OnboardingS
                   )}
                 </div>
 
-                <div className="mt-2 hidden md:block text-center">
+                <div className="mt-2 hidden w-full min-w-0 px-0.5 text-center md:block">
                   <p
+                    id={`stepper-title-${step.id}`}
                     className={cn(
-                      'text-caption font-medium',
+                      'w-full truncate text-[10px] font-medium leading-tight',
                       isCompleted && 'text-brand-primary',
                       isCurrent && 'text-text-primary',
                       isFuture && 'text-text-secondary',
                     )}
+                    title={step.title}
                   >
                     {step.title}
                   </p>
-                  <p className="text-[11px] text-text-secondary leading-tight mt-0.5">
-                    {step.description}
-                  </p>
                 </div>
+
+                {/* Screen-reader friendly state: the visual stepper is decorative. */}
+                <span className="sr-only">
+                  {isCompleted
+                    ? `Completado: ${step.title}`
+                    : isCurrent
+                      ? `Paso actual ${index + 1} de ${steps.length}: ${step.title}. ${step.description}`
+                      : `Paso ${index + 1} de ${steps.length}: ${step.title}`}
+                </span>
               </div>
             </li>
           );

@@ -151,7 +151,7 @@ export default function CoachAsignarPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          <div className="rounded-2xl border border-white/5 bg-surface-1 p-4">
+          <div className="rounded-lg border border-white/5 bg-surface-1 p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xs font-semibold text-white/50 uppercase tracking-wider">Atletas</h2>
               {selectedAthletes.length > 0 && (
@@ -203,7 +203,7 @@ export default function CoachAsignarPage() {
         </div>
 
         <div className="lg:col-span-3 space-y-4">
-          <div className="rounded-2xl border border-white/5 bg-surface-1 p-4 space-y-4">
+          <div className="rounded-lg border border-white/5 bg-surface-1 p-4 space-y-4">
             <h2 className="text-xs font-semibold text-white/50 uppercase tracking-wider">Configuración</h2>
 
             <div>

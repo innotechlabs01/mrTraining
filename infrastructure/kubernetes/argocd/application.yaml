@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mr-training-api
+  namespace: argocd
+  labels:
+    app: mr-training-api
+    component: argocd-application
+  annotations:
+    # Allow insecure git protocol for local development
+    argocd.argoproj.io/allow-insecure-git-protocol: "true"
+spec:
+  project: default
+  source:
+    repoURL: git://172.26.0.2:9418/
+    targetRevision: main
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mr-training
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true
+      - Validate=false
+      - RespectIgnoreDifferences=true
+  revisionHistoryLimit: 10

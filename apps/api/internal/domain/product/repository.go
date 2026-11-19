@@ -38,4 +38,8 @@ type Repository interface {
 	// DeleteSale removes a sale record by ID.
 	// Returns ErrNotFound if the sale does not exist.
 	DeleteSale(ctx context.Context, saleID string) error
+
+	// ListPublicProducts retrieves all shop products (is_shop = true) across all coaches,
+	// ordered by name. Used for public marketing/landing pages.
+	ListPublicProducts(ctx context.Context) ([]*Product, error)
 }

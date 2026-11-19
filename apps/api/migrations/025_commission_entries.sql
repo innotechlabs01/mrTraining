@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS commission_entries (
   currency           TEXT NOT NULL DEFAULT 'COP',
   status             TEXT NOT NULL DEFAULT 'accrued', -- accrued|reversed
   computed_at        TEXT NOT NULL,
-  created_at         TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at         TEXT NOT NULL DEFAULT (NOW()),
   UNIQUE (operation_id),
   CHECK (base_cents >= 0),
   CHECK (rate_bps >= 0 AND rate_bps <= 100000),
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS financial_adjustments (
   amount_cents INTEGER NOT NULL,            -- signo negativo = reverso
   reason       TEXT NOT NULL,
   created_by   TEXT NOT NULL,
-  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at   TEXT NOT NULL DEFAULT (NOW()),
   CHECK (kind IN ('refund','chargeback','correction'))
 );
 

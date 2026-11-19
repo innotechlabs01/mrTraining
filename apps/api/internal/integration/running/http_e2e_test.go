@@ -32,8 +32,8 @@ func setupE2EApp(t *testing.T) (*fiber.App, *runningapp.Service, *runninginfra.R
 
 	db := newTestDB(t)
 	repo := runninginfra.NewRepository(db.DB)
-	svc := runningapp.NewService(repo)
-	handler := handlers.NewRunningWorkoutHandler(svc)
+	svc := runningapp.NewService(repo, nil)
+	handler := handlers.NewRunningWorkoutHandler(svc, db.DB)
 
 	app := fiber.New()
 
@@ -50,6 +50,9 @@ func setupE2EApp(t *testing.T) (*fiber.App, *runningapp.Service, *runninginfra.R
 				Role:   role,
 				Email:  userID + "@test.com",
 			})
+			if role == "coach" {
+				c.Locals(string(middleware.CoachIDKey), userID)
+			}
 		}
 		return c.Next()
 	})
@@ -66,7 +69,6 @@ func newTestDB(t *testing.T) *database.DB {
 	url := "postgresql://postgres@127.0.0.1:5435/mr_training_migration?sslmode=disable"
 	db, err := database.Connect(url)
 	if err != nil {
-		t.Skipf("skipping: cannot connect to PostgreSQL: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
 	return db
@@ -233,7 +235,7 @@ func TestHTTP_GetTemplate(t *testing.T) {
 		t.Fatalf("failed to create template: %v", err)
 	}
 
-	resp, err := doJSONRequest(t, app, "GET", "/api/v1/running/workouts/templates/"+template.ID, nil, nil)
+	resp, err := doJSONRequest(t, app, "GET", "/api/v1/running/workouts/templates/"+template.ID, nil, coachTestAuth(coachID))
 	if err != nil {
 		t.Fatalf("failed to execute request: %v", err)
 	}
@@ -278,7 +280,7 @@ func TestHTTP_UpdateTemplate(t *testing.T) {
 	}
 
 	// Verify via HTTP GET
-	resp, err := doJSONRequest(t, app, "GET", "/api/v1/running/workouts/templates/"+template.ID, nil, nil)
+	resp, err := doJSONRequest(t, app, "GET", "/api/v1/running/workouts/templates/"+template.ID, nil, coachTestAuth(coachID))
 	if err != nil {
 		t.Fatalf("failed to execute request: %v", err)
 	}

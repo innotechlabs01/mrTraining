@@ -111,7 +111,7 @@ export function TestimonialsSection() {
                   transition={{ duration: 0.4, ease: 'easeInOut' }}
                   className="w-full"
                 >
-                  <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200">
+                  <div className="bg-slate-50 rounded-lg p-8 border border-slate-200">
                     <div className="flex items-center gap-1 mb-4">
                       {Array.from({ length: 5 }).map((_, s) => (
                         <Star key={s} className="w-4 h-4 fill-amber-400 text-amber-400" />

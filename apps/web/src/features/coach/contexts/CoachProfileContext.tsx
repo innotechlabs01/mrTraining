@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback } from 'react';
 import { Dumbbell, BarChart3, Flame, Activity, Heart, Smile, Trophy, Home, Users, BookOpen, Apple, Calendar, MessageCircle, HelpCircle, Settings, Globe } from 'lucide-react';
+import type { PlanEntitlements } from '../hooks/usePlanEntitlements';
 
 export type CoachPlan = 'strength' | 'hypertrophy' | 'fat-loss' | 'endurance' | 'recovery' | 'general' | 'performance';
 
@@ -17,6 +18,8 @@ export interface CoachProfile {
   certifications: string[];
   coachCode: string;
   createdAt: string;
+  /** Platform plan the coach is subscribed to, from the Clerk public metadata. */
+  subscription?: PlanEntitlements;
 }
 
 export type CoachSectionId = 'today' | 'athletes' | 'workouts' | 'training' | 'nutrition' | 'analytics' | 'community' | 'events' | 'settings' | 'support' | 'landing';

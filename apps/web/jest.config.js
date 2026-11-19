@@ -7,7 +7,18 @@ module.exports = {
   },
   testMatch: ['**/*.test.(ts|tsx)'],
   transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
+    '^.+\\.(ts|tsx)$': [
+      'ts-jest',
+      {
+        tsconfig: {
+          target: 'es2017',
+          module: 'commonjs',
+          jsx: 'react-jsx',
+          esModuleInterop: true,
+          allowJs: true,
+        },
+      },
+    ],
   },
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',

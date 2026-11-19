@@ -25,7 +25,18 @@
     --border: #E2E8F0;
     --text: #0F172A;
     --text-secondary: #475569;
+    --text-tertiary: #8A8A8A;
     --text-muted: #94A3B8;
+    /* Text sitting ON the blue accent. Design system §1.1: never white on blue
+       in dark mode. */
+    --text-inverse: #FFFFFF;
+
+    /* Elevation scale (design system §1.1 — light). surface-3..6 must be
+       DISTINCT from --bg-card/--border or hover + pressed states are invisible. */
+    --surface-3: #F0F0F0;
+    --surface-4: #E8E8E8;
+    --surface-5: #E0E0E0;
+    --surface-6: #D4D4D4;
   }
 
   .dark {
@@ -35,7 +46,15 @@
     --border: #1C1C1C;
     --text: #FFFFFF;
     --text-secondary: #9CA3AF;
+    --text-tertiary: #6B7280;
     --text-muted: #6B7280;
+    --text-inverse: #111214;
+
+    /* Elevation scale (design system §1.1 — dark). */
+    --surface-3: #1A1A1C;
+    --surface-4: #1C1C1C;
+    --surface-5: #242426;
+    --surface-6: #2A2A2C;
   }
 
   * {
@@ -57,6 +76,25 @@
   ::selection {
     background-color: rgba(21, 170, 242, 0.3);
     color: var(--text);
+  }
+
+  /* Accessibility (design system §10): every interactive element must show a
+     visible focus ring. One global rule covers the whole app, including the
+     admin CRM which had zero focus styles. */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Typography (design system §1.2): Montserrat carries display roles, Inter
+     carries body. Headings defaulting to the body face made every screen read
+     as unstyled. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
   }
 
   /* Keep brand accent visible in light mode */

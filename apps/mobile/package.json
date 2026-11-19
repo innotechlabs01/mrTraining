@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "test": "jest --passWithNoTests",
     "lint": "eslint src --ext .ts,.tsx",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "bundle:visualize": "npx react-native-bundle-visualizer"
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.19.0",

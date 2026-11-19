@@ -6,6 +6,7 @@ import { useMessages } from '../../hooks/useMessages'
 import { useAuth } from '@clerk/nextjs'
 import { useCoachPanel } from './CoachPanelContext'
 import { ThemeToggle } from './ThemeToggle'
+import { cn } from '@/lib/utils'
 
 function formatWeekday(): string {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -20,7 +21,7 @@ const STATUS_COLORS: Record<string, string> = {
   past: 'bg-white/15',
 }
 
-export function TopBar({ onMenuClick, user }: { onMenuClick: () => void; user: { name: string; initials: string } | null }) {
+export function TopBar({ onMenuClick, user, membershipStatus }: { onMenuClick: () => void; user: { name: string; initials: string; membershipStatus?: 'active' | 'omitted' } | null; membershipStatus: 'active' | 'omitted' }) {
   const { currentBlock } = useToday()
   const { unreadCount } = useMessages()
   const { openPanel } = useCoachPanel()
@@ -71,6 +72,16 @@ export function TopBar({ onMenuClick, user }: { onMenuClick: () => void; user: {
         </button>
 
         <div className="flex items-center gap-1.5 pl-1 border-l border-surface-3">
+          <div className="flex items-center gap-1.5">
+            <span className={cn(
+              'px-2 py-0.5 rounded-full text-xs font-semibold',
+              membershipStatus === 'active' 
+                ? 'bg-emerald-500/20 text-emerald-400' 
+                : 'bg-amber-500/20 text-amber-400'
+            )}>
+              {membershipStatus === 'active' ? 'Activa' : 'Omitida'}
+            </span>
+          </div>
           <div
             className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-primary to-blue-600 flex items-center justify-center text-white text-xs font-bold ring-2 ring-surface-2"
             title={user?.name ?? 'Coach'}

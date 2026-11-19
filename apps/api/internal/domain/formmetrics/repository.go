@@ -12,4 +12,8 @@ type Repository interface {
 
 	// GetByAthleteAndExercise returns form metrics for a specific athlete and exercise.
 	GetByAthleteAndExercise(ctx context.Context, athleteID string, exerciseID string) ([]*FormMetric, error)
+
+	// GetByCoach returns aggregated form metrics for all athletes of a coach,
+	// grouped by athlete+exercise.
+	GetByCoach(ctx context.Context, coachID string) ([]*CoachAthleteFormStats, error)
 }

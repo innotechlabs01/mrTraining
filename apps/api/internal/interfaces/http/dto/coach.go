@@ -105,3 +105,49 @@ type AvailabilitySlotResponse struct {
 	IsActive  bool   `json:"is_active"`
 	CreatedAt string `json:"created_at"`
 }
+
+// --- Coach Athlete Request/Response DTOs ---
+
+// CoachAthleteResponse represents a coach-linked athlete profile.
+type CoachAthleteResponse struct {
+	ID               string `json:"id"`
+	CoachID          string `json:"coach_id"`
+	Name             string `json:"name"`
+	Email            string `json:"email"`
+	Phone            string `json:"phone"`
+	Sport            string `json:"sport"`
+	ServiceType      string `json:"service_type"`
+	PlanName         string `json:"plan_name"`
+	PlanPrice        int    `json:"plan_price"`
+	PlanBilling      string `json:"plan_billing"`
+	ScheduleDays     string `json:"schedule_days"`
+	ScheduleTime     string `json:"schedule_time"`
+	StartDate        string `json:"start_date"`
+	EmergencyContact string `json:"emergency_contact"`
+	ReadinessScore   int    `json:"readiness_score"`
+	FlagType         string `json:"flag_type"`
+	FlagSeverity     string `json:"flag_severity"`
+	FlagMessage      string `json:"flag_message"`
+	CreatedAt        string `json:"created_at"`
+	UpdatedAt        string `json:"updated_at"`
+}
+
+// SaveCoachAthleteRequest is the payload for creating/updating a coach athlete.
+type SaveCoachAthleteRequest struct {
+	Name             string `json:"name" validate:"required"`
+	Email            string `json:"email"`
+	Phone            string `json:"phone"`
+	Sport            string `json:"sport"`
+	ServiceType      string `json:"service_type"`
+	PlanName         string `json:"plan_name"`
+	PlanPrice        int    `json:"plan_price"`
+	PlanBilling      string `json:"plan_billing"`
+	ScheduleDays     string `json:"schedule_days"`
+	ScheduleTime     string `json:"schedule_time"`
+	StartDate        string `json:"start_date"`
+	EmergencyContact string `json:"emergency_contact"`
+	ReadinessScore   int    `json:"readiness_score"`
+	FlagType         string `json:"flag_type"`
+	FlagSeverity     string `json:"flag_severity"`
+	FlagMessage      string `json:"flag_message"`
+}

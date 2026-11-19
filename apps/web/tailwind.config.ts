@@ -49,28 +49,38 @@ module.exports = {
           0: 'var(--bg)',
           1: 'var(--bg-elevated)',
           2: 'var(--bg-card)',
-          3: 'var(--border)',
-          4: 'var(--border)',
-          5: 'var(--border)',
-          6: '#2A2A2C',
+          // Elevation steps map to the design-system surface scale. They must
+          // stay DISTINCT: collapsing 3/4/5 onto --border made hover and
+          // pressed states render identically to the resting state.
+          3: 'var(--surface-3)',
+          4: 'var(--surface-4)',
+          5: 'var(--surface-5)',
+          6: 'var(--surface-6)',
           DEFAULT: 'var(--bg)',
           raised: 'var(--bg-elevated)',
           card: 'var(--bg-card)',
         },
         'text-primary': 'var(--text)',
         'text-secondary': 'var(--text-secondary)',
+        'text-tertiary': 'var(--text-tertiary)',
         'text-muted': 'var(--text-muted)',
+        'text-inverse': 'var(--text-inverse)',
         text: {
           DEFAULT: 'var(--text)',
           secondary: 'var(--text-secondary)',
+          tertiary: 'var(--text-tertiary)',
           muted: 'var(--text-muted)',
+          inverse: 'var(--text-inverse)',
         },
         border: {
           DEFAULT: 'var(--border)',
         },
-        success: '#00C853',
-        error: '#FF3D00',
-        warning: '#FFB300',
+        // Single source of truth: these must match --color-success / --color-error
+        // / --color-warning in globals.css (design system §1.1). Two competing
+        // semantic palettes produced inconsistent status colors.
+        success: '#34D399',
+        error: '#FF5A5F',
+        warning: '#FBBF24',
         semantic: {
           success: 'var(--color-success)',
           'success-soft': 'var(--color-success-soft)',

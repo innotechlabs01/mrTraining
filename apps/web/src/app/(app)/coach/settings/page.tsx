@@ -71,7 +71,7 @@ export default function CoachSettingsPage() {
 
 function Card({ title, desc, children, footer }: { title: string; desc: string; children: React.ReactNode; footer?: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-surface-1 overflow-hidden">
+    <div className="rounded-lg border border-white/10 bg-surface-1 overflow-hidden">
       <div className="px-5 py-4 border-b border-white/5">
         <h2 className="text-base font-semibold text-white">{title}</h2>
         <p className="text-xs text-white/40 mt-0.5">{desc}</p>
@@ -288,7 +288,7 @@ function PaymentMethodModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b1622] p-5 shadow-2xl"
+        className="w-full max-w-md rounded-lg border border-white/10 bg-[#0b1622] p-5 shadow-2xl"
       >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">{initial ? 'Editar cuenta' : 'Nueva cuenta bancaria'}</h3>

@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS store_orders (
   total REAL NOT NULL DEFAULT 0,
   currency TEXT NOT NULL DEFAULT 'COP',
   external_ref TEXT,                          -- MP payment id (set on approval)
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (NOW()),
   paid_at TEXT
 );
 

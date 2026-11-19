@@ -60,7 +60,7 @@ func TestHandlerUploadLandingMedia_SavesImage(t *testing.T) {
 	var body bytes.Buffer
 	w := multipart.NewWriter(&body)
 	fw, _ := w.CreateFormFile("file", "Hero Banner.PNG")
-	_, _ = fw.Write([]byte("fakepng"))
+	_, _ = fw.Write([]byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A})
 	_ = w.Close()
 
 	app := fiber.New()

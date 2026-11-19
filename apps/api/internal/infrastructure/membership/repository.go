@@ -24,11 +24,13 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db, exec: db}
 }
 
-// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
-// When set, all repository queries run against this executor instead of the
-// connection pool.
-func (r *Repository) SetExecutor(exec database.Executor) {
-	r.exec = exec
+// WithExecutor returns a repository instance using the given executor (typically
+// a UnitOfWork transaction). Used by the application service's SetExecutor to
+// propagate a transaction without mutating the original repository.
+func (r *Repository) WithExecutor(exec database.Executor) membership.Repository {
+	rr := *r
+	rr.exec = exec
+	return &rr
 }
 
 // isTx reports whether the current executor is a *sql.Tx (injected by a

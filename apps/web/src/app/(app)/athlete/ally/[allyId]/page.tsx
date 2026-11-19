@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
+import { goFetch } from '@/lib/api/go-client'
 import {
   ShoppingCart,
   Package,
@@ -114,27 +115,17 @@ export default function AllyProductPage() {
       setPurchasing(product.id)
 
       try {
-        const res = await fetch(
-          `/api/athlete/ally/products/${product.id}/purchase`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ quantity: 1 }),
-          },
+        await goFetch<{ ok: boolean }>(
+          `/api/v1/athlete/ally/products/${product.id}/purchase`,
+          { method: 'POST', body: JSON.stringify({ quantity: 1 }) },
         )
 
-        if (!res.ok) {
-          const error = await res.json().catch(() => ({}))
-          throw new Error(error.error || 'Error al comprar')
-        }
-
-        await res.json()
         toast.success(`Compra realizada: ${product.name} — Comisión generada`)
         setPurchasing(null)
         router.refresh()
-      } catch (err: any) {
+      } catch (err) {
         setPurchasing(null)
-        toast.error(err.message || 'No se pudo completar la compra')
+        toast.error(err instanceof Error ? err.message : 'No se pudo completar la compra')
       }
     },
     [purchasing, router],
@@ -144,10 +135,10 @@ export default function AllyProductPage() {
     let cancelled = false
     const fetchData = async () => {
       try {
-        const productsRes = await fetch(
-          `/api/athlete/ally/${allyId}/products`,
+        const productsRes = await goFetch<AllyProduct[]>(
+          '/api/v1/athlete/ally/products',
         )
-        const productsData: AllyProduct[] = await productsRes.json()
+        const productsData: AllyProduct[] = productsRes
 
         if (!cancelled) {
           setProducts(productsData)

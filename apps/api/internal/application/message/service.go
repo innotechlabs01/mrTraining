@@ -6,6 +6,7 @@ import (
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/message"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 )
 
@@ -16,6 +17,18 @@ type Service struct {
 
 func NewService(repo domain.Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork)
+// into the underlying repository. Returns a new Service instance, leaving
+// the original unchanged.
+func (s *Service) SetExecutor(exec database.Executor) *Service {
+	if repo, ok := s.repo.(interface {
+		WithExecutor(database.Executor) domain.Repository
+	}); ok {
+		return &Service{repo: repo.WithExecutor(exec)}
+	}
+	return s
 }
 
 func (s *Service) ListThreads(ctx context.Context, userID string) ([]*domain.MessageThread, error) {

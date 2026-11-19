@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { colors, spacing, radius, typography, fontFamilies } from '../../../../shared/theme/tokens';
 import {
@@ -39,6 +39,8 @@ export const WorkoutCard = React.memo(function WorkoutCard({
   const progressPct = Math.round((item.progress ?? 0) * 100);
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Entrenamiento ${item.contentName}, ${item.modality}, estado ${item.status}`}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.7 }]}
       onPress={() => onPress(item.id)}
     >

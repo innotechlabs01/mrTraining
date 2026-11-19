@@ -6,7 +6,7 @@ import { texts } from '../../../shared/i18n/texts';
 import { getMembershipStatus, type MembershipSummary } from '../../auth/services/membershipService';
 
 type MembershipState = {
-  status: 'loading' | 'active' | 'trial' | 'past_due' | 'suspended' | 'no_membership' | 'error';
+  status: 'loading' | 'active' | 'trial' | 'past_due' | 'suspended' | 'cancelled' | 'expired' | 'no_membership' | 'error';
   membership?: {
     id: string;
     planName: string;
@@ -87,7 +87,9 @@ export function MembershipGate({
             return;
 
           case 'suspended':
-            // Membresía suspendida — bloquear, mostrar PaymentScreen para renovar
+          case 'cancelled':
+          case 'expired':
+            // Membresía inactiva — bloquear, mostrar PaymentScreen para renovar
             if (!cancelled) {
               setState(buildMembershipState(membership.status, membership.membership));
             }
@@ -136,8 +138,8 @@ export function MembershipGate({
     );
   }
 
-  // suspended — bloquear, mostrar PaymentScreen para renovar plan existente
-  if (state.status === 'suspended') {
+  // inactive membership — bloquear, mostrar PaymentScreen para renovar plan existente
+  if (state.status === 'suspended' || state.status === 'cancelled' || state.status === 'expired') {
     const m: NonNullable<MembershipState['membership']> = state.membership ?? {
       id: '',
       planName: '',

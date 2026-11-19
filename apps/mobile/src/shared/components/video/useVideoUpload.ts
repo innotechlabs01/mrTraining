@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { Alert } from 'react-native'
 import * as FileSystem from 'expo-file-system'
 import { texts } from '../../i18n/texts'
+import { getClerkToken } from '@infrastructure/auth/clerk'
 
 const tc = texts.formCamera
 
@@ -46,9 +47,11 @@ export function useVideoUpload({ exerciseId, workoutId, onRecordingComplete }: U
         formData.append('workoutId', workoutId)
       }
 
-      const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000'
-      const response = await fetch(`${API_BASE}/api/athlete/form-recordings/upload`, {
+      const token = await getClerkToken()
+      const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080'
+      const response = await fetch(`${API_BASE}/api/v1/form-recordings/upload`, {
         method: 'POST',
+        ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
         body: formData,
       })
 

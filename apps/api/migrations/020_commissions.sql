@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS commission_agreements (
   status             TEXT NOT NULL DEFAULT 'proposed',
   accepted_by        TEXT,
   accepted_at        TEXT,
-  created_at         TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at         TEXT NOT NULL DEFAULT (NOW()),
   UNIQUE (relationship_id, version),
   CHECK (rate_bps >= 0 AND rate_bps <= 100000),
   CHECK (fixed_amount_cents >= 0),

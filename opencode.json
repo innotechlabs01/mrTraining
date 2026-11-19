@@ -13,6 +13,11 @@
         "catalog": 30000,
         "execution": 600000
       }
+    },
+    "supabase": {
+      "type": "remote",
+      "url": "https://mcp.supabase.com/mcp?project_ref=gqipolozqustybfcoqlf&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching%2Cfeedback%2Cnotebooks",
+      "enabled": true
     }
   }
 }

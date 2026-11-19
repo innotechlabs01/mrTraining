@@ -163,8 +163,12 @@ export function MembershipScreen() {
         const WebBrowser = await import('expo-web-browser');
         await WebBrowser.openBrowserAsync(res.initPoint);
         await WebBrowser.dismissBrowser();
+        // Backend is authoritative for activation: returning from the browser
+        // flow does not prove payment approval. Refresh server state; the
+        // membership status only becomes active after the provider webhook.
         await refetch();
-        showToast('success', t.checkoutSuccessTitle, t.checkoutSuccessBody);
+        await queryClient.invalidateQueries({ queryKey: ['athlete-membership-payments', res.membershipId] });
+        showToast('info', t.checkoutSuccessTitle, t.checkoutSuccessBody);
       } else {
         Alert.alert(t.checkoutFailedTitle, t.checkoutFailedBody);
       }

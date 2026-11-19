@@ -39,6 +39,10 @@ func (h *CoachHandler) withTx(c *fiber.Ctx, fn func(*coachapp.Service) error) er
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
+	if h.db == nil {
+		return fn(h.service)
+	}
+
 	uow := database.NewUnitOfWork(h.db)
 	if err := uow.Begin(c.Context(), userID, coachID, middleware.GetUserRole(c)); err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
@@ -314,6 +318,129 @@ func (h *CoachHandler) SaveAvailability(c *fiber.Ctx) error {
 		}
 
 		return appresponse.Success(c, fiber.Map{"message": "availability saved"})
+	})
+}
+
+// GetAthleteById handles GET /coach/athletes/:id.
+func (h *CoachHandler) GetAthleteById(c *fiber.Ctx) error {
+	return h.withTx(c, func(svc *coachapp.Service) error {
+		userID := middleware.GetUserID(c)
+		athleteID := c.Params("id")
+		if athleteID == "" {
+			return appresponse.Error(c, fiber.StatusBadRequest, "athlete ID is required")
+		}
+
+		a, err := svc.GetAthleteById(c.Context(), userID, athleteID)
+		if err != nil {
+			return err
+		}
+		if a == nil {
+			return appresponse.Error(c, fiber.StatusNotFound, "athlete not found")
+		}
+
+		return appresponse.Success(c, dto.CoachAthleteResponse{
+			ID:               a.ID,
+			CoachID:          a.CoachID,
+			Name:             a.Name,
+			Email:            a.Email,
+			Phone:            a.Phone,
+			Sport:            a.Sport,
+			ServiceType:      a.ServiceType,
+			PlanName:         a.PlanName,
+			PlanPrice:        a.PlanPrice,
+			PlanBilling:      a.PlanBilling,
+			ScheduleDays:     a.ScheduleDays,
+			ScheduleTime:     a.ScheduleTime,
+			StartDate:        a.StartDate,
+			EmergencyContact: a.EmergencyContact,
+			ReadinessScore:   a.ReadinessScore,
+			FlagType:         a.FlagType,
+			FlagSeverity:     a.FlagSeverity,
+			FlagMessage:      a.FlagMessage,
+			CreatedAt:        a.CreatedAt,
+			UpdatedAt:        a.UpdatedAt,
+		})
+	})
+}
+
+// SaveAthlete handles PUT /coach/athletes/:id.
+func (h *CoachHandler) SaveAthlete(c *fiber.Ctx) error {
+	return h.withTx(c, func(svc *coachapp.Service) error {
+		userID := middleware.GetUserID(c)
+		athleteID := c.Params("id")
+		if athleteID == "" {
+			return appresponse.Error(c, fiber.StatusBadRequest, "athlete ID is required")
+		}
+
+		var req dto.SaveCoachAthleteRequest
+		if err := c.BodyParser(&req); err != nil {
+			return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+		}
+
+		a := &coachdomain.CoachAthlete{
+			ID:                athleteID,
+			CoachID:           userID,
+			Name:              req.Name,
+			Email:             req.Email,
+			Phone:             req.Phone,
+			Sport:             req.Sport,
+			ServiceType:       req.ServiceType,
+			PlanName:          req.PlanName,
+			PlanPrice:         req.PlanPrice,
+			PlanBilling:       req.PlanBilling,
+			ScheduleDays:      req.ScheduleDays,
+			ScheduleTime:      req.ScheduleTime,
+			StartDate:         req.StartDate,
+			EmergencyContact:  req.EmergencyContact,
+			ReadinessScore:    req.ReadinessScore,
+			FlagType:          req.FlagType,
+			FlagSeverity:      req.FlagSeverity,
+			FlagMessage:       req.FlagMessage,
+		}
+
+		if err := svc.SaveAthlete(c.Context(), userID, a); err != nil {
+			return err
+		}
+
+		return appresponse.Success(c, dto.CoachAthleteResponse{
+			ID:                a.ID,
+			CoachID:           a.CoachID,
+			Name:              a.Name,
+			Email:             a.Email,
+			Phone:             a.Phone,
+			Sport:             a.Sport,
+			ServiceType:       a.ServiceType,
+			PlanName:          a.PlanName,
+			PlanPrice:         a.PlanPrice,
+			PlanBilling:       a.PlanBilling,
+			ScheduleDays:      a.ScheduleDays,
+			ScheduleTime:      a.ScheduleTime,
+			StartDate:         a.StartDate,
+			EmergencyContact:  a.EmergencyContact,
+			ReadinessScore:    a.ReadinessScore,
+			FlagType:          a.FlagType,
+			FlagSeverity:      a.FlagSeverity,
+			FlagMessage:       a.FlagMessage,
+			CreatedAt:         a.CreatedAt,
+			UpdatedAt:         a.UpdatedAt,
+		})
+	})
+}
+
+// DeleteAthlete handles DELETE /coach/athletes/:id.
+func (h *CoachHandler) DeleteAthlete(c *fiber.Ctx) error {
+	return h.withTx(c, func(svc *coachapp.Service) error {
+		userID := middleware.GetUserID(c)
+		athleteID := c.Params("id")
+		if athleteID == "" {
+			return appresponse.Error(c, fiber.StatusBadRequest, "athlete ID is required")
+		}
+
+		if err := svc.DeleteAthlete(c.Context(), userID, athleteID); err != nil {
+			return err
+		}
+
+		return appresponse.Success(c, fiber.Map{"message": "athlete deleted"})
 	})
 }
 

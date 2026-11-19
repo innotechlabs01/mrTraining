@@ -32,7 +32,7 @@ export function PublicEventView({ event }: { event: CoachEvent }) {
           <p className="text-sm font-semibold tracking-[0.2em] text-brand-primary uppercase">{config.brandName}</p>
           {config.tagline && <p className="text-xs text-white/40 mt-1">{config.tagline}</p>}
         </div>
-        <div className="rounded-2xl border border-white/10 bg-surface-1 p-5 shadow-2xl">
+        <div className="rounded-lg border border-white/10 bg-surface-1 p-5 shadow-2xl">
           <h1 className="text-lg font-display font-bold text-white">{event.title}</h1>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-white/10 text-white/60">{TYPE_LABELS[event.type]}</span>

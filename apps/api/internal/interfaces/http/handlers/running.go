@@ -17,12 +17,15 @@ import (
 
 // RunningHandler handles HTTP requests for the running domain.
 type RunningHandler struct {
-	service *runningapp.Service
+	service         *runningapp.Service
+	tenantResolver  middleware.TenantResolver
 }
 
 // NewRunningHandler creates a new RunningHandler with the given application service.
-func NewRunningHandler(service *runningapp.Service) *RunningHandler {
-	return &RunningHandler{service: service}
+// tenantResolver may be nil for tests; when nil, athlete-coach relationship
+// checks are skipped and handled by the caller (not recommended in prod).
+func NewRunningHandler(service *runningapp.Service, tenantResolver middleware.TenantResolver) *RunningHandler {
+	return &RunningHandler{service: service, tenantResolver: tenantResolver}
 }
 
 // LogSession handles POST /running/sessions.
@@ -442,6 +445,12 @@ func (h *RunningHandler) CoachListSessionsByAthlete(c *fiber.Ctx) error {
 	if athleteID == coachID {
 		return appresponse.Error(c, fiber.StatusForbidden, "coach cannot view own sessions through coach endpoint")
 	}
+	if h.tenantResolver != nil {
+		ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, coachID)
+		if err != nil || !ok {
+			return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this coach")
+		}
+	}
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "20"))
@@ -483,6 +492,12 @@ func (h *RunningHandler) CoachGetStatsByAthlete(c *fiber.Ctx) error {
 	if athleteID == coachID {
 		return appresponse.Error(c, fiber.StatusForbidden, "coach cannot view own stats through coach endpoint")
 	}
+	if h.tenantResolver != nil {
+		ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, coachID)
+		if err != nil || !ok {
+			return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this coach")
+		}
+	}
 
 	fromDate := c.Query("from_date", "")
 	toDate := c.Query("to_date", "")
@@ -520,6 +535,12 @@ func (h *RunningHandler) CoachGetWeeklyTrendByAthlete(c *fiber.Ctx) error {
 	if athleteID == coachID {
 		return appresponse.Error(c, fiber.StatusForbidden, "coach cannot view own trend through coach endpoint")
 	}
+	if h.tenantResolver != nil {
+		ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, coachID)
+		if err != nil || !ok {
+			return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this coach")
+		}
+	}
 
 	fromDate := c.Query("from_date", "")
 	toDate := c.Query("to_date", "")
@@ -545,6 +566,12 @@ func (h *RunningHandler) CoachExportSessionsByAthlete(c *fiber.Ctx) error {
 	}
 	if athleteID == coachID {
 		return appresponse.Error(c, fiber.StatusForbidden, "coach cannot export own sessions through coach endpoint")
+	}
+	if h.tenantResolver != nil {
+		ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, coachID)
+		if err != nil || !ok {
+			return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this coach")
+		}
 	}
 
 	format := c.Query("format", "csv")

@@ -9,22 +9,27 @@ import (
 
 	"github.com/google/uuid"
 
-	fcm "github.com/innotechlabs01/mr-training-api/internal/infrastructure/firebase"
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/notification"
 )
 
+// PushSender is the minimal contract required to deliver a notification to
+// a set of device tokens. Implementations can be Expo Push, FCM, or a no-op.
+type PushSender interface {
+	SendToMultiple(ctx context.Context, tokens []string, title, body string, data map[string]string) error
+}
+
 // Service implements notification-related business operations.
-// It depends on the notification.Repository interface and an optional FCMSender,
+// It depends on the notification.Repository interface and an optional PushSender,
 // making it testable with mocks.
 type Service struct {
-	repo     domain.Repository
-	fcm      *fcm.FCMSender
+	repo domain.Repository
+	push PushSender
 }
 
 // NewService creates a new notification application service.
-// The fcmSender parameter is optional — pass nil to disable push notifications.
-func NewService(repo domain.Repository, fcmSender *fcm.FCMSender) *Service {
-	return &Service{repo: repo, fcm: fcmSender}
+// The pushSender parameter is optional — pass nil to disable push notifications.
+func NewService(repo domain.Repository, pushSender PushSender) *Service {
+	return &Service{repo: repo, push: pushSender}
 }
 
 // RegisterDevice registers a device token for push notifications.
@@ -89,8 +94,8 @@ func (s *Service) SendNotification(ctx context.Context, userID string, notifType
 		return nil, fmt.Errorf("save notification: %w", err)
 	}
 
-	// Push via FCM if configured
-	if s.fcm != nil {
+	// Push via configured sender if available
+	if s.push != nil {
 		devices, err := s.repo.ListDevicesByUser(ctx, userID)
 		if err == nil && len(devices) > 0 {
 			var tokens []string
@@ -98,7 +103,7 @@ func (s *Service) SendNotification(ctx context.Context, userID string, notifType
 				tokens = append(tokens, d.Token)
 			}
 			// Fire-and-forget: log errors but don't fail the request
-			_ = s.fcm.SendToMultiple(ctx, tokens, title, message, map[string]string{
+			_ = s.push.SendToMultiple(ctx, tokens, title, message, map[string]string{
 				"notification_id": notification.ID,
 				"type":            notifType,
 			})

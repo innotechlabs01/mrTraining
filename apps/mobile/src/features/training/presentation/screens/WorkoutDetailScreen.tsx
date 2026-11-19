@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, Pressable, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, Pressable } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -348,7 +349,7 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
             {hasExercises && (aiInsights?.length ?? 0) > 0 && (
               <View style={aiSummaryStyles.wrap}>
                 <Text style={aiSummaryStyles.title}>Sugerencias de IA para este entrenamiento</Text>
-                <FlatList
+                <FlashList
                   data={aiInsights}
                   keyExtractor={(item) => item.exercise_id}
                   renderItem={({ item }) => (
@@ -373,6 +374,8 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
                       </View>
                     </View>
                   )}
+                  contentContainerStyle={aiSummaryStyles.aiListContent}
+                  showsVerticalScrollIndicator={false}
                 />
               </View>
             )}
@@ -550,6 +553,7 @@ const aiSummaryStyles = StyleSheet.create({
   targetRir: { ...typography.caption, color: colors.warning },
   oneRm: { ...typography.caption, color: colors.textSecondary },
   confidenceBar: { marginTop: spacing.xs, height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden' },
+  aiListContent: { paddingBottom: spacing.md },
 });
 
 const styles = StyleSheet.create({

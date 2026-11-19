@@ -66,7 +66,7 @@ export default function RecoveryScoreCard({ score }: { score: RecoveryScore }) {
   ]
 
   return (
-    <div className="bg-surface-1 rounded-2xl p-5 border border-white/5">
+    <div className="bg-surface-1 rounded-lg p-5 border border-white/5">
       <div className="flex items-center justify-between mb-4">
         <span className="text-xs text-white/50 font-medium">Recovery Score</span>
         <div className="flex items-center gap-1.5 text-xs">

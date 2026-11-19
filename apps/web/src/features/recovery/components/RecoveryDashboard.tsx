@@ -28,14 +28,14 @@ function DashboardSkeleton() {
     <div className="space-y-5 animate-pulse">
       <div className="h-8 bg-white/5 rounded-xl w-1/3" />
       <div className="h-6 bg-white/5 rounded-lg w-1/2" />
-      <div className="h-56 bg-white/5 rounded-2xl" />
+      <div className="h-56 bg-white/5 rounded-lg" />
       <div className="grid grid-cols-2 gap-3">
-        <div className="h-32 bg-white/5 rounded-2xl" />
-        <div className="h-32 bg-white/5 rounded-2xl" />
-        <div className="h-32 bg-white/5 rounded-2xl" />
-        <div className="h-32 bg-white/5 rounded-2xl" />
+        <div className="h-32 bg-white/5 rounded-lg" />
+        <div className="h-32 bg-white/5 rounded-lg" />
+        <div className="h-32 bg-white/5 rounded-lg" />
+        <div className="h-32 bg-white/5 rounded-lg" />
       </div>
-      <div className="h-24 bg-white/5 rounded-2xl" />
+      <div className="h-24 bg-white/5 rounded-lg" />
     </div>
   )
 }
@@ -119,7 +119,7 @@ export default function RecoveryDashboard() {
         <motion.div
           variants={itemVariants}
           className={cn(
-            'rounded-2xl p-5 border',
+            'rounded-lg p-5 border',
             allStretchesDone ? 'bg-success/5 border-success/20' : 'bg-surface-1 border-white/5'
           )}
         >

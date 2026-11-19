@@ -38,7 +38,7 @@ function DashboardCard({
       transition={{ duration: 0.45, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ y: -3 }}
       className={cn(
-        'relative overflow-hidden rounded-2xl border border-white/5 bg-surface-1 p-5 transition-colors hover:border-white/10',
+        'relative overflow-hidden rounded-lg border border-white/5 bg-surface-1 p-5 transition-colors hover:border-white/10',
         className,
       )}
     >

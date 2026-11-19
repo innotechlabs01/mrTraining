@@ -10,7 +10,7 @@
  */
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Activity, Battery, BatteryCharging, Clock, Dumbbell, TrendingUp,
   CheckCircle2, AlertTriangle, XCircle,
@@ -93,7 +93,7 @@ function formatDate(iso: string): string {
  * Top-level resumen: one cohesive snapshot of the athlete's status.
  * Consumes training-summary, health, and device data to compute everything client-side.
  */
-export function AthleteResumenPanel({ athleteId }: { athleteId: string }) {
+const AthleteResumenPanelInner = React.memo(function AthleteResumenPanel({ athleteId }: { athleteId: string }) {
   const [data, setData] = useState<ResumenData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -169,12 +169,12 @@ export function AthleteResumenPanel({ athleteId }: { athleteId: string }) {
   }, [athleteId])
 
   if (loading) {
-    return <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 h-32 animate-pulse" />
+    return <div className="rounded-lg border border-white/5 bg-surface-1 p-5 h-32 animate-pulse" />
   }
   if (!data) return null
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 space-y-4">
+    <div className="rounded-lg border border-white/5 bg-surface-1 p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-white/70 flex items-center gap-2">
           <Activity size={14} className="text-brand-primary" />
@@ -223,4 +223,6 @@ export function AthleteResumenPanel({ athleteId }: { athleteId: string }) {
       </div>
     </div>
   )
-}
+})
+
+export { AthleteResumenPanelInner as AthleteResumenPanel }

@@ -143,3 +143,45 @@ func TestService_StartTrial_RejectsActiveMembership(t *testing.T) {
 	_, err := svc.StartTrial(ctx, "athlete-1", 7)
 	require.Error(t, err)
 }
+
+func TestService_CancelMembership_CrossCoachDenied(t *testing.T) {
+	repo := memorymembership.NewInMemoryMembershipRepository()
+	m := &domainmembership.Membership{
+		ID:                 "mem-cross-cancel",
+		CoachID:            "coach-b",
+		AthleteID:          "athlete-1",
+		Status:             "active",
+		PlanName:           "Plan",
+		PlanPrice:          10,
+		CurrentPeriodStart: "2024-01-01",
+		CurrentPeriodEnd:   "2024-12-31",
+	}
+	require.NoError(t, repo.Create(context.Background(), m))
+
+	svc := NewService(repo)
+	err := svc.CancelMembership(context.Background(), "coach-a", m.ID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "you can only cancel memberships of your own athletes")
+}
+
+func TestService_RenewMembership_CrossCoachDenied(t *testing.T) {
+	repo := memorymembership.NewInMemoryMembershipRepository()
+	m := &domainmembership.Membership{
+		ID:                 "mem-cross-renew",
+		CoachID:            "coach-b",
+		AthleteID:          "athlete-1",
+		Status:             "active",
+		PlanName:           "Plan",
+		PlanPrice:          10,
+		CurrentPeriodStart: "2024-01-01",
+		CurrentPeriodEnd:   "2024-12-31",
+		BillingPeriod:      "monthly",
+		GracePeriodDays:    5,
+	}
+	require.NoError(t, repo.Create(context.Background(), m))
+
+	svc := NewService(repo)
+	err := svc.RenewMembership(context.Background(), "coach-a", m.ID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "you can only renew memberships of your own athletes")
+}

@@ -233,7 +233,7 @@ export default function AgendamientoPage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               className={cn(
-                'rounded-2xl border bg-surface-1 overflow-hidden transition-all',
+                'rounded-lg border bg-surface-1 overflow-hidden transition-all',
                 a.status === 'scheduled' ? 'border-blue-500/10' : 'border-white/5',
               )}
             >
@@ -347,7 +347,7 @@ export default function AgendamientoPage() {
       {cancelTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !cancelLoading && setCancelTarget(null)} />
-          <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-surface-2 p-6 shadow-xl">
+          <div className="relative w-full max-w-md rounded-lg border border-white/10 bg-surface-2 p-6 shadow-xl">
             <h3 className="text-sm font-semibold text-white">Cancelar cita</h3>
             <p className="text-xs text-white/40 mt-1">¿Seguro que deseas cancelar la cita de <span className="text-white/70 font-medium">{cancelTarget.athleteName}</span> el {formatDate(cancelTarget.date)} {cancelTarget.startTime}?</p>
             <div className="mt-4 space-y-2">
@@ -384,7 +384,7 @@ export default function AgendamientoPage() {
       {rescheduleTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !resLoading && setRescheduleTarget(null)} />
-          <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-surface-2 p-6 shadow-xl">
+          <div className="relative w-full max-w-md rounded-lg border border-white/10 bg-surface-2 p-6 shadow-xl">
             <h3 className="text-sm font-semibold text-white">Reprogramar cita</h3>
             <p className="text-xs text-white/40 mt-1">Cita de <span className="text-white/70 font-medium">{rescheduleTarget.athleteName}</span> — selecciona nueva fecha y horario.</p>
             <div className="mt-4 space-y-4">
@@ -526,7 +526,7 @@ function AvailabilityEditor() {
   const slotsByDay = (day: number) => schedules.filter((s) => s.dayOfWeek === day)
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-surface-1 p-6">
+    <div className="rounded-lg border border-white/5 bg-surface-1 p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-sm font-semibold text-white/80">Tu Disponibilidad</h2>

@@ -1,16 +1,21 @@
-appId: com.innotechlabssas.mrtraining
+appId: com.innotechlabssas.mrtraining.dev
 ---
 - launchApp
 - waitForAnimationToEnd
 - tapOn:
-    id: "sign-in-button"
+    label: "Omitir onboarding"
+- waitForAnimationToEnd
+- tapOn:
+    label: "Ya entreno — Iniciar sesión para continuar"
 - waitForAnimationToEnd
 - inputText:
-    id: "email-input"
+    element:
+      label: "Correo electrónico"
     text: "${MAESTRO_ATHLETE_EMAIL}"
 - inputText:
-    id: "password-input"
+    element:
+      label: "Contraseña"
     text: "${MAESTRO_ATHLETE_PASSWORD}"
 - tapOn:
-    id: "submit-button"
+    label: "Iniciar sesión"
 - waitForAnimationToEnd

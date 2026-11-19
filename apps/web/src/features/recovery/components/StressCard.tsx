@@ -47,7 +47,7 @@ export default function StressCard({ data }: { data: StressData }) {
   const level = getStressLevel(data.current)
 
   return (
-    <div className="bg-surface-1 rounded-2xl p-5 border border-white/5">
+    <div className="bg-surface-1 rounded-lg p-5 border border-white/5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Brain className="w-4 h-4 text-purple-400" />

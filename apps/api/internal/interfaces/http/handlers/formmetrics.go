@@ -90,3 +90,23 @@ func (h *FormMetricsHandler) GetAthleteMetrics(c *fiber.Ctx) error {
 
 	return appresponse.Success(c, stats)
 }
+
+// GetCoachFormMetrics handles GET /coach/form-metrics.
+// Returns aggregated form metrics for all athletes of a coach, grouped by athlete+exercise.
+func (h *FormMetricsHandler) GetCoachFormMetrics(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	stats, err := h.service.GetByCoach(c.Context(), userID)
+	if err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
+	}
+
+	if stats == nil {
+		stats = []*formmetrics.CoachAthleteFormStats{}
+	}
+
+	return appresponse.Success(c, stats)
+}

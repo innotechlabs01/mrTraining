@@ -29,6 +29,10 @@ type Result struct {
 }
 
 // List returns the .sql migration files in dir, sorted lexicographically.
+//
+// Rollback scripts ("*.down.sql") are NOT migrations: they are meant to be
+// applied by hand. Applying them with the rest of the chain used to run a
+// rollback right before the matching forward migration.
 func List(dir string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -36,9 +40,13 @@ func List(dir string) ([]string, error) {
 	}
 	var files []string
 	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".sql") {
-			files = append(files, e.Name())
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".sql") {
+			continue
 		}
+		if strings.HasSuffix(e.Name(), ".down.sql") {
+			continue
+		}
+		files = append(files, e.Name())
 	}
 	sort.Strings(files)
 	return files, nil
@@ -179,11 +187,16 @@ func appliedSet(ctx context.Context, db *sql.DB) (map[string]bool, error) {
 // Semicolons inside a CREATE TRIGGER body (BEGIN ... END) are also preserved:
 // a trigger is a single statement whose body contains its own semicolons, so
 // naive splitting would corrupt it.
+//
+// Dollar-quoted bodies ($$ ... $$, $tag$ ... $tag$) are preserved as well:
+// they are used by DO blocks and function definitions, whose bodies contain
+// semicolons of their own.
 func SplitStatements(script string) []string {
 	var stmts []string
 	var cur strings.Builder
 	inString := false
 	triggerDepth := 0 // >0 while inside a CREATE TRIGGER BEGIN ... END body
+	dollarTag := ""   // the open dollar-quote tag, empty when outside one
 
 	i := 0
 	for i < len(script) {
@@ -204,11 +217,34 @@ func SplitStatements(script string) []string {
 			continue
 		}
 
+		// Inside a dollar-quoted body everything is literal until the closing
+		// tag appears.
+		if dollarTag != "" {
+			if strings.HasPrefix(script[i:], dollarTag) {
+				cur.WriteString(dollarTag)
+				i += len(dollarTag)
+				dollarTag = ""
+				continue
+			}
+			cur.WriteByte(c)
+			i++
+			continue
+		}
+
 		switch {
 		case c == '\'':
 			inString = true
 			cur.WriteByte(c)
 			i++
+		case c == '$':
+			if tag, ok := dollarQuoteTag(script[i:]); ok {
+				dollarTag = tag
+				cur.WriteString(tag)
+				i += len(tag)
+			} else {
+				cur.WriteByte(c)
+				i++
+			}
 		case c == '-' && i+1 < len(script) && script[i+1] == '-':
 			for i < len(script) && script[i] != '\n' { // skip line comment
 				i++
@@ -262,4 +298,23 @@ func isWordStart(c byte) bool {
 // isWordPart reports whether c can continue an SQL identifier/keyword.
 func isWordPart(c byte) bool {
 	return isWordStart(c) || (c >= '0' && c <= '9')
+}
+
+// dollarQuoteTag returns the dollar-quote tag that opens at the start of s,
+// when s begins with one. A tag is "$" or "$name$" where name is a SQL
+// identifier. It reports false when s does not open a dollar-quoted body.
+func dollarQuoteTag(s string) (string, bool) {
+	if len(s) == 0 || s[0] != '$' {
+		return "", false
+	}
+	for i := 1; i < len(s); i++ {
+		c := s[i]
+		if c == '$' {
+			return s[:i+1], true
+		}
+		if !(c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (i > 1 && c >= '0' && c <= '9')) {
+			return "", false
+		}
+	}
+	return "", false
 }

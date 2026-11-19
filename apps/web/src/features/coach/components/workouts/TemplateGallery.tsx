@@ -76,7 +76,7 @@ function TemplatePreviewModal({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.92, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="w-full max-w-lg bg-surface-1 rounded-2xl border border-white/10 max-h-[85vh] flex flex-col"
+            className="w-full max-w-lg bg-surface-1 rounded-lg border border-white/10 max-h-[85vh] flex flex-col"
           >
             <div className="flex items-center justify-between p-5 border-b border-white/5 shrink-0">
               <div>
@@ -186,7 +186,7 @@ function DeleteConfirmDialog({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.92, opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="w-full max-w-sm bg-surface-1 rounded-2xl border border-white/10 p-6 space-y-4"
+            className="w-full max-w-sm bg-surface-1 rounded-lg border border-white/10 p-6 space-y-4"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">

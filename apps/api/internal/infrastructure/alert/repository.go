@@ -3,6 +3,7 @@ package alert
 import (
 	"context"
 	"database/sql"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 
 	"github.com/innotechlabs01/mr-training-api/internal/domain/alert"
@@ -10,18 +11,19 @@ import (
 
 // Repository implements the alert.Repository interface using libsql.
 type Repository struct {
-	db *sql.DB
+	db   *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new alert repository.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
 }
 
 // ListAlerts returns all alerts for an athlete.
 // For now returns empty - can be extended with actual alert logic.
 func (r *Repository) ListAlerts(ctx context.Context, athleteID string) ([]*alert.Alert, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, athlete_id, type, severity, title, message, is_read, created_at, dismissed_at
 		FROM athlete_alerts
 		WHERE athlete_id = $1
@@ -46,4 +48,16 @@ func (r *Repository) ListAlerts(ctx context.Context, athleteID string) ([]*alert
 		alerts = append(alerts, &a)
 	}
 	return alerts, nil
+}
+// SetExecutor sets the executor for queries (e.g. *sql.Tx).
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a shallow copy of the repository using the given executor.
+func (r *Repository) WithExecutor(exec database.Executor) *Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
 }

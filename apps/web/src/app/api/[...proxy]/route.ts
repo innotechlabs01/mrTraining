@@ -39,6 +39,11 @@ async function forward(req: NextRequest, params: { proxy: string[] }) {
     responseHeaders.set('API-Version', 'v1');
     responseHeaders.set('Content-Type', contentType);
 
+    // Cache GET responses for 60 seconds (stale-while-revalidate)
+    if (req.method === 'GET') {
+      responseHeaders.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    }
+
     return new NextResponse(buffer, { status: goRes.status, headers: responseHeaders });
   } catch (err) {
     console.error('[proxy] Go API error', err);

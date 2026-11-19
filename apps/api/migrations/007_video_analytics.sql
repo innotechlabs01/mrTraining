@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS video_analytics_sessions (
     max_form_score REAL NOT NULL DEFAULT 0,
     video_url TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'completed',
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (NOW()),
+    updated_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE INDEX IF NOT EXISTS idx_video_analytics_athlete ON video_analytics_sessions(athlete_id);

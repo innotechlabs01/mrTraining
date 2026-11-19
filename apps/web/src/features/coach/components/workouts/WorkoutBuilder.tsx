@@ -58,7 +58,14 @@ function mapRowToWorkoutExercise(row: TemplateExerciseRow, idx: number): Workout
   const weight = typeof weightRaw === 'number' && Number.isFinite(weightRaw) ? weightRaw : undefined
   const rest = typeof restRaw === 'number' && Number.isFinite(restRaw) ? restRaw : 60
   const order = typeof orderRaw === 'number' && Number.isFinite(orderRaw) ? orderRaw : idx + 1
-  const mg = Array.isArray(row.muscleGroups) ? (row.muscleGroups as MuscleGroup[]) : []
+  const mg = (() => {
+    const raw = row.muscleGroups;
+    if (Array.isArray(raw)) return raw as MuscleGroup[];
+    if (typeof raw === 'string') {
+      try { return JSON.parse(raw) as MuscleGroup[]; } catch { return []; }
+    }
+    return [];
+  })();
   return {
     id,
     exerciseId,
@@ -157,7 +164,7 @@ function AiModal({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.92, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="w-full max-w-md bg-surface-1 rounded-2xl border border-white/10"
+            className="w-full max-w-md bg-surface-1 rounded-lg border border-white/10"
           >
             <div className="flex items-center justify-between p-5 border-b border-white/5">
               <div className="flex items-center gap-2">

@@ -41,6 +41,10 @@ type Repository interface {
 	// Returns ErrNotFound if the profile does not exist.
 	UpdateAthleteProfile(ctx context.Context, userID string, profile *AthleteProfile) error
 
+	// UpdateCoachOnboarding persists the answers collected by the coach
+	// onboarding flow. Returns ErrNotFound if the coach profile does not exist.
+	UpdateCoachOnboarding(ctx context.Context, userID string, coach *Coach) error
+
 	// EnsureUser idempotently creates the base users row if missing.
 	// Used for auto-provisioning when the Clerk webhook missed user.created.
 	EnsureUser(ctx context.Context, id, email, name, role string) error
@@ -57,4 +61,7 @@ type Repository interface {
 
 	// AthleteProfileExists reports whether the athlete profile row exists.
 	AthleteProfileExists(ctx context.Context, userID string) (bool, error)
+
+	// SoftDeleteUser marks the user and their coach profile as inactive.
+	SoftDeleteUser(ctx context.Context, userID string) error
 }

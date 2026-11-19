@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { useAthleteTrainingIntel } from '@/features/coach/hooks/useAthleteTrainingIntel'
 import { Dumbbell, Flame, Gauge, TrendingUp, type LucideIcon } from 'lucide-react'
 
@@ -11,7 +12,7 @@ const FATIGUE_STATE_COLOR: Record<string, string> = {
 
 function Panel({ title, icon: Icon, children }: { title: string; icon: LucideIcon; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-white/5 bg-surface-1 p-5 space-y-4">
+    <div className="rounded-lg border border-white/5 bg-surface-1 p-5 space-y-4">
       <h2 className="flex items-center gap-2 text-sm font-semibold text-white/70">
         <Icon size={15} className="text-brand-primary" />
         {title}
@@ -25,7 +26,7 @@ function Skeleton() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {[...Array(4)].map((_, i) => (
-        <div key={i} className="rounded-2xl border border-white/5 bg-surface-1 p-5 h-32 animate-pulse" />
+        <div key={i} className="rounded-lg border border-white/5 bg-surface-1 p-5 h-32 animate-pulse" />
       ))}
     </div>
   )
@@ -36,7 +37,7 @@ function Skeleton() {
  * leaders, muscle fatigue map and aggregated RIR/RPE effort. All numbers derive from
  * real logged sets — nothing here is self-reported.
  */
-export function AthleteTrainingPanels({ athleteId }: { athleteId: string }) {
+export const AthleteTrainingPanels = React.memo(function AthleteTrainingPanels({ athleteId }: { athleteId: string }) {
   const { intel, isLoading, error } = useAthleteTrainingIntel(athleteId)
 
   if (isLoading) return <Skeleton />
@@ -156,5 +157,4 @@ export function AthleteTrainingPanels({ athleteId }: { athleteId: string }) {
         </Panel>
       )}
     </div>
-  )
-}
+  )})

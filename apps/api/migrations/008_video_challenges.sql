@@ -20,8 +20,8 @@ CREATE TABLE IF NOT EXISTS challenges (
   start_date TEXT,
   end_date TEXT,
   expires_at TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (NOW()),
+  updated_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 -- Challenge attempts (athlete participation, multiple per challenge)
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS challenge_attempts (
   notes TEXT,
   status TEXT NOT NULL DEFAULT 'in_progress', -- in_progress | completed | reviewed
   completed_at TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (NOW()),
   UNIQUE(challenge_id, athlete_id, attempt_number)
 );
 

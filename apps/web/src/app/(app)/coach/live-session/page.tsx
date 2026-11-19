@@ -150,7 +150,7 @@ export default function LiveSessionsPage() {
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
       <div className="mb-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="rounded-2xl bg-brand-primary/10 p-2.5 text-brand-primary ring-1 ring-brand-primary/30">
+          <div className="rounded-lg bg-brand-primary/10 p-2.5 text-brand-primary ring-1 ring-brand-primary/30">
             <CalendarDays className="h-6 w-6" />
           </div>
           <div>
@@ -268,7 +268,7 @@ export default function LiveSessionsPage() {
           </div>
 
           {selectedSessions.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/10 px-4 py-10 text-center text-sm text-white/40">
+            <div className="rounded-lg border border-dashed border-white/10 px-4 py-10 text-center text-sm text-white/40">
               No hay sesiones este día.
             </div>
           ) : (
@@ -283,7 +283,7 @@ export default function LiveSessionsPage() {
                 return (
                   <div
                     key={s.id}
-                    className="rounded-2xl border border-white/10 bg-white/[0.02] p-3.5 transition hover:border-white/20"
+                    className="rounded-lg border border-white/10 bg-white/[0.02] p-3.5 transition hover:border-white/20"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">

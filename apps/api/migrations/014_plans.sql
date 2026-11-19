@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS plans (
     discount_valid_from TEXT NOT NULL DEFAULT '',
     discount_valid_until TEXT NOT NULL DEFAULT '',
     discount_code TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (NOW()),
+    updated_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE INDEX IF NOT EXISTS idx_plans_coach ON plans(coach_id);

@@ -1,0 +1,9 @@
+# CodeRabbit configuration
+reviews:
+  auto_review:
+    enabled: true
+    base_branches:
+      - main
+      - dev
+      - qa
+  review_status: true

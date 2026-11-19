@@ -3,6 +3,8 @@ package product
 import (
 	"context"
 	"database/sql"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 
 	productdomain "github.com/innotechlabs01/mr-training-api/internal/domain/product"
@@ -11,17 +13,40 @@ import (
 
 // Repository implements product.Repository using database/sql with Turso/libsql.
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new product repository with the given database connection.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+// When set, all repository queries run against this executor instead of the
+// connection pool.
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) productdomain.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx (injected by a
+// UnitOfWork) rather than the connection pool.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // ListByCoach retrieves all products for a given coach, ordered by name.
 func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*productdomain.Product, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, name, brand, image_url, price, received, gross, stock, low_stock_threshold,
 		 description, category, is_shop, coach_id, created_at, updated_at
 		 FROM products WHERE coach_id = $1 ORDER BY name`, coachID)
@@ -43,10 +68,10 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*produc
 
 // GetByID retrieves a product by its unique identifier.
 func (r *Repository) GetByID(ctx context.Context, id string) (*productdomain.Product, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, name, brand, image_url, price, received, gross, stock, low_stock_threshold,
 		 description, category, is_shop, coach_id, created_at, updated_at
-		 FROM products WHERE id = $2`, id)
+		 FROM products WHERE id = $1`, id)
 
 	p, err := scanProductRow(row)
 	if err != nil {
@@ -57,9 +82,9 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*productdomain.Pro
 
 // Create inserts a new product record.
 func (r *Repository) Create(ctx context.Context, p *productdomain.Product) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO products (id, name, brand, image_url, price, received, gross, stock, low_stock_threshold, description, category, is_shop, coach_id)
-		 VALUES ($3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
 		p.ID, p.Name, p.Brand, p.ImageURL, p.Price, p.Received, p.Gross,
 		p.Stock, p.LowStockThreshold, p.Description, p.Category, p.IsShop, p.CoachID)
 	if err != nil {
@@ -70,10 +95,10 @@ func (r *Repository) Create(ctx context.Context, p *productdomain.Product) error
 
 // Update modifies an existing product record.
 func (r *Repository) Update(ctx context.Context, p *productdomain.Product) error {
-	result, err := r.db.ExecContext(ctx,
-		`UPDATE products SET name=$16, brand=$17, image_url=$18, price=$19, received=$20, gross=$21,
-		 stock=$22, low_stock_threshold=$23, description=$24, category=$25, is_shop=$26,
-		 updated_at=NOW() WHERE id=$27`,
+	result, err := r.exec.ExecContext(ctx,
+		`UPDATE products SET name=$1, brand=$2, image_url=$3, price=$4, received=$5, gross=$6,
+		 stock=$7, low_stock_threshold=$8, description=$9, category=$10, is_shop=$11,
+		 updated_at=NOW() WHERE id=$12`,
 		p.Name, p.Brand, p.ImageURL, p.Price, p.Received, p.Gross,
 		p.Stock, p.LowStockThreshold, p.Description, p.Category, p.IsShop, p.ID)
 	if err != nil {
@@ -91,7 +116,7 @@ func (r *Repository) Update(ctx context.Context, p *productdomain.Product) error
 
 // Delete removes a product record by ID.
 func (r *Repository) Delete(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM products WHERE id = $28`, id)
+	result, err := r.exec.ExecContext(ctx, `DELETE FROM products WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete product: %w", err)
 	}
@@ -107,8 +132,8 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 
 // UpdateStock adjusts the stock of a product by the given delta.
 func (r *Repository) UpdateStock(ctx context.Context, id string, delta int) error {
-	result, err := r.db.ExecContext(ctx,
-		`UPDATE products SET stock = MAX(0, stock + $29), updated_at = NOW() WHERE id = $30`,
+	result, err := r.exec.ExecContext(ctx,
+		`UPDATE products SET stock = MAX(0, stock + $1), updated_at = NOW() WHERE id = $2`,
 		delta, id)
 	if err != nil {
 		return fmt.Errorf("failed to update stock: %w", err)
@@ -125,10 +150,10 @@ func (r *Repository) UpdateStock(ctx context.Context, id string, delta int) erro
 
 // ListSalesByCoach retrieves all sales for a given coach, ordered by date descending.
 func (r *Repository) ListSalesByCoach(ctx context.Context, coachID string) ([]*productdomain.Sale, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, product_id, product_name, brand, quantity, unit_price, unit_received,
 		 total, date, coach_id, created_at
-		 FROM sales WHERE coach_id = $31 ORDER BY created_at DESC`, coachID)
+		 FROM sales WHERE coach_id = $1 ORDER BY created_at DESC`, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sales: %w", err)
 	}
@@ -147,9 +172,9 @@ func (r *Repository) ListSalesByCoach(ctx context.Context, coachID string) ([]*p
 
 // CreateSale inserts a new sale record and decrements product stock.
 func (r *Repository) CreateSale(ctx context.Context, sale *productdomain.Sale) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO sales (id, product_id, product_name, brand, quantity, unit_price, unit_received, total, date, coach_id)
-		 VALUES ($32, $33, $34, $35, $36, $37, $38, $39, $40, $41)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 		sale.ID, sale.ProductID, sale.ProductName, sale.Brand, sale.Quantity,
 		sale.UnitPrice, sale.UnitReceived, sale.Total, sale.Date, sale.CoachID)
 	if err != nil {
@@ -157,8 +182,8 @@ func (r *Repository) CreateSale(ctx context.Context, sale *productdomain.Sale) e
 	}
 
 	// Decrement stock
-	if _, err := r.db.ExecContext(ctx,
-		`UPDATE products SET stock = MAX(0, stock - $42), updated_at = NOW() WHERE id = $43`,
+	if _, err := r.exec.ExecContext(ctx,
+		`UPDATE products SET stock = MAX(0, stock - $1), updated_at = NOW() WHERE id = $2`,
 		sale.Quantity, sale.ProductID); err != nil {
 		return fmt.Errorf("failed to decrement stock: %w", err)
 	}
@@ -168,7 +193,7 @@ func (r *Repository) CreateSale(ctx context.Context, sale *productdomain.Sale) e
 
 // DeleteSale removes a sale record by ID.
 func (r *Repository) DeleteSale(ctx context.Context, saleID string) error {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM sales WHERE id = $44`, saleID)
+	res, err := r.exec.ExecContext(ctx, `DELETE FROM sales WHERE id = $1`, saleID)
 	if err != nil {
 		return fmt.Errorf("failed to delete sale: %w", err)
 	}
@@ -176,6 +201,29 @@ func (r *Repository) DeleteSale(ctx context.Context, saleID string) error {
 		return errors.NotFound("Sale", saleID)
 	}
 	return nil
+}
+
+// ListPublicProducts retrieves all shop products (is_shop = true) across all coaches,
+// ordered by name. Used for public marketing/landing pages.
+func (r *Repository) ListPublicProducts(ctx context.Context) ([]*productdomain.Product, error) {
+	rows, err := r.exec.QueryContext(ctx,
+		`SELECT id, name, brand, image_url, price, received, gross, stock, low_stock_threshold,
+		 description, category, is_shop, coach_id, created_at, updated_at
+		 FROM products WHERE is_shop = 1 ORDER BY name`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list public products: %w", err)
+	}
+	defer rows.Close()
+
+	var products []*productdomain.Product
+	for rows.Next() {
+		p, err := scanProduct(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan product: %w", err)
+		}
+		products = append(products, p)
+	}
+	return products, nil
 }
 
 // --- Private helpers ---

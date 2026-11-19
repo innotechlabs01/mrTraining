@@ -40,7 +40,7 @@ export default function SleepCard({ data, onLog }: { data: SleepData; onLog?: ()
   const quality = qualityLabels[data.quality]
 
   return (
-    <div className="bg-surface-1 rounded-2xl p-5 border border-white/5">
+    <div className="bg-surface-1 rounded-lg p-5 border border-white/5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Moon className="w-4 h-4 text-indigo-400" />

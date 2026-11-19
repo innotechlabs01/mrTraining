@@ -16,8 +16,8 @@ CREATE TABLE IF NOT EXISTS allies (
   contact_phone   TEXT DEFAULT '',
   tax_id          TEXT DEFAULT '',
   status          TEXT NOT NULL DEFAULT 'pending',
-  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at      TEXT NOT NULL DEFAULT (NOW()),
+  updated_at      TEXT NOT NULL DEFAULT (NOW()),
   CHECK (status IN ('pending','active','suspended')),
   CHECK (category IN ('gym','nutrition','physio','supplements','recovery','other'))
 );
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS ally_locations (
   address    TEXT DEFAULT '',
   lat        REAL DEFAULT 0,
   lng        REAL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE TABLE IF NOT EXISTS ally_members (
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS ally_members (
   ally_id    TEXT NOT NULL REFERENCES allies(id),
   user_id    TEXT NOT NULL,
   role       TEXT NOT NULL DEFAULT 'staff',
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (NOW()),
   UNIQUE (ally_id, user_id),
   CHECK (role IN ('owner','staff'))
 );
@@ -51,8 +51,8 @@ CREATE TABLE IF NOT EXISTS coach_ally_relationships (
   invited_at   TEXT,
   activated_at TEXT,
   ended_at     TEXT,
-  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at   TEXT NOT NULL DEFAULT (NOW()),
+  updated_at   TEXT NOT NULL DEFAULT (NOW()),
   UNIQUE (coach_id, ally_id),
   CHECK (status IN ('invited','active','declined','suspended'))
 );
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS ally_invitations (
   expires_at       TEXT NOT NULL,
   accepted_at      TEXT,
   accepted_user_id TEXT,
-  created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at       TEXT NOT NULL DEFAULT (NOW()),
   UNIQUE (token_hash),
   CHECK (status IN ('pending','accepted','expired','revoked')),
   CHECK (role_sync_status IN ('pending','synced','failed'))

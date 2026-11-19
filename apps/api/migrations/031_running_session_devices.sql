@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS running_session_devices (
   source       TEXT NOT NULL,
   device_name  TEXT,
   device_brand TEXT,
-  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at   TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_running_session_devices_user_external

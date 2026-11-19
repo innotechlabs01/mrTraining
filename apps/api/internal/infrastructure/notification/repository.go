@@ -7,23 +7,45 @@ import (
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/notification"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Repository implements notification.Repository using database/sql with Turso/libsql.
 type Repository struct {
-	db *sql.DB
+	db   *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new notification repository with the given database connection.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) domain.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // --- Device operations ---
 
 // RegisterDevice stores a new device token for push notifications.
 func (r *Repository) RegisterDevice(ctx context.Context, d *domain.Device) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO devices (id, user_id, token, platform, is_active, created_at)
 		 VALUES ($1, $2, $3, $4, $5, NOW())`,
 		d.ID, d.UserID, d.Token, d.Platform, d.IsActive)
@@ -35,9 +57,9 @@ func (r *Repository) RegisterDevice(ctx context.Context, d *domain.Device) error
 
 // GetDevice retrieves a device by its unique identifier.
 func (r *Repository) GetDevice(ctx context.Context, id string) (*domain.Device, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, user_id, token, platform, is_active, created_at
-		 FROM devices WHERE id = $6`, id)
+		 FROM devices WHERE id = $1`, id)
 
 	d := &domain.Device{}
 	err := row.Scan(&d.ID, &d.UserID, &d.Token, &d.Platform, &d.IsActive, &d.CreatedAt)
@@ -52,9 +74,9 @@ func (r *Repository) GetDevice(ctx context.Context, id string) (*domain.Device, 
 
 // GetDeviceByToken retrieves a device by its FCM token.
 func (r *Repository) GetDeviceByToken(ctx context.Context, token string) (*domain.Device, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, user_id, token, platform, is_active, created_at
-		 FROM devices WHERE token = $7`, token)
+		 FROM devices WHERE token = $1`, token)
 
 	d := &domain.Device{}
 	err := row.Scan(&d.ID, &d.UserID, &d.Token, &d.Platform, &d.IsActive, &d.CreatedAt)
@@ -69,9 +91,9 @@ func (r *Repository) GetDeviceByToken(ctx context.Context, token string) (*domai
 
 // ListDevicesByUser retrieves all active devices for a user.
 func (r *Repository) ListDevicesByUser(ctx context.Context, userID string) ([]*domain.Device, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, user_id, token, platform, is_active, created_at
-		 FROM devices WHERE user_id = $8 AND is_active = 1`, userID)
+		 FROM devices WHERE user_id = $1 AND is_active = 1`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list devices: %w", err)
 	}
@@ -90,8 +112,8 @@ func (r *Repository) ListDevicesByUser(ctx context.Context, userID string) ([]*d
 
 // DeactivateDevice marks a device as inactive.
 func (r *Repository) DeactivateDevice(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx,
-		`UPDATE devices SET is_active = 0 WHERE id = $9`, id)
+	result, err := r.exec.ExecContext(ctx,
+		`UPDATE devices SET is_active = 0 WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to deactivate device: %w", err)
 	}
@@ -109,9 +131,9 @@ func (r *Repository) DeactivateDevice(ctx context.Context, id string) error {
 
 // SaveNotification persists a notification record.
 func (r *Repository) SaveNotification(ctx context.Context, n *domain.Notification) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO notifications (id, user_id, type, title, message, icon, is_read, created_at)
-		 VALUES ($10, $11, $12, $13, $14, $15, $16, NOW())`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
 		n.ID, n.UserID, n.Type, n.Title, n.Message, nullStr(n.Icon), n.Read)
 	if err != nil {
 		return fmt.Errorf("failed to save notification: %w", err)
@@ -121,9 +143,9 @@ func (r *Repository) SaveNotification(ctx context.Context, n *domain.Notificatio
 
 // GetNotification retrieves a notification by its unique identifier.
 func (r *Repository) GetNotification(ctx context.Context, id string) (*domain.Notification, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT id, user_id, type, title, message, icon, is_read, created_at
-		 FROM notifications WHERE id = $17`, id)
+		 FROM notifications WHERE id = $1`, id)
 
 	n := &domain.Notification{}
 	var icon sql.NullString
@@ -142,10 +164,10 @@ func (r *Repository) GetNotification(ctx context.Context, id string) (*domain.No
 
 // ListNotificationsByUser retrieves notifications for a user, ordered by creation date descending.
 func (r *Repository) ListNotificationsByUser(ctx context.Context, userID string, limit, offset int) ([]*domain.Notification, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, user_id, type, title, message, icon, is_read, created_at
-		 FROM notifications WHERE user_id = $18
-		 ORDER BY created_at DESC LIMIT $19 OFFSET $20`, userID, limit, offset)
+		 FROM notifications WHERE user_id = $1
+		 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list notifications: %w", err)
 	}
@@ -169,8 +191,8 @@ func (r *Repository) ListNotificationsByUser(ctx context.Context, userID string,
 // CountNotificationsByUser returns the total number of notifications for a user.
 func (r *Repository) CountNotificationsByUser(ctx context.Context, userID string) (int, error) {
 	var count int
-	err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM notifications WHERE user_id = $21`, userID).Scan(&count)
+	err := r.exec.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM notifications WHERE user_id = $1`, userID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count notifications: %w", err)
 	}
@@ -179,8 +201,8 @@ func (r *Repository) CountNotificationsByUser(ctx context.Context, userID string
 
 // MarkNotificationRead marks a single notification as read.
 func (r *Repository) MarkNotificationRead(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx,
-		`UPDATE notifications SET is_read = 1 WHERE id = $22`, id)
+	result, err := r.exec.ExecContext(ctx,
+		`UPDATE notifications SET is_read = 1 WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to mark notification read: %w", err)
 	}
@@ -196,8 +218,8 @@ func (r *Repository) MarkNotificationRead(ctx context.Context, id string) error 
 
 // MarkAllNotificationsRead marks all notifications for a user as read.
 func (r *Repository) MarkAllNotificationsRead(ctx context.Context, userID string) (int64, error) {
-	result, err := r.db.ExecContext(ctx,
-		`UPDATE notifications SET is_read = 1 WHERE user_id = $23 AND is_read = 0`, userID)
+	result, err := r.exec.ExecContext(ctx,
+		`UPDATE notifications SET is_read = 1 WHERE user_id = $1 AND is_read = 0`, userID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to mark all notifications read: %w", err)
 	}
@@ -209,9 +231,9 @@ func (r *Repository) MarkAllNotificationsRead(ctx context.Context, userID string
 // GetPreferences retrieves notification preferences for a user.
 // Returns default preferences if none exist.
 func (r *Repository) GetPreferences(ctx context.Context, userID string) (*domain.NotificationPreference, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := r.exec.QueryRowContext(ctx,
 		`SELECT user_id, workout_reminders, weekly_challenges, new_articles, community_updates, progress_reports
-		 FROM notification_preferences WHERE user_id = $24`, userID)
+		 FROM notification_preferences WHERE user_id = $1`, userID)
 
 	p := &domain.NotificationPreference{}
 	err := row.Scan(&p.UserID, &p.WorkoutReminders, &p.WeeklyChallenges,
@@ -235,9 +257,9 @@ func (r *Repository) GetPreferences(ctx context.Context, userID string) (*domain
 
 // UpdatePreferences saves notification preferences for a user.
 func (r *Repository) UpdatePreferences(ctx context.Context, p *domain.NotificationPreference) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO notification_preferences (user_id, workout_reminders, weekly_challenges, new_articles, community_updates, progress_reports)
-		 VALUES ($25, $26, $27, $28, $29, $30)
+		 VALUES ($1, $2, $3, $4, $5, $6)
 		 ON CONFLICT(user_id) DO UPDATE SET
 		 workout_reminders = excluded.workout_reminders,
 		 weekly_challenges = excluded.weekly_challenges,

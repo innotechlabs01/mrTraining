@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS ally_operations (
   confirmed_at  TEXT,                      -- cuándo se confirmó (null hasta transition)
   completed_at  TEXT,                      -- cuándo se cumplió/atendió (null hasta transition)
   cancelled_at  TEXT,                      -- cuándo se canceló (null hasta transition)
-  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at    TEXT NOT NULL DEFAULT (NOW()),
+  updated_at    TEXT NOT NULL DEFAULT (NOW()),
   CHECK (kind IN ('order','reservation')),
   CHECK (status IN ('created','confirmed','fulfilled','attended','no_show','cancelled')),
   CHECK (kind = 'reservation' AND scheduled_at IS NOT NULL OR kind = 'order' AND scheduled_at IS NULL)
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS ally_redemptions (
   redeemed_by   TEXT,                        -- Clerk user id quien redimió
   redeemed_at   TEXT,                        -- cuándo se redimió (null hasta redeem)
   status        TEXT NOT NULL DEFAULT 'issued', -- issued | redeemed | expired | cancelled
-  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at    TEXT NOT NULL DEFAULT (NOW()),
   UNIQUE(token_hash),
   CHECK (status IN ('issued','redeemed','expired','cancelled')),
   CHECK (expires_at > '1970-01-01') -- bonita sanity check

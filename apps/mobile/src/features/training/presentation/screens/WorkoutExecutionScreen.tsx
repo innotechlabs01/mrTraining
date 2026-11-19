@@ -216,7 +216,7 @@ export function WorkoutExecutionScreen({ route, navigation }: Props) {
               newPrsLabel: t.newPrsLabel,
               doneLabel: t.done,
             }}
-            onDone={() => navigation.goBack()}
+            onDone={() => navigation.navigate('SessionFeedback', { sessionId, workoutId })}
           />
         ) : (
           <>

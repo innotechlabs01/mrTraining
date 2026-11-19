@@ -33,8 +33,8 @@ CREATE TABLE IF NOT EXISTS coach_settlements (
   calculated_at      TEXT,
   approved_at        TEXT,
   closed_at          TEXT,
-  created_at         TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at         TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at         TEXT NOT NULL DEFAULT (NOW()),
+  updated_at         TEXT NOT NULL DEFAULT (NOW()),
   UNIQUE (coach_id, ally_id, period_key, currency),
   CHECK (currency = 'COP'),
   CHECK (status IN ('draft','calculated','under_review','approved','document_issued','paid_external','disputed','void'))
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS settlement_items (
   rate_bps       INTEGER NOT NULL,
   amount_cents   INTEGER NOT NULL,
   released_at    TEXT,                                     -- set when settlement is voided
-  created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at     TEXT NOT NULL DEFAULT (NOW()),
   UNIQUE (settlement_id, entry_id),
   CHECK (base_cents >= 0),
   CHECK (rate_bps >= 0 AND rate_bps <= 100000),
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS settlement_documents (
   content_ref   TEXT,                                       -- private evidence path, never public URL (H-04)
   status        TEXT NOT NULL DEFAULT 'draft',             -- draft|reviewed|approved
   version       INTEGER NOT NULL DEFAULT 1,
-  generated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  generated_at  TEXT NOT NULL DEFAULT (NOW()),
   sent_at       TEXT,
   CHECK (status IN ('draft','reviewed','approved'))
 );
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS coach_payment_records (
   evidence_ref   TEXT,                                     -- private evidence path
   declared_at    TEXT NOT NULL,
   status         TEXT NOT NULL DEFAULT 'declared',         -- declared|confirmed
-  created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at     TEXT NOT NULL DEFAULT (NOW()),
   CHECK (actor_type IN ('user','system')),
   CHECK (status IN ('declared','confirmed')),
   CHECK (amount_cents >= 0)

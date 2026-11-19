@@ -52,3 +52,8 @@ e2e/credentials.env
 .vscode/
 *.swp
 *.swo
+
+# Playwright generated artifacts
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/.auth/

@@ -1196,3 +1196,22 @@ Se completó la revisión profunda de la migración `012_outbox_transaccional.sq
 **Estado actual:** `Auditoría técnica corregida — pendiente de aprobación final`. La migración 012 requiere los ajustes descritos antes de ser considerada lista para implementación. Una vez aprobado el esquema, se procederá con la Etapa 2 de integración con service.go y posterior implementación de worker.go.
 
 </po>
+
+---
+
+### Actualización 2026-11-04 — Implementación Fase 4 (Realtime)
+
+**Avance estimado:** ~40-45% (tras auditoría integral)
+
+**Completado en esta iteración:**
+- Migración `404_outbox_fix.sql` para alinear esquema Outbox (event_id, leases, next_retry_at, índices).
+- Servicio Running: los 5 eventos se escriben en Outbox. `template.updated` y `workout.started` agregados. `assignment.created` corrige `template_id` (usa template real). `workout.completed` obtiene `coach_id` desde asignación. Operaciones negocio+Outbox atómicas con transacción cuando hay DB.
+- Worker Outbox (`internal/application/running/outbox/worker.go`) con polling, `FOR UPDATE SKIP LOCKED`, leases, recuperación de leases expirados, backoff exponencial+jitter, MAX_ATTEMPTS→`dead`, publicación a `DefaultHub` con enrutamiento por coach/athlete/workout.
+- Worker iniciado en `cmd/api/main.go`.
+
+**Pendiente para cierre:**
+- Verificar pruebas funcionales de los 8 escenarios entre coach y atleta.
+- Asegurar filtrado/aislamiento correcto en todas las suscripciones.
+- Mantener documentación de que `DefaultHub` no garantiza replay a clientes desconectados.
+
+**Validaciones:** `go build ./...` OK, `go vet ./...` OK. Tests unitarios de running OK. `go test ./...` falla únicamente en `cmd/data-migrate` (TestMigrationPlanOrdering) — pendiente de verificación/limpieza independiente a Fase 4.

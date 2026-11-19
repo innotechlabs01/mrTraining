@@ -3,6 +3,8 @@ package gamification
 import (
 	"context"
 	"database/sql"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
 	"strings"
 
@@ -11,20 +13,43 @@ import (
 
 // Repository implements the gamification.Repository interface using libsql.
 type Repository struct {
-	db *sql.DB
+	db  *sql.DB
+	exec database.Executor
 }
 
 // NewRepository creates a new gamification repository.
 func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+	return &Repository{db: db, exec: db}
+}
+// SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork).
+// When set, all repository queries run against this executor instead of the
+// connection pool.
+func (r *Repository) SetExecutor(exec database.Executor) {
+	r.exec = exec
+}
+
+// WithExecutor returns a new Repository instance sharing the same connection
+// pool but using the given executor for all queries.
+func (r *Repository) WithExecutor(exec database.Executor) gamification.Repository {
+	return &Repository{
+		db:   r.db,
+		exec: exec,
+	}
+}
+
+// isTx reports whether the current executor is a *sql.Tx (injected by a
+// UnitOfWork) rather than the connection pool.
+func (r *Repository) isTx() bool {
+	_, ok := r.exec.(*sql.Tx)
+	return ok
 }
 
 // GetStreak returns the athlete's streak data.
 func (r *Repository) GetStreak(ctx context.Context, athleteID string) (*gamification.Streak, error) {
-	if r.db == nil {
+	if r.exec == nil {
 		return nil, nil
 	}
-	row := r.db.QueryRowContext(ctx, `
+	row := r.exec.QueryRowContext(ctx, `
 		SELECT id, athlete_id, current_streak, longest_streak, last_workout_date, created_at, updated_at
 		FROM gamification_streaks
 		WHERE athlete_id = $1
@@ -47,12 +72,12 @@ func (r *Repository) GetStreak(ctx context.Context, athleteID string) (*gamifica
 
 // UpsertStreak creates or updates streak data.
 func (r *Repository) UpsertStreak(ctx context.Context, streak *gamification.Streak) error {
-	if r.db == nil {
+	if r.exec == nil {
 		return fmt.Errorf("database not configured")
 	}
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO gamification_streaks (id, athlete_id, current_streak, longest_streak, last_workout_date, created_at, updated_at)
-		VALUES ($2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT(athlete_id) DO UPDATE SET
 			current_streak = excluded.current_streak,
 			longest_streak = excluded.longest_streak,
@@ -70,12 +95,12 @@ func (r *Repository) UpsertStreak(ctx context.Context, streak *gamification.Stre
 
 // LogWorkoutDay records a workout day.
 func (r *Repository) LogWorkoutDay(ctx context.Context, day *gamification.WorkoutDay) error {
-	if r.db == nil {
+	if r.exec == nil {
 		return fmt.Errorf("database not configured")
 	}
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO gamification_workout_days (id, athlete_id, workout_date, workout_id, created_at)
-		VALUES ($9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, $4, $5)
 	`, day.ID, day.AthleteID, day.WorkoutDate, day.WorkoutID, day.CreatedAt)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
@@ -88,13 +113,13 @@ func (r *Repository) LogWorkoutDay(ctx context.Context, day *gamification.Workou
 
 // ListWorkoutDays returns workout days for an athlete, optionally filtered by date.
 func (r *Repository) ListWorkoutDays(ctx context.Context, athleteID string, since string) ([]*gamification.WorkoutDay, error) {
-	if r.db == nil {
+	if r.exec == nil {
 		return []*gamification.WorkoutDay{}, nil
 	}
 	query := `
 		SELECT id, athlete_id, workout_date, workout_id, created_at
 		FROM gamification_workout_days
-		WHERE athlete_id = $14
+		WHERE athlete_id = $1
 	`
 	args := []interface{}{athleteID}
 	if since != "" {
@@ -103,7 +128,7 @@ func (r *Repository) ListWorkoutDays(ctx context.Context, athleteID string, sinc
 	}
 	query += " ORDER BY workout_date ASC"
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.exec.QueryContext(ctx, query, args...)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
 			return []*gamification.WorkoutDay{}, nil
@@ -132,13 +157,13 @@ func (r *Repository) ListWorkoutDays(ctx context.Context, athleteID string, sinc
 
 // ListBadges returns all badges for an athlete.
 func (r *Repository) ListBadges(ctx context.Context, athleteID string) ([]*gamification.Badge, error) {
-	if r.db == nil {
+	if r.exec == nil {
 		return []*gamification.Badge{}, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, athlete_id, badge_id, unlocked_at
 		FROM gamification_badges
-		WHERE athlete_id = $16
+		WHERE athlete_id = $1
 		ORDER BY unlocked_at DESC
 	`, athleteID)
 	if err != nil {
@@ -165,12 +190,12 @@ func (r *Repository) ListBadges(ctx context.Context, athleteID string) ([]*gamif
 
 // UpsertBadge creates or updates a badge.
 func (r *Repository) UpsertBadge(ctx context.Context, badge *gamification.Badge) error {
-	if r.db == nil {
+	if r.exec == nil {
 		return fmt.Errorf("database not configured")
 	}
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO gamification_badges (id, athlete_id, badge_id, unlocked_at)
-		VALUES ($17, $18, $19, $20)
+		VALUES ($1, $2, $3, $4)
 		ON CONFLICT(athlete_id, badge_id) DO UPDATE SET
 			unlocked_at = excluded.unlocked_at
 	`, badge.ID, badge.AthleteID, badge.BadgeID, badge.UnlockedAt)
@@ -185,10 +210,10 @@ func (r *Repository) UpsertBadge(ctx context.Context, badge *gamification.Badge)
 
 // ListAllStreaks returns all streak records (used by the inactivity retention job).
 func (r *Repository) ListAllStreaks(ctx context.Context) ([]*gamification.Streak, error) {
-	if r.db == nil {
+	if r.exec == nil {
 		return []*gamification.Streak{}, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, athlete_id, current_streak, longest_streak, last_workout_date, created_at, updated_at
 		FROM gamification_streaks
 		ORDER BY athlete_id
@@ -221,13 +246,13 @@ func (r *Repository) ListAllStreaks(ctx context.Context) ([]*gamification.Streak
 
 // ListPRs returns all personal records for an athlete.
 func (r *Repository) ListPRs(ctx context.Context, athleteID string) ([]*gamification.PersonalRecord, error) {
-	if r.db == nil {
+	if r.exec == nil {
 		return []*gamification.PersonalRecord{}, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.exec.QueryContext(ctx, `
 		SELECT id, athlete_id, exercise_id, best_value, unit, achieved_at, previous_best
 		FROM gamification_prs
-		WHERE athlete_id = $21
+		WHERE athlete_id = $1
 		ORDER BY achieved_at DESC
 	`, athleteID)
 	if err != nil {
@@ -258,13 +283,13 @@ func (r *Repository) ListPRs(ctx context.Context, athleteID string) ([]*gamifica
 
 // GetPR returns a specific PR by athlete and exercise.
 func (r *Repository) GetPR(ctx context.Context, athleteID, exerciseID string) (*gamification.PersonalRecord, error) {
-	if r.db == nil {
+	if r.exec == nil {
 		return nil, nil
 	}
-	row := r.db.QueryRowContext(ctx, `
+	row := r.exec.QueryRowContext(ctx, `
 		SELECT id, athlete_id, exercise_id, best_value, unit, achieved_at, previous_best
 		FROM gamification_prs
-		WHERE athlete_id = $22 AND exercise_id = $23
+		WHERE athlete_id = $1 AND exercise_id = $2
 	`, athleteID, exerciseID)
 
 	var pr gamification.PersonalRecord
@@ -284,12 +309,12 @@ func (r *Repository) GetPR(ctx context.Context, athleteID, exerciseID string) (*
 
 // UpsertPR creates or updates a personal record.
 func (r *Repository) UpsertPR(ctx context.Context, pr *gamification.PersonalRecord) error {
-	if r.db == nil {
+	if r.exec == nil {
 		return fmt.Errorf("database not configured")
 	}
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.exec.ExecContext(ctx, `
 		INSERT INTO gamification_prs (id, athlete_id, exercise_id, best_value, unit, achieved_at, previous_best)
-		VALUES ($24, $25, $26, $27, $28, $29, $30)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT(athlete_id, exercise_id) DO UPDATE SET
 			best_value = excluded.best_value,
 			unit = excluded.unit,
