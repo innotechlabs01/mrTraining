@@ -4,20 +4,9 @@ import { useState, useMemo } from 'react';
 import {
   Users,
   Search,
-  Filter,
   Plus,
-  Download,
-  Award,
-  MoreVertical,
   QrCode,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Sparkles,
   Eye,
-  X,
-  Phone,
-  Mail,
   Flame,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -466,7 +455,7 @@ export default function AdminMembersPage() {
               </label>
               <select
                 value={newTier}
-                onChange={(e) => setNewTier(e.target.value as any)}
+                onChange={(e) => setNewTier(e.target.value as 'Gold' | 'Silver' | 'Platinum')}
                 className="w-full rounded-xl border border-[#26262B] bg-[#1B1B22] p-2.5 text-xs text-white focus:border-[#E07A3D] focus:outline-none"
               >
                 <option value="Gold">Gold (Recomendado)</option>

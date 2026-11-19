@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { Columns3, CheckCircle2, AlertCircle, Clock, Plus } from 'lucide-react';
+import { Columns3, AlertCircle, Clock } from 'lucide-react';
 import { KanbanBoard } from '@/components/admin/KanbanBoard';
 
 export default function AdminKanbanPage() {

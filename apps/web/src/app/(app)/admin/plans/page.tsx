@@ -82,7 +82,7 @@ export default function AdminPlansPage() {
   const [form, setForm] = useState<PlanFormValues>(DEFAULT_FORM);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  const [trmRate, setTrmRate] = useState<{ value: number; fetchedAt: string } | null>(null);
+  const [_trmRate, setTrmRate] = useState<{ value: number; fetchedAt: string } | null>(null);
   const [fetchingTrm, setFetchingTrm] = useState(false);
   const [search, setSearch] = useState('');
 
@@ -128,6 +128,7 @@ export default function AdminPlansPage() {
       return;
     }
     loadPlans();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isSuperAdmin, router]);
 
   if (!user || !isSuperAdmin) {

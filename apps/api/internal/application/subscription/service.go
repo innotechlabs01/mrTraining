@@ -360,6 +360,13 @@ func (s *Service) GetPaymentStatus(ctx context.Context, subscriberID string) (st
 		return PaymentStatusNone, nil, nil
 	}
 
+	if sub.Status == subscription.StatusTrial {
+		if time.Now().UTC().Before(sub.CurrentPeriodEnd) {
+			return string(subscription.StatusTrial), sub, nil
+		}
+		return string(subscription.StatusExpired), sub, nil
+	}
+
 	approved, err := s.subRepo.HasApprovedPayment(ctx, sub.ID)
 	if err != nil {
 		return PaymentStatusNone, nil, err
@@ -377,6 +384,72 @@ func (s *Service) GetPaymentStatus(ctx context.Context, subscriberID string) (st
 	}
 
 	return PaymentStatusPending, sub, nil
+}
+
+// StartTrialCommand carries the input for starting a platform trial subscription.
+type StartTrialCommand struct {
+	CoachID   string
+	PlanID    string
+	TrialDays int
+}
+
+// StartTrial provisions a trial subscription (default 7 days) for the coach.
+func (s *Service) StartTrial(ctx context.Context, cmd StartTrialCommand) (*subscription.Subscription, error) {
+	if cmd.CoachID == "" {
+		return nil, errors.BadRequest("coach_id is required")
+	}
+	if cmd.TrialDays <= 0 {
+		cmd.TrialDays = 7
+	}
+
+	existing, err := s.subRepo.FindByAthlete(ctx, cmd.CoachID)
+	if err != nil {
+		if appErr, ok := err.(*errors.AppError); !ok || appErr.Code != "NOT_FOUND" {
+			return nil, fmt.Errorf("find existing subscription: %w", err)
+		}
+		existing = nil
+	}
+	if existing != nil {
+		if existing.Status == subscription.StatusActive {
+			return existing, nil
+		}
+		if existing.Status == subscription.StatusTrial {
+			if time.Now().UTC().Before(existing.CurrentPeriodEnd) {
+				return existing, nil
+			}
+			return nil, errors.BadRequest("el periodo de prueba de 7 días ya ha finalizado. Por favor adquiere un plan para continuar.")
+		}
+	}
+
+	planName := "Plan Starter"
+	if cmd.PlanID != "" && s.planRepo != nil {
+		if p, perr := s.planRepo.GetByID(ctx, cmd.PlanID); perr == nil && p != nil {
+			planName = p.Name
+		}
+	}
+	if cmd.PlanID == "" {
+		cmd.PlanID = "plan-seed-starter"
+	}
+
+	sub, err := subscription.NewTrialSubscription(
+		newSubscriptionID(),
+		cmd.CoachID,
+		cmd.CoachID,
+		cmd.PlanID,
+		planName,
+		cmd.TrialDays,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create trial subscription: %w", err)
+	}
+
+	if err := s.subRepo.Save(ctx, sub); err != nil {
+		return nil, fmt.Errorf("save trial subscription: %w", err)
+	}
+
+	s.mirrorEntitlements(ctx, cmd.CoachID, sub.PlanID, sub.PlanName, string(subscription.StatusTrial))
+
+	return sub, nil
 }
 
 // ListByCoach returns all subscriptions for a coach's athletes.

@@ -4,13 +4,6 @@ import { useState } from 'react';
 import {
   Receipt,
   Search,
-  Filter,
-  DollarSign,
-  CreditCard,
-  Download,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
   ExternalLink,
   Eye,
 } from 'lucide-react';

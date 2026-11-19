@@ -528,10 +528,13 @@ export function SignInForm({
         )}
       </AnimatePresence>
 
-      <div className="text-center text-body-sm text-text-secondary">
-        Don&apos;t have an account?{' '}
-        <Link href={signUpHref} className="text-brand-primary font-semibold transition-colors duration-200 hover:text-brand-primary-hover">
-          Sign up
+      <div className="text-center text-body-sm text-text-secondary pt-2 border-t border-surface-6/50">
+        ¿Primera vez en MR Training?{' '}
+        <Link
+          href={signUpHref || '/sign-up?trial=true'}
+          className="text-brand-primary font-semibold transition-colors duration-200 hover:text-brand-primary-hover"
+        >
+          Empieza tu prueba gratis de 7 días
         </Link>
       </div>
     </div>

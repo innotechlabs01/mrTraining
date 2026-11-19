@@ -35,7 +35,7 @@ export async function fetchCoachSubscriptionStatus(): Promise<'paid' | 'pending'
     if (!res.ok) return 'pending';
     const data = await res.json().catch(() => ({}));
     const status = data.status as string | undefined;
-    return status === 'active' || status === 'trial' ? 'paid' : 'pending';
+    return status === 'active' || status === 'trial' || status === 'approved' ? 'paid' : 'pending';
   } catch {
     return 'pending';
   }

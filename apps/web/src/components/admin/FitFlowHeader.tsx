@@ -5,15 +5,11 @@ import {
   Search,
   Bell,
   ChevronDown,
-  User,
   Settings,
   LogOut,
   Menu,
-  CheckCircle2,
   Calendar,
-  Sparkles,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface FitFlowHeaderProps {
   displayName?: string;

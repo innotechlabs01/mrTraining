@@ -134,7 +134,7 @@ export default function AdminSettingsPage() {
   });
 
   const superAdminIds = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
-  const isSuperAdmin = user?.id && superAdminIds.includes(user.id);
+  const _isSuperAdmin = user?.id && superAdminIds.includes(user.id);
 
   const tabs = [
     { id: 'general', label: 'General', icon: <Settings size={18} /> },
@@ -159,7 +159,7 @@ export default function AdminSettingsPage() {
         body: JSON.stringify({ [key]: value }),
       });
       setMessage({ text: 'Guardado correctamente', type: 'success' });
-    } catch (err) {
+    } catch {
       setMessage({ text: 'Error al guardar', type: 'error' });
     } finally {
       setSaving(false);
@@ -180,7 +180,7 @@ export default function AdminSettingsPage() {
       });
       if (!res.ok) throw new Error('Error al guardar');
       setMessage({ text: 'Todos los cambios se guardaron correctamente', type: 'success' });
-    } catch (err) {
+    } catch {
       setMessage({ text: 'Error al guardar los cambios', type: 'error' });
     } finally {
       setSaving(false);

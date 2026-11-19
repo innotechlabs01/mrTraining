@@ -7,30 +7,14 @@ import {
   Users,
   TrendingUp,
   Activity,
-  DollarSign,
-  AlertCircle,
-  Minus,
   Search as SearchIcon,
-  ShieldCheck,
-  Award,
-  Sparkles,
-  ArrowUpRight,
-  ArrowDownRight,
   Eye,
-  CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 import {
-  Badge,
-  Card,
-  CardToolbar,
-  EmptyState,
   Field,
   Modal,
-  PageHeader,
-  SearchField,
-  secondaryButtonClass,
 } from '@/components/admin/ui';
 
 import { LoyaltyBanner } from '@/components/admin/LoyaltyBanner';
@@ -79,13 +63,6 @@ interface RevenueStats {
   by_month?: { month: string; amount: number }[];
 }
 
-function planTone(status?: string) {
-  if (status === 'active') return 'success' as const;
-  if (status === 'expired') return 'error' as const;
-  if (status === 'skipped') return 'warning' as const;
-  return 'neutral' as const;
-}
-
 export default function AdminDashboardPage() {
   const { user } = useUser();
   const { getToken } = useAuth();
@@ -94,7 +71,7 @@ export default function AdminDashboardPage() {
   const [coaches, setCoaches] = useState<CoachSummary[]>([]);
   const [revenueStats, setRevenueStats] = useState<RevenueStats | null>(null);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [selectedCoach, setSelectedCoach] = useState<CoachSummary | null>(null);

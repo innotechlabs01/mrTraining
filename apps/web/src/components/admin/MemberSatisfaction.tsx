@@ -1,6 +1,6 @@
 'use client';
 
-import { Star, Smile, ThumbsUp, Heart, MessageSquare } from 'lucide-react';
+import { Star, Smile, ThumbsUp } from 'lucide-react';
 
 interface FeedbackItem {
   id: string;

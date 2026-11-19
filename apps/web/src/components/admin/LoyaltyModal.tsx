@@ -7,7 +7,6 @@ import {
   Gift,
   CheckCircle2,
   Award,
-  CreditCard,
   QrCode,
   ArrowRight,
   ArrowLeft,

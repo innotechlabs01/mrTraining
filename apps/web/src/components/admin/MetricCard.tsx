@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { ArrowUpRight, ArrowDownRight, ArrowRightLeft } from 'lucide-react';
+import { ArrowRightLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MetricCardProps {

@@ -1,22 +1,11 @@
 'use client';
 
-import { useState } from 'react';
 import {
   BarChart3,
-  TrendingUp,
   Download,
-  Calendar,
-  Users,
-  Award,
-  DollarSign,
-  PieChart,
-  FileText,
-  Sparkles,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -40,8 +29,6 @@ const RETENTION_DATA = [
 ];
 
 export default function AdminReportsPage() {
-  const [selectedReport, setSelectedReport] = useState('retention');
-
   return (
     <div className="space-y-6">
       {/* Header */}

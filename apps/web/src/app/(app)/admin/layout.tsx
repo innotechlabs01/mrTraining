@@ -5,20 +5,9 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useUser, useAuth } from '@clerk/nextjs';
 import Link from 'next/link';
 import {
-  LayoutDashboard,
-  Users,
-  Dumbbell,
-  UtensilsCrossed,
-  CalendarClock,
-  Award,
-  Receipt,
-  BarChart3,
-  Columns3,
-  Settings,
   X,
   Flame,
   LogOut,
-  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FitFlowSidebar, FITFLOW_NAV_ITEMS } from '@/components/admin/FitFlowSidebar';

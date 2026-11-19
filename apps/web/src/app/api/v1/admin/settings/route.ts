@@ -10,7 +10,7 @@ async function getAuthToken() {
   return await authResult.getToken();
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const token = await getAuthToken();
     if (!token) {

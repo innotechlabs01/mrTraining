@@ -33,7 +33,18 @@ const DEFAULT_DATA: MonthData[] = [
   { month: 'Dec', Gold: 1240, Silver: 850, Platinum: 950 },
 ];
 
-function CustomTooltip({ active, payload, label }: any) {
+interface TooltipPayloadItem {
+  dataKey?: string | number;
+  value?: number;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string;
+}
+
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload || !payload.length) return null;
 
   return (
@@ -45,7 +56,7 @@ function CustomTooltip({ active, payload, label }: any) {
             <span className="h-2 w-2 rounded-full bg-[#E07A3D]" /> Gold:
           </span>
           <span className="font-mono font-bold text-white">
-            {payload.find((p: any) => p.dataKey === 'Gold')?.value ?? 0}
+            {payload.find((p) => p.dataKey === 'Gold')?.value ?? 0}
           </span>
         </div>
         <div className="flex items-center justify-between gap-4">
@@ -53,7 +64,7 @@ function CustomTooltip({ active, payload, label }: any) {
             <span className="h-2 w-2 rounded-full bg-[#E2E8F0]" /> Silver:
           </span>
           <span className="font-mono font-bold text-white">
-            {payload.find((p: any) => p.dataKey === 'Silver')?.value ?? 0}
+            {payload.find((p) => p.dataKey === 'Silver')?.value ?? 0}
           </span>
         </div>
         <div className="flex items-center justify-between gap-4">
@@ -61,7 +72,7 @@ function CustomTooltip({ active, payload, label }: any) {
             <span className="h-2 w-2 rounded-full bg-[#10B981]" /> Platinum:
           </span>
           <span className="font-mono font-bold text-white">
-            {payload.find((p: any) => p.dataKey === 'Platinum')?.value ?? 0}
+            {payload.find((p) => p.dataKey === 'Platinum')?.value ?? 0}
           </span>
         </div>
       </div>

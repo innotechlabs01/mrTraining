@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import {
   Plus, Search, ChevronLeft,
-  MessageSquare, Send, Image, X, CheckCheck, RotateCcw, AlertCircle,
+  MessageSquare, Send, Image as ImageIcon, X, CheckCheck, RotateCcw, AlertCircle,
   CircleDot, CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -92,20 +92,9 @@ export default function AdminTicketsPage() {
 
   const superAdminIds = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
   const isSuperAdmin = user?.id && superAdminIds.includes(user.id);
-
-  useEffect(() => {
-    if (isLoaded && user) {
-      if (!isSuperAdmin) {
-        router.push('/coach');
-        return;
-      }
-      loadTickets();
-    }
-  }, [user, isSuperAdmin, router]);
-
   const isLoaded = !!user;
 
-  async function loadTickets() {
+  const loadTickets = useCallback(async () => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/tickets`);
       if (res.ok) {
@@ -117,7 +106,17 @@ export default function AdminTicketsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    if (isLoaded && user) {
+      if (!isSuperAdmin) {
+        router.push('/coach');
+        return;
+      }
+      loadTickets();
+    }
+  }, [isLoaded, user, isSuperAdmin, router, loadTickets]);
 
   const sorted = useMemo(
     () => [...tickets].sort((a, b) => b.created_at.localeCompare(a.created_at)),
@@ -135,7 +134,7 @@ export default function AdminTicketsPage() {
     if (!selectedId && visible[0]) setSelectedId(visible[0].id);
   }, [visible, selectedId]);
 
-  const openCount = tickets.filter((t) => t.status === 'open' || t.status === 'in_progress').length;
+  const _openCount = tickets.filter((t) => t.status === 'open' || t.status === 'in_progress').length;
   const nextNum = Math.max(0, ...tickets.map((t) => t.ticket_number)) + 1;
 
   const addMessage = useCallback(async (body: string, imageUrl?: string) => {
@@ -182,7 +181,7 @@ export default function AdminTicketsPage() {
     }
   }, [loadTickets]);
 
-  const markAsRead = useCallback(async () => {
+  const _markAsRead = useCallback(async () => {
     if (!selected) return;
     try {
       await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/tickets/${selected.id}/read`, {
@@ -367,7 +366,7 @@ function TicketDetail({
   onBack,
   onResolve,
   onReopen,
-  onReply,
+  onReply: _onReply,
   reply,
   setReply,
   img,
@@ -393,7 +392,7 @@ function TicketDetail({
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages.length]);
+  }, [messages.length, scrollRef]);
 
   return (
     <div className="flex h-full flex-col">
@@ -475,6 +474,7 @@ function TicketDetail({
               </div>
               {m.body && <p className="whitespace-pre-wrap text-sm text-text-primary">{m.body}</p>}
               {m.image_url && (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={m.image_url}
                   alt="Adjunto"
@@ -500,7 +500,7 @@ function TicketDetail({
               className="shrink-0 rounded-xl border border-surface-6 bg-surface-1 p-2.5 text-text-secondary transition-colors hover:bg-surface-2"
               title="Adjuntar imagen"
             >
-              <Image size={18} />
+              <ImageIcon size={18} />
             </button>
             <input
               ref={fileRef}
@@ -542,6 +542,7 @@ function TicketDetail({
           </div>
           {img && (
             <div className="mt-2 flex items-center gap-2 rounded-lg border border-surface-6 bg-surface-1 p-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={img} alt="preview" className="h-12 w-12 rounded object-cover" />
               <span className="flex-1 truncate text-xs text-text-secondary">Imagen lista para enviar</span>
               <button onClick={() => setImg(undefined)} className="text-text-secondary hover:text-text-primary">
@@ -674,7 +675,7 @@ function NewTicketModal({
               onClick={() => fileRef.current?.click()}
               className="inline-flex items-center gap-1.5 rounded-xl border border-surface-6 bg-surface-1 py-2 text-xs font-medium text-brand-primary transition-colors hover:bg-surface-2"
             >
-              <Image size={15} /> Adjuntar imagen
+              <ImageIcon size={15} /> Adjuntar imagen
             </button>
             <input
               ref={fileRef}
@@ -695,6 +696,7 @@ function NewTicketModal({
             />
             {img && (
               <div className="flex items-center gap-2 rounded-lg border border-surface-6 bg-surface-1 p-1.5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={img} alt="preview" className="h-9 w-9 rounded object-cover" />
                 <button onClick={() => setImg(undefined)} className="text-text-secondary hover:text-text-primary">
                   <X size={14} />

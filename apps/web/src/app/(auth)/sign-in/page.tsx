@@ -5,15 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth, useUser } from '@clerk/nextjs';
 import { AuthShell } from '@/features/auth/components/AuthShell';
 import { SignInForm } from '@/features/auth/components/SignInForm';
-import { useI18n } from '@/features/shared/hooks/useI18n';
 import { resolveRole, isSuperAdmin } from '@/app/(auth)/sign-up/signUpGuard';
 import { destinationFor } from './destinationFor';
 
 export default function SignInPage() {
-  const { t } = useI18n('common');
-
   return (
-    <AuthShell title={t('welcome')} subtitle={t('signInSubtitle')}>
+    <AuthShell title="Iniciar sesión" subtitle="Bienvenido de nuevo a MR Training">
       <Suspense fallback={null}>
         <SignInContent />
       </Suspense>

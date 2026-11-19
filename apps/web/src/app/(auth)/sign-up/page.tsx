@@ -10,11 +10,17 @@ import { resolveRole, signUpGuardDestination, SUPER_ADMIN_IDS } from './signUpGu
 
 export default function SignUpPage() {
   return (
-    <AuthShell title="Crea tu cuenta" subtitle="Únete a MR Training hoy">
-      <Suspense fallback={null}>
-        <SignUpContent />
-      </Suspense>
-    </AuthShell>
+    <Suspense
+      fallback={
+        <AuthShell title="Crea tu cuenta" subtitle="Únete a MR Training hoy">
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-brand-primary" aria-hidden="true" />
+          </div>
+        </AuthShell>
+      }
+    >
+      <SignUpContent />
+    </Suspense>
   );
 }
 
@@ -24,6 +30,7 @@ function SignUpContent() {
   const { isSignedIn, isLoaded, sessionClaims, userId } = useAuth();
   const { user } = useUser();
   const plan = searchParams.get('plan');
+  const isTrial = searchParams.get('trial') === 'true' || searchParams.get('trial') === '1' || !plan;
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
@@ -47,7 +54,7 @@ function SignUpContent() {
         if (!res.ok) return 'pending';
         const data = await res.json().catch(() => ({}));
         const status = data.status as string | undefined;
-        return status === 'active' || status === 'trial' ? 'paid' : 'pending';
+        return status === 'active' || status === 'trial' || status === 'approved' ? 'paid' : 'pending';
       })
       .then((status) => {
         if (cancelled) return;
@@ -67,23 +74,44 @@ function SignUpContent() {
     };
   }, [isLoaded, isSignedIn, sessionClaims, userId, user, plan, router]);
 
+  const title = isTrial ? 'Prueba gratis de 7 días' : 'Crea tu cuenta';
+  const subtitle = isTrial
+    ? 'Acceso completo para gestionar tus atletas. Sin tarjeta de crédito.'
+    : 'Únete a MR Training hoy';
+
   // Durante la resolución de la sesión de Clerk y mientras el guardia se
   // resuelve, nunca se muestra el formulario ni una pantalla vacía.
   if (!isLoaded || (isLoaded && isSignedIn)) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" aria-hidden="true" />
-      </div>
+      <AuthShell title={title} subtitle={subtitle}>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-primary" aria-hidden="true" />
+        </div>
+      </AuthShell>
     );
   }
 
-  // Sin sesión: render actual del formulario (sin cambios).
-  return (
-    <SignUpForm
-      onSuccess={() =>
-        router.push(plan ? `/payment/interstitial?plan=${encodeURIComponent(plan)}` : '/payment/interstitial')
+  const handleSuccess = async () => {
+    if (isTrial) {
+      try {
+        await fetch('/api/coach/activate', { method: 'POST' });
+        await fetch('/api/coach/subscription/trial', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan_id: plan || 'plan-seed-starter' }),
+        });
+        router.push('/onboarding/coach');
+      } catch {
+        router.push('/coach/plan');
       }
-      onBack={() => router.push('/')}
-    />
+    } else {
+      router.push(plan ? `/payment/interstitial?plan=${encodeURIComponent(plan)}` : '/payment/interstitial');
+    }
+  };
+
+  return (
+    <AuthShell title={title} subtitle={subtitle}>
+      <SignUpForm onSuccess={handleSuccess} onBack={() => router.push('/')} />
+    </AuthShell>
   );
 }

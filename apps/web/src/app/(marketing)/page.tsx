@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useAuth, useUser } from '@clerk/nextjs';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -93,7 +94,7 @@ export default function MarketingLandingPage() {
       return;
     }
     if (!isSignedIn) {
-      setCtaDestination('/sign-up?plan=plan-seed-starter');
+      setCtaDestination('/sign-up?trial=true');
       return;
     }
 
@@ -157,12 +158,28 @@ export default function MarketingLandingPage() {
                   {link.name}
                 </a>
               ))}
-              <Cta loading={ctaLoading} href={ctaDestination} className="whitespace-nowrap">Empezar gratis</Cta>
             </div>
-            <div className="flex items-center gap-2">
-              <button className="px-3 py-2 rounded-lg bg-surface-1 border border-surface-6 text-white hover:bg-surface-2 transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4.354 4.354 0 00-4.353 4.353c0 .756.216 1.506.598 2.157c.116.792.26 1.603.465 2.31l1.108 1.108c.931.931 2.07 1.418 3.292 1.418 1.175 0 2.356-.476 3.292-1.418l1.108-1.108c.2-.704.344-1.523.465-2.31a10.6 10.6 0 00.598-2.157c0-2.462-1.014-4.712-2.652-6.383a10.6 10.6 0 00-4.06-2.65c-1.026-.527-2.2-.872-3.435-.872-1.23 0-2.408.347-3.435.872a10.6 10.6 0 00-4.06 2.65c-1.637 1.67-2.652 3.92-2.652 6.383zM15.12 13.437l1.635 1.635a1.5 1.5 0 012.122.632c.664-.041 1.235-.528 1.414-1.215l.227-1.08c.063-.302.063-.624 0-.947l-.227-1.08c-.179-.685-.75-1.172-1.414-1.215l-1.635-1.635a1.5 1.5 0 012.122.632c-.664.041-1.235-.528 1.414-1.215l.227 1.08c.063.302.063.624 0 .947l.227 1.08c-.179-.685-.75-1.172-1.414-1.215zM12 2l1.414 1.414L12 4.828l-1.414-1.414L12 2zm0 12l1.414 1.414L12 7.242l-1.414-1.414L12 2zm0 12l1.414 1.414L12 10.414l-1.414-1.414L12 5.414z" /></svg>
-              </button>
+            <div className="flex items-center gap-3">
+              {isSignedIn ? (
+                <Cta loading={ctaLoading} href={ctaDestination} className="whitespace-nowrap px-4 h-10">
+                  Ir a mi Dashboard
+                </Cta>
+              ) : (
+                <>
+                  <Link
+                    href="/sign-in"
+                    className="text-sm font-medium text-gray-300 hover:text-white px-3 py-2 rounded-md transition-colors"
+                  >
+                    Iniciar sesión
+                  </Link>
+                  <Link
+                    href="/sign-up?trial=true"
+                    className="flex h-10 items-center justify-center px-4 rounded-md bg-brand-primary text-white text-sm font-semibold hover:bg-brand-primary/90 transition-colors whitespace-nowrap shadow-sm shadow-brand-primary/20"
+                  >
+                    Prueba gratis (7 días)
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -179,7 +196,7 @@ export default function MarketingLandingPage() {
           <p className="text-text-secondary mb-8">Únete a cientos de coaches que ya usan MR Training</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Cta loading={ctaLoading} href={ctaDestination} className="flex-1 lg:flex-none px-6 py-4 rounded-xl text-lg font-semibold">
-              Empezar gratis
+              Comenzar prueba gratis de 7 días
             </Cta>
             <a href="#como-funciona" className="flex-1 lg:flex-none px-6 py-4 rounded-lg border border-surface-6 text-white hover:bg-surface-2 transition-colors">
               Más información

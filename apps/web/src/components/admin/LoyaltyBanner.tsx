@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Sparkles, QrCode, CreditCard, ArrowRight } from 'lucide-react';
+import { Sparkles, CreditCard, QrCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LoyaltyBannerProps {

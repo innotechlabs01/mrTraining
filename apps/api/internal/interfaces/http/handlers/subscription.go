@@ -52,6 +52,7 @@ func (h *SubscriptionHandler) RegisterCoachPlatformSubscriptionRoutes(api fiber.
 	coachSubs := api.Group("/coach/subscription")
 	coachSubs.Post("/checkout", h.HandleCoachPlatformCheckout)
 	coachSubs.Get("/status", h.HandleCoachPlatformSubscriptionStatus)
+	coachSubs.Post("/trial", h.HandleCoachPlatformStartTrial)
 }
 
 // HandleSubscribe creates a subscription for the authenticated athlete on the
@@ -252,4 +253,28 @@ func (h *SubscriptionHandler) HandleCoachPlatformSubscriptionStatus(c *fiber.Ctx
 		resp.PlanName = sub.PlanName
 	}
 	return appresponse.Success(c, resp)
+}
+
+// HandleCoachPlatformStartTrial starts a 7-day trial subscription for the authenticated coach.
+func (h *SubscriptionHandler) HandleCoachPlatformStartTrial(c *fiber.Ctx) error {
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	var req struct {
+		PlanID string `json:"plan_id"`
+	}
+	_ = c.BodyParser(&req)
+
+	sub, err := h.svc.StartTrial(c.Context(), subscriptionapp.StartTrialCommand{
+		CoachID:   coachID,
+		PlanID:    req.PlanID,
+		TrialDays: 7,
+	})
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, dto.ToSubscriptionResponse(sub))
 }
