@@ -34,8 +34,6 @@ func newCoachFixture(t *testing.T) (*Repository, string, string, func()) {
 	t.Cleanup(func() { db.Close() })
 
 	coachID := fmt.Sprintf("coach_invite_test_%d", os.Getpid())
-
-	coachID := fmt.Sprintf("coach_invite_test_%d", os.Getpid())
 	// The code must be unique per run: the lookup matches on the code.
 	code := fmt.Sprintf("MR-%08X", os.Getpid()%0xFFFFFFFF)
 
