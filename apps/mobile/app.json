@@ -61,17 +61,57 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "MR Training usa tu ubicación para mostrarte tu posición en tiempo real durante las rutas de running.",
-        "NSCameraUsageDescription": "MR Training usa la cámara para guiar tu técnica de ejercicio con inteligencia artificial en tiempo real.",
-        "NSMicrophoneUsageDescription": "MR Training usa el micrófono para grabar tus intentos de desafío con audio.",
-        "NSHealthShareUsageDescription": "MR Training lee tus datos de salud (HRV, sueño, pulso) para medir tu recuperación y optimizar tu entrenamiento.",
-        "NSHealthUpdateUsageDescription": "MR Training guarda tus entrenamientos en Apple Health.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "MR Training utiliza tu ubicación incluso en segundo plano para grabar la ruta GPS, distancia, elevación y ritmo de tus carreras sin interrupciones cuando bloqueas la pantalla.",
+        "NSLocationAlwaysUsageDescription": "MR Training utiliza tu ubicación en segundo plano para registrar el recorrido GPS completo de tus sesiones de running.",
+        "NSCameraUsageDescription": "MR Training usa la cámara para guiar tu técnica de ejercicio con inteligencia artificial en tiempo real y grabar evidencias de desafíos.",
+        "NSMicrophoneUsageDescription": "MR Training usa el micrófono para grabar tus intentos de desafío y sesiones en vivo con audio.",
+        "NSPhotoLibraryUsageDescription": "MR Training necesita acceso a tu galería para que puedas subir tu foto de perfil, evidencias de desafíos y fotos de progreso físico.",
+        "NSPhotoLibraryAddUsageDescription": "MR Training guarda en tu galería los resúmenes e imágenes de tus entrenamientos, rutas y logros.",
+        "NSBluetoothAlwaysUsageDescription": "MR Training se conecta por Bluetooth a tu reloj (Garmin, Apple Watch o banda de pecho) para leer tu frecuencia cardíaca y métricas en tiempo real durante tus entrenamientos y carreras.",
+        "NSBluetoothPeripheralUsageDescription": "MR Training utiliza Bluetooth para sincronizar sensores deportivos y dispositivos de frecuencia cardíaca durante tus sesiones.",
+        "NSMotionUsageDescription": "MR Training utiliza los sensores de movimiento para medir tu cadencia, conteo de pasos y actividad física durante tus entrenamientos y carreras.",
+        "NSFaceIDUsageDescription": "MR Training utiliza Face ID para autenticar y proteger el acceso seguro a tu cuenta y datos de salud.",
+        "NSHealthShareUsageDescription": "MR Training lee tus datos de salud (HRV, sueño, pulso, VO2max, pasos y entrenamientos de Apple Watch) para medir tu recuperación y optimizar tu entrenamiento.",
+        "NSHealthUpdateUsageDescription": "MR Training guarda tus entrenamientos, carreras y calorías activas en Apple Health.",
+        "BGTaskSchedulerPermittedIdentifiers": [
+          "com.innotechlabssas.mrtraining.healthsync",
+          "com.innotechlabssas.mrtraining.refresh"
+        ],
         "UIBackgroundModes": [
+          "location",
+          "bluetooth-central",
+          "bluetooth-peripheral",
+          "remote-notification",
           "processing",
           "fetch"
         ]
       },
       "entitlements": {
-        "com.apple.developer.healthkit": true
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.access": [],
+        "com.apple.developer.healthkit.background-delivery": true
+      },
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyCollectedDataTypes": [],
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": ["C617.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPITypeReasons": ["35F9.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPITypeReasons": ["E174.1"]
+          }
+        ]
       }
     },
     "android": {
