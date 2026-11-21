@@ -58,10 +58,12 @@ type MembershipStatusResponse struct {
 	// Coach platform-plan capacity. When the coach has more active athletes
 	// than their plan allows, mobile blocks training and asks the athlete to
 	// contact the administration so the coach can upgrade.
-	CoachPlanLimitExceeded bool   `json:"coachPlanLimitExceeded"`
-	CoachPlanMaxAthletes   int    `json:"coachPlanMaxAthletes"`
-	CoachAthletesCount     int    `json:"coachAthletesCount"`
-	CoachPlanName          string `json:"coachPlanName"`
+	CoachPlanLimitExceeded bool    `json:"coachPlanLimitExceeded"`
+	CoachPlanMaxAthletes   int     `json:"coachPlanMaxAthletes"`
+	CoachAthletesCount     int     `json:"coachAthletesCount"`
+	CoachPlanName          string  `json:"coachPlanName"`
+	MobileAppFeeCop        float64 `json:"mobileAppFeeCop"`
+	CoachSkipped           bool    `json:"coachSkipped"`
 }
 
 // MembershipSummary is a summary of membership details shown in the status response.

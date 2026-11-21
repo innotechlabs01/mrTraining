@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useSession } from '@clerk/nextjs';
 import {
@@ -94,7 +94,7 @@ function SelectField({ label, value, onChange, options, disabled }: { label: str
 export default function AdminSettingsPage() {
   const { user } = useUser();
   const { session } = useSession();
-  const [activeTab, setActiveTab] = useState<'general' | 'security' | 'notifications' | 'appearance' | 'integrations' | 'database'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'commissions' | 'security' | 'notifications' | 'appearance' | 'integrations' | 'database'>('general');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
@@ -131,13 +131,41 @@ export default function AdminSettingsPage() {
     backupEnabled: true,
     backupFrequency: 'daily',
     backupRetention: 30,
+    // Commissions & Wompi
+    coachPlanCommissionPct: 8,
+    mobileAppFeeCop: 3000,
+    allyDefaultCommissionPct: 10,
+    wompiThirdPartyPayoutsEnabled: true,
   });
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadSettings() {
+      if (!session) return;
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/settings`, {
+          headers: { Authorization: `Bearer ${await session.getToken()}` },
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        const remote = json?.data?.settings ?? json?.settings;
+        if (mounted && remote && typeof remote === 'object') {
+          setSettings(prev => ({ ...prev, ...remote }));
+        }
+      } catch {
+        // Keep defaults if offline
+      }
+    }
+    loadSettings();
+    return () => { mounted = false; };
+  }, [session]);
 
   const superAdminIds = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
   const _isSuperAdmin = user?.id && superAdminIds.includes(user.id);
 
   const tabs = [
     { id: 'general', label: 'General', icon: <Settings size={18} /> },
+    { id: 'commissions', label: 'Comisiones y Wompi', icon: <DollarSign size={18} /> },
     { id: 'security', label: 'Seguridad', icon: <Shield size={18} /> },
     { id: 'notifications', label: 'Notificaciones', icon: <Bell size={18} /> },
     { id: 'appearance', label: 'Apariencia', icon: <Palette size={18} /> },
@@ -145,7 +173,7 @@ export default function AdminSettingsPage() {
     { id: 'database', label: 'Base de Datos', icon: <Database size={18} /> },
   ];
 
-  const handleSave = async (key: string, value: string | boolean) => {
+  const handleSave = async (key: string, value: string | number | boolean) => {
     setSaving(true);
     setSettings(prev => ({ ...prev, [key]: value }));
     try {
@@ -405,6 +433,45 @@ export default function AdminSettingsPage() {
                   description="Reduce el espaciado para mostrar más información"
                   checked={settings.compactMode}
                   onChange={v => handleSave('compactMode', v)}
+                />
+              </div>
+            </SettingsSection>
+          </div>
+        )}
+
+        {/* Commissions & Wompi Tab */}
+        {activeTab === 'commissions' && (
+          <div className="space-y-6">
+            <SettingsSection label="Comisiones de Planes y App Móvil (Wompi)" icon={<DollarSign size={18} />}>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <InputField
+                  label="Comisión por Plan del Coach (%)"
+                  type="number"
+                  value={String(settings.coachPlanCommissionPct ?? 8)}
+                  onChange={v => handleSave('coachPlanCommissionPct', Number(v) || 0)}
+                  placeholder="8"
+                />
+                <InputField
+                  label="Tarifa Uso App Móvil (COP)"
+                  type="number"
+                  value={String(settings.mobileAppFeeCop ?? 3000)}
+                  onChange={v => handleSave('mobileAppFeeCop', Number(v) || 0)}
+                  placeholder="3000"
+                />
+                <InputField
+                  label="Comisión por Defecto Aliados (%)"
+                  type="number"
+                  value={String(settings.allyDefaultCommissionPct ?? 10)}
+                  onChange={v => handleSave('allyDefaultCommissionPct', Number(v) || 0)}
+                  placeholder="10"
+                />
+              </div>
+              <div className="pt-2">
+                <Toggle
+                  label="Dispersión a Terceros vía Wompi Habilitada"
+                  description="Registra el neto pagable del coach (Plan - Comisión % - Tarifa App) para liquidación por Wompi. Si el coach tiene omitido (skip_subscription), sus comisiones y tarifa app son $0."
+                  checked={Boolean(settings.wompiThirdPartyPayoutsEnabled)}
+                  onChange={v => handleSave('wompiThirdPartyPayoutsEnabled', v)}
                 />
               </div>
             </SettingsSection>

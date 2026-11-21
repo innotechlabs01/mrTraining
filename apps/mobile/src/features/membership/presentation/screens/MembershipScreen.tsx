@@ -6,12 +6,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  View,
 } from 'react-native';
 import { RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, layout, spacing, typography } from '../../../../shared/theme/tokens';
+import { colors, layout, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { AlertBanner } from '../../../../shared/components/ui/AlertBanner';
@@ -114,6 +115,15 @@ export function MembershipScreen() {
     staleTime: 2 * 60 * 1000,
   });
 
+  const { data: statusData } = useQuery<{ mobileAppFeeCop?: number; coachSkipped?: boolean }>({
+    queryKey: ['athlete-membership-status-fee'],
+    queryFn: async () => {
+      const { data: res } = await apiClient.get('/athletes/membership/status');
+      return (res?.data ?? res ?? {}) as { mobileAppFeeCop?: number; coachSkipped?: boolean };
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
   // Payment history: the Go API exposes it at GET /memberships/:id/payments
   // (IDOR-safe — the handler derives records from the authenticated user).
   const membershipId = data?.membership?.id ?? null;
@@ -202,14 +212,17 @@ export function MembershipScreen() {
   // Payable when the Go API says the membership is past_due / expired (the
   // domain recalculates: payment date passed ⇒ expired) or when the payment
   // due date is in the past, regardless of the reported status.
-  const PAYABLE_STATUSES = ['past_due', 'expired', 'grace_period', 'grace', 'suspended'];
+  const PAYABLE_STATUSES = ['trial', 'pending', 'past_due', 'expired', 'grace_period', 'grace', 'suspended'];
   const dueDatePassed = (() => {
     if (!effectiveDueDate) return false;
     const due = new Date(effectiveDueDate);
     return !Number.isNaN(due.getTime()) && due.getTime() < Date.now();
   })();
+  const hasPaidPlanAssigned = (effectivePlanPrice ?? 0) > 0;
+  const appFeeCop = statusData?.coachSkipped ? 0 : (statusData?.mobileAppFeeCop ?? 3000);
+  const totalWompiCop = hasPaidPlanAssigned ? (effectivePlanPrice ?? 0) + appFeeCop : 0;
   const isPayable =
-    data?.isPayable ?? (PAYABLE_STATUSES.includes(effectiveStatus) || dueDatePassed);
+    data?.isPayable ?? (hasPaidPlanAssigned || PAYABLE_STATUSES.includes(effectiveStatus) || dueDatePassed);
   const hasMembership = !!effectivePlanName || !!rawMembership;
   const isExpiring = effectiveStatus === 'grace_period' || effectiveStatus === 'grace';
 
@@ -259,8 +272,27 @@ export function MembershipScreen() {
         <Text style={styles.sectionEyebrow}>{t.historyTitle}</Text>
         <PaymentHistoryList payments={payments} />
 
+        {hasPaidPlanAssigned && (
+          <View style={styles.feeBreakdownCard}>
+            <View style={styles.feeRow}>
+              <Text style={styles.feeLabel}>Plan mensual ({effectivePlanName})</Text>
+              <Text style={styles.feeValue}>${Number(effectivePlanPrice ?? 0).toLocaleString('es-CO')} COP</Text>
+            </View>
+            <View style={styles.feeRow}>
+              <Text style={styles.feeLabel}>Tarifa uso App Móvil</Text>
+              <Text style={styles.feeValue}>
+                {statusData?.coachSkipped ? '$0 COP (Incluido)' : `$${Number(appFeeCop).toLocaleString('es-CO')} COP`}
+              </Text>
+            </View>
+            <View style={[styles.feeRow, styles.feeTotalRow]}>
+              <Text style={styles.feeTotalLabel}>Total a pagar en Wompi</Text>
+              <Text style={styles.feeTotalValue}>${Number(totalWompiCop).toLocaleString('es-CO')} COP</Text>
+            </View>
+          </View>
+        )}
+
         <PrimaryButton
-          label={isPayable ? t.payNow : `${t.paidUp} ${formatDate(effectiveDueDate ?? undefined)}`}
+          label={isPayable ? `${t.payNow} (Wompi)` : `${t.paidUp} ${formatDate(effectiveDueDate ?? undefined)}`}
           onPress={handlePay}
           disabled={!isPayable || isPaying}
           loading={isPaying}
@@ -281,5 +313,43 @@ const styles = StyleSheet.create({
     ...typography.overline,
     color: colors.textSecondary,
     marginTop: spacing.sm,
+  },
+  feeBreakdownCard: {
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  feeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  feeLabel: {
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
+  feeValue: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  feeTotalRow: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: spacing.xs,
+    paddingTop: spacing.xs,
+  },
+  feeTotalLabel: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  feeTotalValue: {
+    color: colors.primary,
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

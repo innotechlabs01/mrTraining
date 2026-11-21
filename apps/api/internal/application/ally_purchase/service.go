@@ -5,7 +5,11 @@ package ally_purchase
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -28,12 +32,19 @@ type Service struct {
 	opsRepo             allyopsdomain.Repository
 	commissionEntryRepo commissionentrydomain.Repository
 	outbox              eventbus.OutboxWriter
+	db                  *sql.DB
 	log                 *zap.Logger
 }
 
 // WithOutbox configures domain event publication for accrued ally commissions.
 func (s *Service) WithOutbox(outbox eventbus.OutboxWriter) *Service {
 	s.outbox = outbox
+	return s
+}
+
+// WithDB attaches a SQL connection to resolve default platform ally commission settings.
+func (s *Service) WithDB(db *sql.DB) *Service {
+	s.db = db
 	return s
 }
 
@@ -113,10 +124,32 @@ func (s *Service) CreateAllyPurchase(ctx context.Context, in CreateAllyPurchaseI
 		return nil, fmt.Errorf("no active coach-ally relationship: %w", err)
 	}
 
-	// 4. Get the active commission agreement
+	// 4. Get the active commission agreement (fallback to Super Admin allyDefaultCommissionPct if none exists)
 	agreementID, rateBps, fixedAmountCents, agreementVersion, err := s.commissionEntryRepo.GetActiveAgreement(ctx, relationshipID)
 	if err != nil {
-		return nil, fmt.Errorf("no active commission agreement: %w", err)
+		pct := 10.0
+		if s.db != nil {
+			var vBytes []byte
+			if qErr := s.db.QueryRowContext(ctx, `SELECT value FROM platform_settings WHERE key = 'allyDefaultCommissionPct'`).Scan(&vBytes); qErr == nil {
+				var raw interface{}
+				if json.Unmarshal(vBytes, &raw) == nil {
+					switch v := raw.(type) {
+					case float64:
+						pct = v
+					case int:
+						pct = float64(v)
+					case string:
+						if parsed, pErr := strconv.ParseFloat(strings.TrimSpace(v), 64); pErr == nil {
+							pct = parsed
+						}
+					}
+				}
+			}
+		}
+		agreementID = "default-platform-ally-agreement"
+		rateBps = int64(pct * 100)
+		fixedAmountCents = 0
+		agreementVersion = 1
 	}
 
 	// 5. Calculate commission

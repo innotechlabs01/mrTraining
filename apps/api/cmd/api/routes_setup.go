@@ -49,6 +49,7 @@ import (
 	notificationapp "github.com/innotechlabs01/mr-training-api/internal/application/notification"
 	nutritionapp "github.com/innotechlabs01/mr-training-api/internal/application/nutrition"
 	onboardingapp "github.com/innotechlabs01/mr-training-api/internal/application/onboarding"
+	paymentapp "github.com/innotechlabs01/mr-training-api/internal/application/payment"
 	paymentledgersvc "github.com/innotechlabs01/mr-training-api/internal/application/payment_ledger"
 	planapp "github.com/innotechlabs01/mr-training-api/internal/application/plan"
 	productapp "github.com/innotechlabs01/mr-training-api/internal/application/product"
@@ -456,7 +457,8 @@ func registerProtectedRoutesWithDeps(
 
 	// --- Ally Purchase ---
 	allyPurchaseService := allypurchaseapp.NewService(inviteRepo, allyCatalogRepo, allyRepo, allyOpsRepo, commissionEntryRepo, log).
-		WithOutbox(outboxStore)
+		WithOutbox(outboxStore).
+		WithDB(stdlibDB)
 	allyPurchaseHandler := handlers.NewAllyPurchaseHandler(allyPurchaseService)
 	routes.RegisterAllyPurchaseRoutes(api, allyPurchaseHandler)
 
@@ -595,6 +597,13 @@ func registerProtectedRoutesWithDeps(
 	storeService := storeapp.NewService(storeRepo)
 	storeHandler := handlers.NewStoreHandler(storeService)
 	routes.RegisterStoreRoutes(api, storeHandler)
+
+	// --- Payments (Wompi cart & athlete membership checkout + public webhook) ---
+	paymentService := paymentapp.NewService(cfg, storeRepo, membershipService).
+		WithLedger(stdlibDB, ledgerSvc)
+	paymentHandler := handlers.NewPaymentHandler(paymentService)
+	handlers.RegisterPaymentRoutes(api, paymentHandler)
+	handlers.RegisterPublicPaymentRoutes(app, paymentHandler)
 
 	// --- Nutrition ---
 	var nutritionRepoDB *sql.DB

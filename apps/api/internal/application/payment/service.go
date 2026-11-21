@@ -2,12 +2,15 @@ package payment
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
+	paymentledgersvc "github.com/innotechlabs01/mr-training-api/internal/application/payment_ledger"
 	"github.com/innotechlabs01/mr-training-api/internal/config"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/membership"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/store"
@@ -30,6 +33,16 @@ type Service struct {
 	storeRepo     store.Repository
 	membershipSvc MembershipReader
 	provider      Provider
+	db            *sql.DB
+	ledgerSvc     *paymentledgersvc.Service
+}
+
+// WithLedger attaches database and Wompi ledger dependencies for split fee
+// calculation and commission recording.
+func (s *Service) WithLedger(db *sql.DB, ledgerSvc *paymentledgersvc.Service) *Service {
+	s.db = db
+	s.ledgerSvc = ledgerSvc
+	return s
 }
 
 // MembershipReader is the read side of the membership service the payment
@@ -176,15 +189,68 @@ func (s *Service) GetOrder(ctx context.Context, orderID string) (*store.Order, e
 
 // MembershipPreferenceResponse is handed to the mobile client.
 type MembershipPreferenceResponse struct {
-	MembershipID string  `json:"membershipId"`
-	PlanName     string  `json:"planName"`
-	InitPoint    string  `json:"initPoint"`
-	Total        float64 `json:"total"`
-	Currency     string  `json:"currency"`
+	MembershipID          string  `json:"membershipId"`
+	PlanName              string  `json:"planName"`
+	InitPoint             string  `json:"initPoint"`
+	PlanAmount            float64 `json:"planAmount"`
+	AppFee                float64 `json:"appFee"`
+	PlatformCommissionPct float64 `json:"platformCommissionPct"`
+	Total                 float64 `json:"total"`
+	Currency              string  `json:"currency"`
+}
+
+func (s *Service) resolveCoachFeeRules(ctx context.Context, coachID string) (appFee float64, commissionPct float64, skipped bool) {
+	appFee = 3000
+	commissionPct = 8
+	if s.db == nil {
+		return appFee, commissionPct, false
+	}
+	if coachID != "" {
+		_ = s.db.QueryRowContext(ctx, `SELECT COALESCE(skip_subscription, false) FROM coaches WHERE id = $1`, coachID).Scan(&skipped)
+		if skipped {
+			return 0, 0, true
+		}
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT key, value FROM platform_settings WHERE key IN ('mobileAppFeeCop', 'coachPlanCommissionPct')`)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var k string
+			var vBytes []byte
+			if rows.Scan(&k, &vBytes) == nil {
+				var raw interface{}
+				if json.Unmarshal(vBytes, &raw) == nil {
+					if f, ok := parseNumber(raw); ok && f >= 0 {
+						if k == "mobileAppFeeCop" {
+							appFee = f
+						} else if k == "coachPlanCommissionPct" {
+							commissionPct = f
+						}
+					}
+				}
+			}
+		}
+	}
+	return appFee, commissionPct, false
+}
+
+func parseNumber(val interface{}) (float64, bool) {
+	switch v := val.(type) {
+	case float64:
+		return v, true
+	case int:
+		return float64(v), true
+	case string:
+		f, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+		return f, err == nil
+	default:
+		return 0, false
+	}
 }
 
 // CreateMembershipPreference builds a Wompi payment link for the athlete's
-// current membership plan (price set by the coach). external_reference is
+// current membership plan (price set by the coach) + configurable mobile app fee
+// (waived to $0 when the coach has skip_subscription = true). external_reference is
 // "membership:<id>" so the webhook can activate the right membership.
 func (s *Service) CreateMembershipPreference(ctx context.Context, athleteID string) (*MembershipPreferenceResponse, error) {
 	if athleteID == "" {
@@ -199,6 +265,9 @@ func (s *Service) CreateMembershipPreference(ctx context.Context, athleteID stri
 		return nil, errors.New("BAD_REQUEST", "tu plan no requiere pago", http.StatusBadRequest)
 	}
 
+	appFee, commissionPct, _ := s.resolveCoachFeeRules(ctx, m.CoachID)
+	totalAmount := m.PlanPrice + appFee
+
 	externalRef := "membership:" + m.ID
 
 	notifURL := s.cfg.WompiWebhookURL
@@ -206,7 +275,7 @@ func (s *Service) CreateMembershipPreference(ctx context.Context, athleteID stri
 	checkout, err := s.provider.CreateCheckout(ctx, subscription.CheckoutRequest{
 		ExternalReference: externalRef,
 		Description:      "Membresía " + m.PlanName,
-		Amount:           m.PlanPrice,
+		Amount:           totalAmount,
 		Currency:         "COP",
 		SuccessURL:       s.cfg.AppURL + "/payment/success",
 		FailureURL:       s.cfg.AppURL + "/payment/failed",
@@ -221,11 +290,14 @@ func (s *Service) CreateMembershipPreference(ctx context.Context, athleteID stri
 	}
 
 	return &MembershipPreferenceResponse{
-		MembershipID: m.ID,
-		PlanName:     m.PlanName,
-		InitPoint:    checkout.CheckoutURL,
-		Total:        m.PlanPrice,
-		Currency:     "COP",
+		MembershipID:          m.ID,
+		PlanName:              m.PlanName,
+		InitPoint:             checkout.CheckoutURL,
+		PlanAmount:            m.PlanPrice,
+		AppFee:                appFee,
+		PlatformCommissionPct: commissionPct,
+		Total:                 totalAmount,
+		Currency:              "COP",
 	}, nil
 }
 
@@ -317,10 +389,60 @@ func (s *Service) VerifyWebhookSignature(body []byte, signatureHeader string) (b
 	return true, nil
 }
 
-// fulfillMembership records the payment and refreshes the membership period.
+// fulfillMembership records the payment, refreshes the membership period, and
+// writes a Wompi split ledger entry (respecting skip_subscription = 0 fees).
 func (s *Service) fulfillMembership(ctx context.Context, membershipID string, payment *subscription.ProviderPayment) error {
 	if err := s.membershipSvc.ActivateAfterPayment(ctx, membershipID, payment.ID, payment.TransactionAmount); err != nil {
 		return errors.New("INTERNAL", "no se pudo activar la membresía: "+err.Error(), http.StatusInternalServerError)
+	}
+	if s.db != nil {
+		var athleteID, coachID string
+		var planPrice float64
+		err := s.db.QueryRowContext(ctx, `
+			SELECT athlete_id, coach_id, plan_price
+			FROM athlete_memberships WHERE id = $1
+		`, membershipID).Scan(&athleteID, &coachID, &planPrice)
+		if err == nil && coachID != "" {
+			appFee, commissionPct, skipped := s.resolveCoachFeeRules(ctx, coachID)
+			grossCents := int64(payment.TransactionAmount * 100)
+			if grossCents <= 0 {
+				grossCents = int64((planPrice + appFee) * 100)
+			}
+			appFeeCents := int64(appFee * 100)
+			commissionCents := int64(planPrice * (commissionPct / 100.0) * 100)
+			if skipped {
+				appFeeCents = 0
+				commissionCents = 0
+			}
+			coachNetCents := grossCents - appFeeCents - commissionCents
+			if coachNetCents < 0 {
+				coachNetCents = 0
+			}
+			now := time.Now().UTC()
+			period := now.Format("2006-01")
+			periodStart := now.Format("2006-01-02")
+			periodEnd := now.AddDate(0, 1, 0).Format("2006-01-02")
+			ledgerID := fmt.Sprintf("wpl-%d-%s", now.UnixNano(), membershipID)
+			_, _ = s.db.ExecContext(ctx, `
+				INSERT INTO wompi_payment_ledger (
+					id, wompi_transaction_id, source_type, membership_payment_id,
+					athlete_id, coach_id, gross_amount_cents, processing_fee_cents,
+					platform_commission_cents, mobile_app_fee_cents, coach_net_payable_cents,
+					currency, period_start, period_end, payment_period,
+					status, third_party_payout_status, idempotency_key, created_at, updated_at
+				) VALUES (
+					$1, $2, 'membership_payment', $3,
+					$4, $5, $6, 0,
+					$7, $8, $9,
+					'COP', $10, $11, $12,
+					'payable', 'pending', $13, $14, $14
+				)
+				ON CONFLICT (wompi_transaction_id) DO NOTHING
+			`, ledgerID, payment.ID, membershipID, athleteID, coachID, grossCents,
+				commissionCents, appFeeCents, coachNetCents,
+				periodStart, periodEnd, period,
+				"mempay:"+payment.ID, now.Format(time.RFC3339))
+		}
 	}
 	return nil
 }
