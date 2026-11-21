@@ -25,7 +25,7 @@ describe('fatigue', () => {
     it('a fresh heavy session on chest reads fatigued while untouched muscles do not appear', () => {
       // 3x8 @100kg = 2400kg tonnage -> saturation (1 - e^(-2400/2000)) ≈ 0.70
       const history: TrainingHistory = [workout(0, [{ id: 'bench', target: { muscleGroups: ['chest'] }, sets: Array.from({ length: 6 }, () => ({ completed: 1, weightKg: 100, reps: 8 })) }])]
-      const map = fatigueByMuscle(history)
+      const map = fatigueByMuscle(history, FIXED_NOW)
       const chest = map.get('chest')!
       expect(chest.state).toBe('fatigued')
       expect(chest.level).toBeGreaterThan(0.5)
@@ -45,7 +45,7 @@ describe('fatigue', () => {
       const history: TrainingHistory = [workout(45, [
         { id: 'bench', target: { muscleGroups: ['chest'] }, sets: Array.from({ length: 10 }, () => ({ completed: 1, weightKg: 200, reps: 10 })) },
       ])]
-      const chest = fatigueByMuscle(history).get('chest')!
+      const chest = fatigueByMuscle(history, FIXED_NOW).get('chest')!
       expect(chest.level).toBe(0) // outside the 30-day fatigue window
       expect(chest.state).toBe('ready')
       expect(chest.strength).toBeLessThan(1) // yet the strength pass still sees it
@@ -55,7 +55,7 @@ describe('fatigue', () => {
         { id: 'pullups', target: { muscleGroups: ['back'] }, sets: [{ completed: 1, weightKg: 0, reps: 10 }] },
         { id: 'plank', target: { muscleGroups: ['core'] }, sets: [{ completed: 1, sec: 60 }] },
       ])]
-      const map = fatigueByMuscle(history)
+      const map = fatigueByMuscle(history, FIXED_NOW)
       expect(map.get('back')!.level).toBeGreaterThan(0)
       expect(map.get('core')!.level).toBeGreaterThan(0)
     })
@@ -63,7 +63,7 @@ describe('fatigue', () => {
       const history: TrainingHistory = [workout(0, [
         { id: 'mystery', sets: [{ completed: 1, weightKg: 60, reps: 8 }] },
       ])]
-      expect(fatigueByMuscle(history).has('unmapped')).toBe(true)
+      expect(fatigueByMuscle(history, FIXED_NOW).has('unmapped')).toBe(true)
     })
     it('strength stays full inside the retention window then decays toward the floor', () => {
       const history = (ageDays: number): TrainingHistory => [workout(ageDays, [
