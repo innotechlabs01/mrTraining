@@ -8,10 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- [be] Complete nutrition domain (service, PostgreSQL repository, DTOs, handlers, routes `/api/v1/nutrition/*`) — @dev-backend (PR pending)
+- [db] Migration `429_nutrition_meal_logs.sql` with RLS tenant isolation policies — @dev-database (PR pending)
 - [db] New role: dev-database (Supabase/PostgreSQL expert with RLS focus) — @orca-team (internal)
 - [in] Git workflow + changelog rules (15-git-workflow-changelog.md) — @orca-team (internal)
 
 ### Changed
+- [fe] Coach `AthleteRunningPanel`: weekly trend Recharts chart, date range filter, CSV/GPX export via `coachApi`, and skeleton loader — @dev-front (PR pending)
+- [be] Store `PurchaseResponse` DTO standardized to camelCase (`athleteId`, `productId`, `createdAt`, `total`) matching web/mobile contracts — @dev-backend (PR pending)
 - [in] Added dev-database role to orca-team pipeline and 14-team-workflow.md — @orca-team (internal)
 
 ### Fixed

@@ -45,6 +45,7 @@ import (
 	membershipapp "github.com/innotechlabs01/mr-training-api/internal/application/membership"
 	messageapp "github.com/innotechlabs01/mr-training-api/internal/application/message"
 	notificationapp "github.com/innotechlabs01/mr-training-api/internal/application/notification"
+	nutritionapp "github.com/innotechlabs01/mr-training-api/internal/application/nutrition"
 	onboardingapp "github.com/innotechlabs01/mr-training-api/internal/application/onboarding"
 	paymentledgersvc "github.com/innotechlabs01/mr-training-api/internal/application/payment_ledger"
 	planapp "github.com/innotechlabs01/mr-training-api/internal/application/plan"
@@ -98,6 +99,7 @@ import (
 	leaderboardinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/leaderboard"
 	membershipinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/membership"
 	messageinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/message"
+	nutritioninfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/nutrition"
 	notificationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/notification"
 	onboardinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/onboarding"
 	paymentledgerinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/payment_ledger"
@@ -490,6 +492,16 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	storeService := storeapp.NewService(storeRepo)
 	storeHandler := handlers.NewStoreHandler(storeService)
 	routes.RegisterStoreRoutes(api, storeHandler)
+
+	// --- Nutrition ---
+	var nutritionRepoDB *sql.DB
+	if db != nil {
+		nutritionRepoDB = db.DB
+	}
+	nutritionRepo := nutritioninfrastructure.NewRepository(nutritionRepoDB)
+	nutritionService := nutritionapp.NewService(nutritionRepo)
+	nutritionHandler := handlers.NewNutritionHandler(nutritionService)
+	routes.RegisterNutritionRoutes(api, nutritionHandler)
 
 	// --- Payment ---
 	wompiAvailSvc := wompiavailapp.NewService()
