@@ -830,6 +830,10 @@ func RegisterAdminRoutes(api fiber.Router, handler *handlers.AdminHandler, allow
 	admin.Get("/settings", handler.GetSettings)
 	admin.Put("/settings", handler.PutSettings)
 	admin.Get("/settings/trm", handler.GetTRMSetting)
+
+// Comision routes (super admin)
+admin.Get("/commission-terms", handler.GetCommissionTerms)
+admin.Put("/commission-terms", handler.PutCommissionTerms)
 }
 
 // RegisterErrorRoutes registers error tracking routes on the auth-protected API group.

@@ -869,6 +869,7 @@ func (h *AdminHandler) GetSettings(c *fiber.Ctx) error {
 // PutSettings handles PUT /api/v1/admin/settings. Upserts one or several settings
 // from a flat object (e.g. { "platformName": "MR Training" }) or a single
 // { key, value } payload.
+// Comma separator
 func (h *AdminHandler) PutSettings(c *fiber.Ctx) error {
 	if h.db == nil {
 		return appresponse.Error(c, fiber.StatusServiceUnavailable, "database unavailable")
@@ -957,4 +958,105 @@ func formatTimeValue(v interface{}) string {
 		return string(t)
 	}
 	return ""
+}
+// GetCommissionTerms handles GET /api/v1/admin/commission-terms.
+// Returns the current commission configuration (rate_bps and fixed_amount_cents).
+func (h *AdminHandler) GetCommissionTerms(c *fiber.Ctx) error {
+	ctx := c.Context()
+	
+	// Try to get commission terms from platform_settings
+	var rateBps int
+	var fixedAmountCents int
+	
+	// Get rate_bps
+	var rateBpsBytes []byte
+	err := h.db.QueryRowContext(ctx, `SELECT value FROM platform_settings WHERE key = 'commission.rate_bps'`).Scan(&rateBpsBytes)
+	if err == nil && len(rateBpsBytes) > 0 {
+		var v interface{}
+		json.Unmarshal(rateBpsBytes, &v)
+		switch val := v.(type) {
+		case float64:
+			rateBps = int(val)
+		case int:
+			rateBps = val
+		}
+	}
+	
+	// Get fixed_amount_cents
+	var fixedAmountBytes []byte
+	err = h.db.QueryRowContext(ctx, `SELECT value FROM platform_settings WHERE key = 'commission.fixed_amount_cents'`).Scan(&fixedAmountBytes)
+	if err == nil && len(fixedAmountBytes) > 0 {
+		var v interface{}
+		json.Unmarshal(fixedAmountBytes, &v)
+		switch val := v.(type) {
+		case float64:
+			fixedAmountCents = int(val)
+		case int:
+			fixedAmountCents = val
+		}
+	}
+	
+	return appresponse.Success(c, map[string]interface{}{
+		"rate_bps":           rateBps,
+		"fixed_amount_cents": fixedAmountCents,
+		"currency":           "COP",
+	})
+}
+
+// PutCommissionTerms handles PUT /api/v1/admin/commission-terms.
+// Updates the commission configuration (rate_bps and fixed_amount_cents).
+// Rate is in basis points (800 = 8.00%), fixed amount is in cents (300000 = 3000 COP).
+func (h *AdminHandler) PutCommissionTerms(c *fiber.Ctx) error {
+	ctx := c.Context()
+	
+	var req struct {
+		RateBps          *int   `json:"rate_bps"`
+		FixedAmountCents *int   `json:"fixed_amount_cents"`
+		Currency         *string `json:"currency"`
+	}
+	
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+	
+	now := "NOW()"
+	
+	if req.RateBps != nil && *req.RateBps >= 0 {
+		_, err := h.db.ExecContext(ctx, `
+			INSERT INTO platform_settings (key, value, updated_at)
+			VALUES ('commission.rate_bps', $1, $2)
+			ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = $2
+		`, strconv.Itoa(*req.RateBps), now)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to save commission rate")
+		}
+	}
+	
+	if req.FixedAmountCents != nil && *req.FixedAmountCents >= 0 {
+		_, err := h.db.ExecContext(ctx, `
+			INSERT INTO platform_settings (key, value, updated_at)
+			VALUES ('commission.fixed_amount_cents', $1, $2)
+			ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = $2
+		`, strconv.Itoa(*req.FixedAmountCents), now)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to save commission fixed amount")
+		}
+	}
+	
+	if req.Currency != nil && *req.Currency != "" {
+		_, err := h.db.ExecContext(ctx, `
+			INSERT INTO platform_settings (key, value, updated_at)
+			VALUES ('commission.currency', $1, $2)
+			ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = $2
+		`, *req.Currency, now)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to save commission currency")
+		}
+	}
+	
+	return appresponse.Success(c, map[string]interface{}{
+		"rate_bps":           req.RateBps,
+		"fixed_amount_cents": req.FixedAmountCents,
+		"currency":           req.Currency,
+	})
 }
