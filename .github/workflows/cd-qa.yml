@@ -2,7 +2,7 @@ name: CD - QA (Cloud Run)
 
 on:
   push:
-    branches: [QA, qa]
+    branches: [QA]
   workflow_dispatch:
 
 permissions:
@@ -42,12 +42,15 @@ jobs:
 
       # --- Migraciones PostgreSQL QA (Supabase) ------------------------
       - name: Run QA PostgreSQL migrations
-        if: ${{ secrets.DATABASE_URL_QA }}
         working-directory: apps/api
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_QA }}
           APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD_QA }}
         run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "⚠️  DATABASE_URL no configurado, saltando migraciones QA"
+            exit 0
+          fi
           if [[ "$DATABASE_URL" == *"@db."*".supabase.co"* ]]; then
             echo "❌ DATABASE_URL_QA apunta al host directo IPv6-only (db.*.supabase.co), que falla en GitHub Actions y Cloud Run." >&2
             echo "   Actualiza el secret DATABASE_URL_QA al IPv4 Session Pooler:" >&2
