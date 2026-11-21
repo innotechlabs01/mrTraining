@@ -268,6 +268,10 @@ infisical-verify:
 	fi
 	@echo "$(GREEN)✅ Infisical configuration verified$(NC)"
 
+infisical-sync:
+	@echo "$(GREEN)🔄 Syncing Infisical (Local + QA) & Google Secret Manager...$(NC)"
+	@bash ../../scripts/sync-infisical.sh
+
 # ============================================
 # Kubernetes (k3d) Operations
 # ============================================

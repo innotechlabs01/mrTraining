@@ -110,11 +110,16 @@ jobs:
                 INFISICAL_URL="https://secrets.innotechlabssas.lat"
                 ;;
             esac
-            INFISICAL_ON="true"
+            if curl -sf --max-time 5 "${INFISICAL_URL}/api/status" >/dev/null 2>&1; then
+              echo "✅ Infisical remoto (${INFISICAL_URL}) disponible."
+              INFISICAL_ON="true"
+            else
+              echo "⚠️  Infisical remoto (${INFISICAL_URL}) no responde (ej. 502 / túnel cerrado); Cloud Run usará directamente Google Secret Manager (--set-secrets)."
+              INFISICAL_ON="false"
+            fi
           fi
 
           ENV_VARS="APP_ENV=qa,APP_PORT=8080,LOG_LEVEL=info,WOMPI_ENV=sandbox"
-          if [ -n "$CORS_ORIGINS_QA" ]; then ENV_VARS="${ENV_VARS},CORS_ORIGINS=${CORS_ORIGINS_QA}"; fi
           ENV_VARS="${ENV_VARS},INFISICAL_ENABLED=${INFISICAL_ON}"
           ENV_VARS="${ENV_VARS},INFISICAL_ENVIRONMENT=qa"
           ENV_VARS="${ENV_VARS},INFISICAL_SECRET_PATH=/api"
@@ -124,8 +129,6 @@ jobs:
             ENV_VARS="${ENV_VARS},INFISICAL_CLIENT_SECRET=${INFISICAL_CLIENT_SECRET_QA}"
             ENV_VARS="${ENV_VARS},INFISICAL_PROJECT_ID=${INFISICAL_PROJECT_ID_QA}"
           fi
-          if [ -n "$REDIS_URL_QA" ]; then ENV_VARS="${ENV_VARS},REDIS_URL=${REDIS_URL_QA}"; fi
-          if [ -n "$PLATFORM_SUPER_ADMIN_CLERK_ID_QA" ]; then ENV_VARS="${ENV_VARS},PLATFORM_SUPER_ADMIN_CLERK_ID=${PLATFORM_SUPER_ADMIN_CLERK_ID_QA}"; fi
           if [ -n "$CLERK_JWKS_URL_QA" ]; then ENV_VARS="${ENV_VARS},CLERK_JWKS_URL=${CLERK_JWKS_URL_QA}"; fi
           if [ -n "$WEB_APP_URL_QA" ]; then
             case "$WEB_APP_URL_QA" in
@@ -144,6 +147,9 @@ jobs:
           SECRETS="${SECRETS},WOMPI_WEBHOOK_URL=WOMPI_WEBHOOK_URL_QA:latest"
           SECRETS="${SECRETS},APP_URL=APP_URL_QA:latest"
           SECRETS="${SECRETS},ERROR_WEBHOOK_DISCOR=ERROR_WEBHOOK_DISCOR_QA:latest"
+          SECRETS="${SECRETS},REDIS_URL=REDIS_URL_QA:latest"
+          SECRETS="${SECRETS},PLATFORM_SUPER_ADMIN_CLERK_ID=PLATFORM_SUPER_ADMIN_CLERK_ID_QA:latest"
+          SECRETS="${SECRETS},CORS_ORIGINS=CORS_ORIGINS_QA:latest"
 
           gcloud run deploy ${{ env.SERVICE }} \
             --image "${IMAGE}" \

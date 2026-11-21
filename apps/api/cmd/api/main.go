@@ -73,28 +73,27 @@ func main() {
 
 		loader, lerr := infisical.NewSecretLoader(infisicalConfig)
 		if lerr != nil {
-			log.Fatal("failed to create infisical secret loader", zap.Error(lerr))
-		}
-		if lerr := loader.Load(ctx); lerr != nil {
-			log.Fatal("failed to load secrets from Infisical", zap.Error(lerr))
-		}
-
-		overrideIfEmpty := func(dst *string, key string) {
-			if *dst == "" {
-				if val, gerr := loader.Get(ctx, key); gerr == nil {
-					*dst = val
+			log.Warn("failed to create infisical secret loader, continuing with environment variables", zap.Error(lerr))
+		} else if lerr := loader.Load(ctx); lerr != nil {
+			log.Warn("failed to load secrets from Infisical, falling back to environment variables", zap.Error(lerr))
+		} else {
+			overrideIfEmpty := func(dst *string, key string) {
+				if *dst == "" {
+					if val, gerr := loader.Get(ctx, key); gerr == nil {
+						*dst = val
+					}
 				}
 			}
+			overrideIfEmpty(&cfg.ClerkSecretKey, "CLERK_SECRET_KEY")
+			overrideIfEmpty(&cfg.DatabaseURL, "DATABASE_URL")
+			overrideIfEmpty(&cfg.RedisURL, "REDIS_URL")
+			overrideIfEmpty(&cfg.NATSURL, "NATS_URL")
+			overrideIfEmpty(&cfg.WompiPrivateKey, "WOMPI_PRIVATE_KEY")
+			overrideIfEmpty(&cfg.WompiEventsSecret, "WOMPI_EVENTS_SECRET")
+			overrideIfEmpty(&cfg.WompiIntegritySecret, "WOMPI_INTEGRITY_SECRET")
+			overrideIfEmpty(&cfg.ClerkWebhookSecret, "CLERK_WEBHOOK_SECRET")
+			log.Info("Infisical secrets loaded successfully")
 		}
-		overrideIfEmpty(&cfg.ClerkSecretKey, "CLERK_SECRET_KEY")
-		overrideIfEmpty(&cfg.DatabaseURL, "DATABASE_URL")
-		overrideIfEmpty(&cfg.RedisURL, "REDIS_URL")
-		overrideIfEmpty(&cfg.NATSURL, "NATS_URL")
-		overrideIfEmpty(&cfg.WompiPrivateKey, "WOMPI_PRIVATE_KEY")
-		overrideIfEmpty(&cfg.WompiEventsSecret, "WOMPI_EVENTS_SECRET")
-		overrideIfEmpty(&cfg.WompiIntegritySecret, "WOMPI_INTEGRITY_SECRET")
-		overrideIfEmpty(&cfg.ClerkWebhookSecret, "CLERK_WEBHOOK_SECRET")
-		log.Info("Infisical secrets loaded successfully")
 	}
 
 	var db *database.DB
