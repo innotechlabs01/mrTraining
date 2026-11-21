@@ -87,49 +87,46 @@ jobs:
           docker push "${IMAGE}"
 
       # --- Despliegue a Cloud Run QA -----------------------------------
-      # Usamos --set-env-vars con GitHub Secrets + Infisical QA (gratis, sin Secret Manager de GCP).
+      # Usa Google Secret Manager (--set-secrets) con el SA cloud-run-api + Infisical remoto (https://secrets.innotechlabssas.lat).
       - name: Deploy Cloud Run service
         env:
           CORS_ORIGINS_QA: ${{ secrets.CORS_ORIGINS_QA }}
-          DATABASE_URL_QA: ${{ secrets.DATABASE_URL_QA }}
-          CLERK_SECRET_KEY_QA: ${{ secrets.CLERK_SECRET_KEY_QA }}
-          CLERK_PUBLISHABLE_KEY_QA: ${{ secrets.CLERK_PUBLISHABLE_KEY_QA }}
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           CLERK_JWKS_URL_QA: ${{ secrets.CLERK_JWKS_URL_QA }}
-          CLERK_WEBHOOK_SECRET_QA: ${{ secrets.CLERK_WEBHOOK_SECRET_QA }}
-          WOMPI_PRIVATE_KEY_QA: ${{ secrets.WOMPI_PRIVATE_KEY_QA }}
-          WOMPI_INTEGRITY_SECRET_QA: ${{ secrets.WOMPI_INTEGRITY_SECRET_QA }}
-          WOMPI_EVENTS_SECRET_QA: ${{ secrets.WOMPI_EVENTS_SECRET_QA }}
           WEB_APP_URL_QA: ${{ secrets.WEB_APP_URL_QA }}
           INFISICAL_BASE_URL_QA: ${{ secrets.INFISICAL_BASE_URL_QA }}
           INFISICAL_CLIENT_ID_QA: ${{ secrets.INFISICAL_CLIENT_ID_QA }}
           INFISICAL_CLIENT_SECRET_QA: ${{ secrets.INFISICAL_CLIENT_SECRET_QA }}
           INFISICAL_PROJECT_ID_QA: ${{ secrets.INFISICAL_PROJECT_ID_QA }}
+          REDIS_URL_QA: ${{ secrets.REDIS_URL_QA }}
+          PLATFORM_SUPER_ADMIN_CLERK_ID_QA: ${{ secrets.PLATFORM_SUPER_ADMIN_CLERK_ID_QA }}
         run: |
-          CLERK_PUB="${CLERK_PUBLISHABLE_KEY_QA:-$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}"
+          INFISICAL_URL="${INFISICAL_BASE_URL_QA:-https://secrets.innotechlabssas.lat}"
+          INFISICAL_URL="${INFISICAL_URL%/}"
           INFISICAL_ON="false"
-          if [ -n "$INFISICAL_CLIENT_ID_QA" ] && [ -n "$INFISICAL_CLIENT_SECRET_QA" ] && [ -n "$INFISICAL_PROJECT_ID_QA" ]; then
+          if [ -n "$INFISICAL_URL" ] && [ -n "$INFISICAL_CLIENT_ID_QA" ] && [ -n "$INFISICAL_CLIENT_SECRET_QA" ] && [ -n "$INFISICAL_PROJECT_ID_QA" ]; then
+            case "$INFISICAL_URL" in
+              http://localhost*|https://localhost*|http://127.0.0.1*|https://127.0.0.1*)
+                echo "⚠️  INFISICAL_BASE_URL_QA apunta a localhost; se usa https://secrets.innotechlabssas.lat."
+                INFISICAL_URL="https://secrets.innotechlabssas.lat"
+                ;;
+            esac
             INFISICAL_ON="true"
           fi
 
           ENV_VARS="APP_ENV=qa,APP_PORT=8080,LOG_LEVEL=info,WOMPI_ENV=sandbox"
-          ENV_VARS="${ENV_VARS},CORS_ORIGINS=${CORS_ORIGINS_QA}"
-          ENV_VARS="${ENV_VARS},DATABASE_URL=${DATABASE_URL_QA}"
-          ENV_VARS="${ENV_VARS},CLERK_PUBLISHABLE_KEY=${CLERK_PUB}"
+          if [ -n "$CORS_ORIGINS_QA" ]; then ENV_VARS="${ENV_VARS},CORS_ORIGINS=${CORS_ORIGINS_QA}"; fi
           ENV_VARS="${ENV_VARS},INFISICAL_ENABLED=${INFISICAL_ON}"
           ENV_VARS="${ENV_VARS},INFISICAL_ENVIRONMENT=qa"
           ENV_VARS="${ENV_VARS},INFISICAL_SECRET_PATH=/api"
-          ENV_VARS="${ENV_VARS},INFISICAL_BASE_URL=${INFISICAL_BASE_URL_QA}"
-          ENV_VARS="${ENV_VARS},INFISICAL_CLIENT_ID=${INFISICAL_CLIENT_ID_QA}"
-          ENV_VARS="${ENV_VARS},INFISICAL_CLIENT_SECRET=${INFISICAL_CLIENT_SECRET_QA}"
-          ENV_VARS="${ENV_VARS},INFISICAL_PROJECT_ID=${INFISICAL_PROJECT_ID_QA}"
-
-          if [ -n "$CLERK_SECRET_KEY_QA" ]; then ENV_VARS="${ENV_VARS},CLERK_SECRET_KEY=${CLERK_SECRET_KEY_QA}"; fi
+          if [ "$INFISICAL_ON" = "true" ]; then
+            ENV_VARS="${ENV_VARS},INFISICAL_BASE_URL=${INFISICAL_URL}"
+            ENV_VARS="${ENV_VARS},INFISICAL_CLIENT_ID=${INFISICAL_CLIENT_ID_QA}"
+            ENV_VARS="${ENV_VARS},INFISICAL_CLIENT_SECRET=${INFISICAL_CLIENT_SECRET_QA}"
+            ENV_VARS="${ENV_VARS},INFISICAL_PROJECT_ID=${INFISICAL_PROJECT_ID_QA}"
+          fi
+          if [ -n "$REDIS_URL_QA" ]; then ENV_VARS="${ENV_VARS},REDIS_URL=${REDIS_URL_QA}"; fi
+          if [ -n "$PLATFORM_SUPER_ADMIN_CLERK_ID_QA" ]; then ENV_VARS="${ENV_VARS},PLATFORM_SUPER_ADMIN_CLERK_ID=${PLATFORM_SUPER_ADMIN_CLERK_ID_QA}"; fi
           if [ -n "$CLERK_JWKS_URL_QA" ]; then ENV_VARS="${ENV_VARS},CLERK_JWKS_URL=${CLERK_JWKS_URL_QA}"; fi
-          if [ -n "$CLERK_WEBHOOK_SECRET_QA" ]; then ENV_VARS="${ENV_VARS},CLERK_WEBHOOK_SECRET=${CLERK_WEBHOOK_SECRET_QA}"; fi
-          if [ -n "$WOMPI_PRIVATE_KEY_QA" ]; then ENV_VARS="${ENV_VARS},WOMPI_PRIVATE_KEY=${WOMPI_PRIVATE_KEY_QA}"; fi
-          if [ -n "$WOMPI_INTEGRITY_SECRET_QA" ]; then ENV_VARS="${ENV_VARS},WOMPI_INTEGRITY_SECRET=${WOMPI_INTEGRITY_SECRET_QA}"; fi
-          if [ -n "$WOMPI_EVENTS_SECRET_QA" ]; then ENV_VARS="${ENV_VARS},WOMPI_EVENTS_SECRET=${WOMPI_EVENTS_SECRET_QA}"; fi
           if [ -n "$WEB_APP_URL_QA" ]; then
             case "$WEB_APP_URL_QA" in
               http://*|https://*) ENV_VARS="${ENV_VARS},WEB_APP_URL=${WEB_APP_URL_QA}" ;;
@@ -137,13 +134,26 @@ jobs:
             esac
           fi
 
+          SECRETS="DATABASE_URL=DATABASE_URL_QA:latest"
+          SECRETS="${SECRETS},CLERK_PUBLISHABLE_KEY=CLERK_PUBLISHABLE_KEY_QA:latest"
+          SECRETS="${SECRETS},CLERK_SECRET_KEY=CLERK_SECRET_KEY_QA:latest"
+          SECRETS="${SECRETS},CLERK_WEBHOOK_SECRET=CLERK_WEBHOOK_SECRET_QA:latest"
+          SECRETS="${SECRETS},WOMPI_PRIVATE_KEY=WOMPI_PRIVATE_KEY_QA:latest"
+          SECRETS="${SECRETS},WOMPI_INTEGRITY_SECRET=WOMPI_INTEGRITY_SECRET_QA:latest"
+          SECRETS="${SECRETS},WOMPI_EVENTS_SECRET=WOMPI_EVENTS_SECRET_QA:latest"
+          SECRETS="${SECRETS},WOMPI_WEBHOOK_URL=WOMPI_WEBHOOK_URL_QA:latest"
+          SECRETS="${SECRETS},APP_URL=APP_URL_QA:latest"
+          SECRETS="${SECRETS},ERROR_WEBHOOK_DISCOR=ERROR_WEBHOOK_DISCOR_QA:latest"
+
           gcloud run deploy ${{ env.SERVICE }} \
             --image "${IMAGE}" \
             --region "${{ env.GCP_REGION }}" \
             --platform managed \
+            --service-account "cloud-run-api@${{ env.PROJECT_ID }}.iam.gserviceaccount.com" \
             --allow-unauthenticated \
             --port 8080 \
             --set-env-vars="${ENV_VARS}" \
+            --set-secrets="${SECRETS}" \
             --min-instances=1 \
             --max-instances=5
 
