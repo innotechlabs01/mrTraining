@@ -709,7 +709,9 @@ func (s *Service) FulfillWebhook(ctx context.Context, req subscription.WebhookRe
 	s.mirrorEntitlements(ctx, sub.AthleteID, sub.PlanID, sub.PlanName, "active")
 
 	// --- Record payment in ledger + commission entry for coach ---
-	if s.ledgerSvc != nil && s.commissionEntry != nil && payment.Status == "approved" {
+	// Coaches with skip_subscription = true are exempt from platform commissions and fees ($0).
+	skipped, _ := s.IsCoachSubscriptionSkipped(ctx, sub.CoachID)
+	if !skipped && s.ledgerSvc != nil && s.commissionEntry != nil && payment.Status == "approved" {
 		periodStartStr := periodStart.Format("2006-01-02")
 		periodEndStr := periodEnd.Format("2006-01-02")
 		amountCents := int64(payment.TransactionAmount * 100)

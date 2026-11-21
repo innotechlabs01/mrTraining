@@ -155,6 +155,8 @@ func RegisterMembershipRoutes(api fiber.Router, handler *handlers.MembershipHand
 
 	// Coach's all memberships
 	api.Get("/coaches/memberships", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListMembershipsByCoach)
+	api.Get("/coach/athletes/:id/membership", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetAthleteMembershipByCoach)
+	api.Put("/coach/athletes/:id/membership", middleware.RequireCoach(), middleware.RequireCoachID(), handler.AssignAthleteMembership)
 }
 
 // RegisterAllyAthleteRoutes registers athlete-facing ally catalog routes.

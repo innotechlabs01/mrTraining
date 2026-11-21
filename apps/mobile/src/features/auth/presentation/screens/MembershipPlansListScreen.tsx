@@ -47,16 +47,6 @@ export function MembershipPlansListScreen({ navigation }: any) {
     );
   }
 
-  if (plans.length === 0) {
-    return (
-      <View style={styles.emptyState}>
-        <Text style={styles.emptyText}>
-          No hay planes disponibles en este momento.
-        </Text>
-      </View>
-    );
-  }
-
   const startTrial = async () => {
     setStartingTrial(true);
     try {
@@ -69,6 +59,21 @@ export function MembershipPlansListScreen({ navigation }: any) {
       setStartingTrial(false);
     }
   };
+
+  if (plans.length === 0) {
+    return (
+      <View style={styles.emptyState}>
+        <Text style={[styles.emptyText, { marginBottom: spacing.md }]}>
+          No hay planes disponibles en este momento. Podés activar tu prueba gratuita de 7 días.
+        </Text>
+        <PrimaryButton
+          label={startingTrial ? 'Iniciando prueba…' : 'Probar 7 días gratis'}
+          onPress={() => void startTrial()}
+          disabled={startingTrial}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

@@ -863,6 +863,17 @@ func (h *AdminHandler) GetSettings(c *fiber.Ctx) error {
 	if resp.Settings == nil {
 		resp.Settings = map[string]interface{}{}
 	}
+	defaults := map[string]interface{}{
+		"coachPlanCommissionPct":         8,
+		"mobileAppFeeCop":                3000,
+		"allyDefaultCommissionPct":       10,
+		"wompiThirdPartyPayoutsEnabled": true,
+	}
+	for k, def := range defaults {
+		if _, ok := resp.Settings[k]; !ok {
+			resp.Settings[k] = def
+		}
+	}
 	return appresponse.Success(c, resp)
 }
 
@@ -907,7 +918,87 @@ func (h *AdminHandler) PutSettings(c *fiber.Ctx) error {
 			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to save setting")
 		}
 	}
+
+	if _, hasPct := raw["coachPlanCommissionPct"]; hasPct {
+		h.syncGlobalCommissionTerm(ctx, raw)
+	} else if _, hasFee := raw["mobileAppFeeCop"]; hasFee {
+		h.syncGlobalCommissionTerm(ctx, raw)
+	}
+
 	return appresponse.Success(c, AdminSettingsResponse{Settings: raw})
+}
+
+func parseSettingFloat(val interface{}) (float64, bool) {
+	switch v := val.(type) {
+	case float64:
+		return v, true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case string:
+		f, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+		return f, err == nil
+	default:
+		return 0, false
+	}
+}
+
+func (h *AdminHandler) syncGlobalCommissionTerm(ctx context.Context, raw map[string]interface{}) {
+	pct := 8.0
+	feeCop := 3000.0
+
+	// Read current stored values first so partial updates preserve the other field.
+	rows, err := h.db.QueryContext(ctx, `SELECT key, value FROM platform_settings WHERE key IN ('coachPlanCommissionPct', 'mobileAppFeeCop')`)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var k string
+			var vBytes []byte
+			if rows.Scan(&k, &vBytes) == nil {
+				var v interface{}
+				if json.Unmarshal(vBytes, &v) == nil {
+					if f, ok := parseSettingFloat(v); ok {
+						if k == "coachPlanCommissionPct" {
+							pct = f
+						} else if k == "mobileAppFeeCop" {
+							feeCop = f
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if v, ok := raw["coachPlanCommissionPct"]; ok {
+		if f, ok2 := parseSettingFloat(v); ok2 && f >= 0 && f <= 100 {
+			pct = f
+		}
+	}
+	if v, ok := raw["mobileAppFeeCop"]; ok {
+		if f, ok2 := parseSettingFloat(v); ok2 && f >= 0 {
+			feeCop = f
+		}
+	}
+
+	rateBps := int(pct * 100)
+	fixedFeeCents := int64(feeCop * 100)
+
+	var maxVersion int
+	_ = h.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version), 0) FROM platform_commission_terms WHERE coach_id IS NULL OR coach_id = ''`).Scan(&maxVersion)
+	nextVersion := maxVersion + 1
+
+	_, _ = h.db.ExecContext(ctx, `
+		UPDATE platform_commission_terms
+		SET status = 'superseded', valid_to = NOW()::text
+		WHERE (coach_id IS NULL OR coach_id = '') AND status = 'active'
+	`)
+	termID := fmt.Sprintf("term-global-v%d-%d", nextVersion, time.Now().UnixNano())
+	_, _ = h.db.ExecContext(ctx, `
+		INSERT INTO platform_commission_terms (
+			id, coach_id, version, rate_bps, fixed_fee_cents, processing_bps, currency, status, valid_from, created_at
+		) VALUES ($1, NULL, $2, $3, $4, 0, 'COP', 'active', NOW()::text, NOW()::text)
+	`, termID, nextVersion, rateBps, fixedFeeCents)
 }
 
 // GetTRMSetting handles GET /api/v1/admin/settings/trm.

@@ -4,6 +4,8 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -245,9 +247,37 @@ func (h *MembershipHandler) GetMembershipStatus(c *fiber.Ctx) error {
 			AthleteID:          m.AthleteID,
 			CoachID:            m.CoachID,
 		}
+		if h.db != nil {
+			fee, skipped := h.resolveMobileAppFee(c.Context(), m.CoachID)
+			response.MobileAppFeeCop = fee
+			response.CoachSkipped = skipped
+		}
 	}
 
 	return appresponse.Success(c, response)
+}
+
+func (h *MembershipHandler) resolveMobileAppFee(ctx context.Context, coachID string) (float64, bool) {
+	if h.db == nil {
+		return 3000, false
+	}
+	var skipped bool
+	if coachID != "" {
+		_ = h.db.QueryRowContext(ctx, `SELECT COALESCE(skip_subscription, false) FROM coaches WHERE id = $1`, coachID).Scan(&skipped)
+		if skipped {
+			return 0, true
+		}
+	}
+	var valBytes []byte
+	if err := h.db.QueryRowContext(ctx, `SELECT value FROM platform_settings WHERE key = 'mobileAppFeeCop'`).Scan(&valBytes); err == nil {
+		var raw interface{}
+		if json.Unmarshal(valBytes, &raw) == nil {
+			if f, ok := parseSettingFloat(raw); ok && f >= 0 {
+				return f, false
+			}
+		}
+	}
+	return 3000, false
 }
 
 // calculateDaysRemaining calculates the number of days remaining until the period end.
@@ -372,6 +402,158 @@ func toMembershipResponse(m *membershipdomain.Membership) *dto.MembershipRespons
 		CreatedAt:          m.CreatedAt,
 		UpdatedAt:          m.UpdatedAt,
 	}
+}
+
+// GetAthleteMembershipByCoach handles GET /coach/athletes/:id/membership.
+// Returns the latest membership for an athlete belonging to the authenticated coach.
+func (h *MembershipHandler) GetAthleteMembershipByCoach(c *fiber.Ctx) error {
+	coachID := middleware.GetCoachID(c)
+	if coachID == "" {
+		coachID = middleware.GetUserID(c)
+	}
+	athleteID := strings.TrimSpace(c.Params("id"))
+	if coachID == "" || athleteID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "coach and athlete IDs are required")
+	}
+
+	if h.db == nil {
+		return appresponse.Error(c, fiber.StatusServiceUnavailable, "database unavailable")
+	}
+
+	var m dto.MembershipResponse
+	err := h.db.QueryRowContext(c.Context(), `
+		SELECT id, athlete_id, coach_id, plan_name, plan_price, billing_period,
+		       status, current_period_start, current_period_end,
+		       grace_period_days, payment_due_date, created_at, updated_at
+		FROM athlete_memberships
+		WHERE athlete_id = $1 AND coach_id = $2
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, athleteID, coachID).Scan(
+		&m.ID, &m.AthleteID, &m.CoachID, &m.PlanName, &m.PlanPrice, &m.BillingPeriod,
+		&m.Status, &m.CurrentPeriodStart, &m.CurrentPeriodEnd,
+		&m.GracePeriodDays, &m.PaymentDueDate, &m.CreatedAt, &m.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return appresponse.Success(c, nil)
+	}
+	if err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to load athlete membership")
+	}
+	return appresponse.Success(c, m)
+}
+
+// AssignAthleteMembership handles PUT /coach/athletes/:id/membership.
+// Allows a coach to assign one of their plans to an athlete so the athlete
+// can see and pay the monthly plan in the mobile app.
+func (h *MembershipHandler) AssignAthleteMembership(c *fiber.Ctx) error {
+	coachID := middleware.GetCoachID(c)
+	if coachID == "" {
+		coachID = middleware.GetUserID(c)
+	}
+	athleteID := strings.TrimSpace(c.Params("id"))
+	if coachID == "" || athleteID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "coach and athlete IDs are required")
+	}
+	if h.db == nil {
+		return appresponse.Error(c, fiber.StatusServiceUnavailable, "database unavailable")
+	}
+
+	var req struct {
+		PlanID        string `json:"plan_id"`
+		BillingPeriod string `json:"billing_period"`
+		Status        string `json:"status"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+	if strings.TrimSpace(req.PlanID) == "" {
+		return appresponse.Error(c, fiber.StatusUnprocessableEntity, "plan_id is required")
+	}
+
+	var planName string
+	var planPrice float64
+	var planCurrency string
+	err := h.db.QueryRowContext(c.Context(), `
+		SELECT name, price, COALESCE(currency, 'COP')
+		FROM plans
+		WHERE id = $1 AND coach_id = $2
+	`, req.PlanID, coachID).Scan(&planName, &planPrice, &planCurrency)
+	if err == sql.ErrNoRows {
+		return appresponse.Error(c, fiber.StatusNotFound, "plan not found for this coach")
+	}
+	if err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to load plan")
+	}
+
+	billingPeriod := strings.ToLower(strings.TrimSpace(req.BillingPeriod))
+	if billingPeriod != "yearly" {
+		billingPeriod = "monthly"
+	}
+	status := strings.ToLower(strings.TrimSpace(req.Status))
+	if status != "pending" && status != "active" && status != "trial" {
+		status = "active"
+	}
+
+	now := time.Now().UTC()
+	periodStart := now.Format("2006-01-02")
+	periodEndDate := now.AddDate(0, 1, 0)
+	if billingPeriod == "yearly" {
+		periodEndDate = now.AddDate(1, 0, 0)
+	}
+	periodEnd := periodEndDate.Format("2006-01-02")
+	nowISO := now.Format(time.RFC3339)
+
+	var existingID string
+	_ = h.db.QueryRowContext(c.Context(), `
+		SELECT id FROM athlete_memberships
+		WHERE athlete_id = $1 AND coach_id = $2
+		ORDER BY created_at DESC LIMIT 1
+	`, athleteID, coachID).Scan(&existingID)
+
+	if existingID != "" {
+		_, err = h.db.ExecContext(c.Context(), `
+			UPDATE athlete_memberships
+			SET plan_name = $1, plan_price = $2, billing_period = $3,
+			    status = $4, current_period_start = $5, current_period_end = $6,
+			    payment_due_date = $7, updated_at = $8
+			WHERE id = $9
+		`, planName, planPrice, billingPeriod, status, periodStart, periodEnd, periodEnd, nowISO, existingID)
+	} else {
+		existingID = fmt.Sprintf("mem-%d-%s", now.UnixNano(), athleteID)
+		_, err = h.db.ExecContext(c.Context(), `
+			INSERT INTO athlete_memberships (
+				id, athlete_id, coach_id, plan_name, plan_price, billing_period,
+				status, current_period_start, current_period_end,
+				grace_period_days, payment_due_date, created_at, updated_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 5, $10, $11, $11)
+		`, existingID, athleteID, coachID, planName, planPrice, billingPeriod, status, periodStart, periodEnd, periodEnd, nowISO)
+	}
+	if err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to assign membership")
+	}
+
+	// Sync coach_athletes linkage if record exists
+	_, _ = h.db.ExecContext(c.Context(), `
+		UPDATE coach_athletes SET status = 'active', updated_at = NOW()
+		WHERE coach_id = $1 AND athlete_id = $2
+	`, coachID, athleteID)
+
+	return appresponse.Success(c, dto.MembershipResponse{
+		ID:                 existingID,
+		AthleteID:          athleteID,
+		CoachID:            coachID,
+		PlanName:           planName,
+		PlanPrice:          planPrice,
+		BillingPeriod:      billingPeriod,
+		Status:             status,
+		CurrentPeriodStart: periodStart,
+		CurrentPeriodEnd:   periodEnd,
+		GracePeriodDays:    5,
+		PaymentDueDate:     periodEnd,
+		CreatedAt:          nowISO,
+		UpdatedAt:          nowISO,
+	})
 }
 
 // toPaymentResponse converts a domain Payment entity to a DTO response.
