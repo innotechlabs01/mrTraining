@@ -399,12 +399,20 @@ export function HistoryScreen() {
           <Text style={styles.subtitle}>
             {t.progressTitle}
           </Text>
-          <Pressable
-            style={styles.runCta}
-            onPress={() => navigation.navigate('RunRecording')}
-          >
-            <Text style={styles.runCtaText}>Grabar carrera con GPS</Text>
-          </Pressable>
+          <View style={styles.runCtaRow}>
+            <Pressable
+              style={styles.runCta}
+              onPress={() => navigation.navigate('RunRecording')}
+            >
+              <Text style={styles.runCtaText}>Grabar carrera con GPS</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.runCta, styles.runCtaSecondary]}
+              onPress={() => navigation.navigate('RunningWorkoutList')}
+            >
+              <Text style={styles.runCtaSecondaryText}>Entrenos de Running</Text>
+            </Pressable>
+          </View>
         </View>
 
         {showLoading ? (
@@ -766,16 +774,31 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: 112,
   },
-  runCta: {
+  runCtaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
     marginTop: spacing.sm,
+  },
+  runCta: {
     alignSelf: 'flex-start',
     backgroundColor: colors.primary,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
+  runCtaSecondary: {
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: `${colors.primary}60`,
+  },
   runCtaText: {
     color: colors.onPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  runCtaSecondaryText: {
+    color: colors.primary,
     fontSize: 13,
     fontWeight: '700',
   },

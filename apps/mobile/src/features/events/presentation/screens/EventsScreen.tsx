@@ -231,6 +231,10 @@ function normalizeEvents(response: unknown): EventItem[] {
   if (body.data && typeof body.data === 'object') {
     const nested = body.data as Record<string, unknown>;
 
+    if (Array.isArray(nested.data)) {
+      return nested.data as EventItem[];
+    }
+
     if (Array.isArray(nested.events)) {
       return nested.events as EventItem[];
     }

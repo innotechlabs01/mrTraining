@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/running"
+	"github.com/innotechlabs01/mr-training-api/pkg/resilience"
 )
 
 // GarminProvider implements domain.WearableProvider against the Garmin Health
@@ -57,15 +58,16 @@ func (s *TokenStore) Get(ctx context.Context, userID, platform string) (access, 
 // Save upserts a token row.
 func (s *TokenStore) Save(ctx context.Context, userID, platform, access, refresh, expiresAt, scope string) error {
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO wearable_oauth_tokens (id, user_id, platform, access_token, refresh_token, expires_at, scope)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`INSERT INTO wearable_oauth_tokens (id, user_id, provider, platform, access_token, refresh_token, expires_at, scope)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		 ON CONFLICT(user_id, platform) DO UPDATE SET
+		   provider = excluded.provider,
 		   access_token = excluded.access_token,
 		   refresh_token = excluded.refresh_token,
 		   expires_at = excluded.expires_at,
 		   scope = excluded.scope,
 		   updated_at = NOW()`,
-		uuid.New().String(), userID, platform, access, refresh, nullIfEmpty(expiresAt), nullIfEmpty(scope))
+		uuid.New().String(), userID, platform, platform, access, refresh, nullIfEmpty(expiresAt), nullIfEmpty(scope))
 	if err != nil {
 		return fmt.Errorf("save wearable token: %w", err)
 	}
@@ -86,12 +88,26 @@ func NewGarminProvider(tokens *TokenStore) *GarminProvider {
 	if base == "" {
 		base = "https://apis.garmin.com"
 	}
+	cb := resilience.RegisterBreaker(resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{
+		Name:             "garmin_api",
+		FailureThreshold: 5,
+		ResetTimeout:     60 * time.Second,
+	}))
+	bh := resilience.NewBulkhead("garmin_api", 10, 250*time.Millisecond)
+	retry := resilience.DefaultRetryConfig()
+	retry.MaxAttempts = 2
 	return &GarminProvider{
 		baseURL:      base,
 		clientID:     os.Getenv("GARMIN_CLIENT_ID"),
 		clientSecret: os.Getenv("GARMIN_CLIENT_SECRET"),
 		tokens:       tokens,
-		http:         &http.Client{Timeout: 20 * time.Second},
+		http: resilience.NewHTTPClient(resilience.HTTPClientConfig{
+			Name:     "garmin_api",
+			Timeout:  10 * time.Second,
+			Breaker:  cb,
+			Bulkhead: bh,
+			Retry:    &retry,
+		}),
 	}
 }
 
@@ -138,7 +154,7 @@ func (p *GarminProvider) FetchSessions(ctx context.Context, userID string, from,
 	q.Set("uploadEndTimeInSeconds", strconv.FormatInt(to.Unix(), 10))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		p.baseURL+"/wellness-api/rest/activities$10"+q.Encode(), nil)
+		p.baseURL+"/wellness-api/rest/activities?"+q.Encode(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("garmin request: %w", err)
 	}
@@ -211,7 +227,7 @@ func (p *GarminProvider) SyncHealthData(ctx context.Context, userID string) (*do
 	q.Set("uploadEndTimeInSeconds", strconv.FormatInt(end.Unix(), 10))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		p.baseURL+"/wellness-api/rest/dailies$11"+q.Encode(), nil)
+		p.baseURL+"/wellness-api/rest/dailies?"+q.Encode(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("garmin dailies request: %w", err)
 	}

@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
 
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
@@ -14,12 +16,12 @@ import (
 
 func TestAdminHandler_AuthorizationMatrix(t *testing.T) {
 	allowedID := "allowed-admin"
-	h := NewAdminHandler(nil, nil)
+	h := NewAdminHandler(nil, nil, nil)
 
 	cases := []struct {
-		name   string
-		cfg    *middleware.TestAuthConfig
-		want   int
+		name string
+		cfg  *middleware.TestAuthConfig
+		want int
 	}{
 		{name: "anonymous", cfg: nil, want: http.StatusUnauthorized},
 		{name: "athlete", cfg: &middleware.TestAuthConfig{UserID: "athlete-1", Role: "athlete"}, want: http.StatusForbidden},
@@ -49,7 +51,7 @@ func TestAdminHandler_AuthorizationMatrix(t *testing.T) {
 }
 
 func TestAdminHandler_UnauthorizedMatrixAllEndpoints(t *testing.T) {
-	h := NewAdminHandler(nil, nil)
+	h := NewAdminHandler(nil, nil, nil)
 	allowedID := "allowed-admin"
 	endpoints := []string{
 		"/admin/dashboard",
@@ -94,4 +96,23 @@ func TestAdminHandler_UnauthorizedMatrixAllEndpoints(t *testing.T) {
 			require.Equal(t, http.StatusForbidden, resp.StatusCode)
 		})
 	}
+}
+
+func TestAdminHandler_GetDashboard_DBErrorNotSilenced(t *testing.T) {
+	// Abrir y cerrar inmediatamente una DB inválida: cualquier consulta fallará
+	// con "sql: database is closed". GetDashboard debe devolver 500, no 200 con ceros.
+	db, err := sql.Open("pgx", "host=127.0.0.1 port=1 dbname=invalid sslmode=disable connect_timeout=1")
+	require.NoError(t, err)
+	db.Close()
+
+	h := NewAdminHandler(db, nil, nil)
+
+	app := fiber.New()
+	app.Get("/admin/dashboard", h.GetDashboard)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/dashboard", nil)
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, resp.StatusCode,
+		"GetDashboard must return 500 when DB queries fail, not silently return 0")
 }

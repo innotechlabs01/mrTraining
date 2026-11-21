@@ -76,3 +76,11 @@ func Internal(message string) *AppError {
 func ValidationFailed(message string) *AppError {
 	return New("VALIDATION_FAILED", message, http.StatusUnprocessableEntity)
 }
+
+// ServiceUnavailable returns a 503 error when a required upstream provider or gate is unavailable.
+func ServiceUnavailable(message string) *AppError {
+	if message == "" {
+		message = "service temporarily unavailable"
+	}
+	return New("SERVICE_UNAVAILABLE", message, http.StatusServiceUnavailable)
+}

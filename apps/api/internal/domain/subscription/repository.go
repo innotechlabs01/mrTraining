@@ -29,6 +29,10 @@ type Repository interface {
 	// subscription. The subscription row is created BEFORE the payer pays, so
 	// its own status cannot be used to tell whether the money arrived.
 	HasApprovedPayment(ctx context.Context, subscriptionID string) (bool, error)
+	// HasFailedPayment reports whether a rejected payment exists for the
+	// subscription. Used to report a "failed" status on the subscription
+	// status polling endpoint.
+	HasFailedPayment(ctx context.Context, subscriptionID string) (bool, error)
 }
 
 // Payment records a payment collected through a payment provider for a

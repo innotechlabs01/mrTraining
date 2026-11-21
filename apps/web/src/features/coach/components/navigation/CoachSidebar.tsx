@@ -46,6 +46,7 @@ const NAV_ITEMS: NavItemConfig[] = [
     ],
   },
   { id: 'events', label: 'Eventos', icon: Calendar, href: '/coach/events' },
+  { id: 'agendamiento', label: 'Agendamiento', icon: Calendar, href: '/coach/agendamiento' },
   { id: 'challenges', label: 'Desafíos', icon: Flame, href: '/coach/challenges' },
   { id: 'planes', label: 'Planes', icon: CreditCard, href: '/coach/planes' },
   { id: 'aliados', label: 'Aliados', icon: Store, href: '/coach/ally' },
@@ -53,7 +54,7 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: 'earnings', label: 'Ganancias', icon: DollarSign, href: '/coach/earnings' },
   { id: 'blog', label: 'Blog', icon: Book, href: '/coach/blog' },
   { id: 'live-sessions', label: 'Sesiones en Vivo', icon: Activity, href: '/coach/live-session' },
-  { id: 'landing', label: 'Landing Page', icon: Globe, href: '/coach/landing' },
+  { id: 'landing', label: 'Landing Page', icon: Globe, href: '/coach/landing-canvas' },
   { id: 'support', label: 'Soporte', icon: HelpCircle, href: '/coach/support' },
 ]
 

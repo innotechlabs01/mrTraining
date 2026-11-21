@@ -19,14 +19,20 @@ import (
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/running"
 	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
 	databasepkg "github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
+	"github.com/innotechlabs01/mr-training-api/internal/pkg/eventbus"
 )
+
+// HealthMetricRecorder persists wearable daily health metrics (e.g. Garmin steps, RHR, HRV).
+type HealthMetricRecorder func(ctx context.Context, athleteID, metricType string, value float64, unit, source string) error
 
 // Service implements running-related business operations.
 // It depends on the running.Repository interface, making it testable with mocks.
 type Service struct {
-	repo      domain.Repository
-	providers map[string]domain.WearableProvider
-	db        *sql.DB
+	repo           domain.Repository
+	providers      map[string]domain.WearableProvider
+	db             *sql.DB
+	healthRecorder HealthMetricRecorder
+	outbox         eventbus.OutboxWriter
 }
 
 // NewService creates a new running application service with the given repository.
@@ -36,7 +42,22 @@ func NewService(repo domain.Repository, db *sql.DB) *Service {
 		repo:      repo,
 		providers: make(map[string]domain.WearableProvider),
 		db:        db,
+		outbox:    eventbus.NewSQLOutboxStore(db),
 	}
+}
+
+// WithOutbox overrides the transactional outbox writer used by running domain events.
+func (s *Service) WithOutbox(outbox eventbus.OutboxWriter) *Service {
+	if outbox != nil {
+		s.outbox = outbox
+	}
+	return s
+}
+
+// SetHealthRecorder wires a callback used by SyncFromProvider to persist daily
+// health metrics (steps, resting HR, HRV) returned by wearable providers.
+func (s *Service) SetHealthRecorder(fn HealthMetricRecorder) {
+	s.healthRecorder = fn
 }
 
 // SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork)
@@ -47,9 +68,11 @@ func (s *Service) SetExecutor(exec databasepkg.Executor) *Service {
 		WithExecutor(databasepkg.Executor) domain.Repository
 	}); ok {
 		return &Service{
-			repo:      repo.WithExecutor(exec),
-			providers: s.providers,
-			db:        s.db,
+			repo:           repo.WithExecutor(exec),
+			providers:      s.providers,
+			db:             s.db,
+			healthRecorder: s.healthRecorder,
+			outbox:         s.outbox,
 		}
 	}
 	return s
@@ -120,6 +143,22 @@ func (s *Service) SyncFromProvider(ctx context.Context, providerName, userID str
 	if err := flush(); err != nil {
 		return imported, fmt.Errorf("import %s sessions: %w", providerName, err)
 	}
+
+	// Best-effort sync of wearable daily health metrics (Garmin dailies: steps, RHR, HRV).
+	if s.healthRecorder != nil {
+		if healthData, err := provider.SyncHealthData(ctx, userID); err == nil && healthData != nil {
+			if healthData.Steps > 0 {
+				_ = s.healthRecorder(ctx, userID, "steps", float64(healthData.Steps), "steps", providerName)
+			}
+			if healthData.RestingHR > 0 {
+				_ = s.healthRecorder(ctx, userID, "resting_hr", float64(healthData.RestingHR), "bpm", providerName)
+			}
+			if healthData.HRV > 0 {
+				_ = s.healthRecorder(ctx, userID, "hrv", healthData.HRV, "ms", providerName)
+			}
+		}
+	}
+
 	return imported, nil
 }
 
@@ -653,6 +692,65 @@ type RunningStats struct {
 	AvgCalories    int     `json:"avg_calories"`
 	AvgHeartRate   int     `json:"avg_heart_rate"`
 	AvgPace        string  `json:"avg_pace"` // "5:30"
+}
+
+// RunningPRs holds personal best records calculated from an athlete's running sessions.
+type RunningPRs struct {
+	BestPace   string  `json:"bestPace"`
+	LongestRun float64 `json:"longestRun"`
+	Fastest1K  int     `json:"fastest1K"`
+	Fastest5K  int     `json:"fastest5K"`
+	Fastest10K int     `json:"fastest10K"`
+	TotalRuns  int     `json:"totalRuns"`
+}
+
+// GetRunningPRsByAthlete calculates personal bests across all running sessions of an athlete.
+func (s *Service) GetRunningPRsByAthlete(ctx context.Context, athleteID string) (*RunningPRs, error) {
+	sessions, err := s.repo.ListSessionsByUser(ctx, athleteID, "", "", 10000, 0)
+	if err != nil {
+		return nil, fmt.Errorf("get running prs by athlete: %w", err)
+	}
+
+	prs := &RunningPRs{
+		TotalRuns: len(sessions),
+	}
+	if len(sessions) == 0 {
+		return prs, nil
+	}
+
+	var bestPaceSec float64
+	for _, sess := range sessions {
+		if sess.Distance > prs.LongestRun {
+			prs.LongestRun = sess.Distance
+		}
+		if sess.Distance > 0 && sess.Duration > 0 {
+			paceSec := float64(sess.Duration) / sess.Distance
+			if bestPaceSec == 0 || paceSec < bestPaceSec {
+				bestPaceSec = paceSec
+				prs.BestPace = formatPace(sess.Distance, sess.Duration)
+			}
+			if sess.Distance >= 1.0 {
+				est1K := int(math.Round(paceSec * 1.0))
+				if prs.Fastest1K == 0 || est1K < prs.Fastest1K {
+					prs.Fastest1K = est1K
+				}
+			}
+			if sess.Distance >= 5.0 {
+				est5K := int(math.Round(paceSec * 5.0))
+				if prs.Fastest5K == 0 || est5K < prs.Fastest5K {
+					prs.Fastest5K = est5K
+				}
+			}
+			if sess.Distance >= 10.0 {
+				est10K := int(math.Round(paceSec * 10.0))
+				if prs.Fastest10K == 0 || est10K < prs.Fastest10K {
+					prs.Fastest10K = est10K
+				}
+			}
+		}
+	}
+
+	return prs, nil
 }
 
 // getISOWeek returns ISO week string (YYYY-Www) from date string (YYYY-MM-DD).
@@ -1243,26 +1341,29 @@ func (s *Service) GetSnapshotBySession(ctx context.Context, sessionID string) (*
 	return s.repo.GetSnapshotBySession(ctx, sessionID)
 }
 
-func (s *Service) insertOutboxTemplateCreated(ctx context.Context, templateID, coachID, name string) error {
-	if s.db == nil {
+func (s *Service) writeOutboxEvent(ctx context.Context, exec databasepkg.Executor, eventType, aggType, aggID, coachID, athleteID string, payload map[string]interface{}) error {
+	if exec == nil && s.db == nil && s.outbox == nil {
 		return nil
 	}
-	if name == "" {
-		name = templateID
+	ev := eventbus.NewEvent(ctx, eventType, aggType, aggID, payload).
+		WithTenant(coachID, athleteID, "")
+	if s.outbox != nil {
+		return s.outbox.Insert(ctx, exec, ev)
 	}
-	payload := map[string]interface{}{
-		"name":     name,
-		"coach_id": coachID,
-		"version":  1,
+	if exec != nil {
+		return eventbus.NewSQLOutboxStore(s.db).Insert(ctx, exec, ev)
 	}
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
-		VALUES (gen_random_uuid(), 'template.created', 'template', $1, $2, NULL, $3, NOW(), 'pending', 0, NOW(), NULL, NOW())
-	`, templateID, coachID, payload)
-	return err
+	return nil
+}
+
+func (s *Service) insertOutboxTemplateCreated(ctx context.Context, templateID, coachID, name string) error {
+	return s.insertOutboxTemplateCreatedTx(ctx, nil, templateID, coachID, name)
 }
 
 func (s *Service) insertOutboxTemplateCreatedTx(ctx context.Context, tx *sql.Tx, templateID, coachID, name string) error {
+	if tx == nil && s.db == nil {
+		return nil
+	}
 	if name == "" {
 		name = templateID
 	}
@@ -1271,31 +1372,15 @@ func (s *Service) insertOutboxTemplateCreatedTx(ctx context.Context, tx *sql.Tx,
 		"coach_id": coachID,
 		"version":  1,
 	}
-	_, err := tx.ExecContext(ctx, `
-		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
-		VALUES (gen_random_uuid(), 'template.created', 'template', $1, $2, NULL, $3, NOW(), 'pending', 0, NOW(), NULL, NOW())
-	`, templateID, coachID, payload)
-	return err
+	var exec databasepkg.Executor
+	if tx != nil {
+		exec = tx
+	}
+	return s.writeOutboxEvent(ctx, exec, eventbus.SubjectTemplateCreated, "template", templateID, coachID, "", payload)
 }
 
 func (s *Service) insertOutboxTemplateUpdatedTx(ctx context.Context, tx *sql.Tx, templateID, coachID, name string, version int) error {
-	if name == "" {
-		name = templateID
-	}
-	payload := map[string]interface{}{
-		"name":     name,
-		"coach_id": coachID,
-		"version":  version,
-	}
-	_, err := tx.ExecContext(ctx, `
-		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
-		VALUES (gen_random_uuid(), 'template.updated', 'template', $1, $2, NULL, $3, NOW(), 'pending', 0, NOW(), NULL, NOW())
-	`, templateID, coachID, payload)
-	return err
-}
-
-func (s *Service) insertOutboxTemplateUpdated(ctx context.Context, templateID, coachID, name string, version int) error {
-	if s.db == nil {
+	if tx == nil && s.db == nil {
 		return nil
 	}
 	if name == "" {
@@ -1306,16 +1391,24 @@ func (s *Service) insertOutboxTemplateUpdated(ctx context.Context, templateID, c
 		"coach_id": coachID,
 		"version":  version,
 	}
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
-		VALUES (gen_random_uuid(), 'template.updated', 'template', $1, $2, NULL, $3, NOW(), 'pending', 0, NOW(), NULL, NOW())
-	`, templateID, coachID, payload)
-	return err
+	var exec databasepkg.Executor
+	if tx != nil {
+		exec = tx
+	}
+	return s.writeOutboxEvent(ctx, exec, eventbus.SubjectTemplateUpdated, "template", templateID, coachID, "", payload)
+}
+
+func (s *Service) insertOutboxTemplateUpdated(ctx context.Context, templateID, coachID, name string, version int) error {
+	return s.insertOutboxTemplateUpdatedTx(ctx, nil, templateID, coachID, name, version)
 }
 
 // insertOutboxAssignmentCreated inserts an assignment.created event into the Outbox table.
 func (s *Service) insertOutboxAssignmentCreated(ctx context.Context, assignmentID, coachID, athleteID, templateID string) error {
-	if s.db == nil {
+	return s.insertOutboxAssignmentCreatedTx(ctx, nil, assignmentID, coachID, athleteID, templateID)
+}
+
+func (s *Service) insertOutboxAssignmentCreatedTx(ctx context.Context, tx *sql.Tx, assignmentID, coachID, athleteID, templateID string) error {
+	if tx == nil && s.db == nil {
 		return nil
 	}
 	payload := map[string]interface{}{
@@ -1324,30 +1417,20 @@ func (s *Service) insertOutboxAssignmentCreated(ctx context.Context, assignmentI
 		"template_id": templateID,
 		"status":      "assigned",
 	}
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
-		VALUES (gen_random_uuid(), 'assignment.created', 'assignment', $1, $2, $3, $4, NOW(), 'pending', 0, COALESCE((SELECT NOW()), NOW()), NULL, NOW())
-	`, assignmentID, coachID, athleteID, payload)
-	return err
-}
-
-func (s *Service) insertOutboxAssignmentCreatedTx(ctx context.Context, tx *sql.Tx, assignmentID, coachID, athleteID, templateID string) error {
-	payload := map[string]interface{}{
-		"coach_id":    coachID,
-		"athlete_id":  athleteID,
-		"template_id": templateID,
-		"status":      "assigned",
+	var exec databasepkg.Executor
+	if tx != nil {
+		exec = tx
 	}
-	_, err := tx.ExecContext(ctx, `
-		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
-		VALUES (gen_random_uuid(), 'assignment.created', 'assignment', $1, $2, $3, $4, NOW(), 'pending', 0, NOW(), NULL, NOW())
-	`, assignmentID, coachID, athleteID, payload)
-	return err
+	return s.writeOutboxEvent(ctx, exec, eventbus.SubjectAssignmentCreated, "assignment", assignmentID, coachID, athleteID, payload)
 }
 
 // insertOutboxWorkoutStarted inserts a workout.started event into the Outbox table.
 func (s *Service) insertOutboxWorkoutStarted(ctx context.Context, sessionID, athleteID, templateID, coachID string) error {
-	if s.db == nil {
+	return s.insertOutboxWorkoutStartedTx(ctx, nil, sessionID, athleteID, templateID, coachID)
+}
+
+func (s *Service) insertOutboxWorkoutStartedTx(ctx context.Context, tx *sql.Tx, sessionID, athleteID, templateID, coachID string) error {
+	if tx == nil && s.db == nil {
 		return nil
 	}
 	payload := map[string]interface{}{
@@ -1356,30 +1439,20 @@ func (s *Service) insertOutboxWorkoutStarted(ctx context.Context, sessionID, ath
 		"session_id":  sessionID,
 		"coach_id":    coachID,
 	}
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
-		VALUES (gen_random_uuid(), 'workout.started', 'workout', $1, $2, $3, $4, NOW(), 'pending', 0, NOW(), NULL, NOW())
-	`, sessionID, coachID, athleteID, payload)
-	return err
-}
-
-func (s *Service) insertOutboxWorkoutStartedTx(ctx context.Context, tx *sql.Tx, sessionID, athleteID, templateID, coachID string) error {
-	payload := map[string]interface{}{
-		"athlete_id":  athleteID,
-		"template_id": templateID,
-		"session_id":  sessionID,
-		"coach_id":    coachID,
+	var exec databasepkg.Executor
+	if tx != nil {
+		exec = tx
 	}
-	_, err := tx.ExecContext(ctx, `
-		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
-		VALUES (gen_random_uuid(), 'workout.started', 'workout', $1, $2, $3, $4, NOW(), 'pending', 0, NOW(), NULL, NOW())
-	`, sessionID, coachID, athleteID, payload)
-	return err
+	return s.writeOutboxEvent(ctx, exec, eventbus.SubjectWorkoutStarted, "workout", sessionID, coachID, athleteID, payload)
 }
 
 // insertOutboxWorkoutCompleted inserts a workout.completed event into the Outbox table.
 func (s *Service) insertOutboxWorkoutCompleted(ctx context.Context, sessionID, athleteID, coachID string) error {
-	if s.db == nil {
+	return s.insertOutboxWorkoutCompletedTx(ctx, nil, sessionID, athleteID, coachID)
+}
+
+func (s *Service) insertOutboxWorkoutCompletedTx(ctx context.Context, tx *sql.Tx, sessionID, athleteID, coachID string) error {
+	if tx == nil && s.db == nil {
 		return nil
 	}
 	payload := map[string]interface{}{
@@ -1387,24 +1460,11 @@ func (s *Service) insertOutboxWorkoutCompleted(ctx context.Context, sessionID, a
 		"session_id": sessionID,
 		"coach_id":   coachID,
 	}
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
-		VALUES (gen_random_uuid(), 'workout.completed', 'workout', $1, $2, $3, $4, NOW(), 'pending', 0, NOW(), NULL, NOW())
-	`, sessionID, coachID, athleteID, payload)
-	return err
-}
-
-func (s *Service) insertOutboxWorkoutCompletedTx(ctx context.Context, tx *sql.Tx, sessionID, athleteID, coachID string) error {
-	payload := map[string]interface{}{
-		"athlete_id": athleteID,
-		"session_id": sessionID,
-		"coach_id":   coachID,
+	var exec databasepkg.Executor
+	if tx != nil {
+		exec = tx
 	}
-	_, err := tx.ExecContext(ctx, `
-		INSERT INTO outbox (event_id, event_type, aggregate_type, aggregate_id, coach_id, athlete_id, payload, occurred_at, status, attempts, next_retry_at, last_error, created_at)
-		VALUES (gen_random_uuid(), 'workout.completed', 'workout', $1, $2, $3, $4, NOW(), 'pending', 0, NOW(), NULL, NOW())
-	`, sessionID, coachID, athleteID, payload)
-	return err
+	return s.writeOutboxEvent(ctx, exec, eventbus.SubjectWorkoutCompleted, "workout", sessionID, coachID, athleteID, payload)
 }
 
 // asTxRepo returns a repository bound to the supplied transaction when supported.

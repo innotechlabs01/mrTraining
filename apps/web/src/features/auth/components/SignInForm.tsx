@@ -15,6 +15,7 @@ interface SignInFormProps {
   onForgotPassword?: () => void;
   onBack?: () => void;
   role?: string;
+  initialEmail?: string;
 }
 
 type Step = 'email' | 'password' | 'code';
@@ -29,13 +30,19 @@ function isSessionAlreadyActive(err: unknown): boolean {
   return code === 'session_exists' || code === 'session_already_exists';
 }
 
-export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignInFormProps) {
+export function SignInForm({
+  onSuccess,
+  onForgotPassword,
+  onBack,
+  role,
+  initialEmail,
+}: SignInFormProps) {
   const searchParams = useSearchParams();
   const { signIn, isLoaded, setActive } = useSignIn();
   const { signOut } = useClerk();
 
   const [step, setStep] = useState<Step>('email');
-  const [email, setEmail] = useState(searchParams.get('email') ?? '');
+  const [email, setEmail] = useState(initialEmail ?? searchParams.get('email') ?? '');
   const plan = searchParams.get('plan');
   const signUpHref = `/sign-up${plan ? `?plan=${plan}` : ''}`;
   const [code, setCode] = useState('');
@@ -521,10 +528,13 @@ export function SignInForm({ onSuccess, onForgotPassword, onBack, role }: SignIn
         )}
       </AnimatePresence>
 
-      <div className="text-center text-body-sm text-text-secondary">
-        Don&apos;t have an account?{' '}
-        <Link href={signUpHref} className="text-brand-primary font-semibold transition-colors duration-200 hover:text-brand-primary-hover">
-          Sign up
+      <div className="text-center text-body-sm text-text-secondary pt-2 border-t border-surface-6/50">
+        ¿Primera vez en MR Training?{' '}
+        <Link
+          href={signUpHref || '/sign-up?trial=true'}
+          className="text-brand-primary font-semibold transition-colors duration-200 hover:text-brand-primary-hover"
+        >
+          Empieza tu prueba gratis de 7 días
         </Link>
       </div>
     </div>

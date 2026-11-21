@@ -16,12 +16,10 @@ func TestMigrationPlanOrdering(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("pgx", "postgres://postgres:postgres@127.0.0.1:5435/mr_training_migration?sslmode=disable")
 	if err != nil {
-		t.Skipf("cannot connect to test database: %v", err)
 	}
 	defer db.Close()
 
 	if err := db.PingContext(ctx); err != nil {
-		t.Skipf("cannot ping test database: %v", err)
 	}
 
 	allTables := []string{
@@ -66,12 +64,10 @@ func TestMigrationPlanEmpty(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("pgx", "postgres://postgres:postgres@127.0.0.1:5435/mr_training_migration?sslmode=disable")
 	if err != nil {
-		t.Skipf("cannot connect to test database: %v", err)
 	}
 	defer db.Close()
 
 	if err := db.PingContext(ctx); err != nil {
-		t.Skipf("cannot ping test database: %v", err)
 	}
 
 	plan, err := MigrationPlan(ctx, db, []string{})
@@ -208,12 +204,10 @@ func TestCountRows(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("pgx", "postgres://postgres:postgres@127.0.0.1:5435/mr_training_migration?sslmode=disable")
 	if err != nil {
-		t.Skipf("cannot connect to test database: %v", err)
 	}
 	defer db.Close()
 
 	if err := db.PingContext(ctx); err != nil {
-		t.Skipf("cannot ping test database: %v", err)
 	}
 
 	count, err := countRows(ctx, db, "running_sessions")
@@ -348,12 +342,10 @@ func TestMigrationPlanDetectsCycle(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("pgx", "postgres://postgres:postgres@127.0.0.1:5435/mr_training_migration?sslmode=disable")
 	if err != nil {
-		t.Skipf("cannot connect to test database: %v", err)
 	}
 	defer db.Close()
 
 	if err := db.PingContext(ctx); err != nil {
-		t.Skipf("cannot ping test database: %v", err)
 	}
 
 	// Create a self-referencing scenario would require actual cycle tables.

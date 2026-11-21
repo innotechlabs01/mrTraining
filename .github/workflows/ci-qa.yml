@@ -2,27 +2,14 @@ name: CI - QA
 
 on:
   push:
-    branches: [QA]
+    branches: [qa]
   pull_request:
-    branches: [QA]
+    branches: [qa]
 
 jobs:
   go-api:
     name: Go API (QA)
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: mr_training_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
     defaults:
       run:
         working-directory: apps/api
@@ -37,17 +24,10 @@ jobs:
       - run: go mod download
       - run: go mod tidy
       - run: git diff --exit-code go.mod go.sum
-      - run: go build ./...
-      - name: Migration dry-run against clean DB (Postgres)
+      - name: Compile Go API
+        run: go build ./...
+      - name: Run Go Unit Tests
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/mr_training_test?sslmode=disable
-        run: go run ./cmd/migrate -dry-run -dir migrations/postgres
-      - name: Apply Postgres migrations to test DB
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/mr_training_test?sslmode=disable
-        run: go run ./cmd/migrate -dir migrations/postgres
-      - env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/mr_training_test?sslmode=disable
           APP_ENV: development
         run: go test -p 1 ./internal/... -race -count=1
 

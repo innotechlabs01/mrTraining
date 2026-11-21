@@ -30,7 +30,7 @@ func NewEventHandler(service *eventapp.Service, hub *websocket.Hub, db *sql.DB) 
 	return &EventHandler{service: service, hub: hub, db: db}
 }
 
-// withTx wraps handler work in a UnitOfWork and injects the executor.
+// withTx wraps coach-scoped handler work in a UnitOfWork and injects the executor.
 func (h *EventHandler) withTx(c *fiber.Ctx, fn func(*eventapp.Service) error) error {
 	userID := middleware.GetUserID(c)
 	coachID := middleware.GetCoachID(c)
@@ -39,6 +39,9 @@ func (h *EventHandler) withTx(c *fiber.Ctx, fn func(*eventapp.Service) error) er
 	}
 	if coachID == "" {
 		return appresponse.Error(c, fiber.StatusForbidden, "coach tenant context is required")
+	}
+	if h.db == nil {
+		return fn(h.service)
 	}
 	uow := database.NewUnitOfWork(h.db)
 	if err := uow.Begin(c.Context(), userID, coachID, middleware.GetUserRole(c)); err != nil {
@@ -55,30 +58,58 @@ func (h *EventHandler) withTx(c *fiber.Ctx, fn func(*eventapp.Service) error) er
 	return nil
 }
 
+// withUserTx wraps athlete or mixed-role handler work in a UnitOfWork so RLS
+// session variables (app.current_user_id / app.current_coach_id) are always set.
+func (h *EventHandler) withUserTx(c *fiber.Ctx, fn func(*eventapp.Service) error) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	if h.db == nil {
+		return fn(h.service)
+	}
+	coachID := middleware.GetCoachID(c)
+	uow := database.NewUnitOfWork(h.db)
+	if err := uow.Begin(c.Context(), userID, coachID, middleware.GetUserRole(c)); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
+	}
+	defer uow.Rollback(c.Context())
+	svc := h.service.SetExecutor(uow.Tx())
+	if err := fn(svc); err != nil {
+		return err
+	}
+	if err := uow.Commit(c.Context()); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to commit transaction")
+	}
+	return nil
+}
 
 // ListEvents handles GET /events.
-// Returns all events for the authenticated coach.
+// Returns all events for the authenticated coach or linked coaches for an athlete.
 func (h *EventHandler) ListEvents(c *fiber.Ctx) error {
-	coachID := middleware.GetUserID(c)
-	if coachID == "" {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	// The authenticated user may be a coach (their own events) or an athlete
-	// (events from every coach they train with). Try coach-scoped first; fall
-	// back to the athlete's linked coaches' events.
-	events, err := h.service.ListEvents(c.Context(), coachID)
+	var events []*eventdomain.Event
+	err := h.withUserTx(c, func(svc *eventapp.Service) error {
+		var err error
+		events, err = svc.ListEvents(c.Context(), userID)
+		if err != nil {
+			return err
+		}
+		if len(events) == 0 {
+			athleteEvents, err := svc.ListEventsForAthlete(c.Context(), userID)
+			if err != nil {
+				return err
+			}
+			events = athleteEvents
+		}
+		return nil
+	})
 	if err != nil {
 		return h.handleError(c, err)
-	}
-
-	if len(events) == 0 {
-		// Probably an athlete: look up events from all linked coaches.
-		athleteEvents, err := h.service.ListEventsForAthlete(c.Context(), coachID)
-		if err != nil {
-			return h.handleError(c, err)
-		}
-		events = athleteEvents
 	}
 
 	responses := make([]dto.EventResponse, len(events))
@@ -102,7 +133,12 @@ func (h *EventHandler) GetEvent(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "event ID is required")
 	}
 
-	event, err := h.service.GetEvent(c.Context(), id)
+	var event *eventdomain.Event
+	err := h.withUserTx(c, func(svc *eventapp.Service) error {
+		var err error
+		event, err = svc.GetEvent(c.Context(), id)
+		return err
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -124,7 +160,12 @@ func (h *EventHandler) ListEventRegistrations(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	regs, err := h.service.ListRegistrationsByEvent(c.Context(), coachID, id)
+	var regs []*eventdomain.EventRegistration
+	err := h.withTx(c, func(svc *eventapp.Service) error {
+		var err error
+		regs, err = svc.ListRegistrationsByEvent(c.Context(), coachID, id)
+		return err
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -163,7 +204,12 @@ func (h *EventHandler) ListEventFormResponses(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	responses, err := h.service.ListFormResponsesByEvent(c.Context(), coachID, id)
+	var responses []eventdomain.EventFormResponse
+	err := h.withTx(c, func(svc *eventapp.Service) error {
+		var err error
+		responses, err = svc.ListFormResponsesByEvent(c.Context(), coachID, id)
+		return err
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -222,12 +268,13 @@ func (h *EventHandler) RsvpEventPublic(c *fiber.Ctx) error {
 	}
 
 	var body struct {
-		Token   string                 `json:"token"`
-		Status  string                 `json:"status"`
-		Name    string                 `json:"name"`
-		Email   string                 `json:"email"`
-		Phone   string                 `json:"phone"`
-		Answers []eventapp.AnswerInput `json:"answers"`
+		Token    string                 `json:"token"`
+		Status   string                 `json:"status"`
+		Name     string                 `json:"name"`
+		Email    string                 `json:"email"`
+		Phone    string                 `json:"phone"`
+		Category string                 `json:"category"`
+		Answers  []eventapp.AnswerInput `json:"answers"`
 	}
 	if err := c.BodyParser(&body); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
@@ -243,6 +290,7 @@ func (h *EventHandler) RsvpEventPublic(c *fiber.Ctx) error {
 		{"name", body.Name},
 		{"email", body.Email},
 		{"phone", body.Phone},
+		{"category", body.Category},
 	} {
 		if strings.TrimSpace(a.value) != "" {
 			answers = append(answers, eventapp.AnswerInput{FieldID: a.id, Value: a.value})
@@ -254,6 +302,8 @@ func (h *EventHandler) RsvpEventPublic(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
+	middleware.InvalidateCache("events")
+	h.broadcastEventsUpdate("rsvp", eventID)
 	return appresponse.Success(c, fiber.Map{"token": token, "status": reg.Status})
 }
 
@@ -313,7 +363,12 @@ func (h *EventHandler) UpdateEvent(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	event, err := h.service.UpdateEvent(c.Context(), coachID, id, req)
+	var event *eventdomain.Event
+	err := h.withTx(c, func(svc *eventapp.Service) error {
+		var err error
+		event, err = svc.UpdateEvent(c.Context(), coachID, id, req)
+		return err
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -336,7 +391,9 @@ func (h *EventHandler) DeleteEvent(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	if err := h.service.DeleteEvent(c.Context(), coachID, id); err != nil {
+	if err := h.withTx(c, func(svc *eventapp.Service) error {
+		return svc.DeleteEvent(c.Context(), coachID, id)
+	}); err != nil {
 		return h.handleError(c, err)
 	}
 
@@ -373,11 +430,18 @@ func (h *EventHandler) RegisterForEvent(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	reg, err := h.service.RegisterForEvent(c.Context(), eventID, athleteID)
+	var reg *eventdomain.EventRegistration
+	err := h.withUserTx(c, func(svc *eventapp.Service) error {
+		var err error
+		reg, err = svc.RegisterForEvent(c.Context(), eventID, athleteID)
+		return err
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
 
+	middleware.InvalidateCache("events")
+	h.broadcastEventsUpdate("rsvp", eventID)
 	return appresponse.Success(c, toRegistrationResponse(reg))
 }
 
@@ -394,10 +458,14 @@ func (h *EventHandler) CancelRegistration(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	if err := h.service.CancelRegistration(c.Context(), eventID, athleteID); err != nil {
+	if err := h.withUserTx(c, func(svc *eventapp.Service) error {
+		return svc.CancelRegistration(c.Context(), eventID, athleteID)
+	}); err != nil {
 		return h.handleError(c, err)
 	}
 
+	middleware.InvalidateCache("events")
+	h.broadcastEventsUpdate("rsvp", eventID)
 	return appresponse.Success(c, fiber.Map{"message": "registration cancelled"})
 }
 
@@ -409,7 +477,12 @@ func (h *EventHandler) GetMyRegistrations(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	events, err := h.service.GetMyRegistrations(c.Context(), athleteID)
+	var events []*eventdomain.Event
+	err := h.withUserTx(c, func(svc *eventapp.Service) error {
+		var err error
+		events, err = svc.GetMyRegistrations(c.Context(), athleteID)
+		return err
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -434,7 +507,12 @@ func (h *EventHandler) GetAthleteEvent(c *fiber.Ctx) error {
 	eventID := c.Params("id")
 	athleteID := middleware.GetUserID(c)
 
-	detail, err := h.service.GetAthleteEventDetail(c.Context(), eventID, athleteID)
+	var detail *eventapp.AthleteEventDetail
+	err := h.withUserTx(c, func(svc *eventapp.Service) error {
+		var err error
+		detail, err = svc.GetAthleteEventDetail(c.Context(), eventID, athleteID)
+		return err
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -442,26 +520,37 @@ func (h *EventHandler) GetAthleteEvent(c *fiber.Ctx) error {
 	e := detail.Event
 	resp := fiber.Map{
 		"event": fiber.Map{
-			"id":          e.ID,
-			"title":       e.Title,
-			"date":        e.Date,
-			"time":        e.Time,
-			"end_time":    e.EndTime,
-			"type":        e.Type,
-			"modality":    e.Modality,
-			"location":    e.Location,
-			"description": e.Description,
-			"status":      e.Status,
+			"id":                    e.ID,
+			"title":                 e.Title,
+			"date":                  e.Date,
+			"time":                  e.Time,
+			"end_time":              e.EndTime,
+			"type":                  e.Type,
+			"modality":              e.Modality,
+			"location":              e.Location,
+			"description":           e.Description,
+			"status":                e.Status,
+			"format":                e.Format,
+			"is_public":             e.IsPublic,
+			"max_capacity":          e.MaxCapacity,
+			"price_cents":           e.PriceCents,
+			"currency":              e.Currency,
+			"registration_deadline": e.RegistrationDeadline,
+			"accepted_count":        e.AcceptedCount,
 		},
 		"list_items": e.ListItems,
 		"running":    nil,
 	}
 
-	if e.RunningDistanceKm != nil || e.RunningPace != "" || e.RunningMeetingPoint != "" {
+	if e.RunningDistanceKm != nil || e.RunningPace != "" || e.RunningMeetingPoint != "" ||
+		len(e.RunningCategories) > 0 || e.RunningElevationM != nil || e.RunningRouteURL != "" {
 		resp["running"] = fiber.Map{
 			"distance_km":   e.RunningDistanceKm,
 			"pace":          e.RunningPace,
 			"meeting_point": e.RunningMeetingPoint,
+			"categories":    e.RunningCategories,
+			"elevation_m":   e.RunningElevationM,
+			"route_url":     e.RunningRouteURL,
 		}
 	}
 
@@ -501,18 +590,30 @@ func (h *EventHandler) RespondToEvent(c *fiber.Ctx) error {
 	athleteID := middleware.GetUserID(c)
 
 	var body struct {
-		Status  string                 `json:"status"`
-		Answers []eventapp.AnswerInput `json:"answers"`
+		Status   string                 `json:"status"`
+		Category string                 `json:"category"`
+		Answers  []eventapp.AnswerInput `json:"answers"`
 	}
 	if err := c.BodyParser(&body); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	reg, err := h.service.RespondToEvent(c.Context(), eventID, athleteID, body.Status, body.Answers)
+	answers := append([]eventapp.AnswerInput{}, body.Answers...)
+	if strings.TrimSpace(body.Category) != "" {
+		answers = append(answers, eventapp.AnswerInput{FieldID: "category", Value: strings.TrimSpace(body.Category)})
+	}
+
+	var reg *eventdomain.EventRegistration
+	err := h.withUserTx(c, func(svc *eventapp.Service) error {
+		var err error
+		reg, err = svc.RespondToEvent(c.Context(), eventID, athleteID, body.Status, answers)
+		return err
+	})
 	if err != nil {
 		return h.handleError(c, err)
 	}
 
+	middleware.InvalidateCache("events")
 	// Notify the coach dashboard in real time.
 	h.broadcastEventsUpdate("rsvp", eventID)
 	return appresponse.Success(c, fiber.Map{"registration": toRegistrationResponse(reg)})
@@ -544,12 +645,20 @@ func toEventResponse(e *eventdomain.Event) *dto.EventResponse {
 		Location:            e.Location,
 		Description:         e.Description,
 		Status:              e.Status,
-		Format:              e.Format,
-		IsPublic:            e.IsPublic,
-		RunningDistanceKm:   e.RunningDistanceKm,
-		RunningPace:         e.RunningPace,
-		RunningMeetingPoint: e.RunningMeetingPoint,
-		AthleteIDs:          e.AthleteIDs,
+		Format:               e.Format,
+		IsPublic:             e.IsPublic,
+		MaxCapacity:          e.MaxCapacity,
+		PriceCents:           e.PriceCents,
+		Currency:             e.Currency,
+		RegistrationDeadline: e.RegistrationDeadline,
+		RunningDistanceKm:    e.RunningDistanceKm,
+		RunningPace:          e.RunningPace,
+		RunningMeetingPoint:  e.RunningMeetingPoint,
+		RunningCategories:    e.RunningCategories,
+		RunningElevationM:    e.RunningElevationM,
+		RunningRouteURL:      e.RunningRouteURL,
+		AcceptedCount:        e.AcceptedCount,
+		AthleteIDs:           e.AthleteIDs,
 		CoachID:             e.CoachID,
 		CreatedAt:           e.CreatedAt,
 		UpdatedAt:           e.UpdatedAt,

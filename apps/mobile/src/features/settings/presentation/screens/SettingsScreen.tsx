@@ -141,6 +141,13 @@ export function SettingsScreen() {
       // back instead of labelling the row with a made-up name.
       const deviceName = await detectGarminDeviceName();
       if (deviceName) setGarminName(deviceName);
+      // Register Garmin device in athlete_health_devices so the coach sees it in DeviceStatusPanel.
+      await apiClient
+        .post('/athlete/health/devices', {
+          platform: 'garmin',
+          deviceName: deviceName ?? 'Garmin Connect',
+        })
+        .catch(() => {});
       const now = new Date().toLocaleString();
       setGarminLastSync(now);
       setGarminStatus(`Conectado vía Garmin Connect · ${deviceName ?? 'sincronizado'}`);

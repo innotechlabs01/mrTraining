@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -10,7 +13,10 @@ import (
 	"go.uber.org/zap"
 
 	app "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
+	gamificationapp "github.com/innotechlabs01/mr-training-api/internal/application/gamification"
+	notificationapp "github.com/innotechlabs01/mr-training-api/internal/application/notification"
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/challenge"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/websocket"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
@@ -18,13 +24,24 @@ import (
 
 // ChallengeHandler handles challenge HTTP requests.
 type ChallengeHandler struct {
-	service *app.Service
-	hub     *websocket.Hub
+	service         *app.Service
+	hub             *websocket.Hub
+	gamificationSvc *gamificationapp.Service
+	notifSvc        *notificationapp.Service
+	db              *sql.DB
 }
 
 // NewChallengeHandler creates a new handler.
 func NewChallengeHandler(service *app.Service, hub *websocket.Hub) *ChallengeHandler {
 	return &ChallengeHandler{service: service, hub: hub}
+}
+
+// WithGamification attaches gamification, notification, and DB dependencies for automatic badge rewards.
+func (h *ChallengeHandler) WithGamification(gam *gamificationapp.Service, notif *notificationapp.Service, db *sql.DB) *ChallengeHandler {
+	h.gamificationSvc = gam
+	h.notifSvc = notif
+	h.db = db
+	return h
 }
 
 // --- Challenge CRUD (Coach) ---
@@ -268,7 +285,72 @@ func (h *ChallengeHandler) SubmitAttempt(c *fiber.Ctx) error {
 		}
 	}
 
-	return c.JSON(fiber.Map{"success": true})
+	var unlockedBadge fiber.Map
+	if h.gamificationSvc != nil && attempt.AthleteID != "" {
+		ch, _ := h.service.GetChallenge(attempt.ChallengeID)
+		badgeID := "challenge-finisher"
+		badgeTitle := "Retador"
+		incentive := ""
+		coachID := ""
+		challengeTitle := "Desafío"
+		if ch != nil {
+			coachID = ch.CoachID
+			challengeTitle = ch.Title
+			incentive = ch.IncentiveText
+			if ch.IsPruebaDeFuego {
+				badgeID = "prueba-de-fuego"
+				badgeTitle = "Prueba de Fuego"
+			}
+			if strings.TrimSpace(ch.BadgeID) != "" {
+				badgeID = strings.TrimSpace(ch.BadgeID)
+			}
+			if strings.TrimSpace(ch.BadgeTitle) != "" {
+				badgeTitle = strings.TrimSpace(ch.BadgeTitle)
+			} else if def, ok := gamificationapp.GetBadgeDefinition(badgeID); ok {
+				badgeTitle = def.Title
+			}
+		}
+
+		gamSvc := h.gamificationSvc
+		var uow *database.UnitOfWork
+		if h.db != nil {
+			uow = database.NewUnitOfWork(h.db)
+			if err := uow.Begin(c.Context(), attempt.AthleteID, coachID, "athlete"); err == nil {
+				defer uow.Rollback(c.Context())
+				gamSvc = h.gamificationSvc.WithExecutor(uow.Tx())
+			} else {
+				uow = nil
+			}
+		}
+
+		badge, isNew, bErr := gamSvc.AwardBadge(c.Context(), attempt.AthleteID, badgeID)
+		if bErr == nil && badge != nil {
+			if uow != nil {
+				_ = uow.Commit(c.Context())
+			}
+			unlockedBadge = fiber.Map{
+				"badge_id":       badge.BadgeID,
+				"title":          badgeTitle,
+				"incentive_text": incentive,
+				"unlocked_at":    badge.UnlockedAt,
+				"is_new":         isNew,
+			}
+		}
+
+		if h.notifSvc != nil {
+			msg := fmt.Sprintf("Completaste \"%s\" y desbloqueaste la insignia %s.", challengeTitle, badgeTitle)
+			if incentive != "" {
+				msg = fmt.Sprintf("%s Incentivo: %s", msg, incentive)
+			}
+			_, _ = h.notifSvc.SendNotification(c.Context(), attempt.AthleteID, "challenge", "🔥 ¡Desafío completado!", msg, "FireIcon")
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"success":        true,
+		"attempt":        attempt,
+		"unlocked_badge": unlockedBadge,
+	})
 }
 
 // ListAthleteAttempts handles GET /athlete/challenges/:id/attempts.

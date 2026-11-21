@@ -57,6 +57,7 @@ const ackWait = 30 * time.Second
 // the consumer can be unit-tested with a mock/sqlmock without a real database.
 // *database.DB (which embeds *sql.DB) satisfies it.
 type DB interface {
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
@@ -151,7 +152,9 @@ func (c *Consumer) handleSetLogged(msg *nats.Msg) {
 		return
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
 	orgID, err := c.resolveOrg(ctx, evt.AthleteClerkID)
 	if err != nil {
 		c.log.Warn("could not resolve organization for set.logged",
@@ -159,11 +162,6 @@ func (c *Consumer) handleSetLogged(msg *nats.Msg) {
 			zap.String("error", err.Error()))
 		msg.Ack()
 		return
-	}
-
-	if err := c.setOrgContext(ctx, orgID); err != nil {
-		c.log.Error("failed to set tenant context", zap.String("error", err.Error()))
-		return // no ack -> redeliver
 	}
 
 	volume := float64(*evt.Reps) * *evt.Weight
@@ -181,18 +179,21 @@ ON CONFLICT (athlete_clerk_id, exercise_id) DO UPDATE SET
     updated_at = EXCLUDED.updated_at,
     organization_id = COALESCE(EXCLUDED.organization_id, athlete_prs.organization_id)
 `
-	if _, err := c.db.ExecContext(ctx, upsert,
-		id,
-		evt.AthleteClerkID,
-		evt.ExerciseID,
-		*evt.Reps,
-		*evt.Weight,
-		volume,
-		evt.LoggedAt,
-		orgID,
-		now,
-		now,
-	); err != nil {
+	if err := c.execInTenantTx(ctx, orgID, func(txCtx context.Context, tx *sql.Tx) error {
+		_, execErr := tx.ExecContext(txCtx, upsert,
+			id,
+			evt.AthleteClerkID,
+			evt.ExerciseID,
+			*evt.Reps,
+			*evt.Weight,
+			volume,
+			evt.LoggedAt,
+			orgID,
+			now,
+			now,
+		)
+		return execErr
+	}); err != nil {
 		c.log.Error("failed to upsert athlete_prs", zap.String("error", err.Error()))
 		return // no ack -> redeliver
 	}
@@ -230,18 +231,15 @@ func (c *Consumer) handleCompleted(msg *nats.Msg) {
 		return
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
 	orgID, err := c.resolveOrg(ctx, evt.AthleteClerkID)
 	if err != nil {
 		c.log.Warn("could not resolve organization for session.completed",
 			zap.String("athlete_clerk_id", evt.AthleteClerkID),
 			zap.String("error", err.Error()))
 		msg.Ack()
-		return
-	}
-
-	if err := c.setOrgContext(ctx, orgID); err != nil {
-		c.log.Error("failed to set tenant context", zap.String("error", err.Error()))
 		return
 	}
 
@@ -256,16 +254,19 @@ ON CONFLICT (session_id) DO UPDATE SET
     updated_at = EXCLUDED.updated_at,
     organization_id = COALESCE(EXCLUDED.organization_id, athlete_session_stats.organization_id)
 `
-	if _, err := c.db.ExecContext(ctx, upsert,
-		id,
-		evt.SessionID,
-		evt.AthleteClerkID,
-		evt.CompletedAt,
-		evt.CompletedAt, // first_seen_at only set on insert; kept on conflict
-		orgID,
-		now,
-		now,
-	); err != nil {
+	if err := c.execInTenantTx(ctx, orgID, func(txCtx context.Context, tx *sql.Tx) error {
+		_, execErr := tx.ExecContext(txCtx, upsert,
+			id,
+			evt.SessionID,
+			evt.AthleteClerkID,
+			evt.CompletedAt,
+			evt.CompletedAt, // first_seen_at only set on insert; kept on conflict
+			orgID,
+			now,
+			now,
+		)
+		return execErr
+	}); err != nil {
 		c.log.Error("failed to upsert athlete_session_stats", zap.String("error", err.Error()))
 		return
 	}
@@ -295,18 +296,15 @@ func (c *Consumer) handleProgress(msg *nats.Msg) {
 		return
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
 	orgID, err := c.resolveOrg(ctx, evt.AthleteClerkID)
 	if err != nil {
 		c.log.Warn("could not resolve organization for session.progress",
 			zap.String("athlete_clerk_id", evt.AthleteClerkID),
 			zap.String("error", err.Error()))
 		msg.Ack()
-		return
-	}
-
-	if err := c.setOrgContext(ctx, orgID); err != nil {
-		c.log.Error("failed to set tenant context", zap.String("error", err.Error()))
 		return
 	}
 
@@ -322,16 +320,19 @@ ON CONFLICT (session_id) DO UPDATE SET
     updated_at = EXCLUDED.updated_at,
     organization_id = COALESCE(EXCLUDED.organization_id, athlete_session_progress.organization_id)
 `
-	if _, err := c.db.ExecContext(ctx, upsert,
-		id,
-		evt.SessionID,
-		evt.AthleteClerkID,
-		evt.TotalVolume,
-		evt.DurationSeconds,
-		evt.UpdatedAt,
-		orgID,
-		now,
-	); err != nil {
+	if err := c.execInTenantTx(ctx, orgID, func(txCtx context.Context, tx *sql.Tx) error {
+		_, execErr := tx.ExecContext(txCtx, upsert,
+			id,
+			evt.SessionID,
+			evt.AthleteClerkID,
+			evt.TotalVolume,
+			evt.DurationSeconds,
+			evt.UpdatedAt,
+			orgID,
+			now,
+		)
+		return execErr
+	}); err != nil {
 		c.log.Error("failed to upsert athlete_session_progress", zap.String("error", err.Error()))
 		return
 	}
@@ -373,13 +374,26 @@ func defaultOrgResolver(db DB) OrgResolver {
 	}
 }
 
-// setOrgContext sets the PostgreSQL session variable used by Row-Level
-// Security policies so writes are scoped to the calling organization.
-func (c *Consumer) setOrgContext(ctx context.Context, orgID string) error {
+// execInTenantTx opens a transaction, sets the PostgreSQL session tenant context
+// (`app.current_organization_id` with is_local=true), and runs fn inside the same
+// transaction so RLS policies evaluate against the scoped transaction connection.
+func (c *Consumer) execInTenantTx(ctx context.Context, orgID string, fn func(context.Context, *sql.Tx) error) error {
+	tx, err := c.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
 	var dummy string
-	return c.db.QueryRowContext(ctx,
+	if err := tx.QueryRowContext(ctx,
 		`SELECT set_config('app.current_organization_id', $1, true)`,
 		orgID,
-	).Scan(&dummy)
+	).Scan(&dummy); err != nil {
+		return fmt.Errorf("set tenant context: %w", err)
+	}
+	if err := fn(ctx, tx); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 

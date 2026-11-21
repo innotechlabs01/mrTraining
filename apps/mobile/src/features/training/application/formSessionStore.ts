@@ -11,6 +11,8 @@ export type FormSessionResult = {
   /** Verdict bucket derived from the score via FormEngine thresholds. */
   quality: ScoredQuality;
   metrics: FormMetrics;
+  /** Validated reps counted by the AI camera session. */
+  completedReps?: number | undefined;
 };
 
 type FormSessionState = {

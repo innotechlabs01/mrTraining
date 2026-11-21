@@ -14,6 +14,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/innotechlabs01/mr-training-api/pkg/resilience"
 )
 
 // Official Wompi Statuspage component IDs (Colombia).
@@ -98,9 +100,22 @@ type Service struct {
 	timeout  time.Duration
 }
 
-// NewService creates a gate with sane defaults (45s cache, 5s HTTP timeout).
+// NewService creates a gate with sane defaults (45s cache, 4s resilient HTTP client).
 func NewService() *Service {
-	return NewServiceWithURL(DefaultStatusBaseURL, &http.Client{Timeout: 5 * time.Second}, 45*time.Second)
+	cb := resilience.RegisterBreaker(resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{
+		Name:             "wompi_statuspage",
+		FailureThreshold: 4,
+		ResetTimeout:     30 * time.Second,
+	}))
+	retry := resilience.DefaultRetryConfig()
+	retry.MaxAttempts = 2
+	client := resilience.NewHTTPClient(resilience.HTTPClientConfig{
+		Name:    "wompi_statuspage",
+		Timeout: 4 * time.Second,
+		Breaker: cb,
+		Retry:   &retry,
+	})
+	return NewServiceWithURL(DefaultStatusBaseURL, client, 45*time.Second)
 }
 
 // NewServiceWithURL allows overriding the statuspage base URL (tests).

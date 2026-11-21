@@ -178,6 +178,7 @@ func (h *CoachHandler) GetAppointments(c *fiber.Ctx) error {
 				StartTime:   a.StartTime,
 				EndTime:     a.EndTime,
 				Notes:       a.Notes,
+				MeetRoomID:  a.MeetRoomID,
 				CreatedAt:   a.CreatedAt,
 				UpdatedAt:   a.UpdatedAt,
 			}
@@ -231,6 +232,7 @@ func (h *CoachHandler) CreateAppointment(c *fiber.Ctx) error {
 			StartTime:   apt.StartTime,
 			EndTime:     apt.EndTime,
 			Notes:       apt.Notes,
+			MeetRoomID:  apt.MeetRoomID,
 			CreatedAt:   apt.CreatedAt,
 			UpdatedAt:   apt.UpdatedAt,
 		})
@@ -250,13 +252,16 @@ func (h *CoachHandler) UpdateAppointment(c *fiber.Ctx) error {
 			return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 		}
 
-		if strings.TrimSpace(req.Status) == "" {
-			return appresponse.Error(c, fiber.StatusBadRequest, "status is required")
+		if strings.TrimSpace(req.Status) == "" && strings.TrimSpace(req.StartTime) == "" && strings.TrimSpace(req.Notes) == "" && strings.TrimSpace(req.MeetRoomID) == "" {
+			return appresponse.Error(c, fiber.StatusBadRequest, "at least one field (status, start_time, notes, meet_room_id) is required")
 		}
 
 		apt := &coachdomain.Appointment{
-			Status: req.Status,
-			Notes:  req.Notes,
+			Status:     req.Status,
+			Notes:      req.Notes,
+			StartTime:  req.StartTime,
+			EndTime:    req.EndTime,
+			MeetRoomID: req.MeetRoomID,
 		}
 
 		if err := svc.UpdateAppointment(c.Context(), id, apt); err != nil {

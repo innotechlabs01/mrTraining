@@ -40,9 +40,36 @@ export type Workout = {
   progress: number;
 };
 
+export type LoggedSetItem = {
+  id: string;
+  sessionId: string;
+  exerciseId: string;
+  setIndex: number;
+  weightKg?: number;
+  reps?: number;
+  completed: boolean;
+  rir?: number;
+  rpe?: number;
+  duration?: number;
+  speed?: number;
+  skipped?: boolean;
+};
+
+export type ActiveSessionItem = {
+  id: string;
+  workoutId: string;
+  athleteId: string;
+  startedAt: string;
+  completed: boolean;
+  currentExerciseIndex: number;
+  durationSeconds: number;
+};
+
 export type WorkoutDetailData = {
   workout: Workout;
   exercises: Exercise[];
+  session?: ActiveSessionItem | null;
+  loggedSets?: LoggedSetItem[];
 };
 
 export type PrescriptionItem = {

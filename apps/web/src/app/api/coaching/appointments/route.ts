@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { goFetchServer } from '@/lib/api/go-client';
 
+export const dynamic = 'force-dynamic'
+
 interface Appointment {
   id: string;
   coach_id: string;
@@ -24,7 +26,6 @@ type UpdatableFields = Partial<{
   endTime?: string;
 }>;
 
-export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {

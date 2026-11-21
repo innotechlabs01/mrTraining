@@ -5,6 +5,8 @@
 package handlers
 
 import (
+	"database/sql"
+
 	"github.com/gofiber/fiber/v2"
 
 	subscriptionapp "github.com/innotechlabs01/mr-training-api/internal/application/subscription"
@@ -18,11 +20,18 @@ import (
 // SubscriptionHandler handles subscription HTTP requests.
 type SubscriptionHandler struct {
 	svc *subscriptionapp.Service
+	db  *sql.DB
 }
 
 // NewSubscriptionHandler creates a new subscription handler.
 func NewSubscriptionHandler(svc *subscriptionapp.Service) *SubscriptionHandler {
 	return &SubscriptionHandler{svc: svc}
+}
+
+// WithDB attaches a database connection to the handler.
+func (h *SubscriptionHandler) WithDB(db *sql.DB) *SubscriptionHandler {
+	h.db = db
+	return h
 }
 
 // RegisterSubscriptionRoutes mounts athlete- and coach-facing subscription
@@ -52,6 +61,7 @@ func (h *SubscriptionHandler) RegisterCoachPlatformSubscriptionRoutes(api fiber.
 	coachSubs := api.Group("/coach/subscription")
 	coachSubs.Post("/checkout", h.HandleCoachPlatformCheckout)
 	coachSubs.Get("/status", h.HandleCoachPlatformSubscriptionStatus)
+	coachSubs.Post("/trial", h.HandleCoachPlatformStartTrial)
 }
 
 // HandleSubscribe creates a subscription for the authenticated athlete on the
@@ -72,7 +82,7 @@ func (h *SubscriptionHandler) HandleSubscribe(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusForbidden, "no active coach context")
 	}
 
-	result, err := h.svc.Subscribe(c.Context(), subscriptionapp.SubscribeCommand{
+	result, err := h.svc.Subscribe(middleware.RequestContext(c), subscriptionapp.SubscribeCommand{
 		AthleteID:       athleteID,
 		CoachID:         coachID,
 		PlanID:          req.PlanID,
@@ -96,7 +106,7 @@ func (h *SubscriptionHandler) HandleGetMySubscription(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	sub, err := h.svc.GetByAthlete(c.Context(), athleteID)
+	sub, err := h.svc.GetByAthlete(middleware.RequestContext(c), athleteID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -114,7 +124,7 @@ func (h *SubscriptionHandler) HandleListSubscriptions(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	subs, err := h.svc.ListByCoach(c.Context(), coachID)
+	subs, err := h.svc.ListByCoach(middleware.RequestContext(c), coachID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -144,7 +154,7 @@ func (h *SubscriptionHandler) HandleCancel(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	if err := h.svc.Cancel(c.Context(), subscriptionapp.CancelCommand{
+	if err := h.svc.Cancel(middleware.RequestContext(c), subscriptionapp.CancelCommand{
 		SubscriptionID: id,
 		CoachID:        coachID,
 	}); err != nil {
@@ -166,7 +176,7 @@ func (h *SubscriptionHandler) HandleWebhook(c *fiber.Ctx) error {
 	body := c.Body()
 	signature := c.Get("x-signature")
 
-	if err := h.svc.FulfillWebhook(c.Context(), subscriptiondomain.WebhookRequest{
+	if err := h.svc.FulfillWebhook(middleware.RequestContext(c), subscriptiondomain.WebhookRequest{
 		Body:            body,
 		SignatureHeader: signature,
 	}); err != nil {
@@ -199,7 +209,7 @@ func (h *SubscriptionHandler) HandleCoachPlatformCheckout(c *fiber.Ctx) error {
 	}
 
 	// For coach platform subscription, the coach is both the athlete and coach
-	result, err := h.svc.Subscribe(c.Context(), subscriptionapp.SubscribeCommand{
+	result, err := h.svc.Subscribe(middleware.RequestContext(c), subscriptionapp.SubscribeCommand{
 		AthleteID:       coachID,
 		CoachID:         coachID,
 		PlanID:          req.PlanID,
@@ -237,7 +247,15 @@ func (h *SubscriptionHandler) HandleCoachPlatformSubscriptionStatus(c *fiber.Ctx
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	status, sub, err := h.svc.GetPaymentStatus(c.Context(), coachID)
+	// Check if this coach has their platform membership bypassed/skipped by Super Admin.
+	if skipped, _ := h.svc.IsCoachSubscriptionSkipped(middleware.RequestContext(c), coachID); skipped {
+		return appresponse.Success(c, dto.CoachSubscriptionStatusResponse{
+			Status:   "omitted",
+			PlanName: "Membresía Omitida (VIP)",
+		})
+	}
+
+	status, sub, err := h.svc.GetPaymentStatus(middleware.RequestContext(c), coachID)
 	if err != nil {
 		if appErr, ok := err.(*errors.AppError); ok && appErr.Status == fiber.StatusNotFound {
 			return appresponse.Success(c, dto.CoachSubscriptionStatusResponse{Status: subscriptionapp.PaymentStatusNone})
@@ -252,4 +270,28 @@ func (h *SubscriptionHandler) HandleCoachPlatformSubscriptionStatus(c *fiber.Ctx
 		resp.PlanName = sub.PlanName
 	}
 	return appresponse.Success(c, resp)
+}
+
+// HandleCoachPlatformStartTrial starts a 7-day trial subscription for the authenticated coach.
+func (h *SubscriptionHandler) HandleCoachPlatformStartTrial(c *fiber.Ctx) error {
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	var req struct {
+		PlanID string `json:"plan_id"`
+	}
+	_ = c.BodyParser(&req)
+
+	sub, err := h.svc.StartTrial(middleware.RequestContext(c), subscriptionapp.StartTrialCommand{
+		CoachID:   coachID,
+		PlanID:    req.PlanID,
+		TrialDays: 7,
+	})
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, dto.ToSubscriptionResponse(sub))
 }

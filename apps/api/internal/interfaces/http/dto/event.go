@@ -24,6 +24,14 @@ type CreateEventRequest struct {
 	Format string `json:"format,omitempty"`
 	// IsPublic indicates whether the event is visible to non-enrolled athletes.
 	IsPublic bool `json:"is_public"`
+	// MaxCapacity is the optional maximum number of confirmed attendees (nil = unlimited).
+	MaxCapacity *int `json:"max_capacity,omitempty"`
+	// PriceCents is the registration fee in minor units (0 = free).
+	PriceCents int `json:"price_cents"`
+	// Currency is the ISO currency code for PriceCents (default COP).
+	Currency string `json:"currency,omitempty"`
+	// RegistrationDeadline is an optional YYYY-MM-DD cutoff date for RSVPs.
+	RegistrationDeadline string `json:"registration_deadline,omitempty"`
 	// AthleteIDs is the list of athlete IDs to include in the event.
 	AthleteIDs []string `json:"athlete_ids"`
 	// FormFields defines custom registration form fields.
@@ -36,28 +44,41 @@ type CreateEventRequest struct {
 	RunningPace string `json:"running_pace,omitempty"`
 	// RunningMeetingPoint is the meeting point for running-format events.
 	RunningMeetingPoint string `json:"running_meeting_point,omitempty"`
+	// RunningCategories lists available race distances/categories (e.g. ["5K","10K","21K"]).
+	RunningCategories []string `json:"running_categories,omitempty"`
+	// RunningElevationM is the positive elevation gain in meters.
+	RunningElevationM *int `json:"running_elevation_m,omitempty"`
+	// RunningRouteURL is an optional link to the race map / GPX / Strava route.
+	RunningRouteURL string `json:"running_route_url,omitempty"`
 }
 
 // UpdateEventRequest is the payload for updating an event.
 // Empty/zero values are ignored (partial update).
 type UpdateEventRequest struct {
-	Title               string                  `json:"title,omitempty"`
-	Date                string                  `json:"date,omitempty"`
-	Time                string                  `json:"time,omitempty"`
-	EndTime             string                  `json:"end_time,omitempty"`
-	Type                string                  `json:"type,omitempty"`
-	Modality            string                  `json:"modality,omitempty"`
-	Location            string                  `json:"location,omitempty"`
-	Description         string                  `json:"description,omitempty"`
-	Status              string                  `json:"status,omitempty"`
-	Format              string                  `json:"format,omitempty"`
-	IsPublic            bool                    `json:"is_public"`
-	AthleteIDs          []string                `json:"athlete_ids,omitempty"`
-	FormFields          []CreateFormFieldRequest `json:"form_fields,omitempty"`
-	ListItems           []string                `json:"list_items,omitempty"`
-	RunningDistanceKm   *float64                `json:"running_distance_km,omitempty"`
-	RunningPace         string                  `json:"running_pace,omitempty"`
-	RunningMeetingPoint string                  `json:"running_meeting_point,omitempty"`
+	Title                string                   `json:"title,omitempty"`
+	Date                 string                   `json:"date,omitempty"`
+	Time                 string                   `json:"time,omitempty"`
+	EndTime              string                   `json:"end_time,omitempty"`
+	Type                 string                   `json:"type,omitempty"`
+	Modality             string                   `json:"modality,omitempty"`
+	Location             string                   `json:"location,omitempty"`
+	Description          string                   `json:"description,omitempty"`
+	Status               string                   `json:"status,omitempty"`
+	Format               string                   `json:"format,omitempty"`
+	IsPublic             bool                     `json:"is_public"`
+	MaxCapacity          *int                     `json:"max_capacity,omitempty"`
+	PriceCents           *int                     `json:"price_cents,omitempty"`
+	Currency             string                   `json:"currency,omitempty"`
+	RegistrationDeadline *string                  `json:"registration_deadline,omitempty"`
+	AthleteIDs           []string                 `json:"athlete_ids,omitempty"`
+	FormFields           []CreateFormFieldRequest `json:"form_fields,omitempty"`
+	ListItems            []string                 `json:"list_items,omitempty"`
+	RunningDistanceKm    *float64                 `json:"running_distance_km,omitempty"`
+	RunningPace          string                   `json:"running_pace,omitempty"`
+	RunningMeetingPoint  string                   `json:"running_meeting_point,omitempty"`
+	RunningCategories    []string                 `json:"running_categories,omitempty"`
+	RunningElevationM    *int                     `json:"running_elevation_m,omitempty"`
+	RunningRouteURL      string                   `json:"running_route_url,omitempty"`
 }
 
 // CreateFormFieldRequest defines a custom form field for an event.
@@ -82,12 +103,20 @@ type EventResponse struct {
 	Location            string             `json:"location"`
 	Description         string             `json:"description"`
 	Status              string             `json:"status"`
-	Format              string             `json:"format,omitempty"`
-	IsPublic            bool               `json:"is_public"`
-	RunningDistanceKm    *float64           `json:"running_distance_km,omitempty"`
-	RunningPace         string             `json:"running_pace,omitempty"`
-	RunningMeetingPoint string             `json:"running_meeting_point,omitempty"`
-	AthleteIDs          []string           `json:"athlete_ids"`
+	Format               string              `json:"format,omitempty"`
+	IsPublic             bool                `json:"is_public"`
+	MaxCapacity          *int                `json:"max_capacity,omitempty"`
+	PriceCents           int                 `json:"price_cents"`
+	Currency             string              `json:"currency,omitempty"`
+	RegistrationDeadline string              `json:"registration_deadline,omitempty"`
+	RunningDistanceKm    *float64            `json:"running_distance_km,omitempty"`
+	RunningPace          string              `json:"running_pace,omitempty"`
+	RunningMeetingPoint  string              `json:"running_meeting_point,omitempty"`
+	RunningCategories    []string            `json:"running_categories,omitempty"`
+	RunningElevationM    *int                `json:"running_elevation_m,omitempty"`
+	RunningRouteURL      string              `json:"running_route_url,omitempty"`
+	AcceptedCount        int                 `json:"accepted_count"`
+	AthleteIDs           []string            `json:"athlete_ids"`
 	FormFields          []FormFieldResponse `json:"form_fields,omitempty"`
 	ListItems           []string           `json:"list_items,omitempty"`
 	CoachID             string             `json:"coach_id"`

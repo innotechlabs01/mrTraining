@@ -1,0 +1,174 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mr-training-api
+  namespace: mr-training
+  labels:
+    app: mr-training-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mr-training-api
+  template:
+    metadata:
+      labels:
+        app: mr-training-api
+    spec:
+      containers:
+        - name: api
+          image: mr-training-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9090
+              name: http
+          envFrom:
+            - configMapRef:
+                name: mr-training-api-config
+            - secretRef:
+                name: mr-training-secrets
+          env:
+            - name: CLERK_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: clerk-secret-key
+            - name: CLERK_PUBLISHABLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: clerk-publishable-key
+            - name: CLERK_JWKS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: clerk-jwks-url
+            - name: CLERK_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: clerk-webhook-secret
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: postgres-password
+            - name: WOMPI_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: wompi-public-key
+            - name: WOMPI_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: wompi-private-key
+            - name: WOMPI_INTEGRITY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: wompi-integrity-secret
+            - name: WOMPI_EVENTS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: wompi-events-secret
+            - name: FIREBASE_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: firebase-project-id
+            - name: FIREBASE_CLIENT_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: firebase-client-email
+            - name: FIREBASE_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: firebase-private-key
+            - name: EMAIL_SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: email-smtp-host
+            - name: EMAIL_SMTP_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: email-smtp-port
+            - name: EMAIL_SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: email-smtp-username
+            - name: EMAIL_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: email-smtp-password
+            - name: ERROR_WEBHOOK_DISCORD
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: error-webhook-discord
+            - name: MERCADO_PAGO_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: mercado-pago-webhook-url
+            - name: MERCADO_PAGO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: mercado-pago-secret-key
+            - name: MERCADO_PAGO_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: mercado-pago-public-key
+            - name: MERCADO_PAGO_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: mercado-pago-webhook-secret
+            - name: INFISICAL_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: infisical-client-id
+            - name: INFISICAL_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: infisical-client-secret
+            - name: INFISICAL_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: mr-training-secrets
+                  key: infisical-project-id
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 250m
+            limits:
+              memory: 512Mi
+              cpu: 500m
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9090
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 9090
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+      restartPolicy: Always

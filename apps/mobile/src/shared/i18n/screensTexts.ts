@@ -131,11 +131,11 @@ export const screensTexts = {
     done: 'Listo',
   },
   aiWorkout: {
-    trainWithAi: 'Entrenar con IA',
+    trainWithAi: 'Activar cámara IA (Validar técnica)',
     verdictGood: 'Bien',
-    verdictRegular: 'Regular',
+    verdictRegular: 'Medio',
     verdictBad: 'Mal',
-    formScoreLabel: 'Forma',
+    formScoreLabel: 'Técnica',
   },
   signIn: {
     signInTitle: 'Iniciar sesión',

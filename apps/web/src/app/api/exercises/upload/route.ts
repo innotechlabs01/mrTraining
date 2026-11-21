@@ -3,6 +3,8 @@ import { auth } from '@clerk/nextjs/server';
 import { put } from '@vercel/blob';
 import { randomUUID } from 'crypto';
 
+export const dynamic = 'force-dynamic'
+
 const MAX_SIZE = 50 * 1024 * 1024;
 const EXTENSION = '.mp4';
 const ALLOWED_TYPE = 'video/mp4';

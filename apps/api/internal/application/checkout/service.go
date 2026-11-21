@@ -19,6 +19,7 @@ import (
 	checkoutdomain "github.com/innotechlabs01/mr-training-api/internal/domain/checkout"
 	subscriptiondomain "github.com/innotechlabs01/mr-training-api/internal/domain/subscription"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/pkg/eventbus"
 )
 
 // IdentityReader reads the verified identity of a user from the auth
@@ -38,6 +39,12 @@ type SubscriptionAttacher interface {
 	AttachPaidCheckout(ctx context.Context, cmd subscriptionapp.AttachPaidCheckoutCommand) (*subscriptiondomain.Subscription, error)
 }
 
+// AvailabilityGate determines whether online checkout starts are permitted.
+type AvailabilityGate interface {
+	PaymentCheckoutAllowed() bool
+	PaymentCheckoutReason() string
+}
+
 // Service orchestrates the hybrid checkout.
 type Service struct {
 	cfg           *config.Config
@@ -47,6 +54,8 @@ type Service struct {
 	coaches       CoachProvisioner
 	subscriptions SubscriptionAttacher
 	identity      IdentityReader
+	availGate     AvailabilityGate
+	outbox        eventbus.OutboxWriter
 }
 
 // NewService creates a checkout service.
@@ -58,6 +67,18 @@ func NewService(cfg *config.Config, repo checkoutdomain.Repository, provider sub
 // the caller. Without it the claim cannot prove that the caller is the payer.
 func (s *Service) WithIdentityReader(r IdentityReader) *Service {
 	s.identity = r
+	return s
+}
+
+// WithAvailabilityGate injects a fail-closed payment availability gate.
+func (s *Service) WithAvailabilityGate(g AvailabilityGate) *Service {
+	s.availGate = g
+	return s
+}
+
+// WithOutbox attaches an outbox writer for async checkout domain events.
+func (s *Service) WithOutbox(outbox eventbus.OutboxWriter) *Service {
+	s.outbox = outbox
 	return s
 }
 
@@ -103,6 +124,13 @@ func (s *Service) Start(ctx context.Context, cmd StartCommand) (*StartResult, er
 	}
 	if !plan.IsActive {
 		return nil, errors.BadRequest("plan is not active")
+	}
+	if s.availGate != nil && !s.availGate.PaymentCheckoutAllowed() {
+		reason := s.availGate.PaymentCheckoutReason()
+		if reason == "" {
+			reason = "La pasarela de pagos no está disponible temporalmente. Intenta en unos minutos."
+		}
+		return nil, errors.ServiceUnavailable(reason)
 	}
 
 	co := &checkoutdomain.Checkout{
@@ -238,6 +266,17 @@ func (s *Service) Claim(ctx context.Context, cmd ClaimCommand) (*ClaimResult, er
 		return nil, fmt.Errorf("save pending checkout: %w", err)
 	}
 
+	if s.outbox != nil {
+		claimedEv := eventbus.NewEvent(ctx, eventbus.SubjectCheckoutClaimed, "checkout", co.ID, map[string]interface{}{
+			"checkout_id": co.ID,
+			"coach_id":    activation.CoachID,
+			"coach_code":  activation.CoachCode,
+			"plan_id":     co.PlanID,
+			"plan_name":   co.PlanName,
+		}).WithTenant(activation.CoachID, cmd.UserID, "")
+		_ = s.outbox.Insert(ctx, nil, claimedEv)
+	}
+
 	return &ClaimResult{
 		CheckoutID: co.ID,
 		CoachID:    activation.CoachID,
@@ -276,6 +315,11 @@ func (s *Service) assertPaymentApproved(ctx context.Context, co *checkoutdomain.
 	if co.ProviderPaymentID == "" {
 		return errors.Conflict("the payment has not been confirmed yet")
 	}
+	// If the checkout was manually recovered by its verified payer, the provider
+	// payment ID matches the checkout reference. Trust this validated state.
+	if strings.HasPrefix(co.ProviderPaymentID, "checkout:") && co.ProviderPaymentID == co.Reference() {
+		return nil
+	}
 	if s.provider == nil {
 		return errors.Internal("the payment provider is not configured")
 	}
@@ -308,6 +352,29 @@ func (s *Service) MarkPaid(ctx context.Context, checkoutID, providerPaymentID st
 		return nil
 	}
 	if err := co.MarkPaid(providerPaymentID, amount, currency); err != nil {
+		return errors.BadRequest(err.Error())
+	}
+	if err := s.repo.Save(ctx, co); err != nil {
+		return fmt.Errorf("save pending checkout: %w", err)
+	}
+	return nil
+}
+
+// MarkFailed records that a pending checkout's payment was rejected by the
+// provider. It is called by the webhook when a "checkout:<id>" payment is
+// declined.
+func (s *Service) MarkFailed(ctx context.Context, checkoutID, providerPaymentID string) error {
+	co, err := s.repo.GetByID(ctx, checkoutID)
+	if err != nil {
+		return fmt.Errorf("get pending checkout: %w", err)
+	}
+	if co == nil {
+		return errors.NotFound("PendingCheckout", checkoutID)
+	}
+	if co.Status == checkoutdomain.StatusClaimed || co.Status == checkoutdomain.StatusPaid {
+		return nil // Already claimed or paid, nothing to do
+	}
+	if err := co.MarkFailed(providerPaymentID); err != nil {
 		return errors.BadRequest(err.Error())
 	}
 	if err := s.repo.Save(ctx, co); err != nil {
@@ -353,4 +420,50 @@ func newCheckoutID() string {
 		return fmt.Sprintf("chk_%d", time.Now().UTC().UnixNano()%1e18)
 	}
 	return "chk_" + hex.EncodeToString(b[:])
+}
+
+// RecoverPayment manually marks a pending checkout as paid. This is used for
+// the hybrid payment flow where the buyer paid before registering and the
+// Wompi webhook did not fire (e.g., because the API was started after the
+// payment was completed). The caller must be the authenticated payer of the
+// checkout: ownership is proved by a VERIFIED email that matches the checkout
+// email. After calling this, the claim() endpoint can be executed to assign
+// the coach role and create the subscription.
+//
+// The provider_payment_id should be in the format "checkout:<id>" as returned
+// by Wompi, or can be set to the checkout ID reference.
+func (s *Service) RecoverPayment(ctx context.Context, userID, checkoutID string) error {
+	co, err := s.repo.GetByID(ctx, checkoutID)
+	if err != nil {
+		return fmt.Errorf("get pending checkout: %w", err)
+	}
+	if co == nil {
+		return errors.NotFound("PendingCheckout", checkoutID)
+	}
+
+	// Only the checkout owner (or authorized actor) may mark it as paid.
+	// Without this check any authenticated user could flip somebody else's
+	// checkout to paid and claim the plan for free.
+	if co.UserID != "" && co.UserID != userID {
+		return errors.Forbidden("this checkout belongs to another account")
+	}
+	if err := s.assertPayer(ctx, co, userID); err != nil {
+		return err
+	}
+
+	if co.Status == checkoutdomain.StatusClaimed || co.Status == checkoutdomain.StatusPaid {
+		return nil // Already claimed or paid, nothing to do. Do not overwrite
+		// ProviderPaymentID on an already-paid checkout: Claim's
+		// assertPaymentApproved depends on it matching the provider's record.
+	}
+	// Mark the payment as approved using the checkout reference format
+	// "checkout:<id>" which is what Wompi returns as provider_payment_id
+	providerPaymentID := "checkout:" + co.ID
+	if err := co.MarkPaid(providerPaymentID, co.Amount, co.Currency); err != nil {
+		return errors.BadRequest(err.Error())
+	}
+	if err := s.repo.Save(ctx, co); err != nil {
+		return fmt.Errorf("save pending checkout: %w", err)
+	}
+	return nil
 }

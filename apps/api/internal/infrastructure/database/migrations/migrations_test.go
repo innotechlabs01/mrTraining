@@ -25,16 +25,23 @@ import (
 func newTestDB(t *testing.T) *database.DB {
 	t.Helper()
 
-	adminURL := resolveAdminURL()
+	url := os.Getenv("SUPER_DATABASE_URL")
+	if url == "" {
+		url = os.Getenv("POSTGRES_DATABASE_URL")
+	}
+	if url == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+
+	adminURL := url
 	admin, err := database.Connect(adminURL)
 	if err != nil {
-		t.Skipf("skipping: cannot connect to PostgreSQL: %v", err)
+		t.Skipf("cannot connect to database: %v", err)
 	}
 	defer admin.Close()
 
 	name := fmt.Sprintf("mr_training_migrations_test_%d_%s", os.Getpid(), randomSuffix())
 	if _, err := admin.DB.ExecContext(context.Background(), fmt.Sprintf(`CREATE DATABASE %q`, name)); err != nil {
-		t.Skipf("skipping: cannot create a test database: %v", err)
 	}
 	t.Cleanup(func() {
 		// Terminate the leftover sessions so the database can be dropped.
@@ -45,7 +52,7 @@ func newTestDB(t *testing.T) *database.DB {
 
 	db, err := database.Connect(strings.Replace(adminURL, "/postgres?", "/"+name+"?", 1))
 	if err != nil {
-		t.Skipf("skipping: cannot connect to the test database: %v", err)
+		t.Skipf("cannot connect to database: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
 

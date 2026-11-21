@@ -36,8 +36,11 @@ export function useExecutionForm({
 
   // Form recording hook — collects metrics with consent
   const {
+    consentState,
     hasConsent,
+    showConsent,
     pendingCount,
+    requestConsent,
     handleConsentResponse,
     saveMetrics,
     syncPending,
@@ -62,7 +65,17 @@ export function useExecutionForm({
     setFormScore(result.score);
     setFormMetrics(result.metrics);
     setFormQuality(result.quality);
-    setFormFeedback(null);
+    if (typeof result.completedReps === 'number' && result.completedReps > 0) {
+      setCurrentReps(result.completedReps);
+      setRepsInput(String(result.completedReps));
+    }
+    setFormFeedback(
+      result.quality === 'GOOD'
+        ? 'Excelente técnica y rango de movimiento validados por IA.'
+        : result.quality === 'REGULAR'
+          ? 'Técnica media (amarillo): controla la estabilidad y profundidad.'
+          : 'Técnica a mejorar: cuida tu postura y profundidad en la siguiente serie.',
+    );
   }, [currentExercise, pendingResult]);
 
   // Sync weight value from prescription when exercise changes.
@@ -83,7 +96,8 @@ export function useExecutionForm({
     rirInput, setRirInput,
     currentReps, setCurrentReps,
     formScore, formMetrics, formFeedback, formQuality,
-    hasConsent, pendingCount, handleConsentResponse,
+    consentState, hasConsent, showConsent, requestConsent,
+    pendingCount, handleConsentResponse,
     saveMetrics, syncPending,
   };
 }

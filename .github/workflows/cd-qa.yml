@@ -2,7 +2,7 @@ name: CD - QA (Cloud Run)
 
 on:
   push:
-    branches: [QA]
+    branches: [qa]
   workflow_dispatch:
 
 permissions:
@@ -11,93 +11,165 @@ permissions:
 
 env:
   GCP_REGION: us-central1
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REPOSITORY: mr-training
   SERVICE: mr-training-api-qa
 
 jobs:
-  migrate:
-    name: Apply Migrations to Supabase (QA)
+  deploy:
+    name: Deploy API to Cloud Run (QA)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/api
+    environment: qa
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify migration sync
-        run: bash ../../scripts/sync-migrations.sh --check
-
-      - uses: actions/setup-go@v5
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          go-version: "1.25"
+          go-version: '1.25'
           cache: true
+          cache-dependency-path: apps/api/go.sum
 
-      - name: Download Go dependencies
-        run: go mod download
+      - name: Compute deploy coordinates
+        run: |
+          PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+          if [ -z "$PROJECT_ID" ]; then
+            echo "❌ Secret GCP_PROJECT_ID is not configured" >&2
+            exit 1
+          fi
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${PROJECT_ID}/${{ env.REPOSITORY }}/api:${{ github.sha }}"
+          echo "PROJECT_ID=${PROJECT_ID}" >> "$GITHUB_ENV"
+          echo "IMAGE=${IMAGE}" >> "$GITHUB_ENV"
 
-      - name: Ensure the application role exists in QA
+      # --- Migraciones PostgreSQL QA (Supabase) ------------------------
+      - name: Run QA PostgreSQL migrations
+        working-directory: apps/api
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_QA }}
           APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD_QA }}
         run: |
           if [ -z "$DATABASE_URL" ]; then
-            echo "⚠️ DATABASE_URL_QA not configured; skipping the role bootstrap."
-          else
-            bash ../../scripts/ensure-app-role.sh
+            echo "⚠️  DATABASE_URL no configurado, saltando migraciones QA"
+            exit 0
           fi
-
-      - name: Run database migrations against QA
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_QA }}
-        run: |
-          if [ -z "$DATABASE_URL" ]; then
-            echo "⚠️ DATABASE_URL_QA not configured in GitHub Secrets; skipping direct migration step."
-          else
-            echo "🚀 Applying pending migrations to QA Supabase database..."
-            go run ./cmd/migrate -dir migrations/postgres
+          if [[ "$DATABASE_URL" == *"@db."*".supabase.co"* ]]; then
+            echo "❌ DATABASE_URL_QA apunta al host directo IPv6-only (db.*.supabase.co), que falla en GitHub Actions y Cloud Run." >&2
+            echo "   Actualiza el secret DATABASE_URL_QA al IPv4 Session Pooler:" >&2
+            echo "   postgresql://postgres.<PROJECT_REF>:<PASSWORD>@aws-0-us-east-2.pooler.supabase.com:5432/postgres?sslmode=require" >&2
+            exit 1
           fi
+          bash ../../scripts/sync-migrations.sh --ci
+          ../../scripts/ensure-app-role.sh
+          go run ./cmd/migrate -dir migrations/postgres
 
-  deploy:
-    name: Deploy API to Cloud Run (QA)
-    needs: [migrate]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
+      # --- WIF: autenticación sin claves JSON -------------------------
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_QA }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT_QA }}
 
       - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
+        with:
+          export_default_credentials: true
+
+      - name: Verify Application Default Credentials
+        run: gcloud auth application-default print-access-token > /dev/null && echo "✅ ADC configurado correctamente"
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
 
+      # --- Build y push de imagen inmutable (SHA del commit) ----------
       - name: Build and push API image
         working-directory: apps/api
         run: |
-          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/api:${{ github.sha }}"
-          docker build -t "$IMAGE" .
-          docker push "$IMAGE"
-          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          docker build -t "${IMAGE}" .
+          docker push "${IMAGE}"
 
+      # --- Despliegue a Cloud Run QA -----------------------------------
+      # Usamos --set-env-vars con GitHub Secrets + Infisical QA (gratis, sin Secret Manager de GCP).
       - name: Deploy Cloud Run service
+        env:
+          CORS_ORIGINS_QA: ${{ secrets.CORS_ORIGINS_QA }}
+          DATABASE_URL_QA: ${{ secrets.DATABASE_URL_QA }}
+          CLERK_SECRET_KEY_QA: ${{ secrets.CLERK_SECRET_KEY_QA }}
+          CLERK_PUBLISHABLE_KEY_QA: ${{ secrets.CLERK_PUBLISHABLE_KEY_QA }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          CLERK_JWKS_URL_QA: ${{ secrets.CLERK_JWKS_URL_QA }}
+          CLERK_WEBHOOK_SECRET_QA: ${{ secrets.CLERK_WEBHOOK_SECRET_QA }}
+          WOMPI_PRIVATE_KEY_QA: ${{ secrets.WOMPI_PRIVATE_KEY_QA }}
+          WOMPI_INTEGRITY_SECRET_QA: ${{ secrets.WOMPI_INTEGRITY_SECRET_QA }}
+          WOMPI_EVENTS_SECRET_QA: ${{ secrets.WOMPI_EVENTS_SECRET_QA }}
+          WEB_APP_URL_QA: ${{ secrets.WEB_APP_URL_QA }}
+          INFISICAL_BASE_URL_QA: ${{ secrets.INFISICAL_BASE_URL_QA }}
+          INFISICAL_CLIENT_ID_QA: ${{ secrets.INFISICAL_CLIENT_ID_QA }}
+          INFISICAL_CLIENT_SECRET_QA: ${{ secrets.INFISICAL_CLIENT_SECRET_QA }}
+          INFISICAL_PROJECT_ID_QA: ${{ secrets.INFISICAL_PROJECT_ID_QA }}
         run: |
+          CLERK_PUB="${CLERK_PUBLISHABLE_KEY_QA:-$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}"
+          INFISICAL_ON="false"
+          if [ -n "$INFISICAL_CLIENT_ID_QA" ] && [ -n "$INFISICAL_CLIENT_SECRET_QA" ] && [ -n "$INFISICAL_PROJECT_ID_QA" ]; then
+            INFISICAL_ON="true"
+          fi
+
+          ENV_VARS="APP_ENV=qa,APP_PORT=8080,LOG_LEVEL=info,WOMPI_ENV=sandbox"
+          ENV_VARS="${ENV_VARS},CORS_ORIGINS=${CORS_ORIGINS_QA}"
+          ENV_VARS="${ENV_VARS},DATABASE_URL=${DATABASE_URL_QA}"
+          ENV_VARS="${ENV_VARS},CLERK_PUBLISHABLE_KEY=${CLERK_PUB}"
+          ENV_VARS="${ENV_VARS},INFISICAL_ENABLED=${INFISICAL_ON}"
+          ENV_VARS="${ENV_VARS},INFISICAL_ENVIRONMENT=qa"
+          ENV_VARS="${ENV_VARS},INFISICAL_SECRET_PATH=/api"
+          ENV_VARS="${ENV_VARS},INFISICAL_BASE_URL=${INFISICAL_BASE_URL_QA}"
+          ENV_VARS="${ENV_VARS},INFISICAL_CLIENT_ID=${INFISICAL_CLIENT_ID_QA}"
+          ENV_VARS="${ENV_VARS},INFISICAL_CLIENT_SECRET=${INFISICAL_CLIENT_SECRET_QA}"
+          ENV_VARS="${ENV_VARS},INFISICAL_PROJECT_ID=${INFISICAL_PROJECT_ID_QA}"
+
+          if [ -n "$CLERK_SECRET_KEY_QA" ]; then ENV_VARS="${ENV_VARS},CLERK_SECRET_KEY=${CLERK_SECRET_KEY_QA}"; fi
+          if [ -n "$CLERK_JWKS_URL_QA" ]; then ENV_VARS="${ENV_VARS},CLERK_JWKS_URL=${CLERK_JWKS_URL_QA}"; fi
+          if [ -n "$CLERK_WEBHOOK_SECRET_QA" ]; then ENV_VARS="${ENV_VARS},CLERK_WEBHOOK_SECRET=${CLERK_WEBHOOK_SECRET_QA}"; fi
+          if [ -n "$WOMPI_PRIVATE_KEY_QA" ]; then ENV_VARS="${ENV_VARS},WOMPI_PRIVATE_KEY=${WOMPI_PRIVATE_KEY_QA}"; fi
+          if [ -n "$WOMPI_INTEGRITY_SECRET_QA" ]; then ENV_VARS="${ENV_VARS},WOMPI_INTEGRITY_SECRET=${WOMPI_INTEGRITY_SECRET_QA}"; fi
+          if [ -n "$WOMPI_EVENTS_SECRET_QA" ]; then ENV_VARS="${ENV_VARS},WOMPI_EVENTS_SECRET=${WOMPI_EVENTS_SECRET_QA}"; fi
+          if [ -n "$WEB_APP_URL_QA" ]; then
+            case "$WEB_APP_URL_QA" in
+              http://*|https://*) ENV_VARS="${ENV_VARS},WEB_APP_URL=${WEB_APP_URL_QA}" ;;
+              *) ENV_VARS="${ENV_VARS},WEB_APP_URL=https://${WEB_APP_URL_QA}" ;;
+            esac
+          fi
+
           gcloud run deploy ${{ env.SERVICE }} \
-            --image "$IMAGE" \
+            --image "${IMAGE}" \
             --region "${{ env.GCP_REGION }}" \
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --set-env-vars="APP_ENV=staging,APP_PORT=8080,LOG_LEVEL=info,CORS_ORIGINS=${{ secrets.CORS_ORIGINS_QA }}" \
-            --set-secrets="DATABASE_URL=DATABASE_URL_QA:latest,CLERK_SECRET_KEY=CLERK_SECRET_KEY_QA:latest,CLERK_PUBLISHABLE_KEY=CLERK_PUBLISHABLE_KEY_QA:latest" \
+            --set-env-vars="${ENV_VARS}" \
             --min-instances=1 \
             --max-instances=5
 
+      # --- Verificación de revisión desplegada -------------------------
       - name: Smoke test
         run: |
           URL=$(gcloud run services describe ${{ env.SERVICE }} --region "${{ env.GCP_REGION }}" --format='value(status.url)')
-          curl -fsS "$URL/health"
+          echo "🔗 Servicio: $URL"
+          echo "📋 Commit: ${{ github.sha }}"
+          echo "📦 Imagen: ${IMAGE}"
+          echo "🧪 Probando /health..."
+          curl -fsS "$URL/health" && echo ""
+          echo "🧪 Probando /ready..."
+          curl -fsS "$URL/ready" && echo ""
+
+      - name: Reporte de despliegue
+        run: |
+          echo "============================================================"
+          echo "  REPORTE DE DESPLIEGUE QA"
+          echo "============================================================"
+          echo "  Commit: ${{ github.sha }}"
+          echo "  Imagen: ${IMAGE}"
+          echo "  Servicio: ${{ env.SERVICE }}"
+          echo "  Región: ${{ env.GCP_REGION }}"
+          echo "  Proyecto: ${{ env.PROJECT_ID }}"
+          echo "  Puerto: 8080"
+          echo "  Autenticación: WIF (sin claves JSON)"
+          echo "  Secret Manager: 0 secretos (sin gastos)"
+          echo "============================================================"

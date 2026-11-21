@@ -13,7 +13,13 @@ import {
   CreditCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Link from 'next/link';
+import {
+  Badge,
+  EmptyState,
+  PageHeader,
+  SearchField,
+  primaryButtonClass,
+} from '@/components/admin/ui';
 
 interface Plan {
   id: string;
@@ -49,6 +55,7 @@ interface PlanFormValues {
   max_athletes: string;
   max_sessions_per_week: string;
   is_active: boolean;
+  trm: string;
 }
 
 const DEFAULT_FORM: PlanFormValues = {
@@ -60,6 +67,7 @@ const DEFAULT_FORM: PlanFormValues = {
   max_athletes: '10',
   max_sessions_per_week: '12',
   is_active: true,
+  trm: '',
 };
 
 export default function AdminPlansPage() {
@@ -74,6 +82,9 @@ export default function AdminPlansPage() {
   const [form, setForm] = useState<PlanFormValues>(DEFAULT_FORM);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [_trmRate, setTrmRate] = useState<{ value: number; fetchedAt: string } | null>(null);
+  const [fetchingTrm, setFetchingTrm] = useState(false);
+  const [search, setSearch] = useState('');
 
   const superAdminIds = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
   const metadataRole = (user?.publicMetadata as Record<string, unknown> | undefined)?.role;
@@ -84,12 +95,40 @@ export default function AdminPlansPage() {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
+  async function fetchTRM() {
+    setFetchingTrm(true);
+    try {
+      const authHeaders = await getAuthHeader();
+      const res = await fetch('/api/v1/admin/settings/trm', {
+        headers: { Accept: 'application/json', ...authHeaders },
+        cache: 'no-store',
+      });
+      if (!res.ok) throw new Error('No se pudo obtener la TRM');
+      const data = await res.json();
+      // data: { value, vigencia_desde, fetched_at, margin_pct, source }
+      setTrmRate({
+        value: data.value,
+        fetchedAt: data.fetched_at || data.vigencia_desde || '',
+      });
+      setForm((prev) => ({ ...prev, trm: String(data.value) }));
+      setMessage({
+        text: `TRM actualizada: $${data.value} COP por 1 USD (margen +8% aplicado)`,
+        type: 'success',
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error obteniendo la TRM');
+    } finally {
+      setFetchingTrm(false);
+    }
+  }
+
   useEffect(() => {
     if (!user || !isSuperAdmin) {
       router.push('/coach');
       return;
     }
     loadPlans();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isSuperAdmin, router]);
 
   if (!user || !isSuperAdmin) {
@@ -135,6 +174,9 @@ export default function AdminPlansPage() {
         max_athletes: parseInt(form.max_athletes, 10) || 10,
         max_sessions_per_week: parseInt(form.max_sessions_per_week, 10) || 12,
         is_active: form.is_active,
+        ...(form.currency === 'USD' && form.trm
+          ? { trm: parseFloat(form.trm) }
+          : {}),
       };
 
       const method = editing ? 'PUT' : 'POST';
@@ -170,6 +212,8 @@ export default function AdminPlansPage() {
     setError(null);
     setMessage(null);
     setOpen(true);
+    // Obtener TRM actual al abrir el modal para crear
+    void fetchTRM();
   }
 
   function openEdit(plan: Plan) {
@@ -183,10 +227,14 @@ export default function AdminPlansPage() {
       max_athletes: String(plan.max_athletes),
       max_sessions_per_week: String(plan.max_sessions_per_week),
       is_active: plan.is_active,
+      trm: String(plan.trm ?? ''),
     });
     setError(null);
     setMessage(null);
     setOpen(true);
+    if (plan.currency === 'USD') {
+      void fetchTRM();
+    }
   }
 
   async function deletePlan(id: string) {
@@ -204,6 +252,15 @@ export default function AdminPlansPage() {
       setError(err instanceof Error ? err.message : 'Error al eliminar');
     }
   }
+
+  const filteredPlans = plans.filter((plan) => {
+    const term = search.trim().toLowerCase();
+    if (!term) return true;
+    return (
+      plan.name.toLowerCase().includes(term) ||
+      (plan.description || '').toLowerCase().includes(term)
+    );
+  });
 
   const statusBadge = (active: boolean) => (
     <span className={`px-2 py-1 rounded text-xs font-medium ${active ? 'bg-success/10 text-success border border-success/20' : 'bg-error/10 text-error border border-error/20'}`}>
@@ -257,23 +314,15 @@ export default function AdminPlansPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Planes</h1>
-          <p className="text-text-secondary mt-1">
-            Gestión de planes de suscripción: costos, periodos y disponibilidad.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={openCreate}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-primary text-text-inverse text-sm font-medium hover:bg-brand-primary/90 transition-colors"
-          >
-            <Plus size={16} /> Nuevo Plan
+      <PageHeader
+        title="Planes"
+        description="Gestión de planes de suscripción: costos, periodos y disponibilidad."
+        actions={
+          <button onClick={openCreate} className={primaryButtonClass}>
+            <Plus size={16} /> Nuevo plan
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {error && (
         <div className="p-3 rounded-lg bg-error/10 text-error border border-error/20">
@@ -288,18 +337,19 @@ export default function AdminPlansPage() {
 
       {/* Plans table */}
       <div className="rounded-xl border border-surface-6 bg-surface-1 overflow-hidden">
-        <div className="p-4 border-b border-surface-6 flex flex-col lg:flex-row gap-4 items-center justify-between">
-          <h2 className="text-lg font-bold text-text-primary">Planes disponibles</h2>
+        <div className="flex flex-col gap-3 border-b border-surface-6 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <input
-              type="search"
-              placeholder="Buscar plan..."
-              className="w-64 pl-10 pr-4 py-2 rounded-lg bg-surface-2 border border-surface-3 text-text-primary placeholder:text-text-secondary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary text-sm"
-            />
-            <CreditCard size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" aria-hidden="true" />
+            <h2 className="text-base font-semibold text-text-primary">Planes disponibles</h2>
+            <Badge>{filteredPlans.length}</Badge>
           </div>
+          <SearchField value={search} onChange={setSearch} placeholder="Buscar plan..." />
         </div>
-        <div className="overflow-x-auto">
+        <div
+          role="region"
+          aria-label="Listado de planes"
+          tabIndex={0}
+          className="hidden overflow-x-auto md:block"
+        >
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-surface-6 text-text-secondary text-left">
@@ -307,20 +357,22 @@ export default function AdminPlansPage() {
                 <th className="p-3">Descripción</th>
                 <th className="p-3 text-right">Precio</th>
                 <th className="p-3 text-center">Periodo</th>
-                <th className="p-3 text-center">Atletas</th>
+                <th className="p-3 text-center">Máx. atletas</th>
                 <th className="p-3 text-center">Estado</th>
                 <th className="p-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {plans.length === 0 ? (
+              {filteredPlans.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-6 text-text-secondary text-center">
-                    No hay planes registrados.
+                    {plans.length === 0
+                      ? 'No hay planes registrados.'
+                      : 'Ningún plan coincide con la búsqueda.'}
                   </td>
                 </tr>
               ) : (
-                plans.map((plan) => (
+                filteredPlans.map((plan) => (
                   <tr key={plan.id} className="border-b border-surface-1 hover:bg-surface-2 transition-colors">
                     <td className="p-3">
                       <div className="flex items-center gap-2">
@@ -371,25 +423,100 @@ export default function AdminPlansPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile cards */}
+        <ul className="divide-y divide-surface-6 md:hidden">
+          {filteredPlans.map((plan) => (
+            <li key={plan.id} className="space-y-3 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-text-primary">{plan.name}</p>
+                  <p className="truncate text-xs text-text-secondary">{plan.description || 'Sin descripción'}</p>
+                </div>
+                <Badge tone={plan.is_active ? 'success' : 'error'}>
+                  {plan.is_active ? 'Activo' : 'Inactivo'}
+                </Badge>
+              </div>
+              <dl className="grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <dt className="text-text-secondary">Precio</dt>
+                  <dd className="tabular-nums text-text-primary">
+                    ${plan.price.toLocaleString()} {plan.currency}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-text-secondary">Periodo</dt>
+                  <dd className="text-text-primary">{plan.billing_period}</dd>
+                </div>
+                <div>
+                  <dt className="text-text-secondary">Máx. atletas</dt>
+                  <dd className="tabular-nums text-text-primary">{plan.max_athletes}</dd>
+                </div>
+              </dl>
+              <div className="flex items-center justify-end gap-1">
+                <button
+                  onClick={() => openEdit(plan)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-surface-6 bg-surface-2 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:text-brand-primary"
+                  aria-label={`Editar ${plan.name}`}
+                >
+                  <Edit2 size={14} /> Editar
+                </button>
+                <button
+                  onClick={() => deletePlan(plan.id)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-surface-6 bg-surface-2 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:text-error"
+                  aria-label={`Eliminar ${plan.name}`}
+                >
+                  <Trash2 size={14} /> Eliminar
+                </button>
+              </div>
+            </li>
+          ))}
+          {filteredPlans.length === 0 && (
+            <li>
+              <EmptyState
+                title={plans.length === 0 ? 'No hay planes registrados' : 'Sin resultados'}
+                description={
+                  plans.length === 0
+                    ? 'Crea el primer plan de suscripción de la plataforma.'
+                    : 'Ajusta la búsqueda para encontrar el plan.'
+                }
+              />
+            </li>
+          )}
+        </ul>
       </div>
 
-      {/* Create / Edit modal (only mounted when open, so the backdrop never blocks the table) */}
+      {/* Create / Edit modal */}
       {open && (
-        <div className="fixed inset-0 z-50" aria-hidden="true">
+        <div className="fixed inset-0 z-50 overflow-y-auto">
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setOpen(false)}
           />
+          {/* Centrado por flex: framer-motion escribe `transform` inline y
+              anularía cualquier -translate-x/y-1/2 de Tailwind. */}
+          <div className="relative flex min-h-full items-start justify-center p-4 sm:items-center">
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="plan-modal-title"
+            initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed left-1/2 top-1/2 z-50 w-full max-w-md mx-0 -translate-x-1/2 -translate-y-1/2 bg-surface-1 rounded-xl border border-surface-6 shadow-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto"
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-2xl bg-surface-1 rounded-2xl border border-surface-6 shadow-2xl p-6 sm:p-8 max-h-[calc(100vh-2rem)] overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-text-primary">
-                {editing ? 'Editar plan' : 'Crear plan'}
-              </h2>
+              <div>
+                <h2 id="plan-modal-title" className="text-lg font-bold text-text-primary">
+                  {editing ? 'Editar plan' : 'Crear plan'}
+                </h2>
+                <p className="text-xs text-text-secondary">
+                  {editing
+                    ? 'Modifica los datos de este plan de suscripción.'
+                    : 'Crea un nuevo plan que tus atletas podrán comprar.'}
+                </p>
+              </div>
               <button
                 onClick={() => setOpen(false)}
                 className="rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors"
@@ -399,100 +526,191 @@ export default function AdminPlansPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Nombre del plan</label>
-                  <input
-                    name="name"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="Ej. Plan Starter"
-                    className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                  />
-                </div>
-                <div className="mb-4 md:col-span-2">
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Descripción</label>
-                  <input
-                    name="description"
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    placeholder="Qué incluye el plan"
-                    className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Precio</label>
-                  <div className="flex items-center gap-2">
+            <form onSubmit={handleSave} className="space-y-5">
+              {/* Sección: Información básica */}
+              <section className="space-y-4">
+                <h3 className="text-xs font-semibold text-text-secondary tracking-wide uppercase mb-3">
+                  Información básica
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Nombre del plan
+                    </label>
                     <input
-                      name="price"
-                      type="number"
-                      value={form.price}
-                      onChange={(e) => setForm({ ...form, price: e.target.value })}
-                      placeholder="0"
-                      className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                      name="name"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="Ej. Plan Starter"
+                      className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
                     />
-                    <select
-                      name="currency"
-                      value={form.currency}
-                      onChange={(e) => setForm({ ...form, currency: e.target.value as 'COP' | 'USD' })}
-                      className="bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                    >
-                      <option value="COP">COP</option>
-                      <option value="USD">USD</option>
-                    </select>
+                  </div>
+                  <div className="mb-4 md:col-span-2">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Descripción
+                    </label>
+                    <input
+                      name="description"
+                      value={form.description}
+                      onChange={(e) => setForm({ ...form, description: e.target.value })}
+                      placeholder="Qué incluye el plan"
+                      className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                    />
                   </div>
                 </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Periodo de facturación</label>
-                  <select
-                    name="billing_period"
-                    value={form.billing_period}
-                    onChange={(e) => setForm({ ...form, billing_period: e.target.value })}
-                    className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                  >
-                    <option value="monthly">Mensual</option>
-                    <option value="quarterly">Trimestral</option>
-                    <option value="yearly">Anual</option>
-                  </select>
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Máx. atletas</label>
-                  <input
-                    name="max_athletes"
-                    type="number"
-                    value={form.max_athletes}
-                    onChange={(e) => setForm({ ...form, max_athletes: e.target.value })}
-                    placeholder="10"
-                    className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-text-secondary mb-1">Máx. sesiones/semana</label>
-                  <input
-                    name="max_sessions_per_week"
-                    type="number"
-                    value={form.max_sessions_per_week}
-                    onChange={(e) => setForm({ ...form, max_sessions_per_week: e.target.value })}
-                    placeholder="12"
-                    className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      name="is_active"
-                      type="checkbox"
-                      checked={form.is_active}
-                      onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-                      className="rounded bg-surface-2 border-surface-3 text-brand-primary focus:ring-brand-primary"
-                    />
-                    <span className="text-sm text-text-secondary">Plan activo (visible para coaches y atletas)</span>
-                  </label>
-                </div>
-              </div>
+              </section>
 
-              <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-end sm:justify-end gap-3 sm:gap-2 w-full">
+              {/* Sección: Precio y moneda */}
+              <section className="space-y-4">
+                <h3 className="text-xs font-semibold text-text-secondary tracking-wide uppercase mb-3">
+                  Precio y moneda
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Precio
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        name="price"
+                        type="number"
+                        value={form.price}
+                        onChange={(e) => setForm({ ...form, price: e.target.value })}
+                        placeholder="0"
+                        className="flex-1 bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                      />
+                      <select
+                        name="currency"
+                        value={form.currency}
+                        onChange={(e) => {
+                          const next = e.target.value as 'COP' | 'USD';
+                          setForm({ ...form, currency: next });
+                          if (next === 'USD') {
+                            void fetchTRM();
+                          }
+                        }}
+                        className="bg-surface-2 border border-surface-3 rounded-lg px-3 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                      >
+                        <option value="COP">COP</option>
+                        <option value="USD">USD</option>
+                      </select>
+                    </div>
+                    {form.currency === 'USD' && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-sm font-medium text-text-secondary mb-1">
+                            TRM (COP por 1 USD) + 8% margen
+                          </label>
+                          <button
+                            onClick={fetchTRM}
+                            disabled={fetchingTrm}
+                            className="text-xs text-brand-primary hover:text-brand-primary/80 hover:bg-brand-primary/5 rounded px-2 py-1 transition-colors disabled:opacity-50"
+                          >
+                            {fetchingTrm ? 'Actualizando…' : 'Obtener TRM actual'}
+                          </button>
+                        </div>
+                        <input
+                          name="trm"
+                          type="number"
+                          step="0.01"
+                          value={form.trm}
+                          readOnly
+                          placeholder="–"
+                          className="w-full bg-surface-3/50 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary cursor-not-allowed"
+                        />
+                        <p className="text-xs text-text-secondary">
+                          La TRM se obtiene automáticamente del Banco de la República con un
+                          margen del +8% aplicado. Campo no editable.
+                        </p>
+                        {form.price && form.trm && (
+                          <>
+                            <p className="text-sm font-semibold text-text-primary">
+                              ≈ {(
+                                parseFloat(form.price) *
+                                parseFloat(form.trm)
+                              ).toLocaleString()} COP
+                              <span className="text-text-secondary">
+                                (precio USD × TRM con margen +8%)
+                              </span>
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {form.currency === 'COP' && (
+                      <p className="text-xs text-text-secondary">
+                        El precio se guarda directamente en COP.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              {/* Sección: Límites y estado */}
+              <section className="space-y-4">
+                <h3 className="text-xs font-semibold text-text-secondary tracking-wide uppercase mb-3">
+                  Límites y estado
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Periodo de facturación
+                    </label>
+                    <select
+                      name="billing_period"
+                      value={form.billing_period}
+                      onChange={(e) => setForm({ ...form, billing_period: e.target.value })}
+                      className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                    >
+                      <option value="monthly">Mensual</option>
+                      <option value="quarterly">Trimestral</option>
+                      <option value="yearly">Anual</option>
+                    </select>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Máx. atletas
+                    </label>
+                    <input
+                      name="max_athletes"
+                      type="number"
+                      value={form.max_athletes}
+                      onChange={(e) => setForm({ ...form, max_athletes: e.target.value })}
+                      placeholder="10"
+                      className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Máx. sesiones/semana
+                    </label>
+                    <input
+                      name="max_sessions_per_week"
+                      type="number"
+                      value={form.max_sessions_per_week}
+                      onChange={(e) => setForm({ ...form, max_sessions_per_week: e.target.value })}
+                      placeholder="12"
+                      className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-text-primary focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        name="is_active"
+                        type="checkbox"
+                        checked={form.is_active}
+                        onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                        className="rounded bg-surface-2 border-surface-3 text-brand-primary focus:ring-brand-primary"
+                      />
+                      <span className="text-sm text-text-secondary">
+                        Plan activo (visible para coaches y atletas)
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </section>
+
+              <div className="mt-8 flex flex-col sm:flex-row items-start sm:items-center justify-end sm:justify-end gap-3 sm:gap-2 w-full pt-4 border-t border-surface-6">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
@@ -505,11 +723,12 @@ export default function AdminPlansPage() {
                   disabled={saving}
                   className="flex-1 px-4 py-2.5 rounded-lg bg-brand-primary text-text-inverse text-sm font-medium hover:bg-brand-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors sm:flex-1 sm:max-w-[180px]"
                 >
-                  {saving ? 'Guardando...' : editing ? 'Actualizar' : 'Crear plan'}
+                  {saving ? 'Guardando…' : editing ? 'Actualizar' : 'Crear plan'}
                 </button>
               </div>
             </form>
           </motion.div>
+          </div>
         </div>
       )}
 

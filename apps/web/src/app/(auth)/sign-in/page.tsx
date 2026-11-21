@@ -5,15 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth, useUser } from '@clerk/nextjs';
 import { AuthShell } from '@/features/auth/components/AuthShell';
 import { SignInForm } from '@/features/auth/components/SignInForm';
-import { useI18n } from '@/features/shared/hooks/useI18n';
-
-const SUPER_ADMIN_IDS = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
+import { resolveRole, isSuperAdmin } from '@/app/(auth)/sign-up/signUpGuard';
+import { destinationFor } from './destinationFor';
 
 export default function SignInPage() {
-  const { t } = useI18n('common');
-
   return (
-    <AuthShell title={t('welcome')} subtitle={t('signInSubtitle')}>
+    <AuthShell title="Iniciar sesión" subtitle="Bienvenido de nuevo a MR Training">
       <Suspense fallback={null}>
         <SignInContent />
       </Suspense>
@@ -27,21 +24,11 @@ function SignInContent() {
   const { user } = useUser();
   const searchParams = useSearchParams();
 
-  /**
-   * Where to land after the sign-in.
-   *
-   * An internal `redirect_url` wins (that is how the payment flow keeps the
-   * plan context), otherwise the user goes to the home of their role.
-   */
-  const destinationFor = (isSuperAdmin: boolean, role?: string): string => {
-    const redirect = searchParams.get('redirect_url');
-    if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
-      return redirect;
-    }
-    if (isSuperAdmin) return '/admin/dashboard';
-    if (role === 'coach') return '/coach/plan';
-    return '/';
-  };
+  // Prefill sign-in email from the Wompi URL email param. The email may arrive
+  // as a top-level search param, or nested inside redirect_url (when the
+  // middleware redirected from /payment/success?checkout=...&email=...).
+  const emailFromUrl: string | undefined =
+    searchParams.get('email') ?? extractEmailFromRedirectUrl(searchParams.get('redirect_url')) ?? undefined;
 
   /**
    * Resolves where a signed-in user belongs.
@@ -52,22 +39,17 @@ function SignInContent() {
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
 
-    // sessionClaims are on the session token, so they are available as soon
-    // as the session exists. The `user` object can still be loading and was
-    // what stalled this redirect after POST /sign-in.
-    const claims = sessionClaims as { publicMetadata?: Record<string, unknown> } | null | undefined;
-    const metadataRole = (claims?.publicMetadata?.role ??
-      (user?.publicMetadata as Record<string, unknown> | undefined)?.role) as string | undefined;
+    const metadataRole = resolveRole(sessionClaims, user);
     const id = userId ?? user?.id;
-    const isSuperAdmin = (id !== undefined && SUPER_ADMIN_IDS.includes(id)) || metadataRole === 'super_admin';
+    const isSuperAdminUser = isSuperAdmin(id, metadataRole);
 
-    if (isSuperAdmin) {
-      router.replace(destinationFor(true, metadataRole));
+    if (isSuperAdminUser) {
+      router.replace(destinationFor(searchParams, true, metadataRole));
       return;
     }
 
     if (metadataRole === 'coach') {
-      router.replace(destinationFor(false, metadataRole));
+      router.replace(destinationFor(searchParams, false, metadataRole));
       return;
     }
 
@@ -80,7 +62,7 @@ function SignInContent() {
 
     // Athletes live on mobile and users without a role belong on the public
     // landing. Never /coach or /sign-in: the middleware bounces both back.
-    router.replace(destinationFor(false, metadataRole));
+    router.replace(destinationFor(searchParams, false, metadataRole));
   }, [isLoaded, isSignedIn, sessionClaims, userId, user, router, searchParams]);
 
   // NOTE: SignInForm calls this the instant attemptFirstFactor() completes —
@@ -88,16 +70,14 @@ function SignInContent() {
   // reading roles here can be stale. We only act when the role is unambiguous;
   // otherwise the effect above routes once isSignedIn flips.
   const handleSuccess = () => {
-    const claims = sessionClaims as { publicMetadata?: Record<string, unknown> } | null | undefined;
-    const metadataRole = (claims?.publicMetadata?.role ??
-      (user?.publicMetadata as Record<string, unknown> | undefined)?.role) as string | undefined;
+    const metadataRole = resolveRole(sessionClaims, user);
     const id = userId ?? user?.id;
-    const isSuperAdmin = (id !== undefined && SUPER_ADMIN_IDS.includes(id)) || metadataRole === 'super_admin';
+    const isSuperAdminUser = isSuperAdmin(id, metadataRole);
 
-    if (isSuperAdmin) {
-      router.push(destinationFor(true, metadataRole));
+    if (isSuperAdminUser) {
+      router.push(destinationFor(searchParams, true, metadataRole));
     } else if (metadataRole === 'coach') {
-      router.push(destinationFor(false, metadataRole));
+      router.push(destinationFor(searchParams, false, metadataRole));
     }
     // Unknown role: do nothing, let the effect decide.
   };
@@ -116,6 +96,30 @@ function SignInContent() {
     <SignInForm
       onSuccess={handleSuccess}
       onForgotPassword={() => router.push('/forgot-password')}
+      initialEmail={emailFromUrl}
     />
   );
+}
+
+/**
+ * Extracts the `email` query param from a `redirect_url` value.
+ *
+ * The middleware stores the full `pathname + search` as redirect_url, so the
+ * email param lives inside it (e.g. `/payment/success?checkout=abc&email=x@y.com`).
+ * Handles both relative paths and same-origin absolute URLs.
+ */
+function extractEmailFromRedirectUrl(redirectUrl: string | null): string | null {
+  if (!redirectUrl) return null;
+  try {
+    const u = new URL(redirectUrl);
+    if (u.origin === window.location.origin) {
+      return u.searchParams.get('email') ?? null;
+    }
+    return null;
+  } catch {
+    // Not an absolute URL: parse as a relative path with query string.
+    const [, search] = redirectUrl.split('?', 2);
+    if (!search) return null;
+    return new URLSearchParams(search).get('email') ?? null;
+  }
 }

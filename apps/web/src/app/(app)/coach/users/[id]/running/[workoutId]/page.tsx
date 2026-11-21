@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { AlertCircle, ArrowLeft, CheckCircle, MapPin, Timer } from 'lucide-react'
-import { goFetch, subscribeRunningLive, type RunningLiveEvent } from '@/features/shared/api/client'
+import { AlertCircle, ArrowLeft, CheckCircle, Gauge, Heart, MapPin, Timer } from 'lucide-react'
+import { coachApi, goFetch, subscribeRunningLive, type RunningLiveEvent, type RunningSessionDetail } from '@/features/shared/api/client'
 import { RunningRouteMap } from '@/features/running/components/RunningRouteMap'
 
 interface RunningInterval {
@@ -134,20 +134,34 @@ export default function CoachRunningWorkoutDetailPage() {
   const athleteId = params.id as string
   const workoutId = params.workoutId as string
   const [detail, setDetail] = useState<RunningWorkoutDetail | null>(null)
+  const [sessionDetail, setSessionDetail] = useState<RunningSessionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isLive, setIsLive] = useState(false)
-  const [liveEvent, setLiveEvent] = useState<RunningLiveEvent | null>(null)
+  const [, setLiveEvent] = useState<RunningLiveEvent | null>(null)
 
   useEffect(() => {
     let cancelled = false
     const fetchDetail = async () => {
       try {
         setLoading(true)
-        const data = await goFetch<RunningWorkoutDetail>(
-          `/api/v1/workouts/${workoutId}/running-complete`
-        )
-        if (!cancelled) setDetail(data)
+        setError(null)
+        try {
+          const data = await goFetch<RunningWorkoutDetail>(
+            `/api/v1/workouts/${workoutId}/running-complete`
+          )
+          if (!cancelled) {
+            setDetail(data)
+            setSessionDetail(null)
+          }
+        } catch {
+          // Fallback: workoutId is a running_sessions.id from AthleteRunningPanel
+          const sess = await coachApi.getAthleteRunningSessionDetail(athleteId, workoutId)
+          if (!cancelled) {
+            setSessionDetail(sess)
+            setDetail(null)
+          }
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Error al cargar el detalle')
       } finally {
@@ -158,7 +172,7 @@ export default function CoachRunningWorkoutDetailPage() {
     return () => {
       cancelled = true
     }
-  }, [workoutId])
+  }, [athleteId, workoutId])
 
   // SSE subscription for live running progress (coach view). Best-effort:
   // if it fails, the page still works with the initial detail load.
@@ -211,7 +225,7 @@ export default function CoachRunningWorkoutDetailPage() {
     )
   }
 
-  if (!detail) {
+  if (!detail && !sessionDetail) {
     return (
       <div className="p-6 max-w-5xl mx-auto">
         <div className="bg-white/5 rounded-xl p-5 text-center">
@@ -220,6 +234,78 @@ export default function CoachRunningWorkoutDetailPage() {
       </div>
     )
   }
+
+  if (sessionDetail) {
+    const s = sessionDetail.session
+    const routeSource =
+      s.gpsRoute && s.gpsRoute.length > 0
+        ? s.gpsRoute
+        : sessionDetail.gpsPoints ?? []
+    return (
+      <div className="p-6 max-w-5xl mx-auto space-y-5">
+        <Link
+          href={`/coach/users/${athleteId}`}
+          className="inline-flex items-center gap-1.5 text-xs text-white/40 hover:text-white/60"
+        >
+          <ArrowLeft size={14} />
+          Volver al perfil
+        </Link>
+
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-display font-bold text-white">
+              Sesión de Running • {s.date}
+            </h1>
+            <p className="text-sm text-white/40 mt-1">
+              Fuente: {s.source || 'GPS'} • {formatDuration(s.duration)}
+            </p>
+          </div>
+          <span className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400">
+            Completado
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <ComparisonCard
+            label="Distancia"
+            value={`${(s.distance ?? 0).toFixed(2)} km`}
+            icon={<MapPin size={16} className="text-green-400" />}
+          />
+          <ComparisonCard
+            label="Duración"
+            value={formatDuration(s.duration)}
+            icon={<Timer size={16} className="text-blue-400" />}
+          />
+          <ComparisonCard
+            label="Ritmo medio"
+            value={s.pace ? `${s.pace} /km` : '–'}
+            icon={<Gauge size={16} className="text-amber-400" />}
+          />
+          <ComparisonCard
+            label="FC / Calorías"
+            value={`${s.heartRate || '–'} bpm • ${s.calories || 0} kcal`}
+            icon={<Heart size={16} className="text-rose-400" />}
+          />
+        </div>
+
+        <div className="bg-white/5 rounded-xl p-5 space-y-3 border border-white/5">
+          <h3 className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+            Recorrido GPS ({sessionDetail.gpsPoints?.length ?? 0} muestras)
+          </h3>
+          {(typeof routeSource === 'string' && routeSource.length > 0) ||
+          (Array.isArray(routeSource) && routeSource.length > 0) ? (
+            <RunningRouteMap points={routeSource} height="340px" />
+          ) : (
+            <div className="bg-white/5 rounded-lg p-8 text-center">
+              <p className="text-xs text-white/40">Esta sesión no tiene trazado GPS registrado</p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (!detail) return null
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">

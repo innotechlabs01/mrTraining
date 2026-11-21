@@ -7,6 +7,8 @@ import { AuthShell } from '@/features/auth/components/AuthShell';
 import { PlanSummaryCard } from '@/features/auth/components/PlanSummaryCard';
 import { ErrorState } from '@/features/auth/components/ErrorState';
 import { useSelectedPlan } from '@/features/auth/hooks/useSelectedPlan';
+import { useAuth, useUser } from '@clerk/nextjs';
+import { resolveRole, fetchCoachSubscriptionStatus } from '@/app/(auth)/sign-up/signUpGuard';
 
 type Phase = 'activating' | 'ready' | 'error';
 
@@ -15,19 +17,44 @@ export default function PaymentInterstitialPage() {
   const searchParams = useSearchParams();
   const planId = searchParams.get('plan');
   const { plan } = useSelectedPlan(planId);
+  const { isSignedIn, isLoaded, sessionClaims, userId } = useAuth();
+  const { user } = useUser();
 
   const [phase, setPhase] = useState<Phase>('activating');
   const [error, setError] = useState('');
   const [isPaying, setIsPaying] = useState(false);
 
-  /**
-   * Activation is server-authoritative: the Go API provisions the coach
-   * (users + coaches rows, coach code) and writes role + coach code into
-   * Clerk's PUBLIC metadata. Doing it here — right after the account was
-   * created — guarantees the role is set before the coach comes back from
-   * the payment provider.
-   */
   useEffect(() => {
+    if (!isLoaded) return;
+
+    const metadataRole = resolveRole(sessionClaims, user);
+
+    // Ya hay sesión activa.
+    if (isSignedIn) {
+      if (metadataRole === 'coach') {
+        let cancelled = false;
+        void fetchCoachSubscriptionStatus().then((result) => {
+          if (cancelled) return;
+          if (result === 'paid') {
+            // Suscripción confirmada: salta directamente al onboarding.
+            router.replace(
+              planId ? `/onboarding/coach?plan=${encodeURIComponent(planId)}` : '/onboarding/coach',
+            );
+          } else {
+            // Pago pendiente: mostrar el flujo de pago (sin re-activar).
+            setPhase('ready');
+          }
+        });
+        return () => {
+          cancelled = true;
+        };
+      }
+      // Sesión activa pero sin rol de coach: no aplica este flujo.
+      setPhase('ready');
+      return;
+    }
+
+    // No hay sesión: flujo actual (activar cuenta, luego pagar).
     let cancelled = false;
 
     fetch('/api/coach/activate', { method: 'POST' })
@@ -50,7 +77,7 @@ export default function PaymentInterstitialPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isLoaded, isSignedIn, sessionClaims, userId, user, planId, router]);
 
   const handlePay = () => {
     if (!planId) {

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Modal, ScrollView, Alert, ActivityIndicator } from 'react-native';
-import { getAvailability, createAppointment } from '../../schedulingService';
+import { View, Text, StyleSheet, Pressable, Modal, ScrollView, Alert, ActivityIndicator, Linking } from 'react-native';
+import Constants from 'expo-constants';
+import * as WebBrowser from 'expo-web-browser';
+import { getAvailability, createAppointment, type AvailabilitySlot, type AppointmentInfo } from '../../schedulingService';
 import { colors, spacing, typography, radius } from '../../../../shared/theme/tokens';
 import { CalendarIcon, CloseIcon } from '../../../../shared/components/icons';
 import { texts } from '../../../../shared/i18n/texts';
@@ -16,22 +18,27 @@ type Props = {
   onClose: () => void;
 };
 
-type AvailabilitySlot = {
-  id: string;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-};
+function resolveWebBaseUrl(): string {
+  const envUrl = process.env.EXPO_PUBLIC_WEB_URL;
+  const extraUrl = Constants.expoConfig?.extra?.apiBaseUrl as string | undefined;
+  return (envUrl || extraUrl || 'http://localhost:3000').replace(/\/$/, '');
+}
 
 export function CoachScheduleModal({ visible, coachId, athleteName, onScheduled, onClose }: Props) {
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
+  const [resolvedCoachId, setResolvedCoachId] = useState<string>(coachId || '');
+  const [resolvedCoachName, setResolvedCoachName] = useState<string>('');
   const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
+  const [bookedAppointment, setBookedAppointment] = useState<AppointmentInfo | null>(null);
 
   useEffect(() => {
-    if (visible && coachId) {
+    if (visible) {
+      setBookedAppointment(null);
+      setSelectedSlot(null);
+      setSelectedDate('');
       fetchAvailability();
     }
   }, [visible, coachId]);
@@ -39,10 +46,11 @@ export function CoachScheduleModal({ visible, coachId, athleteName, onScheduled,
   const fetchAvailability = async () => {
     setFetching(true);
     try {
-      const slots = await getAvailability();
-      setAvailability(slots);
+      const res = await getAvailability(coachId || undefined);
+      setAvailability(res.slots);
+      if (res.coachId) setResolvedCoachId(res.coachId);
+      if (res.coachName) setResolvedCoachName(res.coachName);
     } catch {
-      // Coach might not have set availability yet
       setAvailability([]);
     } finally {
       setFetching(false);
@@ -56,10 +64,13 @@ export function CoachScheduleModal({ visible, coachId, athleteName, onScheduled,
     for (let i = 1; i <= 14; i++) {
       const date = new Date(now);
       date.setDate(now.getDate() + i);
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
       days.push({
-        date: date.toISOString().split('T')[0],
+        date: `${yyyy}-${mm}-${dd}`,
         dayOfWeek: date.getDay(),
-        label: date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+        label: date.toLocaleDateString('es-MX', { weekday: 'short', month: 'short', day: 'numeric' }),
       });
     }
     return days;
@@ -67,7 +78,7 @@ export function CoachScheduleModal({ visible, coachId, athleteName, onScheduled,
 
   const upcomingDays = getUpcomingDays();
   const slotsForDay = selectedDate
-    ? availability.filter(s => s.dayOfWeek === new Date(selectedDate).getDay())
+    ? availability.filter(s => s.dayOfWeek === new Date(`${selectedDate}T12:00:00`).getDay())
     : [];
 
   const handleSchedule = async () => {
@@ -78,19 +89,30 @@ export function CoachScheduleModal({ visible, coachId, athleteName, onScheduled,
 
     setLoading(true);
     try {
-      await createAppointment({
+      const created = await createAppointment({
         date: selectedDate,
         startTime: selectedSlot.startTime,
         endTime: selectedSlot.endTime,
         notes: `${t.notesPrefix}${athleteName}`,
+        title: 'Meet de Onboarding & Explicación de Rutina',
+        coachId: resolvedCoachId || coachId || undefined,
       });
-      Alert.alert(t.bookedTitle, t.bookedBody, [
-        { text: 'OK', onPress: onScheduled },
-      ]);
+      setBookedAppointment(created);
     } catch {
       Alert.alert(t.errorTitle, t.scheduleFailed);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleJoinMeet = async () => {
+    const roomId = bookedAppointment?.meet_room_id;
+    if (!roomId) return;
+    const meetUrl = `${resolveWebBaseUrl()}/meet/${encodeURIComponent(roomId)}?role=athlete`;
+    try {
+      await WebBrowser.openBrowserAsync(meetUrl);
+    } catch {
+      await Linking.openURL(meetUrl);
     }
   };
 
@@ -105,79 +127,122 @@ export function CoachScheduleModal({ visible, coachId, athleteName, onScheduled,
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.subtitle}>
-            {t.subtitle}
-          </Text>
-
-          {fetching ? (
-            <View style={styles.loadingCard}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>{t.loadingText}</Text>
-            </View>
-          ) : availability.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <View style={styles.emptyIconWrap}>
-                <CalendarIcon size={32} color={colors.textSecondary} />
+          {bookedAppointment ? (
+            <View style={styles.confirmCard}>
+              <View style={styles.confirmIconWrap}>
+                <View style={styles.confirmBadge}>
+                  <Text style={styles.confirmBadgeText}>✓</Text>
+                </View>
               </View>
-              <Text style={styles.emptyTitle}>{t.emptyTitle}</Text>
-              <Text style={styles.emptyText}>{t.emptyText}</Text>
-              <Pressable style={styles.laterBtn} onPress={onScheduled} accessibilityRole="button">
-                <Text style={styles.laterBtnText}>{t.startTraining}</Text>
+              <Text style={styles.confirmTitle}>¡Meet P2P Confirmado!</Text>
+              <Text style={styles.confirmSubtitle}>
+                Tu coach {resolvedCoachName ? `(${resolvedCoachName}) ` : ''}recibió la notificación y ya tienes tu sala interna asignada para explicar tu rutina.
+              </Text>
+              <View style={styles.confirmDetails}>
+                <Text style={styles.confirmDetailRow}>
+                  📅 Fecha: {bookedAppointment.start_time.slice(0, 10)}
+                </Text>
+                <Text style={styles.confirmDetailRow}>
+                  ⏰ Horario: {bookedAppointment.start_time.slice(11, 16)} — {bookedAppointment.end_time.slice(11, 16)}
+                </Text>
+                {bookedAppointment.meet_room_id ? (
+                  <Text style={styles.confirmDetailRow}>
+                    🎥 Sala P2P: {bookedAppointment.meet_room_id}
+                  </Text>
+                ) : null}
+              </View>
+              {bookedAppointment.meet_room_id ? (
+                <Pressable style={styles.scheduleBtn} onPress={handleJoinMeet}>
+                  <Text style={styles.scheduleBtnText}>Abrir Sala Meet P2P</Text>
+                </Pressable>
+              ) : null}
+              <Pressable style={styles.secondaryBtn} onPress={onScheduled}>
+                <Text style={styles.secondaryBtnText}>Continuar a mi entrenamiento</Text>
               </Pressable>
             </View>
           ) : (
             <>
-              <Text style={styles.sectionTitle}>{t.pickDay}</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.daysScroll}>
-                {upcomingDays.map((day) => {
-                  const hasSlots = availability.some(s => s.dayOfWeek === day.dayOfWeek);
-                  const isSelected = selectedDate === day.date;
-                  return (
-                    <Pressable
-                      key={day.date}
-                      style={[styles.dayChip, isSelected && styles.dayChipActive, !hasSlots && styles.dayChipDisabled]}
-                      onPress={() => hasSlots && setSelectedDate(day.date)}
-                      disabled={!hasSlots}
-                    >
-                      <Text style={[styles.dayLabel, isSelected && styles.dayLabelActive]}>{day.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+              <Text style={styles.subtitle}>
+                {resolvedCoachName ? `${resolvedCoachName} · ` : ''}
+                {t.subtitle}
+              </Text>
 
-              {selectedDate && (
+              {fetching ? (
+                <View style={styles.loadingCard}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={styles.loadingText}>{t.loadingText}</Text>
+                </View>
+              ) : availability.length === 0 ? (
+                <View style={styles.emptyCard}>
+                  <View style={styles.emptyIconWrap}>
+                    <CalendarIcon size={32} color={colors.textSecondary} />
+                  </View>
+                  <Text style={styles.emptyTitle}>{t.emptyTitle}</Text>
+                  <Text style={styles.emptyText}>{t.emptyText}</Text>
+                  <Pressable style={styles.laterBtn} onPress={onScheduled} accessibilityRole="button">
+                    <Text style={styles.laterBtnText}>{t.startTraining}</Text>
+                  </Pressable>
+                </View>
+              ) : (
                 <>
-                  <Text style={styles.sectionTitle}>{t.pickTime}</Text>
-                  {slotsForDay.length === 0 ? (
-                    <Text style={styles.noSlots}>{t.noSlots}</Text>
-                  ) : (
-                    <View style={styles.slotsGrid}>
-                      {slotsForDay.map((slot) => (
+                  <Text style={styles.sectionTitle}>{t.pickDay}</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.daysScroll}>
+                    {upcomingDays.map((day) => {
+                      const hasSlots = availability.some(s => s.dayOfWeek === day.dayOfWeek);
+                      const isSelected = selectedDate === day.date;
+                      return (
                         <Pressable
-                          key={slot.id}
-                          style={[styles.slotChip, selectedSlot?.id === slot.id && styles.slotChipActive]}
-                          onPress={() => setSelectedSlot(slot)}
+                          key={day.date}
+                          style={[styles.dayChip, isSelected && styles.dayChipActive, !hasSlots && styles.dayChipDisabled]}
+                          onPress={() => {
+                            if (hasSlots) {
+                              setSelectedDate(day.date);
+                              setSelectedSlot(null);
+                            }
+                          }}
+                          disabled={!hasSlots}
                         >
-                          <Text style={[styles.slotTime, selectedSlot?.id === slot.id && styles.slotTimeActive]}>
-                            {slot.startTime}
-                          </Text>
+                          <Text style={[styles.dayLabel, isSelected && styles.dayLabelActive]}>{day.label}</Text>
                         </Pressable>
-                      ))}
-                    </View>
+                      );
+                    })}
+                  </ScrollView>
+
+                  {selectedDate && (
+                    <>
+                      <Text style={styles.sectionTitle}>{t.pickTime}</Text>
+                      {slotsForDay.length === 0 ? (
+                        <Text style={styles.noSlots}>{t.noSlots}</Text>
+                      ) : (
+                        <View style={styles.slotsGrid}>
+                          {slotsForDay.map((slot) => (
+                            <Pressable
+                              key={slot.id}
+                              style={[styles.slotChip, selectedSlot?.id === slot.id && styles.slotChipActive]}
+                              onPress={() => setSelectedSlot(slot)}
+                            >
+                              <Text style={[styles.slotTime, selectedSlot?.id === slot.id && styles.slotTimeActive]}>
+                                {slot.startTime} — {slot.endTime}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      )}
+                    </>
+                  )}
+
+                  {selectedSlot && selectedDate && (
+                    <Pressable
+                      style={[styles.scheduleBtn, loading && styles.scheduleBtnDisabled]}
+                      onPress={handleSchedule}
+                      disabled={loading}
+                    >
+                      <Text style={styles.scheduleBtnText}>
+                        {loading ? t.bookingLoading : t.bookButton}
+                      </Text>
+                    </Pressable>
                   )}
                 </>
-              )}
-
-              {selectedSlot && selectedDate && (
-                <Pressable
-                  style={[styles.scheduleBtn, loading && styles.scheduleBtnDisabled]}
-                  onPress={handleSchedule}
-                  disabled={loading}
-                >
-                  <Text style={styles.scheduleBtnText}>
-                    {loading ? t.bookingLoading : t.bookButton}
-                  </Text>
-                </Pressable>
               )}
             </>
           )}
@@ -207,9 +272,19 @@ const styles = StyleSheet.create({
   slotTime: { ...typography.bodyStrong, color: colors.text },
   slotTimeActive: { color: colors.primary },
   noSlots: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.lg },
-  scheduleBtn: { backgroundColor: colors.primary, height: 52, borderRadius: radius.md, justifyContent: 'center', alignItems: 'center', marginTop: spacing.sm },
+  scheduleBtn: { backgroundColor: colors.primary, height: 52, borderRadius: radius.md, justifyContent: 'center', alignItems: 'center', marginTop: spacing.sm, width: '100%' },
   scheduleBtnDisabled: { opacity: 0.5 },
   scheduleBtnText: { ...typography.bodyStrong, fontSize: typography.body.fontSize, color: colors.base },
+  secondaryBtn: { marginTop: spacing.sm, height: 48, borderRadius: radius.md, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.border, width: '100%' },
+  secondaryBtnText: { ...typography.bodyStrong, color: colors.text },
+  confirmCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+  confirmIconWrap: { marginBottom: spacing.sm },
+  confirmBadge: { width: 52, height: 52, borderRadius: 26, backgroundColor: `${colors.success}22`, borderWidth: 2, borderColor: colors.success, justifyContent: 'center', alignItems: 'center' },
+  confirmBadgeText: { fontSize: 24, fontWeight: '700', color: colors.success },
+  confirmTitle: { ...typography.h3, color: colors.text, textAlign: 'center', marginBottom: spacing.xs },
+  confirmSubtitle: { ...typography.body, color: colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: spacing.md },
+  confirmDetails: { width: '100%', backgroundColor: colors.surfaceRaised, borderRadius: radius.md, padding: spacing.md, gap: spacing.xs, marginBottom: spacing.md },
+  confirmDetailRow: { ...typography.body, color: colors.text },
   loadingCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
   loadingText: { ...typography.body, color: colors.textSecondary, marginTop: spacing.sm },
   emptyCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, alignItems: 'center', borderWidth: 1, borderColor: colors.border },

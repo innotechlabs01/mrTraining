@@ -17,17 +17,19 @@ function statusKey(eventId: string) {
 const inputClass =
   'w-full bg-surface-1 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:border-brand-primary';
 
-export function EventRsvp({ event }: { event: CoachEvent }) {
+export function EventRsvp({ event, isFull = false }: { event: CoachEvent; isFull?: boolean }) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [category, setCategory] = useState('');
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const customFields = event.formFields ?? [];
+  const raceCategories = event.running?.categories ?? [];
 
   useEffect(() => {
     const token = localStorage.getItem(tokenKey(event.id));
@@ -56,6 +58,7 @@ export function EventRsvp({ event }: { event: CoachEvent }) {
         name: name.trim() || undefined,
         email: email.trim() || undefined,
         phone: phone.trim() || undefined,
+        category: category || undefined,
         answers: payloadAnswers,
       });
       localStorage.setItem(tokenKey(event.id), res.token);
@@ -107,6 +110,13 @@ export function EventRsvp({ event }: { event: CoachEvent }) {
   }
 
   if (!showForm) {
+    if (isFull) {
+      return (
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-300 text-center">
+          Cupo completo. Ya no hay lugares disponibles para este evento.
+        </div>
+      );
+    }
     return (
       <button
         onClick={() => setShowForm(true)}
@@ -118,6 +128,7 @@ export function EventRsvp({ event }: { event: CoachEvent }) {
   }
 
   const requiredPending = missingRequired(customFields);
+  const categoryMissing = raceCategories.length > 0 && !category;
 
   return (
     <div className="rounded-xl border border-white/10 bg-surface-2 p-4 space-y-3">
@@ -149,10 +160,37 @@ export function EventRsvp({ event }: { event: CoachEvent }) {
           id="rsvp-phone"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          placeholder="+54 11 0000 0000"
+          placeholder="+57 300 000 0000"
           className={inputClass}
         />
       </div>
+
+      {raceCategories.length > 0 && (
+        <div>
+          <label className="block text-xs font-medium text-white/50 mb-1.5">
+            Categoría / Distancia <span className="text-red-400">*</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {raceCategories.map((cat) => {
+              const selected = category === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCategory(selected ? '' : cat)}
+                  className={
+                    selected
+                      ? 'px-3 py-1.5 rounded-full text-xs font-medium bg-amber-500 text-black'
+                      : 'px-3 py-1.5 rounded-full text-xs font-medium bg-surface-1 border border-white/10 text-white/70 hover:border-white/25'
+                  }
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {customFields.map((f) => (
         <div key={f.id}>
@@ -222,7 +260,7 @@ export function EventRsvp({ event }: { event: CoachEvent }) {
       <div className="flex gap-2">
         <button
           onClick={() => submit('accepted')}
-          disabled={submitting || name.trim() === '' || requiredPending.length > 0}
+          disabled={submitting || name.trim() === '' || requiredPending.length > 0 || categoryMissing}
           className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-brand-primary text-white text-sm font-medium hover:bg-brand-primary-hover transition-colors disabled:opacity-50"
         >
           {submitting && <Loader2 className="w-4 h-4 animate-spin" />}

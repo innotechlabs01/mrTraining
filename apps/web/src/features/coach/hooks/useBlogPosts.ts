@@ -43,6 +43,22 @@ function mapArticle(a: GoArticle): BlogPost {
   }
 }
 
+function unwrapList(res: unknown): GoArticle[] {
+  if (Array.isArray(res)) return res as GoArticle[]
+  const wrapped = res as { data?: GoArticle[] | { items?: GoArticle[]; articles?: GoArticle[] } } | null
+  if (!wrapped?.data) return []
+  if (Array.isArray(wrapped.data)) return wrapped.data
+  return wrapped.data.articles ?? wrapped.data.items ?? []
+}
+
+function unwrapOne(res: unknown): GoArticle {
+  const wrapped = res as { data?: GoArticle } | GoArticle
+  if (wrapped && typeof wrapped === 'object' && 'data' in wrapped && wrapped.data) {
+    return wrapped.data
+  }
+  return wrapped as GoArticle
+}
+
 export function useBlogPosts() {
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -50,9 +66,9 @@ export function useBlogPosts() {
 
   const loadPosts = useCallback(() => {
     setIsLoading(true)
-    goClient.get<GoArticle[]>('/api/v1/coach/blog')
-      .then(data => {
-        const list = Array.isArray(data) ? data : []
+    goClient.get<GoArticle[] | { data?: GoArticle[] }>('/api/v1/coach/blog')
+      .then(res => {
+        const list = unwrapList(res)
         setPosts(list.map(mapArticle))
       })
       .catch(() => {})
@@ -64,7 +80,7 @@ export function useBlogPosts() {
   }, [loadPosts])
 
   const addPost = useCallback(async (data: Omit<BlogPost, 'id' | 'createdAt'>) => {
-    const created = await goClient.post<GoArticle>('/api/v1/blog', {
+    const res = await goClient.post<GoArticle | { data?: GoArticle }>('/api/v1/blog', {
       title: data.title,
       slug: data.slug,
       excerpt: data.excerpt,
@@ -76,14 +92,14 @@ export function useBlogPosts() {
       published_at: data.publishedAt,
       read_time_minutes: data.readTimeMinutes,
     })
-    setPosts(prev => [mapArticle(created), ...prev])
+    setPosts(prev => [mapArticle(unwrapOne(res)), ...prev])
   }, [])
 
   const updatePost = useCallback(async (id: string, patch: Partial<BlogPost>) => {
     const current = posts.find(p => p.id === id)
     if (!current) return
     const merged: BlogPost = { ...current, ...patch }
-    const updated = await goClient.put<GoArticle>(`/api/v1/blog/${id}`, {
+    const res = await goClient.put<GoArticle | { data?: GoArticle }>(`/api/v1/blog/${id}`, {
       title: merged.title,
       slug: merged.slug,
       excerpt: merged.excerpt,
@@ -95,7 +111,7 @@ export function useBlogPosts() {
       published_at: merged.publishedAt,
       read_time_minutes: merged.readTimeMinutes,
     })
-    setPosts(prev => prev.map(p => p.id === id ? mapArticle(updated) : p))
+    setPosts(prev => prev.map(p => p.id === id ? mapArticle(unwrapOne(res)) : p))
   }, [posts])
 
   const removePost = useCallback(async (id: string) => {

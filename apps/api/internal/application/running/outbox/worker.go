@@ -216,21 +216,19 @@ func (w *Worker) processBatch(ctx context.Context) error {
 
 		newAttempts := it.Attempts + 1
 		if newAttempts >= maxAttempts {
-			_, err = w.db.ExecContext(ctx, `
+			if err := w.updateStatusInTx(ctx, `
 				UPDATE outbox SET status = 'dead', published_at = COALESCE(published_at, NOW()), locked_by = NULL, locked_until = NULL, attempts = $1, last_error = $2
 				WHERE id = $3
-			`, newAttempts, "max attempts reached", it.ID)
-			if err != nil {
+			`, newAttempts, "max attempts reached", it.ID); err != nil {
 				w.logger.Error("failed to mark dead", zap.Error(err), zap.String("id", it.ID))
 			}
 			continue
 		}
 
-		_, err = w.db.ExecContext(ctx, `
+		if err := w.updateStatusInTx(ctx, `
 			UPDATE outbox SET status = 'published', published_at = NOW(), locked_by = NULL, locked_until = NULL, attempts = $1
 			WHERE id = $2
-		`, newAttempts, it.ID)
-		if err != nil {
+		`, newAttempts, it.ID); err != nil {
 			w.logger.Error("failed to mark published", zap.Error(err), zap.String("id", it.ID))
 			// try to requeue
 			backoff := time.Duration(1<<uint(newAttempts)) * time.Second
@@ -238,12 +236,28 @@ func (w *Worker) processBatch(ctx context.Context) error {
 				backoff = 300 * time.Second
 			}
 			jitter := time.Duration(rand.Intn(1000)) * time.Millisecond
-			_, _ = w.db.ExecContext(ctx, `
-				UPDATE outbox SET status = 'pending', locked_by = NULL, locked_until = NULL, attempts = $1, next_retry_at = NOW() + $2 + $3, last_error = $4
-				WHERE id = $5
-			`, newAttempts, backoff, jitter, err.Error(), it.ID)
+			nextRetry := time.Now().UTC().Add(backoff + jitter)
+			_ = w.updateStatusInTx(ctx, `
+				UPDATE outbox SET status = 'pending', locked_by = NULL, locked_until = NULL, attempts = $1, next_retry_at = $2, last_error = $3
+				WHERE id = $4
+			`, newAttempts, nextRetry, err.Error(), it.ID)
 		}
 	}
 
 	return nil
+}
+
+func (w *Worker) updateStatusInTx(ctx context.Context, query string, args ...interface{}) error {
+	tx, err := w.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, "SELECT set_config('app.internal_execution_context', 'system_worker', true)"); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

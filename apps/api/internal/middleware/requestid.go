@@ -3,34 +3,37 @@ package middleware
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+
+	"github.com/innotechlabs01/mr-training-api/pkg/telemetry"
 )
 
 const (
 	// RequestIDHeader is the header name used for request identification.
 	RequestIDHeader = "X-Request-ID"
+	// CorrelationIDHeader is the distributed correlation header propagated into NATS events.
+	CorrelationIDHeader = "X-Correlation-ID"
 	// RequestIDKey is the key used to store the request ID in Fiber locals.
 	RequestIDKey = "request_id"
 )
 
-// RequestID returns a Fiber middleware that ensures every request has a unique
-// identifier. If the client provides an X-Request-ID header, it is used as-is.
-// Otherwise, a new UUID v4 is generated. The request ID is added to the response
-// headers and stored in Fiber context locals for downstream use.
+// RequestID ensures every request has a unique correlation/request identifier,
+// stores it in Fiber locals, propagates it into UserContext via pkg/telemetry,
+// and echoes it back on X-Request-ID and X-Correlation-ID headers.
 func RequestID() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		// Check if client provided a request ID
-		reqID := c.Get(RequestIDHeader)
-
-		// Generate one if not provided
+		reqID := c.Get(CorrelationIDHeader)
+		if reqID == "" {
+			reqID = c.Get(RequestIDHeader)
+		}
 		if reqID == "" {
 			reqID = uuid.New().String()
 		}
 
-		// Store in context locals for logging and error responses
 		c.Locals(RequestIDKey, reqID)
+		c.SetUserContext(telemetry.WithCorrelationID(c.UserContext(), reqID))
 
-		// Add to response header
 		c.Set(RequestIDHeader, reqID)
+		c.Set(CorrelationIDHeader, reqID)
 
 		return c.Next()
 	}

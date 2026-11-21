@@ -46,7 +46,32 @@ function verdictForQuality(quality: RepQuality): { label: string; color: string 
   return null;
 }
 
-export function AiWorkoutScreen({ route }: { route: { params: AiWorkoutParams } }): React.JSX.Element {
+function positionStatusBadge(status: 'POSITION_INVALID' | 'POSITION_ADJUSTING' | 'POSITION_VALID', hint: string | null) {
+  if (status === 'POSITION_VALID') {
+    return {
+      label: 'Postura y distancia óptimas (Listo)',
+      color: colors.success,
+    };
+  }
+  if (status === 'POSITION_ADJUSTING') {
+    return {
+      label: hint ?? 'Ajustando distancia y postura (Medio)…',
+      color: colors.warning,
+    };
+  }
+  return {
+    label: hint ?? 'Postura o distancia inadecuada — entra en el recuadro',
+    color: colors.error,
+  };
+}
+
+export function AiWorkoutScreen({
+  route,
+  navigation,
+}: {
+  route: { params: AiWorkoutParams };
+  navigation?: { goBack: () => void };
+}): React.JSX.Element {
   const { exerciseId, target, exerciseDbId } = route.params;
   const device = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -55,6 +80,7 @@ export function AiWorkoutScreen({ route }: { route: { params: AiWorkoutParams } 
   const aiOptions = useMemo(() => (exerciseDbId ? { executionExerciseId: exerciseDbId } : {}), [exerciseDbId]);
   const ai = useAiWorkout(exerciseId, target, runtimeRef.current, aiOptions);
   const verdict = ai.quality ? verdictForQuality(ai.quality) : null;
+  const posBadge = positionStatusBadge(ai.status, ai.hint);
 
   useEffect(() => {
     if (!hasPermission) void requestPermission();
@@ -104,25 +130,41 @@ export function AiWorkoutScreen({ route }: { route: { params: AiWorkoutParams } 
         <Text style={styles.repCounter}>
           {ai.repCount} / {ai.target}
         </Text>
-        {ai.hint ? <Text style={styles.hint}>{ai.hint}</Text> : null}
+        <View style={[styles.verdictChip, { borderColor: posBadge.color }]}>
+          <Text style={[styles.verdictLabel, { color: posBadge.color }]}>{posBadge.label}</Text>
+        </View>
         {verdict ? (
           <View
             style={[styles.verdictChip, { borderColor: verdict.color }]}
             accessibilityRole="text"
             accessibilityLabel={`${texts.screens.aiWorkout.formScoreLabel}: ${verdict.label}`}
           >
-            <Text style={[styles.verdictLabel, { color: verdict.color }]}>{verdict.label}</Text>
+            <Text style={[styles.verdictLabel, { color: verdict.color }]}>
+              {texts.screens.aiWorkout.formScoreLabel}: {verdict.label}
+            </Text>
           </View>
         ) : null}
       </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={counting ? 'Stop counting' : 'Start counting'}
-        onPress={onPress}
-        style={styles.cta}
-      >
-        <Text style={styles.ctaText}>{counting ? 'Detener' : 'Empezar'}</Text>
-      </Pressable>
+      <View style={styles.bottomActions}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={counting ? 'Stop counting' : 'Start counting'}
+          onPress={onPress}
+          style={styles.cta}
+        >
+          <Text style={styles.ctaText}>{counting ? 'Detener' : 'Empezar'}</Text>
+        </Pressable>
+        {(ai.sessionCompleted || ai.repCount > 0) && navigation?.goBack ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Volver al entrenamiento"
+            onPress={() => navigation.goBack()}
+            style={[styles.cta, styles.secondaryCta]}
+          >
+            <Text style={styles.ctaText}>Guardar y volver</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </SafeAreaView>
   );
 }
@@ -150,16 +192,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   verdictLabel: { ...typography.label },
-  cta: {
+  bottomActions: {
     position: 'absolute',
     bottom: spacing.xl,
     alignSelf: 'center',
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  cta: {
     minHeight: 44,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderRadius: radius.full ?? radius.lg,
     backgroundColor: colors.primary,
     justifyContent: 'center',
+  },
+  secondaryCta: {
+    backgroundColor: colors.success,
   },
   ctaText: { color: colors.onPrimary, ...typography.label },
 });

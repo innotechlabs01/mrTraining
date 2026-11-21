@@ -129,6 +129,60 @@ func NewSubscription(id, athleteID, coachID, planID, planName string, planPrice 
 	return s, nil
 }
 
+// NewTrialSubscription creates a new subscription in trial status with a duration
+// of trialDays (default 7 days).
+func NewTrialSubscription(id, subscriberID, coachID, planID, planName string, trialDays int) (*Subscription, error) {
+	if subscriberID == "" {
+		return nil, fmt.Errorf("subscriber_id is required")
+	}
+	if coachID == "" {
+		coachID = subscriberID
+	}
+	if planID == "" {
+		planID = "plan-seed-starter"
+		planName = "Plan Starter (Prueba 7 días)"
+	}
+	if trialDays <= 0 {
+		trialDays = 7
+	}
+
+	now := time.Now().UTC()
+	periodEnd := now.AddDate(0, 0, trialDays)
+	paymentDue := periodEnd.AddDate(0, 0, 5)
+
+	s := &Subscription{
+		ID:                 id,
+		AthleteID:          subscriberID,
+		CoachID:            coachID,
+		PlanID:             planID,
+		PlanName:           planName,
+		PlanPrice:          0,
+		Currency:           "COP",
+		BillingPeriod:      "monthly",
+		Status:             StatusTrial,
+		CancelAtPeriodEnd:  false,
+		CurrentPeriodStart: now,
+		CurrentPeriodEnd:   periodEnd,
+		GracePeriodDays:    5,
+		PaymentDueDate:     paymentDue,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}
+
+	s.raiseEvent(SubscriptionCreatedEvent{
+		EventID:       newEventID(),
+		aggregateID:   s.ID,
+		AthleteID:     s.AthleteID,
+		CoachID:       s.CoachID,
+		PlanID:        s.PlanID,
+		PlanPrice:     0,
+		Currency:      s.Currency,
+		BillingPeriod: s.BillingPeriod,
+		occurredAt:    now,
+	})
+	return s, nil
+}
+
 // Cancel marks the subscription to cancel at the end of the current period.
 // It is idempotent: cancelling when already marked to cancel at period end
 // returns ErrAlreadyCancelled.

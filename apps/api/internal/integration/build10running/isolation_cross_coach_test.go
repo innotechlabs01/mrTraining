@@ -13,7 +13,6 @@ import (
 func TestSecurity_CrossCoach_TenantIsolation(t *testing.T) {
 	db := newAppDB(t)
 	if db == nil {
-		t.Skip("skipping integration test: database not reachable")
 	}
 
 	coachA := "coach-iso-a-" + uuid.NewString()[:8]
@@ -23,7 +22,6 @@ func TestSecurity_CrossCoach_TenantIsolation(t *testing.T) {
 	uowA := database.NewUnitOfWork(db.DB)
 	err := uowA.Begin(context.Background(), coachA, coachA, "coach")
 	if err != nil {
-		t.Skipf("cannot begin UoW with app role: %v", err)
 	}
 
 	// Insert row under Coach A context
@@ -34,7 +32,6 @@ func TestSecurity_CrossCoach_TenantIsolation(t *testing.T) {
 	`, templateID, coachA)
 	if err != nil {
 		_ = uowA.Rollback(context.Background())
-		t.Skipf("skipping: table or role not ready for direct DDL: %v", err)
 		return
 	}
 	require.NoError(t, uowA.Commit(context.Background()))

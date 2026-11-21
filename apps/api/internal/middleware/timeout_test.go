@@ -42,7 +42,7 @@ func TestTimeout_FastRequest(t *testing.T) {
 	}
 }
 
-// TestTimeout_SlowRequest verifies requests exceeding the timeout get 508.
+// TestTimeout_SlowRequest verifies requests exceeding the timeout get 504.
 func TestTimeout_SlowRequest(t *testing.T) {
 	app := setupTimeoutTestApp(1, 2*time.Second)
 
@@ -54,7 +54,26 @@ func TestTimeout_SlowRequest(t *testing.T) {
 		t.Fatalf("failed to execute request: %v", err)
 	}
 
-	if resp.StatusCode != fiber.StatusLoopDetected {
-		t.Errorf("expected 508, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusGatewayTimeout {
+		t.Errorf("expected 504, got %d", resp.StatusCode)
+	}
+}
+
+func TestRequestContext_ReturnsTimeoutContext(t *testing.T) {
+	app := fiber.New()
+	app.Use(middleware.Timeout(2))
+	app.Get("/ctx", func(c *fiber.Ctx) error {
+		ctx := middleware.RequestContext(c)
+		if _, ok := ctx.Deadline(); !ok {
+			t.Fatalf("expected deadline on RequestContext")
+		}
+		return c.SendStatus(fiber.StatusOK)
+	})
+	resp, err := app.Test(httptest.NewRequest("GET", "/ctx", nil))
+	if err != nil {
+		t.Fatalf("failed request: %v", err)
+	}
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
 }

@@ -6,31 +6,34 @@ package main
 import (
 	"context"
 	"database/sql"
+	"os"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 
-	analyticsapp "github.com/innotechlabs01/mr-training-api/internal/application/analytics"
-	checkoutapp "github.com/innotechlabs01/mr-training-api/internal/application/checkout"
-	athleteapp "github.com/innotechlabs01/mr-training-api/internal/application/athlete"
+	alertapp "github.com/innotechlabs01/mr-training-api/internal/application/alert"
 	allyapp "github.com/innotechlabs01/mr-training-api/internal/application/ally"
 	allycatalogapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_catalog"
 	allyopsapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_operations"
 	allypaymentdeclarationapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_payment_declaration"
 	allypurchaseapp "github.com/innotechlabs01/mr-training-api/internal/application/ally_purchase"
+	analyticsapp "github.com/innotechlabs01/mr-training-api/internal/application/analytics"
+	athleteapp "github.com/innotechlabs01/mr-training-api/internal/application/athlete"
 	blogapp "github.com/innotechlabs01/mr-training-api/internal/application/blog"
 	challengeapp "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
 	checkinapp "github.com/innotechlabs01/mr-training-api/internal/application/checkin"
+	checkoutapp "github.com/innotechlabs01/mr-training-api/internal/application/checkout"
 	coachapp "github.com/innotechlabs01/mr-training-api/internal/application/coach"
+	coachlandingapp "github.com/innotechlabs01/mr-training-api/internal/application/coach_landing"
 	coachsetapp "github.com/innotechlabs01/mr-training-api/internal/application/coach_settlement"
 	coachfeedapp "github.com/innotechlabs01/mr-training-api/internal/application/coachfeed"
-	coachlandingapp "github.com/innotechlabs01/mr-training-api/internal/application/coach_landing"
-	crmapp "github.com/innotechlabs01/mr-training-api/internal/application/crm"
 	commissionapp "github.com/innotechlabs01/mr-training-api/internal/application/commission"
 	commissionentryapp "github.com/innotechlabs01/mr-training-api/internal/application/commission_entry"
 	communityapp "github.com/innotechlabs01/mr-training-api/internal/application/community"
-	errorapp "github.com/innotechlabs01/mr-training-api/internal/application/error_tracking"
+	crmapp "github.com/innotechlabs01/mr-training-api/internal/application/crm"
 	earningsapp "github.com/innotechlabs01/mr-training-api/internal/application/earnings"
+	errorapp "github.com/innotechlabs01/mr-training-api/internal/application/error_tracking"
 	eventapp "github.com/innotechlabs01/mr-training-api/internal/application/event"
 	favoriteapp "github.com/innotechlabs01/mr-training-api/internal/application/favorite"
 	formmetricsapp "github.com/innotechlabs01/mr-training-api/internal/application/formmetrics"
@@ -44,46 +47,47 @@ import (
 	membershipapp "github.com/innotechlabs01/mr-training-api/internal/application/membership"
 	messageapp "github.com/innotechlabs01/mr-training-api/internal/application/message"
 	notificationapp "github.com/innotechlabs01/mr-training-api/internal/application/notification"
+	nutritionapp "github.com/innotechlabs01/mr-training-api/internal/application/nutrition"
 	onboardingapp "github.com/innotechlabs01/mr-training-api/internal/application/onboarding"
 	paymentledgersvc "github.com/innotechlabs01/mr-training-api/internal/application/payment_ledger"
 	planapp "github.com/innotechlabs01/mr-training-api/internal/application/plan"
 	productapp "github.com/innotechlabs01/mr-training-api/internal/application/product"
-	testimonialapp "github.com/innotechlabs01/mr-training-api/internal/application/testimonial"
 	routineapp "github.com/innotechlabs01/mr-training-api/internal/application/routine"
 	runningapp "github.com/innotechlabs01/mr-training-api/internal/application/running"
 	storeapp "github.com/innotechlabs01/mr-training-api/internal/application/store"
 	subscriptionapp "github.com/innotechlabs01/mr-training-api/internal/application/subscription"
 	supportapp "github.com/innotechlabs01/mr-training-api/internal/application/support"
+	testimonialapp "github.com/innotechlabs01/mr-training-api/internal/application/testimonial"
 	todayapp "github.com/innotechlabs01/mr-training-api/internal/application/today"
 	trainingapp "github.com/innotechlabs01/mr-training-api/internal/application/training"
 	trainingaiapp "github.com/innotechlabs01/mr-training-api/internal/application/trainingai"
 	trmapp "github.com/innotechlabs01/mr-training-api/internal/application/trm"
 	userapp "github.com/innotechlabs01/mr-training-api/internal/application/user"
 	vaapp "github.com/innotechlabs01/mr-training-api/internal/application/videoanalytics"
-	wompiavailapp "github.com/innotechlabs01/mr-training-api/internal/application/wompiavailability"
 	videoviewapp "github.com/innotechlabs01/mr-training-api/internal/application/videoview"
+	wompiavailapp "github.com/innotechlabs01/mr-training-api/internal/application/wompiavailability"
 	"github.com/innotechlabs01/mr-training-api/internal/config"
-	alertapp "github.com/innotechlabs01/mr-training-api/internal/application/alert"
+	healthdomain "github.com/innotechlabs01/mr-training-api/internal/domain/health"
 	alertinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/alert"
 	allyinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally"
 	allycataloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_catalog"
 	allyopsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_operations"
 	allypaymentdeclarationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/ally_payment_declaration"
+	analyticsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/analytics"
 	athleteinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/athlete"
 	auditinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/audit"
-	analyticsinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/analytics"
 	bloginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/blog"
-	checkoutinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/checkout"
 	challengeinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/challenge"
 	checkininfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/checkin"
+	checkoutinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/checkout"
 	coachinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach"
+	coachlandinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach_landing"
 	coachsetinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach_settlement"
 	coachfeedinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coachfeed"
 	commissioninfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission"
 	commissionentryinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/commission_entry"
-	coachlandinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/coach_landing"
-	crminfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/crm"
 	communityinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/community"
+	crminfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/crm"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	errorinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/error_tracking"
 	eventinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/event"
@@ -98,10 +102,10 @@ import (
 	leaderboardinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/leaderboard"
 	membershipinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/membership"
 	messageinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/message"
+	nutritioninfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/nutrition"
 	notificationinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/notification"
 	onboardinginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/onboarding"
 	paymentledgerinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/payment_ledger"
-	testimonialinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/testimonial"
 	planinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/plan"
 	productinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/product"
 	routineinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/routine"
@@ -110,6 +114,7 @@ import (
 	subscriptioninfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/subscription"
 	wompiinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/subscription/wompi"
 	supportinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/support"
+	testimonialinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/testimonial"
 	todayinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/today"
 	traininginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/training"
 	trainingaiinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/trainingai"
@@ -117,20 +122,80 @@ import (
 	vainfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/videoanalytics"
 	videoviewinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/videoview"
 	ws "github.com/innotechlabs01/mr-training-api/internal/infrastructure/websocket"
-	"github.com/innotechlabs01/mr-training-api/internal/jobs"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/realtime"
 	handlers "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/routes"
+	"github.com/innotechlabs01/mr-training-api/internal/jobs"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
+	"github.com/innotechlabs01/mr-training-api/internal/pkg/eventbus"
+	"github.com/innotechlabs01/mr-training-api/internal/workers"
+	firebaseinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/firebase"
+	"github.com/nats-io/nats.go"
 )
 
-// registerProtectedRoutes wires all domain services and registers API v1 routes.
-// Returns subscription and error handlers for public webhook registration.
+// RouteRuntimeDeps supplies event bus and cluster infrastructure into route wiring.
+type RouteRuntimeDeps struct {
+	Publisher eventbus.Publisher
+	NATSConn  *nats.Conn
+}
+
+// RouteWiringResult exposes hooks and worker dependencies created during route registration.
+type RouteWiringResult struct {
+	SubscriptionHandler *handlers.SubscriptionHandler
+	ErrorHandler        *handlers.ErrorHandler
+	WSHub               *ws.Hub
+	WorkerDeps          workers.WorkerDeps
+	RealtimeBridge      *realtime.Bridge
+}
+
+// registerProtectedRoutes maintains backward compatibility for direct callers.
 func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router, cfg *config.Config, db *database.DB, log *zap.Logger) (*handlers.SubscriptionHandler, *handlers.ErrorHandler) {
+	res := registerProtectedRoutesWithDeps(context.Background(), app, api, pub, cfg, db, log, RouteRuntimeDeps{})
+	return res.SubscriptionHandler, res.ErrorHandler
+}
+
+// registerProtectedRoutesWithDeps wires all domain services, event outbox hooks,
+// availability gates, realtime bridge, and routes.
+func registerProtectedRoutesWithDeps(
+	ctx context.Context,
+	app *fiber.App,
+	api fiber.Router,
+	pub fiber.Router,
+	cfg *config.Config,
+	db *database.DB,
+	log *zap.Logger,
+	runtimeDeps RouteRuntimeDeps,
+) RouteWiringResult {
+	var stdlibDB *sql.DB
+	if db != nil {
+		stdlibDB = db.DB
+	}
+	routes.RegisterCriticalIdempotencyMiddleware(api, pub, stdlibDB)
+
+	outboxStore := eventbus.NewSQLOutboxStore(stdlibDB)
+
 	// --- User domain ---
-	userRepo := userinfrastructure.NewRepository(db.DB)
+	userRepo := userinfrastructure.NewRepository(stdlibDB)
 	clerkIdentity := userinfrastructure.NewClerkClient(cfg.ClerkSecretKey)
 	userService := userapp.NewService(userRepo, clerkIdentity).WithMetadataWriter(clerkIdentity)
 	userHandler := handlers.NewUserHandler(userService)
+
+	// DB fallback for role lookup when Clerk backend API is slow or circuit is open.
+	if stdlibDB != nil {
+		middleware.SetRoleFallback(func(fbCtx context.Context, userID string) string {
+			tx, txErr := stdlibDB.BeginTx(fbCtx, &sql.TxOptions{ReadOnly: true})
+			if txErr != nil {
+				return ""
+			}
+			defer tx.Rollback()
+			_, _ = tx.ExecContext(fbCtx, `SELECT set_config('app.internal_execution_context', 'clerk_provisioning', true)`)
+			u, uerr := userRepo.WithExecutor(tx).GetByID(fbCtx, userID)
+			if uerr != nil || u == nil {
+				return ""
+			}
+			return u.Role
+		})
+	}
 
 	// Tenant resolver for multi-tenant isolation.
 	tenantResolver := userinfrastructure.NewTenantResolver(userRepo, clerkIdentity)
@@ -139,12 +204,12 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	routes.RegisterUserRoutes(api, userHandler)
 
 	// --- Training domain ---
-	trainingExerciseRepo := traininginfrastructure.NewExerciseRepository(db.DB)
-	trainingWorkoutRepo := traininginfrastructure.NewWorkoutRepository(db.DB)
-	trainingProgressRepo := traininginfrastructure.NewProgressRepository(db.DB)
-	trainingSessionRepo := traininginfrastructure.NewSessionRepository(db.DB)
+	trainingExerciseRepo := traininginfrastructure.NewExerciseRepository(stdlibDB)
+	trainingWorkoutRepo := traininginfrastructure.NewWorkoutRepository(stdlibDB)
+	trainingProgressRepo := traininginfrastructure.NewProgressRepository(stdlibDB)
+	trainingSessionRepo := traininginfrastructure.NewSessionRepository(stdlibDB)
 	trainingService := trainingapp.NewService(trainingExerciseRepo, trainingWorkoutRepo, trainingProgressRepo, trainingSessionRepo)
-	trainingHandler := handlers.NewTrainingHandler(trainingService, db.DB)
+	trainingHandler := handlers.NewTrainingHandler(trainingService, stdlibDB).WithOutbox(outboxStore)
 
 	// Gamification (needed by Membership handler for badge milestones).
 	gamificationRepo := gamificationinfrastructure.NewRepository(db.DB)
@@ -158,9 +223,12 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	// Coach domain.
 	coachRepo := coachinfrastructure.NewRepository(db.DB)
 	coachService := coachapp.NewService(coachRepo)
+	coachHandler := handlers.NewCoachHandler(coachService, stdlibDB)
+	routes.RegisterCoachSchedulingRoutes(api, coachHandler)
+	routes.RegisterCoachAthleteRoutes(api, coachHandler)
 
 	// Membership status reader.
-	statusReader := middleware.NewMembershipStatusReader(membershipService)
+	statusReader := middleware.NewMembershipStatusReader(membershipService, db.DB)
 
 	routes.RegisterTrainingRoutes(api, trainingHandler, statusReader)
 
@@ -190,34 +258,39 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 		inviteService,
 		cfg.ClerkSecretKey,
 		cfg.ClerkWebhookSecret,
-	).WithMetadataWriter(clerkIdentity)
+	).WithMetadataWriter(clerkIdentity).WithOutbox(outboxStore)
 	routes.RegisterClerkWebhookRoutes(app, clerkWebhookHandler)
 	log.Info("clerk webhook registered", zap.String("path", "/webhooks/clerk"))
 
-	// --- Plan ---
-	trmService := trmapp.NewService()
-	planRepo := planinfrastructure.NewRepository(db.DB)
+	// --- Plan & Payment Availability Gate ---
+	wompiAvailSvc := wompiavailapp.NewService()
+	wompiAvailHandler := handlers.NewWompiAvailabilityHandler(wompiAvailSvc)
+	routes.RegisterWompiAvailabilityRoutes(api, wompiAvailHandler)
+
+	trmService := trmapp.NewService(stdlibDB)
+	planRepo := planinfrastructure.NewRepository(stdlibDB)
 	planService := planapp.NewService(planRepo)
 	planHandler := handlers.NewPlanHandler(planService, trmService, inviteService, cfg.PlatformSuperAdminClerkIDs...)
 
 	// --- Subscription ---
-	subRepo := subscriptioninfra.NewRepository(db.DB)
+	subRepo := subscriptioninfra.NewRepository(stdlibDB)
 	wompiProvider := wompiinfra.NewAdapter(cfg)
-	ledgerRepo := paymentledgerinfra.NewRepository(db.DB)
+	ledgerRepo := paymentledgerinfra.NewRepository(stdlibDB)
 	ledgerSvc := paymentledgersvc.NewService(ledgerRepo)
-	commissionEntryRepo := commissionentryinfra.NewRepository(db.DB)
+	commissionEntryRepo := commissionentryinfra.NewRepository(stdlibDB)
 	subscriptionService := subscriptionapp.NewService(cfg, subRepo, wompiProvider, planRepo, ledgerSvc, commissionEntryRepo).
-		WithMetadataWriter(clerkIdentity)
-	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionService)
+		WithMetadataWriter(clerkIdentity).
+		WithAvailabilityGate(wompiAvailSvc).
+		WithDB(stdlibDB).
+		WithOutbox(outboxStore)
+	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionService).WithDB(stdlibDB)
 
 	// --- Hybrid checkout (pay before registering) ---
-	// The checkout service needs the subscription service, and the subscription
-	// service needs the checkout recorder for payments confirmed before the
-	// buyer registered. The recorder is injected afterwards: both hold
-	// pointers, so the cycle is closed before the server starts serving.
-	checkoutRepo := checkoutinfrastructure.NewRepository(db.DB)
+	checkoutRepo := checkoutinfrastructure.NewRepository(stdlibDB)
 	checkoutService := checkoutapp.NewService(cfg, checkoutRepo, wompiProvider, planRepo, userService, subscriptionService).
-		WithIdentityReader(clerkIdentity)
+		WithIdentityReader(clerkIdentity).
+		WithAvailabilityGate(wompiAvailSvc).
+		WithOutbox(outboxStore)
 	subscriptionService.WithCheckoutRecorder(checkoutService)
 	checkoutHandler := handlers.NewCheckoutHandler(checkoutService)
 	routes.RegisterMembershipRoutes(api, membershipHandler, planHandler, statusReader)
@@ -225,49 +298,62 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	routes.RegisterCoachPlatformSubscriptionRoutes(api, subscriptionHandler)
 	checkoutHandler.RegisterCheckoutRoutes(api, pub)
 
-	// --- Event ---
-	eventRepo := eventinfrastructure.NewRepository(db.DB)
+	// --- Event (protected + public share/RSVP links) ---
+	eventRepo := eventinfrastructure.NewRepository(stdlibDB)
 	eventService := eventapp.NewService(eventRepo)
 	hub := ws.NewHub()
-	eventHandler := handlers.NewEventHandler(eventService, hub, db.DB)
+	go hub.RunWithContext(ctx)
+	rtBridge := realtime.NewBridge(runtimeDeps.NATSConn, hub, runningapp.DefaultHub, log)
+	if err := rtBridge.Start(ctx); err != nil {
+		log.Warn("realtime cross-replica bridge failed to start", zap.Error(err))
+	}
+	eventHandler := handlers.NewEventHandler(eventService, hub, stdlibDB)
 	routes.RegisterEventRoutes(api, eventHandler)
+	routes.RegisterPublicEventRoutes(pub, eventHandler)
 
 	// --- Plan routes (coach CRUD + public) ---
 	routes.RegisterPlanRoutes(api, planHandler)
 	routes.RegisterPublicPlanRoutes(pub, planHandler)
 
-	// --- Product ---
-	productRepo := productinfrastructure.NewRepository(db.DB)
+	// --- Product (protected + public store) ---
+	productRepo := productinfrastructure.NewRepository(stdlibDB)
 	productService := productapp.NewService(productRepo)
 	productHandler := handlers.NewProductHandler(productService)
 	routes.RegisterProductRoutes(api, productHandler)
+	routes.RegisterPublicProductRoutes(pub, productHandler)
 
 	// --- Notification ---
-	notifRepo := notificationinfrastructure.NewRepository(db.DB)
+	notifRepo := notificationinfrastructure.NewRepository(stdlibDB)
 	pushSender := expoinfra.NewSender()
-	notifService := notificationapp.NewService(notifRepo, pushSender)
+	var fcmSender workers.FCMPushSender
+	if cfg.FirebaseProjectID != "" && cfg.FirebaseClientEmail != "" && cfg.FirebasePrivateKey != "" {
+		if fcm, ferr := firebaseinfra.NewFCMSender(cfg.FirebaseProjectID, cfg.FirebaseClientEmail, cfg.FirebasePrivateKey); ferr == nil {
+			fcmSender = fcm
+		}
+	}
+	notifService := notificationapp.NewService(notifRepo, pushSender).WithOutbox(outboxStore)
 	notifHandler := handlers.NewNotificationHandler(notifService)
 	routes.RegisterNotificationRoutes(api, notifHandler)
 
 	// --- Support ---
-	supportRepo := supportinfrastructure.NewRepository(db.DB)
-	supportService := supportapp.NewService(supportRepo, notifService)
-	supportHandler := handlers.NewSupportHandler(supportService, db.DB)
+	supportRepo := supportinfrastructure.NewRepository(stdlibDB)
+	supportService := supportapp.NewService(supportRepo, notifService).WithOutbox(outboxStore)
+	supportHandler := handlers.NewSupportHandler(supportService, stdlibDB)
 	routes.RegisterSupportRoutes(api, supportHandler)
 
 	// --- Analytics ---
-	analyticsRepo := analyticsinfrastructure.NewRepository(db.DB)
+	analyticsRepo := analyticsinfrastructure.NewRepository(stdlibDB)
 	analyticsService := analyticsapp.NewService(analyticsRepo)
-	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService, db.DB, tenantResolver)
+	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService, stdlibDB, tenantResolver)
 	routes.RegisterAnalyticsRoutes(api, analyticsHandler)
 
 	// --- Running ---
-	runningRepo := runninginfrastructure.NewRepository(db.DB)
-	runningService := runningapp.NewService(runningRepo, db.DB)
+	runningRepo := runninginfrastructure.NewRepository(stdlibDB)
+	runningService := runningapp.NewService(runningRepo, stdlibDB).WithOutbox(outboxStore)
 	runningHandler := handlers.NewRunningHandler(runningService, tenantResolver)
 	routes.RegisterRunningRoutes(api, runningHandler)
 
-	runningWorkoutHandler := handlers.NewRunningWorkoutHandler(runningService, db.DB)
+	runningWorkoutHandler := handlers.NewRunningWorkoutHandler(runningService, stdlibDB)
 	routes.RegisterRunningWorkoutRoutes(api, runningWorkoutHandler)
 
 	// --- Import activity ---
@@ -275,9 +361,13 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	importActivityHandler := handlers.NewImportActivityHandler(importActivityService)
 	routes.RegisterRunningImportRoutes(api, importActivityHandler)
 
-	// --- Garmin provider ---
-	runningTokenStore := runninginfrastructure.NewTokenStore(db.DB)
+	// --- Garmin provider & public webhook ---
+	runningTokenStore := runninginfrastructure.NewTokenStore(stdlibDB)
 	runningService.RegisterProvider(runninginfrastructure.NewGarminProvider(runningTokenStore))
+	garminWebhookHandler := handlers.NewGarminWebhookHandler(runningService, os.Getenv("GARMIN_WEBHOOK_SECRET")).
+		WithPublisher(runtimeDeps.Publisher).
+		WithOutbox(outboxStore)
+	routes.RegisterWebhookRoutes(app, garminWebhookHandler)
 
 	// --- Check-in ---
 	checkinRepo := checkininfra.NewRepository(db.DB)
@@ -288,6 +378,16 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	// --- Health ---
 	healthRepo := healthinfrastructure.NewRepository(db.DB)
 	healthService := healthapp.NewService(healthRepo)
+	runningService.SetHealthRecorder(func(ctx context.Context, athleteID, metricType string, value float64, unit, source string) error {
+		return healthService.RecordMetric(ctx, athleteID, &healthdomain.HealthMetric{
+			AthleteID:  athleteID,
+			MetricType: metricType,
+			Value:      value,
+			Unit:       unit,
+			Source:     source,
+			RecordedAt: time.Now().UTC().Format(time.RFC3339),
+		})
+	})
 	healthDataHandler := handlers.NewHealthDataHandler(healthService)
 	routes.RegisterHealthRoutes(api, healthDataHandler)
 
@@ -297,9 +397,11 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	onboardingHandler := handlers.NewOnboardingHandler(onboardingService)
 	routes.RegisterOnboardingRoutes(api, onboardingHandler)
 
-	// --- Invite routes ---
-	inviteHandler := handlers.NewInviteHandler(inviteService, userService, cfg.ClerkSecretKey)
+	// --- Invite routes (protected + public code preview) ---
+	inviteHandler := handlers.NewInviteHandler(inviteService, userService, cfg.ClerkSecretKey, stdlibDB).
+		WithClerkClient(clerkIdentity)
 	routes.RegisterInviteRoutes(api, inviteHandler)
+	routes.RegisterPublicInviteRoutes(app, inviteHandler)
 
 	// --- Favorite ---
 	favoriteRepo := favoriteinfrastructure.NewRepository(db.DB)
@@ -353,7 +455,8 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	routes.RegisterEarningsRoutes(api, earningsHandler)
 
 	// --- Ally Purchase ---
-	allyPurchaseService := allypurchaseapp.NewService(inviteRepo, allyCatalogRepo, allyRepo, allyOpsRepo, commissionEntryRepo, log)
+	allyPurchaseService := allypurchaseapp.NewService(inviteRepo, allyCatalogRepo, allyRepo, allyOpsRepo, commissionEntryRepo, log).
+		WithOutbox(outboxStore)
 	allyPurchaseHandler := handlers.NewAllyPurchaseHandler(allyPurchaseService)
 	routes.RegisterAllyPurchaseRoutes(api, allyPurchaseHandler)
 
@@ -386,10 +489,19 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	routes.RegisterTestimonialRoutes(api, testimonialHandler)
 	routes.RegisterPublicTestimonialRoutes(pub, testimonialHandler)
 
+	// --- Admin (registrado antes que CRM para que ListCoaches con búsqueda,
+	// paginación y todos los campos de plan tenga prioridad sobre /admin/coaches) ---
+	var adminDB *sql.DB
+	if db != nil {
+		adminDB = db.DB
+	}
+	adminHandler := handlers.NewAdminHandler(adminDB, clerkIdentity, trmService)
+	routes.RegisterAdminRoutes(api, adminHandler, cfg.PlatformSuperAdminClerkIDs)
+
 	// --- CRM Super Admin ---
 	crmRepo := crminfrastructure.NewRepository(db.DB)
 	crmSvc := crmapp.NewService(crmRepo)
-	crmHandler := handlers.NewCRMHandler(crmSvc)
+	crmHandler := handlers.NewCRMHandler(crmSvc, cfg.PlatformSuperAdminClerkIDs)
 	routes.RegisterCRMRoutes(api, crmHandler)
 
 	// --- Alert ---
@@ -398,11 +510,12 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	alertHandler := handlers.NewAlertHandler(alertService)
 	routes.RegisterAlertRoutes(api, alertHandler)
 
-	// --- Blog ---
+	// --- Blog (protected + public articles) ---
 	blogRepo := bloginfrastructure.NewRepository(db.DB)
 	blogService := blogapp.NewService(blogRepo)
 	blogHandler := handlers.NewBlogHandler(blogService)
 	routes.RegisterBlogRoutes(api, blogHandler)
+	routes.RegisterPublicBlogRoutes(pub, blogHandler)
 
 	// --- Import ---
 	importRepo := importinfrastructure.NewRepository(db.DB)
@@ -417,7 +530,7 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	routes.RegisterVideoViewRoutes(api, videoViewHandler)
 
 	// --- Gamification ---
-	gamificationHandler := handlers.NewGamificationHandler(gamificationService, notifService)
+	gamificationHandler := handlers.NewGamificationHandler(gamificationService, notifService).WithDB(stdlibDB)
 	routes.RegisterGamificationRoutes(api, gamificationHandler)
 
 	// --- Leaderboard ---
@@ -469,7 +582,8 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	// --- Challenge ---
 	challengeRepo := challengeinfrastructure.NewRepository(db.DB)
 	challengeService := challengeapp.NewService(challengeRepo)
-	challengeHandler := handlers.NewChallengeHandler(challengeService, hub)
+	challengeHandler := handlers.NewChallengeHandler(challengeService, hub).
+		WithGamification(gamificationService, notifService, stdlibDB)
 	routes.RegisterChallengeRoutes(api, challengeHandler)
 
 	// --- Store ---
@@ -482,10 +596,18 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	storeHandler := handlers.NewStoreHandler(storeService)
 	routes.RegisterStoreRoutes(api, storeHandler)
 
-	// --- Payment ---
-	wompiAvailSvc := wompiavailapp.NewService()
-	wompiAvailHandler := handlers.NewWompiAvailabilityHandler(wompiAvailSvc)
-	routes.RegisterWompiAvailabilityRoutes(api, wompiAvailHandler)
+	// --- Nutrition ---
+	var nutritionRepoDB *sql.DB
+	if db != nil {
+		nutritionRepoDB = db.DB
+	}
+	nutritionRepo := nutritioninfrastructure.NewRepository(nutritionRepoDB)
+	nutritionService := nutritionapp.NewService(nutritionRepo)
+	nutritionHandler := handlers.NewNutritionHandler(nutritionService)
+	routes.RegisterNutritionRoutes(api, nutritionHandler)
+
+	// --- Payment Availability Endpoint moved above subscription wiring ---
+	_ = nutritionHandler
 
 	// --- Message ---
 	var messageRepoDB *sql.DB
@@ -503,17 +625,16 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	athleteHandler := handlers.NewAthleteHandler(athleteService)
 	routes.RegisterAthleteRoutes(api, athleteHandler)
 
-	// --- Athlete Scheduling ---
-	schedulingHandler := handlers.NewAthleteSchedulingHandler(coachService)
+	// --- Athlete Scheduling & WebRTC P2P Meet ---
+	schedulingHandler := handlers.NewAthleteSchedulingHandler(coachService).WithDeps(stdlibDB, notifService)
 	routes.RegisterAthleteSchedulingRoutes(api, schedulingHandler)
+	meetHandler := handlers.NewMeetSignalingHandler(hub)
+	routes.RegisterMeetRoutes(api, pub, meetHandler)
 
-	// --- Admin ---
-	var adminDB *sql.DB
-	if db != nil {
-		adminDB = db.DB
-	}
-	adminHandler := handlers.NewAdminHandler(adminDB, clerkIdentity)
-	routes.RegisterAdminRoutes(api, adminHandler, cfg.PlatformSuperAdminClerkIDs)
+	// --- WebSocket real-time hub (/ws) ---
+	app.Get("/ws", middleware.WSAuth(cfg.ClerkSecretKey), handlers.HandleWebSocket(hub))
+
+	// --- Admin (ya registrado arriba con prioridad sobre CRM) ---
 
 	// --- Coach activation ---
 	// Server-authoritative coach provisioning: the role is decided by the Go
@@ -523,18 +644,41 @@ func registerProtectedRoutes(app *fiber.App, api fiber.Router, pub fiber.Router,
 	coachActivationHandler.RegisterCoachActivationRoutes(api)
 
 	// --- Error Tracking ---
-	errorRepo := errorinfrastructure.NewRepository(db.DB)
+	errorRepo := errorinfrastructure.NewRepository(stdlibDB)
 	discordSender := errorinfrastructure.NewDiscordSender(cfg.DiscordWebhookURL)
-	errorSvc := errorapp.NewService(errorRepo, discordSender, cfg.PlatformSuperAdminClerkID)
+	errorSvc := errorapp.NewService(errorRepo, discordSender, cfg.PlatformSuperAdminClerkID).
+		WithOutbox(outboxStore)
 	errorHandler := handlers.NewErrorHandler(errorSvc)
 	routes.RegisterErrorRoutes(api, errorHandler)
 
 	log.Info("error tracking routes registered", zap.String("path", "/api/v1/errors"))
 
-	// --- Background jobs runner (challenge expiration, TRM prefetch, inactivity retention) ---
-	jobRunner := jobs.NewRunner(challengeService, gamificationService, notifService, trmService, log)
-	go jobRunner.Start(context.Background())
-	log.Info("background jobs runner started")
+	// --- Background jobs runner (single-leader advisory locked) ---
+	if cfg.EmbeddedWorker {
+		jobRunner := jobs.NewRunner(challengeService, gamificationService, notifService, trmService, log).WithDB(stdlibDB)
+		go jobRunner.Start(ctx)
+		log.Info("background jobs runner started (embedded worker mode)")
+	}
 
-	return subscriptionHandler, errorHandler
+	return RouteWiringResult{
+		SubscriptionHandler: subscriptionHandler,
+		ErrorHandler:        errorHandler,
+		WSHub:               hub,
+		RealtimeBridge:      rtBridge,
+		WorkerDeps: workers.WorkerDeps{
+			DB:               stdlibDB,
+			Outbox:           outboxStore,
+			Checkouts:        checkoutService,
+			Ledger:           ledgerSvc,
+			Commission:       commissionEntryRepo,
+			Metadata:         clerkIdentity,
+			Devices:          notifRepo,
+			ExpoPush:         pushSender,
+			FCMPush:          fcmSender,
+			Discord:          discordSender,
+			SuperAdminUserID: cfg.PlatformSuperAdminClerkID,
+			Garmin:           runningService,
+			Gamification:     gamificationService,
+		},
+	}
 }

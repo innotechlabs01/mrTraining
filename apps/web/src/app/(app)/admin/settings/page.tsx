@@ -1,15 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useSession } from '@clerk/nextjs';
 import {
-  Shield, DollarSign, Settings, Bell, Globe, Palette, Database,
-  Save, AlertCircle, CheckCircle, XCircle, Key, Globe as GlobeIcon
+  Shield, DollarSign, Settings, Bell, Palette, Database,
+  AlertCircle, CheckCircle, Key, Globe as GlobeIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Link from 'next/link';
+import { PageHeader, primaryButtonClass } from '@/components/admin/ui';
 
 interface SettingsTabProps {
   label: string;
@@ -20,25 +19,17 @@ interface SettingsTabProps {
 function SettingsSection({ label, icon, children }: SettingsTabProps) {
   return (
     <div className="bg-surface-1 rounded-xl border border-surface-6 p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-lg bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+      <div className="mb-6 flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
           {icon}
         </div>
-        <h3 className="text-lg font-semibold text-text-primary">{label}</h3>
+        <h3 className="min-w-0 text-base font-semibold leading-snug text-text-primary sm:text-lg">
+          {label}
+        </h3>
       </div>
       {children}
     </div>
   );
-}
-
-function SettingsField({ label, description, children }: { label: string; description?: string; children: React.ReactNode }) {
-  return (
-    <div className="mb-6">
-      <label className="block text-sm font-medium text-text-secondary mb-1">{label}</label>
-      {description && <p className="text-xs text-text-secondary mb-3">{description}</p>}
-      {children}
-    </div>
-  )
 }
 
 function Toggle({ label, description, checked, onChange }: { label: string; description?: string; checked: boolean; onChange: (v: boolean) => void }) {
@@ -48,11 +39,21 @@ function Toggle({ label, description, checked, onChange }: { label: string; desc
         <p className="font-medium text-text-primary">{label}</p>
         {description && <p className="text-sm text-text-secondary">{description}</p>}
       </div>
-      <label className="relative inline-flex items-center cursor-pointer">
-        <input type="checkbox" checked onChange={(e) => onChange(e.target.checked)} className="sr-only peer" />
-        <div className="w-11 h-6 rounded-full bg-surface-3 peer-checked:bg-brand-primary transition-colors">
-          <span className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5" />
-        </div>
+      <label className="relative inline-flex cursor-pointer items-center">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="peer sr-only"
+        />
+        <span className="relative block h-6 w-11 rounded-full bg-surface-3 transition-colors peer-checked:bg-brand-primary peer-focus-visible:ring-2 peer-focus-visible:ring-brand-primary peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-surface-0">
+          <span
+            className={cn(
+              'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform',
+              checked && 'translate-x-5',
+            )}
+          />
+        </span>
       </label>
     </div>
   )
@@ -93,7 +94,6 @@ function SelectField({ label, value, onChange, options, disabled }: { label: str
 export default function AdminSettingsPage() {
   const { user } = useUser();
   const { session } = useSession();
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'general' | 'security' | 'notifications' | 'appearance' | 'integrations' | 'database'>('general');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -134,7 +134,7 @@ export default function AdminSettingsPage() {
   });
 
   const superAdminIds = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
-  const isSuperAdmin = user?.id && superAdminIds.includes(user.id);
+  const _isSuperAdmin = user?.id && superAdminIds.includes(user.id);
 
   const tabs = [
     { id: 'general', label: 'General', icon: <Settings size={18} /> },
@@ -159,7 +159,7 @@ export default function AdminSettingsPage() {
         body: JSON.stringify({ [key]: value }),
       });
       setMessage({ text: 'Guardado correctamente', type: 'success' });
-    } catch (err) {
+    } catch {
       setMessage({ text: 'Error al guardar', type: 'error' });
     } finally {
       setSaving(false);
@@ -180,7 +180,7 @@ export default function AdminSettingsPage() {
       });
       if (!res.ok) throw new Error('Error al guardar');
       setMessage({ text: 'Todos los cambios se guardaron correctamente', type: 'success' });
-    } catch (err) {
+    } catch {
       setMessage({ text: 'Error al guardar los cambios', type: 'error' });
     } finally {
       setSaving(false);
@@ -190,23 +190,16 @@ export default function AdminSettingsPage() {
   if (!user) return null;
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Configuración</h1>
-          <p className="text-text-secondary mt-1">Configuración general de la plataforma</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleSaveAll}
-            disabled={saving}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-primary text-text-inverse text-sm font-medium hover:bg-brand-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <CheckCircle size={16} /> Guardar Cambios
+    <div className="space-y-6">
+      <PageHeader
+        title="Configuración"
+        description="Parámetros generales, seguridad e integraciones de la plataforma."
+        actions={
+          <button onClick={handleSaveAll} disabled={saving} className={primaryButtonClass}>
+            <CheckCircle size={16} /> {saving ? 'Guardando…' : 'Guardar cambios'}
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {message && (
         <div className={`mb-6 p-3 rounded-lg ${message.type === 'success' ? 'bg-success/10 text-success border border-success/20' : 'bg-error/10 text-error border border-error/20'}`}>
@@ -214,16 +207,22 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex border-b border-surface-6 mb-6">
+      {/* Tabs — scrolls horizontally instead of overflowing on small screens */}
+      <div
+        role="tablist"
+        aria-label="Secciones de configuración"
+        className="flex gap-1 overflow-x-auto border-b border-surface-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {tabs.map(tab => (
           <button
             key={tab.id}
+            role="tab"
+            aria-selected={activeTab === tab.id}
             onClick={() => setActiveTab(tab.id as typeof activeTab)}
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+            className={`flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
               activeTab === tab.id
                 ? 'border-brand-primary text-brand-primary'
-                : 'border-transparent text-text-secondary hover:text-text-primary hover:border-surface-6'
+                : 'border-transparent text-text-secondary hover:border-surface-6 hover:text-text-primary'
             }`}
           >
             {tab.icon}
@@ -233,7 +232,7 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* Content */}
-      <div className="space-y-6">
+      <div role="tabpanel" className="space-y-6">
         {/* General Tab */}
         {activeTab === 'general' && (
           <div className="space-y-6">
@@ -507,12 +506,13 @@ export default function AdminSettingsPage() {
             </SettingsSection>
 
             <SettingsSection label="Conexión a Base de Datos" icon={<Database size={18} />}>
-              <div className="bg-surface-1 rounded-xl border border-surface-6 p-6">
-                <p className="text-text-secondary mb-4">La configuración de la base de datos se gestiona mediante variables de entorno (DATABASE_URL).</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField label="Database URL" type="password" value="••••••••" disabled onChange={() => {}} />
-                  <InputField label="Pool Size" type="number" value="10" disabled onChange={() => {}} />
-                </div>
+              <p className="mb-4 text-sm text-text-secondary">
+                La conexión se gestiona mediante variables de entorno de la API (DATABASE_URL).
+                No es editable desde la interfaz.
+              </p>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <InputField label="Database URL" type="password" value="••••••••" disabled onChange={() => {}} />
+                <InputField label="Pool Size" type="number" value="10" disabled onChange={() => {}} />
               </div>
             </SettingsSection>
           </div>

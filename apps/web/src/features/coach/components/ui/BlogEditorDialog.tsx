@@ -9,7 +9,7 @@ interface BlogEditorDialogProps {
   open: boolean
   initial?: BlogPost | null
   onOpenChange: (open: boolean) => void
-  onSave: (p: BlogPost) => void
+  onSave: (p: BlogPost) => void | Promise<void>
 }
 
 function generateSlug(title: string): string {
@@ -100,6 +100,7 @@ export function BlogEditorDialog({ open, initial, onOpenChange, onSave }: BlogEd
   const [previewTab, setPreviewTab] = useState<'desktop' | 'mobile'>('desktop')
 
   useEffect(() => {
+    if (!open) return
     if (initial) {
       setTitle(initial.title)
       setExcerpt(initial.excerpt)
@@ -117,14 +118,14 @@ export function BlogEditorDialog({ open, initial, onOpenChange, onSave }: BlogEd
       setImageUrl('')
       setIsPublished(false)
     }
-  }, [initial])
+  }, [initial, open])
 
   if (!open) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || !content.trim()) return
-    
+
     setSaving(true)
     try {
       const id = initial?.id || `post_${Date.now()}`
@@ -133,7 +134,7 @@ export function BlogEditorDialog({ open, initial, onOpenChange, onSave }: BlogEd
       const tagList = tags.split(',').map((t) => t.trim()).filter(Boolean)
       const readTime = calculateReadTime(content)
 
-      onSave({
+      await onSave({
         id,
         slug,
         title,

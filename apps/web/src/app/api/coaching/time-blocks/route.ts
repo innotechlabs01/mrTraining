@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { goFetchServer, GoApiError } from '@/lib/api/go-client';
 
+export const dynamic = 'force-dynamic'
+
 interface TimeBlock {
   id: string;
   coach_id: string;
@@ -15,7 +17,6 @@ interface TimeBlock {
   updated_at: string;
 }
 
-export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {

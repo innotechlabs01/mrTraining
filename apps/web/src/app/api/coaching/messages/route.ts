@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { goFetchServer, GoApiError } from '@/lib/api/go-client';
 
+export const dynamic = 'force-dynamic'
+
 interface GoMessageThread {
   id: string;
   coachId: string;

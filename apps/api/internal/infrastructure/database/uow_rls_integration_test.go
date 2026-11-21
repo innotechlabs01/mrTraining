@@ -21,7 +21,7 @@ import (
 func TestUnitOfWork_SetsPostgresTenantContextIntegration(t *testing.T) {
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
-		t.Skip("skipping: DATABASE_URL not set")
+		t.Skip("DATABASE_URL not set, skipping integration test")
 	}
 
 	db, err := Connect(url)

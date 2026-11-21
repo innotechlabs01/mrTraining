@@ -11,7 +11,7 @@ export type Equipment =
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced'
 
 export type WorkoutGoal =
-  | 'strength' | 'hypertrophy' | 'endurance' | 'speed'
+  | 'strength' | 'hypertrophy' | 'endurance' | 'running' | 'speed'
   | 'power' | 'mobility' | 'conditioning' | 'warm_up' | 'cool_down'
 
 export type ScheduleStatus = 'draft' | 'scheduled' | 'published' | 'completed' | 'cancelled'

@@ -40,7 +40,15 @@ func (h *StoreHandler) Purchase(c *fiber.Ctx) error {
 	if err != nil {
 		return h.handleError(c, err)
 	}
-	return appresponse.Success(c, purchase)
+	return appresponse.Success(c, dto.PurchaseResponse{
+		ID:        purchase.ID,
+		AthleteID: purchase.AthleteID,
+		ProductID: purchase.ProductID,
+		Quantity:  purchase.Quantity,
+		Price:     purchase.Price,
+		Total:     purchase.Price * float64(purchase.Quantity),
+		CreatedAt: purchase.CreatedAt,
+	})
 }
 
 func (h *StoreHandler) handleError(c *fiber.Ctx, err error) error {

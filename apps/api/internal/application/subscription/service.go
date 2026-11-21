@@ -6,6 +6,7 @@ package subscription
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -18,12 +19,23 @@ import (
 	paymentledgerdomain "github.com/innotechlabs01/mr-training-api/internal/domain/payment_ledger"
 	paymentledgersvc "github.com/innotechlabs01/mr-training-api/internal/application/payment_ledger"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
+	"github.com/innotechlabs01/mr-training-api/internal/pkg/eventbus"
 )
 
 // CheckoutRecorder records a payment confirmed for a pending checkout (a
 // checkout paid before the buyer registered).
 type CheckoutRecorder interface {
 	MarkPaid(ctx context.Context, checkoutID, providerPaymentID string, amount float64, currency string) error
+	// MarkFailed records that a pending checkout's payment was rejected.
+	MarkFailed(ctx context.Context, checkoutID, providerPaymentID string) error
+}
+
+// AvailabilityGate determines whether the payment gateway is healthy enough
+// to start new checkout sessions (fail-closed when Wompi is degraded).
+type AvailabilityGate interface {
+	PaymentCheckoutAllowed() bool
+	PaymentCheckoutReason() string
 }
 
 // MetadataWriter mirrors the subscription entitlements into the auth
@@ -38,6 +50,7 @@ type MetadataWriter interface {
 // plan.Repository), making it testable with fakes.
 type Service struct {
 	cfg             *config.Config
+	db              *sql.DB
 	subRepo         subscription.Repository
 	provider        subscription.PaymentProvider
 	planRepo        plandomain.Repository
@@ -45,11 +58,25 @@ type Service struct {
 	commissionEntry commissionentrydomain.Repository
 	metadata        MetadataWriter
 	checkouts       CheckoutRecorder
+	availGate       AvailabilityGate
+	outbox          eventbus.OutboxWriter
 }
 
 // NewService creates a new subscription application service.
 func NewService(cfg *config.Config, subRepo subscription.Repository, provider subscription.PaymentProvider, planRepo plandomain.Repository, ledgerSvc *paymentledgersvc.Service, commissionEntry commissionentrydomain.Repository) *Service {
 	return &Service{cfg: cfg, subRepo: subRepo, provider: provider, planRepo: planRepo, ledgerSvc: ledgerSvc, commissionEntry: commissionEntry}
+}
+
+// WithDB injects the primary *sql.DB handle for atomic transactional outbox writes.
+func (s *Service) WithDB(db *sql.DB) *Service {
+	s.db = db
+	return s
+}
+
+// WithOutbox attaches the transactional outbox writer for async domain events.
+func (s *Service) WithOutbox(outbox eventbus.OutboxWriter) *Service {
+	s.outbox = outbox
+	return s
 }
 
 // WithMetadataWriter injects the auth-provider metadata writer used to mirror
@@ -63,6 +90,12 @@ func (s *Service) WithMetadataWriter(w MetadataWriter) *Service {
 // buyer registered.
 func (s *Service) WithCheckoutRecorder(r CheckoutRecorder) *Service {
 	s.checkouts = r
+	return s
+}
+
+// WithAvailabilityGate attaches a fail-closed payment gateway availability gate.
+func (s *Service) WithAvailabilityGate(g AvailabilityGate) *Service {
+	s.availGate = g
 	return s
 }
 
@@ -97,6 +130,13 @@ func (s *Service) Subscribe(ctx context.Context, cmd SubscribeCommand) (*Subscri
 	}
 	if cmd.PlanID == "" {
 		return nil, errors.BadRequest("plan_id is required")
+	}
+	if s.availGate != nil && !s.availGate.PaymentCheckoutAllowed() {
+		reason := s.availGate.PaymentCheckoutReason()
+		if reason == "" {
+			reason = "La pasarela de pagos no está disponible temporalmente. Intenta en unos minutos."
+		}
+		return nil, errors.ServiceUnavailable(reason)
 	}
 
 	// Look up the plan to enforce the canonical price/currency/billing period.
@@ -145,15 +185,22 @@ func (s *Service) Subscribe(ctx context.Context, cmd SubscribeCommand) (*Subscri
 		return nil, fmt.Errorf("save subscription: %w", err)
 	}
 
-	// Mirror the selected plan into the subscriber's public metadata so the
-	// frontend knows what the user is on. The status stays "pending" until
-	// the provider confirms the payment.
-	s.mirrorEntitlements(ctx, cmd.AthleteID, plan.ID, plan.Name, "pending")
-
-	// Publish domain events after successful persistence.
-	for _, event := range sub.DomainEvents() {
-		_ = event // events published by the transport layer / outbox
+	// Mirror the selected plan into the subscriber's public metadata. When outbox
+	// is configured, enqueue Clerk metadata sync asynchronously in addition to best-effort sync.
+	if s.outbox != nil {
+		ev := eventbus.NewEvent(ctx, eventbus.SubjectClerkMetadataSyncRequest, "user", cmd.AthleteID, map[string]interface{}{
+			"user_id": cmd.AthleteID,
+			"patch": map[string]interface{}{
+				"plan":       plan.ID,
+				"planName":   plan.Name,
+				"planStatus": "pending",
+			},
+		}).WithTenant(cmd.CoachID, cmd.AthleteID, "")
+		_ = s.outbox.Insert(ctx, nil, ev)
+	} else {
+		s.mirrorEntitlements(ctx, cmd.AthleteID, plan.ID, plan.Name, "pending")
 	}
+
 	sub.ClearEvents()
 
 	return &SubscribeResult{
@@ -193,6 +240,15 @@ func (s *Service) Cancel(ctx context.Context, cmd CancelCommand) error {
 
 	if err := s.subRepo.Save(ctx, sub); err != nil {
 		return fmt.Errorf("save subscription: %w", err)
+	}
+	if s.outbox != nil {
+		ev := eventbus.NewEvent(ctx, eventbus.SubjectSubscriptionCancelled, "subscription", sub.ID, map[string]interface{}{
+			"subscription_id": sub.ID,
+			"coach_id":        sub.CoachID,
+			"athlete_id":      sub.AthleteID,
+			"plan_id":         sub.PlanID,
+		}).WithTenant(sub.CoachID, sub.AthleteID, "")
+		_ = s.outbox.Insert(ctx, nil, ev)
 	}
 	return nil
 }
@@ -299,8 +355,28 @@ func (s *Service) AttachPaidCheckout(ctx context.Context, cmd AttachPaidCheckout
 		return nil, fmt.Errorf("save subscription: %w", err)
 	}
 
-	// The subscriber now owns the plan: mirror the entitlements.
-	s.mirrorEntitlements(ctx, cmd.UserID, sub.PlanID, sub.PlanName, "active")
+	// The subscriber now owns the plan: mirror entitlements via outbox or direct sync.
+	if s.outbox != nil {
+		subEv := eventbus.NewEvent(ctx, eventbus.SubjectSubscriptionActivated, "subscription", sub.ID, map[string]interface{}{
+			"subscription_id": sub.ID,
+			"plan_id":         sub.PlanID,
+			"plan_name":       sub.PlanName,
+			"coach_id":        sub.CoachID,
+			"athlete_id":      cmd.UserID,
+		}).WithTenant(sub.CoachID, cmd.UserID, "")
+		_ = s.outbox.Insert(ctx, nil, subEv)
+		clerkEv := eventbus.NewEvent(ctx, eventbus.SubjectClerkMetadataSyncRequest, "user", cmd.UserID, map[string]interface{}{
+			"user_id": cmd.UserID,
+			"patch": map[string]interface{}{
+				"plan":       sub.PlanID,
+				"planName":   sub.PlanName,
+				"planStatus": "active",
+			},
+		}).WithTenant(sub.CoachID, cmd.UserID, "")
+		_ = s.outbox.Insert(ctx, nil, clerkEv)
+	} else {
+		s.mirrorEntitlements(ctx, cmd.UserID, sub.PlanID, sub.PlanName, "active")
+	}
 
 	return sub, nil
 }
@@ -334,6 +410,8 @@ const (
 	PaymentStatusPending = "pending"
 	// PaymentStatusApproved means the payment provider confirmed the payment.
 	PaymentStatusApproved = "approved"
+	// PaymentStatusFailed means the payment provider rejected the payment.
+	PaymentStatusFailed = "failed"
 )
 
 // GetPaymentStatus reports whether the payment for the given subscriber has
@@ -356,6 +434,13 @@ func (s *Service) GetPaymentStatus(ctx context.Context, subscriberID string) (st
 		return PaymentStatusNone, nil, nil
 	}
 
+	if sub.Status == subscription.StatusTrial {
+		if time.Now().UTC().Before(sub.CurrentPeriodEnd) {
+			return string(subscription.StatusTrial), sub, nil
+		}
+		return string(subscription.StatusExpired), sub, nil
+	}
+
 	approved, err := s.subRepo.HasApprovedPayment(ctx, sub.ID)
 	if err != nil {
 		return PaymentStatusNone, nil, err
@@ -363,7 +448,94 @@ func (s *Service) GetPaymentStatus(ctx context.Context, subscriberID string) (st
 	if approved {
 		return PaymentStatusApproved, sub, nil
 	}
+
+	failed, err := s.subRepo.HasFailedPayment(ctx, sub.ID)
+	if err != nil {
+		return PaymentStatusNone, nil, err
+	}
+	if failed {
+		return PaymentStatusFailed, sub, nil
+	}
+
 	return PaymentStatusPending, sub, nil
+}
+
+// StartTrialCommand carries the input for starting a platform trial subscription.
+type StartTrialCommand struct {
+	CoachID   string
+	PlanID    string
+	TrialDays int
+}
+
+// StartTrial provisions a trial subscription (default 7 days) for the coach.
+func (s *Service) StartTrial(ctx context.Context, cmd StartTrialCommand) (*subscription.Subscription, error) {
+	if cmd.CoachID == "" {
+		return nil, errors.BadRequest("coach_id is required")
+	}
+	if cmd.TrialDays <= 0 {
+		cmd.TrialDays = 7
+	}
+
+	existing, err := s.subRepo.FindByAthlete(ctx, cmd.CoachID)
+	if err != nil {
+		if appErr, ok := err.(*errors.AppError); !ok || appErr.Code != "NOT_FOUND" {
+			return nil, fmt.Errorf("find existing subscription: %w", err)
+		}
+		existing = nil
+	}
+	if existing != nil {
+		if existing.Status == subscription.StatusActive {
+			return existing, nil
+		}
+		if existing.Status == subscription.StatusTrial {
+			if time.Now().UTC().Before(existing.CurrentPeriodEnd) {
+				return existing, nil
+			}
+			return nil, errors.BadRequest("el periodo de prueba de 7 días ya ha finalizado. Por favor adquiere un plan para continuar.")
+		}
+	}
+
+	planName := "Plan Starter"
+	if cmd.PlanID != "" && s.planRepo != nil {
+		if p, perr := s.planRepo.GetByID(ctx, cmd.PlanID); perr == nil && p != nil {
+			planName = p.Name
+		}
+	}
+	if cmd.PlanID == "" {
+		cmd.PlanID = "plan-seed-starter"
+	}
+
+	sub, err := subscription.NewTrialSubscription(
+		newSubscriptionID(),
+		cmd.CoachID,
+		cmd.CoachID,
+		cmd.PlanID,
+		planName,
+		cmd.TrialDays,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create trial subscription: %w", err)
+	}
+
+	if err := s.subRepo.Save(ctx, sub); err != nil {
+		return nil, fmt.Errorf("save trial subscription: %w", err)
+	}
+
+	if s.outbox != nil {
+		clerkEv := eventbus.NewEvent(ctx, eventbus.SubjectClerkMetadataSyncRequest, "user", cmd.CoachID, map[string]interface{}{
+			"user_id": cmd.CoachID,
+			"patch": map[string]interface{}{
+				"plan":       sub.PlanID,
+				"planName":   sub.PlanName,
+				"planStatus": string(subscription.StatusTrial),
+			},
+		}).WithTenant(cmd.CoachID, cmd.CoachID, "")
+		_ = s.outbox.Insert(ctx, nil, clerkEv)
+	} else {
+		s.mirrorEntitlements(ctx, cmd.CoachID, sub.PlanID, sub.PlanName, string(subscription.StatusTrial))
+	}
+
+	return sub, nil
 }
 
 // ListByCoach returns all subscriptions for a coach's athletes.
@@ -412,28 +584,87 @@ func (s *Service) FulfillWebhook(ctx context.Context, req subscription.WebhookRe
 		return nil
 	}
 
-	if payment.Status != "approved" {
-		// Rejected/pending payments leave the subscription unchanged.
-		return nil
-	}
-
 	ref := payment.ExternalReference
 	if ref == "" {
 		return errors.BadRequest("external_reference missing")
 	}
 
-	// A checkout paid BEFORE the buyer registered: the payment is recorded on
-	// the pending checkout and the claim creates the subscription later.
+	// A checkout paid BEFORE the buyer registered: record the payment immediately
+	// when synchronous recorder is set and also emit outbox domain events when available.
 	if checkoutID, ok := checkoutdomain.ParseReference(ref); ok {
-		if s.checkouts == nil {
+		switch payment.Status {
+		case "approved":
+			if s.checkouts != nil {
+				if err := s.checkouts.MarkPaid(ctx, checkoutID, payment.ID, payment.TransactionAmount, payment.Currency); err != nil {
+					return err
+				}
+			}
+			if s.outbox != nil {
+				ev := eventbus.NewEvent(ctx, eventbus.SubjectCheckoutPaid, "checkout", checkoutID, map[string]interface{}{
+					"checkout_id":         checkoutID,
+					"provider_payment_id": payment.ID,
+					"amount":              payment.TransactionAmount,
+					"currency":            payment.Currency,
+				})
+				_ = s.outbox.Insert(ctx, nil, ev)
+			}
+			return nil
+		case "rejected":
+			if s.checkouts != nil {
+				if err := s.checkouts.MarkFailed(ctx, checkoutID, payment.ID); err != nil {
+					return err
+				}
+			}
+			if s.outbox != nil {
+				ev := eventbus.NewEvent(ctx, eventbus.SubjectCheckoutFailed, "checkout", checkoutID, map[string]interface{}{
+					"checkout_id":         checkoutID,
+					"provider_payment_id": payment.ID,
+				})
+				_ = s.outbox.Insert(ctx, nil, ev)
+			}
+			return nil
+		default:
+			// Pending or other statuses: leave the checkout unchanged.
 			return nil
 		}
-		return s.checkouts.MarkPaid(ctx, checkoutID, payment.ID, payment.TransactionAmount, payment.Currency)
 	}
 
+	// A subscription payment: record it and activate when approved.
 	subscriptionID, ok := trimSubscriptionRef(ref)
 	if !ok {
 		return errors.BadRequest("invalid external_reference: " + ref)
+	}
+
+	if payment.Status != "approved" {
+		// Rejected/pending payments: record the rejected payment so the
+		// status endpoint can report "failed". Pending payments leave the
+		// subscription unchanged.
+		if payment.Status == "rejected" {
+			sub, err := s.subRepo.FindByID(ctx, subscriptionID)
+			if err != nil {
+				return err
+			}
+			p := &subscription.Payment{
+				ID:                subscription.NewSubscriptionID(),
+				SubscriptionID:    sub.ID,
+				ProviderPaymentID: payment.ID,
+				ExternalReference: ref,
+				Amount:            payment.TransactionAmount,
+				Currency:          payment.Currency,
+				Status:            "rejected",
+				PeriodStart:       time.Now().UTC(),
+				PeriodEnd:         time.Now().UTC(),
+				CreatedAt:         time.Now().UTC(),
+			}
+			if err := s.subRepo.RecordPayment(ctx, p); err != nil {
+				return fmt.Errorf("record payment: %w", err)
+			}
+		}
+		return nil
+	}
+
+	if s.db != nil && s.outbox != nil {
+		return s.fulfillSubscriptionPaymentTx(ctx, payment, ref, subscriptionID)
 	}
 
 	sub, err := s.subRepo.FindByID(ctx, subscriptionID)
@@ -514,17 +745,17 @@ func (s *Service) FulfillWebhook(ctx context.Context, req subscription.WebhookRe
 			}
 
 			_, cErr := s.commissionEntry.CreateCommissionEntryDirect(ctx, commissionentrydomain.CreateCommissionEntryInput{
-				OperationID:        sub.ID,
-				RelationshipID:     "", // subscriptions have no ally relationship
-				CoachID:            sub.CoachID,
-				AgreementID:        ledgerEntry.CommissionTermID,
-				AgreementVersion:   ledgerEntry.CommissionTermVersion,
-				BaseCents:          ledgerEntry.GrossAmountCents,
-				RateBps:            rateBps,
-				FixedAmountCents:   fixedFeeCents,
-				AmountCents:        ledgerEntry.CoachNetPayableCents,
-				Currency:           payment.Currency,
-				ComputedAt:         time.Now().UTC().Format("2006-01-02 15:04:05"),
+				OperationID:      sub.ID,
+				RelationshipID:   "", // subscriptions have no ally relationship
+				CoachID:          sub.CoachID,
+				AgreementID:      ledgerEntry.CommissionTermID,
+				AgreementVersion: ledgerEntry.CommissionTermVersion,
+				BaseCents:        ledgerEntry.GrossAmountCents,
+				RateBps:          rateBps,
+				FixedAmountCents: fixedFeeCents,
+				AmountCents:      ledgerEntry.CoachNetPayableCents,
+				Currency:         payment.Currency,
+				ComputedAt:       time.Now().UTC().Format("2006-01-02 15:04:05"),
 			}, sub.CoachID)
 			if cErr != nil {
 				_ = cErr
@@ -533,6 +764,113 @@ func (s *Service) FulfillWebhook(ctx context.Context, req subscription.WebhookRe
 	}
 
 	return nil
+}
+
+func (s *Service) fulfillSubscriptionPaymentTx(ctx context.Context, payment *subscription.ProviderPayment, ref, subscriptionID string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin webhook tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, "SELECT set_config('app.internal_execution_context', 'webhook_worker', true)"); err != nil {
+		return fmt.Errorf("set webhook_worker context: %w", err)
+	}
+
+	repo := s.subRepo
+	if txCapable, ok := s.subRepo.(interface {
+		WithExecutor(database.Executor) subscription.Repository
+	}); ok {
+		repo = txCapable.WithExecutor(tx)
+	}
+
+	if existing, gerr := repo.GetPaymentByProviderID(ctx, payment.ID); gerr == nil && existing != nil {
+		return tx.Commit()
+	}
+
+	sub, err := repo.FindByID(ctx, subscriptionID)
+	if err != nil {
+		return err
+	}
+
+	periodStart := time.Now().UTC()
+	if payment.DateApproved != nil {
+		periodStart = *payment.DateApproved
+	}
+	periodEnd := subscription.ComputePeriodEnd(periodStart, sub.BillingPeriod)
+
+	p := &subscription.Payment{
+		ID:                subscription.NewSubscriptionID(),
+		SubscriptionID:    sub.ID,
+		ProviderPaymentID: payment.ID,
+		ExternalReference: ref,
+		Amount:            payment.TransactionAmount,
+		Currency:          payment.Currency,
+		Status:            "approved",
+		PeriodStart:       periodStart,
+		PeriodEnd:         periodEnd,
+		PaidAt:            payment.DateApproved,
+		CreatedAt:         time.Now().UTC(),
+	}
+	if err := repo.RecordPayment(ctx, p); err != nil {
+		return fmt.Errorf("record payment: %w", err)
+	}
+	if err := sub.ActivateAfterPayment(payment.ID, payment.TransactionAmount, periodStart, periodEnd); err != nil {
+		return fmt.Errorf("activate subscription: %w", err)
+	}
+	if err := repo.Save(ctx, sub); err != nil {
+		return fmt.Errorf("save subscription: %w", err)
+	}
+
+	payEv := eventbus.NewEvent(ctx, eventbus.SubjectPaymentApproved, "subscription", sub.ID, map[string]interface{}{
+		"subscription_id":     sub.ID,
+		"payment_id":          p.ID,
+		"provider_payment_id": payment.ID,
+		"coach_id":            sub.CoachID,
+		"athlete_id":          sub.AthleteID,
+		"plan_id":             sub.PlanID,
+		"plan_name":           sub.PlanName,
+		"gross_amount_cents":  int64(payment.TransactionAmount * 100),
+		"currency":            payment.Currency,
+		"period_start":        periodStart.Format("2006-01-02"),
+		"period_end":          periodEnd.Format("2006-01-02"),
+	}).WithTenant(sub.CoachID, sub.AthleteID, "")
+	if err := s.outbox.Insert(ctx, tx, payEv); err != nil {
+		return fmt.Errorf("insert payment.approved outbox: %w", err)
+	}
+
+	clerkEv := eventbus.NewEvent(ctx, eventbus.SubjectClerkMetadataSyncRequest, "user", sub.AthleteID, map[string]interface{}{
+		"user_id": sub.AthleteID,
+		"patch": map[string]interface{}{
+			"plan":       sub.PlanID,
+			"planName":   sub.PlanName,
+			"planStatus": "active",
+		},
+	}).WithTenant(sub.CoachID, sub.AthleteID, "")
+	if err := s.outbox.Insert(ctx, tx, clerkEv); err != nil {
+		return fmt.Errorf("insert clerk sync outbox: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+// IsCoachSubscriptionSkipped reports whether coachID has platform subscription bypass enabled.
+func (s *Service) IsCoachSubscriptionSkipped(ctx context.Context, coachID string) (bool, error) {
+	if s == nil || s.db == nil || coachID == "" {
+		return false, nil
+	}
+	var skipped bool
+	err := s.db.QueryRowContext(ctx, `
+		SELECT COALESCE(c.skip_subscription, false)
+		FROM coaches c
+		WHERE c.id = $1
+		   OR (c.email <> '' AND lower(c.email) = (SELECT lower(email) FROM users WHERE id = $1))
+		LIMIT 1
+	`, coachID).Scan(&skipped)
+	if err != nil {
+		return false, nil
+	}
+	return skipped, nil
 }
 
 // newSubscriptionID generates a unique subscription id.

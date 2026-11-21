@@ -36,6 +36,10 @@ type Challenge struct {
 	StartDate       string             `json:"start_date,omitempty"`
 	EndDate         string             `json:"end_date,omitempty"`
 	ExpiresAt       string             `json:"expires_at,omitempty"`
+	BadgeID         string             `json:"badge_id,omitempty"`
+	BadgeTitle      string             `json:"badge_title,omitempty"`
+	IncentiveText   string             `json:"incentive_text,omitempty"`
+	IsPruebaDeFuego bool               `json:"is_prueba_de_fuego"`
 	DaysLeft        int                `json:"days_left"`  // calculated
 	IsUrgent        bool               `json:"is_urgent"`  // last day
 	CreatedAt       string             `json:"created_at"`

@@ -47,6 +47,8 @@ type fakeSubRepo struct {
 	getPaymentErr error
 	// hasApprovedPayment drives the payment status reported by the service.
 	hasApprovedPayment bool
+	// hasFailedPayment drives the "failed" payment status reported by the service.
+	hasFailedPayment bool
 }
 
 func (f *fakeSubRepo) Save(ctx context.Context, s *subscriptiondomain.Subscription) error {
@@ -90,6 +92,10 @@ func (f *fakeSubRepo) GetPaymentByProviderID(ctx context.Context, providerPaymen
 
 func (f *fakeSubRepo) HasApprovedPayment(ctx context.Context, subscriptionID string) (bool, error) {
 	return f.hasApprovedPayment, nil
+}
+
+func (f *fakeSubRepo) HasFailedPayment(ctx context.Context, subscriptionID string) (bool, error) {
+	return f.hasFailedPayment, nil
 }
 
 // fakeMetadataWriter records the entitlement patches mirrored to Clerk.
@@ -212,6 +218,52 @@ func TestGetPaymentStatus(t *testing.T) {
 		}
 		if status != PaymentStatusApproved {
 			t.Errorf("expected status %q, got %q", PaymentStatusApproved, status)
+		}
+	})
+
+	t.Run("active trial returns trial status", func(t *testing.T) {
+		trialSub := &subscriptiondomain.Subscription{
+			ID:               "sub_trial",
+			AthleteID:        "coach_1",
+			CoachID:          "coach_1",
+			PlanID:           "plan-seed-starter",
+			Status:           subscriptiondomain.StatusTrial,
+			CurrentPeriodEnd: time.Now().UTC().AddDate(0, 0, 5),
+		}
+		repo := &fakeSubRepo{byAthlete: trialSub}
+		svc := NewService(&config.Config{}, repo, &fakeProvider{}, &fakePlanRepo{}, nil, nil)
+		status, got, err := svc.GetPaymentStatus(context.Background(), "coach_1")
+		if err != nil {
+			t.Fatalf("GetPaymentStatus failed: %v", err)
+		}
+		if status != "trial" {
+			t.Errorf("expected status %q, got %q", "trial", status)
+		}
+		if got == nil || got.ID != "sub_trial" {
+			t.Errorf("expected subscription to be returned")
+		}
+	})
+
+	t.Run("expired trial returns expired status", func(t *testing.T) {
+		trialSub := &subscriptiondomain.Subscription{
+			ID:               "sub_trial_exp",
+			AthleteID:        "coach_1",
+			CoachID:          "coach_1",
+			PlanID:           "plan-seed-starter",
+			Status:           subscriptiondomain.StatusTrial,
+			CurrentPeriodEnd: time.Now().UTC().AddDate(0, 0, -1),
+		}
+		repo := &fakeSubRepo{byAthlete: trialSub}
+		svc := NewService(&config.Config{}, repo, &fakeProvider{}, &fakePlanRepo{}, nil, nil)
+		status, got, err := svc.GetPaymentStatus(context.Background(), "coach_1")
+		if err != nil {
+			t.Fatalf("GetPaymentStatus failed: %v", err)
+		}
+		if status != "expired" {
+			t.Errorf("expected status %q, got %q", "expired", status)
+		}
+		if got == nil || got.ID != "sub_trial_exp" {
+			t.Errorf("expected subscription to be returned")
 		}
 	})
 }
@@ -425,6 +477,24 @@ func TestGetPaymentStatus_FlipsToApprovedAfterTheWebhook(t *testing.T) {
 	assert.Equal(t, PaymentStatusApproved, status)
 }
 
+// The payment status must report "failed" when the provider rejected the payment.
+func TestGetPaymentStatus_FlipsToFailedAfterRejectedPayment(t *testing.T) {
+	ctx := context.Background()
+	sub := &subscriptiondomain.Subscription{
+		ID:            "sub_1",
+		AthleteID:     "coach_1",
+		CoachID:       "coach_1",
+		BillingPeriod: "monthly",
+		Status:        subscriptiondomain.StatusActive,
+	}
+	subRepo := &fakeSubRepo{byID: sub, byAthlete: sub, hasFailedPayment: true}
+	svc := NewService(&config.Config{}, subRepo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, nil, nil)
+
+	status, _, err := svc.GetPaymentStatus(ctx, "coach_1")
+	require.NoError(t, err)
+	assert.Equal(t, PaymentStatusFailed, status)
+}
+
 // fakeCheckoutRecorder records the payments confirmed for a pending checkout.
 type fakeCheckoutRecorder struct {
 	checkoutID string
@@ -432,6 +502,8 @@ type fakeCheckoutRecorder struct {
 	amount     float64
 	currency   string
 	calls      int
+	failedID   string
+	failedCalls int
 }
 
 func (f *fakeCheckoutRecorder) MarkPaid(ctx context.Context, checkoutID, providerPaymentID string, amount float64, currency string) error {
@@ -440,6 +512,13 @@ func (f *fakeCheckoutRecorder) MarkPaid(ctx context.Context, checkoutID, provide
 	f.amount = amount
 	f.currency = currency
 	f.calls++
+	return nil
+}
+
+func (f *fakeCheckoutRecorder) MarkFailed(ctx context.Context, checkoutID, providerPaymentID string) error {
+	f.checkoutID = checkoutID
+	f.paymentID = providerPaymentID
+	f.failedCalls++
 	return nil
 }
 
@@ -496,9 +575,11 @@ func TestServiceFulfillWebhookNotApproved(t *testing.T) {
 	svc := NewService(&config.Config{}, subRepo, provider, &fakePlanRepo{plan: newPlan()}, nil, nil)
 
 	require.NoError(t, svc.FulfillWebhook(ctx, subscriptiondomain.WebhookRequest{Body: []byte(`{"type":"payment","data":{"id":"pay_1"}}`), SignatureHeader: "ts=1,v1=abc"}))
-	// Rejected payment: subscription untouched, nothing recorded
+	// Rejected payment: subscription status untouched, but the rejected payment is recorded
+	// so the status endpoint can report "failed".
 	assert.Equal(t, subscriptiondomain.StatusActive, sub.Status)
-	assert.Len(t, subRepo.recorded, 0)
+	assert.Len(t, subRepo.recorded, 1)
+	assert.Equal(t, "rejected", subRepo.recorded[0].Status)
 	assert.Len(t, subRepo.saved, 0)
 }
 
@@ -523,4 +604,65 @@ func TestServiceFulfillWebhookIdempotent(t *testing.T) {
 	// Already recorded: no-op, subscription untouched
 	assert.Len(t, subRepo.recorded, 0)
 	assert.Len(t, subRepo.saved, 0)
+}
+
+func TestStartTrial(t *testing.T) {
+	ctx := context.Background()
+	plan := newPlan()
+	planRepo := &fakePlanRepo{plan: plan}
+
+	t.Run("provisions 7-day trial subscription", func(t *testing.T) {
+		subRepo := &fakeSubRepo{}
+		svc := NewService(&config.Config{}, subRepo, &fakeProvider{}, planRepo, nil, nil)
+
+		sub, err := svc.StartTrial(ctx, StartTrialCommand{
+			CoachID:   "coach_trial_1",
+			PlanID:    "plan_1",
+			TrialDays: 7,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, sub)
+		assert.Equal(t, "coach_trial_1", sub.AthleteID)
+		assert.Equal(t, "coach_trial_1", sub.CoachID)
+		assert.Equal(t, subscriptiondomain.StatusTrial, sub.Status)
+		assert.Equal(t, float64(0), sub.PlanPrice)
+		assert.True(t, sub.CurrentPeriodEnd.After(time.Now().UTC()))
+		assert.Len(t, subRepo.saved, 1)
+	})
+
+	t.Run("existing active subscription is returned as-is", func(t *testing.T) {
+		existing := &subscriptiondomain.Subscription{
+			ID:        "sub_active",
+			AthleteID: "coach_trial_2",
+			CoachID:   "coach_trial_2",
+			Status:    subscriptiondomain.StatusActive,
+		}
+		subRepo := &fakeSubRepo{byAthlete: existing}
+		svc := NewService(&config.Config{}, subRepo, &fakeProvider{}, planRepo, nil, nil)
+
+		sub, err := svc.StartTrial(ctx, StartTrialCommand{
+			CoachID: "coach_trial_2",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "sub_active", sub.ID)
+		assert.Equal(t, subscriptiondomain.StatusActive, sub.Status)
+		assert.Len(t, subRepo.saved, 0)
+	})
+
+	t.Run("expired trial refuses duplicate trial", func(t *testing.T) {
+		expired := &subscriptiondomain.Subscription{
+			ID:               "sub_exp",
+			AthleteID:        "coach_trial_3",
+			CoachID:          "coach_trial_3",
+			Status:           subscriptiondomain.StatusTrial,
+			CurrentPeriodEnd: time.Now().UTC().AddDate(0, 0, -2),
+		}
+		subRepo := &fakeSubRepo{byAthlete: expired}
+		svc := NewService(&config.Config{}, subRepo, &fakeProvider{}, planRepo, nil, nil)
+
+		_, err := svc.StartTrial(ctx, StartTrialCommand{
+			CoachID: "coach_trial_3",
+		})
+		require.Error(t, err)
+	})
 }

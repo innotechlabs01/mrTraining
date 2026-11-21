@@ -75,7 +75,7 @@ func (r *Repository) GetTodayData(ctx context.Context, athleteID string) (*today
 			`SELECT COALESCE(AVG(CASE WHEN metric_type='sleep' THEN value END), 0),
 			        COALESCE(AVG(CASE WHEN metric_type='hrv' THEN value END), 0),
 			        COALESCE(AVG(CASE WHEN metric_type='recovery' THEN value END), 0)
-			 FROM athlete_health_metrics WHERE athlete_id = $1 AND recorded_at >= datetime('now', '-7 days')`, athleteID).
+			 FROM athlete_health_metrics WHERE athlete_id = $1 AND LEFT(recorded_at, 10) >= TO_CHAR(CURRENT_DATE - INTERVAL '7 days', 'YYYY-MM-DD')`, athleteID).
 			Scan(&readiness.Sleep, &readiness.HRV, &readiness.Recovery)
 		readiness.Score = int((readiness.Sleep + readiness.HRV + readiness.Recovery) / 3)
 		if readiness.Score > 100 {

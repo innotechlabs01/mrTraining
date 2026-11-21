@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 
+export const dynamic = 'force-dynamic'
+
 const GO_API_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:9090';
 
-export const dynamic = 'force-dynamic';
 
 async function forwardToGoApi(path: string, options: RequestInit = {}) {
   const { userId } = await auth();

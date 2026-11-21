@@ -97,25 +97,36 @@ func (s *Service) ListFormResponsesByEvent(ctx context.Context, coachID, eventID
 
 // CreateEvent creates a new event. Only coaches can create events.
 func (s *Service) CreateEvent(ctx context.Context, coachID string, req dto.CreateEventRequest) (*eventdomain.Event, error) {
+	currency := req.Currency
+	if currency == "" {
+		currency = "COP"
+	}
 	event := &eventdomain.Event{
-		ID:          uuid.New().String(),
-		Title:       req.Title,
-		Date:        req.Date,
-		Time:        req.Time,
-		EndTime:     req.EndTime,
-		Type:        req.Type,
-		Modality:    req.Modality,
-		Location:    req.Location,
-		Description: req.Description,
-		Status:      req.Status,
-		Format:      req.Format,
-		IsPublic:    req.IsPublic,
-		CoachID:     coachID,
-		AthleteIDs:  req.AthleteIDs,
-		ListItems:   req.ListItems,
+		ID:                   uuid.New().String(),
+		Title:                req.Title,
+		Date:                 req.Date,
+		Time:                 req.Time,
+		EndTime:              req.EndTime,
+		Type:                 req.Type,
+		Modality:             req.Modality,
+		Location:             req.Location,
+		Description:          req.Description,
+		Status:               req.Status,
+		Format:               req.Format,
+		IsPublic:             req.IsPublic,
+		MaxCapacity:          req.MaxCapacity,
+		PriceCents:           req.PriceCents,
+		Currency:             currency,
+		RegistrationDeadline: req.RegistrationDeadline,
+		CoachID:              coachID,
+		AthleteIDs:           req.AthleteIDs,
+		ListItems:            req.ListItems,
 		RunningDistanceKm:    req.RunningDistanceKm,
 		RunningPace:          req.RunningPace,
 		RunningMeetingPoint:  req.RunningMeetingPoint,
+		RunningCategories:    req.RunningCategories,
+		RunningElevationM:    req.RunningElevationM,
+		RunningRouteURL:      req.RunningRouteURL,
 	}
 
 	if event.Status == "" {
@@ -214,6 +225,31 @@ func (s *Service) UpdateEvent(ctx context.Context, coachID, id string, req dto.U
 	}
 	if req.RunningDistanceKm != nil {
 		existing.RunningDistanceKm = req.RunningDistanceKm
+	}
+	if req.MaxCapacity != nil {
+		if *req.MaxCapacity <= 0 {
+			existing.MaxCapacity = nil
+		} else {
+			existing.MaxCapacity = req.MaxCapacity
+		}
+	}
+	if req.PriceCents != nil {
+		existing.PriceCents = *req.PriceCents
+	}
+	if req.Currency != "" {
+		existing.Currency = req.Currency
+	}
+	if req.RegistrationDeadline != nil {
+		existing.RegistrationDeadline = *req.RegistrationDeadline
+	}
+	if req.RunningCategories != nil {
+		existing.RunningCategories = req.RunningCategories
+	}
+	if req.RunningElevationM != nil {
+		existing.RunningElevationM = req.RunningElevationM
+	}
+	if req.RunningRouteURL != "" {
+		existing.RunningRouteURL = req.RunningRouteURL
 	}
 
 	// Only update IsPublic if explicitly provided (always true/false, so check via pointer)
@@ -359,9 +395,30 @@ func (s *Service) GetAthleteEventDetail(ctx context.Context, eventID, athleteID 
 }
 
 // AnswerInput is a single form response submitted by an athlete.
+// Supports both snake_case (field_id) and camelCase (fieldId) payloads.
 type AnswerInput struct {
-	FieldID string `json:"field_id"`
-	Value   string `json:"value"`
+	FieldID      string `json:"field_id"`
+	FieldIDCamel string `json:"fieldId"`
+	Value        string `json:"value"`
+}
+
+func (a AnswerInput) ResolvedFieldID() string {
+	if strings.TrimSpace(a.FieldID) != "" {
+		return strings.TrimSpace(a.FieldID)
+	}
+	return strings.TrimSpace(a.FieldIDCamel)
+}
+
+func deadlinePassed(deadline string) bool {
+	d := strings.TrimSpace(deadline)
+	if d == "" {
+		return false
+	}
+	parsed, err := time.ParseInLocation("2006-01-02T15:04:05", d+"T23:59:59", time.Local)
+	if err != nil {
+		return false
+	}
+	return parsed.Before(time.Now())
 }
 
 // RespondToEvent registers/cancels an athlete for an event and, on acceptance,
@@ -371,8 +428,28 @@ func (s *Service) RespondToEvent(ctx context.Context, eventID, athleteID, status
 		return nil, apperrors.BadRequest("status must be 'accepted' or 'cancelled'")
 	}
 
-	if _, err := s.repo.GetByID(ctx, eventID); err != nil {
+	event, err := s.repo.GetByID(ctx, eventID)
+	if err != nil {
 		return nil, err
+	}
+
+	if status == "accepted" {
+		if event.Status == "cancelled" {
+			return nil, apperrors.Conflict("event was cancelled")
+		}
+		if eventEnded(event) {
+			return nil, apperrors.Conflict("event has already ended")
+		}
+		if deadlinePassed(event.RegistrationDeadline) {
+			return nil, apperrors.Conflict("registration deadline has passed")
+		}
+		if event.MaxCapacity != nil && *event.MaxCapacity > 0 {
+			existingReg, _ := s.repo.GetRegistration(ctx, eventID, athleteID)
+			alreadyAccepted := existingReg != nil && existingReg.Status == "accepted"
+			if !alreadyAccepted && event.AcceptedCount >= *event.MaxCapacity {
+				return nil, apperrors.Conflict("event has reached maximum capacity")
+			}
+		}
 	}
 
 	reg := &eventdomain.EventRegistration{
@@ -388,13 +465,14 @@ func (s *Service) RespondToEvent(ctx context.Context, eventID, athleteID, status
 	if status == "accepted" {
 		responses := make([]eventdomain.EventFormResponse, 0, len(answers))
 		for _, a := range answers {
-			if a.FieldID == "" {
+			fid := a.ResolvedFieldID()
+			if fid == "" {
 				continue
 			}
 			responses = append(responses, eventdomain.EventFormResponse{
 				EventID:   eventID,
 				AthleteID: athleteID,
-				FieldID:   a.FieldID,
+				FieldID:   fid,
 				Value:     a.Value,
 			})
 		}
@@ -454,6 +532,19 @@ func (s *Service) RsvpPublic(ctx context.Context, eventID, token, status string,
 	}
 
 	athleteID := "anon:" + strings.TrimSpace(token)
+	if status == "accepted" {
+		if deadlinePassed(event.RegistrationDeadline) {
+			return nil, apperrors.Conflict("registration deadline has passed")
+		}
+		if event.MaxCapacity != nil && *event.MaxCapacity > 0 {
+			existingReg, _ := s.repo.GetRegistration(ctx, eventID, athleteID)
+			alreadyAccepted := existingReg != nil && existingReg.Status == "accepted"
+			if !alreadyAccepted && event.AcceptedCount >= *event.MaxCapacity {
+				return nil, apperrors.Conflict("event has reached maximum capacity")
+			}
+		}
+	}
+
 	reg := &eventdomain.EventRegistration{
 		ID:        uuid.New().String(),
 		EventID:   eventID,
@@ -467,13 +558,14 @@ func (s *Service) RsvpPublic(ctx context.Context, eventID, token, status string,
 	if status == "accepted" {
 		responses := make([]eventdomain.EventFormResponse, 0, len(answers))
 		for _, a := range answers {
-			if a.FieldID == "" {
+			fid := a.ResolvedFieldID()
+			if fid == "" {
 				continue
 			}
 			responses = append(responses, eventdomain.EventFormResponse{
 				EventID:   eventID,
 				AthleteID: athleteID,
-				FieldID:   a.FieldID,
+				FieldID:   fid,
 				Value:     a.Value,
 			})
 		}

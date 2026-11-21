@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ListChecks, FileText, Footprints, CheckCircle2, Check } from 'lucide-react';
+import { ListChecks, FileText, Footprints, CheckCircle2, Check, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CoachEvent, EventFormField } from '@/features/coach/types';
 
@@ -65,14 +65,35 @@ export function EventFormatBody({
 
       {event.format === 'running' && (
         <Section icon={<Footprints className="w-4 h-4" />} title="Detalles de la carrera">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <Stat label="Distancia" value={event.running?.distanceKm ? `${event.running.distanceKm} km` : '—'} />
-            <Stat label="Ritmo" value={event.running?.pace ?? '—'} />
-            <Stat label="Punto" value={event.running?.meetingPoint ?? '—'} />
+            <Stat label="Ritmo" value={event.running?.pace || '—'} />
+            <Stat label="Desnivel" value={event.running?.elevationM ? `+${event.running.elevationM} m` : '—'} />
+            <Stat label="Punto" value={event.running?.meetingPoint || '—'} />
           </div>
-          <div className="mt-3 h-24 rounded-xl border border-white/10 bg-gradient-to-r from-brand-primary/15 via-surface-2 to-cyan-500/15 flex items-center justify-center text-xs text-white/40">
-            Ruta / mapa de la carrera
-          </div>
+          {(event.running?.categories?.length ?? 0) > 0 && (
+            <div className="mt-3">
+              <p className="text-[10px] uppercase tracking-wider text-white/40 mb-1.5">Categorías disponibles</p>
+              <div className="flex flex-wrap gap-1.5">
+                {event.running!.categories!.map((cat) => (
+                  <span key={cat} className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-300 border border-amber-500/20">
+                    {cat}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {event.running?.routeUrl && (
+            <a
+              href={event.running.routeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-brand-primary/30 bg-brand-primary/10 text-xs font-medium text-brand-primary hover:bg-brand-primary/20 transition-colors"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Ver ruta / mapa de la carrera
+            </a>
+          )}
         </Section>
       )}
     </div>

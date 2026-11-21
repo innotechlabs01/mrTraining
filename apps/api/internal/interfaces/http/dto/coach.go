@@ -29,8 +29,11 @@ type CreateAppointmentRequest struct {
 
 // UpdateAppointmentRequest is the payload for updating an appointment.
 type UpdateAppointmentRequest struct {
-	Status string `json:"status"`
-	Notes  string `json:"notes"`
+	Status     string `json:"status"`
+	Notes      string `json:"notes"`
+	StartTime  string `json:"start_time"`
+	EndTime    string `json:"end_time"`
+	MeetRoomID string `json:"meet_room_id"`
 }
 
 // SaveAvailabilityRequest is the payload for saving availability slots.
@@ -91,6 +94,7 @@ type AppointmentResponse struct {
 	StartTime   string `json:"start_time"`
 	EndTime     string `json:"end_time"`
 	Notes       string `json:"notes,omitempty"`
+	MeetRoomID  string `json:"meet_room_id,omitempty"`
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
 }

@@ -16,4 +16,10 @@ type Repository interface {
 	// GetByCoach returns aggregated form metrics for all athletes of a coach,
 	// grouped by athlete+exercise.
 	GetByCoach(ctx context.Context, coachID string) ([]*CoachAthleteFormStats, error)
+
+	// GetConsent retrieves the athlete's persisted AI form-recording consent ("pending" | "accepted" | "denied").
+	GetConsent(ctx context.Context, athleteID string) (string, error)
+
+	// SetConsent upserts the athlete's AI form-recording consent ("accepted" | "denied" | "pending").
+	SetConsent(ctx context.Context, athleteID, consent string) error
 }

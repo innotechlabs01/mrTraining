@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { goFetchServer } from '@/lib/api/go-client';
 
+export const dynamic = 'force-dynamic'
+
 interface CurrentUser {
   user?: {
     role?: string;
@@ -12,7 +14,6 @@ interface AvailabilityResponse {
   availability: { id: string; coach_id: string; day_of_week: number; start_time: string; end_time: string; is_active: boolean; created_at: string }[];
 }
 
-export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {

@@ -49,8 +49,9 @@ func (r *Repository) isTx() bool {
 }
 
 const articleColumns = `
-	p.id, p.slug, p.title, p.excerpt, p.content, p.category, p.tags, p.image_url,
-	p.is_published, p.published_at, p.coach_id, p.created_at, p.updated_at,
+	p.id, p.slug, p.title, COALESCE(p.excerpt, ''), p.content, COALESCE(p.category, ''),
+	COALESCE(p.tags, '[]'), COALESCE(NULLIF(p.image_url, ''), COALESCE(p.cover_image_url, '')),
+	COALESCE(p.is_published, 0), COALESCE(p.published_at::text, ''), p.coach_id, p.created_at::text, p.updated_at::text,
 	COALESCE(m.read_time_minutes, 5), COALESCE(m.views, 0)
 `
 
@@ -126,16 +127,34 @@ func (r *Repository) GetArticle(ctx context.Context, id string) (*blog.Article, 
 		SELECT %s %s
 		WHERE p.id = $1
 	`, articleColumns, articleFrom), id)
-	return scanArticle(row)
+	a, err := scanArticle(row)
+	if err != nil {
+		return nil, err
+	}
+	if a.IsPublished {
+		r.incrementViews(ctx, a.ID)
+		a.Views++
+	}
+	return a, nil
 }
 
 // GetArticleBySlug returns a single published article by slug.
 func (r *Repository) GetArticleBySlug(ctx context.Context, slug string) (*blog.Article, error) {
 	row := r.exec.QueryRowContext(ctx, fmt.Sprintf(`
 		SELECT %s %s
-		WHERE p.slug = $1 AND p.is_published = 1
+		WHERE p.slug = $1 AND COALESCE(p.is_published, 0) = 1
 	`, articleColumns, articleFrom), slug)
-	return scanArticle(row)
+	a, err := scanArticle(row)
+	if err != nil {
+		return nil, err
+	}
+	r.incrementViews(ctx, a.ID)
+	a.Views++
+	return a, nil
+}
+
+func (r *Repository) incrementViews(ctx context.Context, postID string) {
+	_, _ = r.exec.ExecContext(ctx, `UPDATE blog_post_meta SET views = views + 1 WHERE post_id = $1`, postID)
 }
 
 // Create inserts a new article.
@@ -150,12 +169,12 @@ func (r *Repository) Create(ctx context.Context, a *blog.Article) error {
 	tags, _ := marshalTags(a.Tags)
 
 	_, err := r.exec.ExecContext(ctx, `
-		INSERT INTO blog_posts (id, slug, title, excerpt, content, category, tags, image_url,
+		INSERT INTO blog_posts (id, slug, title, excerpt, content, category, tags, image_url, cover_image_url,
 		                        is_published, published_at, coach_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9, NULLIF($10, '')::timestamptz, $11, $12::timestamptz, $13::timestamptz)
 	`,
 		a.ID, a.Slug, a.Title, a.Excerpt, a.Content, a.Category, tags, a.ImageURL,
-		boolToInt(a.IsPublished), nullStr(a.PublishedAt), a.AuthorID, a.CreatedAt, a.UpdatedAt,
+		boolToInt(a.IsPublished), a.PublishedAt, a.AuthorID, a.CreatedAt, a.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create article: %w", err)
@@ -172,11 +191,12 @@ func (r *Repository) Update(ctx context.Context, a *blog.Article) error {
 	res, err := r.exec.ExecContext(ctx, `
 		UPDATE blog_posts
 		SET slug = $1, title = $2, excerpt = $3, content = $4, category = $5, tags = $6,
-		    image_url = $7, is_published = $8, published_at = $9, updated_at = $10
+		    image_url = $7, cover_image_url = $7, is_published = $8,
+		    published_at = NULLIF($9, '')::timestamptz, updated_at = $10::timestamptz
 		WHERE id = $11 AND coach_id = $12
 	`,
 		a.Slug, a.Title, a.Excerpt, a.Content, a.Category, tags, a.ImageURL,
-		boolToInt(a.IsPublished), nullStr(a.PublishedAt), a.UpdatedAt, a.ID, a.AuthorID,
+		boolToInt(a.IsPublished), a.PublishedAt, a.UpdatedAt, a.ID, a.AuthorID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update article: %w", err)
@@ -239,13 +259,6 @@ func boolToInt(b bool) int {
 		return 1
 	}
 	return 0
-}
-
-func nullStr(s string) any {
-	if s == "" {
-		return nil
-	}
-	return s
 }
 
 // marshalTags encodes tags to a JSON array string.

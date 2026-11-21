@@ -96,7 +96,7 @@ describe('AccessGate', () => {
     );
 
     expect(getByText('Acceso premium bloqueado')).toBeTruthy();
-    expect(getByText('Ver planes y suscribirme')).toBeTruthy();
+    expect(getByText('Ver membresía y activar')).toBeTruthy();
   });
 
   it('retries subscription check on retry press', () => {

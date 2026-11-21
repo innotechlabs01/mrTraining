@@ -124,7 +124,7 @@ func (r *Repository) GetExerciseHistory(ctx context.Context, athleteID, exercise
 // GetExerciseLoadByDay returns load (weight*reps) per date for the last 7 days.
 func (r *Repository) GetExerciseLoadByDay(ctx context.Context, athleteID, exerciseName string) (map[string]float64, error) {
 	rows, err := r.exec.QueryContext(ctx,
-		`SELECT DATE(wset.logged_at) AS d,
+		`SELECT LEFT(wset.logged_at, 10) AS d,
 		        COALESCE(SUM(wset.weight_kg * wset.reps), 0)
 		 FROM workout_set_logs wset
 		 JOIN workout_session_logs wsl ON wsl.id = wset.session_id
@@ -132,7 +132,7 @@ func (r *Repository) GetExerciseLoadByDay(ctx context.Context, athleteID, exerci
 		 WHERE wsl.athlete_id = $1
 		   AND LOWER(TRIM(we.name)) = LOWER(TRIM($2))
 		   AND wset.completed = 1
-		   AND DATE(wset.logged_at) >= DATE('now', '-7 days')
+		   AND LEFT(wset.logged_at, 10) >= TO_CHAR(CURRENT_DATE - INTERVAL '7 days', 'YYYY-MM-DD')
 		 GROUP BY d`, athleteID, exerciseName)
 	if err != nil {
 		return nil, fmt.Errorf("get exercise load: %w", err)

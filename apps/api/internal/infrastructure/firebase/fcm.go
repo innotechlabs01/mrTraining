@@ -6,9 +6,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
+	"github.com/innotechlabs01/mr-training-api/pkg/resilience"
 	"google.golang.org/api/option"
 )
 
@@ -16,7 +18,9 @@ import (
 // It wraps the Firebase messaging client and provides simplified methods
 // for sending to single or multiple devices.
 type FCMSender struct {
-	client *messaging.Client
+	client   *messaging.Client
+	breaker  *resilience.CircuitBreaker
+	bulkhead *resilience.Bulkhead
 }
 
 // NewFCMSender creates a new FCM sender using service account credentials.
@@ -65,7 +69,15 @@ func NewFCMSender(projectID, clientEmail, privateKey string) (*FCMSender, error)
 		return nil, fmt.Errorf("failed to initialize messaging client: %w", err)
 	}
 
-	return &FCMSender{client: client}, nil
+	return &FCMSender{
+		client: client,
+		breaker: resilience.RegisterBreaker(resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{
+			Name:             "fcm",
+			FailureThreshold: 5,
+			ResetTimeout:     30 * time.Second,
+		})),
+		bulkhead: resilience.NewBulkhead("fcm", 15, 250*time.Millisecond),
+	}, nil
 }
 
 // SendToDevice sends a push notification to a single device token.
@@ -87,12 +99,22 @@ func (s *FCMSender) SendToDevice(ctx context.Context, token string, title, body 
 		msg.Data = data
 	}
 
-	_, err := s.client.Send(ctx, msg)
-	if err != nil {
-		return fmt.Errorf("failed to send FCM notification: %w", err)
+	run := func(execCtx context.Context) error {
+		_, err := s.client.Send(execCtx, msg)
+		if err != nil {
+			return fmt.Errorf("failed to send FCM notification: %w", err)
+		}
+		return nil
 	}
-
-	return nil
+	if s.breaker != nil {
+		return s.breaker.Execute(ctx, func(inner context.Context) error {
+			if s.bulkhead != nil {
+				return s.bulkhead.Execute(inner, run)
+			}
+			return run(inner)
+		})
+	}
+	return run(ctx)
 }
 
 // SendToMultiple sends a push notification to multiple device tokens.
@@ -119,10 +141,20 @@ func (s *FCMSender) SendToMultiple(ctx context.Context, tokens []string, title, 
 		msg.Data = data
 	}
 
-	_, err := s.client.SendEachForMulticast(ctx, msg)
-	if err != nil {
-		return fmt.Errorf("failed to send multicast FCM notification: %w", err)
+	run := func(execCtx context.Context) error {
+		_, err := s.client.SendEachForMulticast(execCtx, msg)
+		if err != nil {
+			return fmt.Errorf("failed to send multicast FCM notification: %w", err)
+		}
+		return nil
 	}
-
-	return nil
+	if s.breaker != nil {
+		return s.breaker.Execute(ctx, func(inner context.Context) error {
+			if s.bulkhead != nil {
+				return s.bulkhead.Execute(inner, run)
+			}
+			return run(inner)
+		})
+	}
+	return run(ctx)
 }

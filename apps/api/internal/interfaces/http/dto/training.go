@@ -193,9 +193,10 @@ type AssignedWorkoutResponse struct {
 
 // WorkoutDetailResponse is the envelope for GET /workouts/:id/detail.
 type WorkoutDetailResponse struct {
-	Workout   *AssignedWorkoutResponse   `json:"workout"`
-	Exercises []WorkoutExerciseResponse `json:"exercises"`
-	Session   *WorkoutSessionResponse    `json:"session,omitempty"`
+	Workout    *AssignedWorkoutResponse   `json:"workout"`
+	Exercises  []WorkoutExerciseResponse `json:"exercises"`
+	Session    *WorkoutSessionResponse   `json:"session,omitempty"`
+	LoggedSets []WorkoutSetResponse      `json:"loggedSets,omitempty"`
 }
 
 // LogWorkoutSetRequest is the payload for logging a completed set.

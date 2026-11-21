@@ -18,7 +18,55 @@
  *   - Running: /running/sessions, /running/stats, /running/devices
  */
 
+import {
+  CircuitBreakerOpenError,
+  fetchWithResilience,
+  findHeader,
+  generateIdempotencyKey,
+  headersToRecord,
+} from './resilience';
+
+export { CircuitBreakerOpenError };
+
 const GO_API_BASE = process.env.NEXT_PUBLIC_GO_API_URL || ''
+
+const MUTABLE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function buildGoHeaders(
+  customHeaders: HeadersInit | undefined,
+  body: BodyInit | null | undefined,
+  method: string | undefined,
+  token: string | null
+): Record<string, string> {
+  const headers = headersToRecord(customHeaders);
+  if (!(body instanceof FormData) && !findHeader(headers, 'Content-Type')) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const normalizedMethod = (method ?? 'GET').toUpperCase();
+  if (MUTABLE_METHODS.has(normalizedMethod) && !findHeader(headers, 'Idempotency-Key')) {
+    headers['Idempotency-Key'] = generateIdempotencyKey();
+  }
+  return headers;
+}
+
+async function parseGoApiError(res: Response): Promise<GoApiError> {
+  let body: { error?: string | object; message?: string; detail?: string } = {};
+  try {
+    body = await res.json();
+  } catch {
+    body = {};
+  }
+  const errMsg =
+    typeof body.error === 'string'
+      ? body.error
+      : body.error != null
+        ? JSON.stringify(body.error)
+        : body.message || body.detail || `Go API error: ${res.status}`;
+  return new GoApiError(errMsg, res.status);
+}
 
 interface GoRequestOptions extends RequestInit {
   auth?: boolean;
@@ -79,34 +127,18 @@ export async function goFetchServer<T>(
   options: GoRequestOptions = {}
 ): Promise<T> {
   const { headers: customHeaders, ...rest } = options;
+  const method = (rest.method ?? 'GET').toUpperCase();
+  const headers = buildGoHeaders(customHeaders, rest.body, method, token);
 
-  const headers: Record<string, string> = {
-    // FormData lets the browser set the multipart boundary.
-    ...(rest.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-    Authorization: `Bearer ${token}`,
-    ...(customHeaders as Record<string, string>),
-  };
-
-  const res = await fetch(`${GO_API_BASE}${path}`, {
+  const res = await fetchWithResilience(`${GO_API_BASE}${path}`, {
     ...rest,
+    method,
     headers,
     cache: 'no-store',
   });
 
   if (!res.ok) {
-    let body: { error?: string | object } = {};
-    try {
-      body = await res.json();
-    } catch {
-      body = {};
-    }
-    const errMsg =
-      typeof body.error === 'string'
-        ? body.error
-        : body.error != null
-          ? JSON.stringify(body.error)
-          : `Go API error: ${res.status}`;
-    throw new GoApiError(errMsg, res.status);
+    throw await parseGoApiError(res);
   }
   if (res.status === 204) return undefined as T;
   return res.json();
@@ -121,17 +153,19 @@ export async function goFetchServer<T>(
  */
 export async function goFetch<T>(path: string, options: GoRequestOptions = {}): Promise<T> {
   const { auth = true, headers: customHeaders, ...rest } = options;
+  const method = (rest.method ?? 'GET').toUpperCase();
+  const baseHeaders = buildGoHeaders(customHeaders, rest.body, method, null);
 
   const doFetch = async (token: string | null) => {
-    const headers: Record<string, string> = {
-      // FormData lets the browser set the multipart boundary.
-      ...(rest.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(customHeaders as Record<string, string>),
-    };
+    const reqHeaders = { ...baseHeaders };
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      reqHeaders['Authorization'] = `Bearer ${token}`;
     }
-    return fetch(`${GO_API_BASE}${path}`, { ...rest, headers });
+    return fetchWithResilience(`${GO_API_BASE}${path}`, {
+      ...rest,
+      method,
+      headers: reqHeaders,
+    });
   };
 
   if (auth) {
@@ -145,8 +179,7 @@ export async function goFetch<T>(path: string, options: GoRequestOptions = {}): 
       if (freshToken && freshToken !== token) {
         const retryResponse = await doFetch(freshToken);
         if (!retryResponse.ok) {
-          const error = await retryResponse.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(error.error || `Go API error: ${retryResponse.status}`);
+          throw await parseGoApiError(retryResponse);
         }
         if (retryResponse.status === 204) return undefined as T;
         return retryResponse.json();
@@ -154,14 +187,7 @@ export async function goFetch<T>(path: string, options: GoRequestOptions = {}): 
     }
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      const errorMessage = typeof errorData.error === 'string'
-        ? errorData.error
-        : errorData.message
-        || errorData.detail
-        || JSON.stringify(errorData)
-        || `Go API error: ${response.status}`;
-      throw new Error(errorMessage);
+      throw await parseGoApiError(response);
     }
     if (response.status === 204) return undefined as T;
     return response.json();
@@ -170,8 +196,7 @@ export async function goFetch<T>(path: string, options: GoRequestOptions = {}): 
   // No auth required
   const response = await doFetch(null);
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `Go API error: ${response.status}`);
+    throw await parseGoApiError(response);
   }
   if (response.status === 204) return undefined as T;
   return response.json();
@@ -184,16 +209,19 @@ export async function goFetch<T>(path: string, options: GoRequestOptions = {}): 
  */
 export async function goFetchBlob(path: string, options: GoRequestOptions = {}): Promise<Blob> {
   const { auth = true, headers: customHeaders, ...rest } = options;
+  const method = (rest.method ?? 'GET').toUpperCase();
+  const baseHeaders = buildGoHeaders(customHeaders, rest.body, method, null);
 
   const doFetch = async (token: string | null) => {
-    const headers: Record<string, string> = {
-      ...(rest.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(customHeaders as Record<string, string>),
-    };
+    const reqHeaders = { ...baseHeaders };
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      reqHeaders['Authorization'] = `Bearer ${token}`;
     }
-    return fetch(`${GO_API_BASE}${path}`, { ...rest, headers });
+    return fetchWithResilience(`${GO_API_BASE}${path}`, {
+      ...rest,
+      method,
+      headers: reqHeaders,
+    });
   };
 
   let response: Response;
@@ -211,11 +239,7 @@ export async function goFetchBlob(path: string, options: GoRequestOptions = {}):
   }
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-    const errorMessage = typeof errorData.error === 'string'
-      ? errorData.error
-      : errorData.message || errorData.detail || `Go API error: ${response.status}`;
-    throw new Error(errorMessage);
+    throw await parseGoApiError(response);
   }
 
   return response.blob();

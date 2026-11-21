@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/innotechlabs01/mr-training-api/internal/config"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/subscription"
@@ -26,6 +27,7 @@ func newAdapter(baseURL string) *Adapter {
 func TestAdapterVerifySignatureValid(t *testing.T) {
 	secret := "ev_secret"
 	bodyMap := map[string]any{
+		"timestamp": time.Now().Unix(),
 		"data": map[string]any{
 			"transaction": map[string]any{"id": "tx_1", "status": "APPROVED"},
 		},
@@ -41,6 +43,52 @@ func TestAdapterVerifySignatureValid(t *testing.T) {
 
 	a := newAdapter("http://unused")
 	require.NoError(t, a.VerifySignature(b, "x"))
+}
+
+func TestAdapterVerifySignatureReplayAttackExpired(t *testing.T) {
+	secret := "ev_secret"
+	// Event is 10 minutes old (outside 5m tolerance window)
+	bodyMap := map[string]any{
+		"timestamp": time.Now().Add(-10 * time.Minute).Unix(),
+		"data": map[string]any{
+			"transaction": map[string]any{"id": "tx_old", "status": "APPROVED"},
+		},
+		"signature": map[string]any{
+			"properties": []string{"data.transaction.id", "data.transaction.status"},
+			"checksum":   "",
+		},
+	}
+	concat := "tx_oldAPPROVED" + secret
+	sum := sha256.Sum256([]byte(concat))
+	bodyMap["signature"].(map[string]any)["checksum"] = hex.EncodeToString(sum[:])
+	b, _ := json.Marshal(bodyMap)
+
+	a := newAdapter("http://unused")
+	err := a.VerifySignature(b, "x")
+	require.ErrorIs(t, err, subscription.ErrInvalidSignature)
+}
+
+func TestAdapterVerifySignatureReplayAttackFarFuture(t *testing.T) {
+	secret := "ev_secret"
+	// Event timestamp is 15 minutes in the future
+	bodyMap := map[string]any{
+		"timestamp": time.Now().Add(15 * time.Minute).Unix(),
+		"data": map[string]any{
+			"transaction": map[string]any{"id": "tx_fut", "status": "APPROVED"},
+		},
+		"signature": map[string]any{
+			"properties": []string{"data.transaction.id", "data.transaction.status"},
+			"checksum":   "",
+		},
+	}
+	concat := "tx_futAPPROVED" + secret
+	sum := sha256.Sum256([]byte(concat))
+	bodyMap["signature"].(map[string]any)["checksum"] = hex.EncodeToString(sum[:])
+	b, _ := json.Marshal(bodyMap)
+
+	a := newAdapter("http://unused")
+	err := a.VerifySignature(b, "x")
+	require.ErrorIs(t, err, subscription.ErrInvalidSignature)
 }
 
 func TestAdapterVerifySignatureInvalidChecksum(t *testing.T) {

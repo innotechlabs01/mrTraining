@@ -331,6 +331,7 @@ export const AthleteHealthPanels = React.memo(function AthleteHealthPanels({ ath
   if (error || !health) return null
 
   const hasAny =
+    health.devices.length > 0 ||
     health.hrv.length > 0 ||
     health.restingHr.length > 0 ||
     health.sleepLogs.length > 0 ||

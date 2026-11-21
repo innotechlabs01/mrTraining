@@ -17,6 +17,9 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/domain/invite"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/user"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
+	"github.com/innotechlabs01/mr-training-api/internal/middleware"
+	"github.com/innotechlabs01/mr-training-api/internal/pkg/eventbus"
+	"github.com/innotechlabs01/mr-training-api/pkg/metrics"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
@@ -65,6 +68,7 @@ type ClerkWebhookHandler struct {
 	clerkSecretKey string
 	webhookSecret  string
 	metadata       publicMetadataWriter
+	outbox         eventbus.OutboxWriter
 }
 
 // NewClerkWebhookHandler creates a new Clerk webhook handler.
@@ -81,11 +85,15 @@ func NewClerkWebhookHandler(
 	}
 }
 
-// WithMetadataWriter injects the Clerk metadata writer. It is a separate
-// constructor option because the writer is only needed to mirror the role
-// back into Clerk, and tests may not care about it.
+// WithMetadataWriter injects the Clerk metadata writer.
 func (h *ClerkWebhookHandler) WithMetadataWriter(w publicMetadataWriter) *ClerkWebhookHandler {
 	h.metadata = w
+	return h
+}
+
+// WithOutbox configures async event publishing for Clerk provisioning webhooks.
+func (h *ClerkWebhookHandler) WithOutbox(outbox eventbus.OutboxWriter) *ClerkWebhookHandler {
+	h.outbox = outbox
 	return h
 }
 
@@ -142,22 +150,35 @@ func (h *ClerkWebhookHandler) Handle(c *fiber.Ctx) error {
 	// the authoritative source for the user's role.
 	publicMeta, _ := evt.Data["public_metadata"].(map[string]interface{})
 
-	ctx := c.Context()
+	ctx := middleware.RequestContext(c)
 
 	switch evt.Type {
 	case "user.created", "user.updated":
 		if err := h.provisionUser(ctx, userID, email, name, avatar, publicMeta, unsafeMeta); err != nil {
+			metrics.WebhooksReceivedTotal.Inc("clerk", "error")
 			return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
+		}
+		middleware.InvalidateRoleCache(userID)
+		if h.outbox != nil {
+			ev := eventbus.NewEvent(ctx, eventbus.SubjectClerkUserProvisioned, "user", userID, map[string]interface{}{
+				"user_id": userID,
+				"event":   evt.Type,
+				"email":   email,
+			}).WithTenant("", userID, "")
+			_ = h.outbox.Insert(ctx, nil, ev)
 		}
 
 	case "user.deleted":
 		if err := h.userService.SoftDeleteUser(ctx, userID); err != nil {
+			metrics.WebhooksReceivedTotal.Inc("clerk", "error")
 			return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
 		}
+		middleware.InvalidateRoleCache(userID)
 
 	default:
 		// Ignore unknown event types.
 	}
+	metrics.WebhooksReceivedTotal.Inc("clerk", "ok")
 
 	return appresponse.Success(c, dto.WebhookResponse{Received: true})
 }

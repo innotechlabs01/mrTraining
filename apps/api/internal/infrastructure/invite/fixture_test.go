@@ -24,12 +24,12 @@ func newCoachFixture(t *testing.T) (*Repository, string, string, func()) {
 
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
-		t.Skip("skipping: DATABASE_URL not set")
+		t.Skip("DATABASE_URL not set, skipping integration test")
 	}
 
 	db, err := database.Connect(url)
 	if err != nil {
-		t.Skipf("skipping: cannot connect to the database: %v", err)
+		t.Skipf("cannot connect to database: %v", err)
 	}
 
 	coachID := fmt.Sprintf("coach_invite_test_%d", os.Getpid())
@@ -41,13 +41,13 @@ func newCoachFixture(t *testing.T) (*Repository, string, string, func()) {
 	tx, err := db.DB.BeginTx(context.Background(), nil)
 	if err != nil {
 		db.Close()
-		t.Skipf("skipping: cannot start the fixture transaction: %v", err)
+		t.Fatalf("begin tx: %v", err)
 	}
 	if _, err := tx.ExecContext(context.Background(),
 		`SELECT set_config('app.current_user_id', $1, true)`, coachID); err != nil {
 		_ = tx.Rollback()
 		db.Close()
-		t.Skipf("skipping: cannot set the fixture RLS context: %v", err)
+		t.Fatalf("set rls context: %v", err)
 	}
 	if _, err := tx.ExecContext(context.Background(),
 		`INSERT INTO coaches (id, email, name, coach_code, is_active, created_at, updated_at)
@@ -56,11 +56,11 @@ func newCoachFixture(t *testing.T) (*Repository, string, string, func()) {
 		coachID, coachID+"@example.com", code); err != nil {
 		_ = tx.Rollback()
 		db.Close()
-		t.Skipf("skipping: cannot seed the coach fixture: %v", err)
+		t.Fatalf("insert coach: %v", err)
 	}
 	if err := tx.Commit(); err != nil {
 		db.Close()
-		t.Skipf("skipping: cannot commit the fixture: %v", err)
+		t.Fatalf("commit tx: %v", err)
 	}
 
 	cleanup := func() {

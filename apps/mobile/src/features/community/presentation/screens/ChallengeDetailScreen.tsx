@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -148,6 +148,21 @@ export function ChallengeDetailScreen() {
             scoreTypeLabel={challenge?.scoring_type ? getScoreTypeLabel(challenge.scoring_type) : null}
           />
 
+          {/* Prueba de Fuego / Reward Banner */}
+          {(challenge?.is_prueba_de_fuego || challenge?.badge_title || challenge?.incentive_text) ? (
+            <View style={styles.rewardCard}>
+              <Text style={styles.rewardBadge}>
+                {challenge?.is_prueba_de_fuego ? '🔥 PRUEBA DE FUEGO' : '🏅 INSIGNIA DEL DESAFÍO'}
+              </Text>
+              <Text style={styles.rewardTitle}>
+                Al completar desbloqueas: {challenge?.badge_title || 'Prueba de Fuego'}
+              </Text>
+              {challenge?.incentive_text ? (
+                <Text style={styles.rewardIncentive}>🎁 Incentivo: {challenge.incentive_text}</Text>
+              ) : null}
+            </View>
+          ) : null}
+
           {/* Stats */}
           <StatGrid
             metrics={[
@@ -234,4 +249,27 @@ const styles = StyleSheet.create({
   loadingWrap: { padding: spacing.md, paddingBottom: spacing.lg, gap: spacing.lg },
   content: { padding: layout.pagePadding, paddingBottom: spacing.xxl, gap: spacing.lg },
   ctaWrap: { padding: spacing.md, paddingTop: 0 },
+  rewardCard: {
+    backgroundColor: `${colors.primary}12`,
+    borderColor: `${colors.primary}40`,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: spacing.md,
+    gap: 4,
+  },
+  rewardBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: 0.6,
+  },
+  rewardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  rewardIncentive: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
 });

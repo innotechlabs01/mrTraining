@@ -378,6 +378,37 @@ func (r *WorkoutRepository) LogWorkoutSet(ctx context.Context, set *training.Wor
 		return nil, fmt.Errorf("failed to log workout set: %w", err)
 	}
 
+	// Update progress and current_exercise_index in PostgreSQL so any app update or device
+	// switch can resume the session directly from the database without losing progress.
+	var totalPrescribedSets int
+	_ = tx.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(sets), 0) FROM workout_exercises WHERE workout_id = $1`,
+		workoutID).Scan(&totalPrescribedSets)
+
+	var completedSetsCount int
+	_ = tx.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM workout_set_logs WHERE session_id = $1 AND completed = 1`,
+		sessionID).Scan(&completedSetsCount)
+
+	var exSortOrder int
+	_ = tx.QueryRowContext(ctx,
+		`SELECT COALESCE(sort_order, 0) FROM workout_exercises WHERE id = $1`,
+		set.ExerciseID).Scan(&exSortOrder)
+
+	_, _ = tx.ExecContext(ctx,
+		`UPDATE workout_session_logs SET current_exercise_index = $1 WHERE id = $2`,
+		exSortOrder, sessionID)
+
+	if totalPrescribedSets > 0 {
+		progress := float64(completedSetsCount) / float64(totalPrescribedSets)
+		if progress > 1 {
+			progress = 1
+		}
+		_, _ = tx.ExecContext(ctx,
+			`UPDATE assigned_workouts SET progress = $1, updated_at = NOW() WHERE id = $2`,
+			progress, workoutID)
+	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("failed to commit set log: %w", err)
 	}
@@ -539,11 +570,66 @@ func (r *WorkoutRepository) GetAssignedWorkoutDetail(ctx context.Context, id str
 		return nil, err
 	}
 
+	var loggedSets []training.WorkoutSet
+	if session != nil {
+		loggedSets, _ = r.getLoggedSetsBySession(ctx, session.ID)
+	}
+
 	return &training.WorkoutDetail{
-		Workout:   aw,
-		Exercises: exercises,
-		Session:   session,
+		Workout:    aw,
+		Exercises:  exercises,
+		Session:    session,
+		LoggedSets: loggedSets,
 	}, nil
+}
+
+// getLoggedSetsBySession returns all logged sets for a given workout session ordered by logged_at.
+func (r *WorkoutRepository) getLoggedSetsBySession(ctx context.Context, sessionID string) ([]training.WorkoutSet, error) {
+	rows, err := r.exec.QueryContext(ctx,
+		`SELECT id, session_id, exercise_id, set_index, weight_kg, reps, completed,
+		 phase, rir, rpe, sec, speed, skipped
+		 FROM workout_set_logs
+		 WHERE session_id = $1
+		 ORDER BY set_index ASC, logged_at ASC`, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	sets := make([]training.WorkoutSet, 0)
+	for rows.Next() {
+		var s training.WorkoutSet
+		var weightKg, rir, rpe, speed sql.NullFloat64
+		var duration sql.NullInt64
+		var phase sql.NullString
+		var completed, skipped int
+		if err := rows.Scan(&s.ID, &s.SessionID, &s.ExerciseID, &s.SetIndex,
+			&weightKg, &s.Reps, &completed, &phase, &rir, &rpe, &duration, &speed, &skipped); err != nil {
+			return nil, err
+		}
+		s.Completed = completed == 1
+		s.Skipped = skipped == 1
+		if weightKg.Valid {
+			s.WeightKg = weightKg.Float64
+		}
+		if phase.Valid {
+			s.Phase = phase.String
+		}
+		if rir.Valid {
+			s.RIR = rir.Float64
+		}
+		if rpe.Valid {
+			s.RPE = rpe.Float64
+		}
+		if duration.Valid {
+			s.Duration = int(duration.Int64)
+		}
+		if speed.Valid {
+			s.Speed = speed.Float64
+		}
+		sets = append(sets, s)
+	}
+	return sets, nil
 }
 
 // findLatestSession returns the most recent in-progress session for a workout, or nil if none.
@@ -666,15 +752,20 @@ func (r *WorkoutRepository) GetWorkoutSession(ctx context.Context, sessionID, at
 	return s, nil
 }
 
-// CreateWorkoutSession creates a new workout session for an athlete.
+// CreateWorkoutSession creates a new workout session for an athlete, or returns the existing active session if one is already in progress.
 func (r *WorkoutRepository) CreateWorkoutSession(ctx context.Context, workoutID, athleteID string) (*training.WorkoutSession, error) {
+	existing, err := r.findLatestSession(ctx, workoutID)
+	if err == nil && existing != nil && existing.AthleteID == athleteID && !existing.Completed {
+		return existing, nil
+	}
+
 	session := &training.WorkoutSession{
 		ID:        generateID(),
 		WorkoutID: workoutID,
 		AthleteID: athleteID,
 	}
 
-	_, err := r.exec.ExecContext(ctx,
+	_, err = r.exec.ExecContext(ctx,
 		`INSERT INTO workout_session_logs
 		 (id, workout_id, athlete_id, started_at, completed, current_exercise_index, duration_seconds)
 		 VALUES ($1, $2, $3, NOW(), 0, 0, 0)`,
@@ -686,8 +777,13 @@ func (r *WorkoutRepository) CreateWorkoutSession(ctx context.Context, workoutID,
 	return session, nil
 }
 
-// CompleteSession marks a session as completed with the given duration.
+// CompleteSession marks a session as completed with the given duration and marks the assigned workout completed.
 func (r *WorkoutRepository) CompleteSession(ctx context.Context, sessionID, athleteID string, durationSeconds int) error {
+	var workoutID string
+	_ = r.exec.QueryRowContext(ctx,
+		`SELECT workout_id FROM workout_session_logs WHERE id = $1 AND athlete_id = $2`,
+		sessionID, athleteID).Scan(&workoutID)
+
 	result, err := r.exec.ExecContext(ctx,
 		`UPDATE workout_session_logs
 		 SET completed = 1, completed_at = NOW(), duration_seconds = $1
@@ -702,6 +798,12 @@ func (r *WorkoutRepository) CompleteSession(ctx context.Context, sessionID, athl
 	}
 	if rows == 0 {
 		return errors.NotFound("WorkoutSession", sessionID)
+	}
+
+	if workoutID != "" {
+		_, _ = r.exec.ExecContext(ctx,
+			`UPDATE assigned_workouts SET status = 'completed', progress = 1.0, updated_at = NOW() WHERE id = $1`,
+			workoutID)
 	}
 	return nil
 }

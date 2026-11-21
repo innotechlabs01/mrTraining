@@ -50,8 +50,26 @@ export interface MembershipStatus {
   isInGracePeriod: boolean;
   daysRemaining: number | null;
   expiresAt: string | null;
-  membership: Subscription | null;
+  membership: MembershipSummary | null;
   membershipId: string;
+  /** True when the coach has more active athletes than their plan allows. */
+  coachPlanLimitExceeded: boolean;
+  coachPlanMaxAthletes: number;
+  coachAthletesCount: number;
+  coachPlanName: string;
+}
+
+/** Summary of the athlete's membership returned by the status endpoint. */
+export interface MembershipSummary {
+  id: string;
+  planName: string;
+  planPrice: number;
+  billingPeriod: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  paymentDueDate: string;
+  athleteId: string;
+  coachId: string;
 }
 
 /** Premium features that are gated behind an active subscription. */

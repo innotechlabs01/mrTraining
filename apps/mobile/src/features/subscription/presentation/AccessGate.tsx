@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSubscription } from '../application/useSubscription';
+import { CoachLimitScreen } from './CoachLimitScreen';
 import { Paywall } from './Paywall';
 import {
   colors,
@@ -78,6 +79,19 @@ export function AccessGate({ children }: Props) {
   }
 
   // state.status === 'success'
+  // The coach's platform plan is over its athlete limit: block training
+  // and show the contact-the-administration alert before the paywall.
+  if (state.membership.coachPlanLimitExceeded) {
+    return (
+      <CoachLimitScreen
+        planName={state.membership.coachPlanName}
+        maxAthletes={state.membership.coachPlanMaxAthletes}
+        athletesCount={state.membership.coachAthletesCount}
+        onRetry={() => void state.refetch()}
+      />
+    );
+  }
+
   if (!state.hasActive) {
     return <Paywall />;
   }

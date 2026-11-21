@@ -98,15 +98,20 @@ export function useWorkoutExecution({ sessionId, workoutId, navigation }: UseWor
     checkBadgesMutation,
   });
 
-  const aiActive = d.currentExercise ? shouldUseAiFor(d.currentExercise) : false;
+  const aiSupported = d.currentExercise ? shouldUseAiFor(d.currentExercise) : false;
+  const aiActive = aiSupported && f.hasConsent;
   const aiExerciseId =
-    aiActive && d.currentExercise
+    aiSupported && d.currentExercise
       ? definitionFor(d.currentExercise.name.trim().toLowerCase())?.id ?? null
       : null;
   const aiTarget = d.currentPrescription?.reps ?? d.currentExercise?.reps ?? 0;
 
   const handleOpenAiWorkout = () => {
     if (!aiExerciseId) return;
+    if (!f.hasConsent) {
+      f.requestConsent();
+      return;
+    }
     setDemoVisible(false);
     navigation.navigate('AiWorkout', {
       sessionId,
@@ -120,7 +125,9 @@ export function useWorkoutExecution({ sessionId, workoutId, navigation }: UseWor
   // Demo video + form verdict surfaces for the current exercise.
   const demoVideoUrl = d.currentExercise?.videoUrl ?? null;
   const formVerdict =
-    f.formScore > 0 && f.formQuality ? { quality: f.formQuality, score: f.formScore } : null;
+    f.hasConsent && f.formScore > 0 && f.formQuality
+      ? { quality: f.formQuality, score: f.formScore }
+      : null;
 
   // Trigger PR celebration when workout completes with PRs
   useEffect(() => {

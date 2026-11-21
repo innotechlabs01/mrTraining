@@ -223,6 +223,16 @@ func (h *MembershipHandler) GetMembershipStatus(c *fiber.Ctx) error {
 		MembershipID:    m.ID,
 	}
 
+	// Expose the coach's plan capacity so mobile can block training and show
+	// the contact-the-administration alert. A lookup failure must not hide the
+	// athlete's membership status; the training middleware still fails closed.
+	if capacity, capErr := middleware.GetCoachPlanCapacity(c.Context(), h.db, m.CoachID); capErr == nil {
+		response.CoachPlanLimitExceeded = capacity.Exceeded
+		response.CoachPlanMaxAthletes = capacity.MaxAthletes
+		response.CoachAthletesCount = capacity.AthletesCount
+		response.CoachPlanName = capacity.PlanName
+	}
+
 	if m != nil {
 		response.Membership = &dto.MembershipSummary{
 			ID:                 m.ID,

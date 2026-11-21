@@ -31,11 +31,13 @@ type Event struct {
 	Timestamp string `json:"timestamp"`
 }
 
-// Hub is the in-memory broadcast hub for live running events.
+// Hub is the in-memory broadcast hub for live running events, with an optional
+// distributed broadcaster hook for multi-replica SSE delivery.
 type Hub struct {
-	mu     sync.RWMutex
-	subs   map[string][]chan Event // workoutID -> subscriber channels
-	nextID int
+	mu       sync.RWMutex
+	subs     map[string][]chan Event // workoutID -> subscriber channels
+	nextID   int
+	external func(Event)
 }
 
 // NewHub creates a live-running event hub.
@@ -43,6 +45,14 @@ func NewHub() *Hub {
 	return &Hub{
 		subs: make(map[string][]chan Event),
 	}
+}
+
+// SetExternalBroadcaster registers a callback invoked on local Publish calls
+// to replicate live events across cluster nodes.
+func (h *Hub) SetExternalBroadcaster(fn func(Event)) {
+	h.mu.Lock()
+	h.external = fn
+	h.mu.Unlock()
 }
 
 // DefaultHub is the process-wide singleton used by HTTP handlers.
@@ -81,11 +91,30 @@ func (h *Hub) Unsubscribe(workoutID string, ch chan Event) {
 	}
 }
 
-// Publish sends an event to all subscribers of workoutID. Non-blocking:
-// if a subscriber's channel is full, the event is dropped for that
-// subscriber only (never blocks the publisher or others).
+// Publish sends an event to all subscribers of workoutID and forwards to any
+// registered distributed broadcaster. Non-blocking.
 func (h *Hub) Publish(ev Event) {
 	ev.Timestamp = now()
+	h.deliverLocal(ev)
+
+	h.mu.RLock()
+	ext := h.external
+	h.mu.RUnlock()
+	if ext != nil {
+		ext(ev)
+	}
+}
+
+// PublishLocal delivers ev only to subscribers connected to this instance
+// (used by distributed realtime bridges to prevent echo loops).
+func (h *Hub) PublishLocal(ev Event) {
+	if ev.Timestamp == "" {
+		ev.Timestamp = now()
+	}
+	h.deliverLocal(ev)
+}
+
+func (h *Hub) deliverLocal(ev Event) {
 	h.mu.RLock()
 	chans := h.subs[ev.WorkoutID]
 	h.mu.RUnlock()

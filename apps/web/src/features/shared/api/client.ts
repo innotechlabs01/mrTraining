@@ -23,7 +23,18 @@
  *   - /api/progress/*           — Progress analytics
  *   - /api/marketing/*          — Marketing (blog, products, plans)
  */
-import { goClient, goFetch, goFetchBlob } from '@/lib/api/go-client'
+import { CircuitBreakerOpenError, GoApiError, goClient, goFetch, goFetchBlob } from '@/lib/api/go-client'
+
+export function shouldFallbackToNextApi(err: unknown, method = 'GET'): boolean {
+  if (err instanceof CircuitBreakerOpenError) {
+    return false;
+  }
+  const normalized = method.toUpperCase();
+  if (normalized !== 'GET' && normalized !== 'HEAD') {
+    return false;
+  }
+  return err instanceof GoApiError && (err.status === 404 || err.status === 501);
+}
 import type { CoachEvent } from '@/features/coach/types'
 import type { CoachLandingResponse } from '@/features/coach/types'
 import type { EarningsSummary } from '@/features/coach/types'
@@ -190,19 +201,18 @@ export const workoutApi = {
     }),
 
   getById: (id: string) =>
-    // Go API: GET /api/v1/workouts/:id (if available, else fallback)
-    goFetch<Workout>(`/api/v1/workouts/${id}`).catch(() =>
-      nextFetch.get<Workout>(`/api/coaching/assigned-workouts/${id}`)
-    ),
+    // Go API: GET /api/v1/workouts/:id (if not implemented, fallback)
+    goFetch<Workout>(`/api/v1/workouts/${id}`).catch((err) => {
+      if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+      return nextFetch.get<Workout>(`/api/coaching/assigned-workouts/${id}`);
+    }),
 
   complete: (id: string, data: { rpe: number; notes: string }) =>
-    // Go API: POST /api/v1/workouts/:id/sets (log completion)
+    // Go API: POST /api/v1/workouts/:id/sets (log completion) — no mutation fallback
     goFetch<Workout>(`/api/v1/workouts/${id}/sets`, {
       method: 'POST',
       body: JSON.stringify({ rpe: data.rpe, notes: data.notes, completed: true }),
-    }).catch(() =>
-      nextFetch.put<Workout>(`/api/coaching/assigned-workouts/${id}`, { status: 'completed', rpe: data.rpe, notes: data.notes } as unknown)
-    ),
+    }),
 
   getAthleteWorkouts: (athleteId: string, dateFrom?: string, dateTo?: string) => {
     // Go API: GET /api/v1/workouts
@@ -211,9 +221,10 @@ export const workoutApi = {
     if (dateTo) params.append('dateTo', dateTo);
     const qs = params.toString();
     void athleteId; // Go API uses auth-derived athlete
-    return goFetch<{ data: Workout[] }>(`/api/v1/workouts${qs ? `?${qs}` : ''}`).then(r => r.data).catch(() =>
-      nextFetch.get<Workout[]>(`/api/athlete/workouts${qs ? `?${qs}` : ''}`)
-    );
+    return goFetch<{ data: Workout[] }>(`/api/v1/workouts${qs ? `?${qs}` : ''}`).then(r => r.data).catch((err) => {
+      if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+      return nextFetch.get<Workout[]>(`/api/athlete/workouts${qs ? `?${qs}` : ''}`);
+    });
   },
 
   getTodayWorkout: (_athleteId: string) =>
@@ -222,9 +233,10 @@ export const workoutApi = {
 
   getPendingReviews: () =>
     // Go API: GET /api/v1/workouts (coach view)
-    goFetch<{ data: Workout[] }>('/api/v1/workouts').then(r => r.data).catch(() =>
-      nextFetch.get<Workout[]>('/api/coaching/assigned-workouts')
-    ),
+    goFetch<{ data: Workout[] }>('/api/v1/workouts').then(r => r.data).catch((err) => {
+      if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+      return nextFetch.get<Workout[]>('/api/coaching/assigned-workouts');
+    }),
 };
 
 // Coach API
@@ -274,24 +286,95 @@ export const coachApi = {
     athleteId: string,
     params: { page?: number; limit?: number; fromDate?: string; toDate?: string } = {}
   ) =>
-    goFetch<{ data: RunningSession[]; total: number; page: number; limit: number }>(
+    goFetch<{ data: Array<RunningSession & Record<string, unknown>>; total: number; page: number; limit: number }>(
       `/api/v1/coach/athletes/${athleteId}/running/sessions${buildQuery({
         page: params.page,
         limit: params.limit,
         from_date: params.fromDate,
         to_date: params.toDate,
       })}`
-    ),
+    ).then((res) => ({
+      ...res,
+      data: (res.data ?? []).map((s) => ({
+        ...s,
+        heartRate: Number(s.heartRate ?? s.heart_rate ?? 0),
+        gpsRoute: (s.gpsRoute ?? s.gps_route ?? undefined) as string | undefined,
+        deviceName: (s.deviceName ?? s.device_name ?? undefined) as string | undefined,
+        deviceBrand: (s.deviceBrand ?? s.device_brand ?? undefined) as string | undefined,
+        createdAt: String(s.createdAt ?? s.created_at ?? ''),
+      })),
+    })),
+
+  getAthleteRunningSessionDetail: (athleteId: string, sessionId: string) =>
+    goFetch<Record<string, unknown>>(
+      `/api/v1/coach/athletes/${athleteId}/running/sessions/${sessionId}`
+    ).then((raw) => {
+      const gpsPoints = Array.isArray(raw.gpsPoints ?? raw.gps_points)
+        ? ((raw.gpsPoints ?? raw.gps_points) as Array<Record<string, unknown>>).map((p) => ({
+            id: String(p.id ?? ''),
+            sessionId: String(p.sessionId ?? p.session_id ?? sessionId),
+            lat: Number(p.lat ?? 0),
+            lng: Number(p.lng ?? 0),
+            alt: p.alt != null ? Number(p.alt) : undefined,
+            timestamp: String(p.timestamp ?? ''),
+            accuracy: p.accuracy != null ? Number(p.accuracy) : undefined,
+          }))
+        : []
+      const sessionObj = (raw.session as Record<string, unknown> | undefined) ?? raw
+      const session: RunningSession = {
+        id: String(sessionObj.id ?? sessionId),
+        date: String(sessionObj.date ?? ''),
+        distance: Number(sessionObj.distance ?? 0),
+        duration: Number(sessionObj.duration ?? 0),
+        pace: String(sessionObj.pace ?? ''),
+        speed: Number(sessionObj.speed ?? 0),
+        calories: Number(sessionObj.calories ?? 0),
+        elevation: Number(sessionObj.elevation ?? 0),
+        heartRate: Number(sessionObj.heartRate ?? sessionObj.heart_rate ?? 0),
+        cadence: Number(sessionObj.cadence ?? 0),
+        gpsRoute: (sessionObj.gpsRoute ?? sessionObj.gps_route ?? undefined) as string | undefined,
+        source: String(sessionObj.source ?? 'manual'),
+        createdAt: String(sessionObj.createdAt ?? sessionObj.created_at ?? ''),
+      }
+      return { session, gpsPoints } as RunningSessionDetail
+    }),
 
   getAthleteRunningStats: (athleteId: string, fromDate?: string, toDate?: string) =>
-    goFetch<RunningStats>(
+    goFetch<Record<string, unknown>>(
       `/api/v1/coach/athletes/${athleteId}/running/stats${buildQuery({ from_date: fromDate, to_date: toDate })}`
-    ),
+    ).then((r): RunningStats => ({
+      totalSessions: Number(r.totalSessions ?? r.total_sessions ?? 0),
+      totalDistance: Number(r.totalDistance ?? r.total_distance ?? 0),
+      totalDuration: Number(r.totalDuration ?? r.total_duration ?? 0),
+      totalCalories: Number(r.totalCalories ?? r.total_calories ?? 0),
+      totalElevation: Number(r.totalElevation ?? r.total_elevation ?? 0),
+      avgDistance: Number(r.avgDistance ?? r.avg_distance ?? 0),
+      avgDuration: Number(r.avgDuration ?? r.avg_duration ?? 0),
+      avgCalories: Number(r.avgCalories ?? r.avg_calories ?? 0),
+      avgHeartRate: Number(r.avgHeartRate ?? r.avg_heart_rate ?? 0),
+      avgPace: String(r.avgPace ?? r.avg_pace ?? ''),
+    })),
+
+  getAthleteRunningPRs: (athleteId: string) =>
+    goFetch<RunningPRsResponse>(`/api/v1/coach/athletes/${athleteId}/running/prs`),
 
   getAthleteRunningWeeklyTrend: (athleteId: string, fromDate?: string, toDate?: string) =>
-    goFetch<WeeklyTrendPoint[]>(
+    goFetch<Array<Record<string, unknown>>>(
       `/api/v1/coach/athletes/${athleteId}/running/weekly-trend${buildQuery({ from_date: fromDate, to_date: toDate })}`
+    ).then((list) =>
+      (Array.isArray(list) ? list : []).map((w): WeeklyTrendPoint => ({
+        week: String(w.week ?? ''),
+        distance: Number(w.distance ?? 0),
+        sessions: Number(w.sessions ?? 0),
+        avgPaceSec: Number(w.avgPaceSec ?? w.avg_pace_sec ?? 0),
+        avgHeartRate: Number(w.avgHeartRate ?? w.avg_heart_rate ?? 0),
+      }))
     ),
+
+  getAthleteAssignedWorkouts: (athleteId: string) =>
+    goFetch<{ data: PastAssignmentListItem[] } | PastAssignmentListItem[]>(
+      `/api/v1/workouts?athleteId=${encodeURIComponent(athleteId)}`
+    ).then((res) => (Array.isArray(res) ? res : res.data ?? [])),
 
   exportAthleteRunningSessions: (
     athleteId: string,
@@ -331,9 +414,17 @@ type GoEvent = {
   status: string;
   format?: string;
   is_public: boolean;
+  max_capacity?: number | null;
+  price_cents?: number;
+  currency?: string;
+  registration_deadline?: string;
   running_distance_km?: number | null;
   running_pace?: string;
   running_meeting_point?: string;
+  running_categories?: string[];
+  running_elevation_m?: number | null;
+  running_route_url?: string;
+  accepted_count?: number;
   athlete_ids: string[];
   form_fields?: GoFormField[];
   list_items?: string[];
@@ -554,7 +645,12 @@ export function toGoSale(s: Omit<Sale, 'id' | 'createdAt'>): Record<string, unkn
 // RSC must apply the exact same mapping so hydrated data matches client shape.
 export function mapGoEvent(g: GoEvent): CoachEvent {
   const hasRunning =
-    g.running_distance_km != null || !!g.running_pace || !!g.running_meeting_point;
+    g.running_distance_km != null ||
+    !!g.running_pace ||
+    !!g.running_meeting_point ||
+    (Array.isArray(g.running_categories) && g.running_categories.length > 0) ||
+    g.running_elevation_m != null ||
+    !!g.running_route_url;
   return {
     id: g.id,
     title: g.title,
@@ -567,6 +663,11 @@ export function mapGoEvent(g: GoEvent): CoachEvent {
     description: g.description,
     status: g.status,
     format: g.format,
+    maxCapacity: g.max_capacity ?? undefined,
+    priceCents: g.price_cents ?? 0,
+    currency: g.currency ?? 'COP',
+    registrationDeadline: g.registration_deadline || undefined,
+    acceptedCount: g.accepted_count ?? 0,
     athleteIds: g.athlete_ids ?? [],
     listItems: g.list_items ?? [],
     formFields: (g.form_fields ?? []).map((f) => ({
@@ -581,6 +682,9 @@ export function mapGoEvent(g: GoEvent): CoachEvent {
           distanceKm: g.running_distance_km ?? undefined,
           pace: g.running_pace,
           meetingPoint: g.running_meeting_point,
+          categories: g.running_categories ?? [],
+          elevationM: g.running_elevation_m ?? undefined,
+          routeUrl: g.running_route_url || undefined,
         }
       : undefined,
     public: g.is_public,
@@ -600,6 +704,10 @@ function toGoEvent(e: CoachEvent): Record<string, unknown> {
     status: e.status,
     format: e.format,
     is_public: !!e.public,
+    max_capacity: e.maxCapacity ?? null,
+    price_cents: e.priceCents ?? 0,
+    currency: e.currency ?? 'COP',
+    registration_deadline: e.registrationDeadline ?? '',
     athlete_ids: e.athleteIds ?? [],
     list_items: e.listItems ?? [],
     form_fields: (e.formFields ?? []).map((f) => ({
@@ -609,9 +717,12 @@ function toGoEvent(e: CoachEvent): Record<string, unknown> {
       options: f.options ?? [],
       required: !!f.required,
     })),
-    running_distance_km: e.running?.distanceKm,
-    running_pace: e.running?.pace,
-    running_meeting_point: e.running?.meetingPoint,
+    running_distance_km: e.running?.distanceKm ?? null,
+    running_pace: e.running?.pace ?? '',
+    running_meeting_point: e.running?.meetingPoint ?? '',
+    running_categories: e.running?.categories ?? [],
+    running_elevation_m: e.running?.elevationM ?? null,
+    running_route_url: e.running?.routeUrl ?? '',
   };
 }
 
@@ -633,16 +744,17 @@ export const coachingApi = {
   getTimeBlocks: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/time-blocks`),
   saveTimeBlocks: <T>(data: unknown) => coachingFetch.post<T>(`${COACHING_BASE}/time-blocks`, data),
 
-  // Athletes — Go API (primary) with Next.js fallback
+  // Athletes — Go API (primary) with Next.js fallback on 404/501
   getAthletes: <T>() =>
     // Go API: GET /api/v1/coaches/:id/athletes (auth-derived coach ID)
     // Response format: { data: T[], total: number, page: number, limit: number }
     // T is the element type (e.g., AthleteBrief), not the array type
     goFetch<{ data: T[]; total: number; page: number; limit: number }>('/api/v1/coaches/me/athletes')
       .then((res) => (Array.isArray(res) ? res : res.data))
-      .catch(() =>
-        coachingFetch.get<T[]>(`${COACHING_BASE}/athletes`)
-      ) as Promise<T[]>,
+      .catch((err) => {
+        if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+        return coachingFetch.get<T[]>(`${COACHING_BASE}/athletes`);
+      }) as Promise<T[]>,
   getAthleteById: <T>(id: string) =>
     // Next.js: /api/coaching/athletes/:id (detailed athlete view)
     coachingFetch.get<T>(`${COACHING_BASE}/athletes/${id}`),
@@ -664,29 +776,30 @@ export const coachingApi = {
   // Daily Summary (not in Go API yet — Next.js fallback)
   getDailySummary: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/daily-summary`),
 
-  // Events — Go API (primary) with Next.js fallback
+  // Events — Go API (primary) with Next.js fallback on GET 404/501
   getEvents: () =>
     // Go API: GET /api/v1/events (returns { data: [snake_case] })
     goFetch<{ data?: GoEvent[] }>('/api/v1/events')
-      .catch(() => coachingFetch.get<CoachEvent[]>(`${COACHING_BASE}/events`))
+      .catch((err) => {
+        if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+        return coachingFetch.get<CoachEvent[]>(`${COACHING_BASE}/events`);
+      })
       .then((res) => (Array.isArray(res) ? res : (res.data ?? []).map(mapGoEvent))),
   saveEvent: (event: CoachEvent) =>
     // Go API: POST /api/v1/events (sends snake_case payload)
     goFetch<{ id: string }>('/api/v1/events', {
       method: 'POST',
       body: JSON.stringify(toGoEvent(event)),
-    }).catch(() => coachingFetch.post<{ id: string }>(`${COACHING_BASE}/events`, event)),
+    }),
   updateEvent: (id: string, event: CoachEvent) =>
     // Go API: PUT /api/v1/events/:id (sends snake_case payload)
     goFetch<{ ok: boolean }>(`/api/v1/events/${id}`, {
       method: 'PUT',
       body: JSON.stringify(toGoEvent(event)),
-    }).catch(() => coachingFetch.put<{ ok: boolean }>(`${COACHING_BASE}/events/${id}`, event)),
+    }),
   deleteEvent: (id: string) =>
     // Go API: DELETE /api/v1/events/:id
-    goFetch<{ ok: boolean }>(`/api/v1/events/${id}`, { method: 'DELETE' }).catch(() =>
-      coachingFetch.delete<{ ok: boolean }>(`${COACHING_BASE}/events/${id}`)
-    ),
+    goFetch<{ ok: boolean }>(`/api/v1/events/${id}`, { method: 'DELETE' }),
   getEventRegistrations: (eventId: string) =>
     // Go API: GET /api/v1/events/:id/registrations (coach-scoped)
     goFetch<{
@@ -718,6 +831,7 @@ export const coachingApi = {
     name?: string;
     email?: string;
     phone?: string;
+    category?: string;
     answers?: Array<{ field_id: string; value: string }>;
   }) =>
     // Go API: POST /public/events/:id/rsvp
@@ -754,23 +868,23 @@ export const coachingApi = {
     // No fallback to Next.js API to avoid leaking plans of other coaches on public pages.
     goFetch<{ data?: GoPlan[] }>('/api/v1/plans')
       .then((res) => (Array.isArray(res) ? res : (res.data ?? []).map(mapGoPlan))),
-  savePlan: <T>(data: unknown) =>
+  savePlan: <T>(_data: unknown) =>
     // Go API: POST /api/v1/plans
     goFetch<{ id: string }>('/api/v1/plans', {
       method: 'POST',
-      body: JSON.stringify(data),
-    }).catch(() => coachingFetch.post<T>(`${COACHING_BASE}/plans`, data)),
+      body: JSON.stringify(_data),
+    }) as Promise<T & { id: string }>,
   updatePlan: <T>(id: string, data: unknown) =>
     // Go API: PUT /api/v1/plans/:id
     goFetch<{ ok: boolean }>(`/api/v1/plans/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    }).catch(() => coachingFetch.put<T>(`${COACHING_BASE}/plans/${id}`, data)),
+    }) as Promise<T & { ok: boolean }>,
   deletePlan: <T>(id: string) =>
     // Go API: DELETE /api/v1/plans/:id
     goFetch<{ ok: boolean }>(`/api/v1/plans/${id}`, {
       method: 'DELETE',
-    }).catch(() => coachingFetch.delete<T>(`${COACHING_BASE}/plans/${id}`)),
+    }) as Promise<T & { ok: boolean }>,
 
   // Public plans & TRM — no auth
   getPublicPlans: <T>(coachId: string) =>
@@ -784,45 +898,54 @@ export const coachingApi = {
   getPublicCoachPage: (slug: string) =>
     goFetch<CoachLandingResponse>(`/public/coach/${slug}`, { auth: false }),
 
-  // Tickets (Support) — Go API (primary) with Next.js fallback
+  // Tickets (Support) — Go API (primary) with Next.js fallback on GET 404/501
   getTickets: <T>() =>
     // Go API: GET /api/v1/tickets (coach tickets, all statuses)
     goFetch<{ data?: SupportTicket[] }>('/api/v1/tickets')
-      .catch(() => coachingFetch.get<SupportTicket[]>(`${COACHING_BASE}/tickets`))
+      .catch((err) => {
+        if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+        return coachingFetch.get<SupportTicket[]>(`${COACHING_BASE}/tickets`);
+      })
       .then((res) => (Array.isArray(res) ? res : (res.data ?? []))),
   saveTicket: <T>(data: unknown) =>
     // Go API: POST /api/v1/tickets
     goFetch<{ id: string }>('/api/v1/tickets', {
       method: 'POST',
       body: JSON.stringify(data),
-    }).catch(() => coachingFetch.post<T>(`${COACHING_BASE}/tickets`, data)),
+    }) as Promise<T & { id: string }>,
   updateTicket: <T>(id: string, data: unknown) =>
     // Go API: PUT /api/v1/tickets/:id
     goFetch<{ ok: boolean }>(`/api/v1/tickets/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    }).catch(() => coachingFetch.put<T>(`${COACHING_BASE}/tickets/${id}`, data)),
+    }) as Promise<T & { ok: boolean }>,
   deleteTicket: <T>(id: string) =>
     // Go API: DELETE /api/v1/tickets/:id
-    goFetch<{ ok: boolean }>(`/api/v1/tickets/${id}`, { method: 'DELETE' }).catch(() =>
-      coachingFetch.delete<T>(`${COACHING_BASE}/tickets/${id}`)),
+    goFetch<{ ok: boolean }>(`/api/v1/tickets/${id}`, { method: 'DELETE' }) as Promise<T & { ok: boolean }>,
   getTicket: <T>(id: string) =>
-    goFetch<SupportTicket>(`/api/v1/tickets/${id}`).catch(() =>
-      coachingFetch.get<SupportTicket>(`${COACHING_BASE}/tickets/${id}`)),
+    goFetch<SupportTicket>(`/api/v1/tickets/${id}`).catch((err) => {
+      if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+      return coachingFetch.get<SupportTicket>(`${COACHING_BASE}/tickets/${id}`);
+    }),
 
   // Athlete tickets
   getAthleteTickets: <T>() =>
     goFetch<{ data?: SupportTicket[] }>('/api/v1/athlete/tickets')
-      .catch(() => coachingFetch.get<SupportTicket[]>(`${COACHING_BASE}/athlete/tickets`))
+      .catch((err) => {
+        if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+        return coachingFetch.get<SupportTicket[]>(`${COACHING_BASE}/athlete/tickets`);
+      })
       .then((res) => (Array.isArray(res) ? res : (res.data ?? []))),
   createAthleteTicket: <T>(data: unknown) =>
     goFetch<{ id: string }>('/api/v1/athlete/tickets', {
       method: 'POST',
       body: JSON.stringify(data),
-    }).catch(() => coachingFetch.post<T>(`${COACHING_BASE}/athlete/tickets`, data)),
+    }) as Promise<T & { id: string }>,
   getAthleteTicket: <T>(id: string) =>
-    goFetch<SupportTicket>(`/api/v1/athlete/tickets/${id}`).catch(() =>
-      coachingFetch.get<SupportTicket>(`${COACHING_BASE}/athlete/tickets/${id}`)),
+    goFetch<SupportTicket>(`/api/v1/athlete/tickets/${id}`).catch((err) => {
+      if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+      return coachingFetch.get<SupportTicket>(`${COACHING_BASE}/athlete/tickets/${id}`);
+    }),
 
   // Ticket messages
   getTicketMessages: <T>(ticketId: string) =>
@@ -838,22 +961,19 @@ export const coachingApi = {
   getTicketUnreadCount: <T>(ticketId: string) =>
     goFetch<{ count: number }>(`/api/v1/tickets/${ticketId}/unread`),
 
-  // Assigned Workouts — Go API (primary) with Next.js fallback
+  // Assigned Workouts — Go API (primary) with Next.js fallback on GET 404/501
   getAssignedWorkouts: <T>() =>
     // Go API: GET /api/v1/workouts
-    goFetch<T>('/api/v1/workouts').catch(() =>
-      coachingFetch.get<T>(`${COACHING_BASE}/assigned-workouts`)
-    ),
+    goFetch<T>('/api/v1/workouts').catch((err) => {
+      if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+      return coachingFetch.get<T>(`${COACHING_BASE}/assigned-workouts`);
+    }),
   saveAssignedWorkout: <T>(data: unknown) =>
     // Go API: POST /api/v1/workouts/assign
-    goFetch<T>('/api/v1/workouts/assign', { method: 'POST', body: JSON.stringify(data) }).catch(() =>
-      coachingFetch.post<T>(`${COACHING_BASE}/assigned-workouts`, data)
-    ),
+    goFetch<T>('/api/v1/workouts/assign', { method: 'POST', body: JSON.stringify(data) }),
   updateAssignedWorkout: <T>(id: string, data: unknown) =>
     // Go API: POST /api/v1/workouts/:id/sets (update workout)
-    goFetch<T>(`/api/v1/workouts/${id}/sets`, { method: 'POST', body: JSON.stringify(data) }).catch(() =>
-      coachingFetch.put<T>(`${COACHING_BASE}/assigned-workouts/${id}`, data)
-    ),
+    goFetch<T>(`/api/v1/workouts/${id}/sets`, { method: 'POST', body: JSON.stringify(data) }),
   deleteAssignedWorkout: <T>(id: string) => coachingFetch.delete<T>(`${COACHING_BASE}/assigned-workouts/${id}`),
 
   // AI Suggestions (not in Go API yet — Next.js fallback)
@@ -970,12 +1090,13 @@ export const coachingApi = {
   getPublicPageConfig: <T>() => coachingFetch.get<T>(`${COACHING_BASE}/public-page`),
   updatePublicPageConfig: <T>(data: unknown) => coachingFetch.put<T>(`${COACHING_BASE}/public-page`, data),
 
-  // Memberships — Go API (primary) with Next.js fallback
+  // Memberships — Go API (primary) with Next.js fallback on GET 404/501
   getMemberships: <T>() =>
     // Go API: GET /api/v1/memberships (athlete's own membership)
-    goFetch<T>('/api/v1/memberships').catch(() =>
-      coachingFetch.get<T>(`${COACHING_BASE}/memberships`)
-    ),
+    goFetch<T>('/api/v1/memberships').catch((err) => {
+      if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+      return coachingFetch.get<T>(`${COACHING_BASE}/memberships`);
+    }),
   getCoachMemberships: <T>() =>
     // Go API: GET /api/v1/coaches/memberships (all athletes' memberships for coach)
     // Go returns snake_case — normalize to the camelCase shape pages expect.
@@ -987,29 +1108,28 @@ export const coachingApi = {
         planPrice: m.planPrice ?? m.plan_price,
         paymentDueDate: m.paymentDueDate ?? m.payment_due_date,
       })) as T[])
-      .catch(() =>
-        coachingFetch.get<T[]>(`${COACHING_BASE}/memberships`)
-      ),
+      .catch((err) => {
+        if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+        return coachingFetch.get<T[]>(`${COACHING_BASE}/memberships`);
+      }),
   getMembership: <T>(athleteId: string) =>
     // Go API: GET /api/v1/memberships (auth-derived)
-    goFetch<T>('/api/v1/memberships').catch(() =>
-      coachingFetch.get<T>(`${COACHING_BASE}/membership/${athleteId}`)
-    ),
+    goFetch<T>('/api/v1/memberships').catch((err) => {
+      if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+      return coachingFetch.get<T>(`${COACHING_BASE}/membership/${athleteId}`);
+    }),
   createMembership: <T>(data: unknown) =>
     // Go API: POST /api/v1/memberships
-    goFetch<T>('/api/v1/memberships', { method: 'POST', body: JSON.stringify(data) }).catch(() =>
-      coachingFetch.post<T>(`${COACHING_BASE}/membership`, data)
-    ),
+    goFetch<T>('/api/v1/memberships', { method: 'POST', body: JSON.stringify(data) }),
   cancelMembership: <T>(id: string) =>
     // Go API: PUT /api/v1/memberships/:id/cancel
-    goFetch<T>(`/api/v1/memberships/${id}/cancel`, { method: 'PUT' }).catch(() =>
-      coachingFetch.delete<T>(`${COACHING_BASE}/membership/${id}`)
-    ),
+    goFetch<T>(`/api/v1/memberships/${id}/cancel`, { method: 'PUT' }),
   getPaymentHistory: <T>(athleteId: string) =>
     // Go API: GET /api/v1/memberships/:id/payments
-    goFetch<T>(`/api/v1/memberships/${athleteId}/payments`).catch(() =>
-      coachingFetch.get<T>(`${COACHING_BASE}/payment-history/${athleteId}`)
-    ),
+    goFetch<T>(`/api/v1/memberships/${athleteId}/payments`).catch((err) => {
+      if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+      return coachingFetch.get<T>(`${COACHING_BASE}/payment-history/${athleteId}`);
+    }),
 
   // Commercial policy engine — commission configuration and listing (Go API).
   // POST /api/v1/policies/commission — configure commission rate for the coach.
@@ -1174,30 +1294,89 @@ export const trainingApi = {
   getTrainingSummary: (athleteId: string, days = 28) =>
     // Go: GET /athlete/:id/analytics/training-summary
     goFetch<TrainingSummaryResponse>(`/api/v1/athlete/${athleteId}/analytics/training-summary?days=${days}`)
-      .catch(() => nextFetch.get<TrainingSummaryResponse>(`/api/coach/athletes/${athleteId}/training-summary?days=${days}`)),
+      .catch((err) => {
+        if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+        return nextFetch.get<TrainingSummaryResponse>(`/api/coach/athletes/${athleteId}/training-summary?days=${days}`);
+      }),
 
   getOneRm: (athleteId: string) =>
     // Go: GET /athlete/:id/analytics/one-rm
     goFetch<OneRmResponse>(`/api/v1/athlete/${athleteId}/analytics/one-rm`)
-      .catch(() => nextFetch.get<OneRmResponse>(`/api/coach/athletes/${athleteId}/one-rm`)),
+      .catch((err) => {
+        if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+        return nextFetch.get<OneRmResponse>(`/api/coach/athletes/${athleteId}/one-rm`);
+      }),
 
   getFatigueMap: (athleteId: string, days = 7) =>
     // Go: GET /athlete/:id/analytics/fatigue-map
     goFetch<FatigueMapResponse>(`/api/v1/athlete/${athleteId}/analytics/fatigue-map?days=${days}`)
-      .catch(() => nextFetch.get<FatigueMapResponse>(`/api/coach/athletes/${athleteId}/fatigue-map?days=${days}`)),
+      .catch((err) => {
+        if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+        return nextFetch.get<FatigueMapResponse>(`/api/coach/athletes/${athleteId}/fatigue-map?days=${days}`);
+      }),
 
   getEffort: (athleteId: string, days = 28) =>
     // Go: GET /athlete/:id/analytics/effort
     goFetch<EffortResponse>(`/api/v1/athlete/${athleteId}/analytics/effort?days=${days}`)
-      .catch(() => nextFetch.get<EffortResponse>(`/api/coach/athletes/${athleteId}/effort?days=${days}`)),
+      .catch((err) => {
+        if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+        return nextFetch.get<EffortResponse>(`/api/coach/athletes/${athleteId}/effort?days=${days}`);
+      }),
 
   /** Wearable-derived health signals (HRV/RHR/steps/sleep) for one athlete. */
   getHealth: async (athleteId: string, days = 14): Promise<AthleteHealthResponse> => {
-    const [metrics, sleepLogs, devices] = await Promise.all([
-      goFetch<HealthMetric[]>(`/health/metrics?athlete_id=${athleteId}&days=${days}`),
-      goFetch<SleepLog[]>(`/health/sleep?athlete_id=${athleteId}&days=${days}`),
-      goFetch<HealthDevice[]>(`/health/devices?athlete_id=${athleteId}`),
+    const [metricsRes, sleepRes, devicesRes] = await Promise.all([
+      goFetch<{ metrics?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>(
+        `/api/v1/health/metrics?athlete_id=${athleteId}&days=${days}`
+      ).catch(() => ({ metrics: [] })),
+      goFetch<{ sleepLogs?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>(
+        `/api/v1/health/sleep?athlete_id=${athleteId}&days=${days}`
+      ).catch(() => ({ sleepLogs: [] })),
+      goFetch<{ devices?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>(
+        `/api/v1/health/devices?athlete_id=${athleteId}`
+      ).catch(() => ({ devices: [] })),
     ]);
+
+    const rawMetrics = Array.isArray(metricsRes) ? metricsRes : (metricsRes.metrics ?? []);
+    const rawSleeps = Array.isArray(sleepRes) ? sleepRes : (sleepRes.sleepLogs ?? []);
+    const rawDevices = Array.isArray(devicesRes) ? devicesRes : (devicesRes.devices ?? []);
+
+    const metrics: HealthMetric[] = rawMetrics.map((m) => ({
+      id: String(m.id ?? ''),
+      athleteId: String(m.athleteId ?? m.athlete_id ?? athleteId),
+      metricType: String(m.metricType ?? m.metric_type ?? ''),
+      value: Number(m.value ?? 0),
+      unit: String(m.unit ?? ''),
+      source: String(m.source ?? ''),
+      sourceWorkoutId: (m.sourceWorkoutId ?? m.source_workout_id ?? undefined) as string | undefined,
+      recordedAt: String(m.recordedAt ?? m.recorded_at ?? ''),
+      syncedAt: String(m.syncedAt ?? m.synced_at ?? ''),
+    }));
+
+    const sleepLogs: SleepLog[] = rawSleeps.map((s) => ({
+      id: String(s.id ?? ''),
+      athleteId: String(s.athleteId ?? s.athlete_id ?? athleteId),
+      date: String(s.date ?? ''),
+      totalMinutes: Number(s.totalMinutes ?? s.total_minutes ?? 0),
+      deepMinutes: s.deepMinutes != null ? Number(s.deepMinutes) : s.deep_minutes != null ? Number(s.deep_minutes) : null,
+      remMinutes: s.remMinutes != null ? Number(s.remMinutes) : s.rem_minutes != null ? Number(s.rem_minutes) : null,
+      lightMinutes: s.lightMinutes != null ? Number(s.lightMinutes) : s.light_minutes != null ? Number(s.light_minutes) : null,
+      awakeMinutes: s.awakeMinutes != null ? Number(s.awakeMinutes) : s.awake_minutes != null ? Number(s.awake_minutes) : null,
+      efficiency: s.efficiency != null ? Number(s.efficiency) : null,
+      score: s.score != null ? Number(s.score) : null,
+      source: String(s.source ?? ''),
+    }));
+
+    const devices: HealthDevice[] = rawDevices.map((d) => ({
+      id: String(d.id ?? ''),
+      athleteId: String(d.athleteId ?? d.athlete_id ?? athleteId),
+      platform: String(d.platform ?? ''),
+      deviceName: String(d.deviceName ?? d.device_name ?? ''),
+      deviceBrand: String(d.deviceBrand ?? d.device_brand ?? ''),
+      isActive: Boolean(d.isActive ?? d.is_active ?? false),
+      lastSyncAt: (d.lastSyncAt ?? d.last_sync_at ?? null) as string | null,
+      createdAt: String(d.createdAt ?? d.created_at ?? ''),
+    }));
 
     // Split metrics by type
     const hrv = metrics
@@ -1234,15 +1413,53 @@ export const trainingApi = {
   },
 
   /** HR zone distribution for a time window (e.g., during a workout). */
-  getHrZones: (athleteId: string, from?: string, to?: string) => {
+  getHrZones: async (athleteId: string, from?: string, to?: string): Promise<{ hrZones: HRZoneRow; sampleCount: number }> => {
     const params = new URLSearchParams();
     if (from) params.set('from', from);
     if (to) params.set('to', to);
-    // Go: GET /athlete/:id/analytics/hr-zones
-    return goFetch<{ hrZones: HRZoneRow; sampleCount: number }>(`/api/v1/athlete/${athleteId}/analytics/hr-zones?${params.toString()}`)
-      .catch(() => nextFetch.get<{ hrZones: HRZoneRow; sampleCount: number }>(
-        `/api/coach/athletes/${athleteId}/hr-zones?${params.toString()}`
-      ));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    try {
+      // Go: GET /api/v1/athlete/:id/analytics/hr-zones returns HRZone[] (timeMinutes per zone 1..5)
+      const raw = await goFetch<
+        | { hrZones: HRZoneRow; sampleCount: number }
+        | Array<{ zone: number; minBpm?: number; maxBpm?: number; percent?: number; timeMinutes?: number; time_minutes?: number }>
+      >(`/api/v1/athlete/${athleteId}/analytics/hr-zones${qs}`);
+
+      if (raw && !Array.isArray(raw) && 'hrZones' in raw) {
+        return raw;
+      }
+
+      const zones = Array.isArray(raw) ? raw : [];
+      const secByZone: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      let sampleCount = 0;
+      for (const z of zones) {
+        const mins = Number(z.timeMinutes ?? z.time_minutes ?? 0);
+        if (z.zone >= 1 && z.zone <= 5) {
+          secByZone[z.zone] = mins * 60;
+          sampleCount += mins;
+        }
+      }
+      const totalTime = secByZone[1] + secByZone[2] + secByZone[3] + secByZone[4] + secByZone[5];
+      return {
+        hrZones: {
+          zone1: secByZone[1],
+          zone2: secByZone[2],
+          zone3: secByZone[3],
+          zone4: secByZone[4],
+          zone5: secByZone[5],
+          totalTime,
+          avgBpm: null,
+          maxBpm: null,
+          estimatedMaxHr: 190,
+        },
+        sampleCount,
+      };
+    } catch (err) {
+      if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+      return nextFetch.get<{ hrZones: HRZoneRow; sampleCount: number }>(
+        `/api/coach/athletes/${athleteId}/hr-zones${qs}`
+      );
+    }
   },
 
   /** Aggregate video view analytics across all exercises. */
@@ -1740,16 +1957,18 @@ export const templateApi = {
   /** Full detail of a previously assigned workout, for reassignment flows. */
   getPastAssignment: (id: string) =>
     // Go API: GET /api/v1/workouts/:id
-    goFetch<PastAssignmentDetail>(`/api/v1/workouts/${id}`).catch(() =>
-      nextFetch.get<PastAssignmentDetail>(`/api/coaching/assigned-workouts/${id}`)
-    ),
+    goFetch<PastAssignmentDetail>(`/api/v1/workouts/${id}`).catch((err) => {
+      if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+      return nextFetch.get<PastAssignmentDetail>(`/api/coaching/assigned-workouts/${id}`);
+    }),
 
   /** Coach's assignment history (list view, no exercises). */
   listPastAssignments: () =>
     // Go API: GET /api/v1/workouts
-    goFetch<PastAssignmentListItem[]>('/api/v1/workouts').catch(() =>
-      nextFetch.get<PastAssignmentListItem[]>('/api/coaching/assigned-workouts')
-    ),
+    goFetch<PastAssignmentListItem[]>('/api/v1/workouts').catch((err) => {
+      if (!shouldFallbackToNextApi(err, 'GET')) throw err;
+      return nextFetch.get<PastAssignmentListItem[]>('/api/coaching/assigned-workouts');
+    }),
 };
 
 export interface PastAssignmentListItem {
@@ -1784,7 +2003,9 @@ export interface RunningSession {
   heartRate: number
   cadence: number
   gpsRoute?: string     // encoded polyline
-  source: string        // "manual", "apple_watch", "garmin", "healthkit"
+  source: string        // "manual", "apple_watch", "garmin", "healthkit", "health_connect", "mobile_gps"
+  deviceName?: string
+  deviceBrand?: string
   createdAt: string
 }
 

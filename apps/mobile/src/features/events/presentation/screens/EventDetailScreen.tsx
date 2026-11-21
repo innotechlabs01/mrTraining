@@ -157,18 +157,47 @@ function normalizeEventDetail(value: unknown): EventDetailData {
         )
     : [];
 
+  const normalizedEvent: EventDetailData['event'] = {
+    ...(rawEvent as unknown as EventDetailData['event']),
+    ...(typeof rawEvent.end_time === 'string' ? { endTime: rawEvent.end_time } : {}),
+    ...(typeof rawEvent.max_capacity === 'number' ? { maxCapacity: rawEvent.max_capacity } : {}),
+    ...(typeof rawEvent.price_cents === 'number' ? { priceCents: rawEvent.price_cents } : {}),
+    ...(typeof rawEvent.currency === 'string' ? { currency: rawEvent.currency } : {}),
+    ...(typeof rawEvent.registration_deadline === 'string' && rawEvent.registration_deadline
+      ? { registrationDeadline: rawEvent.registration_deadline }
+      : {}),
+    ...(typeof rawEvent.accepted_count === 'number' ? { acceptedCount: rawEvent.accepted_count } : {}),
+  };
+
+  let normalizedRunning: EventDetailData['running'] = null;
+  if (isObject(rawRunning)) {
+    const r: NonNullable<EventDetailData['running']> = {};
+    const dist = rawRunning.distanceKm ?? rawRunning.distance_km;
+    if (typeof dist === 'number' || typeof dist === 'string') r.distanceKm = dist;
+    if (typeof rawRunning.pace === 'string' && rawRunning.pace) r.pace = rawRunning.pace;
+    const mp = rawRunning.meetingPoint ?? rawRunning.meeting_point;
+    if (typeof mp === 'string' && mp) r.meetingPoint = mp;
+    const cats = rawRunning.categories;
+    if (Array.isArray(cats)) {
+      r.categories = cats.filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
+    }
+    const elev = rawRunning.elevationM ?? rawRunning.elevation_m;
+    if (typeof elev === 'number') r.elevationM = elev;
+    const rUrl = rawRunning.routeUrl ?? rawRunning.route_url;
+    if (typeof rUrl === 'string' && rUrl) r.routeUrl = rUrl;
+    normalizedRunning = r;
+  }
+
   return {
     ...(raw as unknown as EventDetailData),
-    event: rawEvent as unknown as EventDetailData['event'],
+    event: normalizedEvent,
     listItems,
     formFields,
     responses: responses as any,
     registration: isObject(rawRegistration)
       ? (rawRegistration as unknown as Registration)
       : null,
-    running: isObject(rawRunning)
-      ? (rawRunning as unknown as EventDetailData['running'])
-      : null,
+    running: normalizedRunning,
   };
 }
 
@@ -236,6 +265,7 @@ function buildAnswers(
       if (selected.length > 0) {
         result.push({
           fieldId: field.id,
+          field_id: field.id,
           value: selected.join(MULTI_VALUE_SEPARATOR),
         });
       }
@@ -246,6 +276,7 @@ function buildAnswers(
     if (typeof value === 'string' && value.trim().length > 0) {
       result.push({
         fieldId: field.id,
+        field_id: field.id,
         value: value.trim(),
       });
     }
@@ -308,7 +339,7 @@ export function EventDetailScreen({ route, navigation }: Props) {
         payload,
       );
 
-      const body = isObject(response.data) ? response.data : {};
+      const body = unwrapDetailResponse(response.data);
       const registration = body.registration;
 
       return isObject(registration)
@@ -432,7 +463,7 @@ export function EventDetailScreen({ route, navigation }: Props) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={() => {}} />
+          <RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />
         }
         onScrollBeginDrag={() => {
           // Intentionally empty: preserves the existing ScrollView behavior.

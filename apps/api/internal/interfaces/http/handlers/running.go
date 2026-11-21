@@ -156,9 +156,18 @@ func (h *RunningHandler) GetSession(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
-	// Verify ownership
+	// Verify ownership or active coach relationship
 	if session.UserID != userID {
-		return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view this session")
+		allowed := false
+		if middleware.GetUserRole(c) == "coach" && h.tenantResolver != nil {
+			ok, rerr := h.tenantResolver.AthleteHasActiveCoach(c.Context(), session.UserID, userID)
+			if rerr == nil && ok {
+				allowed = true
+			}
+		}
+		if !allowed {
+			return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view this session")
+		}
 	}
 
 	points, err := h.service.ListGpsPointsBySession(c.Context(), sessionID)
@@ -590,6 +599,97 @@ func (h *RunningHandler) CoachExportSessionsByAthlete(c *fiber.Ctx) error {
 	c.Set("Content-Type", contentType)
 	c.Set("Content-Disposition", `attachment; filename="`+filename+`"`)
 	return c.Send(data)
+}
+
+// GetAthleteRunningPRs handles GET /coach/athletes/:id/running/prs and GET /athlete/:athleteId/analytics/running/prs.
+// Returns personal running records for an athlete (accessible by the athlete or their active coach).
+func (h *RunningHandler) GetAthleteRunningPRs(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	athleteID := c.Params("id")
+	if athleteID == "" {
+		athleteID = c.Params("athleteId")
+	}
+	if athleteID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "athlete ID required")
+	}
+
+	if athleteID != userID {
+		if h.tenantResolver != nil {
+			ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, userID)
+			if err != nil || !ok {
+				return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this coach")
+			}
+		}
+	}
+
+	prs, err := h.service.GetRunningPRsByAthlete(c.Context(), athleteID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return appresponse.Success(c, dto.RunningPRsResponse{
+		BestPace:   prs.BestPace,
+		LongestRun: prs.LongestRun,
+		Fastest1K:  prs.Fastest1K,
+		Fastest5K:  prs.Fastest5K,
+		Fastest10K: prs.Fastest10K,
+		TotalRuns:  prs.TotalRuns,
+	})
+}
+
+// CoachGetSessionByAthlete handles GET /coach/athletes/:id/running/sessions/:sessionId.
+// Returns a single running session with its GPS points for the athlete's active coach.
+func (h *RunningHandler) CoachGetSessionByAthlete(c *fiber.Ctx) error {
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	athleteID := c.Params("id")
+	sessionID := c.Params("sessionId")
+	if athleteID == "" || sessionID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "athlete ID and session ID are required")
+	}
+	if h.tenantResolver != nil {
+		ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, coachID)
+		if err != nil || !ok {
+			return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this coach")
+		}
+	}
+
+	session, err := h.service.GetSession(c.Context(), sessionID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	if session.UserID != athleteID {
+		return appresponse.Error(c, fiber.StatusForbidden, "session does not belong to this athlete")
+	}
+
+	points, err := h.service.ListGpsPointsBySession(c.Context(), sessionID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	gpsPoints := make([]dto.GpsPointResponse, len(points))
+	for i, p := range points {
+		gpsPoints[i] = dto.GpsPointResponse{
+			ID:        p.ID,
+			SessionID: p.SessionID,
+			Lat:       p.Lat,
+			Lng:       p.Lng,
+			Alt:       p.Alt,
+			Timestamp: p.Timestamp,
+			Accuracy:  p.Accuracy,
+		}
+	}
+
+	return appresponse.Success(c, dto.RunningSessionDetailResponse{
+		RunningSessionResponse: toSessionResponse(session),
+		GpsPoints:              gpsPoints,
+	})
 }
 
 // ConnectDevice handles POST /running/devices.

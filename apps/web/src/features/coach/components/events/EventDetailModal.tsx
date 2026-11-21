@@ -9,6 +9,7 @@ import { EventFormatBody } from './EventFormatBody';
 import { PublicEventView } from './PublicEventView';
 
 const TYPE_LABELS: Record<string, string> = {
+  carrera: 'Carrera',
   competition: 'Competencia',
   meeting: 'Meeting',
   reunion: 'Reunión',
@@ -16,6 +17,7 @@ const TYPE_LABELS: Record<string, string> = {
   other: 'Otro',
 };
 const TYPE_COLORS: Record<string, string> = {
+  carrera: 'bg-amber-500/15 text-amber-300',
   competition: 'bg-red-500/10 text-red-400',
   meeting: 'bg-blue-500/10 text-blue-400',
   reunion: 'bg-blue-500/10 text-blue-400',
@@ -62,9 +64,13 @@ export function EventDetailModal({ event, onClose, onEdit, onDelete, onTogglePub
   const isPublic = !!event.public;
   const shareLink = typeof window !== 'undefined' ? `${window.location.origin}/event/${event.id}` : `/event/${event.id}`;
 
-  const athleteCount = event.athleteIds.length;
+  const acceptedCount = event.acceptedCount ?? 0;
   const expired = isEventExpired(event);
   const cancellable = !expired && event.status !== 'cancelled';
+  const priceLabel =
+    event.priceCents && event.priceCents > 0
+      ? `${(event.priceCents / 100).toLocaleString('es-CO')} ${event.currency ?? 'COP'}`
+      : 'Gratis';
 
   const copyLink = async () => {
     try {
@@ -108,13 +114,21 @@ export function EventDetailModal({ event, onClose, onEdit, onDelete, onTogglePub
                 {event.location}
               </div>
             )}
-            <div className="flex items-center gap-2 text-white/60">
-              <Users className="w-4 h-4 text-white/30" />
-              {athleteCount} participantes
+            <div className="flex items-center gap-2 text-emerald-400 font-medium">
+              <Users className="w-4 h-4 text-emerald-400/70" />
+              {event.maxCapacity
+                ? `${acceptedCount} / ${event.maxCapacity} confirmados`
+                : `${acceptedCount} confirmados`}
             </div>
             <div className="flex items-center gap-2 text-white/60">
               <span className="text-xs px-2 py-0.5 rounded bg-white/5 capitalize">{event.modality}</span>
+              <span className="text-xs px-2 py-0.5 rounded bg-brand-primary/10 text-brand-primary font-medium">{priceLabel}</span>
             </div>
+            {event.registrationDeadline && (
+              <div className="col-span-2 text-xs text-white/40">
+                Cierre de inscripciones: <span className="text-white/70">{event.registrationDeadline}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -169,13 +183,13 @@ export function EventDetailModal({ event, onClose, onEdit, onDelete, onTogglePub
           <EventFormatBody event={event} />
         </div>
 
-        <div className="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-surface-1 border-t border-white/10">
-          {expired ? (
-            <button onClick={() => onStats?.(event)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-surface-2 border border-white/10 text-sm text-white hover:border-white/20 transition-colors">
-              <BarChart3 className="w-4 h-4 text-brand-primary" /> Ver resultados
-            </button>
-          ) : (
+        <div className="sticky bottom-0 flex items-center justify-between gap-2 px-6 py-4 bg-surface-1 border-t border-white/10">
+          <button onClick={() => onStats?.(event)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-primary/15 border border-brand-primary/30 text-sm text-brand-primary font-medium hover:bg-brand-primary/25 transition-colors">
+            <BarChart3 className="w-4 h-4" /> Ver inscritos ({acceptedCount})
+          </button>
+          <div className="flex items-center gap-2">
+          {!expired && (
             <>
               {cancellable && (
                 <button onClick={() => onCancel?.(event)}
@@ -193,6 +207,7 @@ export function EventDetailModal({ event, onClose, onEdit, onDelete, onTogglePub
               </button>
             </>
           )}
+          </div>
         </div>
       </div>
 

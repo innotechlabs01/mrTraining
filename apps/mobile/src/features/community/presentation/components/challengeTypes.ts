@@ -12,6 +12,10 @@ export type ChallengeData = {
   max_attempts: number;
   target_sets?: number;
   target_reps?: number;
+  badge_id?: string;
+  badge_title?: string;
+  incentive_text?: string;
+  is_prueba_de_fuego?: boolean;
 };
 
 export type ChallengeAttempt = {

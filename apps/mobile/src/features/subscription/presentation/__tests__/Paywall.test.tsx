@@ -17,7 +17,7 @@ describe('Paywall', () => {
   it('renders the CTA button', () => {
     const { getByText } = render(<Paywall />);
 
-    expect(getByText('Ver planes y suscribirme')).toBeTruthy();
+    expect(getByText('Ver membresía y activar')).toBeTruthy();
   });
 
   it('renders premium features list', () => {
@@ -31,7 +31,7 @@ describe('Paywall', () => {
   it('renders plan price', () => {
     const { getByText } = render(<Paywall />);
 
-    expect(getByText('$49.000 / mes')).toBeTruthy();
+    expect(getByText('Asignado por tu Coach')).toBeTruthy();
   });
 
   it('renders secondary actions', () => {
@@ -47,7 +47,7 @@ describe('Paywall', () => {
 
     // eslint-disable-next-line @testing-library/no-node-access
     const { fireEvent } = require('@testing-library/react-native');
-    fireEvent.press(getByText('Ver planes y suscribirme'));
+    fireEvent.press(getByText('Ver membresía y activar'));
 
     expect(onPurchaseComplete).toHaveBeenCalledTimes(1);
   });

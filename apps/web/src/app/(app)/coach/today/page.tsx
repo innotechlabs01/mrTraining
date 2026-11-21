@@ -1,9 +1,11 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { ArrowRight, PlayCircle, CheckCircle2, Circle, Clock, Sparkles, Radio, Video, MapPin, Users, NotebookPen } from 'lucide-react'
+import { ArrowRight, PlayCircle, CheckCircle2, Circle, Clock, Sparkles, Radio, Video, MapPin, Users, NotebookPen, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { goClient } from '@/lib/api/go-client'
 import { useToday } from '@/features/coach/hooks/useToday'
 import { useCoachPanel } from '@/features/coach/components/layout/CoachPanelContext'
 import { useLiveSessions, effectiveStatus } from '@/features/coach/hooks/useLiveSessions'
@@ -68,7 +70,33 @@ export default function CoachTodayPage() {
   const { blocks, currentBlock } = useToday()
   const { openPanel } = useCoachPanel()
   const { sessionsForDate, todayISO } = useLiveSessions()
-  const todaysSessions = sessionsForDate(todayISO())
+  const todayStr = todayISO()
+  const todaysSessions = sessionsForDate(todayStr)
+
+  const { data: todayAppointments = [] } = useQuery({
+    queryKey: ['coach', 'today-appointments', todayStr],
+    queryFn: async () => {
+      try {
+        const res = await goClient.get<{
+          data?: Array<{
+            id: string
+            athlete_name?: string
+            title?: string
+            start_time: string
+            end_time: string
+            status: string
+            meet_room_id?: string
+          }>
+        }>('/api/v1/coaches/appointments')
+        return (res?.data ?? []).filter(
+          (a) => a.start_time?.slice(0, 10) === todayStr && a.status !== 'cancelled',
+        )
+      } catch {
+        return []
+      }
+    },
+    staleTime: 20_000,
+  })
 
   const openBlock = (id: TimeBlockId) => openPanel('timeblock', { blockId: id })
 
@@ -114,6 +142,51 @@ export default function CoachTodayPage() {
           </button>
         </div>
       </motion.div>
+
+      {/* Reuniones de Onboarding hoy (WebRTC P2P Meet) */}
+      <div className="rounded-2xl border border-purple-500/20 bg-purple-500/[0.06] p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Calendar size={16} className="text-purple-400" />
+            <h2 className="text-sm font-semibold text-white">
+              Reuniones de onboarding hoy ({todayAppointments.length})
+            </h2>
+          </div>
+          <button
+            onClick={() => router.push('/coach/agendamiento')}
+            className="inline-flex items-center gap-1 text-xs font-medium text-purple-300 hover:text-purple-200"
+          >
+            Ir a Agendamiento <ArrowRight size={13} />
+          </button>
+        </div>
+        {todayAppointments.length === 0 ? (
+          <p className="text-xs text-white/40">No tienes reuniones de onboarding programadas para hoy.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {todayAppointments.map((apt) => (
+              <div
+                key={apt.id}
+                className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-surface-1 px-3.5 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{apt.athlete_name || 'Nuevo Atleta'}</p>
+                  <p className="text-[11px] text-white/50">
+                    {apt.start_time.slice(11, 16)} — {apt.end_time.slice(11, 16)} · {apt.title || 'Meet Onboarding'}
+                  </p>
+                </div>
+                {apt.meet_room_id && (
+                  <button
+                    onClick={() => router.push(`/meet/${apt.meet_room_id}?role=coach`)}
+                    className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-primary/90"
+                  >
+                    <Video size={13} /> Meet
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Timeline */}
       <div className="mt-6">

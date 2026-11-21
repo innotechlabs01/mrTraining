@@ -9,8 +9,12 @@
 package handlers
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -251,6 +255,65 @@ func landingMediaExt(filename string) (string, bool) {
 	return ext, landingAllowedExt[ext]
 }
 
+// Límites de tamaño por tipo de medio (bytes).
+const (
+	landingMaxImageSize = 10 * 1024 * 1024 // 10 MB para imágenes
+	landingMaxVideoSize = 100 * 1024 * 1024 // 100 MB para video
+)
+
+// landingMaxMediaSize devuelve el tamaño máximo permitido para la extensión dada.
+func landingMaxMediaSize(ext string) int64 {
+	switch ext {
+	case ".mp4", ".mov", ".webm":
+		return landingMaxVideoSize
+	default:
+		return landingMaxImageSize
+	}
+}
+
+// landingMediaMagicBytes devuelve los bytes mágicos esperados para cada
+// extensión soportada. Se usa para validar que el contenido del archivo
+// extensión de imagen/video).
+var landingMediaMagicBytes = map[string][][]byte{
+	".jpg": {{0xFF, 0xD8, 0xFF}},
+	".jpeg": {{0xFF, 0xD8, 0xFF}},
+	".png": {{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}},
+	".gif": {{0x47, 0x49, 0x46, 0x38, 0x37, 0x61}, {0x47, 0x49, 0x46, 0x38, 0x39, 0x61}},
+	".webp": {{0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50}},
+	".mp4": {{0x66, 0x74, 0x79, 0x70}}, // "ftyp" en el offset 4 (ISO BMFF)
+	".mov": {{0x66, 0x74, 0x79, 0x70}}, // "ftyp" en el offset 4 (ISO BMFF)
+	".webm": {{0x1A, 0x45, 0xDF, 0xA3}}, // EBML
+}
+
+// validateMediaMagicBytes verifica que los primeros bytes del archivo coincidan
+// con el formato esperado para la extensión. Devuelve error si no coinciden.
+func validateMediaMagicBytes(content io.Reader, ext string) error {
+	signatures, ok := landingMediaMagicBytes[ext]
+	if !ok {
+		return errors.New("extensión no soportada")
+	}
+
+	header := make([]byte, 512)
+	n, err := io.ReadFull(content, header)
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return err
+	}
+	header = header[:n]
+
+	for _, sig := range signatures {
+		if len(header) >= len(sig) && bytes.Equal(header[:len(sig)], sig) {
+			return nil
+		}
+	}
+	// MP4/MOV: la firma "ftyp" está en el offset 4, no al inicio.
+	if ext == ".mp4" || ext == ".mov" {
+		if len(header) >= 8 && bytes.Equal(header[4:8], []byte("ftyp")) {
+			return nil
+		}
+	}
+	return errors.New("el contenido del archivo no coincide con su extensión")
+}
+
 // HandlerUploadLandingMedia stores an image or video under /uploads/landing
 // (served by the static middleware) and returns its public URL.
 func HandlerUploadLandingMedia() fiber.Handler {
@@ -259,10 +322,29 @@ func HandlerUploadLandingMedia() fiber.Handler {
 		if err != nil {
 			return appresponse.Error(c, fiber.StatusBadRequest, "file is required")
 		}
+
 		ext, ok := landingMediaExt(file.Filename)
 		if !ok {
 			return appresponse.Error(c, fiber.StatusBadRequest, "unsupported file type: use an image or video (jpg, png, webp, gif, mp4, mov, webm)")
 		}
+
+		maxSize := landingMaxMediaSize(ext)
+		if file.Size > maxSize {
+			return appresponse.Error(c, fiber.StatusBadRequest,
+				fmt.Sprintf("file too large: maximum %d MB", maxSize/(1024*1024)))
+		}
+
+		// Valida magic bytes antes de guardar: el contenido debe coincidir con
+		// la extensión, impidiendo subir archivos ejecutables disfrazados.
+		src, err := file.Open()
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to open uploaded file")
+		}
+		if err := validateMediaMagicBytes(src, ext); err != nil {
+			src.Close()
+			return appresponse.Error(c, fiber.StatusBadRequest, err.Error())
+		}
+		src.Close()
 
 		filename := "landing-" + time.Now().UTC().Format("20060102150405") +
 			"-" + sanitizePathSegment(strings.TrimSuffix(file.Filename, filepath.Ext(file.Filename))) + ext

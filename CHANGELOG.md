@@ -1,28 +1,67 @@
-# Changelog — Últimos 20 commits en `main`
+# Changelog
 
-## 🏃‍♂️ Running / GPS (S0–S11)
-- **feat(running)**: implementar tracking engine y evaluación de código abierto (`3c4463f`)
-- **feat**: 7-day membership trial (`ba2abde`)
-- **feat**: morning readiness check-in (`5eb2bb8`)
-- **feat**: Garmin manual sync + mobile bridge + Settings wearables (`904bbf2`)
-- **feat(api)**: activity import (GPX/TCX/FIT) + Garmin provider + webhook (`fdf5580`)
-- **feat(mobile)**: GPS run recording con cola offline-first (`2e76ae0`)
-- **feat**: workout detail con IA insights en web y mobile (`6fade8f`)
-- **feat(api)**: training AI insights — `GET /workouts/:id/ai-insights` (`72d81d2`)
-- **feat(api)**: real analytics repository + rutas `/analytics` (`c39400e`)
-- **feat(web)**: running history + detail pages con mapa, live tracker (`b94a519`)
-- **feat(api)**: running session lifecycle — PATCH/DELETE, GPS batch, rate limit (`0f5f56a`)
-- **feat(web)**: running API client + `RunningRouteMap` SSR-safe (`c2b4ec0`)
-- **feat**: GPS running detail + live-location endpoint (`b2a72a4`)
+All notable changes to this project will be documented in this file.
 
-## 🔧 API / Backend
-- **feat(api)**: agregar herramienta segura de migración de datos Turso → PostgreSQL (`a82982f`)
-- **test(api)**: agregar unit tests y mejorar resiliencia de data-migrate (`cd440e6`)
-- **style(api)**: gofmt handlers y running service test (`4f4c582`)
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 📚 Documentación
-- **docs**: agregar commercial audit para monetización MR Training SaaS (`bac5012`)
-- **docs**: close out fitness improvement plan v2 (S0–S11 done, S12 bloqueado) (`949be8d`)
+## [Unreleased]
 
-## 🔄 Otros
-- **chore**: sincronizar cambios pendientes del equipo entre api, web y mobile (`c890546`)
+### Added
+- [db] Migración `431_wearable_oauth_tokens_and_health_sync_fix.sql`: paridad de columnas `platform`/`scope`/`updated_at` en `wearable_oauth_tokens` + índice único idempotente en `athlete_sleep_logs(athlete_id, date, source)` — @dev-database (PR pending)
+- [be] Endpoints de consentimiento de IA (`GET/PUT /api/v1/form-metrics/consent`), PRs de running para coach (`GET /api/v1/coach/athletes/:id/running/prs`, `GET /api/v1/athlete/:athleteId/analytics/running/prs`) y detalle de sesión GPS (`GET /api/v1/coach/athletes/:id/running/sessions/:sessionId`) — @dev-backend (PR pending)
+- [db] Migración `430_athlete_form_recording_consent.sql` para persistir en PostgreSQL el consentimiento de IA y técnica de los atletas — @dev-database (PR pending)
+- [be] Complete nutrition domain (service, PostgreSQL repository, DTOs, handlers, routes `/api/v1/nutrition/*`) — @dev-backend (PR pending)
+- [db] Migration `429_nutrition_meal_logs.sql` with RLS tenant isolation policies — @dev-database (PR pending)
+- [db] New role: dev-database (Supabase/PostgreSQL expert with RLS focus) — @orca-team (internal)
+- [in] Git workflow + changelog rules (15-git-workflow-changelog.md) — @orca-team (internal)
+
+### Changed
+- [mo] `WorkoutExecutionScreen` + `AiWorkoutScreen`: validación de postura y distancia con cámara IA, calificación por semáforo (Bien/verde, Medio/amarillo, Mal/rojo), gating estricto por modal de Términos y Condiciones (`RecordingConsent`) y recuperación de progreso/consentimiento desde PostgreSQL tras actualizaciones de la app — @dev-react-native (PR pending)
+- [fe] Coach `AthleteRunningPanel` y `/coach/users/[id]/running/[workoutId]`: integración de workouts de running asignados (prescrito vs real + SSE en vivo) y sesiones GPS libres con gráficas de tendencia semanal, PRs y exportación CSV/GPX — @dev-front (PR pending)
+- [be] Persistencia completa de `intervals` y `gpsRoute` en `workout_templates`, `loggedSets` en `GET /api/v1/workouts/:id` y cálculo automático de progreso en PostgreSQL al registrar sets o completar running — @dev-backend (PR pending)
+- [in] Fix workflow `.github/workflows/cd-qa.yml` (remoción de `secrets.*` en `env:` global, ejecución de migraciones QA, variables Infisical QA y `APP_PORT=8080` en `Dockerfile`) — @orca-team (PR pending)
+- [be] Store `PurchaseResponse` DTO standardized to camelCase (`athleteId`, `productId`, `createdAt`, `total`) matching web/mobile contracts — @dev-backend (PR pending)
+- [in] Added dev-database role to orca-team pipeline and 14-team-workflow.md — @orca-team (internal)
+
+### Fixed
+- [in] Fix `scripts/migrate-all.sh`: conexión a Supabase QA vía Session Pooler IPv4 (`aws-0-us-east-2.pooler.supabase.com:5432`) y fallo explícito si QA falla — @dev-database (PR pending)
+- [be] Fix wearable/health PostgreSQL queries (`health/repository.go`: removidas funciones SQLite `datetime('now')`/`date('now')` y bug `$12`), URLs de Garmin (`?` en lugar de `$10`/`$11` en `garmin_provider.go`) y soporte dual `snake_case`/`camelCase` en `health_data.go` — @dev-backend (PR pending)
+- [fe] Fix `trainingApi.getHealth`: ruta `/api/v1/health/*` con normalización de `{metrics, sleepLogs, devices}` para mostrar Apple Watch, Garmin, HRV, RHR, sueño, pasos y VO2max en `AthleteHealthPanels` y badge de dispositivo en `AthleteRunningPanel` — @dev-front (PR pending)
+- [mo] Fix `GO_API_PATH_MAP` (`/athlete/running` → `/running`) para sincronizar sesiones de Apple Watch (`/running/sessions/import`) y Garmin (`/running/providers/garmin/sync`) y normalización de métricas de recuperación en `useRecoveryData` — @dev-react-native (PR pending)
+- [be] Fix Wompi payment return flow: checkout claim ownership check + StatusPaid guards on MarkFailed/RecoverPayment + coach role written to Clerk publicMetadata — @dev-backend (PR pending)
+- [fe] Fix Wompi payment return: redirect_url preservation on sign-in + middleware coach role routing to /coach/plan — @dev-front (PR pending)
+
+---
+
+## [1.0.0] - 2026-XX-XX
+
+### Added - Running / GPS (S0–S11)
+- [fe] Running history + detail pages with map, live tracker — @dev-front (PR #?)
+- [fe] Running API client + `RunningRouteMap` SSR-safe — @dev-front (PR #?)
+- [fe] GPS running detail + live-location endpoint — @dev-front (PR #?)
+- [be] Activity import (GPX/TCX/FIT) + Garmin provider + webhook — @dev-backend (PR #?)
+- [be] Training AI insights — `GET /workouts/:id/ai-insights` — @dev-backend (PR #?)
+- [be] Real analytics repository + routes `/analytics` — @dev-backend (PR #?)
+- [be] Running session lifecycle — PATCH/DELETE, GPS batch, rate limit — @dev-backend (PR #?)
+- [mo] GPS run recording with offline-first queue — @dev-react-native (PR #?)
+- [mo] Workout detail with AI insights on web and mobile — @dev-react-native (PR #?)
+
+### Added - API / Backend
+- [be] Secure data migration tool Turso → PostgreSQL — @dev-backend (PR #?)
+- [be] Unit tests + improved resilience for data-migrate — @dev-backend (PR #?)
+
+### Added - Features
+- [fe] 7-day membership trial — @dev-front (PR #?)
+- [fe] Morning readiness check-in — @dev-front (PR #?)
+- [fe] Garmin manual sync + mobile bridge + Settings wearables — @dev-front (PR #?)
+
+### Documentation
+- [in] Commercial audit for MR Training SaaS monetization — @dev-backend (PR #?)
+- [in] Fitness improvement plan v2 closeout (S0–S11 done) — @dev-backend (PR #?)
+
+### Changed
+- [be] gofmt handlers and running service test — @dev-backend (PR #?)
+
+### Other
+- [in] Sync pending team changes across api, web, mobile — @dev-backend (PR #?)

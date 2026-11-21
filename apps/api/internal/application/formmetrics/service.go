@@ -52,3 +52,13 @@ func (s *Service) GetByAthlete(ctx context.Context, athleteID string) ([]*domain
 func (s *Service) GetByCoach(ctx context.Context, coachID string) ([]*domain.CoachAthleteFormStats, error) {
 	return s.repo.GetByCoach(ctx, coachID)
 }
+
+// GetConsent returns the athlete's stored AI form-recording consent ("pending" | "accepted" | "denied").
+func (s *Service) GetConsent(ctx context.Context, athleteID string) (string, error) {
+	return s.repo.GetConsent(ctx, athleteID)
+}
+
+// SetConsent persists the athlete's AI form-recording consent.
+func (s *Service) SetConsent(ctx context.Context, athleteID, consent string) error {
+	return s.repo.SetConsent(ctx, athleteID, consent)
+}

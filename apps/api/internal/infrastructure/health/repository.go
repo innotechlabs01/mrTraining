@@ -3,11 +3,11 @@ package health
 import (
 	"context"
 	"database/sql"
-
-	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"fmt"
+	"time"
 
 	"github.com/innotechlabs01/mr-training-api/internal/domain/health"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Repository implements health.Repository using database/sql with Turso/libsql.
@@ -49,8 +49,9 @@ func (r *Repository) GetMetrics(ctx context.Context, athleteID string, days int)
 	          FROM athlete_health_metrics WHERE athlete_id = $1`
 	args := []interface{}{athleteID}
 	if days > 0 {
-		query += ` AND recorded_at >= datetime('now', $2)`
-		args = append(args, fmt.Sprintf("-%d days", days))
+		cutoff := time.Now().UTC().AddDate(0, 0, -days).Format(time.RFC3339)
+		query += ` AND recorded_at >= $2`
+		args = append(args, cutoff)
 	}
 	query += ` ORDER BY recorded_at DESC`
 	rows, err := r.exec.QueryContext(ctx, query, args...)
@@ -58,7 +59,7 @@ func (r *Repository) GetMetrics(ctx context.Context, athleteID string, days int)
 		return nil, fmt.Errorf("failed to get health metrics: %w", err)
 	}
 	defer rows.Close()
-	var out []*health.HealthMetric
+	out := make([]*health.HealthMetric, 0)
 	for rows.Next() {
 		m := &health.HealthMetric{}
 		var sourceWorkoutID sql.NullString
@@ -76,6 +77,9 @@ func (r *Repository) GetMetrics(ctx context.Context, athleteID string, days int)
 
 // RecordMetric inserts a health metric.
 func (r *Repository) RecordMetric(ctx context.Context, m *health.HealthMetric) error {
+	if m.RecordedAt == "" {
+		m.RecordedAt = time.Now().UTC().Format(time.RFC3339)
+	}
 	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO athlete_health_metrics (id, athlete_id, metric_type, value, unit, source, source_workout_id, recorded_at, synced_at)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
@@ -92,8 +96,9 @@ func (r *Repository) GetSleepLogs(ctx context.Context, athleteID string, days in
 	          FROM athlete_sleep_logs WHERE athlete_id = $1`
 	args := []interface{}{athleteID}
 	if days > 0 {
-		query += ` AND date >= date('now', $12)`
-		args = append(args, fmt.Sprintf("-%d days", days))
+		cutoffDate := time.Now().UTC().AddDate(0, 0, -days).Format("2006-01-02")
+		query += ` AND date >= $2`
+		args = append(args, cutoffDate)
 	}
 	query += ` ORDER BY date DESC`
 	rows, err := r.exec.QueryContext(ctx, query, args...)
@@ -101,12 +106,11 @@ func (r *Repository) GetSleepLogs(ctx context.Context, athleteID string, days in
 		return nil, fmt.Errorf("failed to get sleep logs: %w", err)
 	}
 	defer rows.Close()
-	var out []*health.SleepLog
+	out := make([]*health.SleepLog, 0)
 	for rows.Next() {
 		s := &health.SleepLog{}
 		var deep, rem, light, awake sql.NullInt32
-		var efficiency sql.NullFloat64
-		var score sql.NullInt32
+		var efficiency, score sql.NullFloat64
 		if err := rows.Scan(&s.ID, &s.AthleteID, &s.Date, &s.TotalMinutes, &deep, &rem, &light, &awake, &efficiency, &score, &s.Source); err != nil {
 			return nil, fmt.Errorf("failed to scan sleep log: %w", err)
 		}
@@ -127,10 +131,11 @@ func (r *Repository) GetSleepLogs(ctx context.Context, athleteID string, days in
 			s.AwakeMinutes = &v
 		}
 		if efficiency.Valid {
-			s.Efficiency = &efficiency.Float64
+			v := efficiency.Float64
+			s.Efficiency = &v
 		}
 		if score.Valid {
-			v := int(score.Int32)
+			v := int(score.Float64)
 			s.Score = &v
 		}
 		out = append(out, s)
@@ -138,11 +143,19 @@ func (r *Repository) GetSleepLogs(ctx context.Context, athleteID string, days in
 	return out, nil
 }
 
-// RecordSleepLog inserts a sleep log.
+// RecordSleepLog inserts or updates a sleep log for the same (athlete_id, date, source).
 func (r *Repository) RecordSleepLog(ctx context.Context, s *health.SleepLog) error {
 	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO athlete_sleep_logs (id, athlete_id, date, total_minutes, deep_minutes, rem_minutes, light_minutes, awake_minutes, efficiency, score, source)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		 ON CONFLICT (athlete_id, date, source) DO UPDATE SET
+		   total_minutes = EXCLUDED.total_minutes,
+		   deep_minutes = EXCLUDED.deep_minutes,
+		   rem_minutes = EXCLUDED.rem_minutes,
+		   light_minutes = EXCLUDED.light_minutes,
+		   awake_minutes = EXCLUDED.awake_minutes,
+		   efficiency = EXCLUDED.efficiency,
+		   score = EXCLUDED.score`,
 		s.ID, s.AthleteID, s.Date, s.TotalMinutes, s.DeepMinutes, s.RemMinutes, s.LightMinutes, s.AwakeMinutes, s.Efficiency, s.Score, s.Source)
 	if err != nil {
 		return fmt.Errorf("failed to record sleep log: %w", err)
@@ -153,19 +166,21 @@ func (r *Repository) RecordSleepLog(ctx context.Context, s *health.SleepLog) err
 // GetDevices returns registered devices for an athlete.
 func (r *Repository) GetDevices(ctx context.Context, athleteID string) ([]*health.HealthDevice, error) {
 	rows, err := r.exec.QueryContext(ctx,
-		`SELECT id, athlete_id, platform, device_name, device_brand, is_active, last_sync_at, created_at
+		`SELECT id, athlete_id, platform, COALESCE(device_name, ''), COALESCE(device_brand, ''), is_active, last_sync_at, created_at
 		 FROM athlete_health_devices WHERE athlete_id = $1 ORDER BY created_at DESC`, athleteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get health devices: %w", err)
 	}
 	defer rows.Close()
-	var out []*health.HealthDevice
+	out := make([]*health.HealthDevice, 0)
 	for rows.Next() {
 		d := &health.HealthDevice{}
+		var isActive int
 		var lastSync sql.NullString
-		if err := rows.Scan(&d.ID, &d.AthleteID, &d.Platform, &d.DeviceName, &d.DeviceBrand, &d.IsActive, &lastSync, &d.CreatedAt); err != nil {
+		if err := rows.Scan(&d.ID, &d.AthleteID, &d.Platform, &d.DeviceName, &d.DeviceBrand, &isActive, &lastSync, &d.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan health device: %w", err)
 		}
+		d.IsActive = isActive != 0
 		if lastSync.Valid {
 			s := lastSync.String
 			d.LastSyncAt = &s
@@ -177,11 +192,23 @@ func (r *Repository) GetDevices(ctx context.Context, athleteID string) ([]*healt
 
 // RegisterDevice inserts or updates a device.
 func (r *Repository) RegisterDevice(ctx context.Context, d *health.HealthDevice) error {
+	isActive := 0
+	if d.IsActive {
+		isActive = 1
+	}
+	lastSync := time.Now().UTC().Format(time.RFC3339)
+	if d.LastSyncAt != nil && *d.LastSyncAt != "" {
+		lastSync = *d.LastSyncAt
+	}
 	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO athlete_health_devices (id, athlete_id, platform, device_name, device_brand, is_active, last_sync_at, created_at)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-		 ON CONFLICT(athlete_id, platform) DO UPDATE SET device_name=excluded.device_name, device_brand=excluded.device_brand, is_active=1, last_sync_at=NOW()`,
-		d.ID, d.AthleteID, d.Platform, d.DeviceName, d.DeviceBrand, d.IsActive, d.LastSyncAt)
+		 ON CONFLICT(athlete_id, platform) DO UPDATE SET
+		   device_name = CASE WHEN EXCLUDED.device_name <> '' THEN EXCLUDED.device_name ELSE athlete_health_devices.device_name END,
+		   device_brand = CASE WHEN EXCLUDED.device_brand <> '' THEN EXCLUDED.device_brand ELSE athlete_health_devices.device_brand END,
+		   is_active = 1,
+		   last_sync_at = EXCLUDED.last_sync_at`,
+		d.ID, d.AthleteID, d.Platform, d.DeviceName, d.DeviceBrand, isActive, lastSync)
 	if err != nil {
 		return fmt.Errorf("failed to register health device: %w", err)
 	}

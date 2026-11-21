@@ -95,14 +95,43 @@ export function useWorkoutExecutionData({
     };
   }, []);
 
-  // Load any persisted resume buffer for this session.
+  // Load any persisted resume buffer for this session, or reconstruct it directly
+  // from PostgreSQL (`data.loggedSets`) if the app was updated / reinstalled.
   useEffect(() => {
     let active = true;
     getSessionResume().then((r) => {
-      if (active) setResume(r);
+      if (!active) return;
+      if (r && r.sessionId === sessionId) {
+        setResume(r);
+        return;
+      }
+      // Server-authoritative resume fallback from PostgreSQL loggedSets
+      const logged = data?.loggedSets ?? [];
+      if (logged.length > 0 && exercises.length > 0) {
+        const countByExercise = new Map<string, number>();
+        for (const s of logged) {
+          if (s.completed) {
+            countByExercise.set(s.exerciseId, (countByExercise.get(s.exerciseId) ?? 0) + 1);
+          }
+        }
+        for (let idx = 0; idx < exercises.length; idx++) {
+          const ex = exercises[idx];
+          const doneSets = countByExercise.get(ex.id) ?? 0;
+          if (doneSets < ex.sets) {
+            if (idx > 0 || doneSets > 0) {
+              setResume({
+                sessionId,
+                currentExerciseIndex: idx,
+                currentSetIndex: doneSets,
+              });
+            }
+            return;
+          }
+        }
+      }
     });
     return () => { active = false; };
-  }, []);
+  }, [sessionId, data?.loggedSets, exercises]);
 
   const showsResume =
     !!resume &&

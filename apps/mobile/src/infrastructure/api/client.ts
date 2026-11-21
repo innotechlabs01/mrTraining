@@ -1,6 +1,21 @@
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { getClerkToken, refreshClerkToken } from '../auth/clerk';
 import Constants from 'expo-constants';
+import {
+  CircuitBreaker,
+  CircuitBreakerOpenError,
+  computeBackoffMs,
+  createCorrelationId,
+  createIdempotencyKey,
+  defaultMobileApiBreaker,
+  isCircuitBreakerOpenError,
+  isRetryableAxiosConfig,
+  isTransientAxiosError,
+  setHeaderIfMissing,
+  sleepMs,
+} from './resilience';
+
+export { CircuitBreaker, CircuitBreakerOpenError, defaultMobileApiBreaker };
 
 // Backend authority: Go API (apps/api) is the SINGLE source of truth.
 // All business logic goes through Go API (/api/v1/*).
@@ -25,8 +40,8 @@ const GO_API_PATH_MAP: Record<string, string> = {
   '/athlete/health/metrics': '/health/metrics',
   '/athlete/health/sleep': '/health/sleep',
   '/athlete/health/devices': '/health/devices',
-  '/athlete/workouts': '/workouts',
   '/athlete/running': '/running',
+  '/athlete/workouts': '/workouts',
   '/athlete/checkin': '/athletes/checkin',
   '/athlete/checkins': '/athletes/checkins',
   '/athlete/sessions': '/athletes/sessions',
@@ -108,18 +123,52 @@ const nextClient: AxiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Shared auth interceptor for both clients
-const setupAuthInterceptor = (client: AxiosInstance) => {
+const nextClientBreaker = new CircuitBreaker({
+  name: 'mobile_next_api',
+  failureThreshold: 5,
+  resetTimeoutMs: 30_000,
+  halfOpenMaxCalls: 2,
+});
+
+const MUTABLE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const MAX_TRANSIENT_RETRIES = 2;
+
+interface ResilientRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+  _transientRetryCount?: number;
+}
+
+// Shared auth & resilience interceptor for API clients
+export const setupAuthInterceptor = (
+  client: AxiosInstance,
+  breaker: CircuitBreaker = defaultMobileApiBreaker
+) => {
   client.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
-    const token = await getClerkToken();
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const resilientConfig = config as ResilientRequestConfig;
+    breaker.allow();
+
+    if (!resilientConfig._retry) {
+      const token = await getClerkToken();
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
+
+    if (config.headers) {
+      setHeaderIfMissing(config.headers, 'X-Correlation-ID', createCorrelationId());
+      const method = (config.method ?? 'GET').toUpperCase();
+      if (MUTABLE_METHODS.has(method)) {
+        setHeaderIfMissing(config.headers, 'Idempotency-Key', createIdempotencyKey());
+      }
+    }
+
     return config;
   });
 
   client.interceptors.response.use(
     (response: AxiosResponse) => {
+      breaker.recordSuccess();
+
       // Go API list endpoints wrap payloads in ListResponse:
       //   { data: T[], total: number, page: number, limit: number }
       // Consumers expect the bare array, so unwrap it centrally. Strict shape
@@ -141,14 +190,19 @@ const setupAuthInterceptor = (client: AxiosInstance) => {
       return response;
     },
     async (error) => {
-      const originalRequest = error.config;
+      if (isCircuitBreakerOpenError(error)) {
+        return Promise.reject(error);
+      }
 
-      if (error.response?.status === 401 && !originalRequest._retry) {
+      const originalRequest = (error?.config ?? {}) as ResilientRequestConfig;
+      const status = error?.response?.status as number | undefined;
+
+      if (status === 401 && !originalRequest._retry) {
         originalRequest._retry = true;
 
         // Extract the failed token from the Authorization header to compare
         // with the fresh token. Only retry if the token actually changed
-        // (mirrors web guard at apps/web/src/lib/api/go-client.ts:81-90).
+        // (mirrors web guard at apps/web/src/lib/api/go-client.ts).
         const failedAuthHeader = originalRequest.headers?.Authorization;
         const failedToken =
           typeof failedAuthHeader === 'string'
@@ -163,6 +217,26 @@ const setupAuthInterceptor = (client: AxiosInstance) => {
         }
 
         // Token refresh failed or returned same token — caller should handle redirect to auth
+        return Promise.reject(error);
+      }
+
+      if (typeof status === 'number' && !isTransientAxiosError(error)) {
+        breaker.recordSuccess();
+        return Promise.reject(error);
+      }
+
+      if (isTransientAxiosError(error)) {
+        breaker.recordFailure();
+        const retryCount = originalRequest._transientRetryCount ?? 0;
+        if (
+          retryCount < MAX_TRANSIENT_RETRIES &&
+          isRetryableAxiosConfig(originalRequest) &&
+          breaker.canAttemptNow()
+        ) {
+          originalRequest._transientRetryCount = retryCount + 1;
+          await sleepMs(computeBackoffMs(retryCount));
+          return client(originalRequest);
+        }
       }
 
       return Promise.reject(error);
@@ -180,8 +254,8 @@ function createSmartInstance(): AxiosInstance {
     headers: { 'Content-Type': 'application/json' },
   });
 
-  // Apply auth interceptor
-  setupAuthInterceptor(instance);
+  // Apply auth + resilience interceptor
+  setupAuthInterceptor(instance, defaultMobileApiBreaker);
 
   // Override request to route to correct backend
   instance.interceptors.request.use(async (config) => {
@@ -205,8 +279,8 @@ function createSmartInstance(): AxiosInstance {
 }
 
 // Apply auth interceptors to both clients
-setupAuthInterceptor(apiClient);
-setupAuthInterceptor(nextClient);
+setupAuthInterceptor(apiClient, defaultMobileApiBreaker);
+setupAuthInterceptor(nextClient, nextClientBreaker);
 
 const smartClient = createSmartInstance();
 
@@ -321,5 +395,5 @@ export async function reportRunningGpsBatch(
 
 /** Generates a client-side idempotency key for an offlineable action. */
 export function generateIdempotencyKey(): string {
-	return crypto.randomUUID()
+	return createIdempotencyKey();
 }

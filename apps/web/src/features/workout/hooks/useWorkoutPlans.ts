@@ -15,13 +15,15 @@ function toExercisesPayload(exercises: WorkoutExercise[]) {
   return exercises.map(e => ({
     name: e.exerciseName,
     sets: e.sets,
-    reps: e.reps,
+    reps: typeof e.reps === 'number' ? e.reps : 1,
     weightKg: e.weight ?? null,
     restSeconds: e.rest ?? null,
     sortOrder: e.order,
-    muscleGroups: e.muscleGroups ?? [],
-    libraryExerciseId: e.exerciseId ?? null,
+    mode: e.gpsRoute || (e.intervals && e.intervals.length > 0) ? 'cardio' : 'reps',
+    muscleGroups: Array.isArray(e.muscleGroups) ? JSON.stringify(e.muscleGroups) : '[]',
+    libraryExerciseId: e.exerciseId && !e.exerciseId.startsWith('running-') ? e.exerciseId : null,
     gpsRoute: e.gpsRoute ?? null,
+    intervals: e.intervals ?? [],
   }))
 }
 
@@ -63,6 +65,7 @@ function mapTemplateExerciseRowToWorkoutExercise(row: TemplateExerciseRow, idx: 
     return [];
   })();
   const gpsRoute = typeof row.gpsRoute === 'string' && row.gpsRoute ? row.gpsRoute : undefined
+  const intervals = Array.isArray(row.intervals) ? row.intervals : undefined
 
   return {
     id,
@@ -75,6 +78,7 @@ function mapTemplateExerciseRowToWorkoutExercise(row: TemplateExerciseRow, idx: 
     rest,
     muscleGroups: mg,
     gpsRoute,
+    intervals,
     notes: typeof row.notes === 'string' ? row.notes : undefined,
   }
 }

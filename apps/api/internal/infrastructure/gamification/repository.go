@@ -123,7 +123,7 @@ func (r *Repository) ListWorkoutDays(ctx context.Context, athleteID string, sinc
 	`
 	args := []interface{}{athleteID}
 	if since != "" {
-		query += " AND workout_date >= $15"
+		query += " AND workout_date >= $2"
 		args = append(args, since)
 	}
 	query += " ORDER BY workout_date ASC"

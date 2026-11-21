@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader2, Check, X } from 'lucide-react';
@@ -481,6 +482,17 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
               Volver
             </button>
           </motion.div>
+        )}
+        {step === 'email' && (
+          <div className="text-center text-body-sm text-text-secondary pt-2 border-t border-surface-6/50">
+            ¿Ya tienes una cuenta o membresía activa?{' '}
+            <Link
+              href={`/sign-in${plan ? `?plan=${encodeURIComponent(plan)}` : ''}`}
+              className="text-brand-primary font-semibold transition-colors duration-200 hover:text-brand-primary-hover"
+            >
+              Inicia sesión
+            </Link>
+          </div>
         )}
       </AnimatePresence>
     </div>

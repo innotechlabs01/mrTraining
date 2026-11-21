@@ -25,6 +25,7 @@ Si no sabes que regla aplica, lee `apps/rules/MASTER_PROMPT.md` primero.
 | **Coding style / Linting** | `12-coding-standards.md` |
 | **Testing** | `13-testing.md` |
 | **Team workflow / Caveman** | `14-team-workflow.md` |
+| **Git workflow / Changelog** | `15-git-workflow-changelog.md` |
 | **Mobile / React Native** | `mobile-rules/*` (ver seccion abajo) |
 | **Cualquier cosa** | `MASTER_PROMPT.md` (siempre) |
 
@@ -51,9 +52,19 @@ Si no sabes que regla aplica, lee `apps/rules/MASTER_PROMPT.md` primero.
 
 Si un cambio requiere modificar la base de datos (tabla, columna, índice, restricción, FK), el agente debe:
 1. Crear el archivo de migración correspondiente en `apps/api/migrations/postgres/`.
-2. Aplicarlo en la base local de desarrollo (`DATABASE_URL` apuntando a PostgreSQL local).
-3. Verificar que `go build ./...` y los tests correspondientes pasen.
+2. Sincronizar y aplicar migraciones tanto localmente como en Supabase ejecutando `bash scripts/migrate-all.sh`. El hook de pre-commit (`.git/hooks/pre-commit`) ejecuta esta sincronización y aplicación automáticamente antes de cada commit.
+3. Verificar que `go build ./...` y los tests unitarios correspondientes pasen.
 4. Solo entonces tocar el código Go/TypeScript que dependa de ese esquema.
+
+---
+
+## REGLA CI/CD — SEPARACIÓN DE CI Y CD EN QA
+
+1. **El CI de QA (`ci-qa.yml`) es puramente de verificación estática, compilación y pruebas unitarias:**
+   - No levanta servicios de base de datos ni aplica migraciones en el pipeline de CI.
+   - Compila la API de Go (`go build ./...`) y ejecuta los tests unitarios sin dependencias de base de datos (`go test -p 1 ./internal/... -race -count=1`).
+2. **Las migraciones en QA se aplican durante el CD (`cd-qa.yml`) o mediante `scripts/migrate-all.sh`:**
+   - La base de datos de QA reside en Supabase y no debe inicializarse localmente en los runners de GitHub Actions para el test de CI.
 
 ---
 
@@ -166,7 +177,7 @@ NEVER report PASS when the real mobile UI was not actually tested.
 Recibes una tarea
   ↓
 0. Invoca el skill `pipeline-init` (carga mr-context + herdr-setup,
-   y herdr si HERDR_ENV=1). Trabajá SIEMPRE en `main` en el checkout
+   y herdr si HERDR_ENV=1). Trabajá SIEMPRE en `dev` en el checkout
    `mr-training` (SIN branches ni worktrees). Los agentes se activan
    como worker-tasks sobre ese checkout.
    Detalle: 14-team-workflow.md
@@ -181,7 +192,7 @@ Recibes una tarea
   ↓
 5. Verifica con lint, build, tests segun 13-testing.md
   ↓
-6. Commit atomico convencional + PR a main. Sin worktrees: trabajá en mr-training.
+6. Commit atomico convencional + PR a dev (no a main). Sin worktrees: trabajá en mr-training.
 ```
 
 ---

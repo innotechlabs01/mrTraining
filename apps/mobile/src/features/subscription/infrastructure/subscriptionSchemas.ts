@@ -1,8 +1,9 @@
 /**
  * Zod schemas for validating subscription API responses from the Go API.
  *
- * The Go API serializes fields in snake_case. These schemas validate the raw
- * wire shape and the service layer maps them to camelCase domain types.
+ * `/subscriptions/me` serializes snake_case fields. The membership status
+ * endpoint returns camelCase (it is also consumed by the legacy mobile
+ * membership screens), so its schema normalizes both shapes first.
  */
 
 import { z } from 'zod';
@@ -35,15 +36,90 @@ export const SubscriptionSchema = z.object({
   updated_at: z.string().datetime().or(z.string().date()).optional(),
 });
 
-export const MembershipStatusSchema = z.object({
-  has_active_membership: z.boolean(),
-  status: SubscriptionStatusSchema,
-  is_in_grace_period: z.boolean(),
-  days_remaining: z.number().int().nonnegative().nullable(),
-  expires_at: z.string().nullable(),
-  membership: z.lazy(() => SubscriptionSchema.nullable()),
-  membership_id: z.string(),
+const MembershipSummarySchema = z.object({
+  id: z.string(),
+  planName: z.string(),
+  planPrice: z.number().nonnegative(),
+  billingPeriod: z.string(),
+  currentPeriodStart: z.string(),
+  currentPeriodEnd: z.string(),
+  paymentDueDate: z.string(),
+  athleteId: z.string(),
+  coachId: z.string(),
 });
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function pick(
+  record: Record<string, unknown>,
+  camel: string,
+  snake: string,
+): unknown {
+  return record[camel] ?? record[snake];
+}
+
+function normalizeMembershipSummary(value: unknown): unknown {
+  const raw = asRecord(value);
+  if (!raw) return value;
+  return {
+    id: raw.id,
+    planName: pick(raw, 'planName', 'plan_name'),
+    planPrice: pick(raw, 'planPrice', 'plan_price'),
+    billingPeriod: pick(raw, 'billingPeriod', 'billing_period'),
+    currentPeriodStart: pick(raw, 'currentPeriodStart', 'current_period_start') ?? '',
+    currentPeriodEnd: pick(raw, 'currentPeriodEnd', 'current_period_end') ?? '',
+    paymentDueDate: pick(raw, 'paymentDueDate', 'payment_due_date') ?? '',
+    athleteId: pick(raw, 'athleteId', 'athlete_id') ?? '',
+    coachId: pick(raw, 'coachId', 'coach_id') ?? '',
+  };
+}
+
+function normalizeMembershipStatus(value: unknown): unknown {
+  const raw = asRecord(value);
+  if (!raw) return value;
+  return {
+    hasActiveMembership: pick(raw, 'hasActiveMembership', 'has_active_membership'),
+    status: raw.status,
+    isInGracePeriod: pick(raw, 'isInGracePeriod', 'is_in_grace_period'),
+    daysRemaining: pick(raw, 'daysRemaining', 'days_remaining') ?? 0,
+    expiresAt: pick(raw, 'expiresAt', 'expires_at') ?? null,
+    membership:
+      raw.membership === null || raw.membership === undefined
+        ? null
+        : normalizeMembershipSummary(raw.membership),
+    membershipId: pick(raw, 'membershipId', 'membership_id') ?? '',
+    coachPlanLimitExceeded:
+      pick(raw, 'coachPlanLimitExceeded', 'coach_plan_limit_exceeded') ?? false,
+    coachPlanMaxAthletes:
+      pick(raw, 'coachPlanMaxAthletes', 'coach_plan_max_athletes') ?? 0,
+    coachAthletesCount:
+      pick(raw, 'coachAthletesCount', 'coach_athletes_count') ?? 0,
+    coachPlanName: pick(raw, 'coachPlanName', 'coach_plan_name') ?? '',
+  };
+}
+
+export const MembershipStatusSchema = z.preprocess(
+  normalizeMembershipStatus,
+  z.object({
+    hasActiveMembership: z.boolean(),
+    status: SubscriptionStatusSchema,
+    isInGracePeriod: z.boolean(),
+    daysRemaining: z.number().int().nonnegative().nullable(),
+    expiresAt: z.string().nullable(),
+    membership: MembershipSummarySchema.nullable(),
+    membershipId: z.string(),
+    coachPlanLimitExceeded: z.boolean(),
+    coachPlanMaxAthletes: z.number().int().nonnegative(),
+    coachAthletesCount: z.number().int().nonnegative(),
+    coachPlanName: z.string(),
+  }),
+);
+
 export type SubscriptionDto = z.infer<typeof SubscriptionSchema>;
+export type MembershipSummaryDto = z.infer<typeof MembershipSummarySchema>;
 export type MembershipStatusDto = z.infer<typeof MembershipStatusSchema>;

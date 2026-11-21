@@ -1,0 +1,539 @@
+```mermaid
+erDiagram
+    %% ========================================
+    %% MR Training Commercial Policy Engine ERD
+    %% ========================================
+
+    %% ===== COMMERCIAL POLICY ENGINE (Domain 1) =====
+    COMMERCIAL_POLicies {
+        TEXT id PK
+        TEXT name
+        TEXT description
+        TEXT default_commission_type
+        INTEGER default_rate_bps
+        INTEGER default_fixed_amount_cents
+        TEXT eligible_base_rule
+        TEXT rounding
+        TEXT currency
+        BOOLEAN is_active
+        TEXT created_at
+        TEXT updated_at
+    }
+
+    POLICY_VERSIONS {
+        TEXT id PK
+        TEXT policy_id FK
+        INTEGER version
+        INTEGER rate_bps
+        INTEGER fixed_amount_cents
+        TEXT eligible_base_rule
+        TEXT rounding
+        TEXT valid_from
+        TEXT valid_to
+        TEXT status
+        TEXT created_at
+    }
+
+    POLICY_RULES_OPERATION {
+        TEXT id PK
+        TEXT policy_id FK
+        TEXT operation_type
+        INTEGER rate_bps
+        INTEGER fixed_amount_cents
+        TEXT effective_from
+        TEXT effective_to
+        TEXT created_at
+    }
+
+    POLICY_RULES_PLAN {
+        TEXT id PK
+        TEXT policy_id FK
+        TEXT plan_name
+        INTEGER rate_bps
+        INTEGER fixed_amount_cents
+        TEXT effective_from
+        TEXT effective_to
+        TEXT created_at
+    }
+
+    POLICY_RULES_COACH {
+        TEXT id PK
+        TEXT policy_id FK
+        TEXT coach_id
+        INTEGER rate_bps
+        INTEGER fixed_amount_cents
+        TEXT effective_from
+        TEXT effective_to
+        TEXT created_at
+    }
+
+    %% ===== EXEMPTIONS & BENEFITS (Domain 2) =====
+    EXEMPTIONS {
+        TEXT id PK
+        TEXT relationship_id FK
+        TEXT coach_id
+        TEXT athlete_id
+        TEXT operation_id FK
+        TEXT exemption_type
+        TEXT reason
+        INTEGER amount_cents
+        TEXT currency
+        TEXT status
+        TEXT applied_at
+        TEXT expires_at
+        TEXT permission_required
+        TEXT created_at
+        TEXT created_by
+    }
+
+    EXEMPTION_APPROVALS {
+        TEXT id PK
+        TEXT exemption_id FK
+        TEXT approver_id FK
+        TEXT approver_type
+        TEXT role
+        TEXT action
+        TEXT note
+        TEXT approved_at
+        TEXT created_at
+    }
+
+    BENEFITS {
+        TEXT id PK
+        TEXT relationship_id FK
+        TEXT benefit_type
+        TEXT reason
+        INTEGER value_cents
+        INTEGER quantity
+        TEXT currency
+        TEXT status
+        TEXT started_at
+        TEXT expires_at
+        TEXT permission_required
+        TEXT created_at
+        TEXT created_by
+    }
+
+    SUSPENSION_RULES {
+        TEXT id PK
+        TEXT relationship_id FK
+        TEXT suspension_type
+        TEXT reason
+        TEXT effective_from
+        TEXT effective_to
+        TEXT created_at
+        TEXT created_by
+    }
+
+    %% ===== COACH MEMBERSHIP & LICENSING (Domain 3) =====
+    ATHLETE_MEMBERSHIPS {
+        TEXT id PK
+        TEXT athlete_id
+        TEXT coach_id
+        TEXT plan_name
+        REAL plan_price
+        TEXT billing_period
+        TEXT status
+        TEXT current_period_start
+        TEXT current_period_end
+        INTEGER grace_period_days
+        TEXT payment_due_date
+        TEXT license_state
+        TEXT license_condition
+        TEXT created_at
+        TEXT updated_at
+    }
+
+    LICENSE_STATES {
+        TEXT id PK
+        TEXT membership_id FK
+        TEXT state
+        TEXT reason
+        TEXT entered_at
+        TEXT exited_at
+        TEXT created_at
+    }
+
+    LICENSE_CONDITIONS {
+        TEXT id PK
+        TEXT membership_id FK
+        TEXT condition_type
+        TEXT status
+        TEXT applied_at
+        TEXT expires_at
+        TEXT reason
+        TEXT created_at
+    }
+
+    GRACE_PERIODS {
+        TEXT id PK
+        TEXT membership_id FK
+        INTEGER days
+        TEXT started_at
+        TEXT ends_at
+        TEXT reason
+        TEXT created_at
+        TEXT created_by
+    }
+
+    %% ===== COMMISSION MANAGEMENT (Domain 4) =====
+    COMMISSION_AGREEMENTS {
+        TEXT id PK
+        TEXT relationship_id FK
+        INTEGER version
+        INTEGER rate_bps
+        INTEGER fixed_amount_cents
+        TEXT eligible_base_rule
+        TEXT rounding
+        TEXT currency
+        TEXT valid_from
+        TEXT valid_to
+        TEXT status
+        TEXT accepted_by
+        TEXT accepted_at
+        TEXT created_at
+    }
+
+    COMMISSION_ENTRIES {
+        TEXT id PK
+        TEXT operation_id FK
+        TEXT relationship_id FK
+        TEXT coach_id
+        TEXT agreement_id FK
+        INTEGER agreement_version
+        INTEGER base_cents
+        INTEGER rate_bps
+        INTEGER fixed_amount_cents
+        INTEGER amount_cents
+        TEXT currency
+        TEXT status
+        TEXT computed_at
+        TEXT policy_snapshot
+        TEXT created_at
+    }
+
+    %% ===== FINANCIAL LEDGER (Domain 5) =====
+    FINANCIAL_ADJUSTMENTS {
+        TEXT id PK
+        TEXT entry_id FK
+        TEXT settlement_id FK
+        TEXT kind
+        INTEGER amount_cents
+        TEXT reason
+        TEXT created_by
+        TEXT created_at
+    }
+
+    COACH_SETTLEMENTS {
+        TEXT id PK
+        TEXT coach_id
+        TEXT ally_id FK
+        TEXT period_start
+        TEXT period_end
+        TEXT period_key
+        TEXT currency
+        TEXT status
+        INTEGER operations_count
+        INTEGER base_total_cents
+        INTEGER commission_gross_cents
+        INTEGER adjustments_cents
+        INTEGER commission_net_cents
+        TEXT calculated_at
+        TEXT approved_at
+        TEXT closed_at
+        TEXT created_at
+        TEXT updated_at
+    }
+
+    SETTLEMENT_ITEMS {
+        TEXT id PK
+        TEXT settlement_id FK
+        TEXT entry_id FK
+        INTEGER base_cents
+        INTEGER rate_bps
+        INTEGER amount_cents
+        TEXT released_at
+        TEXT created_at
+    }
+
+    SETTLEMENT_DOCUMENTS {
+        TEXT id PK
+        TEXT settlement_id FK
+        TEXT kind
+        TEXT content_ref
+        TEXT status
+        INTEGER version
+        TEXT generated_at
+        TEXT sent_at
+    }
+
+    COACH_PAYMENT_RECORDS {
+        TEXT id PK
+        TEXT settlement_id FK
+        TEXT coach_id
+        TEXT payer_ally_id FK
+        INTEGER amount_cents
+        TEXT currency
+        TEXT actor_id
+        TEXT actor_type
+        TEXT reference
+        TEXT evidence_ref
+        TEXT declared_at
+        TEXT status
+        TEXT created_at
+    }
+
+    %% ===== ALLIANCES (Domain 6) =====
+    ALLIES {
+        TEXT id PK
+        TEXT owner_user_id
+        TEXT legal_name
+        TEXT commercial_name
+        TEXT category
+        TEXT contact_email
+        TEXT contact_phone
+        TEXT tax_id
+        TEXT status
+        TEXT created_at
+        TEXT updated_at
+    }
+
+    COACH_ALLY_RELATIONSHIPS {
+        TEXT id PK
+        TEXT coach_id
+        TEXT ally_id FK
+        TEXT status
+        TEXT attributed_by
+        TEXT invited_at
+        TEXT activated_at
+        TEXT ended_at
+        TEXT created_at
+        TEXT updated_at
+    }
+
+    ALLY_OPERATIONS {
+        TEXT id PK
+        TEXT kind
+        TEXT relationship_id FK
+        TEXT ally_id FK
+        TEXT athlete_id
+        TEXT status
+        TEXT operation_type
+        TEXT scheduled_at
+        TEXT confirmed_at
+        TEXT completed_at
+        TEXT cancelled_at
+        TEXT created_at
+        TEXT updated_at
+    }
+
+    ALLY_OPERATION_ITEMS {
+        TEXT id PK
+        TEXT operation_id FK
+        TEXT offer_kind
+        TEXT offer_id
+        TEXT name
+        INTEGER unit_price_cents
+        INTEGER quantity
+    }
+
+    ALLY_PAYMENT_DECLARATIONS {
+        TEXT id PK
+        TEXT operation_id FK
+        INTEGER version
+        TEXT supersedes_id
+        INTEGER amount_cents
+        TEXT currency
+        TEXT method
+        TEXT declared_at
+        TEXT reference
+        TEXT evidence_ref
+        TEXT status
+        TEXT reviewed_by
+        TEXT reviewed_at
+        TEXT review_note
+        TEXT created_at
+    }
+
+    ALLY_PRODUCTS {
+        TEXT id PK
+        TEXT ally_id FK
+        TEXT name
+        TEXT description
+        INTEGER price_cents
+        TEXT currency
+        INTEGER stock
+        INTEGER active
+        TEXT created_at
+        TEXT updated_at
+    }
+
+    ALLY_SERVICES {
+        TEXT id PK
+        TEXT ally_id FK
+        TEXT name
+        TEXT description
+        INTEGER price_cents
+        TEXT currency
+        INTEGER duration_min
+        INTEGER capacity
+        INTEGER active
+        TEXT created_at
+        TEXT updated_at
+    }
+
+    %% ===== SUPRE ADMIN & RBAC (Domain 7) =====
+    SUPER_ADMIN_USERS {
+        TEXT id PK
+        TEXT email
+        TEXT full_name
+        TEXT role
+        TEXT status
+        TEXT last_login_at
+        TEXT created_at
+        TEXT updated_at
+    }
+
+    ADMIN_ROLES {
+        TEXT id PK
+        TEXT name
+        TEXT description
+        TEXT permission_level
+        TEXT created_at
+        TEXT updated_at
+    }
+
+    ADMIN_PERMISSIONS {
+        TEXT id PK
+        TEXT resource
+        TEXT action
+        TEXT description
+        TEXT created_at
+    }
+
+    ROLE_PERMISSIONS {
+        TEXT id PK
+        TEXT role_id FK
+        TEXT permission_id FK
+        TEXT granted_by
+        TEXT granted_at
+    }
+
+    USER_ROLES {
+        TEXT id PK
+        TEXT user_id
+        TEXT role_id FK
+        TEXT scope
+        TEXT granted_by
+        TEXT granted_at
+    }
+
+    ADMIN_AUDIT_LOG {
+        TEXT id PK
+        TEXT user_id
+        TEXT action
+        TEXT resource_type
+        TEXT resource_id
+        TEXT details
+        TEXT ip_address
+        TEXT user_agent
+        TEXT created_at
+    }
+
+    %% ===== PAYMENT INTEGRATION (Domain 8) =====
+    PAYMENT_EVENTS {
+        TEXT id PK
+        TEXT external_id
+        TEXT event_type
+        TEXT resource
+        TEXT status
+        TEXT raw_payload
+        TEXT processed_at
+        INTEGER error_count
+        TEXT last_error
+        TEXT created_at
+    }
+
+    PAYMENT_WORK_QUEUE {
+        TEXT id PK
+        TEXT event_id FK
+        TEXT task_type
+        TEXT payload
+        TEXT status
+        INTEGER attempts
+        TEXT last_attempt_at
+        TEXT next_attempt_at
+        TEXT error_message
+        TEXT created_at
+        TEXT updated_at
+    }
+
+    %% ===== RELATIONSHIPS =====
+    %% Policy Engine
+    COMMERCIAL_POLicies ||--o{ POLICY_VERSIONS : "has"
+    COMMERCIAL_POLicies ||--o{ POLICY_RULES_OPERATION : "defines"
+    COMMERCIAL_POLicies ||--o{ POLICY_RULES_PLAN : "defines"
+    COMMERCIAL_POLicies ||--o{ POLICY_RULES_COACH : "defines"
+    POLICY_VERSIONS ||--o{ EXEMPTIONS : "applies to"
+    POLICY_RULES_OPERATION ||--o{ EXEMPTIONS : "applies to"
+
+    %% Coaches
+    COACHES ||--o{ COACH_ALLY_RELATIONSHIPS : "has"
+    COACHES ||--o{ ATHLETE_MEMBERSHIPS : "hosts"
+    COACHES ||--o{ COACH_SETTLEMENTS : "receives"
+    COACHES ||--o{ COMMISSION_AGREEMENTS : "negotiates"
+    COACHES ||--o{ EXEMPTIONS : "can approve"
+
+    %% Allies
+    ALLIES ||--o{ COACH_ALLY_RELATIONSHIPS : "partners with"
+    ALLIES ||--o{ ALLY_PRODUCTS : "offers"
+    ALLIES ||--o{ ALLY_SERVICES : "provides"
+    ALLIES ||--o{ ALLY_OPERATIONS : "receives"
+    ALLIES ||--o{ ALLY_PAYMENT_DECLARATIONS : "declares"
+    ALLIES ||--o{ COACH_SETTLEMENTS : "pays"
+
+    %% Operations
+    ALLY_OPERATIONS ||--o{ ALLY_OPERATION_ITEMS : "contains"
+    ALLY_OPERATIONS ||--o{ COMMISSION_ENTRIES : "triggers"
+    ALLY_OPERATIONS ||--o{ EXEMPTIONS : "may exempt"
+
+    %% Exemptions & Benefits
+    COACH_ALLY_RELATIONSHIPS ||--o{ EXEMPTIONS : "has exemptions"
+    EXEMPTIONS ||--o{ EXEMPTION_APPROVALS : "requires"
+    COACH_ALLY_RELATIONSHIPS ||--o{ BENEFITS : "receives"
+    COACH_ALLY_RELATIONSHIPS ||--o{ SUSPENSION_RULES : "may have"
+
+    %% Memberships
+    ATHLETE_MEMBERSHIPS ||--o{ LICENSE_STATES : "has"
+    ATHLETE_MEMBERSHIPS ||--o{ LICENSE_CONDITIONS : "has"
+    ATHLETE_MEMBERSHIPS ||--o{ GRACE_PERIODS : "has"
+    ATHLETE_MEMBERSHIPS ||--o{ MEMBERSHIP_PAYMENTS : "generates"
+
+    %% Commissions
+    COACH_ALLY_RELATIONSHIPS ||--o{ COMMISSION_AGREEMENTS : "governs"
+    COMMISSION_AGREEMENTS ||--o{ COMMISSION_ENTRIES : "generates"
+    COMMISSION_ENTRIES ||--o{ SETTLEMENT_ITEMS : "included in"
+    COMMISSION_ENTRIES ||--o{ FINANCIAL_ADJUSTMENTS : "may adjust"
+
+    %% Settlements
+    COACH_SETTLEMENTS ||--o{ SETTLEMENT_ITEMS : "contains"
+    COACH_SETTLEMENTS ||--o{ SETTLEMENT_DOCUMENTS : "generates"
+    COACH_SETTLEMENTS ||--o{ COACH_PAYMENT_RECORDS : "generates"
+
+    %% RBAC
+    SUPER_ADMIN_USERS ||--o{ ADMIN_AUDIT_LOG : "creates"
+    ADMIN_ROLES ||--o{ ROLE_PERMISSIONS : "has"
+    ADMIN_ROLES ||--o{ USER_ROLES : "assigned to"
+    ROLE_PERMISSIONS ||--o{ ADMIN_PERMISSIONS : "grants"
+
+    %% Payment Integration
+    PAYMENT_EVENTS ||--o{ PAYMENT_WORK_QUEUE : "queues"
+    MEMBERSHIP_PAYMENTS ||--o{ PAYMENT_EVENTS : "creates"
+    ORDERS ||--o{ PAYMENT_EVENTS : "creates"
+    PAYMENT_EVENTS ||--o{ MEMBERSHIP_PAYMENTS : "fulfills"
+    PAYMENT_EVENTS ||--o{ ORDERS : "fulfills"
+
+    %% Athletes
+    ATHLETE_PROFILES ||--o{ ATHLETE_MEMBERSHIPS : "has"
+    ATHLETE_MEMBERSHIPS ||--o{ LICENSE_STATES : "evolves"
+```

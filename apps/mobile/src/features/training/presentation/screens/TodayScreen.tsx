@@ -16,7 +16,7 @@
  * - Fewer mount queries for fast first paint.
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   RefreshControl,
   ScrollView,
@@ -56,6 +56,9 @@ import { EmptyState } from '../../../../shared/components/ui/EmptyState';
 import { SectionHeader } from '../../../../shared/components/ui/SectionHeader';
 import { ChallengeHomeCard } from '../../../../shared/components/ui/ChallengeHomeCard';
 import { MetricCard } from '../../../../shared/components/ui/MetricCard';
+import { InfoIcon } from '../../../../shared/components/icons';
+import { AnimatedPressable } from '../../../../shared/components/ui/AnimatedPressable';
+import { AthleteTourModal } from '../components/AthleteTourModal';
 
 import { texts } from '../../../../shared/i18n/texts';
 
@@ -172,6 +175,7 @@ function QuickAction({
 export function TodayScreen() {
   const navigation = useNavigation<TodayNav>();
   const { user } = useUser();
+  const [tourVisible, setTourVisible] = useState(false);
 
   const firstName = user?.firstName || t.athleteFallback;
 
@@ -390,10 +394,27 @@ export function TodayScreen() {
         <View style={styles.section}>
           <SectionHeader title={t.sessionsTitle} />
           {todaySessions.length === 0 ? (
-            <EmptyState
-              variant="empty"
-              message={texts.screens.todaySections.sessionsEmpty}
-            />
+            <>
+              <AnimatedPressable
+                accessibilityRole="button"
+                accessibilityLabel="Ver guía rápida de entrenamiento"
+                onPress={() => setTourVisible(true)}
+                style={styles.tourBanner}
+              >
+                <View style={styles.tourBannerIcon}>
+                  <InfoIcon size={20} color={colors.primary} />
+                </View>
+                <View style={styles.tourBannerText}>
+                  <Text style={styles.tourBannerTitle}>¿Nuevo en MR Training?</Text>
+                  <Text style={styles.tourBannerSubtitle}>Mira el tour rápido de 3 pasos para atletas →</Text>
+                </View>
+              </AnimatedPressable>
+
+              <EmptyState
+                variant="empty"
+                message={texts.screens.todaySections.sessionsEmpty}
+              />
+            </>
           ) : (
             <FlashList<TodaySession>
               data={todaySessions}
@@ -423,6 +444,12 @@ export function TodayScreen() {
           <ChallengeHomeCard challenge={null} loading={false} />
         </View>
       </ScrollView>
+
+      {/* Athlete Onboarding Tour Modal */}
+      <AthleteTourModal
+        visible={tourVisible}
+        onClose={() => setTourVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -431,6 +458,38 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.base,
+  },
+  tourBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: `${colors.primary}40`,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  tourBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${colors.primary}18`,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tourBannerText: {
+    flex: 1,
+    gap: 2,
+  },
+  tourBannerTitle: {
+    ...typography.bodyStrong,
+    color: colors.text,
+    fontSize: 14,
+  },
+  tourBannerSubtitle: {
+    ...typography.caption,
+    color: colors.primary,
+    fontSize: 12,
   },
   scrollView: {
     flex: 1,

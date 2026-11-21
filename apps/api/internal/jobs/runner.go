@@ -9,7 +9,10 @@ package jobs
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"hash/fnv"
+	"sync"
 	"time"
 
 	"github.com/innotechlabs01/mr-training-api/internal/application/challenge"
@@ -19,12 +22,65 @@ import (
 	"go.uber.org/zap"
 )
 
+// DistributedLocker coordinates single-leader scheduled execution across
+// horizontal API/worker instances.
+type DistributedLocker interface {
+	WithLock(ctx context.Context, lockKey string, fn func(context.Context) error) (acquired bool, err error)
+}
+
+// PGAdvisoryLocker implements DistributedLocker using PostgreSQL session-level
+// advisory locks on a pinned connection from *sql.DB.
+type PGAdvisoryLocker struct {
+	db *sql.DB
+}
+
+// NewPGAdvisoryLocker creates a PostgreSQL advisory locker backed by db.
+func NewPGAdvisoryLocker(db *sql.DB) *PGAdvisoryLocker {
+	return &PGAdvisoryLocker{db: db}
+}
+
+// WithLock acquires a non-blocking session advisory lock for lockKey, runs fn,
+// and releases the lock on exit.
+func (l *PGAdvisoryLocker) WithLock(ctx context.Context, lockKey string, fn func(context.Context) error) (bool, error) {
+	if l == nil || l.db == nil {
+		return true, fn(ctx)
+	}
+	conn, err := l.db.Conn(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer conn.Close()
+
+	key := advisoryLockID(lockKey)
+	var acquired bool
+	if err := conn.QueryRowContext(ctx, "SELECT pg_try_advisory_lock($1)", key).Scan(&acquired); err != nil {
+		return false, err
+	}
+	if !acquired {
+		return false, nil
+	}
+	defer func() {
+		unlockCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = conn.ExecContext(unlockCtx, "SELECT pg_advisory_unlock($1)", key)
+	}()
+
+	return true, fn(ctx)
+}
+
+func advisoryLockID(lockKey string) int64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(lockKey))
+	return int64(h.Sum64() & 0x7fffffffffffffff)
+}
+
 // Runner holds the services needed by each scheduled job.
 type Runner struct {
 	challengeSvc *challenge.Service
 	gamifSvc     *gamification.Service
 	notifSvc     *notification.Service
 	trmSvc       *trm.Service
+	locker       DistributedLocker
 	log          *zap.Logger
 }
 
@@ -36,6 +92,9 @@ func NewRunner(
 	trmSvc *trm.Service,
 	log *zap.Logger,
 ) *Runner {
+	if log == nil {
+		log = zap.NewNop()
+	}
 	return &Runner{
 		challengeSvc: challengeSvc,
 		gamifSvc:     gamifSvc,
@@ -45,56 +104,125 @@ func NewRunner(
 	}
 }
 
-// Start launches all scheduled jobs and blocks until ctx is cancelled.
-// Each job runs in its own goroutine with its own ticker.
+// WithLocker configures a distributed locker so only one replica executes each job tick.
+func (r *Runner) WithLocker(locker DistributedLocker) *Runner {
+	r.locker = locker
+	return r
+}
+
+// WithDB configures a PostgreSQL advisory locker backed by db.
+func (r *Runner) WithDB(db *sql.DB) *Runner {
+	if db != nil {
+		r.locker = NewPGAdvisoryLocker(db)
+	}
+	return r
+}
+
+// Start launches all scheduled jobs and blocks until ctx is cancelled and all
+// job loops exit cleanly.
 func (r *Runner) Start(ctx context.Context) error {
-	r.startChallengeExpiration(ctx)
-	r.startTRMPrefetch(ctx)
-	r.startInactivityRetention(ctx)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go r.runChallengeExpiration(ctx, &wg)
+	go r.runTRMPrefetch(ctx, &wg)
+	go r.runInactivityRetentionLoop(ctx, &wg)
 	<-ctx.Done()
+	wg.Wait()
 	return nil
 }
 
-func (r *Runner) startChallengeExpiration(ctx context.Context) {
-	go func() {
-		ticker := time.NewTicker(1 * time.Hour)
-		defer ticker.Stop()
-		for range ticker.C {
-			if err := r.challengeSvc.ExpireChallenges(); err != nil {
+func (r *Runner) runChallengeExpiration(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if r.challengeSvc == nil {
+				continue
+			}
+			if err := r.executeLocked(ctx, "jobs:challenge_expiration", 2*time.Minute, func(_ context.Context) error {
+				return r.challengeSvc.ExpireChallenges()
+			}); err != nil {
 				r.log.Error("failed to expire challenges", zap.Error(err))
 			}
 		}
-	}()
+	}
 }
 
-func (r *Runner) startTRMPrefetch(ctx context.Context) {
-	go func() {
-		ticker := time.NewTicker(4 * time.Hour)
-		defer ticker.Stop()
-		if _, err := r.trmSvc.GetCurrent(context.Background()); err != nil {
-			r.log.Warn("initial TRM fetch failed", zap.Error(err))
+func (r *Runner) runTRMPrefetch(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+	ticker := time.NewTicker(4 * time.Hour)
+	defer ticker.Stop()
+
+	runOnce := func() {
+		if r.trmSvc == nil {
+			return
 		}
-		for range ticker.C {
-			if _, err := r.trmSvc.GetCurrent(context.Background()); err != nil {
-				r.log.Warn("scheduled TRM fetch failed", zap.Error(err))
-			}
+		if err := r.executeLocked(ctx, "jobs:trm_prefetch", 30*time.Second, func(jobCtx context.Context) error {
+			_, err := r.trmSvc.GetCurrent(jobCtx)
+			return err
+		}); err != nil {
+			r.log.Warn("scheduled TRM fetch failed", zap.Error(err))
 		}
-	}()
+	}
+
+	runOnce()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			runOnce()
+		}
+	}
 }
 
-func (r *Runner) startInactivityRetention(ctx context.Context) {
-	go func() {
-		ticker := time.NewTicker(24 * time.Hour)
-		defer ticker.Stop()
-		if err := r.runInactivityRetention(context.Background()); err != nil {
-			r.log.Warn("initial inactivity retention job failed", zap.Error(err))
+func (r *Runner) runInactivityRetentionLoop(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+
+	runOnce := func() {
+		if r.gamifSvc == nil || r.notifSvc == nil {
+			return
 		}
-		for range ticker.C {
-			if err := r.runInactivityRetention(context.Background()); err != nil {
-				r.log.Warn("scheduled inactivity retention job failed", zap.Error(err))
-			}
+		if err := r.executeLocked(ctx, "jobs:inactivity_retention", 5*time.Minute, r.runInactivityRetention); err != nil {
+			r.log.Warn("inactivity retention job failed", zap.Error(err))
 		}
-	}()
+	}
+
+	runOnce()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			runOnce()
+		}
+	}
+}
+
+func (r *Runner) executeLocked(parent context.Context, lockKey string, timeout time.Duration, fn func(context.Context) error) error {
+	jobCtx, cancel := context.WithTimeout(parent, timeout)
+	defer cancel()
+	if r.locker == nil {
+		return fn(jobCtx)
+	}
+	acquired, err := r.locker.WithLock(jobCtx, lockKey, fn)
+	if err != nil {
+		return err
+	}
+	if !acquired {
+		r.log.Debug("skipping job tick, lock held by another instance", zap.String("lock_key", lockKey))
+	}
+	return nil
 }
 
 // runInactivityRetention sends retention pushes to athletes inactive 3+ days.
@@ -110,6 +238,9 @@ func (r *Runner) runInactivityRetention(ctx context.Context) error {
 		return err
 	}
 	for _, streak := range streaks {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if streak.LastWorkoutDate == nil || *streak.LastWorkoutDate == "" {
 			continue
 		}
@@ -133,7 +264,7 @@ func (r *Runner) runInactivityRetention(ctx context.Context) error {
 		}
 		body := fmt.Sprintf("Llevás %d días sin entrenar. Tu racha está en peligro, no la pierdas.", daysInactive)
 		if _, nerr := r.notifSvc.SendNotification(
-			context.Background(), streak.AthleteID, "inactivity", title, body, "",
+			ctx, streak.AthleteID, "inactivity", title, body, "",
 		); nerr != nil {
 			r.log.Warn("failed to send inactivity retention push",
 				zap.String("athlete_id", streak.AthleteID),

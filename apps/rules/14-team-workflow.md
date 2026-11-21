@@ -29,23 +29,26 @@ principal, un directorio por branch).
 ### Convención de branches
 
 ```
-main                  # siempre deployable — direct push PROHIBIDO
-  ├── feature/<desc>  # features nuevas (vida corta: 1-3 días)
-  ├── fix/<desc>      # bugs
-  ├── chore/<desc>    # deps, tooling, docs
-  └── refactor/<desc> # refactor sin cambio de comportamiento
+main                  # productivo — solo release desde QA. Direct push PROHIBIDO.
+  ├── QA              # rama de QA/testing — PR desde dev.
+        ├── dev       # rama de desarrollo / integración continua — PR desde feature/*.
+              ├── feature/<desc>  # features nuevas (vida corta: 1-3 días)
+              ├── fix/<desc>      # bugs
+              ├── chore/<desc>    # deps, tooling, docs
+              └── refactor/<desc> # refactor sin cambio de comportamiento
 ```
 
 ### Flujo completo por tarea
 
 ```
-1. scripts/worktree.sh sync              # main al día
-2. scripts/worktree.sh new feature/x     # worktree dedicado
-3. cd ../mr-training-worktrees/x         # trabajar AHÍ, no en main
+1. scripts/worktree.sh sync              # dev al día
+2. scripts/worktree.sh new feature/x     # worktree dedicado desde dev
+3. cd ../mr-training-worktrees/x         # trabajar AHÍ, no en dev/main
 4. Commits atómicos (ver 12-coding-standards.md §7.2)
 5. git push -u origin feature/x
-6. PR a main (ver 12-coding-standards.md §7.3)
-7. Tras merge: scripts/worktree.sh remove feature/x
+6. PR a dev (ver 12-coding-standards.md §7.3)  # destino: dev, no main
+7. Tras merge a dev y validación en QA: release QA → main solo en release aprobado
+8. scripts/worktree.sh remove feature/x
 ```
 
 Cada worktree necesita su propio `pnpm install` (lo hace el script). Un mismo
@@ -95,6 +98,7 @@ Max 3 loops por stage; al 4to fallo, escalar al usuario.
 **Roles (el architect decide, el coordinator confirma):**
 - `dev-front` — Next.js/React (apps/web)
 - `dev-backend` — Go/API/DB (apps/api)
+- `dev-database` — Supabase/PostgreSQL expert, RLS, migrations, security (apps/api DB layer)
 - `dev-react-native` — React Native (apps/mobile)
 - `dev-flutter` — Flutter/Dart (si aplica)
 - `ux-ui-designer` — diseño ANTES de código cuando cambia UX visible
@@ -125,6 +129,7 @@ Mapa fijo rol → template + reglas que el worker DEBE leer:
 | `architect` | `architect.md` | `pipeline-init`, `mr-context` | spec + reglas de arquitectura que apliquen |
 | `dev-front` | `dev-front.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md`, `00-product-vision.md`, `03-ux-workflows.md`, `06-frontend-architecture.md`, `08-api-specification.md` |
 | `dev-backend` | `dev-backend.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md`, `04-database-design.md`, `05-backend-architecture.md`, `08-api-specification.md` |
+| `dev-database` | `dev-database.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md`, `04-database-design.md`, `11-security.md` + migration rules |
 | `dev-react-native` | `dev-react-native.md` | `pipeline-init`, `mr-context` | `MASTER_PROMPT.md` + `mobile-rules/*` |
 | `dev-flutter` | `dev-flutter.md` | `pipeline-init`, `mr-context` | reglas que apliquen + spec |
 | `ux-ui-designer` | `ux-ui-designer.md` | `pipeline-init`, `mr-context` | `01-brand-guidelines.md`, `02-design-system.md`, `03-ux-workflows.md` |

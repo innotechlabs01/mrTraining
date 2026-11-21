@@ -147,6 +147,16 @@ type RunningSessionDetailResponse struct {
 	GpsPoints []GpsPointResponse `json:"gps_points"`
 }
 
+// RunningPRsResponse represents personal records computed from running sessions.
+type RunningPRsResponse struct {
+	BestPace   string  `json:"bestPace"`
+	LongestRun float64 `json:"longestRun"`
+	Fastest1K  int     `json:"fastest1K"`
+	Fastest5K  int     `json:"fastest5K"`
+	Fastest10K int     `json:"fastest10K"`
+	TotalRuns  int     `json:"totalRuns"`
+}
+
 // --- Structured running workout DTOs ---
 
 // CreateRunningWorkoutTemplateRequest is the payload for creating a running

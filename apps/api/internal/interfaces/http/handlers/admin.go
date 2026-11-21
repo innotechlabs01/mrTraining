@@ -7,79 +7,99 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 
-	userinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/user"
+	trmapp "github.com/innotechlabs01/mr-training-api/internal/application/trm"
 
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
+// trmReader is the subset of trm.Service used by the admin handler.
+type trmReader interface {
+	GetCurrent(context.Context) (*trmapp.Rate, error)
+	GetStored(context.Context) (*trmapp.Rate, error)
+}
+
 // AdminHandler handles read-only platform administration endpoints. It never
 // exposes athlete private data: only aggregated counts are returned.
 type AdminHandler struct {
-	db         *sql.DB
-	clerkClient *userinfrastructure.ClerkClient
+	db          *sql.DB
+	clerkClient clerkMetadataUpdater
+	trmService  trmReader
+}
+
+// clerkMetadataUpdater es el subconjunto de ClerkClient usado por AdminHandler.
+type clerkMetadataUpdater interface {
+	UpdatePublicMetadata(ctx context.Context, userID string, metadata map[string]interface{}) error
 }
 
 // NewAdminHandler creates a new AdminHandler bound to the supplied database.
 // A nil database keeps the handler functional for degraded health reporting.
-func NewAdminHandler(db *sql.DB, clerkClient *userinfrastructure.ClerkClient) *AdminHandler {
-	return &AdminHandler{db: db, clerkClient: clerkClient}
+func NewAdminHandler(db *sql.DB, clerkClient clerkMetadataUpdater, trmService trmReader) *AdminHandler {
+	return &AdminHandler{db: db, clerkClient: clerkClient, trmService: trmService}
 }
 
 // AdminDashboardResponse is the aggregated, tenant-agnostic dashboard payload.
 type AdminDashboardResponse struct {
-	CoachesCount           int64 `json:"coaches_count"`
-	ActiveCoachesCount     int64 `json:"active_coaches_count"`
-	UsersCount             int64 `json:"users_count"`
-	MembershipsCount       int64 `json:"memberships_count"`
-	ActiveMemberships      int64 `json:"active_memberships_count"`
-	LinkedAthletes         int64 `json:"linked_athletes_count"`
-	ExpiringCoachesCount   int64 `json:"expiring_coaches_count"`
-	SkippedSubscriptions   int64 `json:"skipped_subscriptions"`
+	CoachesCount         int64 `json:"coaches_count"`
+	ActiveCoachesCount   int64 `json:"active_coaches_count"`
+	UsersCount           int64 `json:"users_count"`
+	MembershipsCount     int64 `json:"memberships_count"`
+	ActiveMemberships    int64 `json:"active_memberships_count"`
+	LinkedAthletes       int64 `json:"linked_athletes_count"`
+	ExpiringCoachesCount int64 `json:"expiring_coaches_count"`
+	SkippedSubscriptions int64 `json:"skipped_subscriptions"`
 }
 
 // AdminCoachSummary is a privacy-safe coach row (no athlete identities).
+// ID es el identificador público (puede ser un Clerk users.id). CoachID es el
+// identificador interno de la tabla coaches, garantizado y separado de ID.
 type AdminCoachSummary struct {
-	ID                  string `json:"id"`
-	Name                string `json:"name"`
-	Email               string `json:"email"`
-	IsActive            bool   `json:"is_active"`
-	AthletesCount       int64  `json:"athletes_count"`
-	MembershipsCount    int64  `json:"memberships_count"`
-	ActiveMemberships   int64  `json:"active_memberships_count"`
-	CreatedAt           string `json:"created_at"`
-	PlanName            string `json:"plan_name"`
-	PlanPrice           float64 `json:"plan_price"`
-	PlanStatus          string `json:"plan_status"`
-	PlanExpiresAt       string `json:"plan_expires_at"`
-	SkipSubscription    bool    `json:"skip_subscription"`
+	ID                string  `json:"id"`
+	CoachID           string  `json:"coach_id"`
+	Name              string  `json:"name"`
+	Email             string  `json:"email"`
+	IsActive          bool    `json:"is_active"`
+	AthletesCount     int64   `json:"athletes_count"`
+	MembershipsCount  int64   `json:"memberships_count"`
+	ActiveMemberships int64   `json:"active_memberships_count"`
+	CreatedAt         string  `json:"created_at"`
+	PlanName          string  `json:"plan_name"`
+	PlanPrice         float64 `json:"plan_price"`
+	PlanMaxAthletes   int     `json:"plan_max_athletes"`
+	PlanStatus        string  `json:"plan_status"`
+	PlanExpiresAt     string  `json:"plan_expires_at"`
+	RevenueMonth      float64 `json:"revenue_month"`
+	RevenueTotal      float64 `json:"revenue_total"`
+	SkipSubscription  bool    `json:"skip_subscription"`
+	LastLogin         string  `json:"last_login"`
 }
 
 // AdminCoachesResponse wraps a paginated, privacy-safe coach listing.
 type AdminCoachesResponse struct {
-	Data      []AdminCoachSummary `json:"data"`
-	Search    string              `json:"search"`
-	Page      int                 `json:"page"`
-	PageSize  int                 `json:"page_size"`
-	Total     int64               `json:"total"`
+	Data     []AdminCoachSummary `json:"data"`
+	Search   string              `json:"search"`
+	Page     int                 `json:"page"`
+	PageSize int                 `json:"page_size"`
+	Total    int64               `json:"total"`
 }
 
 // AdminCoachDetailResponse contains aggregate coach information only.
 type AdminCoachDetailResponse struct {
-	ID                  string `json:"id"`
-	Name                string `json:"name"`
-	Email               string `json:"email"`
-	IsActive            bool   `json:"is_active"`
-	AthletesCount       int64  `json:"athletes_count"`
-	MembershipsCount    int64  `json:"memberships_count"`
-	ActiveMemberships   int64  `json:"active_memberships_count"`
-	CreatedAt           string `json:"created_at"`
-	SkipSubscription    bool    `json:"skip_subscription"`
+	ID                string `json:"id"`
+	Name              string `json:"name"`
+	Email             string `json:"email"`
+	IsActive          bool   `json:"is_active"`
+	AthletesCount     int64  `json:"athletes_count"`
+	MembershipsCount  int64  `json:"memberships_count"`
+	ActiveMemberships int64  `json:"active_memberships_count"`
+	CreatedAt         string `json:"created_at"`
+	SkipSubscription  bool   `json:"skip_subscription"`
 }
 
 // AdminServiceHealthResponse reports basic dependency health.
@@ -90,21 +110,21 @@ type AdminServiceHealthResponse struct {
 
 // AdminPlan is a platform plan exposed to the admin CRM.
 type AdminPlan struct {
-	ID                 string     `json:"id"`
-	Name               string     `json:"name"`
-	Description        string     `json:"description"`
-	Price              float64    `json:"price"`
-	Currency           string     `json:"currency"`
-	BillingPeriod      string     `json:"billing_period"`
-	MaxAthletes        int        `json:"max_athletes"`
-	MaxSessionsPerWeek int        `json:"max_sessions_per_week"`
-	IsActive           bool       `json:"is_active"`
-	AthleteCount       int        `json:"athlete_count"`
-	CoachID            string     `json:"coach_id"`
-	CoachName          string     `json:"coach_name,omitempty"`
-	TRM                float64    `json:"trm"`
-	CreatedAt          string     `json:"created_at"`
-	UpdatedAt          *string    `json:"updated_at,omitempty"`
+	ID                 string  `json:"id"`
+	Name               string  `json:"name"`
+	Description        string  `json:"description"`
+	Price              float64 `json:"price"`
+	Currency           string  `json:"currency"`
+	BillingPeriod      string  `json:"billing_period"`
+	MaxAthletes        int     `json:"max_athletes"`
+	MaxSessionsPerWeek int     `json:"max_sessions_per_week"`
+	IsActive           bool    `json:"is_active"`
+	AthleteCount       int     `json:"athlete_count"`
+	CoachID            string  `json:"coach_id"`
+	CoachName          string  `json:"coach_name,omitempty"`
+	TRM                float64 `json:"trm"`
+	CreatedAt          string  `json:"created_at"`
+	UpdatedAt          *string `json:"updated_at,omitempty"`
 }
 
 // AdminPlansResponse wraps a plan listing.
@@ -145,6 +165,15 @@ type AdminSettingsResponse struct {
 	Settings map[string]interface{} `json:"settings"`
 }
 
+// TRMSettingResponse is the payload for GET /api/v1/admin/settings/trm.
+type TRMSettingResponse struct {
+	Value         float64 `json:"value"`
+	VigenciaDesde string  `json:"vigencia_desde"`
+	FetchedAt     string  `json:"fetched_at"`
+	MarginPct     int     `json:"margin_pct"`
+	Source        string  `json:"source"`
+}
+
 // UpsertSettingRequest sets a single platform setting.
 type UpsertSettingRequest struct {
 	Key   string      `json:"key"`
@@ -160,22 +189,84 @@ func (h *AdminHandler) GetDashboard(c *fiber.Ctx) error {
 
 	ctx := c.Context()
 
-	_ = h.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM coaches`).Scan(&resp.CoachesCount)
-	_ = h.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM coaches WHERE is_active = 1`).Scan(&resp.ActiveCoachesCount)
-	_ = h.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users`).Scan(&resp.UsersCount)
-	_ = h.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM athlete_memberships`).Scan(&resp.MembershipsCount)
-	_ = h.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM athlete_memberships WHERE status = 'active'`).Scan(&resp.ActiveMemberships)
-	_ = h.db.QueryRowContext(ctx, `SELECT COUNT(DISTINCT athlete_id) FROM coach_athlete_links`).Scan(&resp.LinkedAthletes)
+	// Fuente de verdad: todos los coaches, ya sea que tengan fila en coaches
+	// o solo en users (role = coach). UNION dedupe los que están en ambas.
+	// Nunca devolvemos 0 silenciosamente si la DB falla.
+	if err := h.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM (
+			SELECT id FROM users WHERE role = 'coach'
+			UNION
+			SELECT id FROM coaches
+		) all_coaches
+	`).Scan(&resp.CoachesCount); err != nil {
+		fmt.Fprintf(os.Stderr, "[admin dashboard] count coaches: %v\n", err)
+		return appresponse.Error(c, fiber.StatusInternalServerError, "no se pudieron contar los coaches")
+	}
+	if err := h.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM (
+			SELECT id FROM users WHERE role = 'coach' AND is_active
+			UNION
+			SELECT id FROM coaches WHERE is_active = 1
+		) active_coaches
+	`).Scan(&resp.ActiveCoachesCount); err != nil {
+		fmt.Fprintf(os.Stderr, "[admin dashboard] count active coaches: %v\n", err)
+		return appresponse.Error(c, fiber.StatusInternalServerError, "no se pudieron contar los coaches activos")
+	}
+	if err := h.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users`).Scan(&resp.UsersCount); err != nil {
+		fmt.Fprintf(os.Stderr, "[admin dashboard] count users: %v\n", err)
+		return appresponse.Error(c, fiber.StatusInternalServerError, "no se pudieron contar los usuarios")
+	}
+	if err := h.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM athlete_memberships`).Scan(&resp.MembershipsCount); err != nil {
+		fmt.Fprintf(os.Stderr, "[admin dashboard] count memberships: %v\n", err)
+		return appresponse.Error(c, fiber.StatusInternalServerError, "no se pudieron contar las membresías")
+	}
+	if err := h.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM athlete_memberships WHERE status = 'active'`).Scan(&resp.ActiveMemberships); err != nil {
+		fmt.Fprintf(os.Stderr, "[admin dashboard] count active memberships: %v\n", err)
+		return appresponse.Error(c, fiber.StatusInternalServerError, "no se pudieron contar las membresías activas")
+	}
+	if err := h.db.QueryRowContext(ctx, `SELECT COUNT(DISTINCT athlete_id) FROM coach_athlete_links`).Scan(&resp.LinkedAthletes); err != nil {
+		fmt.Fprintf(os.Stderr, "[admin dashboard] count linked athletes: %v\n", err)
+		return appresponse.Error(c, fiber.StatusInternalServerError, "no se pudieron contar los atletas vinculados")
+	}
 
-	// Coaches con plan expi­rando en los pr´oximos 7 d´ıas
-	_ = h.db.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM coaches c
-		JOIN subscriptions s ON s.coach_id = c.id AND s.status = 'active'
-		WHERE s.current_period_end::timestamp BETWEEN NOW() AND NOW() + interval '7 days'
-	`).Scan(&resp.ExpiringCoachesCount)
+	// Coaches con plan expirando en los próximos 7 días (suscripción activa).
+	// Usa all_coaches (users UNION coaches) para incluir coaches que solo
+	// tienen fila en users (role='coach') sin fila en coaches. Hace JOIN con
+	// subscriptions por coach_id (puede ser users.id o coaches.id).
+	if err := h.db.QueryRowContext(ctx, `
+		SELECT COUNT(DISTINCT c.id)
+		FROM (
+			SELECT c.id, c.email FROM coaches c
+			UNION
+			SELECT u.id, u.email FROM users u WHERE u.role = 'coach'
+		) c
+		JOIN subscriptions s ON s.coach_id = c.id OR s.coach_id = c.email
+		WHERE s.status = 'active'
+		  AND s.current_period_end::timestamp BETWEEN NOW() AND NOW() + interval '7 days'
+	`).Scan(&resp.ExpiringCoachesCount); err != nil {
+		fmt.Fprintf(os.Stderr, "[admin dashboard] count expiring coaches: %v\n", err)
+		return appresponse.Error(c, fiber.StatusInternalServerError, "no se pudieron contar los coaches por vencer")
+	}
 
-	// Suscripciones omitidas
-	_ = h.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM coaches WHERE skip_subscription = true`).Scan(&resp.SkippedSubscriptions)
+	// Suscripciones omitidas (coaches con skip_subscription = true).
+	// Usa all_coaches (users UNION coaches) para incluir coaches que solo
+	// tienen fila en users. skip_subscription solo existe en coaches, así que
+	// coaches sin fila ahí cuentan como no omitidos (false).
+	if err := h.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM (
+			SELECT c.id, c.skip_subscription FROM coaches c
+			UNION
+			SELECT u.id, false::boolean FROM users u WHERE u.role = 'coach'
+			  AND NOT EXISTS (
+			    SELECT 1 FROM coaches c2
+			    WHERE c2.id = u.id OR lower(c2.email) = lower(u.email)
+			  )
+		) ac
+		WHERE ac.skip_subscription = true
+	`).Scan(&resp.SkippedSubscriptions); err != nil {
+		fmt.Fprintf(os.Stderr, "[admin dashboard] count skipped subscriptions: %v\n", err)
+		return appresponse.Error(c, fiber.StatusInternalServerError, "no se pudieron contar las suscripciones omitidas")
+	}
 
 	return appresponse.Success(c, resp)
 }
@@ -239,7 +330,13 @@ func (h *AdminHandler) GetCoach(c *fiber.Ctx) error {
 	}
 	item.IsActive = isActive != 0
 
-	_ = h.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM coach_athlete_links WHERE coach_id = $1`, id).Scan(&item.AthletesCount)
+	_ = h.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM (
+		  SELECT athlete_id FROM coach_athlete_links WHERE coach_id = $1 AND status = 'active'
+		  UNION
+		  SELECT id FROM coach_athletes WHERE coach_id = $1
+		) roster
+	`, id).Scan(&item.AthletesCount)
 	_ = h.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM athlete_memberships WHERE coach_id = $1`, id).Scan(&item.MembershipsCount)
 	_ = h.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM athlete_memberships WHERE coach_id = $1 AND status = 'active'`, id).Scan(&item.ActiveMemberships)
 
@@ -267,21 +364,58 @@ func (h *AdminHandler) GetServicesHealth(c *fiber.Ctx) error {
 }
 
 // Aliases for callers/tests that use alternate naming.
-func (h *AdminHandler) GetCoachByID(c *fiber.Ctx) error { return h.GetCoach(c) }
-func (h *AdminHandler) ServiceHealth(c *fiber.Ctx) error { return h.GetServicesHealth(c) }
-func (h *AdminHandler) ServicesHealth(c *fiber.Ctx) error { return h.GetServicesHealth(c) }
+func (h *AdminHandler) GetCoachByID(c *fiber.Ctx) error     { return h.GetCoach(c) }
+func (h *AdminHandler) ServiceHealth(c *fiber.Ctx) error    { return h.GetServicesHealth(c) }
+func (h *AdminHandler) ServicesHealth(c *fiber.Ctx) error   { return h.GetServicesHealth(c) }
 func (h *AdminHandler) GetServiceHealth(c *fiber.Ctx) error { return h.GetServicesHealth(c) }
 
 func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, offset int) ([]AdminCoachSummary, int64, error) {
 	where := "TRUE"
 	args := []interface{}{}
 	if search != "" {
-		where = "(c.name ILIKE $1 OR c.email ILIKE $1)"
+		where = "(ac.name ILIKE $1 OR ac.email ILIKE $1)"
 		args = append(args, "%"+search+"%")
 	}
 
+	// all_coaches une coaches y users (role = coach) que no tienen fila en
+	// coaches, así los coaches sin perfil de coaches (p.ej. solo en users)
+	// aparecen en el listado del CRM sin romper el aislamiento por coach.
+	baseCTE := `
+		WITH all_coaches AS (
+			SELECT c.id, c.name, c.email, c.is_active, c.created_at,
+			       c.skip_subscription, c.updated_at
+			FROM coaches c
+			UNION
+			SELECT u.id, u.name, u.email, u.is_active::integer, u.created_at,
+			       false::boolean, u.updated_at
+			FROM users u
+			WHERE u.role = 'coach'
+			  AND NOT EXISTS (
+				SELECT 1 FROM coaches c2
+				WHERE c2.id = u.id OR lower(c2.email) = lower(u.email)
+			  )
+		)
+	`
+
+	// Reparación: asegura que todo coach con rol en users tenga una fila en
+	// coaches, de modo que CoachID (interno de coaches) esté siempre garantizado
+	// y separado de ID (que puede ser un Clerk users.id). Idempotente.
+	if _, err := h.db.ExecContext(ctx, `
+		INSERT INTO coaches (id, email, name, skip_subscription, is_active, created_at, updated_at)
+		SELECT gen_random_uuid(), u.email, COALESCE(NULLIF(u.name, ''), u.email), false::boolean, u.is_active::integer, u.created_at, u.updated_at
+		FROM users u
+		WHERE u.role = 'coach'
+		  AND NOT EXISTS (
+			SELECT 1 FROM coaches c
+			WHERE c.id = u.id OR lower(c.email) = lower(u.email)
+		  )
+		ON CONFLICT (id) DO NOTHING
+	`); err != nil {
+		return nil, 0, err
+	}
+
 	var total int64
-	countQuery := "SELECT COUNT(*) FROM coaches c LEFT JOIN users u ON u.email = c.email WHERE " + where
+	countQuery := baseCTE + `SELECT COUNT(*) FROM all_coaches ac WHERE ` + where
 	if err := h.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
@@ -289,18 +423,67 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 	listArgs := append([]interface{}{}, args...)
 	next := len(listArgs) + 1
 	limitPH := "$" + strconv.Itoa(next)
-	offsetPH := "$" + strconv.Itoa(next + 1)
+	offsetPH := "$" + strconv.Itoa(next+1)
 	listArgs = append(listArgs, limit, offset)
 
-	query := `
-		SELECT c.id, c.name, c.email, c.is_active, c.created_at,
-		       COALESCE((SELECT COUNT(*) FROM coach_athlete_links cal WHERE cal.coach_id = c.id AND (cal.status = 'active' OR cal.status IS NULL)), 0),
-		       COALESCE((SELECT COUNT(*) FROM athlete_memberships am WHERE am.coach_id = c.id), 0),
-		       COALESCE((SELECT COUNT(*) FROM athlete_memberships am WHERE am.coach_id = c.id AND am.status = 'active'), 0),
-		       c.skip_subscription
-		FROM coaches c
+	query := baseCTE + `
+		SELECT ac.id, ac.id AS coach_id, ac.name, ac.email, ac.is_active, ac.created_at,
+		       COALESCE((
+		         SELECT COUNT(*) FROM (
+		           SELECT cal.athlete_id AS athlete_id FROM coach_athlete_links cal
+		           WHERE (cal.coach_id = ac.id OR cal.coach_id = ac.email)
+		             AND (cal.status = 'active' OR cal.status IS NULL)
+		           UNION
+		           SELECT ca.id AS athlete_id FROM coach_athletes ca WHERE ca.coach_id = ac.id OR ca.coach_id = ac.email
+		         ) roster
+		       ), 0),
+		       COALESCE((SELECT COUNT(*) FROM athlete_memberships am WHERE am.coach_id = ac.id OR am.coach_id = ac.email), 0),
+		       COALESCE((SELECT COUNT(*) FROM athlete_memberships am WHERE am.coach_id = ac.id OR am.coach_id = ac.email AND am.status = 'active'), 0),
+		       ac.skip_subscription,
+		       COALESCE((
+		         SELECT s.plan_name FROM subscriptions s
+		         WHERE (s.coach_id = ac.id OR s.coach_id = ac.email) AND s.status = 'active'
+		         ORDER BY s.current_period_end DESC LIMIT 1
+		       ), ''),
+		       COALESCE((
+		         SELECT s.plan_price FROM subscriptions s
+		         WHERE (s.coach_id = ac.id OR s.coach_id = ac.email) AND s.status = 'active'
+		         ORDER BY s.current_period_end DESC LIMIT 1
+		       ), 0),
+		       COALESCE((
+		         SELECT pl.max_athletes FROM subscriptions s
+		         JOIN plans pl ON pl.id = s.plan_id
+		         WHERE (s.coach_id = ac.id OR s.coach_id = ac.email) AND s.status = 'active'
+		         ORDER BY s.current_period_end DESC LIMIT 1
+		       ), 0),
+		       COALESCE((
+		         SELECT s.status FROM subscriptions s
+		         WHERE (s.coach_id = ac.id OR s.coach_id = ac.email) AND s.status = 'active'
+		         ORDER BY s.current_period_end DESC LIMIT 1
+		       ), 'none'),
+		       COALESCE((
+		         SELECT s.current_period_end::text FROM subscriptions s
+		         WHERE (s.coach_id = ac.id OR s.coach_id = ac.email) AND s.status = 'active'
+		         ORDER BY s.current_period_end DESC LIMIT 1
+		       ), ''),
+		       COALESCE((
+		         SELECT COALESCE(SUM(l.gross_amount_cents/100.0) FILTER (
+		           WHERE l.period_start::timestamp >= date_trunc('month', NOW())
+		         ), 0)
+		         FROM wompi_payment_ledger l
+		         WHERE l.status NOT IN ('pending', 'reversed')
+		           AND (l.coach_id = ac.id OR l.coach_id = ac.email)
+		       ), 0),
+		       COALESCE((
+		         SELECT COALESCE(SUM(l.gross_amount_cents/100.0), 0)
+		         FROM wompi_payment_ledger l
+		         WHERE l.status NOT IN ('pending', 'reversed')
+		           AND (l.coach_id = ac.id OR l.coach_id = ac.email)
+		       ), 0),
+		       ac.updated_at::text
+		FROM all_coaches ac
 		WHERE ` + where + `
-		ORDER BY c.created_at DESC
+		ORDER BY ac.created_at DESC
 		LIMIT ` + limitPH + ` OFFSET ` + offsetPH
 
 	rows, err := h.db.QueryContext(ctx, query, listArgs...)
@@ -314,9 +497,12 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 		var item AdminCoachSummary
 		var isActive int
 		var createdAt interface{}
-		if err := rows.Scan(&item.ID, &item.Name, &item.Email, &isActive, &createdAt,
+		if err := rows.Scan(&item.ID, &item.CoachID, &item.Name, &item.Email, &isActive, &createdAt,
 			&item.AthletesCount, &item.MembershipsCount, &item.ActiveMemberships,
-			&item.SkipSubscription); err != nil {
+			&item.SkipSubscription,
+			&item.PlanName, &item.PlanPrice, &item.PlanMaxAthletes,
+			&item.PlanStatus, &item.PlanExpiresAt, &item.RevenueMonth,
+			&item.RevenueTotal, &item.LastLogin); err != nil {
 			return nil, 0, err
 		}
 		item.IsActive = isActive != 0
@@ -333,6 +519,10 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 
 // ToggleSkipSubscription handles POST /api/v1/admin/coaches/:id/skip-subscription.
 // Toggles the coach's skip_subscription status and updates Clerk publicMetadata.
+//
+// The :id path parameter is resolved as a coaches.id (internal, tabla coaches).
+// Se mantiene un fallback por users.id (Clerk ID) solo para retrocompatibilidad;
+// ese fallback está deprecado y nunca se registra el valor crudo del Clerk ID en logs.
 func (h *AdminHandler) ToggleSkipSubscription(c *fiber.Ctx) error {
 	if h.db == nil {
 		return appresponse.Error(c, fiber.StatusServiceUnavailable, "database unavailable")
@@ -352,45 +542,101 @@ func (h *AdminHandler) ToggleSkipSubscription(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	// Get coach's clerk_id (users.id) from users table via email join
-	var clerkID string
+	// Resolve el coach. Primero intenta por coaches.id (canónico interno).
+	// Si no existe, usa el fallback deprecado por users.id (Clerk ID) y repara
+	// creando/reutilizando la fila en coaches.
+	var coachID, email, name string
+	var isActive int
 	err := h.db.QueryRowContext(ctx, `
-		SELECT u.id FROM users u
-		JOIN coaches c ON c.email = u.email
-		WHERE c.id = $1
-	`, id).Scan(&clerkID)
-
-	if err != nil {
+		SELECT id, email, COALESCE(NULLIF(name, ''), email), is_active
+		FROM coaches
+		WHERE id = $1
+	`, id).Scan(&coachID, &email, &name, &isActive)
+	if err == sql.ErrNoRows {
+		// Fallback deprecado: :id es un users.id (Clerk ID).
+		// users.is_active es BOOLEAN; coaches.is_active es INTEGER.
+		var isActiveBool bool
+		err = h.db.QueryRowContext(ctx, `
+			SELECT u.id, u.email, COALESCE(NULLIF(u.name, ''), u.email), u.is_active
+			FROM users u
+			WHERE u.id = $1 AND u.role = 'coach'
+		`, id).Scan(&coachID, &email, &name, &isActiveBool)
 		if err == sql.ErrNoRows {
-			return appresponse.Error(c, fiber.StatusNotFound, "coach not found")
+			// Último recurso: coincidencia por email en coaches (legacy).
+			err = h.db.QueryRowContext(ctx, `
+				SELECT id, email, COALESCE(NULLIF(name, ''), email), is_active
+				FROM coaches
+				WHERE lower(email) = lower($1)
+			`, id).Scan(&coachID, &email, &name, &isActive)
+			if err == sql.ErrNoRows {
+				return appresponse.Error(c, fiber.StatusNotFound, "coach not found")
+			}
+			if err != nil {
+				return appresponse.Error(c, fiber.StatusInternalServerError, "failed to look up coach")
+			}
+		} else if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to look up coach")
+		} else {
+			if isActiveBool {
+				isActive = 1
+			}
 		}
-		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to get coach clerk_id")
+
+		// Repara: asegura existencia de fila en coaches para este users.id.
+		_, err = h.db.ExecContext(ctx, `
+			INSERT INTO coaches (id, email, name, skip_subscription, is_active, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				email = EXCLUDED.email,
+				name = EXCLUDED.name,
+				is_active = EXCLUDED.is_active,
+				updated_at = NOW()
+		`, coachID, email, name, req.SkipSubscription, isActive)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to ensure coach row")
+		}
+	} else if err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to look up coach")
 	}
 
-	// Update skip_subscription in coaches table
+	// Actualiza skip_subscription en la tabla coaches por id interno.
 	_, err = h.db.ExecContext(ctx, `
-		UPDATE coaches SET skip_subscription = $1, updated_at = NOW() WHERE id = $2
-	`, req.SkipSubscription, id)
+		UPDATE coaches
+		SET skip_subscription = $1, updated_at = NOW()
+		WHERE id = $2
+	`, req.SkipSubscription, coachID)
 	if err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to update skip_subscription")
 	}
 
-	// Update Clerk publicMetadata with membership status
-	if h.clerkClient != nil && clerkID != "" {
+	// Mantiene sincronizadas las filas legacy de coaches que comparten el email.
+	if email != "" {
+		_, err = h.db.ExecContext(ctx, `
+			UPDATE coaches SET skip_subscription = $1, updated_at = NOW()
+			WHERE email <> '' AND lower(email) = lower($2)
+		`, req.SkipSubscription, email)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to sync legacy coach rows")
+		}
+	}
+
+	// Actualiza Clerk publicMetadata con el estado de membresía.
+	// Nunca se registra el Clerk ID crudo: solo un sufijo para diagnóstico.
+	if h.clerkClient != nil && coachID != "" {
 		metadata := map[string]interface{}{
 			"membership_status": map[string]interface{}{
 				"skip_subscription": req.SkipSubscription,
 				"updated_at":        time.Now().UTC().Format(time.RFC3339),
 			},
 		}
-		if err := h.clerkClient.UpdatePublicMetadata(c.Context(), clerkID, metadata); err != nil {
-			fmt.Printf("warning: failed to update Clerk publicMetadata for coach %s: %v\n", clerkID, err)
+		if err := h.clerkClient.UpdatePublicMetadata(c.Context(), coachID, metadata); err != nil {
+			fmt.Printf("warning: failed to update Clerk publicMetadata for coach %s: %v\n", clerkIDSuffix(coachID, 8), err)
 		}
 	}
 
 	return appresponse.Success(c, map[string]interface{}{
 		"skip_subscription": req.SkipSubscription,
-		"coach_id":          id,
+		"coach_id":          coachID,
 	})
 }
 
@@ -623,6 +869,7 @@ func (h *AdminHandler) GetSettings(c *fiber.Ctx) error {
 // PutSettings handles PUT /api/v1/admin/settings. Upserts one or several settings
 // from a flat object (e.g. { "platformName": "MR Training" }) or a single
 // { key, value } payload.
+// Comma separator
 func (h *AdminHandler) PutSettings(c *fiber.Ctx) error {
 	if h.db == nil {
 		return appresponse.Error(c, fiber.StatusServiceUnavailable, "database unavailable")
@@ -663,6 +910,33 @@ func (h *AdminHandler) PutSettings(c *fiber.Ctx) error {
 	return appresponse.Success(c, AdminSettingsResponse{Settings: raw})
 }
 
+// GetTRMSetting handles GET /api/v1/admin/settings/trm.
+// Devuelve la TRM con margen del 8% aplicado, vigencia y fecha de actualización.
+func (h *AdminHandler) GetTRMSetting(c *fiber.Ctx) error {
+	ctx := c.Context()
+
+	var rate *trmapp.Rate
+	var err error
+	if h.trmService != nil {
+		rate, err = h.trmService.GetCurrent(ctx)
+		if err != nil {
+			// Si el servicio falla, intentar leer el valor persistido en DB.
+			rate, err = h.trmService.GetStored(ctx)
+		}
+	}
+	if err != nil || rate == nil {
+		return appresponse.Error(c, fiber.StatusServiceUnavailable, "trm unavailable")
+	}
+
+	return appresponse.Success(c, TRMSettingResponse{
+		Value:         rate.Value,
+		VigenciaDesde: rate.VigenciaD,
+		FetchedAt:     rate.FetchedAt.UTC().Format(time.RFC3339),
+		MarginPct:     rate.MarginPct,
+		Source:        rate.Source,
+	})
+}
+
 // clerkIDSuffix returns the last n characters of a Clerk id, or the whole id
 // when it is shorter than n. It never panics on a short/empty id.
 func clerkIDSuffix(clerkID string, n int) string {
@@ -684,4 +958,105 @@ func formatTimeValue(v interface{}) string {
 		return string(t)
 	}
 	return ""
+}
+// GetCommissionTerms handles GET /api/v1/admin/commission-terms.
+// Returns the current commission configuration (rate_bps and fixed_amount_cents).
+func (h *AdminHandler) GetCommissionTerms(c *fiber.Ctx) error {
+	ctx := c.Context()
+	
+	// Try to get commission terms from platform_settings
+	var rateBps int
+	var fixedAmountCents int
+	
+	// Get rate_bps
+	var rateBpsBytes []byte
+	err := h.db.QueryRowContext(ctx, `SELECT value FROM platform_settings WHERE key = 'commission.rate_bps'`).Scan(&rateBpsBytes)
+	if err == nil && len(rateBpsBytes) > 0 {
+		var v interface{}
+		json.Unmarshal(rateBpsBytes, &v)
+		switch val := v.(type) {
+		case float64:
+			rateBps = int(val)
+		case int:
+			rateBps = val
+		}
+	}
+	
+	// Get fixed_amount_cents
+	var fixedAmountBytes []byte
+	err = h.db.QueryRowContext(ctx, `SELECT value FROM platform_settings WHERE key = 'commission.fixed_amount_cents'`).Scan(&fixedAmountBytes)
+	if err == nil && len(fixedAmountBytes) > 0 {
+		var v interface{}
+		json.Unmarshal(fixedAmountBytes, &v)
+		switch val := v.(type) {
+		case float64:
+			fixedAmountCents = int(val)
+		case int:
+			fixedAmountCents = val
+		}
+	}
+	
+	return appresponse.Success(c, map[string]interface{}{
+		"rate_bps":           rateBps,
+		"fixed_amount_cents": fixedAmountCents,
+		"currency":           "COP",
+	})
+}
+
+// PutCommissionTerms handles PUT /api/v1/admin/commission-terms.
+// Updates the commission configuration (rate_bps and fixed_amount_cents).
+// Rate is in basis points (800 = 8.00%), fixed amount is in cents (300000 = 3000 COP).
+func (h *AdminHandler) PutCommissionTerms(c *fiber.Ctx) error {
+	ctx := c.Context()
+	
+	var req struct {
+		RateBps          *int   `json:"rate_bps"`
+		FixedAmountCents *int   `json:"fixed_amount_cents"`
+		Currency         *string `json:"currency"`
+	}
+	
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+	
+	now := "NOW()"
+	
+	if req.RateBps != nil && *req.RateBps >= 0 {
+		_, err := h.db.ExecContext(ctx, `
+			INSERT INTO platform_settings (key, value, updated_at)
+			VALUES ('commission.rate_bps', $1, $2)
+			ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = $2
+		`, strconv.Itoa(*req.RateBps), now)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to save commission rate")
+		}
+	}
+	
+	if req.FixedAmountCents != nil && *req.FixedAmountCents >= 0 {
+		_, err := h.db.ExecContext(ctx, `
+			INSERT INTO platform_settings (key, value, updated_at)
+			VALUES ('commission.fixed_amount_cents', $1, $2)
+			ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = $2
+		`, strconv.Itoa(*req.FixedAmountCents), now)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to save commission fixed amount")
+		}
+	}
+	
+	if req.Currency != nil && *req.Currency != "" {
+		_, err := h.db.ExecContext(ctx, `
+			INSERT INTO platform_settings (key, value, updated_at)
+			VALUES ('commission.currency', $1, $2)
+			ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = $2
+		`, *req.Currency, now)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to save commission currency")
+		}
+	}
+	
+	return appresponse.Success(c, map[string]interface{}{
+		"rate_bps":           req.RateBps,
+		"fixed_amount_cents": req.FixedAmountCents,
+		"currency":           req.Currency,
+	})
 }

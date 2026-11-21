@@ -50,12 +50,28 @@ func (r *Repository) isTx() bool {
 	return ok
 }
 
+const eventSelectColumns = `
+	id, title, date, time, end_time, type, modality, location, description,
+	status, format, is_public,
+	max_capacity, COALESCE(price_cents, 0), COALESCE(currency, 'COP'), registration_deadline,
+	running_distance_km, running_pace, running_meeting_point,
+	running_categories, running_elevation_m, running_route_url,
+	(SELECT COUNT(*) FROM event_registrations er WHERE er.event_id = events.id AND er.status = 'accepted') AS accepted_count,
+	coach_id, created_at, updated_at`
+
+const eventSelectColumnsAliased = `
+	e.id, e.title, e.date, e.time, e.end_time, e.type, e.modality, e.location, e.description,
+	e.status, e.format, e.is_public,
+	e.max_capacity, COALESCE(e.price_cents, 0), COALESCE(e.currency, 'COP'), e.registration_deadline,
+	e.running_distance_km, e.running_pace, e.running_meeting_point,
+	e.running_categories, e.running_elevation_m, e.running_route_url,
+	(SELECT COUNT(*) FROM event_registrations er WHERE er.event_id = e.id AND er.status = 'accepted') AS accepted_count,
+	e.coach_id, e.created_at, e.updated_at`
+
 // ListByCoach retrieves all events for a given coach, ordered by date.
 func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*eventdomain.Event, error) {
 	rows, err := r.exec.QueryContext(ctx,
-		`SELECT id, title, date, time, end_time, type, modality, location, description,
-		 status, format, is_public, running_distance_km, running_pace, running_meeting_point,
-		 coach_id, created_at, updated_at
+		`SELECT `+eventSelectColumns+`
 		 FROM events WHERE coach_id = $1 ORDER BY date`, coachID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list events: %w", err)
@@ -98,9 +114,7 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string) ([]*eventd
 // GetByID retrieves an event by its unique identifier.
 func (r *Repository) GetByID(ctx context.Context, id string) (*eventdomain.Event, error) {
 	row := r.exec.QueryRowContext(ctx,
-		`SELECT id, title, date, time, end_time, type, modality, location, description,
-		 status, format, is_public, running_distance_km, running_pace, running_meeting_point,
-		 coach_id, created_at, updated_at
+		`SELECT `+eventSelectColumns+`
 		 FROM events WHERE id = $1`, id)
 
 	e, err := scanEventRow(row)
@@ -132,14 +146,31 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*eventdomain.Event
 
 // Create inserts a new event record.
 func (r *Repository) Create(ctx context.Context, e *eventdomain.Event) error {
+	categoriesJSON := ""
+	if len(e.RunningCategories) > 0 {
+		if b, err := json.Marshal(e.RunningCategories); err == nil {
+			categoriesJSON = string(b)
+		}
+	}
+	currency := e.Currency
+	if currency == "" {
+		currency = "COP"
+	}
 	_, err := r.exec.ExecContext(ctx,
-		`INSERT INTO events (id, title, date, time, end_time, type, modality, location, description,
-		 status, format, is_public, running_distance_km, running_pace, running_meeting_point, coach_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+		`INSERT INTO events (
+		 id, title, date, time, end_time, type, modality, location, description,
+		 status, format, is_public,
+		 max_capacity, price_cents, currency, registration_deadline,
+		 running_distance_km, running_pace, running_meeting_point,
+		 running_categories, running_elevation_m, running_route_url,
+		 coach_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)`,
 		e.ID, e.Title, e.Date, e.Time, e.EndTime, e.Type, e.Modality,
 		nullString(e.Location), nullString(e.Description), e.Status,
 		nullString(e.Format), boolToInt(e.IsPublic),
+		e.MaxCapacity, e.PriceCents, currency, nullString(e.RegistrationDeadline),
 		e.RunningDistanceKm, nullString(e.RunningPace), nullString(e.RunningMeetingPoint),
+		nullString(categoriesJSON), e.RunningElevationM, nullString(e.RunningRouteURL),
 		e.CoachID)
 	if err != nil {
 		return fmt.Errorf("failed to create event: %w", err)
@@ -149,14 +180,29 @@ func (r *Repository) Create(ctx context.Context, e *eventdomain.Event) error {
 
 // Update modifies an existing event record.
 func (r *Repository) Update(ctx context.Context, e *eventdomain.Event) error {
+	categoriesJSON := ""
+	if len(e.RunningCategories) > 0 {
+		if b, err := json.Marshal(e.RunningCategories); err == nil {
+			categoriesJSON = string(b)
+		}
+	}
+	currency := e.Currency
+	if currency == "" {
+		currency = "COP"
+	}
 	result, err := r.exec.ExecContext(ctx,
 		`UPDATE events SET title=$1, date=$2, time=$3, end_time=$4, type=$5, modality=$6, location=$7,
-		 description=$8, status=$9, format=$10, is_public=$11, running_distance_km=$12, running_pace=$13,
-		 running_meeting_point=$14, updated_at=NOW() WHERE id=$15`,
+		 description=$8, status=$9, format=$10, is_public=$11,
+		 max_capacity=$12, price_cents=$13, currency=$14, registration_deadline=$15,
+		 running_distance_km=$16, running_pace=$17, running_meeting_point=$18,
+		 running_categories=$19, running_elevation_m=$20, running_route_url=$21,
+		 updated_at=NOW() WHERE id=$22`,
 		e.Title, e.Date, e.Time, e.EndTime, e.Type, e.Modality,
 		nullString(e.Location), nullString(e.Description), e.Status,
 		nullString(e.Format), boolToInt(e.IsPublic),
+		e.MaxCapacity, e.PriceCents, currency, nullString(e.RegistrationDeadline),
 		e.RunningDistanceKm, nullString(e.RunningPace), nullString(e.RunningMeetingPoint),
+		nullString(categoriesJSON), e.RunningElevationM, nullString(e.RunningRouteURL),
 		e.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update event: %w", err)
@@ -221,9 +267,7 @@ func (r *Repository) UpsertRegistration(ctx context.Context, reg *eventdomain.Ev
 // ListRegistrationsByAthlete retrieves all events an athlete is registered for.
 func (r *Repository) ListRegistrationsByAthlete(ctx context.Context, athleteID string) ([]*eventdomain.Event, error) {
 	rows, err := r.exec.QueryContext(ctx,
-		`SELECT e.id, e.title, e.date, e.time, e.end_time, e.type, e.modality, e.location,
-		 e.description, e.status, e.format, e.is_public, e.running_distance_km, e.running_pace,
-		 e.running_meeting_point, e.coach_id, e.created_at, e.updated_at
+		`SELECT `+eventSelectColumnsAliased+`
 		 FROM events e
 		 INNER JOIN event_registrations er ON e.id = er.event_id
 		 WHERE er.athlete_id = $1 AND er.status = 'accepted'
@@ -472,13 +516,17 @@ type scannable interface {
 
 func scanEventFromRow(s scannable) (*eventdomain.Event, error) {
 	e := &eventdomain.Event{}
-	var location, description, format, runningPace, runningMeetingPoint sql.NullString
+	var location, description, format, currency, registrationDeadline, runningPace, runningMeetingPoint, runningCategories, runningRouteURL sql.NullString
 	var runningDistanceKm sql.NullFloat64
+	var maxCapacity, runningElevationM sql.NullInt64
 	var isPublic int
 
 	err := s.Scan(&e.ID, &e.Title, &e.Date, &e.Time, &e.EndTime, &e.Type, &e.Modality,
 		&location, &description, &e.Status, &format, &isPublic,
+		&maxCapacity, &e.PriceCents, &currency, &registrationDeadline,
 		&runningDistanceKm, &runningPace, &runningMeetingPoint,
+		&runningCategories, &runningElevationM, &runningRouteURL,
+		&e.AcceptedCount,
 		&e.CoachID, &e.CreatedAt, &e.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -494,6 +542,18 @@ func scanEventFromRow(s scannable) (*eventdomain.Event, error) {
 		e.Format = format.String
 	}
 	e.IsPublic = isPublic == 1
+	if maxCapacity.Valid {
+		v := int(maxCapacity.Int64)
+		e.MaxCapacity = &v
+	}
+	if currency.Valid && currency.String != "" {
+		e.Currency = currency.String
+	} else {
+		e.Currency = "COP"
+	}
+	if registrationDeadline.Valid {
+		e.RegistrationDeadline = registrationDeadline.String
+	}
 	if runningDistanceKm.Valid {
 		e.RunningDistanceKm = &runningDistanceKm.Float64
 	}
@@ -502,6 +562,16 @@ func scanEventFromRow(s scannable) (*eventdomain.Event, error) {
 	}
 	if runningMeetingPoint.Valid {
 		e.RunningMeetingPoint = runningMeetingPoint.String
+	}
+	if runningCategories.Valid && runningCategories.String != "" {
+		_ = json.Unmarshal([]byte(runningCategories.String), &e.RunningCategories)
+	}
+	if runningElevationM.Valid {
+		v := int(runningElevationM.Int64)
+		e.RunningElevationM = &v
+	}
+	if runningRouteURL.Valid {
+		e.RunningRouteURL = runningRouteURL.String
 	}
 
 	return e, nil
@@ -540,10 +610,7 @@ func boolToInt(b bool) int {
 // with (coach_athlete_links JOIN), so athletes see their coach's events.
 func (r *Repository) ListByAthleteLinks(ctx context.Context, athleteID string) ([]*eventdomain.Event, error) {
 	rows, err := r.exec.QueryContext(ctx,
-		`SELECT DISTINCT e.id, e.title, e.date, e.time, e.end_time, e.type, e.modality,
-		 e.location, e.description, e.status, e.format, e.is_public,
-		 e.running_distance_km, e.running_pace, e.running_meeting_point,
-		 e.coach_id, e.created_at, e.updated_at
+		`SELECT DISTINCT `+eventSelectColumnsAliased+`
 		 FROM events e
 		 INNER JOIN coach_athlete_links cal ON e.coach_id = cal.coach_id
 		 WHERE cal.athlete_id = $1

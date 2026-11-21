@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -16,11 +17,17 @@ import (
 
 	"github.com/innotechlabs01/mr-training-api/internal/config"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/subscription"
+	"github.com/innotechlabs01/mr-training-api/pkg/resilience"
 )
 
+// webhookReplayTolerance is the maximum age or future drift allowed for an
+// incoming webhook event. Standard 5 minutes window against replay attacks.
+const webhookReplayTolerance = 5 * time.Minute
+
 type Adapter struct {
-	cfg            *config.Config
+	cfg             *config.Config
 	baseURLOverride string
+	client          *http.Client
 }
 
 // NewAdapterWithURL creates an adapter whose Wompi base URL can be overridden
@@ -32,7 +39,31 @@ func NewAdapterWithURL(cfg *config.Config, baseURL string) *Adapter {
 }
 
 func NewAdapter(cfg *config.Config) *Adapter {
-	return &Adapter{cfg: cfg}
+	cb := resilience.RegisterBreaker(resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{
+		Name:             "wompi",
+		FailureThreshold: 5,
+		ResetTimeout:     30 * time.Second,
+	}))
+	bh := resilience.NewBulkhead("wompi", 15, 250*time.Millisecond)
+	retry := resilience.DefaultRetryConfig()
+	retry.MaxAttempts = 2
+	return &Adapter{
+		cfg: cfg,
+		client: resilience.NewHTTPClient(resilience.HTTPClientConfig{
+			Name:     "wompi",
+			Timeout:  8 * time.Second,
+			Breaker:  cb,
+			Bulkhead: bh,
+			Retry:    &retry,
+		}),
+	}
+}
+
+// SetHTTPClient overrides the HTTP client (primarily for deterministic tests).
+func (a *Adapter) SetHTTPClient(client *http.Client) {
+	if client != nil {
+		a.client = client
+	}
 }
 
 func (a *Adapter) baseURL() string {
@@ -92,7 +123,7 @@ func (a *Adapter) CreateCheckout(ctx context.Context, req subscription.CheckoutR
 		httpReq.Header.Set("Authorization", "Bearer "+a.cfg.WompiPrivateKey)
 	}
 
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := a.client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("wompi unavailable: %w", err)
 	}
@@ -140,6 +171,8 @@ func (a *Adapter) VerifySignature(body []byte, signatureHeader string) error {
 	}
 
 	var event struct {
+		Timestamp int64  `json:"timestamp"`
+		SentAt    string `json:"sent_at"`
 		Signature struct {
 			Checksum   string   `json:"checksum"`
 			Properties []string `json:"properties"`
@@ -150,6 +183,27 @@ func (a *Adapter) VerifySignature(body []byte, signatureHeader string) error {
 	}
 	if event.Signature.Checksum == "" {
 		return subscription.ErrInvalidSignature
+	}
+
+	// Verify replay tolerance window if a timestamp or sent_at is present.
+	if event.Timestamp != 0 {
+		var eventTime time.Time
+		if event.Timestamp > 1e11 {
+			eventTime = time.UnixMilli(event.Timestamp)
+		} else {
+			eventTime = time.Unix(event.Timestamp, 0)
+		}
+		age := time.Since(eventTime)
+		if age > webhookReplayTolerance || age < -webhookReplayTolerance {
+			return subscription.ErrInvalidSignature
+		}
+	} else if event.SentAt != "" {
+		if t, err := time.Parse(time.RFC3339, event.SentAt); err == nil {
+			age := time.Since(t)
+			if age > webhookReplayTolerance || age < -webhookReplayTolerance {
+				return subscription.ErrInvalidSignature
+			}
+		}
 	}
 
 	var raw map[string]any
@@ -168,7 +222,11 @@ func (a *Adapter) VerifySignature(body []byte, signatureHeader string) error {
 	b.WriteString(secret)
 
 	sum := sha256.Sum256([]byte(b.String()))
-	if !strings.EqualFold(hex.EncodeToString(sum[:]), event.Signature.Checksum) {
+	expectedHex := hex.EncodeToString(sum[:])
+	providedHex := strings.ToLower(strings.TrimSpace(event.Signature.Checksum))
+
+	// Constant-time comparison to prevent timing side-channel attacks.
+	if len(expectedHex) != len(providedHex) || subtle.ConstantTimeCompare([]byte(expectedHex), []byte(providedHex)) != 1 {
 		return subscription.ErrInvalidSignature
 	}
 	return nil
@@ -225,7 +283,7 @@ func (a *Adapter) FetchPayment(ctx context.Context, paymentID string) (*subscrip
 		req.Header.Set("Authorization", "Bearer "+a.cfg.WompiPrivateKey)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := a.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch wompi payment: %w", err)
 	}
@@ -291,7 +349,7 @@ func (a *Adapter) Refund(ctx context.Context, paymentID string) error {
 	if a.cfg.WompiPrivateKey != "" {
 		req.Header.Set("Authorization", "Bearer "+a.cfg.WompiPrivateKey)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := a.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("wompi refund: %w", err)
 	}

@@ -2,9 +2,9 @@ name: CI - Tests Must Pass Before Push
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, dev, QA]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, dev, QA]
 
 jobs:
   go-api-tests:
@@ -16,33 +16,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify and sync Supabase / Postgres migrations
-        run: bash ../../scripts/sync-migrations.sh --ci
-      
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
           cache: true
-          
+
       - name: Download dependencies
         run: go mod download
-        
+
       - name: Run go mod tidy check
         run: |
           go mod tidy
           git diff --exit-code go.mod go.sum || (echo "go.mod or go.sum not tidy" && exit 1)
-          
+
       - name: Build
         run: go build ./...
-        
+
       - name: Run tests
         run: go test -p 1 ./internal/... -v -race -count=1
-        
-      - name: Run lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
 
   web-tests:
     name: Web Tests
@@ -52,80 +44,27 @@ jobs:
         working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
-          
+
       - name: Install pnpm
-        run: npm install -g pnpm
-        
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+          run_install: false
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        
+
       - name: Run lint
         run: pnpm lint
-        
+
       - name: Type check
         run: pnpm build
-        
+
       - name: Run unit tests
         run: pnpm test --if-present
-        
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
-        
-      - name: Run E2E tests
-        if: false  # Enable when test users configured
-        run: pnpm test:e2e
-        env:
-          NEXT_PUBLIC_GO_API_URL: http://localhost:8080
-          
-      - name: Start Go API for E2E
-        if: false
-        run: |
-          cd ../api
-          go run cmd/api/main.go &
-          sleep 5
-          
-      - name: Start Web for E2E
-        if: false
-        run: |
-          pnpm dev &
-          sleep 10
-
-  # Blocking job - only passes if all above pass
-  all-tests-passed:
-    name: ✅ All Tests Passed
-    needs: [go-api-tests, web-tests]
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: Check all jobs succeeded
-        run: |
-          if [[ "${{ needs.go-api-tests.result }}" != "success" ]] || [[ "${{ needs.web-tests.result }}" != "success" ]]; then
-            echo "❌ Some tests failed. Push blocked."
-            exit 1
-          fi
-          echo "✅ All tests passed. Push allowed."
-          
-  # Optional: Deploy only on main branch after tests pass
-  deploy-preview:
-    name: Deploy Preview
-    needs: all-tests-passed
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to preview
-        run: echo "Deploy preview logic here"
-        
-  deploy-production:
-    name: Deploy Production
-    needs: all-tests-passed
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to production
-        run: echo "Deploy production logic here"

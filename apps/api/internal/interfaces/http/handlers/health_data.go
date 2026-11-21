@@ -46,13 +46,25 @@ func (h *HealthDataHandler) RecordMetric(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
+	metricType := req.MetricType
+	if metricType == "" {
+		metricType = req.MetricTypeCamel
+	}
+	sourceWorkoutID := req.SourceWorkoutID
+	if sourceWorkoutID == nil {
+		sourceWorkoutID = req.SourceWorkoutIDCam
+	}
+	recordedAt := req.RecordedAt
+	if recordedAt == "" {
+		recordedAt = req.RecordedAtCamel
+	}
 	m := &health.HealthMetric{
-		MetricType:      req.MetricType,
+		MetricType:      metricType,
 		Value:           req.Value,
 		Unit:            req.Unit,
 		Source:          req.Source,
-		SourceWorkoutID: req.SourceWorkoutID,
-		RecordedAt:      req.RecordedAt,
+		SourceWorkoutID: sourceWorkoutID,
+		RecordedAt:      recordedAt,
 	}
 	if err := h.service.RecordMetric(c.Context(), userID, m); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, err.Error())
@@ -84,13 +96,33 @@ func (h *HealthDataHandler) RecordSleepLog(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
+	totalMin := req.TotalMinutes
+	if totalMin == 0 {
+		totalMin = req.TotalMinutesCamel
+	}
+	deepMin := req.DeepMinutes
+	if deepMin == nil {
+		deepMin = req.DeepMinutesCamel
+	}
+	remMin := req.RemMinutes
+	if remMin == nil {
+		remMin = req.RemMinutesCamel
+	}
+	lightMin := req.LightMinutes
+	if lightMin == nil {
+		lightMin = req.LightMinutesCamel
+	}
+	awakeMin := req.AwakeMinutes
+	if awakeMin == nil {
+		awakeMin = req.AwakeMinutesCamel
+	}
 	sl := &health.SleepLog{
 		Date:         req.Date,
-		TotalMinutes: req.TotalMinutes,
-		DeepMinutes:  req.DeepMinutes,
-		RemMinutes:   req.RemMinutes,
-		LightMinutes: req.LightMinutes,
-		AwakeMinutes: req.AwakeMinutes,
+		TotalMinutes: totalMin,
+		DeepMinutes:  deepMin,
+		RemMinutes:   remMin,
+		LightMinutes: lightMin,
+		AwakeMinutes: awakeMin,
 		Efficiency:   req.Efficiency,
 		Score:        req.Score,
 		Source:       req.Source,
@@ -124,10 +156,18 @@ func (h *HealthDataHandler) RegisterDevice(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
+	deviceName := req.DeviceName
+	if deviceName == "" {
+		deviceName = req.DeviceNameCamel
+	}
+	deviceBrand := req.DeviceBrand
+	if deviceBrand == "" {
+		deviceBrand = req.DeviceBrandCamel
+	}
 	d := &health.HealthDevice{
 		Platform:    req.Platform,
-		DeviceName:  req.DeviceName,
-		DeviceBrand: req.DeviceBrand,
+		DeviceName:  deviceName,
+		DeviceBrand: deviceBrand,
 		IsActive:    true,
 	}
 	if err := h.service.RegisterDevice(c.Context(), userID, d); err != nil {

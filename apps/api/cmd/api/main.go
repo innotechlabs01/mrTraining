@@ -1,6 +1,7 @@
 // Package main is the entrypoint for the MR Training API server.
-// It loads config, connects database, builds the HTTP server via Wire,
-// registers protected routes, and handles graceful shutdown.
+// It loads config once, initializes Infisical secrets, connects Postgres/Redis/NATS,
+// builds the HTTP server via Wire, registers routes & observability, and performs
+// coordinated graceful shutdown.
 package main
 
 import (
@@ -11,20 +12,25 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 
+	runningapp "github.com/innotechlabs01/mr-training-api/internal/application/running"
+	athleteConsumer "github.com/innotechlabs01/mr-training-api/internal/athlete"
 	"github.com/innotechlabs01/mr-training-api/internal/config"
+	"github.com/innotechlabs01/mr-training-api/internal/handlers"
 	cacheinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/cache"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/infisical"
 	natsInfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/nats"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/realtime"
+	httphandlers "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
+	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/routes"
 	"github.com/innotechlabs01/mr-training-api/internal/logger"
-	runningoutbox "github.com/innotechlabs01/mr-training-api/internal/application/running/outbox"
-	athleteConsumer "github.com/innotechlabs01/mr-training-api/internal/athlete"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
-	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
-	handlers "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
-	routes "github.com/innotechlabs01/mr-training-api/internal/interfaces/http/routes"
+	"github.com/innotechlabs01/mr-training-api/internal/pkg/eventbus"
+	"github.com/innotechlabs01/mr-training-api/internal/workers"
+	"github.com/innotechlabs01/mr-training-api/pkg/metrics"
 )
 
 // Version is set at build time via ldflags.
@@ -34,13 +40,13 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// Load configuration.
+	// Load configuration once.
 	cfg, err := config.Load()
 	if err != nil {
 		zap.L().Fatal("failed to load config", zap.Error(err))
 	}
 
-	// Initialize structured logger.
+	// Initialize structured logger once.
 	logger.Init(cfg.LogLevel)
 	defer logger.Sync()
 	log := logger.L()
@@ -49,10 +55,50 @@ func main() {
 		zap.String("app", cfg.AppName),
 		zap.String("env", cfg.AppEnv),
 		zap.String("version", Version),
+		zap.Bool("embedded_worker", cfg.EmbeddedWorker),
 	)
 
-	// Connect database.
+	// Load secrets from Infisical into cfg BEFORE InitializeApp.
+	if cfg.InfisicalEnabled {
+		infisicalConfig := &infisical.Config{
+			Enabled:      cfg.InfisicalEnabled,
+			BaseURL:      cfg.InfisicalBaseURL,
+			ClientID:     cfg.InfisicalClientID,
+			ClientSecret: cfg.InfisicalClientSecret,
+			ProjectID:    cfg.InfisicalProjectID,
+			Environment:  cfg.InfisicalEnvironment,
+			SecretPath:   cfg.InfisicalSecretPath,
+			CacheTTL:     5 * time.Minute,
+		}
+
+		loader, lerr := infisical.NewSecretLoader(infisicalConfig)
+		if lerr != nil {
+			log.Fatal("failed to create infisical secret loader", zap.Error(lerr))
+		}
+		if lerr := loader.Load(ctx); lerr != nil {
+			log.Fatal("failed to load secrets from Infisical", zap.Error(lerr))
+		}
+
+		overrideIfEmpty := func(dst *string, key string) {
+			if *dst == "" {
+				if val, gerr := loader.Get(ctx, key); gerr == nil {
+					*dst = val
+				}
+			}
+		}
+		overrideIfEmpty(&cfg.ClerkSecretKey, "CLERK_SECRET_KEY")
+		overrideIfEmpty(&cfg.DatabaseURL, "DATABASE_URL")
+		overrideIfEmpty(&cfg.RedisURL, "REDIS_URL")
+		overrideIfEmpty(&cfg.NATSURL, "NATS_URL")
+		overrideIfEmpty(&cfg.WompiPrivateKey, "WOMPI_PRIVATE_KEY")
+		overrideIfEmpty(&cfg.WompiEventsSecret, "WOMPI_EVENTS_SECRET")
+		overrideIfEmpty(&cfg.WompiIntegritySecret, "WOMPI_INTEGRITY_SECRET")
+		overrideIfEmpty(&cfg.ClerkWebhookSecret, "CLERK_WEBHOOK_SECRET")
+		log.Info("Infisical secrets loaded successfully")
+	}
+
 	var db *database.DB
+	var stdlibDB *sql.DB
 	if cfg.DatabaseURL != "" {
 		db, err = database.Connect(cfg.DatabaseURL)
 		if err != nil {
@@ -60,107 +106,157 @@ func main() {
 			os.Exit(1)
 		}
 		defer db.Close()
+		stdlibDB = db.DB
+		metrics.RegisterDBStats(stdlibDB)
 		log.Info("database connected")
 	} else {
 		log.Warn("no database URL configured, running without database")
 	}
+	metrics.RegisterDefaultCollectors()
 
-	// Build HTTP server via Wire.
-	server, err := InitializeApp(ctx)
-	if err != nil {
-		log.Fatal("failed to initialize application", zap.Error(err))
-	}
-
-	// Initialize response cache (Redis or in-memory, fail-open).
+	// Initialize Redis (cache + distributed rate limit + shared role cache, fail-open).
+	var redisPing func(context.Context) error
 	if cfg.RedisURL != "" {
 		if redisCache, cacheErr := cacheinfrastructure.NewRedis(cfg.RedisURL); cacheErr != nil {
 			log.Warn("redis cache disabled, falling back to in-memory", zap.Error(cacheErr))
 			middleware.SetCache(cacheinfrastructure.NewMemory(1024))
 		} else {
+			defer redisCache.Close()
+			redisPing = redisCache.Ping
 			middleware.SetCache(redisCache)
-			log.Info("redis response cache enabled")
+			middleware.SetRoleCache(redisCache)
+			middleware.SetRateLimitRedis(redisCache, cfg.RateLimitBackend)
+			log.Info("redis cache, distributed rate limiter & role cache enabled")
 		}
 	} else {
 		middleware.SetCache(cacheinfrastructure.NewMemory(1024))
 		log.Warn("REDIS_URL not set, using in-memory response cache (LRU, max TTL 10m)")
 	}
 
-	// Health / readiness (no auth).
-	server.App.Get("/health", healthHandler(cfg.AppName, cfg.AppEnv))
-	if db != nil {
-		server.App.Get("/ready", readinessHandler(db.DB))
-	} else {
-		server.App.Get("/ready", func(c *fiber.Ctx) error {
-			return appresponse.Error(c, fiber.StatusServiceUnavailable, "database not configured")
-		})
+	// Connect NATS JetStream ONCE if configured.
+	var (
+		nc     *nats.Conn
+		js     nats.JetStreamContext
+		busPub eventbus.Publisher
+		busSub eventbus.Subscriber
+		natsUp func() bool
+	)
+	if cfg.NATSURL != "" && stdlibDB != nil {
+		var nerr error
+		nc, js, nerr = natsInfra.Connect(cfg.NATSURL)
+		if nerr != nil {
+			log.Warn("nats jetstream unavailable, falling back to in-memory event bus", zap.Error(nerr))
+		} else {
+			defer nc.Close()
+			if serr := natsInfra.EnsureDomainStreams(ctx, js); serr != nil {
+				log.Warn("failed ensuring NATS domain streams", zap.Error(serr))
+			}
+			processedStore := eventbus.NewSQLProcessedEventStore(stdlibDB)
+			dlqStore := eventbus.NewSQLDeadLetterStore(stdlibDB)
+			jsBus := natsInfra.NewJetStreamBus(js, processedStore, dlqStore, log)
+			busPub = jsBus
+			busSub = jsBus
+			natsUp = nc.IsConnected
+			log.Info("nats jetstream connected", zap.String("url", cfg.NATSURL))
+		}
 	}
+	if busPub == nil || busSub == nil {
+		memBus := eventbus.NewInMemoryBus()
+		busPub = memBus
+		busSub = memBus
+	}
+
+	// Build HTTP server via Wire using the enriched cfg & log.
+	server, err := InitializeApp(ctx, cfg, log)
+	if err != nil {
+		log.Fatal("failed to initialize application", zap.Error(err))
+	}
+
+	// Observability & health endpoints (no auth on /health and /ready; optional METRICS_TOKEN on /metrics).
+	server.App.Get("/health", handlers.HealthCheck(cfg.AppName, cfg.AppEnv))
+	server.App.Get("/ready", handlers.ReadinessCheckWithDeps(handlers.ReadinessDeps{
+		DB:        stdlibDB,
+		RedisPing: redisPing,
+		NATSAlive: natsUp,
+	}))
+	server.App.Get("/metrics", middleware.MetricsHandler(cfg.MetricsToken))
 
 	// Static media serving.
 	server.App.Static("/uploads", "./uploads")
 
-	// Public routes — no Clerk auth required. Registered OUTSIDE the
-	// Clerk block so they work even when CLERK_SECRET_KEY is unset.
+	// Public routes — no Clerk auth required.
 	pub := server.App.Group("/public")
-	pub.Get("/landing", middleware.Cache(time.Hour, "landing"), handlers.HandlerGetLanding(db.DB))
-	pub.Post("/landing/contact", handlers.HandlerInsertLandingContact(db.DB))
+	pub.Get("/landing", middleware.Cache(time.Hour, "landing"), httphandlers.HandlerGetLanding(stdlibDB))
+	pub.Post("/landing/contact", httphandlers.HandlerInsertLandingContact(stdlibDB))
 
 	// Protected API group (Clerk auth).
-	var subscriptionHandler *handlers.SubscriptionHandler
-	var errorHandler *handlers.ErrorHandler
+	var wiring RouteWiringResult
 	if cfg.ClerkSecretKey != "" {
 		api := server.App.Group("/api/v1")
 		api.Use(middleware.RequireAuth(cfg.ClerkSecretKey))
-		subscriptionHandler, errorHandler = registerProtectedRoutes(server.App, api, pub, cfg, db, log)
+		wiring = registerProtectedRoutesWithDeps(ctx, server.App, api, pub, cfg, db, log, RouteRuntimeDeps{
+			Publisher: busPub,
+			NATSConn:  nc,
+		})
 	} else {
 		log.Warn("CLERK_SECRET_KEY not set, skipping protected route registration")
 	}
 
 	// Public Wompi webhook — outside auth group (Wompi sends no Clerk token)
-	if subscriptionHandler != nil {
-		routes.RegisterWompiWebhookRoutes(server.App, subscriptionHandler)
+	if wiring.SubscriptionHandler != nil {
+		routes.RegisterWompiWebhookRoutes(server.App, wiring.SubscriptionHandler)
 		log.Info("wompi webhook registered", zap.String("path", "/webhooks/wompi"))
 	}
 
 	// Public error webhook — outside auth group (web/mobile/cron report errors without Clerk token)
-	if errorHandler != nil {
-		routes.RegisterErrorWebhookRoutes(server.App, errorHandler)
+	if wiring.ErrorHandler != nil {
+		routes.RegisterErrorWebhookRoutes(server.App, wiring.ErrorHandler)
 		log.Info("error webhook registered", zap.String("path", "/webhooks/errors"))
 	}
 
-	// NATS JetStream athlete session consumer (background worker).
-	if cfg.NATSURL != "" && db != nil {
-		nc, js, nerr := natsInfra.Connect(cfg.NATSURL)
-		if nerr != nil {
-			log.Warn("nats consumer disabled", zap.Error(nerr))
-		} else {
-			defer nc.Close()
-			consumer := athleteConsumer.NewConsumer(db.DB, js, log, nil)
+	// Start embedded background workers & outbox relay unless separated into cmd/worker.
+	if cfg.EmbeddedWorker && stdlibDB != nil {
+		if js != nil {
+			consumer := athleteConsumer.NewConsumer(stdlibDB, js, log, nil)
 			go func() {
-				if err := consumer.Start(ctx); err != nil {
-					log.Error("nats consumer stopped", zap.Error(err))
+				if cerr := consumer.Start(ctx); cerr != nil && ctx.Err() == nil {
+					log.Error("nats athlete session consumer stopped", zap.Error(cerr))
 				}
 			}()
 			log.Info("nats athlete session consumer started", zap.String("url", cfg.NATSURL))
 		}
-	} else {
-		log.Warn("NATS_URL not set, skipping athlete session consumer")
-	}
 
-	// Outbox worker for running realtime events.
-	if db != nil {
-		outboxWorker := runningoutbox.NewWorker(db.DB, log)
+		if wiring.SubscriptionHandler != nil {
+			subs, serr := workers.StartAll(ctx, busSub, wiring.WorkerDeps, log)
+			if serr != nil {
+				log.Error("failed starting embedded domain workers", zap.Error(serr))
+			} else {
+				defer func() {
+					for _, sub := range subs {
+						_ = sub.Unsubscribe()
+					}
+				}()
+			}
+		}
+
+		dlqStore := eventbus.NewSQLDeadLetterStore(stdlibDB)
+		relay := eventbus.NewRelay(stdlibDB, busPub, log).
+			WithDeadLetterStore(dlqStore).
+			WithRealtimeHook(func(_ context.Context, ev eventbus.DomainEvent) {
+				realtime.RouteOutboxEventToLocalHubs(runningapp.DefaultHub, wiring.WSHub, ev)
+			})
 		go func() {
-			if err := outboxWorker.Start(ctx); err != nil {
-				log.Error("outbox worker stopped", zap.Error(err))
+			if rerr := relay.Start(ctx); rerr != nil && ctx.Err() == nil {
+				log.Error("outbox relay stopped", zap.Error(rerr))
 			}
 		}()
-		log.Info("outbox worker started")
+		log.Info("unified transactional outbox relay started")
 	}
 
 	// Start HTTP server.
 	go func() {
-		if err := server.Start(); err != nil {
-			log.Error("server error", zap.Error(err))
+		if serr := server.Start(); serr != nil {
+			log.Error("server error", zap.Error(serr))
 			stop()
 		}
 	}()
@@ -171,32 +267,18 @@ func main() {
 	<-ctx.Done()
 	log.Info("shutting down gracefully...")
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	if wiring.WSHub != nil {
+		wiring.WSHub.Stop()
+	}
+	if wiring.RealtimeBridge != nil {
+		wiring.RealtimeBridge.Stop()
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Error("server forced to shutdown", zap.Error(err))
 	}
 
 	log.Info("server stopped")
-}
-
-// healthHandler returns a simple health check handler.
-func healthHandler(appName, appEnv string) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		return appresponse.Success(c, map[string]string{
-			"status": "ok",
-			"app":    appName,
-			"env":    appEnv,
-		})
-	}
-}
-
-// readinessHandler returns a readiness check handler.
-func readinessHandler(db *sql.DB) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		if err := db.PingContext(c.Context()); err != nil {
-			return appresponse.Error(c, fiber.StatusServiceUnavailable, "database unreachable")
-		}
-		return appresponse.Success(c, map[string]string{"status": "ready"})
-	}
 }

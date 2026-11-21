@@ -11,50 +11,51 @@ import (
 
 // CoachSummary resume de un coach para el CRM.
 type CoachSummary struct {
-	ID             string  `json:"id"`
-	ClerkID        string  `json:"clerk_id"`
-	Email          string  `json:"email"`
-	Name           string  `json:"name"`
-	Role           string  `json:"role"`
-	PlanName       string  `json:"plan_name"`
-	PlanPrice      float64 `json:"plan_price"`
-	PlanStatus     string  `json:"plan_status"`       // active, expired, cancelled, none
-	PlanExpiresAt  string  `json:"plan_expires_at"`   // fecha de vencimiento
-	AthletesCount  int     `json:"athletes_count"`
-	RevenueMonth   float64 `json:"revenue_month"`     // ganancias mes actual
-	RevenueTotal   float64 `json:"revenue_total"`     // ganancias totales
-	LastLogin      string  `json:"last_login,omitempty"`
-	SkipSubscription bool   `json:"skip_subscription"`
+	ID               string  `json:"id"`
+	ClerkID          string  `json:"clerk_id"`
+	Email            string  `json:"email"`
+	Name             string  `json:"name"`
+	Role             string  `json:"role"`
+	PlanName         string  `json:"plan_name"`
+	PlanPrice        float64 `json:"plan_price"`
+	PlanMaxAthletes  int     `json:"plan_max_athletes"`
+	PlanStatus       string  `json:"plan_status"`     // active, expired, cancelled, none
+	PlanExpiresAt    string  `json:"plan_expires_at"` // fecha de vencimiento
+	AthletesCount    int     `json:"athletes_count"`
+	RevenueMonth     float64 `json:"revenue_month"` // ganancias mes actual
+	RevenueTotal     float64 `json:"revenue_total"` // ganancias totales
+	LastLogin        string  `json:"last_login,omitempty"`
+	SkipSubscription bool    `json:"skip_subscription"`
 }
 
 // RevenueStats estadísticas de ganancias.
 type RevenueStats struct {
-	Today      float64 `json:"today"`
-	ThisMonth  float64 `json:"this_month"`
-	ThisYear   float64 `json:"this_year"`
-	Total      float64 `json:"total"`
-	ByMonth    []MonthRevenue `json:"by_month"`
+	Today     float64        `json:"today"`
+	ThisMonth float64        `json:"this_month"`
+	ThisYear  float64        `json:"this_year"`
+	Total     float64        `json:"total"`
+	ByMonth   []MonthRevenue `json:"by_month"`
 }
 
 // MonthRevenue ingreso por mes.
 type MonthRevenue struct {
-	Month  string  `json:"month"`   // YYYY-MM
+	Month  string  `json:"month"` // YYYY-MM
 	Amount float64 `json:"amount"`
 }
 
 // CoachPayment pago de suscripción de un atleta a un coach.
 type CoachPayment struct {
-	ID             string  `json:"id"`
-	AthleteID      string  `json:"athlete_id"`
-	AthleteName    string  `json:"athlete_name"`
-	CoachID        string  `json:"coach_id"`
-	PlanName       string  `json:"plan_name"`
-	Amount         float64 `json:"amount"`
-	Currency       string  `json:"currency"`
-	Status         string  `json:"status"`       // approved, pending, failed
-	PaidAt         string  `json:"paid_at"`
-	PeriodStart    string  `json:"period_start"`
-	PeriodEnd      string  `json:"period_end"`
+	ID          string  `json:"id"`
+	AthleteID   string  `json:"athlete_id"`
+	AthleteName string  `json:"athlete_name"`
+	CoachID     string  `json:"coach_id"`
+	PlanName    string  `json:"plan_name"`
+	Amount      float64 `json:"amount"`
+	Currency    string  `json:"currency"`
+	Status      string  `json:"status"` // approved, pending, failed
+	PaidAt      string  `json:"paid_at"`
+	PeriodStart string  `json:"period_start"`
+	PeriodEnd   string  `json:"period_end"`
 }
 
 // Repository interface para el CRM.
