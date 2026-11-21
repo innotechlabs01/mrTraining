@@ -1,0 +1,148 @@
+name: Security & Code Quality Audit
+
+on:
+  push:
+    branches: [main, dev, qa]
+  pull_request:
+    branches: [main, dev, qa]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  secret-scan:
+    name: Secret Scan (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Gitleaks
+        run: |
+          GITLEAKS_VERSION="8.21.2"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+          rm -f gitleaks.tar.gz
+
+      - name: Scan working tree for leaked secrets
+        run: |
+          gitleaks detect --source . --no-git --redact --exit-code 0 --report-format json --report-path gitleaks-report.json
+          COUNT=$(jq length gitleaks-report.json)
+          echo "### Gitleaks Secret Scan" >> "$GITHUB_STEP_SUMMARY"
+          echo "Hallazgos en working tree (redactados): **$COUNT**" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$COUNT" -gt 0 ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            jq -r '.[] | "- `\(.File):\(.StartLine)` — **\(.RuleID)**: \(.Description)"' gitleaks-report.json | head -n 30 >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  go-security:
+    name: Go Security (govulncheck + gosec)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+          cache-dependency-path: apps/api/go.sum
+
+      - name: Install govulncheck and gosec
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+      - name: Run govulncheck (CVEs in Go dependencies)
+        continue-on-error: true
+        run: |
+          echo "### Go govulncheck (CVEs)" >> "$GITHUB_STEP_SUMMARY"
+          govulncheck ./... 2>&1 | tee govulncheck.txt || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 60 govulncheck.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run gosec (SAST Go security audit)
+        run: |
+          gosec -no-fail -fmt json -out gosec-report.json ./...
+          HIGH=$(jq '[.Issues[] | select(.severity=="HIGH")] | length' gosec-report.json)
+          MED=$(jq '[.Issues[] | select(.severity=="MEDIUM")] | length' gosec-report.json)
+          LOW=$(jq '[.Issues[] | select(.severity=="LOW")] | length' gosec-report.json)
+          echo "### Go gosec SAST" >> "$GITHUB_STEP_SUMMARY"
+          echo "- HIGH: **$HIGH** | MEDIUM: **$MED** | LOW: **$LOW**" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$HIGH" -gt 0 ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "#### Hallazgos HIGH (top 20):" >> "$GITHUB_STEP_SUMMARY"
+            jq -r '.Issues[] | select(.severity=="HIGH") | "- `\(.file):\(.line)` [\(.rule_id)] \(.details)"' gosec-report.json | head -n 20 >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  sast-semgrep:
+    name: SAST OWASP Top 10 (Semgrep)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep OWASP & Security Audit
+        run: |
+          semgrep scan \
+            --config p/owasp-top-ten \
+            --config p/security-audit \
+            --config p/golang \
+            --config p/typescript \
+            --config p/react \
+            --exclude "node_modules" \
+            --exclude ".next" \
+            --exclude "dist" \
+            --exclude "vendor" \
+            --json --output semgrep-report.json || true
+
+          python3 - << 'PY'
+          import json, os
+          with open("semgrep-report.json") as f:
+              data = json.load(f)
+          results = data.get("results", [])
+          errors = [r for r in results if r.get("extra", {}).get("severity") == "ERROR"]
+          warnings = [r for r in results if r.get("extra", {}).get("severity") == "WARNING"]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
+              out.write("### Semgrep OWASP Top 10 & Security Audit\n")
+              out.write(f"- ERROR (Crítico/Alto): **{len(errors)}** | WARNING (Medio): **{len(warnings)}** | Total: **{len(results)}**\n\n")
+              for r in (errors + warnings)[:25]:
+                  path = r.get("path", "")
+                  line = r.get("start", {}).get("line", 0)
+                  sev = r.get("extra", {}).get("severity", "")
+                  check = r.get("check_id", "")
+                  msg = r.get("extra", {}).get("message", "").replace("\n", " ")[:180]
+                  out.write(f"- **[{sev}]** `{path}:{line}` (`{check}`): {msg}\n")
+          PY
+
+  dependency-audit:
+    name: Dependency Audit (Web & Mobile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Audit JS/TS dependencies (High/Critical CVEs)
+        run: |
+          echo "### Dependency Audit (pnpm)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          pnpm audit --audit-level=high || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

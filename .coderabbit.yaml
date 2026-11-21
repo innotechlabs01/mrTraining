@@ -1,9 +1,63 @@
-# CodeRabbit configuration
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit configuration — MR Training (Security, Best Practices & Architecture)
+language: "es-ES"
+
 reviews:
+  profile: "assertive"
+  request_changes_workflow: true
+  high_level_summary: true
+  review_status: true
+  collapse_walkthrough: false
   auto_review:
     enabled: true
+    drafts: false
     base_branches:
       - main
       - dev
       - qa
-  review_status: true
+
+  tools:
+    gitleaks:
+      enabled: true
+    semgrep:
+      enabled: true
+    golangci-lint:
+      enabled: true
+    eslint:
+      enabled: true
+    actionlint:
+      enabled: true
+    hadolint:
+      enabled: true
+    shellcheck:
+      enabled: true
+    checkov:
+      enabled: true
+
+  path_instructions:
+    - path: "apps/api/**/*.go"
+      instructions: |
+        - Prioriza seguridad ofensiva y OWASP Top 10: detecta SQL injection, IDOR, broken access control, SSRF, path traversal, timing attacks y fuga de datos entre tenants (`coach_id` / `athlete_id`).
+        - Verifica autenticación/autorización en cada handler (RequireCoach, RequireAthlete, RequireCoachID, SuperAdmin) y validación de firmas en webhooks (Wompi, Clerk, Garmin).
+        - Exige sintaxis PostgreSQL pura (`$1, $2`, `NOW()`, `BOOLEAN`, `ON CONFLICT`); rechaza `?` o `datetime('now')` de SQLite.
+        - Revisa manejo de errores (`fmt.Errorf("%w", err)`), cierre de `rows.Close()`, race conditions y fugas de goroutines.
+
+    - path: "apps/api/migrations/postgres/**/*.sql"
+      instructions: |
+        - Verifica que la migración sea idempotente (`IF NOT EXISTS`, `ON CONFLICT`), 100% compatible con PostgreSQL/Supabase y sincronizada con `supabase/migrations/`.
+        - Marca como crítico cualquier `DROP TABLE`, `TRUNCATE`, o `DELETE` sin `WHERE` que pueda destruir datos en QA/Producción.
+        - Verifica permisos/grants para `mr_training_app` y políticas RLS cuando aplique.
+
+    - path: "apps/web/**/*.{ts,tsx}"
+      instructions: |
+        - Verifica regla API-first: el frontend debe consumir el Go API y nunca acceder directo a la base de datos ni exponer secretos en `NEXT_PUBLIC_*`.
+        - Revisa vulnerabilidades XSS (`dangerouslySetInnerHTML`, URLs no sanitizadas), manejo seguro de tokens Clerk, validación de formularios y TypeScript estricto.
+
+    - path: "apps/mobile/**/*.{ts,tsx}"
+      instructions: |
+        - Revisa OWASP Mobile Top 10: tokens/credenciales solo en almacenamiento seguro (nunca en AsyncStorage ni logs), validación de deep links y manejo seguro de pagos Wompi.
+        - Verifica rendimiento (evitar re-renders innecesarios, fugas de listeners/timers) y manejo de estados de carga, error y offline.
+
+    - path: ".github/workflows/**/*.{yml,yaml}"
+      instructions: |
+        - Revisa seguridad en CI/CD: principio de mínimo privilegio en `permissions`, evitar script injection con `${{ github.event.* }}`, y nunca imprimir secretos en logs.
