@@ -230,6 +230,7 @@ export function useAiWorkout(
           score: session.summary.avgForm,
           quality: qualityForScore(session.summary.avgForm),
           metrics: summaryToFormMetrics(session.summary),
+          completedReps: session.summary.completed,
         });
       }
     }

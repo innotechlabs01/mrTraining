@@ -87,7 +87,7 @@ export function ChallengeExecutionScreen({ route, navigation }: { route: Challen
 
     // Submit attempt with challenge metrics
     try {
-      await apiClient.post(`/athlete/challenges/attempts/${attemptId}/submit`, {
+      const { data } = await apiClient.post(`/athlete/challenges/attempts/${attemptId}/submit`, {
         form_score: vm.formScore,
         depth_score: vm.formMetrics.depth ?? 0,
         alignment_score: vm.formMetrics.alignment ?? 0,
@@ -100,6 +100,22 @@ export function ChallengeExecutionScreen({ route, navigation }: { route: Challen
 
       await queryClient.invalidateQueries({ queryKey: ['challenge', challengeId] });
       await queryClient.invalidateQueries({ queryKey: ['athlete-challenges'] });
+      await queryClient.invalidateQueries({ queryKey: ['gamification'] });
+      await queryClient.invalidateQueries({ queryKey: ['badges'] });
+
+      const unlocked = (data as any)?.unlocked_badge;
+      if (unlocked?.title) {
+        const msg = unlocked.incentive_text
+          ? `Desbloqueaste "${unlocked.title}". Incentivo del coach: ${unlocked.incentive_text}`
+          : `Desbloqueaste la insignia "${unlocked.title}".`;
+        Alert.alert('🏅 ¡Insignia desbloqueada!', msg, [
+          {
+            text: 'Continuar',
+            onPress: () => navigation.navigate('ChallengeComplete', { challengeId, attemptId }),
+          },
+        ]);
+        return;
+      }
 
       navigation.navigate('ChallengeComplete', { challengeId, attemptId });
     } catch (err) {

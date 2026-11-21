@@ -38,6 +38,10 @@ type GoChallenge = {
   start_date?: string
   end_date?: string
   expires_at?: string
+  badge_id?: string
+  badge_title?: string
+  incentive_text?: string
+  is_prueba_de_fuego?: boolean
   days_left?: number
   is_urgent?: boolean
   created_at: string
@@ -75,6 +79,10 @@ function mapChallenge(c: GoChallenge): Challenge {
     startDate: c.start_date,
     endDate: c.end_date,
     expiresAt: c.expires_at,
+    badgeId: c.badge_id,
+    badgeTitle: c.badge_title,
+    incentiveText: c.incentive_text,
+    isPruebaDeFuego: c.is_prueba_de_fuego,
     daysLeft: c.days_left,
     isUrgent: c.is_urgent,
     createdAt: c.created_at,
@@ -138,6 +146,10 @@ export function useChallenges() {
     difficultyLevel: Challenge['difficultyLevel']
     maxAttempts: number
     endDate: string
+    badgeId?: string
+    badgeTitle?: string
+    incentiveText?: string
+    isPruebaDeFuego?: boolean
   }) => {
     const res = await goClient.post<{ data?: GoChallenge }>('/api/v1/challenges', {
       title: input.title,
@@ -153,6 +165,10 @@ export function useChallenges() {
       difficulty_level: input.difficultyLevel,
       max_attempts: input.maxAttempts,
       end_date: input.endDate,
+      badge_id: input.badgeId,
+      badge_title: input.badgeTitle,
+      incentive_text: input.incentiveText,
+      is_prueba_de_fuego: input.isPruebaDeFuego ?? false,
     })
     await queryClient.invalidateQueries({ queryKey: ['challenges'] })
     return res?.data
@@ -174,6 +190,10 @@ export function useChallenges() {
         difficulty_level: patch.difficultyLevel,
         max_attempts: patch.maxAttempts,
         end_date: patch.endDate,
+        badge_id: patch.badgeId,
+        badge_title: patch.badgeTitle,
+        incentive_text: patch.incentiveText,
+        is_prueba_de_fuego: patch.isPruebaDeFuego,
       }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['challenges'] }),
   })

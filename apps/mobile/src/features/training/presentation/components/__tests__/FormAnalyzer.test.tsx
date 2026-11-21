@@ -15,25 +15,25 @@ describe('FormAnalyzer', () => {
     expect(getByText('Tempo')).toBeTruthy();
   });
 
-  it('shows green label for score >= 80', () => {
+  it('shows green label for score >= 85', () => {
     const { getByText } = render(
       <FormAnalyzer score={85} metrics={defaultMetrics} feedback={null} />,
     );
-    expect(getByText('Buena')).toBeTruthy();
+    expect(getByText('Bien')).toBeTruthy();
   });
 
-  it('shows yellow label for score 60-79', () => {
+  it('shows yellow label for score 60-84', () => {
     const { getByText } = render(
       <FormAnalyzer score={65} metrics={defaultMetrics} feedback={null} />,
     );
-    expect(getByText('Aceptable')).toBeTruthy();
+    expect(getByText('Medio')).toBeTruthy();
   });
 
   it('shows red label for score < 60', () => {
     const { getByText } = render(
       <FormAnalyzer score={40} metrics={defaultMetrics} feedback={null} />,
     );
-    expect(getByText('Mejorar')).toBeTruthy();
+    expect(getByText('Mal')).toBeTruthy();
   });
 
   it('renders feedback when provided', () => {

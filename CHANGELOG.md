@@ -8,17 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- [db] Migración `431_wearable_oauth_tokens_and_health_sync_fix.sql`: paridad de columnas `platform`/`scope`/`updated_at` en `wearable_oauth_tokens` + índice único idempotente en `athlete_sleep_logs(athlete_id, date, source)` — @dev-database (PR pending)
+- [be] Endpoints de consentimiento de IA (`GET/PUT /api/v1/form-metrics/consent`), PRs de running para coach (`GET /api/v1/coach/athletes/:id/running/prs`, `GET /api/v1/athlete/:athleteId/analytics/running/prs`) y detalle de sesión GPS (`GET /api/v1/coach/athletes/:id/running/sessions/:sessionId`) — @dev-backend (PR pending)
+- [db] Migración `430_athlete_form_recording_consent.sql` para persistir en PostgreSQL el consentimiento de IA y técnica de los atletas — @dev-database (PR pending)
 - [be] Complete nutrition domain (service, PostgreSQL repository, DTOs, handlers, routes `/api/v1/nutrition/*`) — @dev-backend (PR pending)
 - [db] Migration `429_nutrition_meal_logs.sql` with RLS tenant isolation policies — @dev-database (PR pending)
 - [db] New role: dev-database (Supabase/PostgreSQL expert with RLS focus) — @orca-team (internal)
 - [in] Git workflow + changelog rules (15-git-workflow-changelog.md) — @orca-team (internal)
 
 ### Changed
-- [fe] Coach `AthleteRunningPanel`: weekly trend Recharts chart, date range filter, CSV/GPX export via `coachApi`, and skeleton loader — @dev-front (PR pending)
+- [mo] `WorkoutExecutionScreen` + `AiWorkoutScreen`: validación de postura y distancia con cámara IA, calificación por semáforo (Bien/verde, Medio/amarillo, Mal/rojo), gating estricto por modal de Términos y Condiciones (`RecordingConsent`) y recuperación de progreso/consentimiento desde PostgreSQL tras actualizaciones de la app — @dev-react-native (PR pending)
+- [fe] Coach `AthleteRunningPanel` y `/coach/users/[id]/running/[workoutId]`: integración de workouts de running asignados (prescrito vs real + SSE en vivo) y sesiones GPS libres con gráficas de tendencia semanal, PRs y exportación CSV/GPX — @dev-front (PR pending)
+- [be] Persistencia completa de `intervals` y `gpsRoute` en `workout_templates`, `loggedSets` en `GET /api/v1/workouts/:id` y cálculo automático de progreso en PostgreSQL al registrar sets o completar running — @dev-backend (PR pending)
+- [in] Fix workflow `.github/workflows/cd-qa.yml` (remoción de `secrets.*` en `env:` global, ejecución de migraciones QA, variables Infisical QA y `APP_PORT=8080` en `Dockerfile`) — @orca-team (PR pending)
 - [be] Store `PurchaseResponse` DTO standardized to camelCase (`athleteId`, `productId`, `createdAt`, `total`) matching web/mobile contracts — @dev-backend (PR pending)
 - [in] Added dev-database role to orca-team pipeline and 14-team-workflow.md — @orca-team (internal)
 
 ### Fixed
+- [in] Fix `scripts/migrate-all.sh`: conexión a Supabase QA vía Session Pooler IPv4 (`aws-0-us-east-2.pooler.supabase.com:5432`) y fallo explícito si QA falla — @dev-database (PR pending)
+- [be] Fix wearable/health PostgreSQL queries (`health/repository.go`: removidas funciones SQLite `datetime('now')`/`date('now')` y bug `$12`), URLs de Garmin (`?` en lugar de `$10`/`$11` en `garmin_provider.go`) y soporte dual `snake_case`/`camelCase` en `health_data.go` — @dev-backend (PR pending)
+- [fe] Fix `trainingApi.getHealth`: ruta `/api/v1/health/*` con normalización de `{metrics, sleepLogs, devices}` para mostrar Apple Watch, Garmin, HRV, RHR, sueño, pasos y VO2max en `AthleteHealthPanels` y badge de dispositivo en `AthleteRunningPanel` — @dev-front (PR pending)
+- [mo] Fix `GO_API_PATH_MAP` (`/athlete/running` → `/running`) para sincronizar sesiones de Apple Watch (`/running/sessions/import`) y Garmin (`/running/providers/garmin/sync`) y normalización de métricas de recuperación en `useRecoveryData` — @dev-react-native (PR pending)
 - [be] Fix Wompi payment return flow: checkout claim ownership check + StatusPaid guards on MarkFailed/RecoverPayment + coach role written to Clerk publicMetadata — @dev-backend (PR pending)
 - [fe] Fix Wompi payment return: redirect_url preservation on sign-in + middleware coach role routing to /coach/plan — @dev-front (PR pending)
 

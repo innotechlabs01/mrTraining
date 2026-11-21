@@ -9,7 +9,10 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/innotechlabs01/mr-training-api/pkg/resilience"
 )
 
 // ClerkClient is a minimal Clerk Backend API client used for user
@@ -19,13 +22,36 @@ import (
 type ClerkClient struct {
 	secretKey string
 	http      *http.Client
+	flight    *resilience.Flight[*ClerkUserData]
 }
 
 // NewClerkClient creates a Clerk Backend API client with the instance secret key.
 func NewClerkClient(secretKey string) *ClerkClient {
+	cb := resilience.RegisterBreaker(resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{
+		Name:             "clerk",
+		FailureThreshold: 5,
+		ResetTimeout:     20 * time.Second,
+	}))
+	bh := resilience.NewBulkhead("clerk", 20, 200*time.Millisecond)
+	retry := resilience.DefaultRetryConfig()
+	retry.MaxAttempts = 2
 	return &ClerkClient{
 		secretKey: secretKey,
-		http:      &http.Client{Timeout: 5 * time.Second},
+		http: resilience.NewHTTPClient(resilience.HTTPClientConfig{
+			Name:     "clerk",
+			Timeout:  5 * time.Second,
+			Breaker:  cb,
+			Bulkhead: bh,
+			Retry:    &retry,
+		}),
+		flight: resilience.NewFlight[*ClerkUserData](6 * time.Second),
+	}
+}
+
+// SetHTTPClient overrides the underlying HTTP client (primarily for tests).
+func (c *ClerkClient) SetHTTPClient(client *http.Client) {
+	if client != nil {
+		c.http = client
 	}
 }
 
@@ -63,7 +89,18 @@ type clerkUserResponse struct {
 }
 
 // FetchUser fetches a user's identity data from the Clerk Backend API.
+// Concurrent fetches for the same userID are coalesced via singleflight.
 func (c *ClerkClient) FetchUser(ctx context.Context, userID string) (*ClerkUserData, error) {
+	if c.flight != nil {
+		val, _, err := c.flight.Do(ctx, "fetch:"+userID, func(inner context.Context) (*ClerkUserData, error) {
+			return c.fetchUserOnce(inner, userID)
+		})
+		return val, err
+	}
+	return c.fetchUserOnce(ctx, userID)
+}
+
+func (c *ClerkClient) fetchUserOnce(ctx context.Context, userID string) (*ClerkUserData, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		"https://api.clerk.com/v1/users/"+userID, nil)
 	if err != nil {
@@ -223,4 +260,43 @@ func (c *ClerkClient) MergePublicMetadata(ctx context.Context, userID string, pa
 		current[k] = v
 	}
 	return c.UpdatePublicMetadata(ctx, userID, current)
+}
+
+// CreateInvitation creates a Clerk invitation for an athlete invited by coachID.
+func (c *ClerkClient) CreateInvitation(ctx context.Context, email, coachID string) (string, error) {
+	body, err := json.Marshal(map[string]interface{}{
+		"email_address": email,
+		"redirect_url":  "mrtraining://invite",
+		"metadata":      map[string]string{"coachId": coachID},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		"https://api.clerk.com/v1/invitations", strings.NewReader(string(body)))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.secretKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("clerk invitation failed: status %d body %s", resp.StatusCode, string(respBody))
+	}
+
+	var parsed struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(respBody, &parsed); err != nil {
+		return "", err
+	}
+	return parsed.ID, nil
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/logger"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
+	"github.com/innotechlabs01/mr-training-api/internal/pkg/eventbus"
 	"github.com/innotechlabs01/mr-training-api/internal/pkg/validator"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
@@ -26,6 +27,13 @@ import (
 type TrainingHandler struct {
 	service *trainingapp.Service
 	db      *sql.DB
+	outbox  eventbus.OutboxWriter
+}
+
+// WithOutbox configures transactional outbox event publication for training actions.
+func (h *TrainingHandler) WithOutbox(outbox eventbus.OutboxWriter) *TrainingHandler {
+	h.outbox = outbox
+	return h
 }
 
 // NewTrainingHandler creates a new TrainingHandler with the given application service.
@@ -53,17 +61,17 @@ func (h *TrainingHandler) withTx(c *fiber.Ctx, fn func(*trainingapp.Service) err
 	}
 
 	uow := database.NewUnitOfWork(h.db)
-	if err := uow.Begin(c.Context(), userID, coachID, middleware.GetUserRole(c)); err != nil {
+	if err := uow.Begin(middleware.RequestContext(c), userID, coachID, middleware.GetUserRole(c)); err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
 	}
-	defer uow.Rollback(c.Context())
+	defer uow.Rollback(middleware.RequestContext(c))
 
 	svc := h.service.SetExecutor(uow.Tx())
 	if err := fn(svc); err != nil {
 		return err
 	}
 
-	if err := uow.Commit(c.Context()); err != nil {
+	if err := uow.Commit(middleware.RequestContext(c)); err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to commit transaction")
 	}
 	return nil
@@ -98,7 +106,7 @@ func (h *TrainingHandler) ListExercises(c *fiber.Ctx) error {
 		CoachID:    coachID,
 	}
 
-	exercises, total, err := h.service.ListExercises(c.Context(), page, limit, filter)
+	exercises, total, err := h.service.ListExercises(middleware.RequestContext(c), page, limit, filter)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -124,7 +132,7 @@ func (h *TrainingHandler) GetExercise(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "exercise ID is required")
 	}
 
-	exercise, err := h.service.GetExercise(c.Context(), id)
+	exercise, err := h.service.GetExercise(middleware.RequestContext(c), id)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -154,7 +162,7 @@ func (h *TrainingHandler) UpdateExercise(c *fiber.Ctx) error {
 		return h.handleValidationError(c, validationErrs)
 	}
 
-	exercise, err := h.service.UpdateExercise(c.Context(), userID, c.Params("id"), req)
+	exercise, err := h.service.UpdateExercise(middleware.RequestContext(c), userID, c.Params("id"), req)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -176,7 +184,7 @@ func (h *TrainingHandler) DeleteExercise(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "exercise ID is required")
 	}
 
-	if err := h.service.DeleteExercise(c.Context(), userID, id); err != nil {
+	if err := h.service.DeleteExercise(middleware.RequestContext(c), userID, id); err != nil {
 		return h.handleError(c, err)
 	}
 
@@ -201,7 +209,7 @@ func (h *TrainingHandler) CreateExercise(c *fiber.Ctx) error {
 		return h.handleValidationError(c, validationErrs)
 	}
 
-	exercise, err := h.service.CreateExercise(c.Context(), userID, req)
+	exercise, err := h.service.CreateExercise(middleware.RequestContext(c), userID, req)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -218,7 +226,7 @@ func (h *TrainingHandler) ListWorkoutTemplates(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	templates, err := h.service.ListWorkoutTemplates(c.Context(), userID)
+	templates, err := h.service.ListWorkoutTemplates(middleware.RequestContext(c), userID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -244,7 +252,7 @@ func (h *TrainingHandler) GetWorkoutTemplate(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "template ID is required")
 	}
 
-	template, err := h.service.GetWorkoutTemplate(c.Context(), id)
+	template, err := h.service.GetWorkoutTemplate(middleware.RequestContext(c), id)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -269,7 +277,7 @@ func (h *TrainingHandler) UpdateWorkoutTemplate(c *fiber.Ctx) error {
 	if validationErrs := validator.ValidateCreateWorkoutTemplate(&req); len(validationErrs) > 0 {
 		return h.handleValidationError(c, validationErrs)
 	}
-	template, err := h.service.UpdateWorkoutTemplate(c.Context(), userID, id, req)
+	template, err := h.service.UpdateWorkoutTemplate(middleware.RequestContext(c), userID, id, req)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -294,7 +302,7 @@ func (h *TrainingHandler) CreateWorkoutTemplate(c *fiber.Ctx) error {
 		return h.handleValidationError(c, validationErrs)
 	}
 
-	template, err := h.service.CreateWorkoutTemplate(c.Context(), userID, req)
+	template, err := h.service.CreateWorkoutTemplate(middleware.RequestContext(c), userID, req)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -318,7 +326,7 @@ func (h *TrainingHandler) AssignWorkout(c *fiber.Ctx) error {
 			return h.handleValidationError(c, validationErrs)
 		}
 
-		assigned, err := svc.AssignWorkout(c.Context(), userID, req)
+		assigned, err := svc.AssignWorkout(middleware.RequestContext(c), userID, req)
 		if err != nil {
 			return h.handleError(c, err)
 		}
@@ -328,16 +336,37 @@ func (h *TrainingHandler) AssignWorkout(c *fiber.Ctx) error {
 }
 
 // GetAssignedWorkouts handles GET /workouts.
-// Returns all assigned workouts for the authenticated athlete.
+// Returns assigned workouts for the authenticated athlete or coach (optionally filtered by athleteId).
 func (h *TrainingHandler) GetAssignedWorkouts(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
 	if userID == "" {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	workouts, err := h.service.GetAssignedWorkouts(c.Context(), userID)
-	if err != nil {
-		return h.handleError(c, err)
+	role := middleware.GetUserRole(c)
+	athleteFilter := strings.TrimSpace(c.Query("athleteId", c.Query("athlete_id", "")))
+
+	var workouts []*trainingdomain.AssignedWorkout
+	var err error
+	if role == "coach" {
+		all, listErr := h.service.ListAssignedWorkoutsByCoach(middleware.RequestContext(c), userID)
+		if listErr != nil {
+			return h.handleError(c, listErr)
+		}
+		if athleteFilter != "" {
+			for _, w := range all {
+				if w.AthleteID == athleteFilter {
+					workouts = append(workouts, w)
+				}
+			}
+		} else {
+			workouts = all
+		}
+	} else {
+		workouts, err = h.service.GetAssignedWorkouts(middleware.RequestContext(c), userID)
+		if err != nil {
+			return h.handleError(c, err)
+		}
 	}
 
 	responses := make([]dto.AssignedWorkoutResponse, len(workouts))
@@ -353,8 +382,8 @@ func (h *TrainingHandler) GetAssignedWorkouts(c *fiber.Ctx) error {
 	})
 }
 
-// GetAssignedWorkoutDetail handles GET /workouts/:id/detail.
-// Returns a single assigned workout for the authenticated athlete.
+// GetAssignedWorkoutDetail handles GET /workouts/:id and GET /workouts/:id/detail.
+// Returns a single assigned workout for the owning athlete or coach.
 func (h *TrainingHandler) GetAssignedWorkoutDetail(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
 	if userID == "" {
@@ -366,9 +395,13 @@ func (h *TrainingHandler) GetAssignedWorkoutDetail(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "workout ID is required")
 	}
 
-	detail, err := h.service.GetAssignedWorkoutDetail(c.Context(), id)
+	detail, err := h.service.GetAssignedWorkoutDetail(middleware.RequestContext(c), id)
 	if err != nil {
 		return h.handleError(c, err)
+	}
+
+	if detail.Workout != nil && detail.Workout.AthleteID != userID && detail.Workout.CoachID != userID {
+		return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view this workout")
 	}
 
 	return appresponse.Success(c, toWorkoutDetailResponse(detail))
@@ -387,7 +420,7 @@ func (h *TrainingHandler) GetWorkoutPrescription(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "workout ID is required")
 	}
 
-	exercises, err := h.service.GetPrescription(c.Context(), id)
+	exercises, err := h.service.GetPrescription(middleware.RequestContext(c), id)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -413,7 +446,7 @@ func (h *TrainingHandler) CreateWorkoutSession(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "workout ID is required")
 	}
 
-	session, err := h.service.CreateWorkoutSession(c.Context(), id, userID)
+	session, err := h.service.CreateWorkoutSession(middleware.RequestContext(c), id, userID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -434,7 +467,7 @@ func (h *TrainingHandler) GetWorkoutSession(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "session ID is required")
 	}
 
-	session, err := h.service.GetWorkoutSession(c.Context(), sessionID, userID)
+	session, err := h.service.GetWorkoutSession(middleware.RequestContext(c), sessionID, userID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -461,7 +494,7 @@ func (h *TrainingHandler) GetCompletedRunningWorkout(c *fiber.Ctx) error {
 	if role == "coach" {
 		// Coach can view any athlete's completed running workout
 		// Need to verify the coach owns this workout
-		detail, err := h.service.GetAssignedWorkoutDetail(c.Context(), workoutID)
+		detail, err := h.service.GetAssignedWorkoutDetail(middleware.RequestContext(c), workoutID)
 		if err != nil {
 			return h.handleError(c, err)
 		}
@@ -475,7 +508,7 @@ func (h *TrainingHandler) GetCompletedRunningWorkout(c *fiber.Ctx) error {
 	}
 
 	// Get the completed running workout detail
-	detail, err := h.service.GetAssignedWorkoutDetail(c.Context(), workoutID)
+	detail, err := h.service.GetAssignedWorkoutDetail(middleware.RequestContext(c), workoutID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -483,14 +516,22 @@ func (h *TrainingHandler) GetCompletedRunningWorkout(c *fiber.Ctx) error {
 	// Check if workout has running exercises with actual GPS/intervals
 	runningExercises := make([]interface{}, 0)
 	for _, ex := range detail.Exercises {
-		if ex.GPSRoute != "" || ex.ActualGPSRoute != "" || (ex.ActualIntervals != nil && len(ex.ActualIntervals) > 0) {
+		if ex.GPSRoute != "" || len(ex.Intervals) > 0 || ex.ActualGPSRoute != "" || len(ex.ActualIntervals) > 0 {
+			prescribedIntervals := ex.Intervals
+			if prescribedIntervals == nil {
+				prescribedIntervals = []trainingdomain.RunningInterval{}
+			}
+			actualIntervals := ex.ActualIntervals
+			if actualIntervals == nil {
+				actualIntervals = []trainingdomain.RunningInterval{}
+			}
 			runningExercises = append(runningExercises, map[string]interface{}{
-				"id":                 ex.ID,
-				"name":               ex.Name,
-				"prescribedGpsRoute": ex.GPSRoute,
-				"prescribedIntervals": ex.Intervals,
-				"actualGpsRoute":     ex.ActualGPSRoute,
-				"actualIntervals":    ex.ActualIntervals,
+				"id":                  ex.ID,
+				"name":                ex.Name,
+				"prescribedGpsRoute":  ex.GPSRoute,
+				"prescribedIntervals": intervalsToResponse(prescribedIntervals),
+				"actualGpsRoute":      ex.ActualGPSRoute,
+				"actualIntervals":     intervalsToResponse(actualIntervals),
 			})
 		}
 	}
@@ -538,7 +579,7 @@ func (h *TrainingHandler) CompleteSession(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	if err := h.service.CompleteSession(c.Context(), sessionID, userID, req.DurationSeconds); err != nil {
+	if err := h.service.CompleteSession(middleware.RequestContext(c), sessionID, userID, req.DurationSeconds); err != nil {
 		return h.handleError(c, err)
 	}
 
@@ -565,12 +606,11 @@ func (h *TrainingHandler) CompleteRunningWorkout(c *fiber.Ctx) error {
 	}
 	req.WorkoutID = workoutID
 
-	if err := h.service.CompleteRunningWorkout(c.Context(), userID, req); err != nil {
+	if err := h.service.CompleteRunningWorkout(middleware.RequestContext(c), userID, req); err != nil {
 		return h.handleError(c, err)
 	}
 
-	// Publish live event so any SSE subscriber (coach watching live) is
-	// notified the workout finished. Non-blocking and best-effort.
+	// Publish live event + optional domain outbox event for async gamification/stats.
 	runningapp.DefaultHub.Publish(runningapp.Event{
 		WorkoutID: workoutID,
 		Type:      "workout.completed",
@@ -579,6 +619,15 @@ func (h *TrainingHandler) CompleteRunningWorkout(c *fiber.Ctx) error {
 			"duration_sec": req.DurationSeconds,
 		},
 	})
+	if h.outbox != nil {
+		ev := eventbus.NewEvent(middleware.RequestContext(c), eventbus.SubjectWorkoutCompleted, "workout", workoutID, map[string]interface{}{
+			"workout_id":   workoutID,
+			"athlete_id":   userID,
+			"coach_id":     middleware.GetCoachID(c),
+			"duration_sec": req.DurationSeconds,
+		}).WithTenant(middleware.GetCoachID(c), userID, "")
+		_ = h.outbox.Insert(middleware.RequestContext(c), nil, ev)
+	}
 
 	return appresponse.Success(c, fiber.Map{"ok": true})
 }
@@ -607,9 +656,21 @@ func (h *TrainingHandler) LogWorkoutSet(c *fiber.Ctx) error {
 		return h.handleValidationError(c, validationErrs)
 	}
 
-	set, err := h.service.LogWorkoutSet(c.Context(), workoutID, req)
+	ctx := middleware.RequestContext(c)
+	set, err := h.service.LogWorkoutSet(ctx, workoutID, req)
 	if err != nil {
 		return h.handleError(c, err)
+	}
+
+	if h.outbox != nil {
+		ev := eventbus.NewEvent(ctx, eventbus.SubjectWorkoutSetLogged, "workout_set", set.ID, map[string]interface{}{
+			"workout_id":  workoutID,
+			"exercise_id": set.ExerciseID,
+			"athlete_id":  req.AthleteID,
+			"reps":        set.Reps,
+			"weight":      set.WeightKg,
+		}).WithTenant(middleware.GetCoachID(c), req.AthleteID, "")
+		_ = h.outbox.Insert(ctx, nil, ev)
 	}
 
 	return appresponse.Success(c, toWorkoutSetResponse(set))
@@ -635,7 +696,7 @@ func (h *TrainingHandler) GetProgress(c *fiber.Ctx) error {
 		EndDate:   endDate,
 	}
 
-	entries, err := h.service.GetProgress(c.Context(), userID, dateRange)
+	entries, err := h.service.GetProgress(middleware.RequestContext(c), userID, dateRange)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -673,7 +734,7 @@ func (h *TrainingHandler) GetProgressSummary(c *fiber.Ctx) error {
 		EndDate:   endDate,
 	}
 
-	summary, err := h.service.GetProgressSummary(c.Context(), userID, dateRange)
+	summary, err := h.service.GetProgressSummary(middleware.RequestContext(c), userID, dateRange)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -732,23 +793,7 @@ func toExerciseResponse(e *trainingdomain.ExerciseEntry) *dto.ExerciseResponse {
 func toWorkoutTemplateResponse(t *trainingdomain.WorkoutTemplate) *dto.WorkoutTemplateResponse {
 	exercises := make([]dto.WorkoutExerciseResponse, len(t.Exercises))
 	for i, ex := range t.Exercises {
-		exercises[i] = dto.WorkoutExerciseResponse{
-			ID:                ex.ID,
-			TemplateID:        ex.TemplateID,
-			Name:              ex.Name,
-			Sets:              ex.Sets,
-			Reps:              ex.Reps,
-			WeightKg:          ex.WeightKg,
-			RestSeconds:       ex.RestSeconds,
-			SortOrder:         ex.SortOrder,
-			Notes:             ex.Notes,
-			Mode:              ex.Mode,
-			Phase:             ex.Phase,
-			SupersetGroup:     ex.SupersetGroup,
-			BodyPart:          ex.BodyPart,
-			MuscleGroups:      ex.MuscleGroups,
-			LibraryExerciseID: ex.LibraryExerciseID,
-		}
+		exercises[i] = *toWorkoutExerciseResponse(&ex)
 	}
 
 	return &dto.WorkoutTemplateResponse{
@@ -825,7 +870,7 @@ func intervalsToResponse(intervals []trainingdomain.RunningInterval) []dto.Runni
 	return resp
 }
 
-// toWorkoutDetailResponse converts a domain WorkoutDetail into the {workout, exercises, session}
+// toWorkoutDetailResponse converts a domain WorkoutDetail into the {workout, exercises, session, loggedSets}
 // envelope, mapping each exercise with its joined imageUrl.
 func toWorkoutDetailResponse(d *trainingdomain.WorkoutDetail) *dto.WorkoutDetailResponse {
 	resp := &dto.WorkoutDetailResponse{Workout: toAssignedWorkoutResponse(d.Workout)}
@@ -836,6 +881,12 @@ func toWorkoutDetailResponse(d *trainingdomain.WorkoutDetail) *dto.WorkoutDetail
 	}
 	if d.Session != nil {
 		resp.Session = toWorkoutSessionResponse(d.Session)
+	}
+	if len(d.LoggedSets) > 0 {
+		resp.LoggedSets = make([]dto.WorkoutSetResponse, len(d.LoggedSets))
+		for i := range d.LoggedSets {
+			resp.LoggedSets[i] = *toWorkoutSetResponse(&d.LoggedSets[i])
+		}
 	}
 	return resp
 }
@@ -913,7 +964,7 @@ func (h *TrainingHandler) GetUpcomingSessions(c *fiber.Ctx) error {
 	limit, _ := strconv.Atoi(c.Query("limit", "50"))
 	from := c.Query("from")
 
-	sessions, err := h.service.ListByAthlete(c.Context(), userID, from, limit)
+	sessions, err := h.service.ListByAthlete(middleware.RequestContext(c), userID, from, limit)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -944,7 +995,7 @@ func (h *TrainingHandler) CreateTrainingSession(c *fiber.Ctx) error {
 	if req.CoachID == "" || req.AthleteID == "" || req.Title == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "coach_id, athlete_id and title are required")
 	}
-	session, err := h.service.CreateTrainingSession(c.Context(), req.CoachID, req.AthleteID, req.Title, req.ScheduledAt, req.Status)
+	session, err := h.service.CreateTrainingSession(middleware.RequestContext(c), req.CoachID, req.AthleteID, req.Title, req.ScheduledAt, req.Status)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -982,7 +1033,7 @@ func (h *TrainingHandler) RunningLive(c *fiber.Ctx) error {
 	}
 
 	// Ownership check: coach or athlete with access to this workout.
-	detail, err := h.service.GetAssignedWorkoutDetail(c.Context(), workoutID)
+	detail, err := h.service.GetAssignedWorkoutDetail(middleware.RequestContext(c), workoutID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -1057,7 +1108,7 @@ func (h *TrainingHandler) ReportRunningProgress(c *fiber.Ctx) error {
 	}
 
 	// Verify the athlete owns this workout.
-	detail, err := h.service.GetAssignedWorkoutDetail(c.Context(), workoutID)
+	detail, err := h.service.GetAssignedWorkoutDetail(middleware.RequestContext(c), workoutID)
 	if err != nil {
 		return h.handleError(c, err)
 	}

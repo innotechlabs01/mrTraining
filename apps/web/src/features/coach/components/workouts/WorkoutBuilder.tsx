@@ -363,6 +363,27 @@ export default function WorkoutBuilder() {
     }])
   }, [])
 
+  const addRunningBlock = useCallback(() => {
+    const newId = generateId('we')
+    setGoal('running')
+    setWorkingExercises(prev => [...prev, {
+      id: newId,
+      exerciseId: `running-${Date.now()}`,
+      exerciseName: 'Sesión de Running (GPS + Intervalos)',
+      order: prev.length + 1,
+      sets: 1,
+      reps: 1,
+      rest: 60,
+      muscleGroups: ['legs', 'cardio' as unknown as MuscleGroup].filter((m): m is MuscleGroup => m === 'legs'),
+      gpsRoute: '',
+      intervals: [
+        { order: 1, workType: 'distance', workValue: 5, restSeconds: 60, paceTarget: '5:30', intensity: 'tempo' },
+      ],
+    }])
+    setEditingExercise(newId)
+    setRouteExerciseId(newId)
+  }, [])
+
   const removeExercise = useCallback((id: string) => {
     setWorkingExercises(prev => prev.filter(e => e.id !== id).map((e, i) => ({ ...e, order: i + 1 })))
   }, [])
@@ -539,6 +560,14 @@ export default function WorkoutBuilder() {
               {templateId ? 'Editar plantilla' : 'Creador de entrenamientos'}
             </h2>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={addRunningBlock}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+              >
+                <MapPinned className="w-3.5 h-3.5" />
+                + Entreno Running
+              </button>
               <button
                 onClick={() => setShowAiModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"

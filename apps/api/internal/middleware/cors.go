@@ -31,8 +31,8 @@ func CORS(allowedOrigins string) fiber.Handler {
 		// leaked the first allowlisted origin to disallowed callers.
 
 		c.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		c.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID, X-Organization-ID")
-		c.Set("Access-Control-Expose-Headers", "X-Request-ID, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset")
+		c.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID, X-Correlation-ID, X-Organization-ID, Idempotency-Key")
+		c.Set("Access-Control-Expose-Headers", "X-Request-ID, X-Correlation-ID, X-Idempotent-Replayed, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset")
 		c.Set("Access-Control-Max-Age", "86400")
 
 		// Handle preflight requests

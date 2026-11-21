@@ -8,26 +8,42 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
+
+	"github.com/innotechlabs01/mr-training-api/pkg/resilience"
 )
 
 // Client is a minimal Infisical API client for secret retrieval
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
+	authMu     sync.Mutex
 	token      string
 	tokenExp   time.Time
 	clientID   string
 	clientSec  string
 }
 
-// NewClient creates a new Infisical client
+// NewClient creates a new Infisical client backed by a resilient HTTP client.
 func NewClient(baseURL, clientID, clientSecret string) *Client {
+	cb := resilience.RegisterBreaker(resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{
+		Name:             "infisical",
+		FailureThreshold: 3,
+		ResetTimeout:     60 * time.Second,
+	}))
+	retry := resilience.DefaultRetryConfig()
+	retry.MaxAttempts = 2
 	return &Client{
-		baseURL:    baseURL,
-		httpClient: &http.Client{Timeout: 10 * time.Second},
-		clientID:   clientID,
-		clientSec:  clientSecret,
+		baseURL: baseURL,
+		httpClient: resilience.NewHTTPClient(resilience.HTTPClientConfig{
+			Name:    "infisical",
+			Timeout: 5 * time.Second,
+			Breaker: cb,
+			Retry:   &retry,
+		}),
+		clientID:  clientID,
+		clientSec: clientSecret,
 	}
 }
 
@@ -73,12 +89,20 @@ func (c *Client) Authenticate(ctx context.Context) error {
 	return nil
 }
 
-// ensureAuthenticated checks token validity and re-authenticates if needed
+// ensureAuthenticated checks token validity and re-authenticates if needed.
 func (c *Client) ensureAuthenticated(ctx context.Context) error {
+	c.authMu.Lock()
+	defer c.authMu.Unlock()
 	if c.token == "" || time.Now().Add(30*time.Second).After(c.tokenExp) {
 		return c.Authenticate(ctx)
 	}
 	return nil
+}
+
+func (c *Client) currentToken() string {
+	c.authMu.Lock()
+	defer c.authMu.Unlock()
+	return c.token
 }
 
 // GetSecrets retrieves all secrets for a project/environment
@@ -100,7 +124,7 @@ func (c *Client) GetSecrets(ctx context.Context, projectID, environment, secretP
 	if err != nil {
 		return nil, fmt.Errorf("create secrets request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.currentToken())
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.httpClient.Do(req)
@@ -154,7 +178,7 @@ func (c *Client) GetSecret(ctx context.Context, projectID, environment, secretPa
 	if err != nil {
 		return "", fmt.Errorf("create secret request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.currentToken())
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.httpClient.Do(req)

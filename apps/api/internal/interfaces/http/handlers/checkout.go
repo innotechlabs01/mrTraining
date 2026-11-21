@@ -44,7 +44,7 @@ func (h *CheckoutHandler) RegisterCheckoutRoutes(api fiber.Router, pub fiber.Rou
 }
 
 // HandleStart handles POST /public/checkouts.
-////
+// //
 // It issues the payment link for the chosen plan. The buyer does not need an
 // account yet: the payment is recorded on a pending checkout and claimed
 // after they register.
@@ -54,7 +54,7 @@ func (h *CheckoutHandler) HandleStart(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	result, err := h.svc.Start(c.Context(), checkoutapp.StartCommand{
+	result, err := h.svc.Start(middleware.RequestContext(c), checkoutapp.StartCommand{
 		PlanID: req.PlanID,
 		Email:  req.Email,
 	})
@@ -93,7 +93,7 @@ func (h *CheckoutHandler) HandleClaim(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "checkout id is required")
 	}
 
-	result, err := h.svc.Claim(c.Context(), checkoutapp.ClaimCommand{
+	result, err := h.svc.Claim(middleware.RequestContext(c), checkoutapp.ClaimCommand{
 		CheckoutID: checkoutID,
 		UserID:     userID,
 	})
@@ -134,13 +134,13 @@ func (h *CheckoutHandler) HandleRecoverPayment(c *fiber.Ctx) error {
 
 	// Mark the payment as approved manually for the hybrid flow. The service
 	// verifies that the caller owns the checkout before marking it paid.
-	err := h.svc.RecoverPayment(c.Context(), userID, checkoutID)
+	err := h.svc.RecoverPayment(middleware.RequestContext(c), userID, checkoutID)
 	if err != nil {
 		return handleCheckoutError(c, err)
 	}
 
 	// Now execute the claim to assign the coach role and create subscription
-	result, err := h.svc.Claim(c.Context(), checkoutapp.ClaimCommand{
+	result, err := h.svc.Claim(middleware.RequestContext(c), checkoutapp.ClaimCommand{
 		CheckoutID: checkoutID,
 		UserID:     userID,
 	})

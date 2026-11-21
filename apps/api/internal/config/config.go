@@ -90,6 +90,11 @@ type Config struct {
 	InfisicalEnvironment  string
 	InfisicalSecretPath   string
 	InfisicalCacheTTL     string
+
+	// Observability & Worker Topology
+	MetricsToken     string // METRICS_TOKEN: optional bearer/header secret protecting GET /metrics
+	EmbeddedWorker   bool   // EMBEDDED_WORKER: run outbox relay + NATS workers inside cmd/api (default true unless split)
+	RateLimitBackend string // RATE_LIMIT_BACKEND: "memory" | "redis" | "auto" (default "auto")
 }
 
 // Load reads configuration from environment variables and .env file.
@@ -140,6 +145,10 @@ func Load() (*Config, error) {
 		InfisicalEnvironment:  getEnv("INFISICAL_ENVIRONMENT", "dev"),
 		InfisicalSecretPath:   getEnv("INFISICAL_SECRET_PATH", "/"),
 		InfisicalCacheTTL:     getEnv("INFISICAL_CACHE_TTL", "5m"),
+
+		MetricsToken:     getEnv("METRICS_TOKEN", ""),
+		EmbeddedWorker:   getEnvBool("EMBEDDED_WORKER", true),
+		RateLimitBackend: getEnv("RATE_LIMIT_BACKEND", "auto"),
 
 		MercadoPagoWebhookURL: getEnv("MERCADO_PAGO_WEBHOOK_URL", ""),
 		MercadoPagoSecretKey:  getEnv("MERCADO_PAGO_SECRET_KEY", ""),

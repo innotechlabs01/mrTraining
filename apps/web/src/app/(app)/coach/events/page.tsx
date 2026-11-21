@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
-import { Plus, MapPin, Users, Pencil, ListChecks, FileText, Footprints, BarChart3, Clock } from 'lucide-react'
+import { Plus, MapPin, Users, Pencil, ListChecks, FileText, Footprints, BarChart3, Clock, Globe } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CoachEvent, EventFormat } from '@/features/coach/types'
 import { useEvents } from '@/features/coach/hooks/useEvents'
@@ -13,6 +13,7 @@ import { EventDetailModal } from '@/features/coach/components/events/EventDetail
 import { EventStatsModal } from '@/features/coach/components/events/EventStatsModal'
 
 const TYPE_LABELS: Record<string, string> = {
+  carrera: 'Carrera',
   competition: 'Competencia',
   meeting: 'Meeting',
   reunion: 'Reunión',
@@ -20,6 +21,7 @@ const TYPE_LABELS: Record<string, string> = {
   other: 'Otro',
 }
 const TYPE_COLORS: Record<string, string> = {
+  carrera: 'bg-amber-500/15 text-amber-300',
   competition: 'bg-red-500/10 text-red-400',
   meeting: 'bg-blue-500/10 text-blue-400',
   reunion: 'bg-blue-500/10 text-blue-400',
@@ -45,6 +47,7 @@ const MONTHS = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep
 
 const TYPE_FILTERS = [
   { label: 'Todos', value: 'all' },
+  { label: 'Carreras', value: 'carrera' },
   { label: 'Competencias', value: 'competition' },
   { label: 'Reuniones', value: 'reunion' },
   { label: 'Evaluaciones', value: 'evaluacion' },
@@ -234,6 +237,12 @@ export default function CoachEventsPage() {
                         <Icon className="w-3 h-3" />
                         {fmt.label}
                       </span>
+                      {event.public && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400">
+                          <Globe className="w-3 h-3" />
+                          Público
+                        </span>
+                      )}
                       {STATUS_LABELS[event.status] && (
                         <span className={cn('px-2 py-0.5 rounded text-[10px] font-medium', STATUS_COLORS[event.status])}>
                           {STATUS_LABELS[event.status]}
@@ -243,34 +252,38 @@ export default function CoachEventsPage() {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
-                  {expired ? (
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={(e) => { e.stopPropagation(); setStatsEvent(event) }}
-                      className="p-1.5 rounded-md text-white/30 hover:text-brand-primary hover:bg-brand-primary/10 transition-colors"
-                      aria-label="Ver resultados del evento"
-                      title="Ver resultados"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-white/50 hover:text-brand-primary hover:bg-brand-primary/10 transition-colors"
+                      aria-label="Ver inscritos y resultados"
+                      title="Ver inscritos"
                     >
                       <BarChart3 size={14} />
+                      <span className="hidden sm:inline">Inscritos</span>
                     </button>
-                  ) : (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setEditing(event) }}
-                      className="p-1.5 rounded-md text-white/30 hover:text-white hover:bg-white/10 transition-colors"
-                      aria-label="Editar evento"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                  )}
-                  <div className="flex flex-col items-end gap-1 text-xs text-white/30">
+                    {!expired && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditing(event) }}
+                        className="p-1.5 rounded-md text-white/30 hover:text-white hover:bg-white/10 transition-colors"
+                        aria-label="Editar evento"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-1 text-xs text-white/40">
                     {event.location && (
                       <span className="flex items-center gap-1">
                         <MapPin size={12} />
                         {event.location}
                       </span>
                     )}
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 text-emerald-400/90 font-medium">
                       <Users size={12} />
-                      {event.athleteIds.length}
+                      {event.maxCapacity
+                        ? `${event.acceptedCount ?? 0} / ${event.maxCapacity} confirmados`
+                        : `${event.acceptedCount ?? 0} confirmados`}
                     </span>
                   </div>
                 </div>

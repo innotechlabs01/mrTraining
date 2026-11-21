@@ -82,11 +82,46 @@ export function AthleteTodaySummary({ athleteId, move, exercise, recovery, strea
       apiClient.get('/athlete/health/sleep?days=8').then(r => r.data).catch(() => null),
     ]).then(([metricsRes, sleepRes]) => {
       if (cancelled) return;
-      const allMetrics: HealthMetric[] = metricsRes?.metrics ?? [];
+      const metricsBody = metricsRes?.data ?? metricsRes;
+      const sleepBody = sleepRes?.data ?? sleepRes;
+      const rawMetrics: Record<string, unknown>[] = Array.isArray(metricsBody?.metrics)
+        ? metricsBody.metrics
+        : Array.isArray(metricsBody)
+          ? metricsBody
+          : [];
+      const allMetrics: HealthMetric[] = rawMetrics.map(m => ({
+        metricType: String(m.metricType ?? m.metric_type ?? ''),
+        value: Number(m.value ?? 0),
+        unit: String(m.unit ?? ''),
+        source: String(m.source ?? ''),
+        recordedAt: String(m.recordedAt ?? m.recorded_at ?? ''),
+      }));
+
+      const rawSleep: Record<string, unknown>[] = Array.isArray(sleepBody?.sleepLogs)
+        ? sleepBody.sleepLogs
+        : Array.isArray(sleepBody?.sleep_logs)
+          ? sleepBody.sleep_logs
+          : Array.isArray(sleepBody)
+            ? sleepBody
+            : [];
+      const sleepLogs: SleepLog[] = rawSleep.map(s => {
+        const log: SleepLog = {
+          date: String(s.date ?? ''),
+          totalMinutes: Number(s.totalMinutes ?? s.duration_minutes ?? s.total_minutes ?? 0),
+        };
+        if (s.deepMinutes != null || s.deep_minutes != null) {
+          log.deepMinutes = Number(s.deepMinutes ?? s.deep_minutes);
+        }
+        if (s.remMinutes != null || s.rem_minutes != null) {
+          log.remMinutes = Number(s.remMinutes ?? s.rem_minutes);
+        }
+        return log;
+      });
+
       setHealth({
         hrv: allMetrics.filter(m => m.metricType === 'hrv'),
         restingHr: allMetrics.filter(m => m.metricType === 'resting_hr'),
-        sleepLogs: sleepRes?.sleepLogs ?? [],
+        sleepLogs,
         manualReadiness: allMetrics.filter(m => m.metricType === 'manual_readiness'),
       });
     });

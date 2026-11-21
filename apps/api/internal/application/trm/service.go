@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"github.com/innotechlabs01/mr-training-api/pkg/resilience"
 )
 
 const (
@@ -38,14 +39,28 @@ type Service struct {
 	mu      sync.RWMutex
 	cached  *Rate
 	client  *http.Client
+	flight  *resilience.Flight[*Rate]
 	db      *sql.DB // puede ser nil: modo degradado, solo caché en memoria
 	baseURL string  // override para pruebas; por defecto datosGovURL
 }
 
 // NewService creates a new TRM service. db puede ser nil para modo degradado.
 func NewService(db *sql.DB) *Service {
+	cb := resilience.RegisterBreaker(resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{
+		Name:             "trm_datosgov",
+		FailureThreshold: 4,
+		ResetTimeout:     60 * time.Second,
+	}))
+	retry := resilience.DefaultRetryConfig()
+	retry.MaxAttempts = 2
 	return &Service{
-		client:  &http.Client{Timeout: 10 * time.Second},
+		client: resilience.NewHTTPClient(resilience.HTTPClientConfig{
+			Name:    "trm_datosgov",
+			Timeout: 6 * time.Second,
+			Breaker: cb,
+			Retry:   &retry,
+		}),
+		flight:  resilience.NewFlight[*Rate](8 * time.Second),
 		db:      db,
 		baseURL: datosGovURL,
 	}
@@ -68,8 +83,16 @@ func (s *Service) GetCurrent(ctx context.Context) (*Rate, error) {
 	}
 	s.mu.RUnlock()
 
-	// 2. Intentar fetch desde la fuente externa.
-	rate, err := s.fetch(ctx)
+	// 2. Intentar fetch desde la fuente externa (coalescido vía singleflight).
+	var rate *Rate
+	var err error
+	if s.flight != nil {
+		rate, _, err = s.flight.Do(ctx, "trm:current", func(inner context.Context) (*Rate, error) {
+			return s.fetch(inner)
+		})
+	} else {
+		rate, err = s.fetch(ctx)
+	}
 	if err != nil {
 		// Fuente no disponible: fallback al valor persistido en DB.
 		if stored, gerr := s.GetStored(ctx); gerr == nil {

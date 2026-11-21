@@ -225,7 +225,7 @@ export interface CoachEvent {
   date: string
   time: string
   endTime: string
-  type: 'competition' | 'meeting' | 'reunion' | 'evaluacion' | 'other'
+  type: 'carrera' | 'competition' | 'meeting' | 'reunion' | 'evaluacion' | 'other'
   modality: TrainingMode
   location?: string
   description?: string
@@ -234,10 +234,18 @@ export interface CoachEvent {
   format?: EventFormat
   formFields?: EventFormField[]
   listItems?: string[]
+  maxCapacity?: number
+  priceCents?: number
+  currency?: string
+  registrationDeadline?: string
+  acceptedCount?: number
   running?: {
     distanceKm?: number
     meetingPoint?: string
     pace?: string
+    categories?: string[]
+    elevationM?: number
+    routeUrl?: string
   }
   public?: boolean
 }
@@ -483,6 +491,10 @@ export interface Challenge {
   startDate?: string
   endDate?: string
   expiresAt?: string
+  badgeId?: string
+  badgeTitle?: string
+  incentiveText?: string
+  isPruebaDeFuego?: boolean
   daysLeft?: number
   isUrgent?: boolean
   createdAt: string

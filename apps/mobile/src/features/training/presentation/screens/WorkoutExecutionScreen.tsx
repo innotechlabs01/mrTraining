@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import polyline from '@mapbox/polyline';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, layout, radius, spacing, typography } from '../../../../shared/theme/tokens';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
@@ -56,20 +57,33 @@ export function WorkoutExecutionScreen({ route, navigation }: Props) {
   const t = vm.t;
 
   // GPS tracking for running exercises with route
-  const gpsRoute = vm.currentPrescription?.gpsRoute;
+  const gpsRoute = vm.currentPrescription?.gpsRoute ?? vm.currentExercise?.gpsRoute ?? undefined;
   const intervals = (vm.currentExercise as Exercise & { intervals?: RunningInterval[] })
     ?.intervals ?? [];
   const isRunningExercise =
     !!gpsRoute &&
     !!(
       vm.currentExercise?.mode === 'cardio' ||
+      intervals.length > 0 ||
       vm.currentExercise?.name?.toLowerCase().includes('run')
     );
-  const { isTracking, points, error: gpsError } = useGpsTracking({
+  const { isTracking, points } = useGpsTracking({
     workoutId: sessionId,
     exerciseId: vm.currentExercise?.id ?? '',
     enabled: isRunningExercise,
+    upload: false,
   });
+
+  // Sync encoded GPS polyline into currentExercise.actualGpsRoute so CompleteRunningWorkout saves it in PostgreSQL
+  useEffect(() => {
+    if (!vm.currentExercise || points.length < 2) return;
+    try {
+      const coords = points.map((p) => [p.latitude, p.longitude] as [number, number]);
+      vm.currentExercise.actualGpsRoute = polyline.encode(coords);
+    } catch {
+      // ignore encoding error
+    }
+  }, [points, vm.currentExercise]);
 
   // Interval execution state
   const [currentIntervalIndex, setCurrentIntervalIndex] = useState(0);
@@ -168,7 +182,10 @@ export function WorkoutExecutionScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <RecordingConsent onConsent={vm.handleConsentResponse} />
+      <RecordingConsent
+        visible={vm.showConsent}
+        onConsent={vm.handleConsentResponse}
+      />
       <BadgeUnlockToast
         badgeName={vm.currentBadgeName}
         visible={vm.showBadgeToast}
@@ -233,10 +250,10 @@ export function WorkoutExecutionScreen({ route, navigation }: Props) {
 
             <ProgressBar progress={vm.computedProgress} />
 
-            {vm.currentPrescription?.gpsRoute ? (
+            {gpsRoute ? (
               <RunningRouteView
                 key={`route-${vm.currentExercise.id}`}
-                gpsRoute={vm.currentPrescription.gpsRoute}
+                gpsRoute={gpsRoute}
                 height={280}
                 followUser
                 workoutId={vm.data?.workout.id}
@@ -278,12 +295,14 @@ export function WorkoutExecutionScreen({ route, navigation }: Props) {
               <AiWorkoutCta label={vm.aiTexts.trainWithAi} onPress={vm.handleOpenAiWorkout} />
             ) : null}
 
-            {/* Form Analysis */}
-            <FormAnalyzer
-              score={vm.formScore}
-              metrics={vm.formMetrics}
-              feedback={vm.formFeedback}
-            />
+            {/* Form Analysis — only visible when athlete accepted AI terms & conditions */}
+            {vm.hasConsent ? (
+              <FormAnalyzer
+                score={vm.formScore}
+                metrics={vm.formMetrics}
+                feedback={vm.formFeedback}
+              />
+            ) : null}
 
             {/* Rep Counter with form validation */}
             {!vm.isTimeMode ? (

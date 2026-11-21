@@ -32,15 +32,17 @@ export type FormAnalyzerProps = {
   errorMessage?: string;
 };
 
+import { FORM_QUALITY_GOOD_MIN, FORM_QUALITY_REGULAR_MIN } from '../../../ai/application/FormEngine';
+
 function getScoreColor(score: number): string {
-  if (score >= 80) return colors.success;
-  if (score >= 60) return colors.warning;
+  if (score >= FORM_QUALITY_GOOD_MIN) return colors.success;
+  if (score >= FORM_QUALITY_REGULAR_MIN) return colors.warning;
   return colors.error;
 }
 
 function getScoreLabel(score: number): string {
-  if (score >= 80) return t.scoreGood;
-  if (score >= 60) return t.scoreOk;
+  if (score >= FORM_QUALITY_GOOD_MIN) return t.scoreGood;
+  if (score >= FORM_QUALITY_REGULAR_MIN) return t.scoreOk;
   return t.scoreBad;
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/notification"
+	"github.com/innotechlabs01/mr-training-api/internal/pkg/eventbus"
 )
 
 // PushSender is the minimal contract required to deliver a notification to
@@ -22,14 +23,21 @@ type PushSender interface {
 // It depends on the notification.Repository interface and an optional PushSender,
 // making it testable with mocks.
 type Service struct {
-	repo domain.Repository
-	push PushSender
+	repo   domain.Repository
+	push   PushSender
+	outbox eventbus.OutboxWriter
 }
 
 // NewService creates a new notification application service.
 // The pushSender parameter is optional — pass nil to disable push notifications.
 func NewService(repo domain.Repository, pushSender PushSender) *Service {
 	return &Service{repo: repo, push: pushSender}
+}
+
+// WithOutbox configures asynchronous push notification dispatch via outbox/NATS.
+func (s *Service) WithOutbox(outbox eventbus.OutboxWriter) *Service {
+	s.outbox = outbox
+	return s
 }
 
 // RegisterDevice registers a device token for push notifications.
@@ -94,7 +102,20 @@ func (s *Service) SendNotification(ctx context.Context, userID string, notifType
 		return nil, fmt.Errorf("save notification: %w", err)
 	}
 
-	// Push via configured sender if available
+	if s.outbox != nil {
+		ev := eventbus.NewEvent(ctx, eventbus.SubjectNotificationRequested, "notification", notification.ID, map[string]interface{}{
+			"notification_id": notification.ID,
+			"user_id":         userID,
+			"type":            notifType,
+			"title":           title,
+			"message":         message,
+			"icon":            icon,
+		}).WithTenant("", userID, "")
+		_ = s.outbox.Insert(ctx, nil, ev)
+		return notification, nil
+	}
+
+	// Synchronous fallback when outbox isn't attached.
 	if s.push != nil {
 		devices, err := s.repo.ListDevicesByUser(ctx, userID)
 		if err == nil && len(devices) > 0 {

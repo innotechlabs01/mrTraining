@@ -104,11 +104,11 @@ func TestHandleSetLogged_UpsertsPR(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT organization_id FROM users")).
 		WithArgs(clerkID).
 		WillReturnRows(sqlmock.NewRows([]string{"organization_id"}).AddRow(orgID))
-	// 2. set the tenant context for RLS
+	// 2. begin transaction + set the tenant context for RLS + upsert
+	mock.ExpectBegin()
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT set_config")).
 		WithArgs(orgID).
 		WillReturnRows(sqlmock.NewRows([]string{"set_config"}).AddRow(orgID))
-	// 3. upsert the personal best
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO athlete_prs")).
 		WithArgs(
 			sqlmock.AnyArg(),
@@ -123,9 +123,58 @@ func TestHandleSetLogged_UpsertsPR(t *testing.T) {
 			sqlmock.AnyArg(),
 		).
 		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
 
 	payload := `{"athleteClerkId":"clerk_123","sessionId":"s1","exerciseId":"ex_1","setNumber":3,"reps":10,"weight":5,"loggedAt":"` + loggedAt + `"}`
 	consumer.handleSetLogged(&nats.Msg{Data: []byte(payload)})
+
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestHandleCompleted_UpsertsStatsInTx(t *testing.T) {
+	consumer, mock, _ := newTestConsumer(t)
+	clerkID := "clerk_123"
+	orgID := "org-1"
+	completedAt := "2026-01-01T11:00:00Z"
+
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT organization_id FROM users")).
+		WithArgs(clerkID).
+		WillReturnRows(sqlmock.NewRows([]string{"organization_id"}).AddRow(orgID))
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT set_config")).
+		WithArgs(orgID).
+		WillReturnRows(sqlmock.NewRows([]string{"set_config"}).AddRow(orgID))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO athlete_session_stats")).
+		WithArgs(sqlmock.AnyArg(), "s1", clerkID, completedAt, completedAt, orgID, sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	payload := `{"athleteClerkId":"clerk_123","sessionId":"s1","completedAt":"` + completedAt + `"}`
+	consumer.handleCompleted(&nats.Msg{Data: []byte(payload)})
+
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestHandleProgress_UpsertsProgressInTx(t *testing.T) {
+	consumer, mock, _ := newTestConsumer(t)
+	clerkID := "clerk_123"
+	orgID := "org-1"
+	updatedAt := "2026-01-01T10:30:00Z"
+
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT organization_id FROM users")).
+		WithArgs(clerkID).
+		WillReturnRows(sqlmock.NewRows([]string{"organization_id"}).AddRow(orgID))
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT set_config")).
+		WithArgs(orgID).
+		WillReturnRows(sqlmock.NewRows([]string{"set_config"}).AddRow(orgID))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO athlete_session_progress")).
+		WithArgs(sqlmock.AnyArg(), "s1", clerkID, 120.5, 1800, updatedAt, orgID, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	payload := `{"athleteClerkId":"clerk_123","sessionId":"s1","totalVolume":120.5,"durationSeconds":1800,"updatedAt":"` + updatedAt + `"}`
+	consumer.handleProgress(&nats.Msg{Data: []byte(payload)})
 
 	require.NoError(t, mock.ExpectationsWereMet())
 }

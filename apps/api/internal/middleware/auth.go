@@ -13,7 +13,10 @@ import (
 	"github.com/clerk/clerk-sdk-go/v2/user"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
+
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/cache"
 	"github.com/innotechlabs01/mr-training-api/internal/logger"
+	"github.com/innotechlabs01/mr-training-api/pkg/resilience"
 )
 
 // contextKey type for context values to avoid collisions.
@@ -35,9 +38,33 @@ const (
 
 // roleCache caches Clerk user roles to avoid API calls on every request.
 var (
-	roleCacheMu sync.RWMutex
-	roleCache   = make(map[string]roleCacheEntry)
+	roleCacheMu      sync.RWMutex
+	roleCache        = make(map[string]roleCacheEntry)
+	distRoleCache    cache.Cache
+	roleFallbackMu   sync.RWMutex
+	roleFallbackFn   func(context.Context, string) string
+	roleFetchFlight  = resilience.NewFlight[string](4 * time.Second)
+	clerkRoleBreaker = resilience.RegisterBreaker(resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{
+		Name:             "clerk_role",
+		FailureThreshold: 5,
+		ResetTimeout:     20 * time.Second,
+	}))
 )
+
+// SetRoleCache attaches a distributed cache (e.g. Redis) for role lookups.
+func SetRoleCache(c cache.Cache) {
+	roleCacheMu.Lock()
+	defer roleCacheMu.Unlock()
+	distRoleCache = c
+}
+
+// SetRoleFallback registers a DB-backed fallback resolver used when Clerk is slow
+// or its circuit breaker is open.
+func SetRoleFallback(fn func(ctx context.Context, userID string) string) {
+	roleFallbackMu.Lock()
+	defer roleFallbackMu.Unlock()
+	roleFallbackFn = fn
+}
 
 type roleCacheEntry struct {
 	role      string
@@ -46,22 +73,48 @@ type roleCacheEntry struct {
 
 const roleCacheTTL = 5 * time.Minute
 
-func getCachedRole(userID string) (string, bool) {
+func getCachedRole(ctx context.Context, userID string) (string, bool) {
 	roleCacheMu.RLock()
-	defer roleCacheMu.RUnlock()
 	entry, ok := roleCache[userID]
-	if !ok || time.Now().After(entry.expiresAt) {
-		return "", false
+	dc := distRoleCache
+	roleCacheMu.RUnlock()
+	if ok && time.Now().Before(entry.expiresAt) {
+		return entry.role, true
 	}
-	return entry.role, true
+	if dc != nil {
+		rcCtx, cancel := context.WithTimeout(ctx, 400*time.Millisecond)
+		defer cancel()
+		if raw, hit := dc.Get(rcCtx, "role:v1:"+userID); hit && len(raw) > 0 {
+			r := string(raw)
+			setLocalCachedRole(userID, r)
+			return r, true
+		}
+	}
+	return "", false
 }
 
-func setCachedRole(userID, role string) {
+func setLocalCachedRole(userID, role string) {
 	roleCacheMu.Lock()
-	defer roleCacheMu.Unlock()
 	roleCache[userID] = roleCacheEntry{
 		role:      role,
 		expiresAt: time.Now().Add(roleCacheTTL),
+	}
+	roleCacheMu.Unlock()
+}
+
+func setCachedRole(ctx context.Context, userID, role string) {
+	roleCacheMu.Lock()
+	roleCache[userID] = roleCacheEntry{
+		role:      role,
+		expiresAt: time.Now().Add(roleCacheTTL),
+	}
+	dc := distRoleCache
+	roleCacheMu.Unlock()
+
+	if dc != nil && role != "" {
+		rcCtx, cancel := context.WithTimeout(ctx, 400*time.Millisecond)
+		defer cancel()
+		_ = dc.Set(rcCtx, "role:v1:"+userID, []byte(role), roleCacheTTL)
 	}
 }
 
@@ -75,24 +128,54 @@ func InvalidateRoleCache(userID string) {
 		return
 	}
 	roleCacheMu.Lock()
-	defer roleCacheMu.Unlock()
 	delete(roleCache, userID)
+	dc := distRoleCache
+	roleCacheMu.Unlock()
+
+	if dc != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
+		defer cancel()
+		_ = dc.Del(ctx, "role:v1:"+userID)
+	}
 }
 
-// fetchUserRole fetches the user's role from Clerk Backend API.
-func fetchUserRole(userID string) string {
-	u, err := user.Get(context.Background(), userID)
-	if err != nil {
-		return "athlete"
-	}
-	if u.PublicMetadata != nil {
-		var metadata map[string]interface{}
-		if err := json.Unmarshal(u.PublicMetadata, &metadata); err == nil {
-			if role, ok := metadata["role"].(string); ok && role != "" {
-				setCachedRole(userID, role)
-				return role
+// fetchUserRole fetches the user's role from Clerk Backend API with
+// singleflight coalescing, bounded timeout, circuit breaker, and DB fallback.
+func fetchUserRole(ctx context.Context, userID string) string {
+	role, _, err := roleFetchFlight.Do(ctx, "clerk-role:"+userID, func(inner context.Context) (string, error) {
+		res, cbErr := resilience.ExecuteVal(inner, clerkRoleBreaker, func(cbCtx context.Context) (string, error) {
+			apiCtx, cancel := context.WithTimeout(cbCtx, 3*time.Second)
+			defer cancel()
+			u, getErr := user.Get(apiCtx, userID)
+			if getErr != nil {
+				return "", getErr
 			}
+			if u.PublicMetadata != nil {
+				var metadata map[string]interface{}
+				if jerr := json.Unmarshal(u.PublicMetadata, &metadata); jerr == nil {
+					if r, ok := metadata["role"].(string); ok && r != "" {
+						return r, nil
+					}
+				}
+			}
+			return "athlete", nil
+		})
+		if cbErr != nil {
+			roleFallbackMu.RLock()
+			fb := roleFallbackFn
+			roleFallbackMu.RUnlock()
+			if fb != nil {
+				if fbRole := fb(inner, userID); fbRole != "" {
+					return fbRole, nil
+				}
+			}
+			return "", cbErr
 		}
+		return res, nil
+	})
+	if err == nil && role != "" {
+		setCachedRole(ctx, userID, role)
+		return role
 	}
 	return "athlete"
 }
@@ -127,9 +210,12 @@ func RequireAuth(clerkSecretKey string) fiber.Handler {
 		}
 
 		// Verify the JWT using Clerk's JWKS-based verification
-		claims, err := jwt.Verify(context.Background(), &jwt.VerifyParams{
+		reqCtx := RequestContext(c)
+		jwtCtx, cancel := context.WithTimeout(reqCtx, 3*time.Second)
+		claims, err := jwt.Verify(jwtCtx, &jwt.VerifyParams{
 			Token: token,
 		})
+		cancel()
 		if err != nil {
 			log := logger.L()
 			log.Error("JWT verification failed", zap.Error(err), zap.String("token_preview", token[:min(20, len(token))]+"..."))
@@ -160,10 +246,10 @@ func RequireAuth(clerkSecretKey string) fiber.Handler {
 
 		// If role is still default, try cache then Clerk API
 		if role == "athlete" {
-			if cached, ok := getCachedRole(userID); ok {
+			if cached, ok := getCachedRole(reqCtx, userID); ok {
 				role = cached
 			} else {
-				role = fetchUserRole(userID)
+				role = fetchUserRole(reqCtx, userID)
 			}
 		}
 

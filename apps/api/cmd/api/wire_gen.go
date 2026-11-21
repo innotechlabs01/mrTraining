@@ -10,7 +10,11 @@ import (
 	"context"
 	"database/sql"
 	"os"
+	"strings"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/google/wire"
 	"github.com/innotechlabs01/mr-training-api/internal/config"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/cache"
@@ -20,23 +24,15 @@ import (
 	"github.com/innotechlabs01/mr-training-api/pkg/response"
 	"github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
-	"time"
 )
 
 // Injectors from wire.go:
 
-// InitializeApp builds the complete application object graph.
-func InitializeApp(ctx context.Context) (*HTTPServer, error) {
-	config, err := ProvideConfig()
-	if err != nil {
-		return nil, err
-	}
-	logger, err := ProvideLogger(config)
-	if err != nil {
-		return nil, err
-	}
-	app := ProvideFiberApp(config, logger)
-	httpServer := ProvideHTTPServer(app, config, logger)
+// InitializeApp builds the application HTTP server graph using the caller-provided
+// config (already enriched with Infisical secrets) and logger.
+func InitializeApp(ctx context.Context, cfg *config.Config, log *zap.Logger) (*HTTPServer, error) {
+	app := ProvideFiberApp(cfg, log)
+	httpServer := ProvideHTTPServer(app, cfg, log)
 	return httpServer, nil
 }
 
@@ -102,6 +98,7 @@ func ProvideFiberApp(cfg *config.Config, log *zap.Logger) *fiber.App {
 	app.Use(middleware.Recover())
 	app.Use(middleware.SecurityHeaders())
 	app.Use(middleware.RequestID())
+	app.Use(middleware.Metrics())
 	app.Use(middleware.ServerTiming())
 	app.Use(middleware.Logger())
 	app.Use(middleware.CORS(cfg.CORSOrigins))
@@ -113,14 +110,18 @@ func ProvideFiberApp(cfg *config.Config, log *zap.Logger) *fiber.App {
 	return app
 }
 
-// fiberMiddlewareCompress wraps compress middleware inline to avoid extra import.
+// fiberMiddlewareCompress applies gzip/deflate compression while skipping SSE streams and /metrics.
 func fiberMiddlewareCompress() fiber.Handler {
-	compress := func() fiber.Handler {
-		return func(c *fiber.Ctx) error {
-			return c.Next()
-		}
-	}
-	return compress()
+	return compress.New(compress.Config{
+		Level: compress.LevelDefault,
+		Next: func(c *fiber.Ctx) bool {
+			p := c.Path()
+			return strings.Contains(c.Get("Accept"), "text/event-stream") ||
+				strings.Contains(p, "/live") ||
+				strings.Contains(p, "/stream") ||
+				p == "/metrics"
+		},
+	})
 }
 
 // customErrorHandler returns a Fiber error handler with structured responses.
@@ -165,10 +166,8 @@ func (s *HTTPServer) Shutdown(ctx context.Context) error {
 	return s.App.ShutdownWithContext(ctx)
 }
 
-// InfrastructureSet wires core infrastructure: config, logger, db, cache, app.
+// InfrastructureSet wires core infrastructure into the HTTPServer graph.
 var InfrastructureSet = wire.NewSet(
-	ProvideConfig,
-	ProvideLogger,
 	ProvideDB,
 	ProvideStdlibDB,
 	ProvideCache,

@@ -79,10 +79,10 @@ func (r *Repository) GetDashboard(ctx context.Context, coachID string) (*coachdo
 		return nil, fmt.Errorf("failed to calculate completion rate: %w", err)
 	}
 
-	// Count upcoming sessions (appointments in the future)
+	// Count upcoming sessions (appointments in the future or today)
 	err = r.exec.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM coach_appointments
- 		 WHERE coach_id = $1 AND status = 'scheduled' AND start_time > NOW()`, coachID).Scan(&d.UpcomingSessions)
+ 		 WHERE coach_id = $1 AND status = 'scheduled' AND LEFT(start_time, 10) >= TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD')`, coachID).Scan(&d.UpcomingSessions)
 	if err != nil {
 		// Table might not exist yet — return 0
 		d.UpcomingSessions = 0
@@ -98,7 +98,7 @@ func (r *Repository) GetDailySummary(ctx context.Context, coachID string) (*coac
 	// Sessions today
 	err := r.exec.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM coach_appointments
- 		 WHERE coach_id = $1 AND date(start_time) = CURRENT_DATE`, coachID).Scan(&d.SessionsToday)
+ 		 WHERE coach_id = $1 AND LEFT(start_time, 10) = TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD') AND status <> 'cancelled'`, coachID).Scan(&d.SessionsToday)
 	if err != nil {
 		d.SessionsToday = 0
 	}
@@ -106,7 +106,7 @@ func (r *Repository) GetDailySummary(ctx context.Context, coachID string) (*coac
 	// Athletes today
 	err = r.exec.QueryRowContext(ctx,
 		`SELECT COUNT(DISTINCT athlete_id) FROM coach_appointments
- 		 WHERE coach_id = $1 AND date(start_time) = CURRENT_DATE`, coachID).Scan(&d.AthletesToday)
+ 		 WHERE coach_id = $1 AND LEFT(start_time, 10) = TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD') AND status <> 'cancelled'`, coachID).Scan(&d.AthletesToday)
 	if err != nil {
 		d.AthletesToday = 0
 	}
@@ -114,7 +114,7 @@ func (r *Repository) GetDailySummary(ctx context.Context, coachID string) (*coac
 	// Completed today
 	err = r.exec.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM coach_appointments
- 		 WHERE coach_id = $1 AND date(start_time) = CURRENT_DATE AND status = 'completed'`, coachID).Scan(&d.CompletedToday)
+ 		 WHERE coach_id = $1 AND LEFT(start_time, 10) = TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD') AND status = 'completed'`, coachID).Scan(&d.CompletedToday)
 	if err != nil {
 		d.CompletedToday = 0
 	}
@@ -229,7 +229,7 @@ func (r *Repository) SaveTimeBlocks(ctx context.Context, coachID string, blocks 
 // GetAppointments retrieves all appointments for a coach.
 func (r *Repository) GetAppointments(ctx context.Context, coachID string) ([]*coachdomain.Appointment, error) {
 	rows, err := r.exec.QueryContext(ctx,
-		`SELECT id, coach_id, athlete_id, athlete_name, title, status, start_time, end_time, notes, created_at, updated_at
+		`SELECT id, coach_id, athlete_id, athlete_name, title, status, start_time, end_time, notes, COALESCE(meet_room_id, ''), created_at::text, updated_at::text
  		 FROM coach_appointments WHERE coach_id = $1
  		 ORDER BY start_time`, coachID)
 	if err != nil {
@@ -237,12 +237,30 @@ func (r *Repository) GetAppointments(ctx context.Context, coachID string) ([]*co
 	}
 	defer rows.Close()
 
+	return scanAppointments(rows)
+}
+
+// GetAppointmentsByAthlete retrieves all appointments for an athlete.
+func (r *Repository) GetAppointmentsByAthlete(ctx context.Context, athleteID string) ([]*coachdomain.Appointment, error) {
+	rows, err := r.exec.QueryContext(ctx,
+		`SELECT id, coach_id, athlete_id, athlete_name, title, status, start_time, end_time, notes, COALESCE(meet_room_id, ''), created_at::text, updated_at::text
+ 		 FROM coach_appointments WHERE athlete_id = $1
+ 		 ORDER BY start_time DESC`, athleteID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get athlete appointments: %w", err)
+	}
+	defer rows.Close()
+
+	return scanAppointments(rows)
+}
+
+func scanAppointments(rows *sql.Rows) ([]*coachdomain.Appointment, error) {
 	var apts []*coachdomain.Appointment
 	for rows.Next() {
 		a := &coachdomain.Appointment{}
-		var athleteName, notes sql.NullString
+		var athleteName, notes, meetRoomID sql.NullString
 		if err := rows.Scan(&a.ID, &a.CoachID, &a.AthleteID, &athleteName, &a.Title,
-			&a.Status, &a.StartTime, &a.EndTime, &notes, &a.CreatedAt, &a.UpdatedAt); err != nil {
+			&a.Status, &a.StartTime, &a.EndTime, &notes, &meetRoomID, &a.CreatedAt, &a.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan appointment: %w", err)
 		}
 		if athleteName.Valid {
@@ -250,6 +268,9 @@ func (r *Repository) GetAppointments(ctx context.Context, coachID string) ([]*co
 		}
 		if notes.Valid {
 			a.Notes = notes.String
+		}
+		if meetRoomID.Valid {
+			a.MeetRoomID = meetRoomID.String
 		}
 		apts = append(apts, a)
 	}
@@ -259,6 +280,9 @@ func (r *Repository) GetAppointments(ctx context.Context, coachID string) ([]*co
 // CreateAppointment creates a new appointment.
 func (r *Repository) CreateAppointment(ctx context.Context, a *coachdomain.Appointment) error {
 	a.ID = uuid.New().String()
+	if a.MeetRoomID == "" {
+		a.MeetRoomID = "meet-" + uuid.New().String()[:12]
+	}
 
 	var athleteName, notes sql.NullString
 	if a.AthleteName != "" {
@@ -269,16 +293,16 @@ func (r *Repository) CreateAppointment(ctx context.Context, a *coachdomain.Appoi
 	}
 
 	_, err := r.exec.ExecContext(ctx,
-		`INSERT INTO coach_appointments (id, coach_id, athlete_id, athlete_name, title, status, start_time, end_time, notes)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		a.ID, a.CoachID, a.AthleteID, athleteName, a.Title, a.Status, a.StartTime, a.EndTime, notes)
+		`INSERT INTO coach_appointments (id, coach_id, athlete_id, athlete_name, title, status, start_time, end_time, notes, meet_room_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		a.ID, a.CoachID, a.AthleteID, athleteName, a.Title, a.Status, a.StartTime, a.EndTime, notes, a.MeetRoomID)
 	if err != nil {
 		return fmt.Errorf("failed to create appointment: %w", err)
 	}
 	return nil
 }
 
-// UpdateAppointment updates an appointment's status and notes.
+// UpdateAppointment updates an appointment's status, schedule, meet room, and notes.
 func (r *Repository) UpdateAppointment(ctx context.Context, id string, a *coachdomain.Appointment) error {
 	var notes sql.NullString
 	if a.Notes != "" {
@@ -286,8 +310,14 @@ func (r *Repository) UpdateAppointment(ctx context.Context, id string, a *coachd
 	}
 
 	result, err := r.exec.ExecContext(ctx,
-		`UPDATE coach_appointments SET status = $1, notes = $2, updated_at = NOW()
-		 WHERE id = $3`, a.Status, notes, id)
+		`UPDATE coach_appointments
+		 SET status = COALESCE(NULLIF($1, ''), status),
+		     notes = COALESCE($2, notes),
+		     start_time = COALESCE(NULLIF($3, ''), start_time),
+		     end_time = COALESCE(NULLIF($4, ''), end_time),
+		     meet_room_id = COALESCE(NULLIF($5, ''), meet_room_id),
+		     updated_at = NOW()
+		 WHERE id = $6`, a.Status, notes, a.StartTime, a.EndTime, a.MeetRoomID, id)
 	if err != nil {
 		return fmt.Errorf("failed to update appointment: %w", err)
 	}

@@ -110,3 +110,49 @@ func (h *FormMetricsHandler) GetCoachFormMetrics(c *fiber.Ctx) error {
 
 	return appresponse.Success(c, stats)
 }
+
+// GetConsent handles GET /form-metrics/consent.
+// Returns the authenticated athlete's AI form-recording consent state from PostgreSQL.
+func (h *FormMetricsHandler) GetConsent(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	consent, err := h.service.GetConsent(c.Context(), userID)
+	if err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
+	}
+
+	return appresponse.Success(c, fiber.Map{
+		"consent": consent,
+	})
+}
+
+// UpdateConsent handles PUT /form-metrics/consent.
+// Persists the authenticated athlete's AI form-recording consent state in PostgreSQL.
+func (h *FormMetricsHandler) UpdateConsent(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	var req struct {
+		Consent string `json:"consent"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if req.Consent != "accepted" && req.Consent != "denied" && req.Consent != "pending" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "consent must be accepted, denied, or pending")
+	}
+
+	if err := h.service.SetConsent(c.Context(), userID, req.Consent); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
+	}
+
+	return appresponse.Success(c, fiber.Map{
+		"consent": req.Consent,
+	})
+}

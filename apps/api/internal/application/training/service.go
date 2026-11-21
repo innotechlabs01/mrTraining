@@ -229,6 +229,7 @@ func (s *Service) CreateWorkoutTemplate(ctx context.Context, coachID string, req
 			MuscleGroups:      ex.MuscleGroups,
 			LibraryExerciseID: ex.LibraryExerciseID,
 			GPSRoute:          ex.GPSRoute,
+			Intervals:         toDomainRunningIntervals(ex.Intervals),
 		}
 	}
 
@@ -281,6 +282,7 @@ func (s *Service) UpdateWorkoutTemplate(ctx context.Context, coachID, id string,
 			MuscleGroups:      ex.MuscleGroups,
 			LibraryExerciseID: ex.LibraryExerciseID,
 			GPSRoute:          ex.GPSRoute,
+			Intervals:         toDomainRunningIntervals(ex.Intervals),
 		}
 	}
 
@@ -458,22 +460,17 @@ func (s *Service) CompleteRunningWorkout(ctx context.Context, athleteID string, 
 	}
 
 	// Convert intervals
-	intervals := make([]training.RunningInterval, len(req.ActualIntervals))
-	for i, iv := range req.ActualIntervals {
-		intervals[i] = training.RunningInterval{
-			Order:       iv.Order,
-			WorkType:    iv.WorkType,
-			WorkValue:   iv.WorkValue,
-			RestSeconds: iv.RestSeconds,
-			PaceTarget:  iv.PaceTarget,
-			Intensity:   iv.Intensity,
-		}
-	}
+	intervals := toDomainRunningIntervals(req.ActualIntervals)
 
 	// Update the workout exercises with actual GPS and intervals
 	if err := s.workoutRepo.UpdateWorkoutExerciseActuals(ctx, req.WorkoutID, req.ActualGPSRoute, intervals); err != nil {
 		return fmt.Errorf("update workout exercise actuals: %w", err)
 	}
+
+	// Mark the assigned workout itself as completed
+	aw.Status = "completed"
+	aw.Progress = 1.0
+	_ = s.workoutRepo.UpdateAssignedWorkout(ctx, req.WorkoutID, aw)
 
 	// Also complete the session if one exists
 	sessions, err := s.workoutRepo.ListSessionsByWorkout(ctx, req.WorkoutID)
@@ -488,6 +485,24 @@ func (s *Service) CompleteRunningWorkout(ctx context.Context, athleteID string, 
 	}
 
 	return nil
+}
+
+func toDomainRunningIntervals(reqs []dto.RunningIntervalRequest) []training.RunningInterval {
+	if len(reqs) == 0 {
+		return nil
+	}
+	intervals := make([]training.RunningInterval, len(reqs))
+	for i, iv := range reqs {
+		intervals[i] = training.RunningInterval{
+			Order:       iv.Order,
+			WorkType:    iv.WorkType,
+			WorkValue:   iv.WorkValue,
+			RestSeconds: iv.RestSeconds,
+			PaceTarget:  iv.PaceTarget,
+			Intensity:   iv.Intensity,
+		}
+	}
+	return intervals
 }
 
 // GetPrescription returns the exercise prescription for an assigned workout.

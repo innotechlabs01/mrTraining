@@ -217,18 +217,31 @@ export async function syncAllFromDevice(bridge?: HealthBridge): Promise<{
     syncHealthData(target),
     syncRunningWorkouts(target),
   ]);
+  const primary = workouts.deviceList[0];
+  if (metrics.ok || workouts.ok) {
+    await registerDeviceIfNeeded(
+      target.platform,
+      primary?.name,
+      primary?.brand,
+    );
+  }
   return { metrics, workouts };
 }
 
 /**
- * Registers the platform link. It deliberately does NOT invent a device name:
- * the truthful "which watch" comes from each run's own metadata (see
- * device-identity), so a fabricated "Apple Watch" row would be a lie for an
- * athlete who runs with a Garmin paired to an iPhone.
+ * Registers the platform link with real device metadata when available.
  */
-async function registerDeviceIfNeeded(platform: HealthPlatform): Promise<void> {
+async function registerDeviceIfNeeded(
+  platform: HealthPlatform,
+  deviceName?: string,
+  deviceBrand?: string,
+): Promise<void> {
   try {
-    await apiClient.post('/athlete/health/devices', { platform });
+    await apiClient.post('/athlete/health/devices', {
+      platform,
+      device_name: deviceName ?? '',
+      device_brand: deviceBrand ?? '',
+    });
   } catch {
     // Device row may already exist — registration is best-effort, sync already succeeded.
   }

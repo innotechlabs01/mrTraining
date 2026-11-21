@@ -2,10 +2,13 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 
+	"github.com/innotechlabs01/mr-training-api/pkg/resilience"
 	"github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
@@ -19,8 +22,16 @@ type HealthResponse struct {
 
 // ReadinessResponse represents the payload returned by the readiness check endpoint.
 type ReadinessResponse struct {
-	Status   string            `json:"status"`
-	Services map[string]string `json:"services,omitempty"`
+	Status   string                       `json:"status"`
+	Services map[string]string            `json:"services,omitempty"`
+	Breakers []resilience.BreakerSnapshot `json:"breakers,omitempty"`
+}
+
+// ReadinessDeps configures optional infrastructure checks exposed by ReadinessCheckWithDeps.
+type ReadinessDeps struct {
+	DB        *sql.DB
+	RedisPing func(context.Context) error
+	NATSAlive func() bool
 }
 
 // HealthCheck handles GET /health and always returns 200 OK.
@@ -36,28 +47,65 @@ func HealthCheck(appName, env string) fiber.Handler {
 	}
 }
 
-// ReadinessCheck handles GET /ready and checks service dependencies.
-// If a database connection is provided, it verifies connectivity.
-// Otherwise, it reports the service as ready without database checks.
+// ReadinessCheck handles GET /ready and checks database connectivity alongside
+// registered circuit breaker states.
 func ReadinessCheck(db *sql.DB) fiber.Handler {
+	return ReadinessCheckWithDeps(ReadinessDeps{DB: db})
+}
+
+// ReadinessCheckWithDeps handles GET /ready with rich dependency diagnostics
+// covering PostgreSQL, optional Redis, optional NATS, and registered circuit breakers.
+func ReadinessCheckWithDeps(deps ReadinessDeps) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		services := make(map[string]string)
+		breakers := resilience.DefaultRegistry.Snapshot()
 
-		// Check database connectivity
-		if db != nil {
-			if err := db.Ping(); err != nil {
+		if deps.DB != nil {
+			pingCtx, cancel := context.WithTimeout(c.UserContext(), 1*time.Second)
+			err := deps.DB.PingContext(pingCtx)
+			cancel()
+			if err != nil {
 				services["database"] = "unhealthy: " + err.Error()
 				return response.JSON(c, fiber.StatusServiceUnavailable, ReadinessResponse{
 					Status:   "not_ready",
 					Services: services,
+					Breakers: breakers,
 				})
 			}
 			services["database"] = "healthy"
 		}
 
+		degraded := false
+		if deps.RedisPing != nil {
+			pingCtx, cancel := context.WithTimeout(c.UserContext(), 500*time.Millisecond)
+			err := deps.RedisPing(pingCtx)
+			cancel()
+			if err != nil {
+				services["redis"] = "degraded: " + err.Error()
+				degraded = true
+			} else {
+				services["redis"] = "healthy"
+			}
+		}
+
+		if deps.NATSAlive != nil {
+			if deps.NATSAlive() {
+				services["nats"] = "healthy"
+			} else {
+				services["nats"] = "degraded: disconnected"
+				degraded = true
+			}
+		}
+
+		status := "ready"
+		if degraded {
+			status = "degraded"
+		}
+
 		return response.Success(c, ReadinessResponse{
-			Status:   "ready",
+			Status:   status,
 			Services: services,
+			Breakers: breakers,
 		})
 	}
 }

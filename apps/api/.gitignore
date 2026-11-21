@@ -1,1 +1,5 @@
 /api
+/worker
+/server
+cmd/api/api
+cmd/worker/worker

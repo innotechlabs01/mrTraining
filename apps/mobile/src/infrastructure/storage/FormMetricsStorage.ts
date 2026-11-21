@@ -15,6 +15,7 @@
  * Synced to server after workout. Coach sees trends and areas for improvement.
  */
 import { mmkv, mmkvGetJson, mmkvRemove, mmkvSetJson, userScopedKey } from './mmkv'
+import { smartClient } from '../api/client'
 
 const METRICS_KEY = '@mr/form_metrics'
 const CONSENT_KEY = '@mr/form_recording_consent'
@@ -41,9 +42,25 @@ function readConsentValue(userKey: string): string | undefined {
 
 export async function getConsentState(): Promise<ConsentState> {
   try {
-    const value = readConsentValue(userScopedKey(CONSENT_KEY))
+    const localKey = userScopedKey(CONSENT_KEY)
+    const value = readConsentValue(localKey)
     if (value === 'accepted') return 'accepted'
     if (value === 'denied') return 'denied'
+
+    // If local storage is pending (e.g. after app update / fresh install),
+    // restore from PostgreSQL backend so the athlete never loses their choice.
+    try {
+      const { data } = await smartClient.get<{ consent?: string; data?: { consent?: string } }>(
+        '/form-metrics/consent',
+      )
+      const remote = data?.consent ?? data?.data?.consent
+      if (remote === 'accepted' || remote === 'denied') {
+        mmkv.set(localKey, remote)
+        return remote
+      }
+    } catch {
+      // Offline or unauthenticated — fall back to local pending state
+    }
     return 'pending'
   } catch {
     return 'pending'
@@ -52,6 +69,11 @@ export async function getConsentState(): Promise<ConsentState> {
 
 export async function setConsentState(state: ConsentState): Promise<void> {
   mmkv.set(userScopedKey(CONSENT_KEY), state)
+  try {
+    await smartClient.put('/form-metrics/consent', { consent: state })
+  } catch {
+    // Offline — stored in MMKV; will sync on next change
+  }
 }
 
 // ============== Metrics Storage ==============

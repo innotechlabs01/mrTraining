@@ -2,7 +2,7 @@ name: CD - QA (Cloud Run)
 
 on:
   push:
-    branches: [QA]
+    branches: [QA, qa]
   workflow_dispatch:
 
 permissions:
@@ -11,10 +11,8 @@ permissions:
 
 env:
   GCP_REGION: us-central1
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REPOSITORY: mr-training
   SERVICE: mr-training-api-qa
-  IMAGE: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/mr-training/api:${{ github.sha }}
 
 jobs:
   deploy:
@@ -23,6 +21,42 @@ jobs:
     environment: qa
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+          cache-dependency-path: apps/api/go.sum
+
+      - name: Compute deploy coordinates
+        run: |
+          PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+          if [ -z "$PROJECT_ID" ]; then
+            echo "❌ Secret GCP_PROJECT_ID is not configured" >&2
+            exit 1
+          fi
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${PROJECT_ID}/${{ env.REPOSITORY }}/api:${{ github.sha }}"
+          echo "PROJECT_ID=${PROJECT_ID}" >> "$GITHUB_ENV"
+          echo "IMAGE=${IMAGE}" >> "$GITHUB_ENV"
+
+      # --- Migraciones PostgreSQL QA (Supabase) ------------------------
+      - name: Run QA PostgreSQL migrations
+        if: ${{ secrets.DATABASE_URL_QA != '' }}
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_QA }}
+          APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD_QA }}
+        run: |
+          if [[ "$DATABASE_URL" == *"@db."*".supabase.co"* ]]; then
+            echo "❌ DATABASE_URL_QA apunta al host directo IPv6-only (db.*.supabase.co), que falla en GitHub Actions y Cloud Run." >&2
+            echo "   Actualiza el secret DATABASE_URL_QA al IPv4 Session Pooler:" >&2
+            echo "   postgresql://postgres.<PROJECT_REF>:<PASSWORD>@aws-0-us-east-2.pooler.supabase.com:5432/postgres?sslmode=require" >&2
+            exit 1
+          fi
+          bash ../../scripts/sync-migrations.sh --ci
+          ../../scripts/ensure-app-role.sh
+          go run ./cmd/migrate -dir migrations/postgres
 
       # --- WIF: autenticación sin claves JSON -------------------------
       - id: auth
@@ -48,20 +82,65 @@ jobs:
         run: |
           docker build -t "${IMAGE}" .
           docker push "${IMAGE}"
-          echo "IMAGE=${IMAGE}" >> "$GITHUB_ENV"
 
       # --- Despliegue a Cloud Run QA -----------------------------------
-      # Usamos --set-env-vars con GitHub Secrets (gratis, sin Secret Manager de GCP).
-      # Máximo 0 secretos de Secret Manager = $0 gastos.
+      # Usamos --set-env-vars con GitHub Secrets + Infisical QA (gratis, sin Secret Manager de GCP).
       - name: Deploy Cloud Run service
+        env:
+          CORS_ORIGINS_QA: ${{ secrets.CORS_ORIGINS_QA }}
+          DATABASE_URL_QA: ${{ secrets.DATABASE_URL_QA }}
+          CLERK_SECRET_KEY_QA: ${{ secrets.CLERK_SECRET_KEY_QA }}
+          CLERK_PUBLISHABLE_KEY_QA: ${{ secrets.CLERK_PUBLISHABLE_KEY_QA }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          CLERK_JWKS_URL_QA: ${{ secrets.CLERK_JWKS_URL_QA }}
+          CLERK_WEBHOOK_SECRET_QA: ${{ secrets.CLERK_WEBHOOK_SECRET_QA }}
+          WOMPI_PRIVATE_KEY_QA: ${{ secrets.WOMPI_PRIVATE_KEY_QA }}
+          WOMPI_INTEGRITY_SECRET_QA: ${{ secrets.WOMPI_INTEGRITY_SECRET_QA }}
+          WOMPI_EVENTS_SECRET_QA: ${{ secrets.WOMPI_EVENTS_SECRET_QA }}
+          WEB_APP_URL_QA: ${{ secrets.WEB_APP_URL_QA }}
+          INFISICAL_BASE_URL_QA: ${{ secrets.INFISICAL_BASE_URL_QA }}
+          INFISICAL_CLIENT_ID_QA: ${{ secrets.INFISICAL_CLIENT_ID_QA }}
+          INFISICAL_CLIENT_SECRET_QA: ${{ secrets.INFISICAL_CLIENT_SECRET_QA }}
+          INFISICAL_PROJECT_ID_QA: ${{ secrets.INFISICAL_PROJECT_ID_QA }}
         run: |
+          CLERK_PUB="${CLERK_PUBLISHABLE_KEY_QA:-$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}"
+          INFISICAL_ON="false"
+          if [ -n "$INFISICAL_CLIENT_ID_QA" ] && [ -n "$INFISICAL_CLIENT_SECRET_QA" ] && [ -n "$INFISICAL_PROJECT_ID_QA" ]; then
+            INFISICAL_ON="true"
+          fi
+
+          ENV_VARS="APP_ENV=qa,APP_PORT=8080,LOG_LEVEL=info,WOMPI_ENV=sandbox"
+          ENV_VARS="${ENV_VARS},CORS_ORIGINS=${CORS_ORIGINS_QA}"
+          ENV_VARS="${ENV_VARS},DATABASE_URL=${DATABASE_URL_QA}"
+          ENV_VARS="${ENV_VARS},CLERK_PUBLISHABLE_KEY=${CLERK_PUB}"
+          ENV_VARS="${ENV_VARS},INFISICAL_ENABLED=${INFISICAL_ON}"
+          ENV_VARS="${ENV_VARS},INFISICAL_ENVIRONMENT=qa"
+          ENV_VARS="${ENV_VARS},INFISICAL_SECRET_PATH=/api"
+          ENV_VARS="${ENV_VARS},INFISICAL_BASE_URL=${INFISICAL_BASE_URL_QA}"
+          ENV_VARS="${ENV_VARS},INFISICAL_CLIENT_ID=${INFISICAL_CLIENT_ID_QA}"
+          ENV_VARS="${ENV_VARS},INFISICAL_CLIENT_SECRET=${INFISICAL_CLIENT_SECRET_QA}"
+          ENV_VARS="${ENV_VARS},INFISICAL_PROJECT_ID=${INFISICAL_PROJECT_ID_QA}"
+
+          if [ -n "$CLERK_SECRET_KEY_QA" ]; then ENV_VARS="${ENV_VARS},CLERK_SECRET_KEY=${CLERK_SECRET_KEY_QA}"; fi
+          if [ -n "$CLERK_JWKS_URL_QA" ]; then ENV_VARS="${ENV_VARS},CLERK_JWKS_URL=${CLERK_JWKS_URL_QA}"; fi
+          if [ -n "$CLERK_WEBHOOK_SECRET_QA" ]; then ENV_VARS="${ENV_VARS},CLERK_WEBHOOK_SECRET=${CLERK_WEBHOOK_SECRET_QA}"; fi
+          if [ -n "$WOMPI_PRIVATE_KEY_QA" ]; then ENV_VARS="${ENV_VARS},WOMPI_PRIVATE_KEY=${WOMPI_PRIVATE_KEY_QA}"; fi
+          if [ -n "$WOMPI_INTEGRITY_SECRET_QA" ]; then ENV_VARS="${ENV_VARS},WOMPI_INTEGRITY_SECRET=${WOMPI_INTEGRITY_SECRET_QA}"; fi
+          if [ -n "$WOMPI_EVENTS_SECRET_QA" ]; then ENV_VARS="${ENV_VARS},WOMPI_EVENTS_SECRET=${WOMPI_EVENTS_SECRET_QA}"; fi
+          if [ -n "$WEB_APP_URL_QA" ]; then
+            case "$WEB_APP_URL_QA" in
+              http://*|https://*) ENV_VARS="${ENV_VARS},WEB_APP_URL=${WEB_APP_URL_QA}" ;;
+              *) ENV_VARS="${ENV_VARS},WEB_APP_URL=https://${WEB_APP_URL_QA}" ;;
+            esac
+          fi
+
           gcloud run deploy ${{ env.SERVICE }} \
             --image "${IMAGE}" \
             --region "${{ env.GCP_REGION }}" \
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --set-env-vars="APP_ENV=qa,APP_PORT=8080,LOG_LEVEL=info,CORS_ORIGINS=${{ secrets.CORS_ORIGINS_QA }},DATABASE_URL=${{ secrets.DATABASE_URL_QA }},CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY_QA }},CLERK_PUBLISHABLE_KEY=${{ secrets.CLERK_PUBLISHABLE_KEY_QA }},CLERK_JWKS_URL=${{ secrets.CLERK_JWKS_URL_QA }},CLERK_WEBHOOK_SECRET=${{ secrets.CLERK_WEBHOOK_SECRET_QA }},WOMPI_PRIVATE_KEY=${{ secrets.WOMPI_PRIVATE_KEY_QA }},WOMPI_INTEGRITY_SECRET=${{ secrets.WOMPI_INTEGRITY_SECRET_QA }},WOMPI_EVENTS_SECRET=${{ secrets.WOMPI_EVENTS_SECRET_QA }},WOMPI_ENV=sandbox,WOMPI_WEBHOOK_URL=https://${{ env.SERVICE }}-${{ env.GCP_REGION }}.run.app/webhooks/wompi,APP_URL=https://${{ env.SERVICE }}-${{ env.GCP_REGION }}.run.app,WEB_APP_URL=https://${{ secrets.WEB_APP_URL_QA }}" \
+            --set-env-vars="${ENV_VARS}" \
             --min-instances=1 \
             --max-instances=5
 

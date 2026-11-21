@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { Store, Activity, DollarSign, FileCheck2, ArrowRight, PlusCircle } from 'lucide-react';
 import {
   listCoachAllies,
   listAllyOperations,
@@ -39,7 +40,7 @@ export default function AllyDashboard() {
           setSettlements(settData);
         }
       } catch (err: unknown) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Error loading dashboard');
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Error cargando aliados');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -50,18 +51,18 @@ export default function AllyDashboard() {
 
   if (loading) {
     return (
-      <div className="p-8">
-        <h1 className="text-2xl font-bold text-gray-900">Alianzas</h1>
-        <p className="text-gray-500">Cargando dashboard de aliados…</p>
+      <div className="p-6 max-w-6xl mx-auto">
+        <h1 className="text-2xl font-display font-bold text-white">Alianzas — Red de Aliados</h1>
+        <p className="text-sm text-white/40 mt-2">Cargando dashboard de aliados…</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-8">
-        <h1 className="text-2xl font-bold text-gray-900">Alianzas</h1>
-        <p className="text-red-500">{error}</p>
+      <div className="p-6 max-w-6xl mx-auto">
+        <h1 className="text-2xl font-display font-bold text-white">Alianzas — Red de Aliados</h1>
+        <p className="text-sm text-red-400 mt-2">{error}</p>
       </div>
     );
   }
@@ -72,85 +73,126 @@ export default function AllyDashboard() {
   const totalSettlements = settlements.length;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Alianzas — Red de Aliados</h1>
+    <div className="p-6 max-w-6xl mx-auto space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-white">Alianzas — Red de Aliados</h1>
+          <p className="text-sm text-white/40 mt-1">
+            Gestiona aliados comerciales, catálogo visible en la app mobile, comisiones y redenciones QR
+          </p>
+        </div>
+        <Link
+          href="/coach/ally/allies"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-primary text-white text-sm font-medium hover:bg-brand-primary/90 transition-colors"
+        >
+          <PlusCircle size={16} />
+          Gestionar Aliados
+        </Link>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Aliados</h3>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{totalAllies}</p>
-          <p className="text-xs text-gray-400 mt-2">Red de aliados activos</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="rounded-xl border border-white/10 bg-surface-1 p-5">
+          <div className="flex items-center justify-between text-white/50 text-xs uppercase tracking-wider">
+            <span>Aliados</span>
+            <Store size={16} className="text-brand-primary" />
+          </div>
+          <p className="text-2xl font-bold text-white mt-2 tabular-nums">{totalAllies}</p>
+          <p className="text-xs text-white/40 mt-1">Red de aliados activos</p>
         </div>
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Operaciones</h3>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{totalOperations}</p>
-          <p className="text-xs text-gray-400 mt-2">Órdenes, reservas y redenciones</p>
+        <div className="rounded-xl border border-white/10 bg-surface-1 p-5">
+          <div className="flex items-center justify-between text-white/50 text-xs uppercase tracking-wider">
+            <span>Operaciones</span>
+            <Activity size={16} className="text-blue-400" />
+          </div>
+          <p className="text-2xl font-bold text-white mt-2 tabular-nums">{totalOperations}</p>
+          <p className="text-xs text-white/40 mt-1">Órdenes, reservas y redenciones</p>
         </div>
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Comisiones</h3>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{totalCommissions}</p>
-          <p className="text-xs text-gray-400 mt-2">Entradas de comisión pendientes</p>
+        <div className="rounded-xl border border-white/10 bg-surface-1 p-5">
+          <div className="flex items-center justify-between text-white/50 text-xs uppercase tracking-wider">
+            <span>Comisiones</span>
+            <DollarSign size={16} className="text-emerald-400" />
+          </div>
+          <p className="text-2xl font-bold text-white mt-2 tabular-nums">{totalCommissions}</p>
+          <p className="text-xs text-white/40 mt-1">Entradas de comisión registradas</p>
         </div>
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Liquidaciones</h3>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{totalSettlements}</p>
-          <p className="text-xs text-gray-400 mt-2">Liquidaciones mensuales</p>
+        <div className="rounded-xl border border-white/10 bg-surface-1 p-5">
+          <div className="flex items-center justify-between text-white/50 text-xs uppercase tracking-wider">
+            <span>Liquidaciones</span>
+            <FileCheck2 size={16} className="text-amber-400" />
+          </div>
+          <p className="text-2xl font-bold text-white mt-2 tabular-nums">{totalSettlements}</p>
+          <p className="text-xs text-white/40 mt-1">Liquidaciones mensuales</p>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-4 mb-8">
-        <Link href="/coach/ally/allies" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-          Ver todos los aliados
+      <div className="flex flex-wrap gap-3">
+        <Link
+          href="/coach/ally/allies"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-primary text-white text-sm font-medium hover:bg-brand-primary/90 transition-colors"
+        >
+          Ver todos los aliados <ArrowRight size={14} />
         </Link>
-        <Link href="/ally/catalog" className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium">
+        <Link
+          href="/coach/ally/catalog"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-white/80 text-sm font-medium hover:bg-white/10 transition-colors"
+        >
           Catálogo productos/servicios
         </Link>
-        <Link href="/ally/operations" className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium">
+        <Link
+          href="/coach/ally/operations"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-white/80 text-sm font-medium hover:bg-white/10 transition-colors"
+        >
           Ver operaciones
+        </Link>
+        <Link
+          href="/coach/ally/settlements"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-white/80 text-sm font-medium hover:bg-white/10 transition-colors"
+        >
+          Liquidaciones y pagos
         </Link>
       </div>
 
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Mis Aliados</h2>
+      <div className="rounded-xl border border-white/10 bg-surface-1 p-5 space-y-4">
+        <h2 className="text-lg font-semibold text-white">Mis Aliados</h2>
         {allies.length === 0 ? (
-          <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-            <p className="text-gray-500">No tienes aliados registrados aún.</p>
-            <p className="text-sm text-gray-400 mt-2">Crea tu primer aliado para comenzar a operar en la red.</p>
+          <div className="rounded-lg border border-white/5 bg-white/[0.02] p-6 text-center">
+            <p className="text-sm text-white/60">No tienes aliados registrados aún.</p>
+            <p className="text-xs text-white/40 mt-1">Crea tu primer aliado para habilitar beneficios en la tienda mobile.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="pb-3 text-sm font-semibold text-gray-500">Nombre comercial</th>
-                  <th className="pb-3 text-sm font-semibold text-gray-500">Nombre legal</th>
-                  <th className="pb-3 text-sm font-semibold text-gray-500">Categoría</th>
-                  <th className="pb-3 text-sm font-semibold text-gray-500">Estado</th>
-                  <th className="pb-3 text-sm font-semibold text-gray-500">Fecha</th>
+                <tr className="border-b border-white/10">
+                  <th className="pb-3 text-xs font-semibold text-white/50 uppercase">Nombre comercial</th>
+                  <th className="pb-3 text-xs font-semibold text-white/50 uppercase">Nombre legal</th>
+                  <th className="pb-3 text-xs font-semibold text-white/50 uppercase">Categoría</th>
+                  <th className="pb-3 text-xs font-semibold text-white/50 uppercase">Estado</th>
+                  <th className="pb-3 text-xs font-semibold text-white/50 uppercase">Fecha</th>
                 </tr>
               </thead>
               <tbody>
                 {allies.map((ally) => (
-                  <tr key={ally.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <tr key={ally.id} className="border-b border-white/5 hover:bg-white/[0.02]">
                     <td className="py-3">
-                      <Link href={`/coach/ally/allies/${ally.id}`} className="text-blue-600 hover:underline font-medium">
+                      <Link href={`/coach/ally/allies/${ally.id}`} className="text-brand-primary hover:underline text-sm font-medium">
                         {ally.commercialName}
                       </Link>
                     </td>
-                    <td className="py-3 text-sm text-gray-600">{ally.legalName}</td>
-                    <td className="py-3 text-sm">{ally.category}</td>
+                    <td className="py-3 text-sm text-white/60">{ally.legalName}</td>
+                    <td className="py-3 text-sm text-white/70">{ally.category}</td>
                     <td className="py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                         ally.status === 'active'
-                          ? 'bg-green-100 text-green-700'
+                          ? 'bg-emerald-500/15 text-emerald-400'
                           : ally.status === 'pending'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-red-100 text-red-700'
+                            ? 'bg-amber-500/15 text-amber-400'
+                            : 'bg-red-500/15 text-red-400'
                       }`}>
                         {ally.status}
                       </span>
                     </td>
-                    <td className="py-3 text-sm text-gray-500">
+                    <td className="py-3 text-sm text-white/50">
                       {new Date(ally.createdAt).toLocaleDateString('es-ES')}
                     </td>
                   </tr>
@@ -161,40 +203,40 @@ export default function AllyDashboard() {
         )}
       </div>
 
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Operaciones Recientes</h2>
+      <div className="rounded-xl border border-white/10 bg-surface-1 p-5 space-y-4">
+        <h2 className="text-lg font-semibold text-white">Operaciones Recientes</h2>
         {operations.length === 0 ? (
-          <p className="text-gray-500">No hay operaciones registradas.</p>
+          <p className="text-sm text-white/40">No hay operaciones registradas.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="pb-3 text-sm font-semibold text-gray-500">ID</th>
-                  <th className="pb-3 text-sm font-semibold text-gray-500">Tipo</th>
-                  <th className="pb-3 text-sm font-semibold text-gray-500">Estado</th>
-                  <th className="pb-3 text-sm font-semibold text-gray-500">Monto</th>
-                  <th className="pb-3 text-sm font-semibold text-gray-500">Fecha</th>
+                <tr className="border-b border-white/10">
+                  <th className="pb-3 text-xs font-semibold text-white/50 uppercase">ID</th>
+                  <th className="pb-3 text-xs font-semibold text-white/50 uppercase">Tipo</th>
+                  <th className="pb-3 text-xs font-semibold text-white/50 uppercase">Estado</th>
+                  <th className="pb-3 text-xs font-semibold text-white/50 uppercase">Monto</th>
+                  <th className="pb-3 text-xs font-semibold text-white/50 uppercase">Fecha</th>
                 </tr>
               </thead>
               <tbody>
                 {operations.slice(0, 5).map((op) => (
-                  <tr key={op.id} className="border-b border-gray-100">
-                    <td className="py-3 text-sm text-gray-500">{op.id}</td>
-                    <td className="py-3">{op.type}</td>
+                  <tr key={op.id} className="border-b border-white/5">
+                    <td className="py-3 text-xs font-mono text-white/50">{op.id}</td>
+                    <td className="py-3 text-sm text-white/80">{op.type}</td>
                     <td className="py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                         op.status === 'completed'
-                          ? 'bg-green-100 text-green-700'
+                          ? 'bg-emerald-500/15 text-emerald-400'
                           : op.status === 'pending'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-red-100 text-red-700'
+                            ? 'bg-amber-500/15 text-amber-400'
+                            : 'bg-red-500/15 text-red-400'
                       }`}>
                         {op.status}
                       </span>
                     </td>
-                    <td className="py-3 text-sm">{formatPrice(op.totalCents, op.currency)}</td>
-                    <td className="py-3 text-sm text-gray-500">
+                    <td className="py-3 text-sm text-white/80 tabular-nums">{formatPrice(op.totalCents, op.currency)}</td>
+                    <td className="py-3 text-sm text-white/50">
                       {new Date(op.createdAt).toLocaleDateString('es-ES')}
                     </td>
                   </tr>

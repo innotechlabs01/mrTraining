@@ -60,15 +60,32 @@ export default function BlogPage() {
   const draftCount = posts.filter((p) => !p.isPublished).length
   const totalViews = posts.reduce((sum, p) => sum + p.views, 0)
 
-  const handleSave = (p: BlogPost) => {
-    if (editing) {
-      updatePost(editing.id, p)
-      toast.success(`Artículo "${p.title}" actualizado`)
-    } else {
-      addPost(p)
-      toast.success(`Artículo "${p.title}" creado`)
+  const handleSave = async (p: BlogPost) => {
+    try {
+      if (editing) {
+        await updatePost(editing.id, p)
+        toast.success(`Artículo "${p.title}" actualizado`)
+      } else {
+        await addPost(p)
+        toast.success(`Artículo "${p.title}" creado`)
+      }
+      setEditing(null)
+    } catch {
+      toast.error('No se pudo guardar el artículo en Go API')
     }
-    setEditing(null)
+  }
+
+  const handleTogglePublish = async (p: BlogPost) => {
+    try {
+      const nextPublished = !p.isPublished
+      await updatePost(p.id, {
+        isPublished: nextPublished,
+        publishedAt: nextPublished ? p.publishedAt || new Date().toISOString() : null,
+      })
+      toast.success(nextPublished ? `"${p.title}" publicado para tus atletas` : `"${p.title}" movido a borrador`)
+    } catch {
+      toast.error('No se pudo cambiar el estado de publicación')
+    }
   }
 
   const handleEdit = (p: BlogPost) => {
@@ -76,10 +93,14 @@ export default function BlogPage() {
     setDialogOpen(true)
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const p = posts.find((p) => p.id === id)
-    removePost(id)
-    if (p) toast.success(`Artículo "${p.title}" eliminado`)
+    try {
+      await removePost(id)
+      if (p) toast.success(`Artículo "${p.title}" eliminado`)
+    } catch {
+      toast.error('No se pudo eliminar el artículo')
+    }
   }
 
   if (!hydrated) {
@@ -203,7 +224,13 @@ export default function BlogPage() {
                   </div>
                   <p className="text-[11px] text-white/40 truncate">{p.category} · {p.readTimeMinutes} min read · {p.views} vistas</p>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => handleTogglePublish(p)}
+                    className="px-2.5 py-1 text-[11px] font-medium rounded-lg border border-white/10 bg-white/5 text-white/75 hover:bg-white/10"
+                  >
+                    {p.isPublished ? 'Pasar a borrador' : 'Publicar'}
+                  </button>
                   <button
                     onClick={() => handleEdit(p)}
                     className="p-1.5 text-white/60 hover:text-white/90 hover:bg-white/10 rounded-lg"

@@ -17,9 +17,17 @@ type Event struct {
 	Status               string           `json:"status"` // "scheduled", "in_progress", "completed", "cancelled"
 	Format               string           `json:"format,omitempty"`
 	IsPublic             bool             `json:"is_public"`
-	RunningDistanceKm     *float64         `json:"running_distance_km,omitempty"`
+	MaxCapacity          *int             `json:"max_capacity,omitempty"`
+	PriceCents           int              `json:"price_cents"`
+	Currency             string           `json:"currency,omitempty"`
+	RegistrationDeadline string           `json:"registration_deadline,omitempty"`
+	RunningDistanceKm    *float64         `json:"running_distance_km,omitempty"`
 	RunningPace          string           `json:"running_pace,omitempty"`
 	RunningMeetingPoint  string           `json:"running_meeting_point,omitempty"`
+	RunningCategories    []string         `json:"running_categories,omitempty"`
+	RunningElevationM    *int             `json:"running_elevation_m,omitempty"`
+	RunningRouteURL      string           `json:"running_route_url,omitempty"`
+	AcceptedCount        int              `json:"accepted_count"`
 	AthleteIDs           []string         `json:"athlete_ids"`
 	FormFields           []EventFormField `json:"form_fields,omitempty"`
 	ListItems            []string         `json:"list_items,omitempty"`

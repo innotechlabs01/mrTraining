@@ -60,12 +60,14 @@ type RunningInterval struct {
 }
 
 // WorkoutDetail is the aggregate returned by GET /workouts/:id/detail.
-// It carries the assigned workout plus its exercises (image-joined) and the
-// latest in-progress session marker (nil when none exists).
+// It carries the assigned workout plus its exercises (image-joined), the
+// latest in-progress session marker (nil when none exists), and any sets
+// already logged in that active session for server-authoritative resume.
 type WorkoutDetail struct {
-	Workout   *AssignedWorkout
-	Exercises []WorkoutExercise
-	Session   *WorkoutSession
+	Workout    *AssignedWorkout
+	Exercises  []WorkoutExercise
+	Session    *WorkoutSession
+	LoggedSets []WorkoutSet
 }
 
 // AssignedWorkout represents a workout template assigned to a specific athlete.

@@ -1,12 +1,7 @@
 package handlers
 
 import (
-	"context"
 	"database/sql"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"time"
 
@@ -15,6 +10,7 @@ import (
 	inviteapp "github.com/innotechlabs01/mr-training-api/internal/application/invite"
 	userapp "github.com/innotechlabs01/mr-training-api/internal/application/user"
 	invitedomain "github.com/innotechlabs01/mr-training-api/internal/domain/invite"
+	userinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/user"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
@@ -25,6 +21,7 @@ type InviteHandler struct {
 	service        *inviteapp.Service
 	userService    *userapp.Service
 	clerkSecretKey string
+	clerkClient    *userinfra.ClerkClient
 	db             *sql.DB
 }
 
@@ -54,7 +51,7 @@ func (h *InviteHandler) AcceptInvite(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	result, err := h.service.AcceptInvite(c.Context(), req.Code, userID)
+	result, err := h.service.AcceptInvite(middleware.RequestContext(c), req.Code, userID)
 	if err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, err.Error())
 	}
@@ -70,7 +67,7 @@ func (h *InviteHandler) ValidateInvite(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	valid, err := h.service.ValidateCode(c.Context(), req.Code)
+	valid, err := h.service.ValidateCode(middleware.RequestContext(c), req.Code)
 	if err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, err.Error())
 	}
@@ -99,7 +96,7 @@ func (h *InviteHandler) CoachInvite(c *fiber.Ctx) error {
 	}
 
 	// Verify the authenticated user is a coach and get their capacity.
-	coach, err := h.userService.GetCoachByID(c.Context(), userID)
+	coach, err := h.userService.GetCoachByID(middleware.RequestContext(c), userID)
 	if err != nil {
 		return appresponse.Error(c, fiber.StatusNotFound, "coach not found")
 	}
@@ -108,14 +105,14 @@ func (h *InviteHandler) CoachInvite(c *fiber.Ctx) error {
 	// of truth for the athlete limit; fall back to the coach profile limit
 	// only when the coach has no platform plan.
 	if h.db != nil {
-		capacity, capErr := middleware.GetCoachPlanCapacity(c.Context(), h.db, userID)
+		capacity, capErr := middleware.GetCoachPlanCapacity(middleware.RequestContext(c), h.db, userID)
 		if capErr == nil && capacity.MaxAthletes > 0 {
 			if capacity.AthletesCount >= capacity.MaxAthletes {
 				return appresponse.Error(c, fiber.StatusBadRequest,
 					"límite de atletas del plan alcanzado — actualiza el plan para invitar más atletas")
 			}
 		} else {
-			athletes, err := h.userService.GetAthletesByCoach(c.Context(), userID)
+			athletes, err := h.userService.GetAthletesByCoach(middleware.RequestContext(c), userID)
 			if err != nil {
 				return appresponse.Error(c, fiber.StatusInternalServerError, "failed to count athletes")
 			}
@@ -124,7 +121,7 @@ func (h *InviteHandler) CoachInvite(c *fiber.Ctx) error {
 			}
 		}
 	} else {
-		athletes, err := h.userService.GetAthletesByCoach(c.Context(), userID)
+		athletes, err := h.userService.GetAthletesByCoach(middleware.RequestContext(c), userID)
 		if err != nil {
 			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to count athletes")
 		}
@@ -133,15 +130,15 @@ func (h *InviteHandler) CoachInvite(c *fiber.Ctx) error {
 		}
 	}
 
-	// Create the Clerk invitation.
-	clerkInvID, err := h.createClerkInvitation(email, userID)
+	// Create the Clerk invitation using the shared resilient client.
+	clerkInvID, err := h.clerkClientOrDefault().CreateInvitation(middleware.RequestContext(c), email, userID)
 	if err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to create invitation")
 	}
 
 	// Persist the pending invite.
 	expiresAt := time.Now().Add(7 * 24 * time.Hour).Format(time.RFC3339)
-	if err := h.service.CreatePendingInvite(c.Context(), &invitedomain.PendingInvite{
+	if err := h.service.CreatePendingInvite(middleware.RequestContext(c), &invitedomain.PendingInvite{
 		ID:                clerkInvID,
 		CoachID:           userID,
 		Email:             email,
@@ -160,42 +157,16 @@ func (h *InviteHandler) CoachInvite(c *fiber.Ctx) error {
 	})
 }
 
-// createClerkInvitation calls the Clerk Backend API to create an invitation.
-func (h *InviteHandler) createClerkInvitation(email, coachID string) (string, error) {
-	body, err := json.Marshal(map[string]interface{}{
-		"email_address": email,
-		"redirect_url":  "mrtraining://invite",
-		"metadata":      map[string]string{"coachId": coachID},
-	})
-	if err != nil {
-		return "", err
-	}
+// WithClerkClient injects the shared Clerk API client.
+func (h *InviteHandler) WithClerkClient(client *userinfra.ClerkClient) *InviteHandler {
+	h.clerkClient = client
+	return h
+}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost,
-		"https://api.clerk.com/v1/invitations", strings.NewReader(string(body)))
-	if err != nil {
-		return "", err
+func (h *InviteHandler) clerkClientOrDefault() *userinfra.ClerkClient {
+	if h.clerkClient != nil {
+		return h.clerkClient
 	}
-	req.Header.Set("Authorization", "Bearer "+h.clerkSecretKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	respBody, _ := io.ReadAll(resp.Body)
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("clerk invitation failed: status %d body %s", resp.StatusCode, string(respBody))
-	}
-
-	var parsed struct {
-		ID string `json:"id"`
-	}
-	if err := json.Unmarshal(respBody, &parsed); err != nil {
-		return "", err
-	}
-	return parsed.ID, nil
+	h.clerkClient = userinfra.NewClerkClient(h.clerkSecretKey)
+	return h.clerkClient
 }

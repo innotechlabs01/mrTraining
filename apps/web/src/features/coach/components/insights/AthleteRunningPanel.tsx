@@ -1,9 +1,9 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
-import { MapPin, Timer, Gauge, Trophy, ChevronRight, Download, Calendar, ArrowUpRight, TrendingUp } from 'lucide-react'
-import { goFetch, coachApi } from '@/features/shared/api/client'
-import type { RunningSession, RunningStats, RunningPRsResponse, WeeklyTrendPoint } from '@/features/shared/api/client'
+import { MapPin, Timer, Gauge, Trophy, ChevronRight, Download, Calendar, ArrowUpRight, TrendingUp, CheckCircle2 } from 'lucide-react'
+import { coachApi } from '@/features/shared/api/client'
+import type { RunningSession, RunningStats, RunningPRsResponse, WeeklyTrendPoint, PastAssignmentListItem } from '@/features/shared/api/client'
 import {
   Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, Legend
@@ -15,30 +15,34 @@ interface AthleteRunningPanelProps {
 
 export const AthleteRunningPanel = React.memo(function AthleteRunningPanel({ athleteId }: AthleteRunningPanelProps) {
   const [sessions, setSessions] = useState<RunningSession[]>([])
+  const [assignedWorkouts, setAssignedWorkouts] = useState<PastAssignmentListItem[]>([])
   const [stats, setStats] = useState<RunningStats | null>(null)
   const [prs, setPrs] = useState<RunningPRsResponse | null>(null)
   const [weeklyTrend, setWeeklyTrend] = useState<WeeklyTrendPoint[]>([])
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState<{ from?: string; to?: string }>({})
   const [exporting, setExporting] = useState(false)
+  const [showAllSessions, setShowAllSessions] = useState(false)
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [s, st, p, w] = await Promise.all([
+      const [s, st, p, w, aw] = await Promise.all([
         coachApi.getAthleteRunningSessions(athleteId, {
           limit: 50,
           fromDate: dateRange.from,
           toDate: dateRange.to,
-        }),
-        coachApi.getAthleteRunningStats(athleteId, dateRange.from, dateRange.to),
-        goFetch<RunningPRsResponse>(`/api/v1/athlete/${athleteId}/analytics/running/prs`),
+        }).catch(() => ({ data: [], total: 0, page: 1, limit: 50 })),
+        coachApi.getAthleteRunningStats(athleteId, dateRange.from, dateRange.to).catch(() => null),
+        coachApi.getAthleteRunningPRs(athleteId).catch(() => null),
         coachApi.getAthleteRunningWeeklyTrend(athleteId, dateRange.from, dateRange.to).catch(() => []),
+        coachApi.getAthleteAssignedWorkouts(athleteId).catch(() => []),
       ])
       setSessions(s.data ?? [])
       setStats(st)
       setPrs(p)
       setWeeklyTrend(Array.isArray(w) ? w : [])
+      setAssignedWorkouts(Array.isArray(aw) ? aw : [])
     } catch (e) {
       console.error('Failed to load running data:', e)
     } finally {
@@ -251,16 +255,66 @@ export const AthleteRunningPanel = React.memo(function AthleteRunningPanel({ ath
         </div>
       )}
 
+      {/* Assigned workouts for this athlete (prescribed vs actual + live SSE) */}
+      {assignedWorkouts.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+              Entrenamientos asignados (Ruta / Intervalos / En vivo)
+            </h3>
+            <a
+              href="/coach/training/asignar"
+              className="text-xs text-brand-primary hover:underline flex items-center gap-1"
+            >
+              Asignar nuevo <ChevronRight size={12} />
+            </a>
+          </div>
+          <ul className="space-y-1 max-h-48 overflow-y-auto">
+            {assignedWorkouts.map((aw) => (
+              <li
+                key={aw.id}
+                className="flex items-center justify-between py-2 px-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <a
+                  href={`/coach/users/${athleteId}/running/${aw.id}`}
+                  className="flex items-center gap-3 flex-1"
+                >
+                  <CheckCircle2
+                    size={16}
+                    className={aw.status === 'completed' ? 'text-emerald-400' : 'text-blue-400'}
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-white">{aw.contentName}</p>
+                    <p className="text-xs text-white/50">
+                      Progreso: {Math.round((aw.progress ?? 0) * 100)}% • Estado: {aw.status}
+                    </p>
+                  </div>
+                </a>
+                <a
+                  href={`/coach/users/${athleteId}/running/${aw.id}`}
+                  className="text-xs text-brand-primary hover:underline flex items-center gap-1"
+                >
+                  Ver detalle <ChevronRight size={12} />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Recent sessions */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-white/60 uppercase tracking-wider">Sesiones recientes</h3>
-          <a
-            href={`/coach/athletes/${athleteId}/running`}
-            className="text-xs text-brand-primary hover:underline flex items-center gap-1"
-          >
-            Ver todas <ChevronRight size={12} />
-          </a>
+          <h3 className="text-xs font-semibold text-white/60 uppercase tracking-wider">Sesiones GPS registradas</h3>
+          {sessions.length > 5 && (
+            <button
+              type="button"
+              onClick={() => setShowAllSessions((v) => !v)}
+              className="text-xs text-brand-primary hover:underline flex items-center gap-1"
+            >
+              {showAllSessions ? 'Ver menos' : `Ver todas (${sessions.length})`} <ChevronRight size={12} />
+            </button>
+          )}
         </div>
         {!hasData ? (
           <div className="text-center py-8 bg-white/5 rounded-lg">
@@ -276,13 +330,20 @@ export const AthleteRunningPanel = React.memo(function AthleteRunningPanel({ ath
           </div>
         ) : (
           <ul className="space-y-1 max-h-64 overflow-y-auto">
-            {sessions.map((s) => (
+            {(showAllSessions ? sessions : sessions.slice(0, 5)).map((s) => (
               <li key={s.id} className="flex items-center justify-between py-2 px-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
                 <a href={`/coach/users/${athleteId}/running/${s.id}`} className="flex items-center gap-3 flex-1">
                   <MapPin size={16} className="text-green-400" />
                   <div>
-                    <p className="text-sm font-medium text-white">{s.date}</p>
-                    <p className="text-xs text-white/50">{s.distance?.toFixed(1)} km • {formatPace(s.pace)} • FC: {s.heartRate || '–'}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-white">{s.date}</p>
+                      {(s.deviceName || s.source) && (
+                        <span className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-white/60">
+                          {s.deviceName || (s.source === 'apple_watch' ? 'Apple Watch' : s.source === 'garmin' ? 'Garmin' : s.source === 'health_connect' ? 'Health Connect' : s.source)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-white/50">{s.distance?.toFixed(1)} km • {formatPace(s.pace)} • FC: {s.heartRate || '–'}{s.cadence ? ` • Cad: ${s.cadence} spm` : ''}</p>
                   </div>
                 </a>
                 <div className="text-right text-xs text-white/60">

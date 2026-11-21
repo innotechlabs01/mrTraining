@@ -19,6 +19,7 @@ import (
 	checkoutdomain "github.com/innotechlabs01/mr-training-api/internal/domain/checkout"
 	subscriptiondomain "github.com/innotechlabs01/mr-training-api/internal/domain/subscription"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/pkg/eventbus"
 )
 
 // IdentityReader reads the verified identity of a user from the auth
@@ -38,6 +39,12 @@ type SubscriptionAttacher interface {
 	AttachPaidCheckout(ctx context.Context, cmd subscriptionapp.AttachPaidCheckoutCommand) (*subscriptiondomain.Subscription, error)
 }
 
+// AvailabilityGate determines whether online checkout starts are permitted.
+type AvailabilityGate interface {
+	PaymentCheckoutAllowed() bool
+	PaymentCheckoutReason() string
+}
+
 // Service orchestrates the hybrid checkout.
 type Service struct {
 	cfg           *config.Config
@@ -47,6 +54,8 @@ type Service struct {
 	coaches       CoachProvisioner
 	subscriptions SubscriptionAttacher
 	identity      IdentityReader
+	availGate     AvailabilityGate
+	outbox        eventbus.OutboxWriter
 }
 
 // NewService creates a checkout service.
@@ -58,6 +67,18 @@ func NewService(cfg *config.Config, repo checkoutdomain.Repository, provider sub
 // the caller. Without it the claim cannot prove that the caller is the payer.
 func (s *Service) WithIdentityReader(r IdentityReader) *Service {
 	s.identity = r
+	return s
+}
+
+// WithAvailabilityGate injects a fail-closed payment availability gate.
+func (s *Service) WithAvailabilityGate(g AvailabilityGate) *Service {
+	s.availGate = g
+	return s
+}
+
+// WithOutbox attaches an outbox writer for async checkout domain events.
+func (s *Service) WithOutbox(outbox eventbus.OutboxWriter) *Service {
+	s.outbox = outbox
 	return s
 }
 
@@ -103,6 +124,13 @@ func (s *Service) Start(ctx context.Context, cmd StartCommand) (*StartResult, er
 	}
 	if !plan.IsActive {
 		return nil, errors.BadRequest("plan is not active")
+	}
+	if s.availGate != nil && !s.availGate.PaymentCheckoutAllowed() {
+		reason := s.availGate.PaymentCheckoutReason()
+		if reason == "" {
+			reason = "La pasarela de pagos no está disponible temporalmente. Intenta en unos minutos."
+		}
+		return nil, errors.ServiceUnavailable(reason)
 	}
 
 	co := &checkoutdomain.Checkout{
@@ -236,6 +264,17 @@ func (s *Service) Claim(ctx context.Context, cmd ClaimCommand) (*ClaimResult, er
 	}
 	if err := s.repo.Save(ctx, co); err != nil {
 		return nil, fmt.Errorf("save pending checkout: %w", err)
+	}
+
+	if s.outbox != nil {
+		claimedEv := eventbus.NewEvent(ctx, eventbus.SubjectCheckoutClaimed, "checkout", co.ID, map[string]interface{}{
+			"checkout_id": co.ID,
+			"coach_id":    activation.CoachID,
+			"coach_code":  activation.CoachCode,
+			"plan_id":     co.PlanID,
+			"plan_name":   co.PlanName,
+		}).WithTenant(activation.CoachID, cmd.UserID, "")
+		_ = s.outbox.Insert(ctx, nil, claimedEv)
 	}
 
 	return &ClaimResult{

@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { X, Check, Clock, Users, UserCheck, UserX, BarChart3, Link2 } from 'lucide-react';
+import { X, Check, Clock, Users, UserCheck, UserX, BarChart3, Link2, Download, RefreshCw, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { coachingApi } from '@/features/shared/api/client';
 import { useAthletes } from '@/features/coach/hooks/useAthletes';
@@ -46,16 +46,16 @@ function Metric({ label, value, icon: Icon, tone }: {
 export function EventStatsModal({ event, onClose }: EventStatsModalProps) {
   const { getAthleteById } = useAthletes();
 
-  const { data: registrations = [], isLoading, error } = useQuery({
+  const { data: registrations = [], isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['event-registrations', event.id],
     queryFn: () => coachingApi.getEventRegistrations(event.id),
-    staleTime: 30_000,
+    staleTime: 10_000,
   });
 
-  const { data: formAnswers = [] } = useQuery({
+  const { data: formAnswers = [], refetch: refetchAnswers } = useQuery({
     queryKey: ['event-form-responses', event.id],
     queryFn: () => coachingApi.getEventFormResponses(event.id),
-    staleTime: 30_000,
+    staleTime: 10_000,
   });
 
   const answersByAthlete = new Map<string, FormAnswer[]>();
@@ -69,6 +69,7 @@ export function EventStatsModal({ event, onClose }: EventStatsModalProps) {
     if (fieldId === 'name') return null;
     if (fieldId === 'email') return 'Email';
     if (fieldId === 'phone') return 'Teléfono';
+    if (fieldId === 'category') return 'Categoría';
     return event.formFields?.find((f: EventFormField) => f.id === fieldId)?.label ?? fieldId;
   };
 
@@ -98,11 +99,47 @@ export function EventStatsModal({ event, onClose }: EventStatsModalProps) {
     };
   });
 
-  const invited = event.athleteIds.length;
   const accepted = rows.filter((r) => r.status === 'accepted').length;
+  const acceptedPublic = rows.filter((r) => r.status === 'accepted' && r.athleteId.startsWith('anon:')).length;
+  const acceptedAthletes = accepted - acceptedPublic;
   const cancelled = rows.filter((r) => r.status === 'cancelled').length;
   const pending = rows.filter((r) => r.status === 'pending').length;
-  const rate = rows.length > 0 ? Math.round((accepted / rows.length) * 100) : 0;
+  const denominator = event.maxCapacity && event.maxCapacity > 0 ? event.maxCapacity : rows.length;
+  const rate = denominator > 0 ? Math.min(100, Math.round((accepted / denominator) * 100)) : 0;
+
+  const handleRefresh = () => {
+    void refetch();
+    void refetchAnswers();
+  };
+
+  const handleExportCsv = () => {
+    const customFields = event.formFields ?? [];
+    const headers = ['Nombre', 'Tipo', 'Estado', 'Email', 'Teléfono', 'Categoría', ...customFields.map((f) => f.label)];
+    const escapeCell = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const csvRows = [
+      headers.map(escapeCell).join(','),
+      ...rows.map((row) => {
+        const byField = new Map(row.answers.map((a) => [a.fieldId, a.value]));
+        const cells = [
+          row.name,
+          row.athleteId.startsWith('anon:') ? 'Público externo' : 'Atleta',
+          row.status === 'accepted' ? 'Confirmado' : row.status === 'cancelled' ? 'Cancelado' : 'Sin responder',
+          byField.get('email') ?? '',
+          byField.get('phone') ?? '',
+          byField.get('category') ?? '',
+          ...customFields.map((f) => (byField.get(f.id) ?? '').replace(/\u0001/g, '; ')),
+        ];
+        return cells.map(escapeCell).join(',');
+      }),
+    ];
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `inscritos-${event.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -117,9 +154,30 @@ export function EventStatsModal({ event, onClose }: EventStatsModalProps) {
             <div className="w-9 h-9 rounded-xl bg-brand-primary/15 flex items-center justify-center shrink-0">
               <BarChart3 className="w-4 h-4 text-brand-primary" />
             </div>
-            <div className="min-w-0">
-              <h3 className="text-lg font-display font-bold text-white truncate">Resultados</h3>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-lg font-display font-bold text-white truncate">Inscritos y Resultados</h3>
               <p className="text-xs text-white/40 truncate">{event.title} · {event.date}</p>
+            </div>
+            <div className="flex items-center gap-1.5 mr-6">
+              <button
+                onClick={handleRefresh}
+                disabled={isFetching}
+                className="p-1.5 rounded-lg bg-surface-2 border border-white/10 text-white/60 hover:text-white transition-colors"
+                title="Actualizar"
+                aria-label="Actualizar inscritos"
+              >
+                <RefreshCw className={cn('w-3.5 h-3.5', isFetching && 'animate-spin')} />
+              </button>
+              {rows.length > 0 && (
+                <button
+                  onClick={handleExportCsv}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface-2 border border-white/10 text-xs text-white/80 hover:text-white transition-colors"
+                  title="Descargar lista CSV"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  CSV
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -148,16 +206,20 @@ export function EventStatsModal({ event, onClose }: EventStatsModalProps) {
             </div>
           ) : (
             <>
-              <div className="flex gap-2.5">
-                <Metric label="Invitados" value={invited} icon={Users} />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <Metric label="Confirmados" value={accepted} icon={UserCheck} tone="text-green-400" />
+                <Metric label="Público ext." value={acceptedPublic} icon={Globe} tone="text-cyan-400" />
+                <Metric label="Atletas" value={acceptedAthletes} icon={Users} tone="text-white" />
                 <Metric label="Cancelados" value={cancelled} icon={UserX} tone="text-red-400" />
-                <Metric label="Sin responder" value={pending} icon={Clock} tone="text-white/50" />
               </div>
 
               <div>
                 <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="text-white/40">Tasa de confirmación</span>
+                  <span className="text-white/40">
+                    {event.maxCapacity
+                      ? `Ocupación (${accepted} / ${event.maxCapacity} cupos)`
+                      : `Tasa de confirmación (${pending > 0 ? `${pending} pendientes` : 'en tiempo real'})`}
+                  </span>
                   <span className="text-white font-medium">{rate}%</span>
                 </div>
                 <div className="h-1.5 w-full rounded bg-surface-5 overflow-hidden">

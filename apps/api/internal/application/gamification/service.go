@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/gamification"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Badge definitions - matching mobile's badgeService.ts
@@ -33,6 +34,37 @@ var badgeDefinitions = map[string]struct {
 	"membership-1m": {"Un Mes", "Un mes entrenando con tu coach", "membership", "AwardIcon", 1},
 	"membership-3m": {"Trimestre", "Tres meses entrenando con tu coach", "membership", "AwardIcon", 3},
 	"membership-6m": {"Semestre", "Seis meses entrenando con tu coach", "membership", "AwardIcon", 6},
+	// Challenge & Coach incentive badges.
+	"prueba-de-fuego":    {"Prueba de Fuego", "Superaste una Prueba de Fuego oficial del coach", "challenge", "FireIcon", 1},
+	"challenge-finisher": {"Retador", "Completaste un desafío oficial del coach", "challenge", "TrophyIcon", 1},
+	"incentivo-coach":    {"Reconocimiento del Coach", "Insignia e incentivo otorgado por tu coach", "reward", "AwardIcon", 1},
+}
+
+// BadgeCatalogItem describes an available badge for UI selectors and KPIs.
+type BadgeCatalogItem struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	Icon        string `json:"icon"`
+	Threshold   int    `json:"threshold"`
+}
+
+// ListBadgeDefinitions returns all registered badge definitions sorted by ID.
+func ListBadgeDefinitions() []BadgeCatalogItem {
+	items := make([]BadgeCatalogItem, 0, len(badgeDefinitions))
+	for id, def := range badgeDefinitions {
+		items = append(items, BadgeCatalogItem{
+			ID:          id,
+			Title:       def.Title,
+			Description: def.Description,
+			Category:    def.Category,
+			Icon:        def.Icon,
+			Threshold:   def.Threshold,
+		})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
+	return items
 }
 
 // GetBadgeDefinition returns a badge definition by ID.
@@ -55,6 +87,52 @@ type Service struct {
 // NewService creates a new gamification service.
 func NewService(repo gamification.Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// WithExecutor returns a copy of Service bound to a transactional SQL executor.
+func (s *Service) WithExecutor(exec database.Executor) *Service {
+	if s == nil {
+		return nil
+	}
+	if setter, ok := s.repo.(interface {
+		WithExecutor(database.Executor) gamification.Repository
+	}); ok {
+		return &Service{repo: setter.WithExecutor(exec)}
+	}
+	return s
+}
+
+// AwardBadge grants a specific badge to an athlete if they do not already have it.
+// Returns (badge, newlyAwarded, error).
+func (s *Service) AwardBadge(ctx context.Context, athleteID, badgeID string) (*gamification.Badge, bool, error) {
+	if strings.TrimSpace(athleteID) == "" {
+		return nil, false, fmt.Errorf("athlete ID is required")
+	}
+	badgeID = strings.TrimSpace(badgeID)
+	if badgeID == "" {
+		badgeID = "incentivo-coach"
+	}
+
+	existing, err := s.repo.ListBadges(ctx, athleteID)
+	if err != nil {
+		return nil, false, err
+	}
+	for _, b := range existing {
+		if b.BadgeID == badgeID {
+			return b, false, nil
+		}
+	}
+
+	badge := &gamification.Badge{
+		ID:         uuid.New().String(),
+		AthleteID:  athleteID,
+		BadgeID:    badgeID,
+		UnlockedAt: time.Now().UTC().Format(time.RFC3339),
+	}
+	if err := s.repo.UpsertBadge(ctx, badge); err != nil {
+		return nil, false, err
+	}
+	return badge, true, nil
 }
 
 // GetStreak returns the athlete's current streak data.

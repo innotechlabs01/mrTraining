@@ -48,5 +48,6 @@ export const DIFFICULTY_LABELS: Record<string, string> = {
 
 export const GOAL_LABELS: Record<string, string> = {
   strength: 'Fuerza', hypertrophy: 'Hipertrofia', endurance: 'Resistencia',
-  speed: 'Velocidad', power: 'Potencia', mobility: 'Movilidad', conditioning: 'Acondicionamiento',
+  running: 'Running / Carrera', speed: 'Velocidad', power: 'Potencia',
+  mobility: 'Movilidad', conditioning: 'Acondicionamiento',
 }

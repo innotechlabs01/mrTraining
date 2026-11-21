@@ -9,6 +9,11 @@ export type EventItem = {
   location?: string;
   description?: string;
   status?: string;
+  maxCapacity?: number;
+  priceCents?: number;
+  currency?: string;
+  registrationDeadline?: string;
+  acceptedCount?: number;
 };
 
 export type FormField = {
@@ -23,6 +28,9 @@ export type RunningInfo = {
   distanceKm?: string | number;
   pace?: string;
   meetingPoint?: string;
+  categories?: string[];
+  elevationM?: number;
+  routeUrl?: string;
 };
 
 export type Registration = {
@@ -49,10 +57,10 @@ export type EventDetailData = {
   responses: FormResponse[];
 };
 
-export type AnswerPayload = { fieldId: string; value: string };
+export type AnswerPayload = { fieldId: string; field_id: string; value: string };
 
 const SINGLE_KINDS = new Set(['select', 'option']);
-const MULTI_KINDS = new Set(['checkbox', 'multi']);
+const MULTI_KINDS = new Set(['checkbox', 'multi', 'multiple']);
 
 export function isSingleKind(kind: string): boolean {
   return SINGLE_KINDS.has(kind);

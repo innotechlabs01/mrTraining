@@ -32,6 +32,7 @@ import { useProducts } from '../../hooks/useProducts'
 import { useSales } from '../../hooks/useSales'
 import { useAthletes } from '../../hooks/useAthletes'
 import { coachingApi } from '@/features/shared/api/client'
+import { goClient } from '@/lib/api/go-client'
 import { EmptyState } from '../shared/EmptyState'
 import type { CoachEvent, EventFormat, DashboardMetrics, RevenuePoint } from '../../types'
 
@@ -206,6 +207,19 @@ export default function CoachDashboard() {
     retry: 1,
   })
 
+  const { data: appointments = [] } = useQuery<Array<{ id: string; start_time: string; status: string; athlete_name?: string; meet_room_id?: string }>>({
+    queryKey: ['coach', 'appointments-today'],
+    queryFn: async () => {
+      try {
+        const res = await goClient.get<{ data?: Array<{ id: string; start_time: string; status: string; athlete_name?: string; meet_room_id?: string }> }>('/api/v1/coaches/appointments')
+        return res?.data ?? []
+      } catch {
+        return []
+      }
+    },
+    staleTime: 30_000,
+  })
+
   const m = dashboard?.metrics ?? null
   const extra = dashboard?.extra ?? null
   const revenueHistory = dashboard?.revenueHistory ?? []
@@ -217,6 +231,10 @@ export default function CoachDashboard() {
 
   // Last 7 days sales
   const todayStr = now.toISOString().split('T')[0]
+  const todayMeetings = useMemo(
+    () => appointments.filter((a) => a.start_time?.slice(0, 10) === todayStr && a.status !== 'cancelled'),
+    [appointments, todayStr],
+  )
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(now)
     d.setDate(d.getDate() - (6 - i))
@@ -372,6 +390,7 @@ export default function CoachDashboard() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: 'Today', href: '/coach/today', icon: Clock, color: 'text-brand-primary bg-brand-primary/10' },
+          { label: `Reuniones (${todayMeetings.length} hoy)`, href: '/coach/agendamiento', icon: Calendar, color: 'text-purple-400 bg-purple-500/10' },
           { label: 'Athletes', href: '/coach/users', icon: Users, color: 'text-blue-400 bg-blue-500/10' },
           { label: 'Workouts', href: '/coach/workouts', icon: Dumbbell, color: 'text-emerald-400 bg-emerald-500/10' },
         ].map((a, i) => (

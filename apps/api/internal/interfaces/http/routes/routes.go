@@ -2,6 +2,7 @@
 package routes
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -9,6 +10,28 @@ import (
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/handlers"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 )
+
+// RegisterCriticalIdempotencyMiddleware mounts transactional HTTP idempotency
+// on critical payment, checkout, purchase, and workout mutation endpoints.
+// Must be invoked before domain route handlers are registered on api/pub.
+func RegisterCriticalIdempotencyMiddleware(api, pub fiber.Router, db *sql.DB) {
+	if db == nil {
+		return
+	}
+	mw := middleware.Idempotency(db)
+	if pub != nil {
+		pub.Post("/checkouts", mw)
+	}
+	if api != nil {
+		api.Post("/subscriptions", mw)
+		api.Post("/coach/subscription/checkout", mw)
+		api.Post("/coach/subscription/trial", mw)
+		api.Post("/checkouts/:id/claim", mw)
+		api.Post("/athlete/ally/products/:id/purchase", mw)
+		api.Post("/workouts/:id/sets", mw)
+		api.Post("/running/workouts/sessions/:id/complete", mw)
+	}
+}
 
 // RegisterAthleteRoutes registers athlete-scoped routes on the given API group.
 // Routes: GET /athletes/:id/workouts, /metrics, /messages.
@@ -75,9 +98,9 @@ func RegisterTrainingRoutes(api fiber.Router, handler *handlers.TrainingHandler,
 
 	// Workouts (assignment and tracking)
 	api.Post("/workouts/assign", middleware.RequireCoach(), middleware.RequireCoachID(), handler.AssignWorkout)
-	api.Get("/workouts", middleware.RequireAthlete(), middleware.RequireActiveMembership(statusReader), handler.GetAssignedWorkouts)
-	api.Get("/workouts/:id", middleware.RequireAthlete(), middleware.RequireActiveMembership(statusReader), handler.GetAssignedWorkoutDetail)
-	api.Get("/workouts/:id/detail", middleware.RequireAthlete(), middleware.RequireActiveMembership(statusReader), handler.GetAssignedWorkoutDetail)
+	api.Get("/workouts", handler.GetAssignedWorkouts)
+	api.Get("/workouts/:id", handler.GetAssignedWorkoutDetail)
+	api.Get("/workouts/:id/detail", handler.GetAssignedWorkoutDetail)
 	api.Get("/workouts/:id/prescription", middleware.RequireAthlete(), middleware.RequireActiveMembership(statusReader), handler.GetWorkoutPrescription)
 	api.Post("/workouts/:id/session", middleware.RequireAthlete(), middleware.RequireActiveMembership(statusReader), handler.CreateWorkoutSession)
 	api.Post("/workouts/:id/sets", middleware.RequireAthlete(), middleware.RequireActiveMembership(statusReader), handler.LogWorkoutSet)
@@ -225,7 +248,10 @@ func RegisterRunningRoutes(api fiber.Router, handler *handlers.RunningHandler) {
 
 	// Coach scoped — ver running de un atleta específico
 	api.Get("/coach/athletes/:id/running/sessions", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CoachListSessionsByAthlete)
+	api.Get("/coach/athletes/:id/running/sessions/:sessionId", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CoachGetSessionByAthlete)
 	api.Get("/coach/athletes/:id/running/stats", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CoachGetStatsByAthlete)
+	api.Get("/coach/athletes/:id/running/prs", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetAthleteRunningPRs)
+	api.Get("/athlete/:athleteId/analytics/running/prs", handler.GetAthleteRunningPRs)
 	api.Get("/coach/athletes/:id/running/weekly-trend", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CoachGetWeeklyTrendByAthlete)
 	api.Get("/coach/athletes/:id/running/export", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CoachExportSessionsByAthlete)
 
@@ -425,6 +451,35 @@ func RegisterStoreRoutes(api fiber.Router, handler *handlers.StoreHandler) {
 func RegisterAthleteSchedulingRoutes(api fiber.Router, handler *handlers.AthleteSchedulingHandler) {
 	api.Get("/athlete/availability", middleware.RequireAthlete(), handler.GetAvailability)
 	api.Post("/athlete/appointments", middleware.RequireAthlete(), handler.CreateAppointment)
+	api.Get("/athlete/appointments", middleware.RequireAthlete(), handler.GetAppointments)
+}
+
+// RegisterCoachSchedulingRoutes registers coach dashboard, summary, time blocks, appointments, and availability routes.
+func RegisterCoachSchedulingRoutes(api fiber.Router, handler *handlers.CoachHandler) {
+	coaches := api.Group("/coaches", middleware.RequireCoach(), middleware.RequireCoachID())
+	coaches.Get("/dashboard", handler.GetDashboard)
+	coaches.Get("/daily-summary", handler.GetDailySummary)
+	coaches.Get("/time-blocks", handler.GetTimeBlocks)
+	coaches.Post("/time-blocks", handler.SaveTimeBlocks)
+	coaches.Get("/appointments", handler.GetAppointments)
+	coaches.Post("/appointments", handler.CreateAppointment)
+	coaches.Put("/appointments/:id", handler.UpdateAppointment)
+	coaches.Get("/availability", handler.GetAvailability)
+	coaches.Post("/availability", handler.SaveAvailability)
+}
+
+// RegisterMeetRoutes registers P2P WebRTC Meet signaling routes (authenticated and public room links).
+func RegisterMeetRoutes(api, pub fiber.Router, handler *handlers.MeetSignalingHandler) {
+	if api != nil {
+		api.Post("/meet/:roomId/signal", handler.PostSignal)
+		api.Get("/meet/:roomId/signals", handler.GetSignals)
+		api.Delete("/meet/:roomId/signals", handler.ClearSignals)
+	}
+	if pub != nil {
+		pub.Post("/meet/:roomId/signal", handler.PostSignal)
+		pub.Get("/meet/:roomId/signals", handler.GetSignals)
+		pub.Delete("/meet/:roomId/signals", handler.ClearSignals)
+	}
 }
 
 // RegisterGamificationRoutes registers gamification-related routes on the given API group.
@@ -439,6 +494,10 @@ func RegisterGamificationRoutes(api fiber.Router, handler *handlers.Gamification
 	// Badges
 	api.Get("/gamification/badges", middleware.RequireAthlete(), handler.ListBadges)
 	api.Post("/gamification/badges/check", middleware.RequireAthlete(), handler.CheckBadges)
+
+	// Coach Gamification KPIs & Manual Awarding
+	api.Get("/coach/gamification/kpis", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetCoachKPIs)
+	api.Post("/coach/gamification/award-badge", middleware.RequireCoach(), middleware.RequireCoachID(), handler.AwardBadge)
 
 	// Personal Records
 	api.Get("/gamification/prs", middleware.RequireAthlete(), handler.ListPRs)
@@ -484,6 +543,8 @@ func RegisterCoachFeedRoutes(api fiber.Router, handler *handlers.CoachFeedHandle
 func RegisterFormMetricsRoutes(api fiber.Router, handler *handlers.FormMetricsHandler) {
 	fm := api.Group("/form-metrics")
 	fm.Post("/sync", middleware.RequireAthlete(), handler.SyncMetrics)
+	fm.Get("/consent", middleware.RequireAthlete(), handler.GetConsent)
+	fm.Put("/consent", middleware.RequireAthlete(), handler.UpdateConsent)
 	fm.Get("", middleware.RequireAthlete(), handler.GetByAthlete)
 	fm.Get("/athlete/:id", handler.GetAthleteMetrics)
 }

@@ -92,8 +92,30 @@ async function fetchRecoveryMetrics(): Promise<RecoveryMetrics> {
     apiClient.get('/athlete/health/metrics?days=8'),
     apiClient.get('/athlete/health/sleep?days=8'),
   ]);
-  const metrics: MetricRow[] = metricsRes.data.metrics ?? [];
-  const sleeps: Array<SleepLog & { date: string }> = sleepRes.data.sleepLogs ?? [];
+  const rawMetrics = (metricsRes.data?.metrics ?? metricsRes.data ?? []) as Array<Record<string, unknown>>;
+  const metrics: MetricRow[] = Array.isArray(rawMetrics)
+    ? rawMetrics.map(m => ({
+        metricType: String(m.metricType ?? m.metric_type ?? ''),
+        value: Number(m.value ?? 0),
+        recordedAt: String(m.recordedAt ?? m.recorded_at ?? ''),
+      }))
+    : [];
+
+  const rawSleeps = (sleepRes.data?.sleepLogs ?? sleepRes.data ?? []) as Array<Record<string, unknown>>;
+  const sleeps: Array<SleepLog & { date: string }> = Array.isArray(rawSleeps)
+    ? rawSleeps.map(s => ({
+        date: String(s.date ?? ''),
+        totalMinutes: Number(s.totalMinutes ?? s.total_minutes ?? 0),
+        deepMinutes: s.deepMinutes != null ? Number(s.deepMinutes) : s.deep_minutes != null ? Number(s.deep_minutes) : undefined,
+        remMinutes: s.remMinutes != null ? Number(s.remMinutes) : s.rem_minutes != null ? Number(s.rem_minutes) : undefined,
+        lightMinutes: s.lightMinutes != null ? Number(s.lightMinutes) : s.light_minutes != null ? Number(s.light_minutes) : undefined,
+        awakeMinutes: s.awakeMinutes != null ? Number(s.awakeMinutes) : s.awake_minutes != null ? Number(s.awake_minutes) : undefined,
+        efficiency: s.efficiency != null ? Number(s.efficiency) : undefined,
+        score: s.score != null ? Number(s.score) : undefined,
+        source: String(s.source ?? 'manual') as SleepLog['source'],
+        recordedAt: String(s.recordedAt ?? s.recorded_at ?? s.date ?? ''),
+      }))
+    : [];
 
   const byType = (t: string): MetricRow[] =>
     metrics.filter(m => m.metricType === t).sort((a, b) => b.recordedAt.localeCompare(a.recordedAt));

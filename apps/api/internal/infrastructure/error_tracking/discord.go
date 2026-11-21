@@ -13,6 +13,7 @@ import (
 	"time"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/error_tracking"
+	"github.com/innotechlabs01/mr-training-api/pkg/resilience"
 )
 
 // DiscordSender sends error notifications to a Discord channel via webhook.
@@ -25,9 +26,27 @@ type DiscordSender struct {
 // NewDiscordSender creates a Discord sender with the given webhook URL.
 // If webhookURL is empty, the sender is a no-op (errors are still saved to DB).
 func NewDiscordSender(webhookURL string) *DiscordSender {
+	cb := resilience.RegisterBreaker(resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{
+		Name:             "discord_webhook",
+		FailureThreshold: 5,
+		ResetTimeout:     60 * time.Second,
+	}))
+	bh := resilience.NewBulkhead("discord_webhook", 5, 250*time.Millisecond)
 	return &DiscordSender{
 		webhookURL: webhookURL,
-		client:     &http.Client{Timeout: 10 * time.Second},
+		client: resilience.NewHTTPClient(resilience.HTTPClientConfig{
+			Name:     "discord_webhook",
+			Timeout:  5 * time.Second,
+			Breaker:  cb,
+			Bulkhead: bh,
+		}),
+	}
+}
+
+// SetHTTPClient overrides the HTTP client (primarily for tests).
+func (s *DiscordSender) SetHTTPClient(client *http.Client) {
+	if client != nil {
+		s.client = client
 	}
 }
 

@@ -57,3 +57,9 @@ e2e/credentials.env
 apps/web/test-results/
 apps/web/playwright-report/
 apps/web/.auth/
+
+# Go compiled binaries
+apps/api/cmd/api/api
+apps/api/cmd/worker/worker
+apps/api/server
+apps/api/worker

@@ -18,6 +18,7 @@ import (
 
 	"github.com/innotechlabs01/mr-training-api/internal/config"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/subscription"
+	"github.com/innotechlabs01/mr-training-api/pkg/resilience"
 )
 
 // API is the MercadoPago base URL.
@@ -25,12 +26,37 @@ const API = "https://api.mercadopago.com"
 
 // Adapter is the MercadoPago implementation of the PaymentProvider port.
 type Adapter struct {
-	cfg *config.Config
+	cfg    *config.Config
+	client *http.Client
 }
 
 // NewAdapter creates a MercadoPago payment adapter.
 func NewAdapter(cfg *config.Config) *Adapter {
-	return &Adapter{cfg: cfg}
+	cb := resilience.RegisterBreaker(resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{
+		Name:             "mercadopago",
+		FailureThreshold: 5,
+		ResetTimeout:     30 * time.Second,
+	}))
+	bh := resilience.NewBulkhead("mercadopago", 15, 250*time.Millisecond)
+	retry := resilience.DefaultRetryConfig()
+	retry.MaxAttempts = 2
+	return &Adapter{
+		cfg: cfg,
+		client: resilience.NewHTTPClient(resilience.HTTPClientConfig{
+			Name:     "mercadopago",
+			Timeout:  8 * time.Second,
+			Breaker:  cb,
+			Bulkhead: bh,
+			Retry:    &retry,
+		}),
+	}
+}
+
+// SetHTTPClient overrides the underlying HTTP client (primarily for tests).
+func (a *Adapter) SetHTTPClient(client *http.Client) {
+	if client != nil {
+		a.client = client
+	}
 }
 
 // CreateCheckout builds a MercadoPago checkout preference and returns the init
@@ -81,8 +107,7 @@ func (a *Adapter) VerifySignature(body []byte, signatureHeader string) error {
 		return subscription.ErrInvalidSignature
 	}
 	if a.cfg.MercadoPagoWebhookKey == "" {
-		// Dev convenience: no secret configured → accept but the caller logs.
-		return nil
+		return subscription.ErrInvalidSignature
 	}
 
 	var ts, v1 string
@@ -117,7 +142,7 @@ func (a *Adapter) FetchPayment(ctx context.Context, paymentID string) (*subscrip
 	}
 	req.Header.Set("Authorization", "Bearer "+a.cfg.MercadoPagoSecretKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := a.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch payment: %w", err)
 	}
@@ -164,7 +189,7 @@ func (a *Adapter) Refund(ctx context.Context, paymentID string) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+a.cfg.MercadoPagoSecretKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := a.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("refund: %w", err)
 	}
@@ -198,7 +223,7 @@ func (a *Adapter) postPreference(ctx context.Context, payload []byte) (*mpPrefer
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+a.cfg.MercadoPagoSecretKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := a.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("mercadopago unavailable: %w", err)
 	}

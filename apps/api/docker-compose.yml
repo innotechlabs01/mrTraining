@@ -144,6 +144,7 @@ services:
       - LOG_LEVEL=debug
       - REDIS_URL=redis:6379
       - NATS_URL=nats://nats:4222
+      - EMBEDDED_WORKER=${EMBEDDED_WORKER:-false}
       # Infisical configuration (loaded from .env.local)
       - INFISICAL_ENABLED=${INFISICAL_ENABLED:-false}
       - INFISICAL_BASE_URL=${INFISICAL_BASE_URL:-http://infisical:8080}
@@ -171,6 +172,61 @@ services:
         reservations:
           memory: 128M
           cpus: "0.25"
+
+  # ============================================
+  # MR Training Worker - Outbox Relay, NATS Consumers & Scheduled Jobs
+  # ============================================
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mr-training-worker
+    profiles: ["full"]
+    command: ["./worker"]
+    env_file:
+      - .env.local
+    environment:
+      - APP_ENV=development
+      - PLATFORM_SUPER_ADMIN_CLERK_ID=${PLATFORM_SUPER_ADMIN_CLERK_ID:-}
+      - LOG_LEVEL=debug
+      - REDIS_URL=redis:6379
+      - NATS_URL=nats://nats:4222
+      - WORKER_HEALTH_PORT=9092
+      - INFISICAL_ENABLED=${INFISICAL_ENABLED:-false}
+      - INFISICAL_BASE_URL=${INFISICAL_BASE_URL:-http://infisical:8080}
+      - INFISICAL_CLIENT_ID=${INFISICAL_CLIENT_ID:-}
+      - INFISICAL_CLIENT_SECRET=${INFISICAL_CLIENT_SECRET:-}
+      - INFISICAL_PROJECT_ID=${INFISICAL_PROJECT_ID:-}
+      - INFISICAL_ENVIRONMENT=${INFISICAL_ENVIRONMENT:-dev}
+      - INFISICAL_SECRET_PATH=${INFISICAL_SECRET_PATH:-/}
+      - INFISICAL_CACHE_TTL=${INFISICAL_CACHE_TTL:-5m}
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--spider", "http://localhost:9092/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    networks:
+      - mr-training-network
+      - infisical-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: "0.5"
+        reservations:
+          memory: 96M
+          cpus: "0.1"
 
 networks:
   # Internal network for MR Training services

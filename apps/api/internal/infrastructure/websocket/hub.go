@@ -3,6 +3,7 @@
 package websocket
 
 import (
+	"context"
 	"encoding/json"
 	"sync"
 
@@ -32,6 +33,9 @@ type Hub struct {
 	broadcast  chan *Message
 	subscribe  chan subscription
 	done       chan struct{}
+	stopOnce   sync.Once
+	extMu      sync.RWMutex
+	external   func(topic string, userIDs []string, msg Message)
 }
 
 // subscription is a request to attach/detach a client to/from a topic.
@@ -57,12 +61,22 @@ func NewHub() *Hub {
 // Run starts the hub's main event loop. Call this as a goroutine.
 // It processes client registrations, unregistrations, and message broadcasts.
 func (h *Hub) Run() {
+	h.RunWithContext(context.Background())
+}
+
+// RunWithContext runs the hub's main event loop until ctx is canceled or Stop is called.
+func (h *Hub) RunWithContext(ctx context.Context) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	log := logger.L()
 	log.Info("websocket hub started")
-	defer close(h.done)
+	defer h.Stop()
 
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case client := <-h.register:
 			h.mu.Lock()
 			// If a previous connection exists for this user, close it.
@@ -158,6 +172,13 @@ func (h *Hub) Run() {
 	}
 }
 
+// Stop stops the hub event loop cleanly and is safe to call multiple times.
+func (h *Hub) Stop() {
+	h.stopOnce.Do(func() {
+		close(h.done)
+	})
+}
+
 // Register enqueues a client for registration in the hub.
 func (h *Hub) Register(client *Client) {
 	select {
@@ -174,9 +195,33 @@ func (h *Hub) Unregister(client *Client) {
 	}
 }
 
-// SendToUser sends a message to a specific connected user.
-// If the user is not connected, the message is silently dropped.
+// SetExternalBroadcaster registers a callback used to replicate WebSocket
+// messages across cluster replicas.
+func (h *Hub) SetExternalBroadcaster(fn func(topic string, userIDs []string, msg Message)) {
+	h.extMu.Lock()
+	h.external = fn
+	h.extMu.Unlock()
+}
+
+func (h *Hub) emitExternal(topic string, userIDs []string, msg Message) {
+	h.extMu.RLock()
+	fn := h.external
+	h.extMu.RUnlock()
+	if fn != nil {
+		fn(topic, userIDs, msg)
+	}
+}
+
+// SendToUser sends a message to a specific connected user and forwards it to
+// any registered cluster broadcaster.
 func (h *Hub) SendToUser(userID string, msg Message) {
+	msg.UserIDs = []string{userID}
+	h.SendToUserLocal(userID, msg)
+	h.emitExternal("", []string{userID}, msg)
+}
+
+// SendToUserLocal delivers msg only to local WebSocket clients for userID.
+func (h *Hub) SendToUserLocal(userID string, msg Message) {
 	msg.UserIDs = []string{userID}
 	select {
 	case h.broadcast <- &msg:
@@ -184,8 +229,14 @@ func (h *Hub) SendToUser(userID string, msg Message) {
 	}
 }
 
-// Broadcast sends a message to all connected clients.
+// Broadcast sends a message to all connected clients and cluster replicas.
 func (h *Hub) Broadcast(msg Message) {
+	h.BroadcastLocal(msg)
+	h.emitExternal("", nil, msg)
+}
+
+// BroadcastLocal delivers msg only to locally connected WebSocket clients.
+func (h *Hub) BroadcastLocal(msg Message) {
 	select {
 	case h.broadcast <- &msg:
 	case <-h.done:
@@ -208,8 +259,15 @@ func (h *Hub) Unsubscribe(client *Client, topic string) {
 	}
 }
 
-// BroadcastToTopic sends a message to every client subscribed to a topic.
+// BroadcastToTopic sends a message to every client subscribed to topic and
+// replicates it across cluster nodes.
 func (h *Hub) BroadcastToTopic(topic string, msg Message) {
+	h.BroadcastToTopicLocal(topic, msg)
+	h.emitExternal(topic, nil, msg)
+}
+
+// BroadcastToTopicLocal delivers msg only to local clients subscribed to topic.
+func (h *Hub) BroadcastToTopicLocal(topic string, msg Message) {
 	data, err := json.Marshal(msg)
 	if err != nil {
 		logger.L().Error("failed to marshal topic message", zap.Error(err))

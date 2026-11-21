@@ -495,6 +495,7 @@ export const WORKOUT_GOAL_LABELS: Record<WorkoutGoal, string> = {
   strength: 'Strength',
   hypertrophy: 'Hypertrophy',
   endurance: 'Endurance',
+  running: 'Running / Carrera',
   speed: 'Speed',
   power: 'Power',
   mobility: 'Mobility',

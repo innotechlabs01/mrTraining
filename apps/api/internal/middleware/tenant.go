@@ -86,7 +86,7 @@ func RequireTenantContext(resolver TenantResolver) fiber.Handler {
 		if userID == "" {
 			return tenantError(c, fiber.StatusUnauthorized, "UNAUTHENTICATED", "user not authenticated")
 		}
-		ctx := c.Context()
+		ctx := RequestContext(c)
 
 		// Flow 1 — coach user: resolve and validate own active coach profile.
 		coachID, err := resolver.GetActiveCoachID(ctx, userID)

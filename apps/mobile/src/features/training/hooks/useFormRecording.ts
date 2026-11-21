@@ -25,6 +25,7 @@ import { syncAfterWorkout } from '../../../infrastructure/storage/FormMetricsSyn
 export type UseFormRecordingReturn = {
   consentState: ConsentState
   hasConsent: boolean
+  showConsent: boolean
   pendingCount: number
   requestConsent: () => void
   handleConsentResponse: (accepted: boolean) => void
@@ -35,7 +36,7 @@ export type UseFormRecordingReturn = {
 export function useFormRecording(): UseFormRecordingReturn {
   const [consentState, setConsentStateLocal] = useState<ConsentState>('pending')
   const [pendingCount, setPendingCount] = useState(0)
-  const [, setShowConsent] = useState(false)
+  const [showConsent, setShowConsent] = useState(false)
 
   // Check consent on mount
   const checkConsent = useCallback(async () => {
@@ -50,6 +51,8 @@ export function useFormRecording(): UseFormRecordingReturn {
   useState(() => {
     checkConsent()
     getMetricsCount().then(setPendingCount)
+    // Flush any unsent metrics from previous sessions right on mount
+    void syncAfterWorkout().then(() => getMetricsCount().then(setPendingCount))
   })
 
   const hasConsent = consentState === 'accepted'
@@ -85,6 +88,8 @@ export function useFormRecording(): UseFormRecordingReturn {
         tempo: formMetrics.tempo,
       })
 
+      // Immediately sync to PostgreSQL so metrics are persisted per-set in DB
+      await syncAfterWorkout()
       const count = await getMetricsCount()
       setPendingCount(count)
       return true
@@ -104,6 +109,7 @@ export function useFormRecording(): UseFormRecordingReturn {
   return {
     consentState,
     hasConsent,
+    showConsent,
     pendingCount,
     requestConsent,
     handleConsentResponse,

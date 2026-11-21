@@ -57,6 +57,7 @@ func (r *Repository) InsertBatch(ctx context.Context, metrics []*domain.FormMetr
 	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO form_metrics (id, athlete_id, exercise_id, exercise_name, workout_id, form_score, depth, alignment, tempo, recorded_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		ON CONFLICT (id) DO NOTHING
 	`)
 	if err != nil {
 		return fmt.Errorf("prepare: %w", err)
@@ -316,4 +317,53 @@ func calculateTrend(history []domain.HistoryEntry) string {
 
 func round(v float64) float64 {
 	return float64(int(v*10)) / 10
+}
+
+// GetConsent retrieves the athlete's persisted AI form-recording consent.
+func (r *Repository) GetConsent(ctx context.Context, athleteID string) (string, error) {
+	if r.exec == nil || athleteID == "" {
+		return "pending", nil
+	}
+
+	var consent string
+	err := r.exec.QueryRowContext(ctx,
+		`SELECT consent FROM athlete_ai_consents WHERE athlete_id = $1`,
+		athleteID).Scan(&consent)
+	if err == sql.ErrNoRows {
+		return "pending", nil
+	}
+	if err != nil {
+		return "pending", fmt.Errorf("get consent: %w", err)
+	}
+	if consent != "accepted" && consent != "denied" {
+		return "pending", nil
+	}
+	return consent, nil
+}
+
+// SetConsent upserts the athlete's AI form-recording consent.
+func (r *Repository) SetConsent(ctx context.Context, athleteID, consent string) error {
+	if r.exec == nil || athleteID == "" {
+		return nil
+	}
+	if consent != "accepted" && consent != "denied" && consent != "pending" {
+		consent = "pending"
+	}
+
+	_, err := r.exec.ExecContext(ctx, `
+		INSERT INTO athlete_ai_consents (athlete_id, consent, updated_at)
+		VALUES ($1, $2, NOW())
+		ON CONFLICT (athlete_id) DO UPDATE SET consent = EXCLUDED.consent, updated_at = NOW()
+	`, athleteID, consent)
+	if err != nil {
+		return fmt.Errorf("set consent: %w", err)
+	}
+
+	// Best-effort sync to athlete_profiles column if row exists
+	_, _ = r.exec.ExecContext(ctx, `
+		UPDATE athlete_profiles
+		SET form_recording_consent = $1, form_recording_consent_updated_at = NOW()
+		WHERE user_id = $2
+	`, consent, athleteID)
+	return nil
 }

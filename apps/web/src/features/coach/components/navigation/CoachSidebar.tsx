@@ -46,6 +46,7 @@ const NAV_ITEMS: NavItemConfig[] = [
     ],
   },
   { id: 'events', label: 'Eventos', icon: Calendar, href: '/coach/events' },
+  { id: 'agendamiento', label: 'Agendamiento', icon: Calendar, href: '/coach/agendamiento' },
   { id: 'challenges', label: 'Desafíos', icon: Flame, href: '/coach/challenges' },
   { id: 'planes', label: 'Planes', icon: CreditCard, href: '/coach/planes' },
   { id: 'aliados', label: 'Aliados', icon: Store, href: '/coach/ally' },

@@ -82,7 +82,7 @@ func (h *SubscriptionHandler) HandleSubscribe(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusForbidden, "no active coach context")
 	}
 
-	result, err := h.svc.Subscribe(c.Context(), subscriptionapp.SubscribeCommand{
+	result, err := h.svc.Subscribe(middleware.RequestContext(c), subscriptionapp.SubscribeCommand{
 		AthleteID:       athleteID,
 		CoachID:         coachID,
 		PlanID:          req.PlanID,
@@ -106,7 +106,7 @@ func (h *SubscriptionHandler) HandleGetMySubscription(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	sub, err := h.svc.GetByAthlete(c.Context(), athleteID)
+	sub, err := h.svc.GetByAthlete(middleware.RequestContext(c), athleteID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -124,7 +124,7 @@ func (h *SubscriptionHandler) HandleListSubscriptions(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	subs, err := h.svc.ListByCoach(c.Context(), coachID)
+	subs, err := h.svc.ListByCoach(middleware.RequestContext(c), coachID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
@@ -154,7 +154,7 @@ func (h *SubscriptionHandler) HandleCancel(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
 
-	if err := h.svc.Cancel(c.Context(), subscriptionapp.CancelCommand{
+	if err := h.svc.Cancel(middleware.RequestContext(c), subscriptionapp.CancelCommand{
 		SubscriptionID: id,
 		CoachID:        coachID,
 	}); err != nil {
@@ -176,7 +176,7 @@ func (h *SubscriptionHandler) HandleWebhook(c *fiber.Ctx) error {
 	body := c.Body()
 	signature := c.Get("x-signature")
 
-	if err := h.svc.FulfillWebhook(c.Context(), subscriptiondomain.WebhookRequest{
+	if err := h.svc.FulfillWebhook(middleware.RequestContext(c), subscriptiondomain.WebhookRequest{
 		Body:            body,
 		SignatureHeader: signature,
 	}); err != nil {
@@ -209,7 +209,7 @@ func (h *SubscriptionHandler) HandleCoachPlatformCheckout(c *fiber.Ctx) error {
 	}
 
 	// For coach platform subscription, the coach is both the athlete and coach
-	result, err := h.svc.Subscribe(c.Context(), subscriptionapp.SubscribeCommand{
+	result, err := h.svc.Subscribe(middleware.RequestContext(c), subscriptionapp.SubscribeCommand{
 		AthleteID:       coachID,
 		CoachID:         coachID,
 		PlanID:          req.PlanID,
@@ -248,25 +248,14 @@ func (h *SubscriptionHandler) HandleCoachPlatformSubscriptionStatus(c *fiber.Ctx
 	}
 
 	// Check if this coach has their platform membership bypassed/skipped by Super Admin.
-	if h.db != nil {
-		var skipSubscription bool
-		_ = h.db.QueryRowContext(c.Context(), `
-			SELECT COALESCE(c.skip_subscription, false)
-			FROM coaches c
-			WHERE c.id = $1
-			   OR (c.email <> '' AND lower(c.email) = (SELECT lower(email) FROM users WHERE id = $1))
-			LIMIT 1
-		`, coachID).Scan(&skipSubscription)
-
-		if skipSubscription {
-			return appresponse.Success(c, dto.CoachSubscriptionStatusResponse{
-				Status:   "omitted",
-				PlanName: "Membresía Omitida (VIP)",
-			})
-		}
+	if skipped, _ := h.svc.IsCoachSubscriptionSkipped(middleware.RequestContext(c), coachID); skipped {
+		return appresponse.Success(c, dto.CoachSubscriptionStatusResponse{
+			Status:   "omitted",
+			PlanName: "Membresía Omitida (VIP)",
+		})
 	}
 
-	status, sub, err := h.svc.GetPaymentStatus(c.Context(), coachID)
+	status, sub, err := h.svc.GetPaymentStatus(middleware.RequestContext(c), coachID)
 	if err != nil {
 		if appErr, ok := err.(*errors.AppError); ok && appErr.Status == fiber.StatusNotFound {
 			return appresponse.Success(c, dto.CoachSubscriptionStatusResponse{Status: subscriptionapp.PaymentStatusNone})
@@ -295,7 +284,7 @@ func (h *SubscriptionHandler) HandleCoachPlatformStartTrial(c *fiber.Ctx) error 
 	}
 	_ = c.BodyParser(&req)
 
-	sub, err := h.svc.StartTrial(c.Context(), subscriptionapp.StartTrialCommand{
+	sub, err := h.svc.StartTrial(middleware.RequestContext(c), subscriptionapp.StartTrialCommand{
 		CoachID:   coachID,
 		PlanID:    req.PlanID,
 		TrialDays: 7,

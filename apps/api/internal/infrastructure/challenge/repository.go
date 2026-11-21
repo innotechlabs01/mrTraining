@@ -25,16 +25,20 @@ func (r *repository) GetByID(id string) (*domain.Challenge, error) {
 		SELECT id, coach_id, title, description, exercise_type, video_url,
 		       duration_minutes, calories, target_sets, target_reps,
 		       scoring_type, difficulty_level, max_attempts, status,
-		       start_date, end_date, expires_at, created_at, updated_at
+		       start_date, end_date, expires_at,
+		       COALESCE(badge_id, ''), COALESCE(badge_title, ''), COALESCE(incentive_text, ''), COALESCE(is_prueba_de_fuego, false),
+		       created_at, updated_at
 		FROM challenges WHERE id = $1
 	`
 	ch := &domain.Challenge{}
 	var description, videoURL, startDate, endDate, expiresAt, createdAtStr, updatedAtStr sql.NullString
+	var badgeID, badgeTitle, incentiveText sql.NullString
 	err := r.db.QueryRow(query, id).Scan(
 		&ch.ID, &ch.CoachID, &ch.Title, &description,
 		&ch.ExerciseType, &videoURL, &ch.DurationMinutes, &ch.Calories,
 		&ch.TargetSets, &ch.TargetReps, &ch.ScoringType, &ch.DifficultyLevel,
 		&ch.MaxAttempts, &ch.Status, &startDate, &endDate, &expiresAt,
+		&badgeID, &badgeTitle, &incentiveText, &ch.IsPruebaDeFuego,
 		&createdAtStr, &updatedAtStr,
 	)
 	if err != nil {
@@ -45,6 +49,9 @@ func (r *repository) GetByID(id string) (*domain.Challenge, error) {
 	ch.StartDate = startDate.String
 	ch.EndDate = endDate.String
 	ch.ExpiresAt = expiresAt.String
+	ch.BadgeID = badgeID.String
+	ch.BadgeTitle = badgeTitle.String
+	ch.IncentiveText = incentiveText.String
 	ch.CreatedAt = createdAtStr.String
 	ch.UpdatedAt = updatedAtStr.String
 	ch.DaysLeft = calcDaysLeft(ch.EndDate)
@@ -57,7 +64,9 @@ func (r *repository) ListByCoach(coachID string) ([]*domain.Challenge, error) {
 		SELECT id, coach_id, title, description, exercise_type, video_url,
 		       duration_minutes, calories, target_sets, target_reps,
 		       scoring_type, difficulty_level, max_attempts, status,
-		       start_date, end_date, expires_at, created_at, updated_at
+		       start_date, end_date, expires_at,
+		       COALESCE(badge_id, ''), COALESCE(badge_title, ''), COALESCE(incentive_text, ''), COALESCE(is_prueba_de_fuego, false),
+		       created_at, updated_at
 		FROM challenges WHERE coach_id = $1
 		ORDER BY created_at DESC
 	`
@@ -69,7 +78,9 @@ func (r *repository) ListActiveByCoach(coachID string) ([]*domain.Challenge, err
 		SELECT id, coach_id, title, description, exercise_type, video_url,
 		       duration_minutes, calories, target_sets, target_reps,
 		       scoring_type, difficulty_level, max_attempts, status,
-		       start_date, end_date, expires_at, created_at, updated_at
+		       start_date, end_date, expires_at,
+		       COALESCE(badge_id, ''), COALESCE(badge_title, ''), COALESCE(incentive_text, ''), COALESCE(is_prueba_de_fuego, false),
+		       created_at, updated_at
 		FROM challenges WHERE coach_id = $1 AND status = 'active'
 		ORDER BY created_at DESC
 	`
@@ -81,7 +92,9 @@ func (r *repository) ListDraftByCoach(coachID string) ([]*domain.Challenge, erro
 		SELECT id, coach_id, title, description, exercise_type, video_url,
 		       duration_minutes, calories, target_sets, target_reps,
 		       scoring_type, difficulty_level, max_attempts, status,
-		       start_date, end_date, expires_at, created_at, updated_at
+		       start_date, end_date, expires_at,
+		       COALESCE(badge_id, ''), COALESCE(badge_title, ''), COALESCE(incentive_text, ''), COALESCE(is_prueba_de_fuego, false),
+		       created_at, updated_at
 		FROM challenges WHERE coach_id = $1 AND status = 'draft'
 		ORDER BY created_at DESC
 	`
@@ -93,12 +106,14 @@ func (r *repository) ListActiveForAthlete(athleteID string) ([]*domain.Challenge
 		SELECT c.id, c.coach_id, c.title, c.description, c.exercise_type, c.video_url,
 		       c.duration_minutes, c.calories, c.target_sets, c.target_reps,
 		       c.scoring_type, c.difficulty_level, c.max_attempts, c.status,
-		       c.start_date, c.end_date, c.expires_at, c.created_at, c.updated_at
+		       c.start_date, c.end_date, c.expires_at,
+		       COALESCE(c.badge_id, ''), COALESCE(c.badge_title, ''), COALESCE(c.incentive_text, ''), COALESCE(c.is_prueba_de_fuego, false),
+		       c.created_at, c.updated_at
 		FROM challenges c
 		INNER JOIN coach_athlete_links cal ON c.coach_id = cal.coach_id
 		WHERE cal.athlete_id = $1
 		  AND c.status = 'active'
-		  AND (c.expires_at IS NULL OR datetime(c.expires_at) > NOW())
+		  AND (c.expires_at IS NULL OR NULLIF(c.expires_at, '')::timestamptz > NOW())
 		ORDER BY c.created_at DESC
 	`
 	return r.listQuery(query, athleteID)
@@ -109,20 +124,24 @@ func (r *repository) GetActiveForAthlete(athleteID string) (*domain.Challenge, e
 		SELECT c.id, c.coach_id, c.title, c.description, c.exercise_type, c.video_url,
 		       c.duration_minutes, c.calories, c.target_sets, c.target_reps,
 		       c.scoring_type, c.difficulty_level, c.max_attempts, c.status,
-		       c.start_date, c.end_date, c.expires_at, c.created_at, c.updated_at
+		       c.start_date, c.end_date, c.expires_at,
+		       COALESCE(c.badge_id, ''), COALESCE(c.badge_title, ''), COALESCE(c.incentive_text, ''), COALESCE(c.is_prueba_de_fuego, false),
+		       c.created_at, c.updated_at
 		FROM challenges c
 		INNER JOIN coach_athlete_links cal ON c.coach_id = cal.coach_id
 		WHERE cal.athlete_id = $1
 		  AND c.status = 'active'
-		  AND (c.expires_at IS NULL OR datetime(c.expires_at) > NOW())
+		  AND (c.expires_at IS NULL OR NULLIF(c.expires_at, '')::timestamptz > NOW())
 		ORDER BY c.created_at DESC LIMIT 1
 	`
 	ch := &domain.Challenge{}
+	var badgeID, badgeTitle, incentiveText sql.NullString
 	err := r.db.QueryRow(query, athleteID).Scan(
 		&ch.ID, &ch.CoachID, &ch.Title, &ch.Description,
 		&ch.ExerciseType, &ch.VideoURL, &ch.DurationMinutes, &ch.Calories,
 		&ch.TargetSets, &ch.TargetReps, &ch.ScoringType, &ch.DifficultyLevel,
 		&ch.MaxAttempts, &ch.Status, &ch.StartDate, &ch.EndDate, &ch.ExpiresAt,
+		&badgeID, &badgeTitle, &incentiveText, &ch.IsPruebaDeFuego,
 		&ch.CreatedAt, &ch.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -131,6 +150,9 @@ func (r *repository) GetActiveForAthlete(athleteID string) (*domain.Challenge, e
 	if err != nil {
 		return nil, err
 	}
+	ch.BadgeID = badgeID.String
+	ch.BadgeTitle = badgeTitle.String
+	ch.IncentiveText = incentiveText.String
 	ch.DaysLeft = calcDaysLeft(ch.EndDate)
 	ch.IsUrgent = ch.DaysLeft <= 1 && ch.DaysLeft > 0
 	return ch, nil
@@ -142,8 +164,10 @@ func (r *repository) Create(ch *domain.Challenge) error {
 		INSERT INTO challenges (id, coach_id, title, description, exercise_type,
 		    video_url, duration_minutes, calories, target_sets, target_reps,
 		    scoring_type, difficulty_level, max_attempts, status,
-		    start_date, end_date, expires_at, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+		    start_date, end_date, expires_at,
+		    badge_id, badge_title, incentive_text, is_prueba_de_fuego,
+		    created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
 	`
 	if ch.ID == "" {
 		ch.ID = "ch-" + now.Format("20060102150405")
@@ -163,6 +187,7 @@ func (r *repository) Create(ch *domain.Challenge) error {
 		ch.TargetSets, ch.TargetReps, ch.ScoringType, ch.DifficultyLevel,
 		ch.MaxAttempts, ch.Status,
 		nullStr(ch.StartDate), nullStr(ch.EndDate), nullStr(ch.ExpiresAt),
+		ch.BadgeID, ch.BadgeTitle, ch.IncentiveText, ch.IsPruebaDeFuego,
 		ch.CreatedAt, ch.UpdatedAt,
 	)
 	return err
@@ -174,8 +199,10 @@ func (r *repository) Update(ch *domain.Challenge) error {
 		SET title = $1, description = $2, exercise_type = $3, video_url = $4,
 		    duration_minutes = $5, calories = $6, target_sets = $7, target_reps = $8,
 		    scoring_type = $9, difficulty_level = $10, max_attempts = $11,
-		    status = $12, start_date = $13, end_date = $14, expires_at = $15, updated_at = $16
-		WHERE id = $17
+		    status = $12, start_date = $13, end_date = $14, expires_at = $15,
+		    badge_id = $16, badge_title = $17, incentive_text = $18, is_prueba_de_fuego = $19,
+		    updated_at = $20
+		WHERE id = $21
 	`
 	ch.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	_, err := r.db.Exec(query,
@@ -183,6 +210,7 @@ func (r *repository) Update(ch *domain.Challenge) error {
 		ch.DurationMinutes, ch.Calories, ch.TargetSets, ch.TargetReps,
 		ch.ScoringType, ch.DifficultyLevel, ch.MaxAttempts,
 		ch.Status, nullStr(ch.StartDate), nullStr(ch.EndDate), nullStr(ch.ExpiresAt),
+		ch.BadgeID, ch.BadgeTitle, ch.IncentiveText, ch.IsPruebaDeFuego,
 		ch.UpdatedAt, ch.ID,
 	)
 	return err
@@ -462,7 +490,7 @@ func (r *repository) ExpireChallenges() error {
 		SET status = 'expired', updated_at = NOW()
 		WHERE status = 'active'
 		AND expires_at IS NOT NULL
-		AND datetime(expires_at) < NOW()
+		AND NULLIF(expires_at, '')::timestamptz < NOW()
 	`)
 	return err
 }
@@ -480,11 +508,13 @@ func (r *repository) listQuery(query string, args ...interface{}) ([]*domain.Cha
 	for rows.Next() {
 		ch := &domain.Challenge{}
 		var description, videoURL, startDate, endDate, expiresAt, createdAtStr, updatedAtStr sql.NullString
+		var badgeID, badgeTitle, incentiveText sql.NullString
 		err := rows.Scan(
 			&ch.ID, &ch.CoachID, &ch.Title, &description,
 			&ch.ExerciseType, &videoURL, &ch.DurationMinutes, &ch.Calories,
 			&ch.TargetSets, &ch.TargetReps, &ch.ScoringType, &ch.DifficultyLevel,
 			&ch.MaxAttempts, &ch.Status, &startDate, &endDate, &expiresAt,
+			&badgeID, &badgeTitle, &incentiveText, &ch.IsPruebaDeFuego,
 			&createdAtStr, &updatedAtStr,
 		)
 		if err != nil {
@@ -495,6 +525,9 @@ func (r *repository) listQuery(query string, args ...interface{}) ([]*domain.Cha
 		ch.StartDate = startDate.String
 		ch.EndDate = endDate.String
 		ch.ExpiresAt = expiresAt.String
+		ch.BadgeID = badgeID.String
+		ch.BadgeTitle = badgeTitle.String
+		ch.IncentiveText = incentiveText.String
 		ch.CreatedAt = createdAtStr.String
 		ch.UpdatedAt = updatedAtStr.String
 		ch.DaysLeft = calcDaysLeft(ch.EndDate)

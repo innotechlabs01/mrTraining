@@ -17,6 +17,7 @@ import (
 	commissionentrydomain "github.com/innotechlabs01/mr-training-api/internal/domain/commission_entry"
 	runningapp "github.com/innotechlabs01/mr-training-api/internal/application/running"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/pkg/eventbus"
 )
 
 // Service orchestrates ally product purchases.
@@ -26,7 +27,14 @@ type Service struct {
 	allyRepo            allydomain.Repository
 	opsRepo             allyopsdomain.Repository
 	commissionEntryRepo commissionentrydomain.Repository
+	outbox              eventbus.OutboxWriter
 	log                 *zap.Logger
+}
+
+// WithOutbox configures domain event publication for accrued ally commissions.
+func (s *Service) WithOutbox(outbox eventbus.OutboxWriter) *Service {
+	s.outbox = outbox
+	return s
 }
 
 // NewService creates a new ally_purchase service.
@@ -159,20 +167,26 @@ func (s *Service) CreateAllyPurchase(ctx context.Context, in CreateAllyPurchaseI
 		return nil, fmt.Errorf("create commission entry: %w", err)
 	}
 
-	// 9. Publish SSE event for the coach
+	// 9. Publish SSE event + optional outbox event for the coach
+	eventPayload := map[string]interface{}{
+		"coach_id":            coachID,
+		"ally_id":             product.AllyID,
+		"athlete_id":          in.AthleteID,
+		"operation_id":        op.ID,
+		"commission_entry_id": commission.ID,
+		"amount_cents":        amountCents,
+		"currency":            product.Currency,
+		"created_at":          now,
+	}
+	if s.outbox != nil {
+		ev := eventbus.NewEvent(ctx, eventbus.SubjectEarningsCommissioned, "commission_entry", commission.ID, eventPayload).
+			WithTenant(coachID, in.AthleteID, "")
+		_ = s.outbox.Insert(ctx, nil, ev)
+	}
 	runningapp.DefaultHub.Publish(runningapp.Event{
 		WorkoutID: coachID,
 		Type:      "earnings.new_commission",
-		Payload: map[string]interface{}{
-			"coach_id":            coachID,
-			"ally_id":             product.AllyID,
-			"athlete_id":          in.AthleteID,
-			"operation_id":        op.ID,
-			"commission_entry_id": commission.ID,
-			"amount_cents":        amountCents,
-			"currency":            product.Currency,
-			"created_at":          now,
-		},
+		Payload:   eventPayload,
 	})
 
 	s.log.Info("ally purchase completed",

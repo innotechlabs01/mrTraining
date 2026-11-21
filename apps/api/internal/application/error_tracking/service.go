@@ -5,17 +5,20 @@ package error_tracking
 import (
 	"context"
 	"fmt"
+	"time"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/error_tracking"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/error_tracking"
+	"github.com/innotechlabs01/mr-training-api/internal/pkg/eventbus"
 )
 
 // Service orchestrates error tracking use cases: create, list, resolve.
 type Service struct {
-	repo        domain.Repository
-	discord     *error_tracking.DiscordSender
-	superAdmin  string // Clerk user ID of super admin (for resolved_by default)
+	repo       domain.Repository
+	discord    *error_tracking.DiscordSender
+	superAdmin string // Clerk user ID of super admin (for resolved_by default)
+	outbox     eventbus.OutboxWriter
 }
 
 // NewService creates a new error tracking application service.
@@ -27,7 +30,13 @@ func NewService(repo domain.Repository, discord *error_tracking.DiscordSender, s
 	}
 }
 
-// CreateError creates a new error record and sends it to Discord.
+// WithOutbox configures transactional/outbox async delivery for Discord notifications.
+func (s *Service) WithOutbox(outbox eventbus.OutboxWriter) *Service {
+	s.outbox = outbox
+	return s
+}
+
+// CreateError creates a new error record and delivers Discord alert asynchronously.
 func (s *Service) CreateError(ctx context.Context, in domain.CreateErrorInput) (*domain.Error, error) {
 	if err := in.Validate(); err != nil {
 		return nil, errors.BadRequest(err.Error())
@@ -46,13 +55,23 @@ func (s *Service) CreateError(ctx context.Context, in domain.CreateErrorInput) (
 		return nil, fmt.Errorf("create error record: %w", err)
 	}
 
-	// Send to Discord (fire and await briefly, don't block the response)
-	if s.discord != nil {
-		_, _, dErr := s.discord.Send(ctx, created)
-		if dErr != nil {
-			// Log but don't fail — error is already saved to DB
-			_ = dErr
-		}
+	if s.outbox != nil {
+		ev := eventbus.NewEvent(ctx, eventbus.SubjectErrorReported, "error", created.ID, map[string]interface{}{
+			"id":          created.ID,
+			"title":       created.Title,
+			"description": created.Description,
+			"source":      created.Source,
+			"severity":    created.Severity,
+			"status":      created.Status,
+		})
+		_ = s.outbox.Insert(ctx, nil, ev)
+	} else if s.discord != nil {
+		// Bounded non-blocking fallback when outbox isn't configured.
+		asyncCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		go func() {
+			defer cancel()
+			_, _, _ = s.discord.Send(asyncCtx, created)
+		}()
 	}
 
 	return created, nil

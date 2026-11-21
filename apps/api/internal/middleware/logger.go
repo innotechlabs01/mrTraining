@@ -40,9 +40,12 @@ func Logger() fiber.Handler {
 			zap.String("user_agent", c.Get("User-Agent")),
 		}
 
-		// Add user context if available
+		// Add user/tenant correlation context if available
 		if userID := getUserID(c); userID != "" {
 			fields = append(fields, zap.String("user_id", userID))
+		}
+		if coachID := GetCoachID(c); coachID != "" {
+			fields = append(fields, zap.String("coach_id", coachID))
 		}
 
 		// Use appropriate log level based on status code

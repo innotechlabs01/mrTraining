@@ -4,12 +4,14 @@ package support
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	notificationdomain "github.com/innotechlabs01/mr-training-api/internal/domain/notification"
 	supportdomain "github.com/innotechlabs01/mr-training-api/internal/domain/support"
 	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
+	"github.com/innotechlabs01/mr-training-api/internal/pkg/eventbus"
 )
 
 // Notifier defines the notification interface needed by support service.
@@ -21,11 +23,18 @@ type Notifier interface {
 type Service struct {
 	repo   supportdomain.Repository
 	notifs Notifier
+	outbox eventbus.OutboxWriter
 }
 
 // NewService creates a new support ticket service.
 func NewService(repo supportdomain.Repository, notifs Notifier) *Service {
 	return &Service{repo: repo, notifs: notifs}
+}
+
+// WithOutbox configures transactional outbox delivery for support events.
+func (s *Service) WithOutbox(outbox eventbus.OutboxWriter) *Service {
+	s.outbox = outbox
+	return s
 }
 
 // SetExecutor injects a SQL executor (typically *sql.Tx from a UnitOfWork)
@@ -35,9 +44,32 @@ func (s *Service) SetExecutor(exec database.Executor) *Service {
 	if repo, ok := s.repo.(interface {
 		WithExecutor(database.Executor) supportdomain.Repository
 	}); ok {
-		return &Service{repo: repo.WithExecutor(exec), notifs: s.notifs}
+		return &Service{repo: repo.WithExecutor(exec), notifs: s.notifs, outbox: s.outbox}
 	}
 	return s
+}
+
+func (s *Service) emitNotification(ctx context.Context, eventType, ticketID, coachID, athleteID, recipientID, notifType, title, body, icon string) {
+	if s.outbox != nil {
+		ev := eventbus.NewEvent(ctx, eventType, "support_ticket", ticketID, map[string]interface{}{
+			"ticket_id": ticketID,
+			"user_id":   recipientID,
+			"type":      notifType,
+			"title":     title,
+			"message":   body,
+			"icon":      icon,
+		}).WithTenant(coachID, athleteID, "")
+		_ = s.outbox.Insert(ctx, nil, ev)
+		return
+	}
+	if s.notifs != nil && recipientID != "" {
+		// Detach from HTTP request cancellation while bounding background execution.
+		asyncCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		go func() {
+			defer cancel()
+			_, _ = s.notifs.SendNotification(asyncCtx, recipientID, notifType, title, body, icon)
+		}()
+	}
 }
 
 // Coach methods
@@ -113,10 +145,8 @@ func (s *Service) CreateTicket(ctx context.Context, coachID string, req CreateTi
 	ticket.UnreadCount = 1 // for support team
 	_ = s.repo.Update(ctx, ticket)
 
-	// Notify support team (fire and forget)
-	if s.notifs != nil {
-		go s.notifs.SendNotification(ctx, "support", "support_ticket_created", "Nuevo ticket", ticket.Subject, "ticket")
-	}
+	// Notify support team via outbox or bounded async fallback.
+	s.emitNotification(ctx, eventbus.SubjectSupportTicketCreated, ticket.ID, coachID, req.AthleteID, "support", "support_ticket_created", "Nuevo ticket", ticket.Subject, "ticket")
 
 	return ticket, nil
 }
@@ -240,9 +270,7 @@ func (s *Service) CreateAthleteTicket(ctx context.Context, athleteID string, req
 	ticket.LastMessageAt = msg.CreatedAt
 	_ = s.repo.Update(ctx, ticket)
 
-	if s.notifs != nil {
-		go s.notifs.SendNotification(ctx, "support", "support_ticket_created", "Nuevo ticket", ticket.Subject, "ticket")
-	}
+	s.emitNotification(ctx, eventbus.SubjectSupportTicketCreated, ticket.ID, coachID, athleteID, "support", "support_ticket_created", "Nuevo ticket", ticket.Subject, "ticket")
 
 	return ticket, nil
 }
@@ -319,9 +347,8 @@ func (s *Service) AddMessage(ctx context.Context, userID, userRole, ticketID, bo
 		recipientID = "support"
 	}
 
-	// Notify recipient (fire and forget)
-	if s.notifs != nil && recipientID != "" {
-		go s.notifs.SendNotification(ctx, recipientID, "support_message_added", "Nuevo mensaje", msg.Body[:min(50, len(msg.Body))], "message")
+	if recipientID != "" {
+		s.emitNotification(ctx, eventbus.SubjectSupportMessageAdded, ticket.ID, ticket.CoachID, ticket.AthleteID, recipientID, "support_message_added", "Nuevo mensaje", msg.Body[:min(50, len(msg.Body))], "message")
 	}
 
 	return msg, nil

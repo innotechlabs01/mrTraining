@@ -22,6 +22,7 @@ import {
 
 interface RecordingConsentProps {
   onConsent: (accepted: boolean) => void
+  visible?: boolean | undefined
 }
 
 /**
@@ -31,26 +32,27 @@ export async function hasRecordingConsent(): Promise<ConsentState> {
   return getConsentState()
 }
 
-export function RecordingConsent({ onConsent }: RecordingConsentProps) {
-  const [visible, setVisible] = useState(false)
+export function RecordingConsent({ onConsent, visible: controlledVisible }: RecordingConsentProps) {
+  const [internalVisible, setInternalVisible] = useState(false)
+  const visible = controlledVisible !== undefined ? controlledVisible : internalVisible
 
   useEffect(() => {
     hasRecordingConsent().then((state) => {
       if (state === 'pending') {
-        setVisible(true)
+        setInternalVisible(true)
       }
     })
   }, [])
 
   const handleAccept = async () => {
     await setConsentState('accepted')
-    setVisible(false)
+    setInternalVisible(false)
     onConsent(true)
   }
 
   const handleDeny = async () => {
     await setConsentState('denied')
-    setVisible(false)
+    setInternalVisible(false)
     onConsent(false)
   }
 
