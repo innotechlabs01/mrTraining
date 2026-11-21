@@ -2,7 +2,7 @@ name: CD - QA (Cloud Run)
 
 on:
   push:
-    branches: [QA]
+    branches: [qa]
   workflow_dispatch:
 
 permissions:

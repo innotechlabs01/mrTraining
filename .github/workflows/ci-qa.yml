@@ -2,9 +2,9 @@ name: CI - QA
 
 on:
   push:
-    branches: [QA]
+    branches: [qa]
   pull_request:
-    branches: [QA]
+    branches: [qa]
 
 jobs:
   go-api:
