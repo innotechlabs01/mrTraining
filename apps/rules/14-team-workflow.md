@@ -140,6 +140,14 @@ Mapa fijo rol → template + reglas que el worker DEBE leer:
 Los workers heredan el modelo default global de `~/.config/opencode/opencode.json`;
 `--model` NO se soporta con `--agent opencode`.
 
+#### Estrategia de Ahorro de Tokens por Complejidad (Orca Team + Subagentes)
+
+| Nivel / Complejidad | Modelos recomendados | Roles / Tareas |
+|---|---|---|
+| **Lite / Flash (Bajo costo)** | `flash_lite`, `flash`, `opencode/glm-5.3-flash`, `nvidia/deepseek-ai/deepseek-v4.1-flash` | Búsquedas, lectura de logs, fixes de lint/tests, cambios simples de UI/copy, `qa` básico, `browser`. |
+| **Medium (Balanceado)** | `nvidia/moonshotai/kimi-k3`, `opencode/kimi-k2.7-code`, `opencode/glm-5.3` | Implementación estándar (`dev-front`, `dev-backend`, `dev-react-native`, `ux-ui-designer`, `code-reviewer`). |
+| **Pro / Heavy (Alto razonamiento)** | `pro`, `opencode/claude-sonnet-5-5`, `opencode/gpt-5.1-codex-max` | Solo tareas críticas o complejas: `architect`, `dev-database` (migraciones/RLS), `security-hacker` y bugs difíciles. |
+
 Orden gates REVIEW fijo: `qa` → `code-reviewer` → `security-hacker`. Cada gate corre vía dispatch con su role template; `worker_done` debe traer outcome + resumen 3 frases + `--files-modified` si hubo código.
 
 Si el plan del architect no está claro, preguntar al usuario ANTES de dispatch.
@@ -253,16 +261,16 @@ mal abstraído cobra interés compuesto.
 
 ---
 
-## 5. Comunicación — Modo Caveman Full
+## 5. Comunicación — Modo Caveman Lite
 
-Todo agente AI que trabaje en este repo responde en **modo caveman full**
-para ahorrar tokens. Aplica a la conversación, NO a los artefactos.
+Todo agente AI que trabaje en este repo responde en **modo caveman lite**
+para ahorrar tokens manteniendo claridad inmediata. Aplica a la conversación, NO a los artefactos.
 
-### Reglas caveman (reply del agente)
+### Reglas caveman lite (reply del agente)
 
-- Sin relleno: artículos, pleonasmos, hedging, cortesías — fuera.
-- Fragmentos OK. Sinónimos cortos. Término técnico exacto.
-- Patrón: `[cosa] [acción] [razón]. [siguiente paso].`
+- Respuesta simple, directa y al grano (bullets cortos).
+- Sin introducciones, saludos, disculpas ni resúmenes repetidos.
+- Patrón: `[causa/cambio] → [archivo] → [verificación]`.
 - Ejemplo malo: "Sure! I'd be happy to help. The issue you're experiencing..."
 - Ejemplo bueno: "Bug en auth middleware. Token expiry usa `<` no `<=`. Fix:"
 
