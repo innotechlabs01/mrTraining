@@ -142,13 +142,9 @@ export async function getPublicCoachLanding(slug: string): Promise<CoachLandingD
  * No se modifica `features/shared/api/client.ts:951-967`.
  */
 export async function uploadLandingMedia(file: File): Promise<UploadLandingMediaResponse> {
-  const form = new FormData();
-  form.append('file', file);
-  return goFetch<UploadLandingMediaResponse>('/api/v1/landing/media', {
-    method: 'POST',
-    body: form,
-    auth: true,
-  });
+  const { uploadMediaToR2 } = await import('@/lib/media/r2-upload');
+  const res = await uploadMediaToR2(file, 'coach_landing_media');
+  return { url: res.mediaRef };
 }
 
 /**

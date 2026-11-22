@@ -66,6 +66,53 @@ function MetricBar({ label, value, color }: { label: string; value: number; colo
   )
 }
 
+interface RawExerciseStats {
+  exerciseId?: string
+  exercise_id?: string
+  exerciseName?: string
+  exercise_name?: string
+  athleteId?: string
+  athlete_id?: string
+  athleteName?: string
+  athlete_name?: string
+  latestScore?: number
+  latest_score?: number
+  avgScore?: number
+  avg_score?: number
+  bestScore?: number
+  best_score?: number
+  worstScore?: number
+  worst_score?: number
+  trend?: string
+  sessions?: number
+  avgDepth?: number
+  avg_depth?: number
+  avgAlignment?: number
+  avg_alignment?: number
+  avgTempo?: number
+  avg_tempo?: number
+}
+
+function normalizeExerciseStats(raw: RawExerciseStats): ExerciseStats {
+  const trend: ExerciseStats['trend'] =
+    raw.trend === 'improving' || raw.trend === 'declining' ? raw.trend : 'stable'
+  return {
+    exerciseId: raw.exerciseId ?? raw.exercise_id ?? '',
+    exerciseName: raw.exerciseName ?? raw.exercise_name ?? 'Ejercicio',
+    athleteId: raw.athleteId ?? raw.athlete_id ?? '',
+    athleteName: raw.athleteName ?? raw.athlete_name ?? 'Atleta',
+    latestScore: raw.latestScore ?? raw.latest_score ?? 0,
+    avgScore: raw.avgScore ?? raw.avg_score ?? 0,
+    bestScore: raw.bestScore ?? raw.best_score ?? 0,
+    worstScore: raw.worstScore ?? raw.worst_score ?? 0,
+    trend,
+    sessions: raw.sessions ?? 0,
+    avgDepth: raw.avgDepth ?? raw.avg_depth ?? 0,
+    avgAlignment: raw.avgAlignment ?? raw.avg_alignment ?? 0,
+    avgTempo: raw.avgTempo ?? raw.avg_tempo ?? 0,
+  }
+}
+
 export function FormMetricsDashboard() {
   const [stats, setStats] = useState<ExerciseStats[]>([])
   const [loading, setLoading] = useState(true)
@@ -74,10 +121,11 @@ export function FormMetricsDashboard() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch('/api/coach/form-metrics')
+        const res = await fetch('/api/coach/form-metrics', { cache: 'no-store' })
         if (!res.ok) throw new Error('Failed to load')
         const data = await res.json()
-        setStats(data)
+        const rows: RawExerciseStats[] = Array.isArray(data) ? data : (data?.data ?? [])
+        setStats(rows.map(normalizeExerciseStats))
       } catch (err) {
         console.error('Error loading form metrics:', err)
       } finally {

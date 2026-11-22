@@ -16,6 +16,7 @@ import {
   MessageSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SignedMediaImg } from '@/components/media/SignedMedia'
 import { useTickets, useAddTicketMessage, useMarkTicketRead, useTicketMessages } from '@/features/coach/hooks/useTickets'
 import type { SupportTicket, TicketCategory, TicketPriority, TicketStatus, TicketMessage } from '@/features/coach/types'
 
@@ -53,8 +54,6 @@ function fmtDate(iso: string) {
 
 export default function CoachSupportPage() {
   const { tickets: remoteTickets, createTicket: createTicketApi, updateTicket: updateTicketApi, isLoading, refresh } = useTickets()
-  const addMessageApi = useAddTicketMessage('')
-  const markReadApi = useMarkTicketRead('')
   const [localTickets, setLocalTickets] = useState<SupportTicket[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | string>('all')
@@ -71,6 +70,9 @@ export default function CoachSupportPage() {
   const visible = sorted.filter((t) => (filter === 'all' ? true : t.status === filter))
 
   const selected = localTickets.find((t) => t.id === selectedId) ?? visible[0] ?? null
+  const activeTicketId = selected?.id ?? selectedId ?? ''
+  const addMessageApi = useAddTicketMessage(activeTicketId)
+  const markReadApi = useMarkTicketRead(activeTicketId)
 
   useEffect(() => {
     if (!selectedId && visible[0]) setSelectedId(visible[0].id)
@@ -98,8 +100,9 @@ export default function CoachSupportPage() {
   }, [createTicketApi, refresh])
 
   const addMessage = useCallback(async (body: string, imageUrl?: string) => {
-    addMessageApi.mutate({ body, image_url: imageUrl })
-  }, [])
+    if (!activeTicketId) return
+    await addMessageApi.mutateAsync({ body, image_url: imageUrl })
+  }, [activeTicketId, addMessageApi])
 
   const resolveTicket = useCallback(async (ticketId: string) => {
     await updateTicketApi(ticketId, { status: 'resolved' })
@@ -112,8 +115,9 @@ export default function CoachSupportPage() {
   }, [updateTicketApi, refresh])
 
   const markAsRead = useCallback(() => {
+    if (!activeTicketId) return
     markReadApi.mutate()
-  }, [])
+  }, [activeTicketId, markReadApi])
 
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col p-6 max-w-7xl mx-auto">
@@ -320,8 +324,7 @@ function TicketDetail({
               </div>
               {m.body && <p className="whitespace-pre-wrap text-sm text-white/85">{m.body}</p>}
               {m.image_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <SignedMediaImg
                   src={m.image_url}
                   alt="Adjunto"
                   className="mt-2 max-h-48 rounded-lg border border-white/10 object-cover"
@@ -353,16 +356,20 @@ function TicketDetail({
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => {
+              onChange={async (e) => {
                 const file = e.target.files?.[0]
                 if (!file) return
-                if (file.size > 1_500_000) {
-                  alert('Imagen muy pesada (máx 1.5 MB). Usa una captura más ligera.')
+                if (file.size > 10 * 1024 * 1024) {
+                  alert('Imagen muy pesada (máx 10 MB).')
                   return
                 }
-                const reader = new FileReader()
-                reader.onload = () => setImg(reader.result as string)
-                reader.readAsDataURL(file)
+                try {
+                  const { uploadMediaToR2 } = await import('@/lib/media/r2-upload')
+                  const res = await uploadMediaToR2(file, 'support_attachment')
+                  setImg(res.mediaRef)
+                } catch (err) {
+                  alert(err instanceof Error ? err.message : 'Error subiendo imagen')
+                }
               }}
             />
             <textarea
@@ -389,7 +396,7 @@ function TicketDetail({
           {img && (
             <div className="mt-2 flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img} alt="preview" className="h-12 w-12 rounded object-cover" />
+              <SignedMediaImg src={img} alt="preview" className="h-12 w-12 rounded object-cover" />
               <span className="flex-1 truncate text-xs text-white/50">Imagen lista para enviar</span>
               <button onClick={() => setImg(undefined)} className="text-white/40 hover:text-white">
                 <X size={15} />
@@ -527,22 +534,26 @@ function NewTicketModal({
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => {
+              onChange={async (e) => {
                 const file = e.target.files?.[0]
                 if (!file) return
-                if (file.size > 1_500_000) {
-                  alert('Imagen muy pesada (máx 1.5 MB).')
+                if (file.size > 10 * 1024 * 1024) {
+                  alert('Imagen muy pesada (máx 10 MB).')
                   return
                 }
-                const reader = new FileReader()
-                reader.onload = () => setImg(reader.result as string)
-                reader.readAsDataURL(file)
+                try {
+                  const { uploadMediaToR2 } = await import('@/lib/media/r2-upload')
+                  const res = await uploadMediaToR2(file, 'support_attachment')
+                  setImg(res.mediaRef)
+                } catch (err) {
+                  alert(err instanceof Error ? err.message : 'Error subiendo imagen')
+                }
               }}
             />
             {img && (
               <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-1.5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img} alt="preview" className="h-9 w-9 rounded object-cover" />
+                <SignedMediaImg src={img} alt="preview" className="h-9 w-9 rounded object-cover" />
                 <button onClick={() => setImg(undefined)} className="text-white/40 hover:text-white">
                   <X size={14} />
                 </button>

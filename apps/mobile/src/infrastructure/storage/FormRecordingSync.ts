@@ -15,6 +15,7 @@ import {
   type PendingFormVideo,
 } from './LocalVideoStorage'
 import { smartClient } from '../api/client'
+import { uploadMediaToR2 } from '../../shared/media/mediaService'
 
 const MAX_RETRIES = 2
 
@@ -25,25 +26,22 @@ type SyncResult = {
 }
 
 /**
- * Upload a single video to the Go API (authenticated).
+ * Upload a single video to R2 and register its media_ref with the Go API.
  */
 async function uploadVideo(video: PendingFormVideo): Promise<boolean> {
   try {
-    const formData = new FormData()
-    formData.append('file', {
-      uri: video.tempPath,
-      type: 'video/mp4',
-      name: `form_${video.exerciseId}_${video.id}.mp4`,
-    } as unknown as Blob)
-    formData.append('exerciseId', video.exerciseId)
-    formData.append('formScore', String(video.formScore))
-    formData.append('formMetrics', JSON.stringify(video.formMetrics))
-    if (video.workoutId) {
-      formData.append('workoutId', video.workoutId)
-    }
+    const { mediaRef } = await uploadMediaToR2(video.tempPath, 'form_recording', {
+      filename: `form_${video.exerciseId}_${video.id}.mp4`,
+      contentType: 'video/mp4',
+      resourceId: video.workoutId ?? video.exerciseId,
+    })
 
-    const response = await smartClient.post('/form-recordings/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    const response = await smartClient.post('/form-recordings/upload', {
+      exerciseId: video.exerciseId,
+      ...(video.workoutId ? { workoutId: video.workoutId } : {}),
+      formScore: video.formScore,
+      formMetrics: video.formMetrics,
+      video_url: mediaRef,
     })
 
     return response.status >= 200 && response.status < 300

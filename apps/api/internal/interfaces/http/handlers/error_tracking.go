@@ -8,6 +8,7 @@ import (
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/error_tracking"
 	errorapp "github.com/innotechlabs01/mr-training-api/internal/application/error_tracking"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
@@ -23,13 +24,17 @@ func NewErrorHandler(svc *errorapp.Service) *ErrorHandler {
 
 // RegisterErrorRoutes mounts error tracking routes on the given API group.
 // Routes are super-admin only.
-func (h *ErrorHandler) RegisterErrorRoutes(api fiber.Router) {
-	errors := api.Group("/errors")
-	errors.Post("", h.CreateError)
-	errors.Get("", h.ListErrors)
-	errors.Get("/:id", h.GetError)
-	errors.Put("/:id/resolve", h.ResolveError)
-	errors.Get("/stats", h.GetStats)
+func (h *ErrorHandler) RegisterErrorRoutes(api fiber.Router, superAdminIDs []string) {
+	allowed := make([]interface{}, len(superAdminIDs))
+	for i, id := range superAdminIDs {
+		allowed[i] = id
+	}
+	errorsGroup := api.Group("/errors", middleware.RequirePlatformSuperAdmin(allowed...))
+	errorsGroup.Post("", h.CreateError)
+	errorsGroup.Get("", h.ListErrors)
+	errorsGroup.Get("/stats", h.GetStats)
+	errorsGroup.Get("/:id", h.GetError)
+	errorsGroup.Put("/:id/resolve", h.ResolveError)
 }
 
 // CreateError handles POST /errors.
@@ -70,8 +75,14 @@ func (h *ErrorHandler) ListErrors(c *fiber.Ctx) error {
 	limit := c.QueryInt("limit", 20)
 	offset := c.QueryInt("offset", 0)
 
+	if limit < 1 {
+		limit = 20
+	}
 	if limit > 100 {
 		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
 	}
 
 	records, total, err := h.svc.ListErrors(c.Context(), status, severity, source, limit, offset)

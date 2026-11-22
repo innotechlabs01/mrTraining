@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { smartClient as apiClient } from '../../../../infrastructure/api/client';
-import { colors, layout, spacing, radius, fontFamilies } from '../../../../shared/theme/tokens';
+import { colors, layout, spacing, radius, fontFamilies, withAlpha } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { EmptyState } from '../../../../shared/components/ui/EmptyState';
@@ -29,7 +29,7 @@ type Challenge = {
 };
 
 async function fetchCoachChallenges(): Promise<Challenge[]> {
-  const { data } = await apiClient.get('/challenges');
+  const { data } = await apiClient.get('/coach/challenges');
   return (data as any)?.data ?? [];
 }
 
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.sm,
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   statusActive: {
-    backgroundColor: colors.success,
+    backgroundColor: withAlpha(colors.success, 0.15),
     borderColor: colors.success,
   },
   statusText: {

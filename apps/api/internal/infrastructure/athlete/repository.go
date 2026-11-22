@@ -103,13 +103,20 @@ func (r *repository) SetExecutor(exec database.Executor) {
 	}
 }
 
-// WithExecutor returns a shallow copy of the repository using the given executor.
-func (r *repository) WithExecutor(exec database.Executor) *repository {
-	copied := &repository{
-		db:          r.db,
-		workoutRepo: r.workoutRepo,
-		messageRepo: r.messageRepo,
+// WithExecutor returns a shallow copy of the repository using the given executor
+// without mutating the underlying sub-domain repositories.
+func (r *repository) WithExecutor(exec database.Executor) domain.Repository {
+	wRepo := r.workoutRepo
+	if w, ok := r.workoutRepo.(interface{ WithExecutor(database.Executor) trainingdomain.WorkoutRepository }); ok {
+		wRepo = w.WithExecutor(exec)
 	}
-	copied.SetExecutor(exec)
-	return copied
+	mRepo := r.messageRepo
+	if m, ok := r.messageRepo.(interface{ WithExecutor(database.Executor) message.Repository }); ok {
+		mRepo = m.WithExecutor(exec)
+	}
+	return &repository{
+		db:          r.db,
+		workoutRepo: wRepo,
+		messageRepo: mRepo,
+	}
 }

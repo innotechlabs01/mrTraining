@@ -41,13 +41,6 @@ export interface Plan {
   isPopular?: boolean;
 }
 
-interface CancelResponse {
-  membershipId: string;
-  cancelAtPeriodEnd: boolean;
-  status: 'active' | 'canceled';
-  message: string;
-}
-
 /**
  * Obtiene el estado actual de la membresía del athlete.
  * GET /api/v1/athletes/membership/status — sin path param, usa token del auth.
@@ -63,8 +56,8 @@ export async function getMembershipStatus(): Promise<MembershipStatus> {
  * del coach vinculado al atleta (resuelto vía coach_athlete_links).
  */
 export async function getAvailablePlans(): Promise<Plan[]> {
-  const response = await apiClient.get<{ data: PlanDto[] }>('/athletes/membership/plans');
-  const plans = response.data?.data ?? [];
+  const response = await apiClient.get<PlanDto[] | { data?: PlanDto[] }>('/athletes/membership/plans');
+  const plans = Array.isArray(response.data) ? response.data : response.data?.data ?? [];
   return plans.map((p) => ({
     id: p.id,
     name: p.name,
@@ -84,19 +77,6 @@ interface PlanDto {
   price: number;
   currency: string;
   billing_period: string;
-}
-
-/**
- * Cancelar la membresía.
- * PUT /api/v1/memberships/:id/cancel
- */
-export async function cancelMembership(
-  membershipId: string
-): Promise<CancelResponse> {
-  const { data } = await apiClient.put<CancelResponse>(
-    `/memberships/${membershipId}/cancel`
-  );
-  return data;
 }
 
 /**

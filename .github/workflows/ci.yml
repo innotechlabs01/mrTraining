@@ -2,9 +2,9 @@ name: CI - Tests Must Pass Before Push
 
 on:
   push:
-    branches: [main, develop, dev, QA]
+    branches: [main, dev, qa]
   pull_request:
-    branches: [main, develop, dev, QA]
+    branches: [main, dev, qa]
 
 jobs:
   go-api-tests:

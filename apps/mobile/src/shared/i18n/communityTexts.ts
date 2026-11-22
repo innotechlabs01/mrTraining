@@ -132,6 +132,8 @@ export const communityTexts = {
     exerciseTypeLabel: 'Tipo de ejercicio *',
     descriptionPlaceholder: 'Describe el desafío...',
     durationLabel: 'Duración (minutos)',
+    endDateLabel: 'Fecha límite (YYYY-MM-DD) *',
+    endDatePlaceholder: 'YYYY-MM-DD',
     successTitle: '¡Desafío creado!',
     successBody: 'El desafío está listo para tus atletas.',
     errorTitle: 'Error',

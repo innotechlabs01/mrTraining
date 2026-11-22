@@ -142,11 +142,22 @@ export function ExercisesScreen({}: Props) {
     [isFavorite, favoritesData],
   );
 
-  const openVideo = useCallback((url: string | undefined) => {
+  const openVideo = useCallback(async (url: string | undefined) => {
     if (!url) return;
-    void Linking.openURL(url).catch(() => {
+    try {
+      const { isR2Ref, presignReadBatch, resolveLegacyMediaUrl } = await import('../../../../shared/media/mediaService');
+      let targetUrl: string | undefined;
+      if (isR2Ref(url)) {
+        const signed = await presignReadBatch([url]);
+        targetUrl = signed[url.trim()]?.url;
+      } else {
+        targetUrl = resolveLegacyMediaUrl(url);
+      }
+      if (!targetUrl) return;
+      await Linking.openURL(targetUrl);
+    } catch {
       // Video not openable — silent fail, exercise still usable.
-    });
+    }
   }, []);
 
   const renderItem = useCallback(

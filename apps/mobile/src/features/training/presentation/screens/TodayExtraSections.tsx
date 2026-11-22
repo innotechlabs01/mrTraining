@@ -12,7 +12,23 @@ import { SectionHeader } from '../../../../shared/components/ui/SectionHeader';
 import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { PlusIcon, StoreIcon } from '../../../../shared/components/icons';
 import { texts } from '../../../../shared/i18n/texts';
+import { useSignedMediaUrl } from '../../../../shared/media/useSignedMediaUrl';
 import type { StoreProduct } from '../../../store/storeService';
+
+function SignedProductThumb({ imageUrl }: { imageUrl?: string | null | undefined }) {
+  const { url: signedUrl } = useSignedMediaUrl(imageUrl);
+  if (!signedUrl) {
+    return <StoreIcon size={32} color={colors.textSecondary} />;
+  }
+  return (
+    <ExpoImage
+      source={{ uri: signedUrl }}
+      style={styles.productImage}
+      contentFit="cover"
+      transition={200}
+    />
+  );
+}
 
 const t = texts.screens.todayScreen;
 const tStore = texts.screens.storeScreen;
@@ -126,16 +142,7 @@ export function StoreCarousel({ products, onAdd, onSeeAll }: {
           >
             <Card style={styles.productInner}>
               <View style={styles.productImageArea}>
-                {product.image_url ? (
-                  <ExpoImage
-                    source={{ uri: product.image_url }}
-                    style={styles.productImage}
-                    contentFit="cover"
-                    transition={200}
-                  />
-                ) : (
-                  <StoreIcon size={32} color={colors.textSecondary} />
-                )}
+                <SignedProductThumb imageUrl={product.image_url} />
               </View>
               <Text style={styles.productName} numberOfLines={2}>
                 {product.name}

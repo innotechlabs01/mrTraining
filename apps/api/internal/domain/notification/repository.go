@@ -11,6 +11,10 @@ type Repository interface {
 	// Returns an error if the device already exists or on database failure.
 	RegisterDevice(ctx context.Context, device *Device) error
 
+	// RegisterOrReactivateDevice stores a new device token or reactivates/updates
+	// an existing device with the same token (upsert on token).
+	RegisterOrReactivateDevice(ctx context.Context, device *Device) error
+
 	// GetDevice retrieves a device by its unique identifier.
 	// Returns ErrNotFound if no device exists with the given ID.
 	GetDevice(ctx context.Context, id string) (*Device, error)
@@ -23,9 +27,13 @@ type Repository interface {
 	// Returns an empty slice (not nil) if no devices exist.
 	ListDevicesByUser(ctx context.Context, userID string) ([]*Device, error)
 
-	// DeactivateDevice marks a device as inactive.
+	// DeactivateDevice marks a device as inactive (system/worker use).
 	// Returns an error if the device does not exist or on database failure.
 	DeactivateDevice(ctx context.Context, id string) error
+
+	// DeactivateDeviceForUser marks a device as inactive only if it belongs to userID.
+	// Returns NotFound or Forbidden if the device does not exist or belongs to another user.
+	DeactivateDeviceForUser(ctx context.Context, userID, id string) error
 
 	// Notification operations
 
@@ -46,6 +54,10 @@ type Repository interface {
 	// MarkNotificationRead marks a single notification as read.
 	// Returns an error if the notification does not exist or on database failure.
 	MarkNotificationRead(ctx context.Context, id string) error
+
+	// MarkAsRead marks a single notification as read only if it belongs to userID.
+	// Returns NotFound or Forbidden if the notification does not exist or belongs to another user.
+	MarkAsRead(ctx context.Context, userID, id string) error
 
 	// MarkAllNotificationsRead marks all notifications for a user as read.
 	// Returns the number of notifications updated.

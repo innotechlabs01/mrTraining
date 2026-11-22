@@ -33,29 +33,7 @@ export function FitFlowHeader({
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  const notifications = [
-    {
-      id: 'n1',
-      title: 'Nuevo Miembro Registrado',
-      desc: 'Carlos Mendoza adquirió Membresía Platinum.',
-      time: 'Hace 5m',
-      unread: true,
-    },
-    {
-      id: 'n2',
-      title: 'Batch Schedule Actualizado',
-      desc: 'Entrenador asignado a Cross Training 07:00.',
-      time: 'Hace 25m',
-      unread: true,
-    },
-    {
-      id: 'n3',
-      title: 'Facturación Wompi',
-      desc: '14 cobros recurrentes procesados con éxito.',
-      time: 'Hace 1h',
-      unread: false,
-    },
-  ];
+  const notifications: { id: string; title: string; desc: string; time: string; unread: boolean }[] = [];
 
   return (
     <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-[#26262B] bg-[#0F0F12]/90 px-4 sm:px-8 backdrop-blur-md">
@@ -115,7 +93,9 @@ export function FitFlowHeader({
             className="relative flex h-10 w-10 items-center justify-center rounded-full border border-[#26262B] bg-[#16161A] text-[#8E8E93] hover:border-[#383842] hover:text-white transition-colors"
           >
             <Bell size={18} />
-            <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-[#E07A3D] ring-2 ring-[#0F0F12]" />
+            {notifications.some((n) => n.unread) && (
+              <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-[#E07A3D] ring-2 ring-[#0F0F12]" />
+            )}
           </button>
 
           {notificationsOpen && (
@@ -124,22 +104,28 @@ export function FitFlowHeader({
                 <span className="text-xs font-bold uppercase tracking-wider text-white">
                   Notificaciones
                 </span>
-                <span className="rounded-full bg-[#E07A3D]/20 px-2 py-0.5 text-[10px] font-bold text-[#E07A3D]">
-                  2 Nuevas
+                <span className="rounded-full bg-[#26262B] px-2 py-0.5 text-[10px] font-bold text-[#8E8E93]">
+                  {notifications.filter((n) => n.unread).length} Nuevas
                 </span>
               </div>
 
-              <div className="divide-y divide-[#222228] my-1">
-                {notifications.map((n) => (
-                  <div key={n.id} className="p-2.5 hover:bg-[#1E1E24] rounded-xl transition-colors">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-xs font-bold text-white leading-tight">{n.title}</p>
-                      <span className="text-[10px] text-[#71717A] shrink-0">{n.time}</span>
+              {notifications.length === 0 ? (
+                <div className="py-6 text-center text-xs text-[#8E8E93]">
+                  Sin notificaciones nuevas.
+                </div>
+              ) : (
+                <div className="divide-y divide-[#222228] my-1">
+                  {notifications.map((n) => (
+                    <div key={n.id} className="p-2.5 hover:bg-[#1E1E24] rounded-xl transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-xs font-bold text-white leading-tight">{n.title}</p>
+                        <span className="text-[10px] text-[#71717A] shrink-0">{n.time}</span>
+                      </div>
+                      <p className="text-[11px] text-[#8E8E93] mt-1">{n.desc}</p>
                     </div>
-                    <p className="text-[11px] text-[#8E8E93] mt-1">{n.desc}</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

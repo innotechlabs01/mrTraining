@@ -9,21 +9,11 @@ import {
   Activity,
   Search as SearchIcon,
   Eye,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-import {
-  Field,
-  Modal,
-} from '@/components/admin/ui';
-
-import { LoyaltyBanner } from '@/components/admin/LoyaltyBanner';
-import { LoyaltyModal } from '@/components/admin/LoyaltyModal';
-import { MemberActivityChart } from '@/components/admin/MemberActivityChart';
+import { Field, Modal } from '@/components/admin/ui';
 import { MetricCard } from '@/components/admin/MetricCard';
-import { MembershipStatusChart } from '@/components/admin/MembershipStatusChart';
-import { MembershipTargetGauge } from '@/components/admin/MembershipTargetGauge';
-import { MemberSatisfaction } from '@/components/admin/MemberSatisfaction';
 
 interface CoachSummary {
   id: string;
@@ -71,12 +61,11 @@ export default function AdminDashboardPage() {
   const [coaches, setCoaches] = useState<CoachSummary[]>([]);
   const [revenueStats, setRevenueStats] = useState<RevenueStats | null>(null);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
-  const [_loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [selectedCoach, setSelectedCoach] = useState<CoachSummary | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [loyaltyModalOpen, setLoyaltyModalOpen] = useState(false);
 
   const superAdminIds = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '')
     .split(',')
@@ -113,10 +102,11 @@ export default function AdminDashboardPage() {
     setLoading(true);
     setError(null);
     try {
+      const base = process.env.NEXT_PUBLIC_GO_API_URL || '';
       const [coachesRes, revenueRes, dashboardRes] = await Promise.all([
-        fetchWithAuth(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/coaches`),
-        fetchWithAuth(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/revenue`),
-        fetchWithAuth(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/dashboard`),
+        fetchWithAuth(`${base}/api/v1/admin/coaches`),
+        fetchWithAuth(`${base}/api/v1/admin/revenue`),
+        fetchWithAuth(`${base}/api/v1/admin/dashboard`),
       ]);
 
       if (coachesRes.ok) {
@@ -154,11 +144,14 @@ export default function AdminDashboardPage() {
     );
   }, [coaches, search]);
 
-  const totalCoaches = dashboardStats?.coaches_count || coaches.length;
+  const totalCoaches = dashboardStats?.coaches_count ?? coaches.length;
   const activeCoaches =
-    dashboardStats?.active_coaches_count ||
+    dashboardStats?.active_coaches_count ??
     coaches.filter((c) => c.plan_status === 'active').length;
-  const totalUsers = dashboardStats?.users_count || 5890;
+  const totalUsers = dashboardStats?.users_count ?? 0;
+  const linkedAthletes = dashboardStats?.linked_athletes_count ?? 0;
+  const activeMemberships = dashboardStats?.active_memberships_count ?? 0;
+  const expiringCoaches = dashboardStats?.expiring_coaches_count ?? 0;
 
   const totalRevenueMonth = coaches.reduce(
     (sum, c) => sum + Number(c.revenue_month || 0),
@@ -175,65 +168,42 @@ export default function AdminDashboardPage() {
     revenuePendingNote ??
     `$${(revenueStats?.this_month || totalRevenueMonth).toLocaleString() || '0'}`;
 
-  if (!user) return null;
+  const monthlyRevenue = revenueStats?.by_month ?? [];
+  const maxMonthAmount = Math.max(1, ...monthlyRevenue.map((m) => Number(m.amount || 0)));
 
-  const displayName = user.firstName || 'Emon';
+  if (!user) return null;
 
   return (
     <div className="space-y-6">
-      {/* Hidden container for test assertions compatibility */}
-      <div className="hidden" aria-hidden="true">
-        <div>
-          <p>Ingresos mes (planes)</p>
-          <p>{revenueDisplay}</p>
-        </div>
-      </div>
-
       {error ? (
         <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-xs font-medium text-rose-400">
           {error}
         </div>
       ) : null}
 
-      {/* Row 1: Hero Loyalty Banner + Member Activity Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        <div className="lg:col-span-8 flex flex-col justify-center">
-          <LoyaltyBanner
-            userName={displayName}
-            onSetUpClick={() => setLoyaltyModalOpen(true)}
-          />
-        </div>
-        <div className="lg:col-span-4 flex flex-col">
-          <MemberActivityChart />
-        </div>
-      </div>
-
-      {/* Row 2: 3 Primary Metric Cards (Matching screenshot) */}
+      {/* Row 1: Primary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <MetricCard
-          title="Current Members"
-          value={totalUsers > 0 ? totalUsers.toLocaleString() : '5,890'}
-          variation={{ text: '+3,840 (26.80%)', isPositive: true }}
+          title="Usuarios Registrados"
+          value={totalUsers.toLocaleString()}
           icon={<Users size={20} />}
-          badge="Activos"
+          badge={`${totalCoaches} coaches`}
         />
         <MetricCard
-          title="New Members"
-          value="2,000"
-          variation={{ text: '+530 (8.38%)', isPositive: true }}
+          title="Membresías Activas"
+          value={activeMemberships.toLocaleString()}
           icon={<TrendingUp size={20} />}
-          badge="+8.4% este mes"
+          badge={`${dashboardStats?.memberships_count ?? 0} totales`}
         />
         <MetricCard
-          title="Today Visitor"
-          value="500"
-          variation={{ text: '+530 (8.38%)', isPositive: true }}
+          title="Atletas Vinculados"
+          value={linkedAthletes.toLocaleString()}
           icon={<Activity size={20} />}
-          badge="Hoy"
+          badge={`${expiringCoaches} por vencer`}
         />
       </div>
 
-      {/* Financial & Coach Quick Pulse */}
+      {/* Row 2: Financial & Coach Quick Pulse */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-[#26262B] bg-[#16161A] p-4 text-white">
           <p className="text-[11px] font-bold uppercase tracking-wider text-[#71717A]">
@@ -259,47 +229,88 @@ export default function AdminDashboardPage() {
 
         <div className="rounded-2xl border border-[#26262B] bg-[#16161A] p-4 text-white">
           <p className="text-[11px] font-bold uppercase tracking-wider text-[#71717A]">
-            Atletas Vinculados
+            Ingresos Año / Total
           </p>
-          <p className="mt-1 text-lg sm:text-xl font-extrabold text-white tabular-nums">
-            {dashboardStats?.linked_athletes_count || 320}
+          <p className="mt-1 text-lg sm:text-xl font-extrabold text-white tabular-nums truncate">
+            ${Number(revenueStats?.this_year ?? 0).toLocaleString()}
           </p>
-          <p className="mt-1 text-[10px] text-emerald-400 font-medium">+18 esta semana</p>
+          <p className="mt-1 text-[10px] text-[#8E8E93]">
+            Total: ${Number(revenueStats?.total ?? 0).toLocaleString()}
+          </p>
         </div>
 
         <div className="rounded-2xl border border-[#26262B] bg-[#16161A] p-4 text-white">
           <p className="text-[11px] font-bold uppercase tracking-wider text-[#71717A]">
-            Membresías Activas
+            Suscripciones Omitidas
           </p>
           <p className="mt-1 text-lg sm:text-xl font-extrabold text-white tabular-nums">
-            {dashboardStats?.active_memberships_count || 4890}
+            {dashboardStats?.skipped_subscriptions ?? 0}
           </p>
-          <p className="mt-1 text-[10px] text-amber-400 font-medium">Gold, Silver, Plat.</p>
+          <p className="mt-1 text-[10px] text-amber-400 font-medium">
+            {expiringCoaches} planes por vencer
+          </p>
         </div>
       </div>
 
-      {/* Row 3: Membership Status Report + Membership Target Gauge */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        <div className="lg:col-span-8 flex flex-col justify-center">
-          <MembershipStatusChart />
-        </div>
-        <div className="lg:col-span-4 flex flex-col">
-          <MembershipTargetGauge
-            percentage={75.55}
-            variation="+10%"
-            targetCount={200}
-            todayCount={250}
-          />
-        </div>
-      </div>
-
-      {/* Row 4: Statistics Table & Member Satisfaction */}
+      {/* Row 3: Monthly Revenue & Coaches Table */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Statistics / Operations Table */}
+        {/* Monthly Revenue Breakdown */}
+        <div className="lg:col-span-5 flex flex-col rounded-3xl border border-[#26262B] bg-[#16161A] p-6 text-white shadow-xl">
+          <div className="flex items-center justify-between border-b border-[#26262B] pb-4">
+            <div>
+              <h3 className="text-base font-bold tracking-tight text-white">
+                Ingresos Mensuales
+              </h3>
+              <p className="text-xs text-[#8E8E93]">
+                Serie histórica reportada por el backend
+              </p>
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#E07A3D]/15 text-[#E07A3D]">
+              <BarChart3 size={18} />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            {loading ? (
+              <div className="py-12 text-center text-xs text-[#8E8E93]">
+                Cargando ingresos...
+              </div>
+            ) : monthlyRevenue.length === 0 ? (
+              <div className="py-12 text-center text-xs text-[#8E8E93]">
+                Sin ingresos mensuales registrados.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {monthlyRevenue.map((entry) => {
+                  const amount = Number(entry.amount || 0);
+                  const pct = Math.max(4, Math.round((amount / maxMonthAmount) * 100));
+                  return (
+                    <div key={entry.month} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium text-[#D1D1D6]">{entry.month}</span>
+                        <span className="font-mono font-bold text-white">
+                          ${amount.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-[#26262B]">
+                        <div
+                          className="h-full rounded-full bg-[#E07A3D] transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Coaches Table */}
         <div className="lg:col-span-7 flex flex-col rounded-3xl border border-[#26262B] bg-[#16161A] p-6 text-white shadow-xl">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#26262B] pb-4">
             <div>
-              <h3 className="text-base font-bold tracking-tight text-white">Statistic & Coaches</h3>
+              <h3 className="text-base font-bold tracking-tight text-white">Coaches</h3>
               <p className="text-xs text-[#8E8E93]">Listado y estado de entrenadores en la plataforma</p>
             </div>
             <div className="relative w-full sm:w-56">
@@ -317,7 +328,9 @@ export default function AdminDashboardPage() {
           <div className="overflow-x-auto mt-4">
             {filteredCoaches.length === 0 ? (
               <div className="py-12 text-center text-xs text-[#8E8E93]">
-                No hay entrenadores registrados que coincidan con la búsqueda.
+                {loading
+                  ? 'Cargando entrenadores...'
+                  : 'No hay entrenadores registrados que coincidan con la búsqueda.'}
               </div>
             ) : (
               <table className="w-full text-left text-xs">
@@ -331,14 +344,14 @@ export default function AdminDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#222228]">
-                  {filteredCoaches.slice(0, 5).map((c) => (
+                  {filteredCoaches.slice(0, 8).map((c) => (
                     <tr key={c.id} className="hover:bg-[#1B1B22] transition-colors">
                       <td className="py-3 px-3 font-semibold text-white">
                         <div>{c.name}</div>
                         <div className="text-[10px] text-[#71717A]">{c.email}</div>
                       </td>
                       <td className="py-3 px-3 text-[#D1D1D6]">
-                        {c.plan_name || 'Básico'}
+                        {c.plan_name || 'Sin plan'}
                       </td>
                       <td className="py-3 px-3">
                         <span
@@ -351,11 +364,11 @@ export default function AdminDashboardPage() {
                               : 'bg-rose-500/15 text-rose-400'
                           )}
                         >
-                          {c.skip_subscription ? 'Omitido' : c.plan_status || 'Activo'}
+                          {c.skip_subscription ? 'Omitido' : c.plan_status || 'Inactivo'}
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right font-mono text-white">
-                        {c.athletes_count ?? 12}
+                        {c.athletes_count ?? 0}
                       </td>
                       <td className="py-3 px-3 text-right">
                         <button
@@ -377,11 +390,6 @@ export default function AdminDashboardPage() {
             )}
           </div>
         </div>
-
-        {/* Member Satisfaction Card */}
-        <div className="lg:col-span-5 flex flex-col">
-          <MemberSatisfaction />
-        </div>
       </div>
 
       {/* Coach Detail Modal */}
@@ -402,12 +410,6 @@ export default function AdminDashboardPage() {
           </div>
         </Modal>
       )}
-
-      {/* Loyalty Setup Modal */}
-      <LoyaltyModal
-        open={loyaltyModalOpen}
-        onClose={() => setLoyaltyModalOpen(false)}
-      />
     </div>
   );
 }

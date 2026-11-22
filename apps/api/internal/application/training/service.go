@@ -545,6 +545,9 @@ func (s *Service) DeleteWorkoutTemplate(ctx context.Context, coachID, id string)
 	if err != nil {
 		return err
 	}
+	if existing == nil {
+		return errors.NotFound("WorkoutTemplate", id)
+	}
 	if existing.CoachID != coachID {
 		return errors.Forbidden("you can only delete your own templates")
 	}

@@ -7,6 +7,7 @@ import (
 	testimonialapp "github.com/innotechlabs01/mr-training-api/internal/application/testimonial"
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/testimonial"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
@@ -23,10 +24,10 @@ func NewTestimonialHandler(svc *testimonialapp.Service) *TestimonialHandler {
 // RegisterRoutes monta las rutas de testimonios en el grupo API.
 func (h *TestimonialHandler) RegisterRoutes(api fiber.Router) {
 	testimonials := api.Group("/testimonials")
-	testimonials.Post("", h.Create)
+	testimonials.Post("", middleware.RequireCoach(), middleware.RequireCoachID(), h.Create)
 	testimonials.Get("/:coachID", h.GetByCoach)
-	testimonials.Put("/:id", h.Update)
-	testimonials.Delete("/:id", h.Delete)
+	testimonials.Put("/:id", middleware.RequireCoach(), middleware.RequireCoachID(), h.Update)
+	testimonials.Delete("/:id", middleware.RequireCoach(), middleware.RequireCoachID(), h.Delete)
 }
 
 // RegisterPublicTestimonialRoutes monta rutas públicas de testimonios (sin auth).
@@ -35,11 +36,24 @@ func (h *TestimonialHandler) RegisterPublicTestimonialRoutes(pub fiber.Router) {
 	pub.Get("/testimonials", h.GetAllPublic)
 }
 
+func requireTestimonialCoach(c *fiber.Ctx) (string, bool) {
+	if middleware.GetUserID(c) == "" {
+		_ = appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+		return "", false
+	}
+	coachID := middleware.GetCoachID(c)
+	if coachID == "" {
+		_ = appresponse.Error(c, fiber.StatusForbidden, "coach context requerido")
+		return "", false
+	}
+	return coachID, true
+}
+
 // Create maneja POST /testimonials.
 func (h *TestimonialHandler) Create(c *fiber.Ctx) error {
-	coachID := c.Locals("coach_id").(string)
-	if coachID == "" {
-		return appresponse.Error(c, fiber.StatusForbidden, "coach context requerido")
+	coachID, ok := requireTestimonialCoach(c)
+	if !ok {
+		return nil
 	}
 
 	var req struct {
@@ -109,9 +123,9 @@ func (h *TestimonialHandler) GetAllPublic(c *fiber.Ctx) error {
 // Update maneja PUT /testimonials/:id.
 func (h *TestimonialHandler) Update(c *fiber.Ctx) error {
 	id := c.Params("id")
-	coachID := c.Locals("coach_id").(string)
-	if coachID == "" {
-		return appresponse.Error(c, fiber.StatusForbidden, "coach context requerido")
+	coachID, ok := requireTestimonialCoach(c)
+	if !ok {
+		return nil
 	}
 
 	var req struct {
@@ -144,9 +158,9 @@ func (h *TestimonialHandler) Update(c *fiber.Ctx) error {
 // Delete maneja DELETE /testimonials/:id.
 func (h *TestimonialHandler) Delete(c *fiber.Ctx) error {
 	id := c.Params("id")
-	coachID := c.Locals("coach_id").(string)
-	if coachID == "" {
-		return appresponse.Error(c, fiber.StatusForbidden, "coach context requerido")
+	coachID, ok := requireTestimonialCoach(c)
+	if !ok {
+		return nil
 	}
 
 	if err := h.svc.Delete(c.Context(), id, coachID); err != nil {

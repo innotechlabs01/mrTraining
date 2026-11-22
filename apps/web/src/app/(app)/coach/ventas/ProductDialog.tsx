@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import type { Product } from '@/features/coach/types'
-import Image from 'next/image'
 import { X, Camera, Trash2, Package, DollarSign, AlertTriangle, CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SignedMediaImg } from '@/components/media/SignedMedia'
 
 interface ProductDialogProps {
   open: boolean
@@ -34,17 +34,19 @@ export function ProductDialog({ open, initial, onOpenChange, onSave }: ProductDi
         alert('Solo se permiten imágenes')
         return
       }
-      if (file.size > 2 * 1024 * 1024) {
-        alert('La imagen debe ser menor a 2MB')
+      if (file.size > 10 * 1024 * 1024) {
+        alert('La imagen debe ser menor a 10MB')
         return
       }
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const result = event.target?.result as string
-        setImagePreview(result)
-        setImageUrl(result)
-      }
-      reader.readAsDataURL(file)
+      import('@/lib/media/r2-upload')
+        .then(({ uploadMediaToR2 }) => uploadMediaToR2(file, 'product_image'))
+        .then((res) => {
+          setImagePreview(res.previewUrl)
+          setImageUrl(res.mediaRef)
+        })
+        .catch((err) => {
+          alert(err instanceof Error ? err.message : 'Error subiendo imagen')
+        })
     }
   }
 
@@ -66,17 +68,19 @@ export function ProductDialog({ open, initial, onOpenChange, onSave }: ProductDi
     setIsDragging(false)
     const file = e.dataTransfer.files[0]
     if (file && file.type.startsWith('image/')) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert('La imagen debe ser menor a 2MB')
+      if (file.size > 10 * 1024 * 1024) {
+        alert('La imagen debe ser menor a 10MB')
         return
       }
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const result = event.target?.result as string
-        setImagePreview(result)
-        setImageUrl(result)
-      }
-      reader.readAsDataURL(file)
+      import('@/lib/media/r2-upload')
+        .then(({ uploadMediaToR2 }) => uploadMediaToR2(file, 'product_image'))
+        .then((res) => {
+          setImagePreview(res.previewUrl)
+          setImageUrl(res.mediaRef)
+        })
+        .catch((err) => {
+          alert(err instanceof Error ? err.message : 'Error subiendo imagen')
+        })
     }
   }
 
@@ -168,14 +172,10 @@ export function ProductDialog({ open, initial, onOpenChange, onSave }: ProductDi
               <label htmlFor="product-image" className="block cursor-pointer">
                 {imagePreview ? (
                   <div className="relative aspect-square">
-                    <Image
+                    <SignedMediaImg
                       src={imagePreview}
                       alt={name || 'Producto'}
-                      fill
-                      className="rounded-xl object-cover"
-                      sizes="200px"
-                      loading="lazy"
-                      quality={85}
+                      className="h-full w-full rounded-xl object-cover"
                     />
                     <button
                       type="button"

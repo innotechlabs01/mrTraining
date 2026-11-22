@@ -4,8 +4,9 @@ const GO_API_BASE = process.env.GO_API_URL || process.env.NEXT_PUBLIC_GO_API_URL
 
 async function forward(req: NextRequest, params: { proxy: string[] }) {
   const pathSegments = params.proxy ?? [];
-  const goPath = `/api/v1/${pathSegments.join('/')}`;
-  const url = `${GO_API_BASE}${goPath}`;
+  const effectiveSegments = pathSegments[0] === 'v1' ? pathSegments.slice(1) : pathSegments;
+  const goPath = `/api/v1/${effectiveSegments.join('/')}`;
+  const url = `${GO_API_BASE}${goPath}${req.nextUrl.search}`;
 
   // Forward request
   const headers = new Headers();
@@ -39,9 +40,9 @@ async function forward(req: NextRequest, params: { proxy: string[] }) {
     responseHeaders.set('API-Version', 'v1');
     responseHeaders.set('Content-Type', contentType);
 
-    // Cache GET responses for 60 seconds (stale-while-revalidate)
+    // Never allow shared CDN caches to store authenticated/proxied API responses.
     if (req.method === 'GET') {
-      responseHeaders.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+      responseHeaders.set('Cache-Control', 'private, no-store');
     }
 
     return new NextResponse(buffer, { status: goRes.status, headers: responseHeaders });

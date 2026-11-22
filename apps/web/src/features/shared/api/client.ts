@@ -1079,11 +1079,10 @@ export const coachingApi = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
-  uploadLandingMedia: (file: File) => {
-    // Go API: POST /api/v1/landing/media — multipart upload to /uploads/landing
-    const form = new FormData()
-    form.append('file', file)
-    return goFetch<{ url: string }>('/api/v1/landing/media', { method: 'POST', body: form })
+  uploadLandingMedia: async (file: File) => {
+    const { uploadMediaToR2 } = await import('@/lib/media/r2-upload')
+    const res = await uploadMediaToR2(file, 'landing_media')
+    return { url: res.mediaRef, previewUrl: res.previewUrl }
   },
 
   // Public Page Config (not in Go API yet — Next.js fallback)
@@ -1287,41 +1286,181 @@ export interface SessionAnalysis {
   updatedAt: string;
 }
 
+const normalizeTrainingSummary = (
+  raw: TrainingSummaryResponse | Record<string, unknown> | unknown[] | null | undefined,
+  athleteId: string,
+  days: number,
+): TrainingSummaryResponse => {
+  if (!raw || Array.isArray(raw)) {
+    return {
+      athleteId,
+      windowDays: days,
+      sessions: Array.isArray(raw) ? raw.length : 0,
+      avgSessionsPerWeek: 0,
+      totalSets: 0,
+      totalVolumeKg: 0,
+      recentSessions: [],
+    };
+  }
+  const obj = raw as Partial<TrainingSummaryResponse>;
+  return {
+    athleteId: obj.athleteId ?? athleteId,
+    windowDays: obj.windowDays ?? days,
+    sessions: obj.sessions ?? 0,
+    avgSessionsPerWeek: obj.avgSessionsPerWeek ?? 0,
+    totalSets: obj.totalSets ?? 0,
+    totalVolumeKg: obj.totalVolumeKg ?? 0,
+    recentSessions: Array.isArray(obj.recentSessions) ? obj.recentSessions : [],
+  };
+};
+
+const normalizeOneRm = (
+  raw: OneRmResponse | Array<Record<string, unknown>> | null | undefined,
+  athleteId: string,
+): OneRmResponse => {
+  if (Array.isArray(raw)) {
+    return {
+      athleteId,
+      exercises: raw.map((item, idx) => ({
+        exerciseKey: String(item.exerciseKey ?? item.exercise_id ?? idx),
+        name: String(item.name ?? item.exercise_name ?? ''),
+        best:
+          (item.best as OneRmResponse['exercises'][number]['best']) ??
+          (typeof item.one_rep_max === 'number'
+            ? {
+                est: Math.round(item.one_rep_max),
+                weightKg: Math.round(item.one_rep_max),
+                reps: 1,
+                date: String(item.last_updated ?? ''),
+              }
+            : null),
+        series: Array.isArray(item.series) ? (item.series as OneRmResponse['exercises'][number]['series']) : [],
+      })),
+    };
+  }
+  const obj = (raw ?? {}) as Partial<OneRmResponse>;
+  return {
+    athleteId: obj.athleteId ?? athleteId,
+    exercises: Array.isArray(obj.exercises) ? obj.exercises : [],
+  };
+};
+
+const normalizeFatigueMap = (
+  raw: FatigueMapResponse | Array<Record<string, unknown>> | null | undefined,
+  athleteId: string,
+  days: number,
+): FatigueMapResponse => {
+  if (Array.isArray(raw)) {
+    const muscles = raw
+      .filter((m) => typeof m.muscle === 'string')
+      .map((m) => ({
+        muscle: String(m.muscle),
+        level: Number(m.level ?? 0),
+        state: (m.state === 'ready' || m.state === 'recovering' || m.state === 'fatigued' ? m.state : 'ready') as
+          | 'ready'
+          | 'recovering'
+          | 'fatigued',
+        strength: Number(m.strength ?? 0),
+      }));
+    return {
+      athleteId,
+      windowDays: days,
+      muscles,
+      neglectedMuscles: [],
+    };
+  }
+  const obj = (raw ?? {}) as Partial<FatigueMapResponse>;
+  return {
+    athleteId: obj.athleteId ?? athleteId,
+    windowDays: obj.windowDays ?? days,
+    muscles: Array.isArray(obj.muscles) ? obj.muscles : [],
+    neglectedMuscles: Array.isArray(obj.neglectedMuscles) ? obj.neglectedMuscles : [],
+  };
+};
+
+const normalizeEffort = (
+  raw: EffortResponse | Array<Record<string, unknown>> | null | undefined,
+  athleteId: string,
+  days: number,
+): EffortResponse => {
+  if (Array.isArray(raw)) {
+    const hardCount = raw.filter((e) => Number(e.rpe ?? 0) >= 8).length;
+    return {
+      athleteId,
+      enabled: raw.length > 0,
+      windowDays: days,
+      hardRirThreshold: 2,
+      summary:
+        raw.length > 0
+          ? {
+              done: raw.length,
+              rated: raw.length,
+              hard: hardCount,
+              avg: raw.reduce((sum, e) => sum + Number(e.rpe ?? e.effort_score ?? 0), 0) / raw.length,
+              hardPct: hardCount / raw.length,
+            }
+          : undefined,
+      weeks: [],
+      histogram: [],
+    };
+  }
+  const obj = (raw ?? {}) as Partial<EffortResponse>;
+  return {
+    athleteId: obj.athleteId ?? athleteId,
+    enabled: Boolean(obj.enabled),
+    windowDays: obj.windowDays ?? days,
+    hardRirThreshold: obj.hardRirThreshold,
+    summary: obj.summary,
+    weeks: Array.isArray(obj.weeks) ? obj.weeks : undefined,
+    histogram: Array.isArray(obj.histogram) ? obj.histogram : undefined,
+  };
+};
+
 // Training API — Go backend (primary) with Next.js fallback.
 // Go endpoints: /api/v1/progress, /api/v1/exercises, /athlete/:id/analytics/*
 // Next.js fallback: /api/coach/athletes/:id/*, /api/coach/video-analytics
 export const trainingApi = {
-  getTrainingSummary: (athleteId: string, days = 28) =>
+  getTrainingSummary: (athleteId: string, days = 28): Promise<TrainingSummaryResponse> =>
     // Go: GET /athlete/:id/analytics/training-summary
-    goFetch<TrainingSummaryResponse>(`/api/v1/athlete/${athleteId}/analytics/training-summary?days=${days}`)
+    goFetch<TrainingSummaryResponse | Record<string, unknown> | unknown[]>(
+      `/api/v1/athlete/${athleteId}/analytics/training-summary?days=${days}`,
+    )
       .catch((err) => {
         if (!shouldFallbackToNextApi(err, 'GET')) throw err;
         return nextFetch.get<TrainingSummaryResponse>(`/api/coach/athletes/${athleteId}/training-summary?days=${days}`);
-      }),
+      })
+      .then((res) => normalizeTrainingSummary(res, athleteId, days)),
 
-  getOneRm: (athleteId: string) =>
+  getOneRm: (athleteId: string): Promise<OneRmResponse> =>
     // Go: GET /athlete/:id/analytics/one-rm
-    goFetch<OneRmResponse>(`/api/v1/athlete/${athleteId}/analytics/one-rm`)
+    goFetch<OneRmResponse | Array<Record<string, unknown>>>(`/api/v1/athlete/${athleteId}/analytics/one-rm`)
       .catch((err) => {
         if (!shouldFallbackToNextApi(err, 'GET')) throw err;
         return nextFetch.get<OneRmResponse>(`/api/coach/athletes/${athleteId}/one-rm`);
-      }),
+      })
+      .then((res) => normalizeOneRm(res, athleteId)),
 
-  getFatigueMap: (athleteId: string, days = 7) =>
+  getFatigueMap: (athleteId: string, days = 7): Promise<FatigueMapResponse> =>
     // Go: GET /athlete/:id/analytics/fatigue-map
-    goFetch<FatigueMapResponse>(`/api/v1/athlete/${athleteId}/analytics/fatigue-map?days=${days}`)
+    goFetch<FatigueMapResponse | Array<Record<string, unknown>>>(
+      `/api/v1/athlete/${athleteId}/analytics/fatigue-map?days=${days}`,
+    )
       .catch((err) => {
         if (!shouldFallbackToNextApi(err, 'GET')) throw err;
         return nextFetch.get<FatigueMapResponse>(`/api/coach/athletes/${athleteId}/fatigue-map?days=${days}`);
-      }),
+      })
+      .then((res) => normalizeFatigueMap(res, athleteId, days)),
 
-  getEffort: (athleteId: string, days = 28) =>
+  getEffort: (athleteId: string, days = 28): Promise<EffortResponse> =>
     // Go: GET /athlete/:id/analytics/effort
-    goFetch<EffortResponse>(`/api/v1/athlete/${athleteId}/analytics/effort?days=${days}`)
+    goFetch<EffortResponse | Array<Record<string, unknown>>>(
+      `/api/v1/athlete/${athleteId}/analytics/effort?days=${days}`,
+    )
       .catch((err) => {
         if (!shouldFallbackToNextApi(err, 'GET')) throw err;
         return nextFetch.get<EffortResponse>(`/api/coach/athletes/${athleteId}/effort?days=${days}`);
-      }),
+      })
+      .then((res) => normalizeEffort(res, athleteId, days)),
 
   /** Wearable-derived health signals (HRV/RHR/steps/sleep) for one athlete. */
   getHealth: async (athleteId: string, days = 14): Promise<AthleteHealthResponse> => {
@@ -1462,10 +1601,12 @@ export const trainingApi = {
     }
   },
 
-  /** Aggregate video view analytics across all exercises. */
-  getVideoAnalytics: () =>
-    // Next.js: /api/coach/video-analytics (not in Go API)
-    nextFetch.get<{ analytics: VideoAnalyticsRow[] }>('/api/coach/video-analytics'),
+  /** Aggregate video view analytics across all exercises for one athlete. */
+  getVideoAnalytics: (athleteId: string): Promise<VideoAnalyticsRow[]> =>
+    // Go API: GET /api/v1/coach/athletes/:athleteId/video-analytics
+    goFetch<{ analytics?: VideoAnalyticsRow[] } | VideoAnalyticsRow[]>(
+      `/api/v1/coach/athletes/${athleteId}/video-analytics`,
+    ).then((res) => (Array.isArray(res) ? res : (res?.analytics ?? []))),
 };
 
 // ---- Video View API ----
@@ -1480,23 +1621,25 @@ export const videoViewApi = {
 };
 
 // ---- Video Analytics API ----
-// Go endpoints: GET /video-analytics/summary, GET /video-analytics/per-exercise, GET /video-analytics/sessions, POST /video-analytics/track
+// Go endpoints: GET /api/v1/video-analytics/summary, GET /api/v1/video-analytics/per-exercise, GET /api/v1/video-analytics/sessions, POST /api/v1/video-analytics/track
 export const videoAnalyticsApi = {
   getSummary: () =>
-    // Go API: GET /video-analytics/summary
-    goFetch<VideoAnalyticsSummary>('/video-analytics/summary'),
+    // Go API: GET /api/v1/video-analytics/summary
+    goFetch<VideoAnalyticsSummary>('/api/v1/video-analytics/summary'),
 
-  getPerExercise: () =>
-    // Go API: GET /video-analytics/per-exercise
-    goFetch<ExerciseAnalytics[]>('/video-analytics/per-exercise'),
+  getPerExercise: (): Promise<ExerciseAnalytics[]> =>
+    // Go API: GET /api/v1/video-analytics/per-exercise
+    goFetch<{ exercises?: ExerciseAnalytics[] } | ExerciseAnalytics[]>('/api/v1/video-analytics/per-exercise')
+      .then((res) => (Array.isArray(res) ? res : (res?.exercises ?? []))),
 
-  getSessions: () =>
-    // Go API: GET /video-analytics/sessions
-    goFetch<SessionAnalysis[]>('/video-analytics/sessions'),
+  getSessions: (): Promise<SessionAnalysis[]> =>
+    // Go API: GET /api/v1/video-analytics/sessions
+    goFetch<{ sessions?: SessionAnalysis[] } | SessionAnalysis[]>('/api/v1/video-analytics/sessions')
+      .then((res) => (Array.isArray(res) ? res : (res?.sessions ?? []))),
 
   trackSession: (data: { workoutId: string; exerciseId: string; durationSec: number; repCount: number; avgFormScore: number; minFormScore: number; maxFormScore: number; videoUrl?: string }) =>
-    // Go API: POST /video-analytics/track
-    goFetch<SessionAnalysis>('/video-analytics/track', {
+    // Go API: POST /api/v1/video-analytics/track
+    goFetch<SessionAnalysis>('/api/v1/video-analytics/track', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -1640,17 +1783,10 @@ export const exerciseApi = {
     // Go API: DELETE /api/v1/exercises/:id
     goFetch<{ ok: boolean }>(`/api/v1/exercises/${id}`, { method: 'DELETE' }),
 
-  uploadVideo: async (file: File) => {
-    // Video upload uses multipart/form-data; auth relies on the Clerk session
-    // cookie (the route verifies it via auth()) — no token in localStorage.
-    const form = new FormData()
-    form.append('file', file)
-    const res = await fetch('/api/exercises/upload', {
-      method: 'POST',
-      body: form,
-    })
-    if (!res.ok) throw new Error('Upload failed')
-    return res.json()
+  uploadVideo: async (file: File, onProgress?: (percent: number) => void) => {
+    const { uploadMediaToR2 } = await import('@/lib/media/r2-upload')
+    const res = await uploadMediaToR2(file, 'exercise_video', { onProgress })
+    return { url: res.mediaRef, videoUrl: res.mediaRef, previewUrl: res.previewUrl }
   },
 };
 
@@ -1951,8 +2087,10 @@ export const templateApi = {
     }).then((res) => ({ id: res.id })),
 
   remove: (id: string) =>
-    // Next.js: DELETE /api/coach/workout-templates/:id (no Go DELETE endpoint yet)
-    nextFetch.delete<{ ok: true }>(`/api/coach/workout-templates/${id}`),
+    // Go API: DELETE /api/v1/workout-templates/:id
+    goFetch<{ ok?: boolean }>(`/api/v1/workout-templates/${id}`, {
+      method: 'DELETE',
+    }),
 
   /** Full detail of a previously assigned workout, for reassignment flows. */
   getPastAssignment: (id: string) =>

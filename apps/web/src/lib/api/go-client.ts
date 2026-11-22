@@ -28,7 +28,10 @@ import {
 
 export { CircuitBreakerOpenError };
 
-const GO_API_BASE = process.env.NEXT_PUBLIC_GO_API_URL || ''
+const GO_API_BASE =
+  typeof window === 'undefined'
+    ? process.env.GO_API_URL || process.env.GO_API_ORIGIN || process.env.NEXT_PUBLIC_GO_API_URL || ''
+    : process.env.NEXT_PUBLIC_GO_API_URL || ''
 
 const MUTABLE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 

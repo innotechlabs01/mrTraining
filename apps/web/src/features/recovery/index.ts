@@ -1,6 +1,4 @@
 export * from './types'
-export { useRecoveryData } from './hooks/useRecoveryData'
-export { default as RecoveryDashboard } from './components/RecoveryDashboard'
 export { default as RecoveryScoreCard } from './components/RecoveryScoreCard'
 export { default as SleepCard } from './components/SleepCard'
 export { default as HRVCard } from './components/HRVCard'

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/training"
@@ -32,9 +33,9 @@ func (r *WorkoutRepository) SetExecutor(exec database.Executor) {
 
 // WithExecutor returns a new Repository instance sharing the same connection
 // pool but using the given executor for all queries.
-func (r *WorkoutRepository) WithExecutor(exec database.Executor) *WorkoutRepository {
+func (r *WorkoutRepository) WithExecutor(exec database.Executor) training.WorkoutRepository {
 	return &WorkoutRepository{
-		db:  r.db,
+		db:   r.db,
 		exec: exec,
 	}
 }
@@ -332,7 +333,7 @@ func (r *WorkoutRepository) LogWorkoutSet(ctx context.Context, set *training.Wor
 	// Insert the set log
 	set.ID = generateID()
 	set.SessionID = sessionID
-	set.LoggedAt = "NOW()"
+	set.LoggedAt = time.Now().UTC().Format(time.RFC3339)
 
 	var weightKg, rir, rpe, speed sql.NullFloat64
 	if set.WeightKg != 0 {
@@ -413,7 +414,6 @@ func (r *WorkoutRepository) LogWorkoutSet(ctx context.Context, set *training.Wor
 		return nil, fmt.Errorf("failed to commit set log: %w", err)
 	}
 
-	set.LoggedAt = ""
 	return set, nil
 }
 
@@ -905,20 +905,23 @@ func (r *WorkoutRepository) DeleteAssignedWorkout(ctx context.Context, id string
 	return tx.Commit()
 }
 
-// DeleteTemplate deletes a workout template and its exercises.
-func (r *WorkoutRepository) DeleteTemplate(ctx context.Context, id string) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+// usesInjectedExecutor reports whether r.exec is a transaction or non-pool executor
+// injected via SetExecutor/WithExecutor (such as *sql.Tx from a UnitOfWork).
+func (r *WorkoutRepository) usesInjectedExecutor() bool {
+	if r.exec == nil {
+		return false
 	}
-	defer tx.Rollback()
+	_, isPool := r.exec.(*sql.DB)
+	return !isPool
+}
 
-	_, err = tx.ExecContext(ctx, `DELETE FROM workout_template_exercises WHERE template_id = $1`, id)
+func (r *WorkoutRepository) deleteTemplateWithExec(ctx context.Context, exec database.Executor, id string) error {
+	_, err := exec.ExecContext(ctx, `DELETE FROM workout_template_exercises WHERE template_id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete template exercises: %w", err)
 	}
 
-	result, err := tx.ExecContext(ctx, `DELETE FROM workout_templates WHERE id = $1`, id)
+	result, err := exec.ExecContext(ctx, `DELETE FROM workout_templates WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete template: %w", err)
 	}
@@ -928,6 +931,29 @@ func (r *WorkoutRepository) DeleteTemplate(ctx context.Context, id string) error
 	}
 	if rows == 0 {
 		return errors.NotFound("WorkoutTemplate", id)
+	}
+	return nil
+}
+
+// DeleteTemplate deletes a workout template and its exercises.
+// When an executor (such as a UnitOfWork *sql.Tx) has been injected, it runs
+// via r.exec so PostgreSQL RLS policies apply.
+func (r *WorkoutRepository) DeleteTemplate(ctx context.Context, id string) error {
+	if r.usesInjectedExecutor() {
+		return r.deleteTemplateWithExec(ctx, r.exec, id)
+	}
+	if r.db == nil {
+		return fmt.Errorf("database unavailable")
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := r.deleteTemplateWithExec(ctx, tx, id); err != nil {
+		return err
 	}
 
 	return tx.Commit()

@@ -44,6 +44,7 @@ import (
 	importactivityapp "github.com/innotechlabs01/mr-training-api/internal/application/importactivity"
 	inviteapp "github.com/innotechlabs01/mr-training-api/internal/application/invite"
 	leaderboardapp "github.com/innotechlabs01/mr-training-api/internal/application/leaderboard"
+	mediaapp "github.com/innotechlabs01/mr-training-api/internal/application/media"
 	membershipapp "github.com/innotechlabs01/mr-training-api/internal/application/membership"
 	messageapp "github.com/innotechlabs01/mr-training-api/internal/application/message"
 	notificationapp "github.com/innotechlabs01/mr-training-api/internal/application/notification"
@@ -101,6 +102,7 @@ import (
 	importinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/import"
 	inviteinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/invite"
 	leaderboardinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/leaderboard"
+	mediainfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/media"
 	membershipinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/membership"
 	messageinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/message"
 	nutritioninfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/nutrition"
@@ -111,6 +113,7 @@ import (
 	productinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/product"
 	routineinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/routine"
 	runninginfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/running"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/storage"
 	storeinfrastructure "github.com/innotechlabs01/mr-training-api/internal/infrastructure/store"
 	subscriptioninfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/subscription"
 	wompiinfra "github.com/innotechlabs01/mr-training-api/internal/infrastructure/subscription/wompi"
@@ -204,13 +207,30 @@ func registerProtectedRoutesWithDeps(
 
 	routes.RegisterUserRoutes(api, userHandler)
 
+	// --- Cloudflare R2 Media (presigned upload, confirm, batched signed read, public redirect) ---
+	r2Storage := storage.NewR2Client(cfg)
+	mediaRepo := mediainfrastructure.NewRepository(db.DB)
+	mediaService := mediaapp.NewService(mediaRepo, r2Storage, mediaapp.Options{
+		UploadTTL:     time.Duration(cfg.R2UploadTTLSeconds) * time.Second,
+		ReadTTL:       time.Duration(cfg.R2ReadTTLSeconds) * time.Second,
+		PublicViewTTL: time.Duration(cfg.R2PublicViewTTLSeconds) * time.Second,
+		MaxImageBytes: cfg.R2MaxImageBytes,
+		MaxVideoBytes: cfg.R2MaxVideoBytes,
+	})
+	mediaHandler := handlers.NewMediaHandler(mediaService)
+	routes.RegisterMediaRoutes(api, mediaHandler)
+	routes.RegisterPublicMediaRoutes(pub, mediaHandler)
+
 	// --- Training domain ---
 	trainingExerciseRepo := traininginfrastructure.NewExerciseRepository(stdlibDB)
 	trainingWorkoutRepo := traininginfrastructure.NewWorkoutRepository(stdlibDB)
 	trainingProgressRepo := traininginfrastructure.NewProgressRepository(stdlibDB)
 	trainingSessionRepo := traininginfrastructure.NewSessionRepository(stdlibDB)
 	trainingService := trainingapp.NewService(trainingExerciseRepo, trainingWorkoutRepo, trainingProgressRepo, trainingSessionRepo)
-	trainingHandler := handlers.NewTrainingHandler(trainingService, stdlibDB).WithOutbox(outboxStore)
+	trainingHandler := handlers.NewTrainingHandler(trainingService, stdlibDB).
+		WithOutbox(outboxStore).
+		SetMediaService(mediaService).
+		WithTenantResolver(tenantResolver)
 
 	// Gamification (needed by Membership handler for badge milestones).
 	gamificationRepo := gamificationinfrastructure.NewRepository(db.DB)
@@ -319,7 +339,7 @@ func registerProtectedRoutesWithDeps(
 	// --- Product (protected + public store) ---
 	productRepo := productinfrastructure.NewRepository(stdlibDB)
 	productService := productapp.NewService(productRepo)
-	productHandler := handlers.NewProductHandler(productService)
+	productHandler := handlers.NewProductHandler(productService).SetMediaService(mediaService).WithTenantResolver(tenantResolver)
 	routes.RegisterProductRoutes(api, productHandler)
 	routes.RegisterPublicProductRoutes(pub, productHandler)
 
@@ -339,8 +359,9 @@ func registerProtectedRoutesWithDeps(
 	// --- Support ---
 	supportRepo := supportinfrastructure.NewRepository(stdlibDB)
 	supportService := supportapp.NewService(supportRepo, notifService).WithOutbox(outboxStore)
-	supportHandler := handlers.NewSupportHandler(supportService, stdlibDB)
+	supportHandler := handlers.NewSupportHandler(supportService, stdlibDB).SetMediaService(mediaService)
 	routes.RegisterSupportRoutes(api, supportHandler)
+	routes.RegisterAdminSupportRoutes(api, supportHandler, cfg.PlatformSuperAdminClerkIDs)
 
 	// --- Analytics ---
 	analyticsRepo := analyticsinfrastructure.NewRepository(stdlibDB)
@@ -389,7 +410,7 @@ func registerProtectedRoutesWithDeps(
 			RecordedAt: time.Now().UTC().Format(time.RFC3339),
 		})
 	})
-	healthDataHandler := handlers.NewHealthDataHandler(healthService)
+	healthDataHandler := handlers.NewHealthDataHandler(healthService).WithTenantResolver(tenantResolver)
 	routes.RegisterHealthRoutes(api, healthDataHandler)
 
 	// --- Onboarding ---
@@ -515,7 +536,7 @@ func registerProtectedRoutesWithDeps(
 	// --- Blog (protected + public articles) ---
 	blogRepo := bloginfrastructure.NewRepository(db.DB)
 	blogService := blogapp.NewService(blogRepo)
-	blogHandler := handlers.NewBlogHandler(blogService)
+	blogHandler := handlers.NewBlogHandler(blogService).SetMediaService(mediaService)
 	routes.RegisterBlogRoutes(api, blogHandler)
 	routes.RegisterPublicBlogRoutes(pub, blogHandler)
 
@@ -556,20 +577,20 @@ func registerProtectedRoutesWithDeps(
 	// --- Coach Feed ---
 	coachfeedRepo := coachfeedinfrastructure.NewRepository(db.DB)
 	coachfeedService := coachfeedapp.NewService(coachfeedRepo)
-	coachfeedHandler := handlers.NewCoachFeedHandler(coachfeedService)
+	coachfeedHandler := handlers.NewCoachFeedHandler(coachfeedService).SetMediaService(mediaService)
 	routes.RegisterCoachFeedRoutes(api, coachfeedHandler)
 
 	// --- Form Metrics ---
 	formmetricsRepo := formmetricsinfrastructure.NewRepository(db.DB)
 	formmetricsService := formmetricsapp.NewService(formmetricsRepo)
-	formmetricsHandler := handlers.NewFormMetricsHandler(formmetricsService)
+	formmetricsHandler := handlers.NewFormMetricsHandler(formmetricsService).WithTenantResolver(tenantResolver)
 	routes.RegisterFormMetricsRoutes(api, formmetricsHandler)
-	api.Get("/coach/form-metrics", formmetricsHandler.GetCoachFormMetrics)
+	routes.RegisterCoachFormMetricsRoutes(api, formmetricsHandler)
 
 	// --- Form Recording ---
 	formrecordingRepo := formrecordinginfrastructure.NewRepository(db.DB)
 	formrecordingService := formrecordingapp.NewService(formrecordingRepo)
-	formrecordingHandler := handlers.NewFormRecordingHandler(formrecordingService)
+	formrecordingHandler := handlers.NewFormRecordingHandler(formrecordingService).SetMediaService(mediaService)
 	routes.RegisterFormRecordingRoutes(api, formrecordingHandler)
 
 	// --- Notification preferences ---
@@ -585,6 +606,7 @@ func registerProtectedRoutesWithDeps(
 	challengeRepo := challengeinfrastructure.NewRepository(db.DB)
 	challengeService := challengeapp.NewService(challengeRepo)
 	challengeHandler := handlers.NewChallengeHandler(challengeService, hub).
+		SetMediaService(mediaService).
 		WithGamification(gamificationService, notifService, stdlibDB)
 	routes.RegisterChallengeRoutes(api, challengeHandler)
 
@@ -629,9 +651,9 @@ func registerProtectedRoutesWithDeps(
 	routes.RegisterMessageRoutes(api, messageHandler, cfg.ClerkSecretKey)
 
 	// --- Athlete ---
-	athleteRepo := athleteinfra.NewRepository(db.DB)
+	athleteRepo := athleteinfra.NewRepository(stdlibDB)
 	athleteService := athleteapp.NewService(athleteRepo)
-	athleteHandler := handlers.NewAthleteHandler(athleteService)
+	athleteHandler := handlers.NewAthleteHandler(athleteService, stdlibDB, tenantResolver)
 	routes.RegisterAthleteRoutes(api, athleteHandler)
 
 	// --- Athlete Scheduling & WebRTC P2P Meet ---
@@ -640,8 +662,9 @@ func registerProtectedRoutesWithDeps(
 	meetHandler := handlers.NewMeetSignalingHandler(hub)
 	routes.RegisterMeetRoutes(api, pub, meetHandler)
 
-	// --- WebSocket real-time hub (/ws) ---
+	// --- WebSocket real-time hub (/ws, /challenges/:id/leaderboard/ws) ---
 	app.Get("/ws", middleware.WSAuth(cfg.ClerkSecretKey), handlers.HandleWebSocket(hub))
+	app.Get("/challenges/:id/leaderboard/ws", middleware.WSAuth(cfg.ClerkSecretKey), handlers.HandleChallengeLeaderboardWebSocket(hub))
 
 	// --- Admin (ya registrado arriba con prioridad sobre CRM) ---
 
@@ -658,7 +681,7 @@ func registerProtectedRoutesWithDeps(
 	errorSvc := errorapp.NewService(errorRepo, discordSender, cfg.PlatformSuperAdminClerkID).
 		WithOutbox(outboxStore)
 	errorHandler := handlers.NewErrorHandler(errorSvc)
-	routes.RegisterErrorRoutes(api, errorHandler)
+	routes.RegisterErrorRoutes(api, errorHandler, cfg.PlatformSuperAdminClerkIDs)
 
 	log.Info("error tracking routes registered", zap.String("path", "/api/v1/errors"))
 

@@ -9,6 +9,7 @@ type Repository interface {
 	GetSleepLogs(ctx context.Context, athleteID string, days int) ([]*SleepLog, error)
 	RecordSleepLog(ctx context.Context, s *SleepLog) error
 	GetDevices(ctx context.Context, athleteID string) ([]*HealthDevice, error)
+	GetDevice(ctx context.Context, deviceID string) (*HealthDevice, error)
 	RegisterDevice(ctx context.Context, d *HealthDevice) error
 	RemoveDevice(ctx context.Context, deviceID string) error
 }

@@ -10,6 +10,8 @@
  * `ftp://…`, protocol-relative `//host/x`, malformed) is NOT playable.
  */
 
+import { isR2Ref } from '../../media/mediaService';
+
 // Absolute http(s) URL with a mandatory non-empty host. The host cannot
 // contain whitespace, `/`, `?` or `#`.
 const ABSOLUTE_HTTP_URL = /^https?:\/\/[^\s/?#]+/i;
@@ -22,4 +24,12 @@ export function isPlayableVideoUrl(url: string | null | undefined): url is strin
 
   // The regex requires an absolute scheme plus at least one host character.
   return ABSOLUTE_HTTP_URL.test(url);
+}
+
+/**
+ * Returns true when the value is either an R2 media reference (`r2://...`)
+ * that can be presigned for playback or an already-playable `http(s)://` URL.
+ */
+export function hasVideoSource(url: string | null | undefined): url is string {
+  return isR2Ref(url) || isPlayableVideoUrl(url);
 }

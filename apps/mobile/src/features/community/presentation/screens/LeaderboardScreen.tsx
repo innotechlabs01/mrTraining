@@ -4,8 +4,7 @@ import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import Constants from 'expo-constants';
-import { smartClient as apiClient } from '../../../../infrastructure/api/client';
+import { GO_API_URL, smartClient as apiClient } from '../../../../infrastructure/api/client';
 import { getClerkToken } from '../../../../infrastructure/auth/clerk';
 import { colors, layout, spacing, radius, typography } from '../../../../shared/theme/tokens';
 import { ScreenHeader } from '../../../../shared/components/ui/ScreenHeader';
@@ -90,7 +89,7 @@ export function LeaderboardScreen() {
     let ws: WebSocket | null = null;
     let closed = false;
 
-    const base = Constants.expoConfig?.extra?.goApiUrl ?? 'http://localhost:8080';
+    const base = GO_API_URL;
     const wsBase = base.replace(/^http/, 'ws');
 
     getClerkToken().then((token) => {

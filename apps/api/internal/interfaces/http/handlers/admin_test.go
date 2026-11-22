@@ -3,13 +3,16 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gofiber/fiber/v2"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
@@ -183,4 +186,183 @@ func TestToggleSkipSubscription_DoesNotLogRawClerkID(t *testing.T) {
 	out, _ := io.ReadAll(r)
 
 	require.NotContains(t, string(out), testClerkID, "el Clerk ID crudo no debe escribirse en logs")
+}
+
+func TestUpdateAdminPlan_InlinesNOW(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM plans WHERE id = \$1`).
+		WithArgs("plan-1").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+
+	mock.ExpectExec(`UPDATE plans SET name = \$1, updated_at = NOW\(\) WHERE id = \$2`).
+		WithArgs("Pro Plan", "plan-1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	h := NewAdminHandler(db, nil, nil)
+	app := fiber.New()
+	app.Put("/admin/plans/:id", h.UpdateAdminPlan)
+
+	req := httptest.NewRequest(http.MethodPut, "/admin/plans/plan-1", strings.NewReader(`{"name":"Pro Plan"}`))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestCommissionTerms_NilDBReturns503(t *testing.T) {
+	h := NewAdminHandler(nil, nil, nil)
+	app := fiber.New()
+	app.Get("/admin/commission-terms", h.GetCommissionTerms)
+	app.Put("/admin/commission-terms", h.PutCommissionTerms)
+
+	getResp, err := app.Test(httptest.NewRequest(http.MethodGet, "/admin/commission-terms", nil))
+	require.NoError(t, err)
+	require.Equal(t, http.StatusServiceUnavailable, getResp.StatusCode)
+
+	putReq := httptest.NewRequest(http.MethodPut, "/admin/commission-terms", strings.NewReader(`{"rate_bps":800}`))
+	putReq.Header.Set("Content-Type", "application/json")
+	putResp, err := app.Test(putReq)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusServiceUnavailable, putResp.StatusCode)
+}
+
+func TestPutAndGetCommissionTerms(t *testing.T) {
+	t.Run("PutCommissionTerms marshals JSONB and inlines NOW", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectExec(`INSERT INTO platform_settings .* VALUES \('commission\.rate_bps', \$1, NOW\(\)\)`).
+			WithArgs([]byte(`850`)).
+			WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectExec(`INSERT INTO platform_settings .* VALUES \('commission\.fixed_amount_cents', \$1, NOW\(\)\)`).
+			WithArgs([]byte(`400000`)).
+			WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectExec(`INSERT INTO platform_settings .* VALUES \('commission\.currency', \$1, NOW\(\)\)`).
+			WithArgs([]byte(`"USD"`)).
+			WillReturnResult(sqlmock.NewResult(0, 1))
+
+		h := NewAdminHandler(db, nil, nil)
+		app := fiber.New()
+		app.Put("/admin/commission-terms", h.PutCommissionTerms)
+
+		body := `{"rate_bps":850,"fixed_amount_cents":400000,"currency":"USD"}`
+		req := httptest.NewRequest(http.MethodPut, "/admin/commission-terms", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := app.Test(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("GetCommissionTerms reads stored currency and falls back to COP", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectQuery(`SELECT value FROM platform_settings WHERE key = 'commission\.rate_bps'`).
+			WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow([]byte(`850`)))
+		mock.ExpectQuery(`SELECT value FROM platform_settings WHERE key = 'commission\.fixed_amount_cents'`).
+			WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow([]byte(`400000`)))
+		mock.ExpectQuery(`SELECT value FROM platform_settings WHERE key = 'commission\.currency'`).
+			WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow([]byte(`"USD"`)))
+
+		h := NewAdminHandler(db, nil, nil)
+		app := fiber.New()
+		app.Get("/admin/commission-terms", h.GetCommissionTerms)
+
+		resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/admin/commission-terms", nil))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var out map[string]interface{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
+		require.Equal(t, float64(850), out["rate_bps"])
+		require.Equal(t, float64(400000), out["fixed_amount_cents"])
+		require.Equal(t, "USD", out["currency"])
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("GetCommissionTerms defaults currency to COP when missing", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectQuery(`SELECT value FROM platform_settings WHERE key = 'commission\.rate_bps'`).
+			WillReturnError(sql.ErrNoRows)
+		mock.ExpectQuery(`SELECT value FROM platform_settings WHERE key = 'commission\.fixed_amount_cents'`).
+			WillReturnError(sql.ErrNoRows)
+		mock.ExpectQuery(`SELECT value FROM platform_settings WHERE key = 'commission\.currency'`).
+			WillReturnError(sql.ErrNoRows)
+
+		h := NewAdminHandler(db, nil, nil)
+		app := fiber.New()
+		app.Get("/admin/commission-terms", h.GetCommissionTerms)
+
+		resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/admin/commission-terms", nil))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var out map[string]interface{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
+		require.Equal(t, "COP", out["currency"])
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
+func TestFormatTimeValue(t *testing.T) {
+	ts := time.Date(2026, 5, 10, 14, 30, 0, 0, time.FixedZone("COT", -5*3600))
+	wantRFC := "2026-05-10T19:30:00Z"
+
+	require.Equal(t, wantRFC, formatTimeValue(ts))
+	require.Equal(t, wantRFC, formatTimeValue(&ts))
+	require.Equal(t, "", formatTimeValue((*time.Time)(nil)))
+	require.Equal(t, wantRFC, formatTimeValue(sql.NullTime{Time: ts, Valid: true}))
+	require.Equal(t, "", formatTimeValue(sql.NullTime{Time: ts, Valid: false}))
+	require.Equal(t, "2026-05-10T00:00:00Z", formatTimeValue("2026-05-10T00:00:00Z"))
+	require.Equal(t, "2026-05-10", formatTimeValue(sql.NullString{String: "2026-05-10", Valid: true}))
+	require.Equal(t, "2026-05-10", formatTimeValue([]byte("2026-05-10")))
+	require.Equal(t, "", formatTimeValue(nil))
+}
+
+func TestListCoaches_ReadOnlyAndActiveMembershipPrecedence(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	// No INSERT INTO coaches expectation: if queryCoaches mutates DB, sqlmock fails.
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM all_coaches ac WHERE TRUE`).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+
+	createdAt := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(`WHERE \(am\.coach_id = ac\.id OR am\.coach_id = ac\.email\) AND am\.status = 'active'`).
+		WithArgs(25, 0).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "coach_id", "name", "email", "is_active", "created_at",
+			"athletes_count", "memberships_count", "active_memberships_count",
+			"skip_subscription", "plan_name", "plan_price", "plan_max_athletes",
+			"plan_status", "plan_expires_at", "revenue_month", "revenue_total", "last_login",
+		}).AddRow(
+			"c1", "c1", "Coach Uno", "uno@mr.test", 1, createdAt,
+			3, 2, 1, false, "Pro", 100.0, 20, "active", "2026-12-01", 200.0, 500.0, "2026-06-02",
+		))
+
+	h := NewAdminHandler(db, nil, nil)
+	app := fiber.New()
+	app.Get("/admin/coaches", h.ListCoaches)
+
+	resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/admin/coaches", nil))
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var body AdminCoachesResponse
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	require.Equal(t, int64(1), body.Total)
+	require.Len(t, body.Data, 1)
+	require.Equal(t, "2026-06-01T12:00:00Z", body.Data[0].CreatedAt)
+	require.NoError(t, mock.ExpectationsWereMet())
 }

@@ -10,7 +10,8 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native'
 import { useEvent, useEventListener } from 'expo'
 import { useVideoPlayer, VideoView } from 'expo-video'
 import { radius } from '../../theme/tokens'
-import { isPlayableVideoUrl } from './isPlayableVideoUrl'
+import { hasVideoSource, isPlayableVideoUrl } from './isPlayableVideoUrl'
+import { useSignedMediaUrl } from '../../media/useSignedMediaUrl'
 import { VideoLoadingOverlay, VideoControlsOverlay } from './ExerciseVideoOverlays'
 import { VideoProgressBar, VideoTitleBar } from './ExerciseVideoFooter'
 
@@ -30,14 +31,22 @@ interface ExerciseVideoPlayerProps {
   onRecordPress?: () => void
 }
 
-export function ExerciseVideoPlayer({
+export function ExerciseVideoPlayer(props: ExerciseVideoPlayerProps) {
+  if (!hasVideoSource(props.videoUrl)) return null
+  return <ExerciseVideoPlayerInner {...props} />
+}
+
+function ExerciseVideoPlayerInner({
   videoUrl,
   videoId,
   videoType,
   title,
   onRecordPress,
 }: ExerciseVideoPlayerProps) {
-  const player = useVideoPlayer({ uri: videoUrl }, (p) => {
+  const { url: signedUrl, isLoading: isSigning } = useSignedMediaUrl(videoUrl)
+  const playableUrl = isPlayableVideoUrl(signedUrl) ? signedUrl : undefined
+
+  const player = useVideoPlayer(playableUrl ? { uri: playableUrl } : null, (p) => {
     p.loop = false
     // Emit timeUpdate at the same cadence expo-av used for status updates (~500ms).
     p.timeUpdateEventInterval = 0.5
@@ -47,18 +56,20 @@ export function ExerciseVideoPlayer({
   const [showControls, setShowControls] = useState(true)
   const [duration, setDuration] = useState(0)
   const [position, setPosition] = useState(0)
-  const sourceRef = useRef(videoUrl)
+  const sourceRef = useRef(playableUrl)
 
   // expo-av reloaded whenever `source` changed — replicate with replaceAsync.
   useEffect(() => {
-    if (sourceRef.current !== videoUrl) {
-      sourceRef.current = videoUrl
+    if (sourceRef.current !== playableUrl) {
+      sourceRef.current = playableUrl
       setIsLoaded(false)
       setPosition(0)
       setDuration(0)
-      void player.replaceAsync({ uri: videoUrl })
+      if (playableUrl) {
+        void player.replaceAsync({ uri: playableUrl })
+      }
     }
-  }, [videoUrl, player])
+  }, [playableUrl, player])
 
   // Metrics tracking
   const metricsRef = useRef<VideoMetrics>({
@@ -133,8 +144,20 @@ export function ExerciseVideoPlayer({
     player.play()
   }, [player])
 
+  if (!hasVideoSource(videoUrl)) return null
+
+  if (isSigning) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.videoWrapper}>
+          <VideoLoadingOverlay />
+        </View>
+      </View>
+    )
+  }
+
   // Defense in depth: never mount VideoView for an unplayable URL.
-  if (!isPlayableVideoUrl(videoUrl)) return null
+  if (!playableUrl) return null
 
   return (
     <View style={styles.container}>

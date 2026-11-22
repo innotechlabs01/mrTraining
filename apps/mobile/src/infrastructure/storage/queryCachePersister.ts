@@ -44,6 +44,8 @@ const PERSISTABLE_ROOT_KEYS = new Set([
 /** Restricts dehydration to successful, safe read-mostly queries. */
 export function shouldDehydrateQuery(query: Query): boolean {
   if (query.state.status !== 'success') return false;
+  // Expiring presigned R2 URLs must never be persisted in MMKV across cold restarts.
+  if (query.queryKey[0] === 'media' && query.queryKey[1] === 'signed') return false;
   const root = query.queryKey[0];
   return typeof root === 'string' && PERSISTABLE_ROOT_KEYS.has(root);
 }

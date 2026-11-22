@@ -132,7 +132,6 @@ export default function AdminPlansPage() {
   }, [user, isSuperAdmin, router]);
 
   if (!user || !isSuperAdmin) {
-    router.push('/coach');
     return null;
   }
 

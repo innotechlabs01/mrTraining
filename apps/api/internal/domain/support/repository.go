@@ -6,6 +6,7 @@ import "context"
 type Repository interface {
 	// Coach methods
 	ListByCoach(ctx context.Context, coachID string, status *TicketStatus) ([]*SupportTicket, error)
+	ListAll(ctx context.Context, status *TicketStatus) ([]*SupportTicket, error)
 	GetByID(ctx context.Context, id string) (*SupportTicket, error)
 	Create(ctx context.Context, ticket *SupportTicket) error
 	Update(ctx context.Context, ticket *SupportTicket) error

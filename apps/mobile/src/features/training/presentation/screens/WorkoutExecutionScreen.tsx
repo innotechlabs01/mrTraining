@@ -29,7 +29,7 @@ import { CompletionSummary } from '../components/execution/CompletionSummary';
 import { AiWorkoutCta } from '../components/execution/AiWorkoutCta';
 import { ExerciseCard } from '../components/execution/ExerciseCard';
 import { ExerciseDemoModal } from '../components/execution/ExerciseDemoModal';
-import { isPlayableVideoUrl } from '../../../../shared/components/video/isPlayableVideoUrl';
+import { hasVideoSource } from '../../../../shared/components/video/isPlayableVideoUrl';
 import { PendingSyncBadge } from '../components/execution/PendingSyncBadge';
 import { RestOverlay } from '../components/execution/RestOverlay';
 import { SetInput } from '../components/execution/SetInput';
@@ -287,7 +287,7 @@ export function WorkoutExecutionScreen({ route, navigation }: Props) {
                 b: String(vm.currentExercise.sets),
               })}
               viewDemoLabel={t.viewDemo}
-              {...(isPlayableVideoUrl(vm.demoVideoUrl) ? { onViewDemo: () => vm.setDemoVisible(true) } : {})}
+              {...(hasVideoSource(vm.demoVideoUrl) ? { onViewDemo: () => vm.setDemoVisible(true) } : {})}
               verdict={vm.formVerdict}
             />
 
@@ -362,7 +362,7 @@ export function WorkoutExecutionScreen({ route, navigation }: Props) {
           onSkip={() => vm.setRestSecondsLeft(null)}
         />
       ) : null}
-      {vm.demoVisible && vm.currentExercise && isPlayableVideoUrl(vm.demoVideoUrl) ? (
+      {vm.demoVisible && vm.currentExercise && hasVideoSource(vm.demoVideoUrl) ? (
         <ExerciseDemoModal
           videoUrl={vm.demoVideoUrl}
           exerciseId={vm.currentExercise.id}

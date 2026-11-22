@@ -1,0 +1,120 @@
+name: CD - Mobile Android QA (Firebase App Distribution)
+
+on:
+  push:
+    branches: [qa]
+    paths:
+      - 'apps/mobile/**'
+      - '.github/workflows/cd-mobile-qa.yml'
+  workflow_dispatch:
+    inputs:
+      tester_groups:
+        description: 'Firebase App Distribution tester groups (comma-separated)'
+        required: false
+        default: 'qa-testers'
+      release_notes:
+        description: 'Release notes for testers'
+        required: false
+        default: 'QA build from GitHub Actions'
+
+concurrency:
+  group: cd-mobile-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  android-qa-distribute:
+    name: Build Android QA APK & Distribute to Firebase
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Mobile dependencies
+        run: npm ci
+
+      - name: Write QA google-services.json
+        env:
+          FIREBASE_GOOGLE_SERVICES_JSON_QA: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON_QA }}
+        run: |
+          if [ -z "$FIREBASE_GOOGLE_SERVICES_JSON_QA" ]; then
+            echo "❌ Missing secret FIREBASE_GOOGLE_SERVICES_JSON_QA"
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_GOOGLE_SERVICES_JSON_QA" > google-services.qa.json
+
+      - name: Decode Android QA keystore (optional)
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android-qa.keystore
+          fi
+
+      - name: Expo Prebuild Android (QA variant)
+        env:
+          APP_VARIANT: qa
+          ANDROID_PACKAGE: com.innotechlabssas.mrtraining.qa
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.MOBILE_QA_CLERK_PUBLISHABLE_KEY }}
+          EXPO_PUBLIC_GO_API_URL: ${{ secrets.MOBILE_QA_GO_API_URL }}
+          EXPO_PUBLIC_API_URL: ${{ secrets.MOBILE_QA_GO_API_URL }}
+          EXPO_PUBLIC_WEB_URL: ${{ secrets.MOBILE_QA_WEB_URL }}
+        run: npx expo prebuild --platform android --clean --non-interactive
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-qa-${{ runner.os }}-${{ hashFiles('apps/mobile/android/gradle/wrapper/gradle-wrapper.properties', 'apps/mobile/android/build.gradle', 'apps/mobile/android/app/build.gradle') }}
+          restore-keys: |
+            gradle-qa-${{ runner.os }}-
+
+      - name: Build QA Release APK
+        working-directory: apps/mobile/android
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && '../android-qa.keystore' || '' }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleQaRelease --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mr-training-qa-apk
+          path: apps/mobile/android/app/build/outputs/apk/qa/release/*.apk
+          retention-days: 14
+
+      - name: Distribute to Firebase App Distribution
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DEPLOY != '' }}
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: '1:399408860598:android:9dc9797d89afbb9cd10517'
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DEPLOY }}
+          groups: ${{ github.event.inputs.tester_groups || 'qa-testers' }}
+          releaseNotes: ${{ github.event.inputs.release_notes || format('QA build {0}', github.sha) }}
+          file: apps/mobile/android/app/build/outputs/apk/qa/release/app-qa-release.apk

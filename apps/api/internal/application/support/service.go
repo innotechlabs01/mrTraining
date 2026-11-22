@@ -163,8 +163,7 @@ func (s *Service) UpdateTicket(ctx context.Context, coachID, id string, req Upda
 	if req.Status != nil {
 		ticket.Status = *req.Status
 		if *req.Status == supportdomain.TicketStatusResolved || *req.Status == supportdomain.TicketStatusClosed {
-			now := "CURRENT_TIMESTAMP" // will be set by DB
-			ticket.ResolvedAt = now
+			ticket.ResolvedAt = time.Now().UTC().Format(time.RFC3339)
 		}
 	}
 	if req.Priority != nil {
@@ -192,6 +191,96 @@ func (s *Service) DeleteTicket(ctx context.Context, coachID, id string) error {
 		return apperrors.Forbidden("you can only delete your own tickets")
 	}
 	return s.repo.Delete(ctx, id)
+}
+
+// Admin methods
+func (s *Service) ListAllTickets(ctx context.Context, status *supportdomain.TicketStatus) ([]*supportdomain.SupportTicket, error) {
+	return s.repo.ListAll(ctx, status)
+}
+
+func (s *Service) GetTicketAdmin(ctx context.Context, id string) (*supportdomain.SupportTicket, error) {
+	return s.repo.GetByID(ctx, id)
+}
+
+func (s *Service) CreateAdminTicket(ctx context.Context, adminID string, req CreateTicketRequest) (*supportdomain.SupportTicket, error) {
+	if req.Subject == "" {
+		return nil, apperrors.BadRequest("subject is required")
+	}
+	if req.Body == "" {
+		return nil, apperrors.BadRequest("body is required")
+	}
+
+	tickets, _ := s.repo.ListAll(ctx, nil)
+	maxNum := 0
+	for _, t := range tickets {
+		if t.TicketNumber > maxNum {
+			maxNum = t.TicketNumber
+		}
+	}
+
+	ticket := &supportdomain.SupportTicket{
+		ID:            uuid.New().String(),
+		TicketNumber:  maxNum + 1,
+		Subject:       req.Subject,
+		Category:      req.Category,
+		Priority:      req.Priority,
+		Status:        supportdomain.TicketStatusOpen,
+		CoachID:       adminID,
+		AthleteID:     req.AthleteID,
+		AssignedTo:    adminID,
+		UnreadCount:   0,
+		LastMessageAt: time.Now().UTC().Format(time.RFC3339),
+	}
+	if ticket.Category == "" {
+		ticket.Category = supportdomain.TicketCategoryProblem
+	}
+	if ticket.Priority == "" {
+		ticket.Priority = supportdomain.TicketPriorityMedium
+	}
+
+	if err := s.repo.Create(ctx, ticket); err != nil {
+		return nil, fmt.Errorf("create admin ticket: %w", err)
+	}
+
+	msg := &supportdomain.TicketMessage{
+		ID:       uuid.New().String(),
+		TicketID: ticket.ID,
+		Author:   supportdomain.TicketAuthorSupport,
+		AuthorID: adminID,
+		Body:     req.Body,
+		ImageURL: req.ImageURL,
+	}
+	if err := s.repo.CreateMessage(ctx, msg); err != nil {
+		return nil, fmt.Errorf("create initial message: %w", err)
+	}
+
+	return ticket, nil
+}
+
+func (s *Service) ResolveTicketAdmin(ctx context.Context, id string) (*supportdomain.SupportTicket, error) {
+	ticket, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	ticket.Status = supportdomain.TicketStatusResolved
+	ticket.ResolvedAt = time.Now().UTC().Format(time.RFC3339)
+	if err := s.repo.Update(ctx, ticket); err != nil {
+		return nil, fmt.Errorf("resolve ticket: %w", err)
+	}
+	return ticket, nil
+}
+
+func (s *Service) ReopenTicketAdmin(ctx context.Context, id string) (*supportdomain.SupportTicket, error) {
+	ticket, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	ticket.Status = supportdomain.TicketStatusOpen
+	ticket.ResolvedAt = ""
+	if err := s.repo.Update(ctx, ticket); err != nil {
+		return nil, fmt.Errorf("reopen ticket: %w", err)
+	}
+	return ticket, nil
 }
 
 // Athlete methods
@@ -305,7 +394,7 @@ func (s *Service) AddMessage(ctx context.Context, userID, userRole, ticketID, bo
 			return nil, apperrors.Forbidden("not your ticket")
 		}
 		author = supportdomain.TicketAuthorCoach
-	case "support":
+	case "support", "super_admin", "admin":
 		author = supportdomain.TicketAuthorSupport
 	case "athlete":
 		if ticket.AthleteID != userID {
@@ -367,7 +456,7 @@ func (s *Service) MarkRead(ctx context.Context, userID, userRole, ticketID strin
 			return apperrors.Forbidden("not your ticket")
 		}
 		author = supportdomain.TicketAuthorCoach
-	case "support":
+	case "support", "super_admin", "admin":
 		author = supportdomain.TicketAuthorSupport
 	case "athlete":
 		if ticket.AthleteID != userID {
@@ -394,7 +483,7 @@ func (s *Service) GetUnreadCount(ctx context.Context, userID, userRole, ticketID
 			return 0, apperrors.Forbidden("not your ticket")
 		}
 		author = supportdomain.TicketAuthorCoach
-	case "support":
+	case "support", "super_admin", "admin":
 		author = supportdomain.TicketAuthorSupport
 	case "athlete":
 		if ticket.AthleteID != userID {

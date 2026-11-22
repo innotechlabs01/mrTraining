@@ -13,7 +13,6 @@ import { cn } from '@/lib/utils';
 import { FitFlowSidebar, FITFLOW_NAV_ITEMS } from '@/components/admin/FitFlowSidebar';
 import { FitFlowHeader } from '@/components/admin/FitFlowHeader';
 import { CommandPalette } from '@/components/admin/CommandPalette';
-import { LoyaltyModal } from '@/components/admin/LoyaltyModal';
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E07A3D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F0F12]';
@@ -27,7 +26,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [loyaltyModalOpen, setLoyaltyModalOpen] = useState(false);
   const [dateRange, setDateRange] = useState('month');
 
   // Load sidebar preference from localStorage
@@ -117,7 +115,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         collapsed={sidebarCollapsed}
         onToggleCollapse={toggleSidebar}
         onSignOut={handleSignOut}
-        onUpgradePlanClick={() => setLoyaltyModalOpen(true)}
       />
 
       {/* Mobile Drawer */}
@@ -227,13 +224,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <CommandPalette
         open={commandPaletteOpen}
         onClose={() => setCommandPaletteOpen(false)}
-        onOpenLoyaltyModal={() => setLoyaltyModalOpen(true)}
-      />
-
-      {/* Global Loyalty Setup Wizard */}
-      <LoyaltyModal
-        open={loyaltyModalOpen}
-        onClose={() => setLoyaltyModalOpen(false)}
       />
     </div>
   );

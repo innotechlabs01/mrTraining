@@ -11,6 +11,13 @@ import { supportApi } from '../../api';
 import type { SupportTicket, TicketMessage } from '../../types';
 import type { RootStackParamList } from '../../../../navigation/Navigation';
 import { SendIcon } from '../../../../shared/components/icons';
+import { useSignedMediaUrl } from '../../../../shared/media/useSignedMediaUrl';
+
+function SignedTicketImage({ uri }: { uri: string }) {
+  const { url: signedUrl } = useSignedMediaUrl(uri);
+  if (!signedUrl) return null;
+  return <Image source={{ uri: signedUrl }} style={styles.messageImage} resizeMode="cover" />;
+}
 
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -167,9 +174,7 @@ function renderMessage({ item }: { item: TicketMessage }) {
         <Text style={[styles.messageText, isMine ? styles.myText : styles.otherText]}>
           {item.body}
         </Text>
-        {item.image_url && (
-          <Image source={{ uri: item.image_url }} style={styles.messageImage} resizeMode="cover" />
-        )}
+        {item.image_url && <SignedTicketImage uri={item.image_url} />}
         <Text style={[styles.timestamp, isMine ? styles.myTimestamp : styles.otherTimestamp]}>
           {time}
         </Text>

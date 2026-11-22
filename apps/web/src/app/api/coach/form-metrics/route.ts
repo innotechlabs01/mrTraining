@@ -42,7 +42,7 @@ export async function GET() {
       `/api/v1/coach/form-metrics`,
       token,
     );
-    return NextResponse.json(stats ?? [], { headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' } });
+    return NextResponse.json(stats ?? [], { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     console.error('Error fetching form metrics:', error)
     return NextResponse.json(

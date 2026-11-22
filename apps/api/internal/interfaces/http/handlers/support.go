@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/gofiber/fiber/v2"
+	mediaapp "github.com/innotechlabs01/mr-training-api/internal/application/media"
 	supportapp "github.com/innotechlabs01/mr-training-api/internal/application/support"
 	supportdomain "github.com/innotechlabs01/mr-training-api/internal/domain/support"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
@@ -15,13 +16,20 @@ import (
 
 // SupportHandler handles support ticket HTTP requests.
 type SupportHandler struct {
-	service *supportapp.Service
-	db      *sql.DB
+	service  *supportapp.Service
+	db       *sql.DB
+	mediaSvc *mediaapp.Service
 }
 
 // NewSupportHandler creates a new support handler.
 func NewSupportHandler(service *supportapp.Service, db *sql.DB) *SupportHandler {
 	return &SupportHandler{service: service, db: db}
+}
+
+// SetMediaService attaches the R2 media service for attachment ownership validation.
+func (h *SupportHandler) SetMediaService(m *mediaapp.Service) *SupportHandler {
+	h.mediaSvc = m
+	return h
 }
 
 func (h *SupportHandler) withTx(c *fiber.Ctx, fn func(*supportapp.Service) error) error {
@@ -43,6 +51,33 @@ func (h *SupportHandler) withTx(c *fiber.Ctx, fn func(*supportapp.Service) error
 
 	svc := h.service.SetExecutor(uow.Tx())
 
+	if err := fn(svc); err != nil {
+		return err
+	}
+
+	if err := uow.Commit(c.Context()); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to commit transaction")
+	}
+	return nil
+}
+
+func (h *SupportHandler) withAdminTx(c *fiber.Ctx, fn func(*supportapp.Service) error) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
+	if h.db == nil {
+		return fn(h.service)
+	}
+
+	uow := database.NewUnitOfWork(h.db)
+	if err := uow.Begin(c.Context(), userID, middleware.GetCoachID(c), "super_admin"); err != nil {
+		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
+	}
+	defer uow.Rollback(c.Context())
+
+	svc := h.service.SetExecutor(uow.Tx())
 	if err := fn(svc); err != nil {
 		return err
 	}
@@ -115,6 +150,13 @@ func (h *SupportHandler) CreateTicket(c *fiber.Ctx) error {
 	var req dto.CreateTicketRequest
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+	if req.ImageURL != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, req.ImageURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.ImageURL = normalized
 	}
 
 	err := h.withTx(c, func(svc *supportapp.Service) error {
@@ -269,6 +311,13 @@ func (h *SupportHandler) CreateAthleteTicket(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
+	if req.ImageURL != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, req.ImageURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.ImageURL = normalized
+	}
 
 	err := h.withTx(c, func(svc *supportapp.Service) error {
 		ticket, err := svc.CreateAthleteTicket(c.Context(), athleteID, supportapp.CreateAthleteTicketRequest{
@@ -328,6 +377,13 @@ func (h *SupportHandler) AddMessage(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
+	if req.ImageURL != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, req.ImageURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.ImageURL = normalized
+	}
 
 	err := h.withTx(c, func(svc *supportapp.Service) error {
 		msg, err := svc.AddMessage(c.Context(), userID, userRole, ticketID, req.Body, req.ImageURL)
@@ -382,6 +438,195 @@ func (h *SupportHandler) GetUnreadCount(c *fiber.Ctx) error {
 			return err
 		}
 		return appresponse.Success(c, dto.UnreadCountResponse{Count: count})
+	})
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	return nil
+}
+
+// Admin endpoints (platform super-admin)
+
+func (h *SupportHandler) AdminListTickets(c *fiber.Ctx) error {
+	status := c.Query("status")
+	var s *supportdomain.TicketStatus
+	if status != "" {
+		sts := supportdomain.TicketStatus(status)
+		s = &sts
+	}
+
+	err := h.withAdminTx(c, func(svc *supportapp.Service) error {
+		tickets, err := svc.ListAllTickets(c.Context(), s)
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, dto.ListResponse[*dto.SupportTicketResponse]{
+			Data:  toTicketResponses(tickets),
+			Total: len(tickets),
+			Page:  1,
+			Limit: len(tickets),
+		})
+	})
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	return nil
+}
+
+func (h *SupportHandler) AdminCreateTicket(c *fiber.Ctx) error {
+	adminID := middleware.GetUserID(c)
+	var req dto.CreateTicketRequest
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+	if req.ImageURL != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, req.ImageURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.ImageURL = normalized
+	}
+
+	err := h.withAdminTx(c, func(svc *supportapp.Service) error {
+		ticket, err := svc.CreateAdminTicket(c.Context(), adminID, supportapp.CreateTicketRequest{
+			Subject:   req.Subject,
+			Body:      req.Body,
+			Category:  supportdomain.TicketCategory(req.Category),
+			Priority:  supportdomain.TicketPriority(req.Priority),
+			AthleteID: req.AthleteID,
+			ImageURL:  req.ImageURL,
+		})
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, toTicketResponse(ticket))
+	})
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	return nil
+}
+
+func (h *SupportHandler) AdminGetTicket(c *fiber.Ctx) error {
+	ticketID := c.Params("ticketId")
+	if ticketID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "ticket ID is required")
+	}
+
+	err := h.withAdminTx(c, func(svc *supportapp.Service) error {
+		ticket, err := svc.GetTicketAdmin(c.Context(), ticketID)
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, toTicketResponse(ticket))
+	})
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	return nil
+}
+
+func (h *SupportHandler) AdminResolveTicket(c *fiber.Ctx) error {
+	ticketID := c.Params("ticketId")
+	if ticketID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "ticket ID is required")
+	}
+
+	err := h.withAdminTx(c, func(svc *supportapp.Service) error {
+		ticket, err := svc.ResolveTicketAdmin(c.Context(), ticketID)
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, toTicketResponse(ticket))
+	})
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	return nil
+}
+
+func (h *SupportHandler) AdminReopenTicket(c *fiber.Ctx) error {
+	ticketID := c.Params("ticketId")
+	if ticketID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "ticket ID is required")
+	}
+
+	err := h.withAdminTx(c, func(svc *supportapp.Service) error {
+		ticket, err := svc.ReopenTicketAdmin(c.Context(), ticketID)
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, toTicketResponse(ticket))
+	})
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	return nil
+}
+
+func (h *SupportHandler) AdminListMessages(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	ticketID := c.Params("ticketId")
+	if ticketID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "ticket ID is required")
+	}
+
+	err := h.withAdminTx(c, func(svc *supportapp.Service) error {
+		messages, err := svc.ListMessages(c.Context(), userID, "super_admin", ticketID)
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, toMessageResponses(messages))
+	})
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	return nil
+}
+
+func (h *SupportHandler) AdminAddMessage(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	ticketID := c.Params("ticketId")
+	if ticketID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "ticket ID is required")
+	}
+	var req dto.AddSupportMessageRequest
+	if err := c.BodyParser(&req); err != nil {
+		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+	if req.ImageURL != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, req.ImageURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.ImageURL = normalized
+	}
+
+	err := h.withAdminTx(c, func(svc *supportapp.Service) error {
+		msg, err := svc.AddMessage(c.Context(), userID, "super_admin", ticketID, req.Body, req.ImageURL)
+		if err != nil {
+			return err
+		}
+		return appresponse.Success(c, toMessageResponse(msg))
+	})
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	return nil
+}
+
+func (h *SupportHandler) AdminMarkRead(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	ticketID := c.Params("ticketId")
+	if ticketID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "ticket ID is required")
+	}
+
+	err := h.withAdminTx(c, func(svc *supportapp.Service) error {
+		if err := svc.MarkRead(c.Context(), userID, "super_admin", ticketID); err != nil {
+			return err
+		}
+		return appresponse.Success(c, fiber.Map{"marked_read": true})
 	})
 	if err != nil {
 		return h.handleError(c, err)

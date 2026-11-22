@@ -6,7 +6,7 @@ import { PrimaryButton } from '../../../../shared/components/ui/PrimaryButton';
 import { PlayIcon, LockIcon } from '../../../../shared/components/icons';
 import { texts } from '../../../../shared/i18n/texts';
 import { ExerciseDemoModal } from '../../../../features/training/presentation/components/execution/ExerciseDemoModal';
-import { isPlayableVideoUrl } from '../../../../shared/components/video/isPlayableVideoUrl';
+import { hasVideoSource } from '../../../../shared/components/video/isPlayableVideoUrl';
 
 type Props = {
   videoUrl: string;
@@ -19,7 +19,7 @@ type Props = {
 /** Coach demo video section — opens in-app modal if playable, shows disabled state if not. */
 export function ChallengeVideoDemo({ videoUrl, challengeId, challengeTitle }: Props) {
   const [demoVisible, setDemoVisible] = useState(false);
-  const playable = isPlayableVideoUrl(videoUrl);
+  const playable = hasVideoSource(videoUrl);
 
   return (
     <View style={styles.section}>

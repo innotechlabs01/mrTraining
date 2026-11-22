@@ -3,8 +3,11 @@ package training
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/innotechlabs01/mr-training-api/internal/domain/training"
+	"github.com/innotechlabs01/mr-training-api/internal/errors"
 )
 
 // assignedWorkoutExerciseCols mirrors the SELECT column order returned by
@@ -64,6 +67,118 @@ func TestGetPrescriptionLeftJoinImageURL(t *testing.T) {
 		}
 		if exs[0].ImageURL != "" {
 			t.Errorf("expected empty ImageURL when source NULL, got %q", exs[0].ImageURL)
+		}
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("unmet expectations: %v", err)
+		}
+	})
+}
+
+func TestLogWorkoutSet_SetsRFC3339LoggedAt(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	repo := NewWorkoutRepository(db)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery("FROM workout_session_logs").WithArgs("w1", "a1").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("sess-1"))
+	mock.ExpectExec("INSERT INTO workout_set_logs").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery("SELECT COALESCE\\(SUM\\(sets\\), 0\\) FROM workout_exercises").WithArgs("w1").
+		WillReturnRows(sqlmock.NewRows([]string{"sum"}).AddRow(4))
+	mock.ExpectQuery("SELECT COUNT\\(\\*\\) FROM workout_set_logs").WithArgs("sess-1").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	mock.ExpectQuery("SELECT COALESCE\\(sort_order, 0\\) FROM workout_exercises").WithArgs("ex-1").
+		WillReturnRows(sqlmock.NewRows([]string{"sort_order"}).AddRow(0))
+	mock.ExpectExec("UPDATE workout_session_logs SET current_exercise_index").WithArgs(0, "sess-1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("UPDATE assigned_workouts SET progress").WithArgs(0.25, "w1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	set, err := repo.LogWorkoutSet(context.Background(), &training.WorkoutSet{
+		ExerciseID: "ex-1",
+		SetIndex:   1,
+		WeightKg:   80,
+		Reps:       8,
+		Completed:  true,
+	}, "w1", "a1")
+	if err != nil {
+		t.Fatalf("LogWorkoutSet error: %v", err)
+	}
+	if set.LoggedAt == "" || set.LoggedAt == "NOW()" {
+		t.Fatalf("expected RFC3339 LoggedAt, got %q", set.LoggedAt)
+	}
+	if _, err := time.Parse(time.RFC3339, set.LoggedAt); err != nil {
+		t.Fatalf("expected valid RFC3339 LoggedAt, got %q: %v", set.LoggedAt, err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+func TestDeleteTemplate_UsesInjectedExecutorForRLS(t *testing.T) {
+	t.Run("executes via injected tx without starting nested tx", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatalf("sqlmock: %v", err)
+		}
+		defer db.Close()
+
+		mock.ExpectBegin()
+		tx, err := db.Begin()
+		if err != nil {
+			t.Fatalf("begin tx: %v", err)
+		}
+
+		mock.ExpectExec(`DELETE FROM workout_template_exercises WHERE template_id = \$1`).
+			WithArgs("tpl-1").
+			WillReturnResult(sqlmock.NewResult(0, 2))
+		mock.ExpectExec(`DELETE FROM workout_templates WHERE id = \$1`).
+			WithArgs("tpl-1").
+			WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectCommit()
+
+		repo := NewWorkoutRepository(db).WithExecutor(tx)
+		if err := repo.DeleteTemplate(context.Background(), "tpl-1"); err != nil {
+			t.Fatalf("DeleteTemplate error: %v", err)
+		}
+		if err := tx.Commit(); err != nil {
+			t.Fatalf("commit tx: %v", err)
+		}
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("unmet expectations: %v", err)
+		}
+	})
+
+	t.Run("returns NotFound when 0 rows affected", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatalf("sqlmock: %v", err)
+		}
+		defer db.Close()
+
+		mock.ExpectBegin()
+		tx, err := db.Begin()
+		if err != nil {
+			t.Fatalf("begin tx: %v", err)
+		}
+
+		mock.ExpectExec(`DELETE FROM workout_template_exercises WHERE template_id = \$1`).
+			WithArgs("missing-tpl").
+			WillReturnResult(sqlmock.NewResult(0, 0))
+		mock.ExpectExec(`DELETE FROM workout_templates WHERE id = \$1`).
+			WithArgs("missing-tpl").
+			WillReturnResult(sqlmock.NewResult(0, 0))
+
+		repo := NewWorkoutRepository(db).WithExecutor(tx)
+		err = repo.DeleteTemplate(context.Background(), "missing-tpl")
+		appErr, ok := err.(*errors.AppError)
+		if !ok || appErr.Status != 404 {
+			t.Fatalf("expected 404 NotFound, got %v", err)
 		}
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)

@@ -39,7 +39,7 @@ export async function GET() {
     }
 
     const appointments = await goFetchServer<Appointment[]>(
-      `/api/v1/coaches/${userId}/appointments`,
+      `/api/v1/coaches/appointments`,
       token,
     );
     return NextResponse.json(appointments);

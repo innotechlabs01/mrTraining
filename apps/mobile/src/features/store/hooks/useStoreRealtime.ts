@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { GO_API_URL } from '../../../infrastructure/api/client';
 import { getClerkToken } from '../../../infrastructure/auth/clerk';
 
 export function useStoreRealtime() {
@@ -10,7 +11,7 @@ export function useStoreRealtime() {
   useEffect(() => {
     const connect = async () => {
       if (closedRef.current) return;
-      const base = process.env.EXPO_PUBLIC_GO_API_URL || '';
+      const base = GO_API_URL;
       if (!base) return;
       const wsBase = base.replace(/^http/, 'ws');
 

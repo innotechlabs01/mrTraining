@@ -150,6 +150,11 @@ jobs:
           SECRETS="${SECRETS},REDIS_URL=REDIS_URL_QA:latest"
           SECRETS="${SECRETS},PLATFORM_SUPER_ADMIN_CLERK_ID=PLATFORM_SUPER_ADMIN_CLERK_ID_QA:latest"
           SECRETS="${SECRETS},CORS_ORIGINS=CORS_ORIGINS_QA:latest"
+          for r2_key in R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET R2_ENDPOINT; do
+            if gcloud secrets describe "${r2_key}_QA" --project="${{ env.PROJECT_ID }}" >/dev/null 2>&1; then
+              SECRETS="${SECRETS},${r2_key}=${r2_key}_QA:latest"
+            fi
+          done
 
           gcloud run deploy ${{ env.SERVICE }} \
             --image "${IMAGE}" \

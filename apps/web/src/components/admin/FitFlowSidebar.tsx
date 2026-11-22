@@ -6,17 +6,13 @@ import {
   LayoutDashboard,
   Users,
   CreditCard,
-  UserCheck,
   Receipt,
   TicketCheck,
-  BarChart3,
-  Columns3,
   Settings,
   ChevronLeft,
   ChevronRight,
   LogOut,
   Flame,
-  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -30,13 +26,10 @@ export interface NavItemConfig {
 
 export const FITFLOW_NAV_ITEMS: NavItemConfig[] = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/coaches', label: 'Coaches', icon: Users, badge: 'Activos' },
+  { href: '/admin/coaches', label: 'Coaches', icon: Users },
   { href: '/admin/plans', label: 'Planes Coach', icon: CreditCard },
-  { href: '/admin/members', label: 'Miembros / Atletas', icon: UserCheck, badge: '5.8k' },
   { href: '/admin/billing', label: 'Facturación', icon: Receipt },
   { href: '/admin/tickets', label: 'Tickets / Soporte', icon: TicketCheck },
-  { href: '/admin/kanban', label: 'Kanban', icon: Columns3, badge: 6, badgeColor: 'bg-[#E07A3D]' },
-  { href: '/admin/reports', label: 'Reportes', icon: BarChart3 },
   { href: '/admin/settings', label: 'Configuración', icon: Settings },
 ];
 
@@ -44,14 +37,12 @@ interface FitFlowSidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   onSignOut: () => void;
-  onUpgradePlanClick?: () => void;
 }
 
 export function FitFlowSidebar({
   collapsed,
   onToggleCollapse,
   onSignOut,
-  onUpgradePlanClick,
 }: FitFlowSidebarProps) {
   const pathname = usePathname();
 
@@ -148,49 +139,7 @@ export function FitFlowSidebar({
       </nav>
 
       {/* Bottom Sticky Section */}
-      <div className="shrink-0 border-t border-[#26262B] p-3 space-y-3">
-        {/* Upgrade to PRO Card matching screenshot */}
-        {!collapsed ? (
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#1C1618] via-[#2A1822] to-[#1F122B] p-4 text-white shadow-xl">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-white/90">Upgrade to</span>
-              <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
-                PRO
-              </span>
-            </div>
-
-            <div className="mt-1">
-              <div className="text-xl font-black tracking-wide text-white">Basic</div>
-              <div className="text-[11px] text-[#A1A1AA]">21 Days Left</div>
-            </div>
-
-            {/* Progress bar */}
-            <div className="my-3 h-1.5 w-full overflow-hidden rounded-full bg-white/20">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-[#E07A3D] via-[#EC4899] to-[#8B5CF6]"
-                style={{ width: '45%' }}
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={onUpgradePlanClick}
-              className="w-full rounded-xl bg-white py-2 text-center text-xs font-bold text-[#141418] shadow hover:bg-white/90 transition-all active:scale-[0.98]"
-            >
-              Upgrade Plan
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={onUpgradePlanClick}
-            className="flex w-full items-center justify-center rounded-xl bg-gradient-to-tr from-[#E07A3D] to-[#EC4899] p-2.5 text-white shadow hover:opacity-90 transition-opacity"
-            title="Upgrade to PRO"
-          >
-            <Sparkles size={18} />
-          </button>
-        )}
-
+      <div className="shrink-0 border-t border-[#26262B] p-3">
         {/* Log Out & Collapse controls */}
         <div className="flex items-center justify-between gap-1 pt-1">
           <button

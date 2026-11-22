@@ -76,9 +76,9 @@ export const AthleteTrainingPanels = React.memo(function AthleteTrainingPanels({
               <p className="text-xs text-white/40">Volumen</p>
             </div>
           </div>
-          {summary.recentSessions.length > 0 && (
+          {(summary.recentSessions?.length ?? 0) > 0 && (
             <ul className="space-y-1.5 pt-2 border-t border-white/5">
-              {summary.recentSessions.map((s) => (
+              {summary.recentSessions?.map((s) => (
                 <li key={`${s.date}-${s.workoutName}`} className="flex justify-between text-xs">
                   <span className="text-white/60">{s.workoutName || 'Entrenamiento'}</span>
                   <span className="text-white/30">{s.date} · {s.exercises} ejercicios</span>
@@ -89,10 +89,10 @@ export const AthleteTrainingPanels = React.memo(function AthleteTrainingPanels({
         </Panel>
       )}
 
-      {fatigue && fatigue.muscles.length > 0 && (
+      {(fatigue?.muscles?.length ?? 0) > 0 && fatigue && (
         <Panel title="Mapa de fatiga muscular (volumen loggeado)" icon={Flame}>
           <ul className="space-y-2.5">
-            {fatigue.muscles.slice(0, 8).map((m) => (
+            {fatigue.muscles?.slice(0, 8).map((m) => (
               <li key={m.muscle} className="flex items-center gap-3">
                 <span className={`w-2 h-2 rounded-full shrink-0 ${FATIGUE_STATE_COLOR[m.state] ?? 'bg-white/20'}`} />
                 <span className="text-xs text-white/60 w-24 capitalize truncate">{m.muscle}</span>
@@ -108,18 +108,18 @@ export const AthleteTrainingPanels = React.memo(function AthleteTrainingPanels({
               </li>
             ))}
           </ul>
-          {fatigue.neglectedMuscles.length > 0 && (
+          {(fatigue.neglectedMuscles?.length ?? 0) > 0 && (
             <p className="text-xs text-white/40 pt-2 border-t border-white/5">
-              Sin entrenar en la ventana: <span className="text-white/60 capitalize">{fatigue.neglectedMuscles.join(', ')}</span>
+              Sin entrenar en la ventana: <span className="text-white/60 capitalize">{fatigue.neglectedMuscles?.join(', ')}</span>
             </p>
           )}
         </Panel>
       )}
 
-      {oneRm && oneRm.exercises.length > 0 && (
+      {(oneRm?.exercises?.length ?? 0) > 0 && oneRm && (
         <Panel title="1RM estimado (mejores)" icon={TrendingUp}>
           <ul className="space-y-2">
-            {oneRm.exercises.slice(0, 6).map((e) => (
+            {oneRm.exercises?.slice(0, 6).map((e) => (
               <li key={e.exerciseKey} className="flex justify-between items-center text-xs">
                 <span className="text-white/60 truncate pr-3">{e.name}</span>
                 <span className="text-white font-display whitespace-nowrap">

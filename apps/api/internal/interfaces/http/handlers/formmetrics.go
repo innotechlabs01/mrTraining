@@ -11,12 +11,19 @@ import (
 
 // FormMetricsHandler handles HTTP requests for the form metrics domain.
 type FormMetricsHandler struct {
-	service *fmapp.Service
+	service        *fmapp.Service
+	tenantResolver middleware.TenantResolver
 }
 
 // NewFormMetricsHandler creates a new FormMetricsHandler.
 func NewFormMetricsHandler(service *fmapp.Service) *FormMetricsHandler {
 	return &FormMetricsHandler{service: service}
+}
+
+// WithTenantResolver attaches a TenantResolver to verify coach-athlete links.
+func (h *FormMetricsHandler) WithTenantResolver(r middleware.TenantResolver) *FormMetricsHandler {
+	h.tenantResolver = r
+	return h
 }
 
 // SyncMetrics handles POST /form-metrics/sync.
@@ -72,15 +79,28 @@ func (h *FormMetricsHandler) GetByAthlete(c *fiber.Ctx) error {
 // GetAthleteMetrics handles GET /form-metrics/athlete/:id.
 // Coach endpoint: returns form metrics for a specific athlete.
 func (h *FormMetricsHandler) GetAthleteMetrics(c *fiber.Ctx) error {
-	// Coach auth check
 	userID := middleware.GetUserID(c)
 	if userID == "" {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	coachID := middleware.GetCoachID(c)
+	if coachID == "" {
+		coachID = userID
 	}
 
 	athleteID := c.Params("id")
 	if athleteID == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "athlete ID is required")
+	}
+
+	if athleteID != userID {
+		if h.tenantResolver == nil {
+			return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this athlete")
+		}
+		ok, err := h.tenantResolver.AthleteHasActiveCoach(c.Context(), athleteID, coachID)
+		if err != nil || !ok {
+			return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this athlete")
+		}
 	}
 
 	stats, err := h.service.GetByAthlete(c.Context(), athleteID)
@@ -98,8 +118,12 @@ func (h *FormMetricsHandler) GetCoachFormMetrics(c *fiber.Ctx) error {
 	if userID == "" {
 		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
 	}
+	coachID := middleware.GetCoachID(c)
+	if coachID == "" {
+		coachID = userID
+	}
 
-	stats, err := h.service.GetByCoach(c.Context(), userID)
+	stats, err := h.service.GetByCoach(c.Context(), coachID)
 	if err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
 	}

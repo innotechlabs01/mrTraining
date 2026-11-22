@@ -112,13 +112,13 @@ func (s *Service) GetPlanByID(ctx context.Context, planID string) (*plandomain.P
 	return s.repo.GetByID(ctx, planID)
 }
 
-// UpdatePlan updates an existing plan. Only the owning coach can update.
-func (s *Service) UpdatePlan(ctx context.Context, coachID, id string, req dto.UpdatePlanRequest) (*plandomain.Plan, error) {
+// UpdatePlan updates an existing plan. Only the owning coach or a super admin can update.
+func (s *Service) UpdatePlan(ctx context.Context, coachID, id string, isSuperAdmin bool, req dto.UpdatePlanRequest) (*plandomain.Plan, error) {
 	existing, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	if existing.CoachID != coachID {
+	if !isSuperAdmin && existing.CoachID != coachID {
 		return nil, apperrors.Forbidden("you can only update your own plans")
 	}
 

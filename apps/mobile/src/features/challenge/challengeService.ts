@@ -1,6 +1,5 @@
 import { smartClient as apiClient } from '@infrastructure/api/client';
-import { getClerkToken } from '@infrastructure/auth/clerk';
-import Constants from 'expo-constants';
+import { uploadMediaToR2 } from '@shared/media/mediaService';
 
 export interface ChallengeAttempt {
   id: string;
@@ -10,10 +9,6 @@ export interface ChallengeAttempt {
   status: string;
   video_url?: string;
   created_at: string;
-}
-
-function goApiBase(): string {
-  return Constants.expoConfig?.extra?.goApiUrl ?? 'http://localhost:8080';
 }
 
 /** Join a challenge (creates an in-progress attempt). */
@@ -34,32 +29,18 @@ export async function submitAttempt(attemptId: string, metrics: Record<string, u
   await apiClient.post(`/athlete/challenges/attempts/${attemptId}/submit`, metrics);
 }
 
-/** Upload an attempt video to the Go API and return its URL. */
+/** Upload an attempt video to R2 and attach the media_ref to the attempt. */
 export async function uploadAttemptVideo(attemptId: string, fileUri: string): Promise<string> {
-  const token = await getClerkToken();
-  const base = goApiBase();
-
-  // vision-camera returns a filesystem path (not a file:// URL). RN FormData
-  // uploads require a file:// URI on iOS.
-  const uri = fileUri.startsWith('file://') ? fileUri : `file://${fileUri}`;
-
-  const formData = new FormData();
-  formData.append('file', {
-    uri,
-    type: 'video/mp4',
-    name: `${attemptId}.mp4`,
-  } as unknown as Blob);
-
-  const res = await fetch(`${base}/api/v1/athlete/challenges/attempts/${attemptId}/video`, {
-    method: 'POST',
-    body: formData,
-    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+  const { mediaRef } = await uploadMediaToR2(fileUri, 'challenge_attempt', {
+    filename: `${attemptId}.mp4`,
+    contentType: 'video/mp4',
+    resourceId: attemptId,
   });
 
-  if (!res.ok) {
-    throw new Error('Video upload failed');
-  }
+  const { data } = await apiClient.post<{ data?: { video_url?: string }; video_url?: string }>(
+    `/athlete/challenges/attempts/${attemptId}/video`,
+    { video_url: mediaRef },
+  );
 
-  const json = await res.json();
-  return json?.data?.video_url ?? '';
+  return data?.data?.video_url ?? data?.video_url ?? mediaRef;
 }

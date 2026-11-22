@@ -1,6 +1,36 @@
 # Team Board - MR Training
 
+## TODO
+- [ ] (none)
+
+## TODO
+- [ ] (none)
+
+## In Progress
+- [ ] (none)
+
+## Review
+- [ ] (none)
+
 ## Done
+- [x] T-025: Support & Admin Tickets End-to-End Contract + Coach Support Page Fix — Approved by @user 2026-11-21. Go `admin/tickets` + SuperAdmin guard + `$4`→`$2` fix | Web auth + 6 BFF proxies + `coach/support` activeTicketId | Go/Web tests & build PASS.
+- [x] T-026: PostgreSQL Missing Tables, Missing Columns & SQLite-isms Remediation (`landing.go`, `exercise_repository.go`, migration 437) — Approved by @user 2026-11-21. Migration 437 synced & applied (Local + QA) | Go tests PASS.
+- [x] T-027: Challenge Leaderboard WebSocket Mount, Multi-Connection Hub & Mobile WS Auth Fix — Approved by @user 2026-11-21. `/challenges/:id/leaderboard/ws` mounted + multi-socket Hub (`-race` PASS) + Mobile `useWsSubscription.ts` (`GO_API_URL` + `?token=`) PASS.
+- [x] T-028: Go Backend RBAC, Cross-Tenant IDOR Hardening & Panic Prevention — Approved by @user 2026-11-21. Zero unchecked `c.Locals(...).(string)`, `RequireCoach` + `AthleteHasActiveCoach` + ownership checks + `senderRole` + `plan` SuperAdmin | `go build`, `go vet`, `go test -race` PASS.
+- [x] T-029: Web Next.js Proxy, Route Mismatches, Cache-Control & Client Contract Fixes — Approved by @user 2026-11-21. `[...proxy]` query params + `/v1/` dedupe, `proxy-helper` Clerk token, `Cache-Control: private, no-store`, `coaching/*`, `RightPanel`, `FormMetricsDashboard`, `admin/plans`, `videoAnalyticsApi` | `tsc`, `lint`, `test`, `build` PASS.
+- [x] T-030: Mobile API Path Mapping & Challenge Creation Contract Fixes — Approved by @user 2026-11-21. `/athlete/progress/summary` → `/progress/summary`, `CoachChallengesScreen` `/coach/challenges`, `CreateChallengeScreen` `end_date` | `tsc`, `eslint` on changed files, 97 Jest suites/546 tests PASS.
+- [x] T-031: Wire `admin/billing` & `admin/dashboard` to Go API, prune unbacked admin mocks (`members`, `reports`, `kanban`), dead admin BFFs & unmounted feature hooks — Approved by @user 2026-11-21. `tsc`, `lint`, `test` (35/35 suites, 268/268 tests), `build` (79 pages) PASS.
+- [x] T-032: Go Admin SQL crashes (`UpdateAdminPlan`, `PutCommissionTerms`, `formatTimeValue`, `queryCoaches` precedence) & `workout_repository` `LoggedAt` — Approved by @user 2026-11-21. `go build`, `go vet`, `go test -race` PASS.
+- [x] T-033: Go Security Hardening (`athlete.go` IDOR + RLS, `error_tracking` divide-by-zero, summary `RequireCoach`, `admin/settings` secret redaction) — Approved by @user 2026-11-21. Go `-race` tests & Web `tsc`/`lint`/`test`/`build` PASS.
+- [x] T-034: Coach Athlete Insights (`/coach/users/[id]` training-summary + video-analytics + envelope adapters) & `DELETE /workout-templates/:id` — Approved by @user 2026-11-21. Go `-race` tests & Web `tsc`/`lint`/`test`/`build` PASS.
+- [x] T-035: Mobile `videoAnalytics` -> `POST /video-views`, Challenge zero-contrast token fixes & `GO_API_PATH_MAP` cleanup — Approved by @user 2026-11-21 (`tsc` + `eslint` on touched files + 97/97 Jest suites / 546/546 tests PASS; real-device/simulator visual check pending).
+- [x] T-018: Carga y consulta de videos e imágenes con Cloudflare R2 y firmas autenticadas (Coach Web → R2, Mobile → URL firmada) — Approved by @user 2026-11-21. Spec: `docs/superpowers/specs/T-018-cloudflare-r2-signed-media.md` | Migrations 435 & 435_1 applied (Local + QA) | Go `go build` + `-race` tests PASS | Web `tsc`/`lint`/`test`/`build` PASS | Mobile `tsc` + 95 Jest suites/538 tests PASS.
+- [x] T-019: Android QA buildType (`com.innotechlabssas.mrtraining.qa`), Expo Config Plugin (`google-services` + `firebase-appdistribution-gradle`), `google-services.qa.json` (gitignored), `app.config.js`, `eas.json`, push `projectId` — Approved by @user 2026-11-21. `APP_VARIANT=qa npx expo config` OK | `npx expo prebuild --platform android --clean` OK | `tsc` + 95 Jest suites/538 tests PASS.
+- [x] T-020: Mobile QA CD pipeline (`.github/workflows/cd-mobile-qa.yml`) + CI/CD (`ci-qa.yml`, `ci.yml`, `cd-qa.yml` R2 secrets, root `package.json`) — Approved by @user 2026-11-21.
+- [x] T-021: Missing PostgreSQL schema (`devices`, `notifications`, `notification_preferences`), `BOOLEAN` SQL fixes & notification IDOR — Approved by @user 2026-11-21. Migration 436 synced & applied (Local + QA) | `go build` + `go vet` + `go test -race` PASS.
+- [x] T-022: Go API security hardening (`error_tracking` SuperAdmin guard + `/stats` route order, redundant auth cleanup) — Approved by @user 2026-11-21. `go build` + `go vet` + `go test -race` PASS.
+- [x] T-023: Mobile membership/trial/navigation/Meet URL/WS & lint fixes — Approved by @user 2026-11-21. `tsc` + 95 Jest suites/538 tests + `expo lint` PASS.
+- [x] T-024: Web security (`auth-token` gate, proxy `Cache-Control: private, no-store`), `/coach/plans`, `useFormMetrics` — Approved by @user 2026-11-21. `tsc` + `lint` + `test` + `build` PASS.
 - [x] T-017: Eliminar exposición de Clerk ID en URLs del admin + verificar ingresos wompi_payment_ledger — QA PASS. Code reviewer PASS. Security Hacker PASS (no Critical/High). Approved by @user 2026-11-18. Fix: ToggleSkipSubscription usa coaches.id interno en URL (no Clerk ID), GetDashboard/queryCoaches usan UNION users+coaches, GetRevenueStats c.is_active=1 (INTEGER), frontend toggle usa coach.coach_id, dashboard muestra "ingresos pendientes de confirmación". Commit b094a98, push to dev.
 
 ## Review

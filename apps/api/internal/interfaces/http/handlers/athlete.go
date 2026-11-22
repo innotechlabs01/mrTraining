@@ -4,12 +4,15 @@
 package handlers
 
 import (
+	"database/sql"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 
 	athleteapp "github.com/innotechlabs01/mr-training-api/internal/application/athlete"
+	athleteDomain "github.com/innotechlabs01/mr-training-api/internal/domain/athlete"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
@@ -17,12 +20,52 @@ import (
 
 // AthleteHandler handles HTTP requests for athlete-scoped resources.
 type AthleteHandler struct {
-	service *athleteapp.Service
+	service        *athleteapp.Service
+	db             *sql.DB
+	tenantResolver middleware.TenantResolver
 }
 
-// NewAthleteHandler creates a new AthleteHandler with the given application service.
-func NewAthleteHandler(service *athleteapp.Service) *AthleteHandler {
-	return &AthleteHandler{service: service}
+// NewAthleteHandler creates a new AthleteHandler with the given application
+// service, database connection (for UnitOfWork RLS), and tenant resolver.
+func NewAthleteHandler(service *athleteapp.Service, db *sql.DB, tenantResolver middleware.TenantResolver) *AthleteHandler {
+	return &AthleteHandler{
+		service:        service,
+		db:             db,
+		tenantResolver: tenantResolver,
+	}
+}
+
+func (h *AthleteHandler) withTx(c *fiber.Ctx, fn func(*athleteapp.Service) error) error {
+	if h.db == nil {
+		return fn(h.service)
+	}
+
+	userID := middleware.GetUserID(c)
+	coachID := middleware.GetCoachID(c)
+	if coachID == "" {
+		coachID = userID
+	}
+	role := middleware.GetUserRole(c)
+	if role == "" {
+		role = "athlete"
+	}
+
+	uow := database.NewUnitOfWork(h.db)
+	ctx := middleware.RequestContext(c)
+	if err := uow.Begin(ctx, userID, coachID, role); err != nil {
+		return errors.Internal("failed to begin transaction")
+	}
+	defer uow.Rollback(ctx)
+
+	svc := h.service.SetExecutor(uow.Tx())
+	if err := fn(svc); err != nil {
+		return err
+	}
+
+	if err := uow.Commit(ctx); err != nil {
+		return errors.Internal("failed to commit transaction")
+	}
+	return nil
 }
 
 // GetWorkouts handles GET /athletes/:id/workouts.
@@ -33,12 +76,16 @@ func (h *AthleteHandler) GetWorkouts(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "athlete ID is required")
 	}
 
-	if err := ensureAthleteAccess(c, athleteID); err != nil {
+	if err := h.ensureAthleteAccess(c, athleteID); err != nil {
 		return appresponse.Error(c, err.Status, err.Message)
 	}
 
-	workouts, err := h.service.ListWorkouts(c.Context(), athleteID)
-	if err != nil {
+	var workouts []*athleteDomain.WorkoutSummary
+	if err := h.withTx(c, func(svc *athleteapp.Service) error {
+		var err error
+		workouts, err = svc.ListWorkouts(middleware.RequestContext(c), athleteID)
+		return err
+	}); err != nil {
 		return handleAppError(c, err)
 	}
 
@@ -66,12 +113,16 @@ func (h *AthleteHandler) GetMetrics(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "athlete ID is required")
 	}
 
-	if err := ensureAthleteAccess(c, athleteID); err != nil {
+	if err := h.ensureAthleteAccess(c, athleteID); err != nil {
 		return appresponse.Error(c, err.Status, err.Message)
 	}
 
-	metrics, err := h.service.GetMetrics(c.Context(), athleteID)
-	if err != nil {
+	var metrics []*athleteDomain.MetricPoint
+	if err := h.withTx(c, func(svc *athleteapp.Service) error {
+		var err error
+		metrics, err = svc.GetMetrics(middleware.RequestContext(c), athleteID)
+		return err
+	}); err != nil {
 		return handleAppError(c, err)
 	}
 
@@ -98,12 +149,16 @@ func (h *AthleteHandler) GetMessages(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "athlete ID is required")
 	}
 
-	if err := ensureAthleteAccess(c, athleteID); err != nil {
+	if err := h.ensureAthleteAccess(c, athleteID); err != nil {
 		return appresponse.Error(c, err.Status, err.Message)
 	}
 
-	threads, err := h.service.ListMessages(c.Context(), athleteID)
-	if err != nil {
+	var threads []*athleteDomain.MessageThread
+	if err := h.withTx(c, func(svc *athleteapp.Service) error {
+		var err error
+		threads, err = svc.ListMessages(middleware.RequestContext(c), athleteID)
+		return err
+	}); err != nil {
 		return handleAppError(c, err)
 	}
 
@@ -127,9 +182,13 @@ func (h *AthleteHandler) GetMessages(c *fiber.Ctx) error {
 }
 
 // ensureAthleteAccess verifies the authenticated user may access the given
-// athlete's data: the athlete themselves, or a coach/admin.
-func ensureAthleteAccess(c *fiber.Ctx, athleteID string) *errors.AppError {
+// athlete's data: the athlete themselves, a coach with an active link to the
+// athlete, or a platform super_admin. Blanket coach/admin bypass is denied.
+func (h *AthleteHandler) ensureAthleteAccess(c *fiber.Ctx, athleteID string) *errors.AppError {
 	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return errors.Unauthorized("user not authenticated")
+	}
 	role := middleware.GetUserRole(c)
 
 	// The athlete may access their own data.
@@ -137,8 +196,20 @@ func ensureAthleteAccess(c *fiber.Ctx, athleteID string) *errors.AppError {
 		return nil
 	}
 
-	// A coach or admin may access any athlete's data.
-	if role == "coach" || role == "admin" || role == "super_admin" {
+	// Only super_admin may bypass per-athlete relationship checks.
+	if role == "super_admin" {
+		return nil
+	}
+
+	// A coach may only access athletes with whom they have an active link.
+	if role == "coach" {
+		if h.tenantResolver == nil {
+			return errors.Forbidden("no active relationship with this athlete")
+		}
+		ok, err := h.tenantResolver.AthleteHasActiveCoach(middleware.RequestContext(c), athleteID, userID)
+		if err != nil || !ok {
+			return errors.Forbidden("no active relationship with this athlete")
+		}
 		return nil
 	}
 

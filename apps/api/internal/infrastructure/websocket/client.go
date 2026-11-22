@@ -2,6 +2,8 @@ package websocket
 
 import (
 	"encoding/json"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gofiber/websocket/v2"
@@ -29,10 +31,12 @@ const (
 
 // Client represents a single WebSocket connection tied to an authenticated user.
 type Client struct {
-	Hub    *Hub
-	UserID string
-	Conn   *websocket.Conn
-	Send   chan []byte
+	Hub       *Hub
+	UserID    string
+	Conn      *websocket.Conn
+	Send      chan []byte
+	closeOnce sync.Once
+	closed    atomic.Bool
 }
 
 // NewClient creates a new Client with the given parameters.
@@ -43,6 +47,21 @@ func NewClient(hub *Hub, userID string, conn *websocket.Conn) *Client {
 		Conn:   conn,
 		Send:   make(chan []byte, SendBufferSize),
 	}
+}
+
+// CloseSend marks the client closed and closes its Send channel exactly once.
+func (c *Client) CloseSend() {
+	c.closeOnce.Do(func() {
+		c.closed.Store(true)
+		if c.Send != nil {
+			close(c.Send)
+		}
+	})
+}
+
+// IsClosed reports whether the client's Send channel has been closed.
+func (c *Client) IsClosed() bool {
+	return c.closed.Load()
 }
 
 // ReadPump pumps messages from the WebSocket connection to the hub.
@@ -76,8 +95,8 @@ func (c *Client) ReadPump() {
 		// Subscribe protocol: the client may send
 		// {"type":"subscribe","topic":"events"} to join a topic feed.
 		var msg struct {
-			Type   string `json:"type"`
-			Topic  string `json:"topic"`
+			Type  string `json:"type"`
+			Topic string `json:"topic"`
 		}
 		if json.Unmarshal(payload, &msg) == nil && msg.Type == "subscribe" && msg.Topic != "" {
 			c.Hub.Subscribe(c, msg.Topic)

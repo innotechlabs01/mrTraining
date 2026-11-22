@@ -79,6 +79,14 @@ func (s *Service) GetDevices(ctx context.Context, athleteID string) ([]*health.H
 	return s.repo.GetDevices(ctx, athleteID)
 }
 
+// GetDevice returns a single registered device by ID.
+func (s *Service) GetDevice(ctx context.Context, deviceID string) (*health.HealthDevice, error) {
+	if deviceID == "" {
+		return nil, fmt.Errorf("device ID is required")
+	}
+	return s.repo.GetDevice(ctx, deviceID)
+}
+
 // RegisterDevice registers a wearable device.
 func (s *Service) RegisterDevice(ctx context.Context, athleteID string, d *health.HealthDevice) error {
 	if athleteID == "" {

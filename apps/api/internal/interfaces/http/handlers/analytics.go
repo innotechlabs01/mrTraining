@@ -40,11 +40,18 @@ func (h *AnalyticsHandler) withTx(c *fiber.Ctx, fn func(*analyticsapp.Service) e
 	}
 
 	coachID := middleware.GetCoachID(c)
-	if coachID == "" {
+	if h.db == nil {
 		return fn(h.service)
 	}
+	if coachID == "" {
+		coachID = userID
+	}
+	role := middleware.GetUserRole(c)
+	if role == "" {
+		role = "athlete"
+	}
 	uow := database.NewUnitOfWork(h.db)
-	if err := uow.Begin(c.Context(), userID, middleware.GetCoachID(c), middleware.GetUserRole(c)); err != nil {
+	if err := uow.Begin(c.Context(), userID, coachID, role); err != nil {
 		return appresponse.Error(c, fiber.StatusInternalServerError, "failed to begin transaction")
 	}
 	defer uow.Rollback(c.Context())
@@ -177,5 +184,46 @@ func (h *AnalyticsHandler) GetEffort(c *fiber.Ctx) error {
 			return err
 		}
 		return appresponse.Success(c, effort)
+	})
+}
+
+// GetAthleteTrainingSummary handles GET /athlete/:athleteId/analytics/training-summary?days=28.
+// Accessible by the athlete themselves or a coach with an active relationship.
+func (h *AnalyticsHandler) GetAthleteTrainingSummary(c *fiber.Ctx) error {
+	return h.withTx(c, func(svc *analyticsapp.Service) error {
+		athleteID := c.Params("athleteId")
+		if athleteID == "" {
+			return appresponse.Error(c, fiber.StatusBadRequest, "athleteId required")
+		}
+		days := c.QueryInt("days", 28)
+		if days <= 0 {
+			days = 28
+		}
+		if days > 365 {
+			days = 365
+		}
+		summary, err := svc.GetAthleteTrainingSummary(middleware.RequestContext(c), athleteID, days)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to get athlete training summary")
+		}
+		return appresponse.Success(c, summary)
+	})
+}
+
+// GetAthleteVideoAnalytics handles GET /coach/athletes/:athleteId/video-analytics.
+// Aggregates video_views by exercise for the athlete within a UnitOfWork RLS transaction.
+func (h *AnalyticsHandler) GetAthleteVideoAnalytics(c *fiber.Ctx) error {
+	return h.withTx(c, func(svc *analyticsapp.Service) error {
+		athleteID := c.Params("athleteId")
+		if athleteID == "" {
+			return appresponse.Error(c, fiber.StatusBadRequest, "athleteId required")
+		}
+		analytics, err := svc.GetAthleteVideoAnalytics(middleware.RequestContext(c), athleteID)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to get athlete video analytics")
+		}
+		return appresponse.Success(c, fiber.Map{
+			"analytics": analytics,
+		})
 	})
 }

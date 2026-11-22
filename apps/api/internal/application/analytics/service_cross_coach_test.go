@@ -32,6 +32,12 @@ func (f fakeAnalyticsRepoCross) GetTrainingSummary(ctx context.Context, coachID 
 func (f fakeAnalyticsRepoCross) GetEffort(ctx context.Context, athleteID string) ([]analyticsdomain.Effort, error) {
 	return nil, f.err
 }
+func (f fakeAnalyticsRepoCross) GetAthleteTrainingSummary(ctx context.Context, athleteID string, days int) (*analyticsdomain.AthleteTrainingSummary, error) {
+	return nil, f.err
+}
+func (f fakeAnalyticsRepoCross) GetAthleteVideoAnalytics(ctx context.Context, athleteID string) ([]analyticsdomain.AthleteVideoAnalytics, error) {
+	return nil, f.err
+}
 
 func TestAnalytics_TrainingSummaryCoeffersRequestedCoach(t *testing.T) {
 	errFake := assert.AnError

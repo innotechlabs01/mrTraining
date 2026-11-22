@@ -1,3 +1,4 @@
+import { smartClient } from '../../../../infrastructure/api/client';
 import {
   startSession,
   trackPlay,
@@ -16,6 +17,7 @@ jest.mock('../../../../infrastructure/api/client', () => ({
 
 describe('videoAnalytics', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     endSession();
   });
 
@@ -25,30 +27,48 @@ describe('videoAnalytics', () => {
     expect(getCurrentSession()?.exerciseId).toBe('ex-1');
   });
 
-  it('records play event', () => {
+  it('records play event and posts start to /video-views', () => {
     startSession('ex-1');
     trackPlay('ex-1', 0, 60);
     const session = getCurrentSession();
     expect(session?.events).toHaveLength(1);
     expect(session?.events[0].type).toBe('play');
+    expect(smartClient.post).toHaveBeenCalledWith('/video-views', {
+      exercise_id: 'ex-1',
+      action: 'start',
+      progress_pct: 0,
+      watch_duration: 0,
+    });
   });
 
-  it('records pause event', () => {
+  it('records pause event and posts progress to /video-views', () => {
     startSession('ex-1');
     trackPause('ex-1', 30, 60);
     const session = getCurrentSession();
     expect(session?.events).toHaveLength(1);
     expect(session?.events[0].type).toBe('pause');
+    expect(smartClient.post).toHaveBeenCalledWith('/video-views', {
+      exercise_id: 'ex-1',
+      action: 'progress',
+      progress_pct: 50,
+      watch_duration: 30,
+    });
   });
 
-  it('reports progress milestones at 25%, 50%, 75%', () => {
+  it('reports progress milestones at 25%, 50%, 75% with rounded values', () => {
     startSession('ex-1');
-    trackProgress('ex-1', 15, 60); // 25%
+    trackProgress('ex-1', 15.6, 60); // 26%
     trackProgress('ex-1', 30, 60); // 50%
     trackProgress('ex-1', 45, 60); // 75%
     const session = getCurrentSession();
     const progressEvents = session?.events.filter((e) => e.type === 'progress');
     expect(progressEvents).toHaveLength(3);
+    expect(smartClient.post).toHaveBeenNthCalledWith(1, '/video-views', {
+      exercise_id: 'ex-1',
+      action: 'progress',
+      progress_pct: 26,
+      watch_duration: 16,
+    });
   });
 
   it('reports completion at 100%', () => {
@@ -57,6 +77,12 @@ describe('videoAnalytics', () => {
     const session = getCurrentSession();
     const completeEvents = session?.events.filter((e) => e.type === 'complete');
     expect(completeEvents).toHaveLength(1);
+    expect(smartClient.post).toHaveBeenCalledWith('/video-views', {
+      exercise_id: 'ex-1',
+      action: 'complete',
+      progress_pct: 100,
+      watch_duration: 60,
+    });
   });
 
   it('does not duplicate milestone reports', () => {

@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!res.ok) {
-      const error = await res.json();
+      const error = await res.json().catch(() => ({ error: 'Failed to create plan' }));
       return NextResponse.json(error, { status: res.status });
     }
 

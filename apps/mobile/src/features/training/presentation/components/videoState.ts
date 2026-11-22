@@ -3,7 +3,7 @@
  * Pure logic for selecting the correct video UI state.
  */
 
-import { isPlayableVideoUrl } from '../../../../shared/components/video/isPlayableVideoUrl';
+import { hasVideoSource } from '../../../../shared/components/video/isPlayableVideoUrl';
 
 export type VideoState = 'has-video' | 'no-video-with-hint' | 'loading' | 'error';
 
@@ -15,7 +15,7 @@ export function getVideoState(videoUrl: string | undefined): VideoState {
   if (!videoUrl) {
     return 'no-video-with-hint';
   }
-  if (!isPlayableVideoUrl(videoUrl)) {
+  if (!hasVideoSource(videoUrl)) {
     return 'error';
   }
   return 'has-video';

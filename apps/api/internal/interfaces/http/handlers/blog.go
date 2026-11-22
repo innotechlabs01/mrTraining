@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	blogapp "github.com/innotechlabs01/mr-training-api/internal/application/blog"
+	mediaapp "github.com/innotechlabs01/mr-training-api/internal/application/media"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/blog"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
@@ -15,12 +16,19 @@ import (
 
 // BlogHandler handles HTTP requests for the blog domain.
 type BlogHandler struct {
-	service *blogapp.Service
+	service  *blogapp.Service
+	mediaSvc *mediaapp.Service
 }
 
 // NewBlogHandler creates a new BlogHandler with the given application service.
 func NewBlogHandler(service *blogapp.Service) *BlogHandler {
 	return &BlogHandler{service: service}
+}
+
+// SetMediaService attaches the R2 media service for cover image validation.
+func (h *BlogHandler) SetMediaService(m *mediaapp.Service) *BlogHandler {
+	h.mediaSvc = m
+	return h
 }
 
 // ListArticles handles GET /blog.
@@ -78,7 +86,10 @@ func (h *BlogHandler) GetArticleBySlug(c *fiber.Ctx) error {
 
 // ListCoachArticles handles GET /coach/blog (drafts included).
 func (h *BlogHandler) ListCoachArticles(c *fiber.Ctx) error {
-	coachID := c.Locals("user_id").(string)
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
 	articles, err := h.service.ListByCoach(c.Context(), coachID)
 	if err != nil {
 		return h.handleError(c, err)
@@ -93,11 +104,22 @@ func (h *BlogHandler) ListCoachArticles(c *fiber.Ctx) error {
 
 // CreateArticle handles POST /blog.
 func (h *BlogHandler) CreateArticle(c *fiber.Ctx) error {
-	coachID := c.Locals("user_id").(string)
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
 
 	var req dto.ArticleRequest
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if req.ImageURL != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, req.ImageURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.ImageURL = normalized
 	}
 
 	article := &blog.Article{
@@ -124,7 +146,10 @@ func (h *BlogHandler) CreateArticle(c *fiber.Ctx) error {
 
 // UpdateArticle handles PUT /blog/:id.
 func (h *BlogHandler) UpdateArticle(c *fiber.Ctx) error {
-	coachID := c.Locals("user_id").(string)
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
 	id := c.Params("id")
 	if id == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "article ID is required")
@@ -133,6 +158,22 @@ func (h *BlogHandler) UpdateArticle(c *fiber.Ctx) error {
 	var req dto.ArticleRequest
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if req.ImageURL != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, req.ImageURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.ImageURL = normalized
+	}
+
+	if req.ImageURL != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, req.ImageURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.ImageURL = normalized
 	}
 
 	article := &blog.Article{
@@ -160,7 +201,10 @@ func (h *BlogHandler) UpdateArticle(c *fiber.Ctx) error {
 
 // DeleteArticle handles DELETE /blog/:id.
 func (h *BlogHandler) DeleteArticle(c *fiber.Ctx) error {
-	coachID := c.Locals("user_id").(string)
+	coachID := middleware.GetUserID(c)
+	if coachID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
 	id := c.Params("id")
 	if id == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "article ID is required")

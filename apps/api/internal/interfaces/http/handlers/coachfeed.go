@@ -6,18 +6,26 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	coachfeedapp "github.com/innotechlabs01/mr-training-api/internal/application/coachfeed"
+	mediaapp "github.com/innotechlabs01/mr-training-api/internal/application/media"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
 	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
 // CoachFeedHandler handles HTTP requests for the coach feed domain.
 type CoachFeedHandler struct {
-	service *coachfeedapp.Service
+	service  *coachfeedapp.Service
+	mediaSvc *mediaapp.Service
 }
 
 // NewCoachFeedHandler creates a new CoachFeedHandler.
 func NewCoachFeedHandler(service *coachfeedapp.Service) *CoachFeedHandler {
 	return &CoachFeedHandler{service: service}
+}
+
+// SetMediaService attaches the R2 media service for media_url ownership validation.
+func (h *CoachFeedHandler) SetMediaService(m *mediaapp.Service) *CoachFeedHandler {
+	h.mediaSvc = m
+	return h
 }
 
 // ListPosts handles GET /coach/feed.
@@ -76,6 +84,14 @@ func (h *CoachFeedHandler) CreatePost(c *fiber.Ctx) error {
 	}
 	if err := c.BodyParser(&body); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if body.MediaURL != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, body.MediaURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		body.MediaURL = normalized
 	}
 
 	post, err := h.service.CreatePost(c.Context(), userID, userID, body.Content, body.MediaType, body.MediaURL)

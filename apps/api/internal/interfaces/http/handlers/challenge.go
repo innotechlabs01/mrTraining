@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	stderrors "errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,8 +15,10 @@ import (
 
 	app "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
 	gamificationapp "github.com/innotechlabs01/mr-training-api/internal/application/gamification"
+	mediaapp "github.com/innotechlabs01/mr-training-api/internal/application/media"
 	notificationapp "github.com/innotechlabs01/mr-training-api/internal/application/notification"
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/challenge"
+	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/websocket"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
@@ -28,7 +31,14 @@ type ChallengeHandler struct {
 	hub             *websocket.Hub
 	gamificationSvc *gamificationapp.Service
 	notifSvc        *notificationapp.Service
+	mediaSvc        *mediaapp.Service
 	db              *sql.DB
+}
+
+// SetMediaService attaches the R2 media service for direct r2:// validation and streaming fallback.
+func (h *ChallengeHandler) SetMediaService(m *mediaapp.Service) *ChallengeHandler {
+	h.mediaSvc = m
+	return h
 }
 
 // NewChallengeHandler creates a new handler.
@@ -44,11 +54,35 @@ func (h *ChallengeHandler) WithGamification(gam *gamificationapp.Service, notif 
 	return h
 }
 
+func requireChallengeUser(c *fiber.Ctx) (string, bool) {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		_ = appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+		return "", false
+	}
+	return userID, true
+}
+
+func challengeAppErr(c *fiber.Ctx, err error, fallbackStatus int, fallbackMsg string) error {
+	var appErr *apperrors.AppError
+	if stderrors.As(err, &appErr) {
+		return appresponse.Error(c, appErr.Status, appErr.Message)
+	}
+	msg := fallbackMsg
+	if msg == "" {
+		msg = err.Error()
+	}
+	return c.Status(fallbackStatus).JSON(fiber.Map{"error": msg})
+}
+
 // --- Challenge CRUD (Coach) ---
 
 // CreateChallenge handles POST /challenges.
 func (h *ChallengeHandler) CreateChallenge(c *fiber.Ctx) error {
-	coachID := c.Locals("user_id").(string)
+	coachID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
+	}
 
 	var ch domain.Challenge
 	if err := c.BodyParser(&ch); err != nil {
@@ -71,7 +105,10 @@ func (h *ChallengeHandler) CreateChallenge(c *fiber.Ctx) error {
 
 // ListCoachChallenges handles GET /coach/challenges.
 func (h *ChallengeHandler) ListCoachChallenges(c *fiber.Ctx) error {
-	coachID := c.Locals("user_id").(string)
+	coachID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
+	}
 	challenges, err := h.service.ListByCoach(coachID)
 	if err != nil {
 		logger.L().Error("failed to list challenges",
@@ -87,7 +124,10 @@ func (h *ChallengeHandler) ListCoachChallenges(c *fiber.Ctx) error {
 
 // ListDraftChallenges handles GET /coach/challenges/draft.
 func (h *ChallengeHandler) ListDraftChallenges(c *fiber.Ctx) error {
-	coachID := c.Locals("user_id").(string)
+	coachID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
+	}
 	challenges, err := h.service.ListDraftByCoach(coachID)
 	if err != nil {
 		logger.L().Error("failed to list draft challenges",
@@ -103,7 +143,10 @@ func (h *ChallengeHandler) ListDraftChallenges(c *fiber.Ctx) error {
 
 // ListActiveChallengesByCoach handles GET /coach/challenges/active.
 func (h *ChallengeHandler) ListActiveChallengesByCoach(c *fiber.Ctx) error {
-	coachID := c.Locals("user_id").(string)
+	coachID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
+	}
 	challenges, err := h.service.ListActiveByCoach(coachID)
 	if err != nil {
 		logger.L().Error("failed to list active challenges",
@@ -119,6 +162,10 @@ func (h *ChallengeHandler) ListActiveChallengesByCoach(c *fiber.Ctx) error {
 
 // GetChallenge handles GET /challenges/:id.
 func (h *ChallengeHandler) GetChallenge(c *fiber.Ctx) error {
+	userID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
+	}
 	id := c.Params("id")
 	ch, err := h.service.GetChallenge(id)
 	if err != nil {
@@ -126,7 +173,9 @@ func (h *ChallengeHandler) GetChallenge(c *fiber.Ctx) error {
 			"error": "Challenge not found",
 		})
 	}
-	attempts, _ := h.service.ListAttempts(id)
+	role := middleware.GetUserRole(c)
+	isOwnerOrAdmin := ch.CoachID == userID || role == "admin" || role == "super_admin"
+	attempts, _ := h.service.ListAttemptsForChallenge(id, userID, isOwnerOrAdmin)
 	stats, _ := h.service.GetChallengeStats(id)
 	leaderboard, _ := h.service.GetChallengeLeaderboard(id)
 
@@ -142,6 +191,10 @@ func (h *ChallengeHandler) GetChallenge(c *fiber.Ctx) error {
 
 // UpdateChallenge handles PUT /challenges/:id.
 func (h *ChallengeHandler) UpdateChallenge(c *fiber.Ctx) error {
+	coachID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
+	}
 	id := c.Params("id")
 	var ch domain.Challenge
 	if err := c.BodyParser(&ch); err != nil {
@@ -150,10 +203,9 @@ func (h *ChallengeHandler) UpdateChallenge(c *fiber.Ctx) error {
 		})
 	}
 	ch.ID = id
-	if err := h.service.UpdateChallenge(&ch); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+	ch.CoachID = coachID
+	if err := h.service.UpdateChallenge(coachID, &ch); err != nil {
+		return challengeAppErr(c, err, fiber.StatusBadRequest, "")
 	}
 	return c.JSON(fiber.Map{"success": true})
 }
@@ -161,25 +213,25 @@ func (h *ChallengeHandler) UpdateChallenge(c *fiber.Ctx) error {
 // DeleteChallenge handles DELETE /challenges/:id.
 func (h *ChallengeHandler) DeleteChallenge(c *fiber.Ctx) error {
 	id := c.Params("id")
-	coachID := middleware.GetUserID(c)
-	if coachID == "" {
-		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	coachID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
 	}
 	if err := h.service.DeleteChallenge(coachID, id); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return challengeAppErr(c, err, fiber.StatusBadRequest, "")
 	}
 	return c.JSON(fiber.Map{"success": true})
 }
 
 // ActivateChallenge handles POST /challenges/:id/activate.
 func (h *ChallengeHandler) ActivateChallenge(c *fiber.Ctx) error {
+	coachID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
+	}
 	id := c.Params("id")
-	if err := h.service.ActivateChallenge(id); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+	if err := h.service.ActivateChallenge(coachID, id); err != nil {
+		return challengeAppErr(c, err, fiber.StatusBadRequest, "")
 	}
 	return c.JSON(fiber.Map{"success": true})
 }
@@ -188,7 +240,10 @@ func (h *ChallengeHandler) ActivateChallenge(c *fiber.Ctx) error {
 
 // ListAthleteChallenges handles GET /athlete/challenges.
 func (h *ChallengeHandler) ListAthleteChallenges(c *fiber.Ctx) error {
-	athleteID := c.Locals("user_id").(string)
+	athleteID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
+	}
 	challenges, err := h.service.ListActiveForAthlete(athleteID)
 	if err != nil {
 		logger.L().Error("failed to list athlete challenges",
@@ -204,7 +259,10 @@ func (h *ChallengeHandler) ListAthleteChallenges(c *fiber.Ctx) error {
 
 // GetActiveChallenge handles GET /athlete/challenges/active.
 func (h *ChallengeHandler) GetActiveChallenge(c *fiber.Ctx) error {
-	athleteID := c.Locals("user_id").(string)
+	athleteID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
+	}
 	challenge, err := h.service.GetActiveForAthlete(athleteID)
 	if err != nil {
 		logger.L().Error("failed to get active challenge",
@@ -220,7 +278,10 @@ func (h *ChallengeHandler) GetActiveChallenge(c *fiber.Ctx) error {
 
 // JoinChallenge handles POST /athlete/challenges/:id/join.
 func (h *ChallengeHandler) JoinChallenge(c *fiber.Ctx) error {
-	athleteID := c.Locals("user_id").(string)
+	athleteID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
+	}
 	challengeID := c.Params("id")
 
 	var body struct {
@@ -245,7 +306,10 @@ func (h *ChallengeHandler) JoinChallenge(c *fiber.Ctx) error {
 
 // CreateAttempt handles POST /athlete/challenges/:id/attempts.
 func (h *ChallengeHandler) CreateAttempt(c *fiber.Ctx) error {
-	athleteID := c.Locals("user_id").(string)
+	athleteID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
+	}
 	challengeID := c.Params("id")
 
 	attempt, err := h.service.JoinChallenge(challengeID, athleteID, false, false)
@@ -260,6 +324,10 @@ func (h *ChallengeHandler) CreateAttempt(c *fiber.Ctx) error {
 
 // SubmitAttempt handles POST /athlete/challenges/attempts/:id/submit.
 func (h *ChallengeHandler) SubmitAttempt(c *fiber.Ctx) error {
+	athleteID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
+	}
 	attemptID := c.Params("id")
 	var metrics map[string]interface{}
 	if err := c.BodyParser(&metrics); err != nil {
@@ -267,11 +335,9 @@ func (h *ChallengeHandler) SubmitAttempt(c *fiber.Ctx) error {
 			"error": "Invalid request body",
 		})
 	}
-	attempt, err := h.service.SubmitAttempt(attemptID, metrics)
+	attempt, err := h.service.SubmitAttempt(athleteID, attemptID, metrics)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to submit attempt",
-		})
+		return challengeAppErr(c, err, fiber.StatusInternalServerError, "Failed to submit attempt")
 	}
 
 	// Push the refreshed leaderboard to subscribers of this challenge.
@@ -355,7 +421,10 @@ func (h *ChallengeHandler) SubmitAttempt(c *fiber.Ctx) error {
 
 // ListAthleteAttempts handles GET /athlete/challenges/:id/attempts.
 func (h *ChallengeHandler) ListAthleteAttempts(c *fiber.Ctx) error {
-	athleteID := c.Locals("user_id").(string)
+	athleteID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
+	}
 	attempts, err := h.service.ListAthleteAttempts(athleteID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -366,17 +435,68 @@ func (h *ChallengeHandler) ListAthleteAttempts(c *fiber.Ctx) error {
 }
 
 // UploadAttemptVideo handles POST /athlete/challenges/attempts/:id/video.
-// Accepts a multipart form with a "file" field, stores it on disk, and
-// attaches the resulting URL to the attempt.
+// Primary path: JSON { "video_url": "r2://..." } after direct R2 upload.
+// Legacy fallback: multipart form "file" streamed to R2 (or local disk when R2 is unconfigured).
 func (h *ChallengeHandler) UploadAttemptVideo(c *fiber.Ctx) error {
+	athleteID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
+	}
 	attemptID := c.Params("id")
 	if attemptID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "attempt ID is required"})
 	}
 
+	// Enforce ownership before accepting/storing any media payload.
+	if _, err := h.service.GetAttemptForAthlete(athleteID, attemptID); err != nil {
+		return challengeAppErr(c, err, fiber.StatusBadRequest, "")
+	}
+
+	if strings.Contains(strings.ToLower(c.Get("Content-Type")), "application/json") {
+		var body struct {
+			VideoURL string `json:"video_url"`
+		}
+		if err := c.BodyParser(&body); err != nil || strings.TrimSpace(body.VideoURL) == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "video_url is required"})
+		}
+		videoURL := strings.TrimSpace(body.VideoURL)
+		if h.mediaSvc != nil && h.mediaSvc.Enabled() {
+			normalized, err := h.mediaSvc.NormalizeAndValidateRef(c.Context(), actorFromCtx(c), videoURL)
+			if err != nil {
+				return mapMediaError(c, err)
+			}
+			videoURL = normalized
+		}
+		if _, err := h.service.AttachAttemptVideo(athleteID, attemptID, videoURL); err != nil {
+			return challengeAppErr(c, err, fiber.StatusBadRequest, "")
+		}
+		return c.JSON(fiber.Map{"data": fiber.Map{"video_url": videoURL}})
+	}
+
 	file, err := c.FormFile("file")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "file is required"})
+	}
+
+	if h.mediaSvc != nil && h.mediaSvc.Enabled() {
+		src, err := file.Open()
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to open uploaded file"})
+		}
+		defer src.Close()
+		ct := file.Header.Get("Content-Type")
+		if ct == "" {
+			ct = "video/mp4"
+		}
+		obj, err := h.mediaSvc.StoreStream(c.Context(), actorFromCtx(c), "challenge_attempt", file.Filename, ct, file.Size, src)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		videoURL := obj.Ref()
+		if _, err := h.service.AttachAttemptVideo(athleteID, attemptID, videoURL); err != nil {
+			return challengeAppErr(c, err, fiber.StatusBadRequest, "")
+		}
+		return c.JSON(fiber.Map{"data": fiber.Map{"video_url": videoURL}})
 	}
 
 	ext := filepath.Ext(file.Filename)
@@ -396,8 +516,8 @@ func (h *ChallengeHandler) UploadAttemptVideo(c *fiber.Ctx) error {
 	}
 
 	videoURL := "/uploads/challenges/" + filename
-	if _, err := h.service.AttachAttemptVideo(attemptID, videoURL); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	if _, err := h.service.AttachAttemptVideo(athleteID, attemptID, videoURL); err != nil {
+		return challengeAppErr(c, err, fiber.StatusBadRequest, "")
 	}
 
 	return c.JSON(fiber.Map{"data": fiber.Map{"video_url": videoURL}})
@@ -445,7 +565,10 @@ func (h *ChallengeHandler) GetAthleteChallengeAnalytics(c *fiber.Ctx) error {
 
 // GetAthleteProgress handles GET /athlete/challenges/progress/:exerciseType.
 func (h *ChallengeHandler) GetAthleteProgress(c *fiber.Ctx) error {
-	athleteID := c.Locals("user_id").(string)
+	athleteID, ok := requireChallengeUser(c)
+	if !ok {
+		return nil
+	}
 	exerciseType := c.Params("exerciseType")
 	progress, err := h.service.GetAthleteProgress(athleteID, exerciseType)
 	if err != nil {

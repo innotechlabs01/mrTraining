@@ -27,7 +27,7 @@ export async function GET() {
     }
 
     const availability = await goFetchServer<AvailabilitySlot[]>(
-      `/api/v1/coaches/${userId}/availability`,
+      `/api/v1/coaches/availability`,
       token,
     );
     return NextResponse.json(availability);
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     }));
 
     await goFetchServer(
-      `/api/v1/coaches/${userId}/availability`,
+      `/api/v1/coaches/availability`,
       token,
       { method: 'POST', body: JSON.stringify({ slots: normalized }) },
     );

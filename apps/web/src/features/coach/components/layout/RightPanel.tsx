@@ -60,7 +60,7 @@ function AthleteSection({
   // Fetch athlete details from API if not cached
   useEffect(() => {
     if (id && !detailsCache[id]) {
-      fetch(`/api/coaching/athlete-details/${id}`)
+      fetch(`/api/coaching/athletes/${id}`)
         .then(res => res.json())
         .then(details => {
           setDetails(prev => ({ ...prev, [id]: details }))
@@ -88,7 +88,7 @@ function AthleteSection({
     <div className="space-y-4 pb-6">
       <div className="flex items-center gap-4">
         <div className="w-14 h-14 rounded-full bg-gradient-to-br from-brand-primary to-brand-primary-hover flex items-center justify-center text-white text-lg font-bold shrink-0">
-          {d.name.charAt(0)}
+          {d.name?.charAt(0) ?? '?'}
         </div>
         <div className="min-w-0">
           <h3 className="text-base font-semibold text-white truncate">{d.name}</h3>

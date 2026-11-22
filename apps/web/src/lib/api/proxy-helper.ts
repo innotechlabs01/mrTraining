@@ -11,37 +11,37 @@ export async function proxyToGo(
   req: NextRequest,
   pathSegments: string[]
 ): Promise<NextResponse | null> {
-  const path = `/api/v1/${pathSegments.join('/')}`;
-  const url = `${GO_API_BASE}${path}`;
+  const effectiveSegments = pathSegments[0] === 'v1' ? pathSegments.slice(1) : pathSegments;
+  const path = `/api/v1/${effectiveSegments.join('/')}`;
+  const goUrl = `${GO_API_BASE}${path}${req.nextUrl.search}`;
 
-  // Get Clerk session to forward JWT if Authorization header is missing
+  // Get Clerk session JWT if Authorization header is missing
   let authHeader = req.headers.get('authorization');
 
   if (!authHeader) {
-    // Try to get Clerk user ID for forwarding
     try {
-      const { userId } = await auth();
-      if (userId) {
-        authHeader = `Bearer ${userId}`;
+      const { getToken } = await auth();
+      const token = await getToken();
+      if (!token) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
+      authHeader = `Bearer ${token}`;
     } catch {
-      // If auth fails, continue without header — Go will handle auth
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   }
 
-  const goUrl = `${url}`;
-
-  // Build headers, omitting Authorization if missing
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+    'Content-Type': req.headers.get('content-type') || 'application/json',
+    Authorization: authHeader,
   };
-  if (authHeader) {
-    headers.Authorization = authHeader;
-  }
 
+  const hasBody = req.method !== 'GET' && req.method !== 'HEAD';
   const goResponse = await fetch(goUrl, {
     method: req.method,
     headers,
+    body: hasBody ? await req.arrayBuffer() : undefined,
+    cache: 'no-store',
   });
 
   // If Go returns 404, return null to signal fallback to direct handling
@@ -49,8 +49,9 @@ export async function proxyToGo(
     return null;
   }
 
-  return NextResponse.json(
-    await goResponse.json(),
-    { status: goResponse.status }
-  );
+  const data = await goResponse.json().catch(() => ({}));
+  return NextResponse.json(data, {
+    status: goResponse.status,
+    headers: { 'Cache-Control': 'private, no-store' },
+  });
 }
