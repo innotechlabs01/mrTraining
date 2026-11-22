@@ -4,6 +4,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	stderrors "errors"
 	"strconv"
 	"strings"
 
@@ -26,10 +27,11 @@ import (
 
 // TrainingHandler handles HTTP requests for the training domain.
 type TrainingHandler struct {
-	service  *trainingapp.Service
-	db       *sql.DB
-	outbox   eventbus.OutboxWriter
-	mediaSvc *mediaapp.Service
+	service        *trainingapp.Service
+	db             *sql.DB
+	outbox         eventbus.OutboxWriter
+	mediaSvc       *mediaapp.Service
+	tenantResolver middleware.TenantResolver
 }
 
 // WithOutbox configures transactional outbox event publication for training actions.
@@ -41,6 +43,12 @@ func (h *TrainingHandler) WithOutbox(outbox eventbus.OutboxWriter) *TrainingHand
 // SetMediaService attaches the R2 media service for exercise video ownership validation.
 func (h *TrainingHandler) SetMediaService(m *mediaapp.Service) *TrainingHandler {
 	h.mediaSvc = m
+	return h
+}
+
+// WithTenantResolver attaches a TenantResolver to verify active coach-athlete links.
+func (h *TrainingHandler) WithTenantResolver(r middleware.TenantResolver) *TrainingHandler {
+	h.tenantResolver = r
 	return h
 }
 
@@ -267,8 +275,13 @@ func (h *TrainingHandler) ListWorkoutTemplates(c *fiber.Ctx) error {
 }
 
 // GetWorkoutTemplate handles GET /workout-templates/:id.
-// Returns a single workout template with its exercises.
+// Returns a single workout template with its exercises for the owning coach.
 func (h *TrainingHandler) GetWorkoutTemplate(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
 	id := c.Params("id")
 	if id == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "template ID is required")
@@ -277,6 +290,12 @@ func (h *TrainingHandler) GetWorkoutTemplate(c *fiber.Ctx) error {
 	template, err := h.service.GetWorkoutTemplate(middleware.RequestContext(c), id)
 	if err != nil {
 		return h.handleError(c, err)
+	}
+	if template == nil {
+		return appresponse.Error(c, fiber.StatusNotFound, "workout template not found")
+	}
+	if template.CoachID != userID {
+		return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view this workout template")
 	}
 
 	return appresponse.Success(c, toWorkoutTemplateResponse(template))
@@ -331,6 +350,27 @@ func (h *TrainingHandler) CreateWorkoutTemplate(c *fiber.Ctx) error {
 
 	middleware.InvalidateCache("workout-templates")
 	return appresponse.Success(c, toWorkoutTemplateResponse(template))
+}
+
+// DeleteWorkoutTemplate handles DELETE /workout-templates/:id.
+// Deletes a workout template and its exercises for the owning coach within UnitOfWork RLS.
+func (h *TrainingHandler) DeleteWorkoutTemplate(c *fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "template ID is required")
+	}
+
+	if err := h.withTx(c, func(svc *trainingapp.Service) error {
+		userID := middleware.GetUserID(c)
+		if err := svc.DeleteWorkoutTemplate(middleware.RequestContext(c), userID, id); err != nil {
+			return err
+		}
+		middleware.InvalidateCache("workout-templates")
+		return appresponse.Success(c, fiber.Map{"ok": true})
+	}); err != nil {
+		return h.handleError(c, err)
+	}
+	return nil
 }
 
 // AssignWorkout handles POST /workouts/assign.
@@ -429,6 +469,26 @@ func (h *TrainingHandler) GetAssignedWorkoutDetail(c *fiber.Ctx) error {
 	return appresponse.Success(c, toWorkoutDetailResponse(detail))
 }
 
+func (h *TrainingHandler) authorizeAssignedWorkoutAccess(c *fiber.Ctx, userID string, workout *trainingdomain.AssignedWorkout) *errors.AppError {
+	if workout == nil {
+		return errors.NotFound("Workout", "")
+	}
+	if workout.AthleteID == userID {
+		return nil
+	}
+	if workout.CoachID != userID {
+		return errors.Forbidden("not allowed to view this workout")
+	}
+	if h.tenantResolver == nil {
+		return errors.Forbidden("no active relationship with this athlete")
+	}
+	ok, err := h.tenantResolver.AthleteHasActiveCoach(middleware.RequestContext(c), workout.AthleteID, userID)
+	if err != nil || !ok {
+		return errors.Forbidden("no active relationship with this athlete")
+	}
+	return nil
+}
+
 // GetWorkoutPrescription handles GET /workouts/:id/prescription.
 // Returns the exercise prescription for an assigned workout.
 func (h *TrainingHandler) GetWorkoutPrescription(c *fiber.Ctx) error {
@@ -440,6 +500,14 @@ func (h *TrainingHandler) GetWorkoutPrescription(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "workout ID is required")
+	}
+
+	detail, err := h.service.GetAssignedWorkoutDetail(middleware.RequestContext(c), id)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+	if appErr := h.authorizeAssignedWorkoutAccess(c, userID, detail.Workout); appErr != nil {
+		return appresponse.Error(c, appErr.Status, appErr.Message)
 	}
 
 	exercises, err := h.service.GetPrescription(middleware.RequestContext(c), id)
@@ -510,30 +578,14 @@ func (h *TrainingHandler) GetCompletedRunningWorkout(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "workout ID is required")
 	}
 
-	// Check if user is coach or athlete
-	role := middleware.GetUserRole(c)
-	var targetUserID string
-	if role == "coach" {
-		// Coach can view any athlete's completed running workout
-		// Need to verify the coach owns this workout
-		detail, err := h.service.GetAssignedWorkoutDetail(middleware.RequestContext(c), workoutID)
-		if err != nil {
-			return h.handleError(c, err)
-		}
-		if detail.Workout.CoachID != userID {
-			return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view this workout")
-		}
-		targetUserID = detail.Workout.AthleteID
-	} else {
-		// Athlete can only view their own
-		targetUserID = userID
-	}
-
-	// Get the completed running workout detail
 	detail, err := h.service.GetAssignedWorkoutDetail(middleware.RequestContext(c), workoutID)
 	if err != nil {
 		return h.handleError(c, err)
 	}
+	if appErr := h.authorizeAssignedWorkoutAccess(c, userID, detail.Workout); appErr != nil {
+		return appresponse.Error(c, appErr.Status, appErr.Message)
+	}
+	targetUserID := detail.Workout.AthleteID
 
 	// Check if workout has running exercises with actual GPS/intervals
 	runningExercises := make([]interface{}, 0)
@@ -775,7 +827,8 @@ func (h *TrainingHandler) handleValidationError(c *fiber.Ctx, validationErrs val
 
 // handleError maps application errors to appropriate HTTP responses.
 func (h *TrainingHandler) handleError(c *fiber.Ctx, err error) error {
-	if appErr, ok := err.(*errors.AppError); ok {
+	var appErr *errors.AppError
+	if stderrors.As(err, &appErr) {
 		return appresponse.Error(c, appErr.Status, appErr.Message)
 	}
 	logger.L().Error("handler error",
@@ -1001,6 +1054,15 @@ func (h *TrainingHandler) GetUpcomingSessions(c *fiber.Ctx) error {
 
 // CreateTrainingSession handles POST /training/sessions
 func (h *TrainingHandler) CreateTrainingSession(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+	coachID := middleware.GetCoachID(c)
+	if coachID == "" {
+		coachID = userID
+	}
+
 	var req struct {
 		CoachID     string `json:"coach_id"`
 		AthleteID   string `json:"athlete_id"`
@@ -1014,10 +1076,18 @@ func (h *TrainingHandler) CreateTrainingSession(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
-	if req.CoachID == "" || req.AthleteID == "" || req.Title == "" {
-		return appresponse.Error(c, fiber.StatusBadRequest, "coach_id, athlete_id and title are required")
+	if req.AthleteID == "" || req.Title == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "athlete_id and title are required")
 	}
-	session, err := h.service.CreateTrainingSession(middleware.RequestContext(c), req.CoachID, req.AthleteID, req.Title, req.ScheduledAt, req.Status)
+	if h.tenantResolver == nil {
+		return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this athlete")
+	}
+	ok, rerr := h.tenantResolver.AthleteHasActiveCoach(middleware.RequestContext(c), req.AthleteID, coachID)
+	if rerr != nil || !ok {
+		return appresponse.Error(c, fiber.StatusForbidden, "no active relationship with this athlete")
+	}
+
+	session, err := h.service.CreateTrainingSession(middleware.RequestContext(c), coachID, req.AthleteID, req.Title, req.ScheduledAt, req.Status)
 	if err != nil {
 		return h.handleError(c, err)
 	}

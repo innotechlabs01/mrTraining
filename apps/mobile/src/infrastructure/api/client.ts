@@ -40,6 +40,7 @@ const GO_API_PATH_MAP: Record<string, string> = {
   '/athlete/health/metrics': '/health/metrics',
   '/athlete/health/sleep': '/health/sleep',
   '/athlete/health/devices': '/health/devices',
+  '/athlete/progress/summary': '/progress/summary',
   '/athlete/running': '/running',
   '/athlete/workouts': '/workouts',
   '/athlete/checkin': '/athletes/checkin',
@@ -69,9 +70,6 @@ const GO_API_PATH_MAP: Record<string, string> = {
   '/running/workouts/assignments': '/running/workouts/assignments',
   '/running/workouts/sessions/start': '/running/workouts/sessions/start',
   '/running/workouts/sessions/:id/complete': '/running/workouts/sessions/:id/complete',
-  '/running/workouts/sessions/:id': '/running/workouts/sessions/:id',
-  '/running/workouts/sessions/:id/live-location': '/running/workouts/sessions/:id/live-location',
-  '/running/workouts/sessions/:id/progress': '/running/workouts/sessions/:id/progress',
 };
 
 // Paths that stay in Next.js (not in Go API)
@@ -82,7 +80,7 @@ const NEXTJS_ONLY_PATHS: string[] = [];
  * Transform mobile path to Go API path.
  * If path is in NEXTJS_ONLY, returns null (use nextClient).
  */
-function toGoApiPath(path: string): string | null {
+export function toGoApiPath(path: string): string | null {
   // Check if this is a Next.js-only path
   if (NEXTJS_ONLY_PATHS.some(p => path.startsWith(p))) {
     return null;

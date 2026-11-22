@@ -50,7 +50,7 @@ export async function PUT(
     });
 
     if (!res.ok) {
-      const error = await res.json();
+      const error = await res.json().catch(() => ({ error: 'Failed to update plan' }));
       return NextResponse.json(error, { status: res.status });
     }
 
@@ -82,7 +82,7 @@ export async function DELETE(
     });
 
     if (!res.ok) {
-      const error = await res.json();
+      const error = await res.json().catch(() => ({ error: 'Failed to delete plan' }));
       return NextResponse.json(error, { status: res.status });
     }
 

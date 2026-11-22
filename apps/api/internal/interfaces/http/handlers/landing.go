@@ -229,7 +229,7 @@ func HandlerPutLanding(db *sql.DB) fiber.Handler {
 		version++
 
 		if _, err := db.Exec(
-			`INSERT INTO `+landingTable+` (version, content, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)`,
+			`INSERT INTO `+landingTable+` (version, content, updated_at) VALUES ($1, $2, NOW())`,
 			version, string(content),
 		); err != nil {
 			log.Printf("landing: insert error: %v", err)

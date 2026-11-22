@@ -390,3 +390,159 @@ func (r *Repository) GetEffort(ctx context.Context, athleteID string) ([]domain.
 func round2(v float64) float64 {
 	return float64(int64(v*100+0.5)) / 100
 }
+
+// GetAthleteTrainingSummary aggregates completed workout sessions, logged sets,
+// total volume, and recent sessions for a single athlete over the given window of days.
+func (r *Repository) GetAthleteTrainingSummary(ctx context.Context, athleteID string, days int) (*domain.AthleteTrainingSummary, error) {
+	if r.exec == nil {
+		return nil, fmt.Errorf("database unavailable")
+	}
+	if days <= 0 {
+		days = 28
+	}
+	if days > 365 {
+		days = 365
+	}
+	cutoffDate := time.Now().UTC().AddDate(0, 0, -days).Format("2006-01-02")
+
+	var sessions, totalSets int
+	var totalVolume float64
+	err := r.exec.QueryRowContext(ctx,
+		`SELECT COUNT(DISTINCT wsl.id),
+		        COALESCE(SUM(CASE WHEN wset.completed = 1 THEN 1 ELSE 0 END), 0),
+		        COALESCE(SUM(CASE WHEN wset.completed = 1 THEN COALESCE(wset.weight_kg, 0) * COALESCE(wset.reps, 0) ELSE 0 END), 0)
+		 FROM workout_session_logs wsl
+		 LEFT JOIN workout_set_logs wset ON wset.session_id = wsl.id
+		 WHERE wsl.athlete_id = $1
+		   AND wsl.completed = 1
+		   AND LEFT(wsl.started_at, 10) >= $2`,
+		athleteID, cutoffDate).Scan(&sessions, &totalSets, &totalVolume)
+	if err != nil {
+		return nil, fmt.Errorf("athlete training summary: %w", err)
+	}
+
+	rows, err := r.exec.QueryContext(ctx,
+		`SELECT LEFT(wsl.started_at, 10) AS session_date,
+		        COALESCE(aw.content_name, '') AS workout_name,
+		        COUNT(DISTINCT wset.exercise_id) AS exercises
+		 FROM workout_session_logs wsl
+		 LEFT JOIN assigned_workouts aw ON aw.id = wsl.workout_id
+		 LEFT JOIN workout_set_logs wset ON wset.session_id = wsl.id AND wset.completed = 1
+		 WHERE wsl.athlete_id = $1
+		   AND wsl.completed = 1
+		 GROUP BY wsl.id, wsl.started_at, aw.content_name
+		 ORDER BY wsl.started_at DESC
+		 LIMIT 5`,
+		athleteID)
+	if err != nil {
+		return nil, fmt.Errorf("athlete recent sessions: %w", err)
+	}
+	defer rows.Close()
+
+	recent := make([]domain.RecentTrainingSession, 0)
+	for rows.Next() {
+		var s domain.RecentTrainingSession
+		if err := rows.Scan(&s.Date, &s.WorkoutName, &s.Exercises); err != nil {
+			return nil, fmt.Errorf("athlete recent sessions scan: %w", err)
+		}
+		recent = append(recent, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("athlete recent sessions rows: %w", err)
+	}
+
+	avgPerWeek := round2(float64(sessions) / (float64(days) / 7.0))
+	return &domain.AthleteTrainingSummary{
+		AthleteID:          athleteID,
+		WindowDays:         days,
+		Sessions:           sessions,
+		AvgSessionsPerWeek: avgPerWeek,
+		TotalSets:          totalSets,
+		TotalVolumeKg:      round2(totalVolume),
+		RecentSessions:     recent,
+	}, nil
+}
+
+// GetAthleteVideoAnalytics aggregates video_views by exercise for a single athlete.
+func (r *Repository) GetAthleteVideoAnalytics(ctx context.Context, athleteID string) ([]domain.AthleteVideoAnalytics, error) {
+	if r.exec == nil {
+		return nil, fmt.Errorf("database unavailable")
+	}
+
+	rows, err := r.exec.QueryContext(ctx,
+		`SELECT vv.exercise_id,
+		        COALESCE(NULLIF(el.name, ''), vv.exercise_id) AS exercise_name,
+		        COUNT(*) AS total_views,
+		        COALESCE(SUM(CASE WHEN vv.action = 'complete' OR COALESCE(vv.progress_pct, 0) >= 90 THEN 1 ELSE 0 END), 0) AS completed_views,
+		        AVG(vv.progress_pct) AS avg_position_pct,
+		        MAX(vv.created_at) AS last_viewed_at
+		 FROM video_views vv
+		 LEFT JOIN exercise_library el ON el.id = vv.exercise_id
+		 WHERE vv.athlete_id = $1
+		 GROUP BY vv.exercise_id, el.name
+		 ORDER BY total_views DESC, exercise_name ASC`,
+		athleteID)
+	if err != nil {
+		return nil, fmt.Errorf("athlete video analytics: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]domain.AthleteVideoAnalytics, 0)
+	for rows.Next() {
+		var item domain.AthleteVideoAnalytics
+		var avgPos sql.NullFloat64
+		var lastViewedRaw interface{}
+		if err := rows.Scan(
+			&item.ExerciseID,
+			&item.ExerciseName,
+			&item.TotalViews,
+			&item.CompletedViews,
+			&avgPos,
+			&lastViewedRaw,
+		); err != nil {
+			return nil, fmt.Errorf("athlete video analytics scan: %w", err)
+		}
+		if item.TotalViews > 0 {
+			rate := int(math.Round(float64(item.CompletedViews) * 100.0 / float64(item.TotalViews)))
+			item.CompletionRate = &rate
+		}
+		if avgPos.Valid {
+			v := round2(avgPos.Float64)
+			item.AvgPositionPct = &v
+		}
+		if formatted := formatAnalyticsTimeValue(lastViewedRaw); formatted != "" {
+			item.LastViewedAt = &formatted
+		}
+		result = append(result, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("athlete video analytics rows: %w", err)
+	}
+	return result, nil
+}
+
+func formatAnalyticsTimeValue(v interface{}) string {
+	switch t := v.(type) {
+	case time.Time:
+		if !t.IsZero() {
+			return t.UTC().Format(time.RFC3339)
+		}
+	case *time.Time:
+		if t != nil && !t.IsZero() {
+			return t.UTC().Format(time.RFC3339)
+		}
+	case sql.NullTime:
+		if t.Valid && !t.Time.IsZero() {
+			return t.Time.UTC().Format(time.RFC3339)
+		}
+	case string:
+		return t
+	case sql.NullString:
+		if t.Valid {
+			return t.String
+		}
+	case []byte:
+		return string(t)
+	}
+	return ""
+}

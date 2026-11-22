@@ -17,8 +17,9 @@ import (
 
 // ProductHandler handles HTTP requests for the product domain.
 type ProductHandler struct {
-	service  *productapp.Service
-	mediaSvc *mediaapp.Service
+	service        *productapp.Service
+	mediaSvc       *mediaapp.Service
+	tenantResolver middleware.TenantResolver
 }
 
 // NewProductHandler creates a new ProductHandler with the given application service.
@@ -29,6 +30,12 @@ func NewProductHandler(service *productapp.Service) *ProductHandler {
 // SetMediaService attaches the R2 media service for product image ownership validation.
 func (h *ProductHandler) SetMediaService(m *mediaapp.Service) *ProductHandler {
 	h.mediaSvc = m
+	return h
+}
+
+// WithTenantResolver attaches a TenantResolver to verify coach-athlete links.
+func (h *ProductHandler) WithTenantResolver(r middleware.TenantResolver) *ProductHandler {
+	h.tenantResolver = r
 	return h
 }
 
@@ -59,8 +66,13 @@ func (h *ProductHandler) ListProducts(c *fiber.Ctx) error {
 }
 
 // GetProduct handles GET /products/:id.
-// Returns product detail.
+// Returns product detail for the owning coach or an athlete with an active coach link.
 func (h *ProductHandler) GetProduct(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
 	id := c.Params("id")
 	if id == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "product ID is required")
@@ -69,6 +81,18 @@ func (h *ProductHandler) GetProduct(c *fiber.Ctx) error {
 	product, err := h.service.GetProduct(c.Context(), id)
 	if err != nil {
 		return h.handleError(c, err)
+	}
+
+	coachID := middleware.GetCoachID(c)
+	isOwnerCoach := product.CoachID == userID || (middleware.GetUserRole(c) == "coach" && coachID != "" && product.CoachID == coachID)
+	if !isOwnerCoach {
+		if h.tenantResolver == nil {
+			return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view this product")
+		}
+		ok, rerr := h.tenantResolver.AthleteHasActiveCoach(c.Context(), userID, product.CoachID)
+		if rerr != nil || !ok {
+			return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view this product")
+		}
 	}
 
 	return appresponse.Success(c, toProductResponse(product))

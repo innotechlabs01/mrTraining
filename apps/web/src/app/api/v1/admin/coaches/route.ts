@@ -59,34 +59,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-
-export async function POST(request: NextRequest) {
-  try {
-    const token = await getAuthToken(request);
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const body = await request.json();
-    
-    const res = await fetch(`${GO_API_URL}/api/v1/coaches`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const error = await res.json();
-      return NextResponse.json(error, { status: res.status });
-    }
-
-    const data = await res.json();
-    return NextResponse.json(data, { status: 201 });
-  } catch (error) {
-    console.error('Error creating coach:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}

@@ -23,19 +23,27 @@ export function useAthleteTrainingIntel(athleteId: string) {
     let cancelled = false
     if (!athleteId) return
 
-    Promise.all([
+    Promise.allSettled([
       trainingApi.getTrainingSummary(athleteId),
       trainingApi.getOneRm(athleteId),
       trainingApi.getFatigueMap(athleteId),
       trainingApi.getEffort(athleteId),
     ])
-      .then(([summary, oneRm, fatigue, effort]) => {
+      .then(([summaryRes, oneRmRes, fatigueRes, effortRes]) => {
         if (cancelled) return
-        setIntel({ summary, oneRm, fatigue, effort })
-      })
-      .catch((e: unknown) => {
-        if (cancelled) return
-        setError(e instanceof Error ? e.message : 'Failed to load training data')
+        setIntel({
+          summary: summaryRes.status === 'fulfilled' ? summaryRes.value : null,
+          oneRm: oneRmRes.status === 'fulfilled' ? oneRmRes.value : null,
+          fatigue: fatigueRes.status === 'fulfilled' ? fatigueRes.value : null,
+          effort: effortRes.status === 'fulfilled' ? effortRes.value : null,
+        })
+        const results = [summaryRes, oneRmRes, fatigueRes, effortRes]
+        if (results.every((r) => r.status === 'rejected')) {
+          const reason = (results[0] as PromiseRejectedResult).reason
+          setError(reason instanceof Error ? reason.message : 'Failed to load training data')
+        } else {
+          setError(null)
+        }
       })
       .finally(() => { if (!cancelled) setIsLoading(false) })
 

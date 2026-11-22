@@ -160,6 +160,15 @@ func (h *MessageHandler) CreateThread(c *fiber.Ctx) error {
 	return nil
 }
 
+func resolveMessageSenderRole(role string) string {
+	switch role {
+	case "coach", "admin", "super_admin":
+		return "coach"
+	default:
+		return "athlete"
+	}
+}
+
 // AddMessage handles POST /messages/:id/messages.
 func (h *MessageHandler) AddMessage(c *fiber.Ctx) error {
 	var req dto.AddMessageRequest
@@ -168,9 +177,10 @@ func (h *MessageHandler) AddMessage(c *fiber.Ctx) error {
 	}
 	threadID := c.Params("id")
 	userID := middleware.GetUserID(c)
+	senderRole := resolveMessageSenderRole(middleware.GetUserRole(c))
 
 	err := h.withTx(c, func(svc *msgapp.Service) error {
-		msg, err := svc.SendMessage(c.Context(), userID, "coach", threadID, req.Content)
+		msg, err := svc.SendMessage(c.Context(), userID, senderRole, threadID, req.Content)
 		if err != nil {
 			return err
 		}

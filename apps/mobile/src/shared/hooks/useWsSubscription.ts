@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { useAuth } from '@clerk/clerk-expo';
+import { GO_API_URL } from '../../infrastructure/api/client';
 
 export type WsMessage = {
   type: string;
@@ -6,11 +8,29 @@ export type WsMessage = {
 };
 
 /**
- * Subscribe to a Go API WebSocket topic. Returns a ref with the WebSocket —
- * callers typically pass a handleMessage that invalidates React Query caches.
+ * Build an authenticated WebSocket URL from an HTTP(S) base URL and Clerk JWT.
+ * Returns null if the base URL or token is empty.
+ */
+export function buildWsUrl(baseUrl: string, token: string | null | undefined): string | null {
+  const trimmedBase = baseUrl.trim().replace(/\/+$/, '');
+  const trimmedToken = token?.trim() ?? '';
+  if (!trimmedBase || !trimmedToken) {
+    return null;
+  }
+
+  const wsBase = trimmedBase
+    .replace(/^https:\/\//i, 'wss://')
+    .replace(/^http:\/\//i, 'ws://');
+
+  return `${wsBase}/ws?token=${encodeURIComponent(trimmedToken)}`;
+}
+
+/**
+ * Subscribe to a Go API WebSocket topic.
+ * Callers typically pass a handleMessage that invalidates React Query caches.
  *
  * Usage:
- *   useEventsSubscription((msg) => {
+ *   useWsSubscription('events', (msg) => {
  *     if (msg.type === 'events.updated') queryClient.invalidateQueries(['events']);
  *   });
  *
@@ -22,23 +42,39 @@ export function useWsSubscription(
   handleMessage: (msg: WsMessage) => void,
   wsUrl?: string,
 ) {
+  const { getToken, isSignedIn } = useAuth();
   const handlerRef = useRef(handleMessage);
-  handlerRef.current = handleMessage;
+  const getTokenRef = useRef(getToken);
 
   useEffect(() => {
-    const base =
-      wsUrl ??
-      (typeof window !== 'undefined' && window.location?.host
-        ? `ws://${window.location.host}`
-        : 'ws://localhost:9090');
-    // eslint-disable-next-line no-underscore-dangle
-    const url = `${base}/ws`;
+    handlerRef.current = handleMessage;
+    getTokenRef.current = getToken;
+  });
+
+  useEffect(() => {
+    const rawBase = (wsUrl ?? GO_API_URL).trim();
+    if (!rawBase || !isSignedIn) {
+      return;
+    }
+
     let ws: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let mounted = true;
 
-    const connect = () => {
+    const connect = async () => {
       if (!mounted) return;
+
+      let token: string | null = null;
+      try {
+        token = await getTokenRef.current();
+      } catch {
+        return;
+      }
+
+      if (!mounted) return;
+      const url = buildWsUrl(rawBase, token);
+      if (!url) return;
+
       ws = new WebSocket(url);
 
       ws.onopen = () => {
@@ -61,12 +97,12 @@ export function useWsSubscription(
       };
     };
 
-    connect();
+    void connect();
 
     return () => {
       mounted = false;
       if (reconnectTimer) clearTimeout(reconnectTimer);
       ws?.close();
     };
-  }, [topic, wsUrl]);
+  }, [topic, wsUrl, isSignedIn]);
 }

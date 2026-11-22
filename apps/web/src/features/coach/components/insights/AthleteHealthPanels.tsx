@@ -482,10 +482,10 @@ function VideoEngagementPanel({ athleteId }: { athleteId: string }) {
 
   useEffect(() => {
     let cancelled = false
-    trainingApi.getVideoAnalytics()
+    trainingApi.getVideoAnalytics(athleteId)
       .then(data => {
         if (!cancelled) {
-          setAnalytics((data.analytics ?? []).filter(a => a.totalViews > 0).slice(0, 5))
+          setAnalytics((Array.isArray(data) ? data : []).filter(a => a.totalViews > 0).slice(0, 5))
         }
       })
       .catch(() => {})

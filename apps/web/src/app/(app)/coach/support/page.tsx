@@ -54,8 +54,6 @@ function fmtDate(iso: string) {
 
 export default function CoachSupportPage() {
   const { tickets: remoteTickets, createTicket: createTicketApi, updateTicket: updateTicketApi, isLoading, refresh } = useTickets()
-  const addMessageApi = useAddTicketMessage('')
-  const markReadApi = useMarkTicketRead('')
   const [localTickets, setLocalTickets] = useState<SupportTicket[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | string>('all')
@@ -72,6 +70,9 @@ export default function CoachSupportPage() {
   const visible = sorted.filter((t) => (filter === 'all' ? true : t.status === filter))
 
   const selected = localTickets.find((t) => t.id === selectedId) ?? visible[0] ?? null
+  const activeTicketId = selected?.id ?? selectedId ?? ''
+  const addMessageApi = useAddTicketMessage(activeTicketId)
+  const markReadApi = useMarkTicketRead(activeTicketId)
 
   useEffect(() => {
     if (!selectedId && visible[0]) setSelectedId(visible[0].id)
@@ -99,8 +100,9 @@ export default function CoachSupportPage() {
   }, [createTicketApi, refresh])
 
   const addMessage = useCallback(async (body: string, imageUrl?: string) => {
-    addMessageApi.mutate({ body, image_url: imageUrl })
-  }, [])
+    if (!activeTicketId) return
+    await addMessageApi.mutateAsync({ body, image_url: imageUrl })
+  }, [activeTicketId, addMessageApi])
 
   const resolveTicket = useCallback(async (ticketId: string) => {
     await updateTicketApi(ticketId, { status: 'resolved' })
@@ -113,8 +115,9 @@ export default function CoachSupportPage() {
   }, [updateTicketApi, refresh])
 
   const markAsRead = useCallback(() => {
+    if (!activeTicketId) return
     markReadApi.mutate()
-  }, [])
+  }, [activeTicketId, markReadApi])
 
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col p-6 max-w-7xl mx-auto">

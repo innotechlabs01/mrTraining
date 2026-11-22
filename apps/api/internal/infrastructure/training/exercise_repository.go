@@ -57,10 +57,12 @@ func (r *ExerciseRepository) List(ctx context.Context, filter training.ExerciseF
 	}
 
 	// Fetch paginated results
+	limitIdx := len(args) + 1
+	offsetIdx := len(args) + 2
 	query := `SELECT id, slug, name, description, mode, body_part, muscle_groups,
 		 secondary_muscles, equipment, difficulty, category, instructions,
 		 default_sec, video_url, image_url, is_custom, coach_id, created_at, updated_at
-		 FROM exercise_library` + where + ` ORDER BY name LIMIT $1 OFFSET $2`
+		 FROM exercise_library` + where + fmt.Sprintf(` ORDER BY name LIMIT $%d OFFSET $%d`, limitIdx, offsetIdx)
 
 	args = append(args, limit, offset)
 	rows, err := r.exec.QueryContext(ctx, query, args...)

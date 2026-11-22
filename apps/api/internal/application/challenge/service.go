@@ -1,10 +1,12 @@
 package challenge
 
 import (
+	"database/sql"
 	"errors"
 	"time"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/challenge"
+	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
 )
 
 // Service implements challenge business operations.
@@ -101,14 +103,30 @@ func (s *Service) CreateChallenge(ch *domain.Challenge) error {
 	return nil
 }
 
-// UpdateChallenge updates an existing challenge.
-func (s *Service) UpdateChallenge(ch *domain.Challenge) error {
+// UpdateChallenge updates an existing challenge owned by coachID.
+func (s *Service) UpdateChallenge(coachID string, ch *domain.Challenge) error {
+	existing, err := s.repo.GetByID(ch.ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return apperrors.NotFound("challenge", ch.ID)
+		}
+		return err
+	}
+	if existing.CoachID != coachID {
+		return apperrors.Forbidden("you can only update your own challenges")
+	}
+
 	canEdit, reason, err := s.CanEditChallenge(ch.ID)
 	if err != nil {
 		return err
 	}
 	if !canEdit {
 		return errors.New(reason)
+	}
+
+	ch.CoachID = coachID
+	if ch.Status == "" {
+		ch.Status = existing.Status
 	}
 
 	// Update challenge
@@ -137,10 +155,13 @@ func (s *Service) UpdateChallenge(ch *domain.Challenge) error {
 func (s *Service) DeleteChallenge(coachID, id string) error {
 	existing, err := s.repo.GetByID(id)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return apperrors.NotFound("challenge", id)
+		}
 		return err
 	}
 	if existing.CoachID != coachID {
-		return errors.New("you can only delete your own challenges")
+		return apperrors.Forbidden("you can only delete your own challenges")
 	}
 	canDelete, reason, err := s.CanDeleteChallenge(id)
 	if err != nil {
@@ -152,11 +173,17 @@ func (s *Service) DeleteChallenge(coachID, id string) error {
 	return s.repo.Delete(id)
 }
 
-// ActivateChallenge changes status from draft to active.
-func (s *Service) ActivateChallenge(id string) error {
+// ActivateChallenge changes status from draft to active for the owning coach.
+func (s *Service) ActivateChallenge(coachID, id string) error {
 	ch, err := s.repo.GetByID(id)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return apperrors.NotFound("challenge", id)
+		}
 		return err
+	}
+	if ch.CoachID != coachID {
+		return apperrors.Forbidden("you can only activate your own challenges")
 	}
 	if ch.Status != "draft" {
 		return errors.New("only drafts can be activated")
@@ -245,9 +272,24 @@ func (s *Service) JoinChallenge(challengeID, athleteID string, videoConsent, pho
 	return attempt, nil
 }
 
-// SubmitAttempt completes an attempt with form metrics.
-func (s *Service) SubmitAttempt(attemptID string, metrics map[string]interface{}) (*domain.ChallengeAttempt, error) {
+// GetAttemptForAthlete returns an attempt only if it belongs to athleteID.
+func (s *Service) GetAttemptForAthlete(athleteID, attemptID string) (*domain.ChallengeAttempt, error) {
 	a, err := s.repo.GetAttempt(attemptID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, apperrors.NotFound("attempt", attemptID)
+		}
+		return nil, err
+	}
+	if a.AthleteID != athleteID {
+		return nil, apperrors.Forbidden("you can only access your own attempts")
+	}
+	return a, nil
+}
+
+// SubmitAttempt completes an attempt with form metrics, verifying athlete ownership.
+func (s *Service) SubmitAttempt(athleteID, attemptID string, metrics map[string]interface{}) (*domain.ChallengeAttempt, error) {
+	a, err := s.GetAttemptForAthlete(athleteID, attemptID)
 	if err != nil {
 		return nil, err
 	}
@@ -296,9 +338,28 @@ func (s *Service) ListAttempts(challengeID string) ([]*domain.ChallengeAttempt, 
 	return s.repo.ListAttemptsByChallenge(challengeID)
 }
 
-// AttachAttemptVideo persists a video URL onto an attempt.
-func (s *Service) AttachAttemptVideo(attemptID, videoURL string) (*domain.ChallengeAttempt, error) {
-	a, err := s.repo.GetAttempt(attemptID)
+// ListAttemptsForChallenge returns all attempts for a challenge when includeAll is
+// true (owning coach/admin), or only attempts belonging to userID otherwise.
+func (s *Service) ListAttemptsForChallenge(challengeID, userID string, includeAll bool) ([]*domain.ChallengeAttempt, error) {
+	attempts, err := s.repo.ListAttemptsByChallenge(challengeID)
+	if err != nil {
+		return nil, err
+	}
+	if includeAll {
+		return attempts, nil
+	}
+	scoped := make([]*domain.ChallengeAttempt, 0)
+	for _, a := range attempts {
+		if a != nil && a.AthleteID == userID {
+			scoped = append(scoped, a)
+		}
+	}
+	return scoped, nil
+}
+
+// AttachAttemptVideo persists a video URL onto an attempt owned by athleteID.
+func (s *Service) AttachAttemptVideo(athleteID, attemptID, videoURL string) (*domain.ChallengeAttempt, error) {
+	a, err := s.GetAttemptForAthlete(athleteID, attemptID)
 	if err != nil {
 		return nil, err
 	}

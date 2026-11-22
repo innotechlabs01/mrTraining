@@ -4,8 +4,9 @@ const GO_API_BASE = process.env.GO_API_URL || process.env.NEXT_PUBLIC_GO_API_URL
 
 async function forward(req: NextRequest, params: { proxy: string[] }) {
   const pathSegments = params.proxy ?? [];
-  const goPath = `/api/v1/${pathSegments.join('/')}`;
-  const url = `${GO_API_BASE}${goPath}`;
+  const effectiveSegments = pathSegments[0] === 'v1' ? pathSegments.slice(1) : pathSegments;
+  const goPath = `/api/v1/${effectiveSegments.join('/')}`;
+  const url = `${GO_API_BASE}${goPath}${req.nextUrl.search}`;
 
   // Forward request
   const headers = new Headers();

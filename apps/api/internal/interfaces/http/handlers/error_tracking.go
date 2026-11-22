@@ -75,8 +75,14 @@ func (h *ErrorHandler) ListErrors(c *fiber.Ctx) error {
 	limit := c.QueryInt("limit", 20)
 	offset := c.QueryInt("offset", 0)
 
+	if limit < 1 {
+		limit = 20
+	}
 	if limit > 100 {
 		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
 	}
 
 	records, total, err := h.svc.ListErrors(c.Context(), status, severity, source, limit, offset)

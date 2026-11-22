@@ -397,23 +397,6 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 		)
 	`
 
-	// Reparación: asegura que todo coach con rol en users tenga una fila en
-	// coaches, de modo que CoachID (interno de coaches) esté siempre garantizado
-	// y separado de ID (que puede ser un Clerk users.id). Idempotente.
-	if _, err := h.db.ExecContext(ctx, `
-		INSERT INTO coaches (id, email, name, skip_subscription, is_active, created_at, updated_at)
-		SELECT gen_random_uuid(), u.email, COALESCE(NULLIF(u.name, ''), u.email), false::boolean, u.is_active::integer, u.created_at, u.updated_at
-		FROM users u
-		WHERE u.role = 'coach'
-		  AND NOT EXISTS (
-			SELECT 1 FROM coaches c
-			WHERE c.id = u.id OR lower(c.email) = lower(u.email)
-		  )
-		ON CONFLICT (id) DO NOTHING
-	`); err != nil {
-		return nil, 0, err
-	}
-
 	var total int64
 	countQuery := baseCTE + `SELECT COUNT(*) FROM all_coaches ac WHERE ` + where
 	if err := h.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
@@ -438,7 +421,7 @@ func (h *AdminHandler) queryCoaches(ctx context.Context, search string, limit, o
 		         ) roster
 		       ), 0),
 		       COALESCE((SELECT COUNT(*) FROM athlete_memberships am WHERE am.coach_id = ac.id OR am.coach_id = ac.email), 0),
-		       COALESCE((SELECT COUNT(*) FROM athlete_memberships am WHERE am.coach_id = ac.id OR am.coach_id = ac.email AND am.status = 'active'), 0),
+		       COALESCE((SELECT COUNT(*) FROM athlete_memberships am WHERE (am.coach_id = ac.id OR am.coach_id = ac.email) AND am.status = 'active'), 0),
 		       ac.skip_subscription,
 		       COALESCE((
 		         SELECT s.plan_name FROM subscriptions s
@@ -806,7 +789,7 @@ func (h *AdminHandler) UpdateAdminPlan(c *fiber.Ctx) error {
 	if len(sets) == 0 {
 		return appresponse.Error(c, fiber.StatusBadRequest, "no fields to update")
 	}
-	add("updated_at", "NOW()")
+	sets = append(sets, "updated_at = NOW()")
 	args = append(args, id)
 	query := `UPDATE plans SET ` + strings.Join(sets, ", ") + ` WHERE id = $` + strconv.Itoa(argIdx)
 	if _, err := h.db.ExecContext(ctx, query, args...); err != nil {
@@ -835,6 +818,22 @@ func (h *AdminHandler) DeleteAdminPlan(c *fiber.Ctx) error {
 	return appresponse.Success(c, map[string]string{"deleted": "true", "id": id})
 }
 
+// secretPlatformSettingKeys lists normalized keys that must never be stored
+// or exposed via /admin/settings.
+var secretPlatformSettingKeys = map[string]struct{}{
+	"wompiprivatekey":      {},
+	"clerksecretkey":       {},
+	"wompieventssecret":    {},
+	"wompiintegritysecret": {},
+	"clerkwebhooksecret":   {},
+}
+
+func isSecretPlatformSettingKey(key string) bool {
+	normalized := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(key), "_", ""))
+	_, blocked := secretPlatformSettingKeys[normalized]
+	return blocked
+}
+
 // GetSettings handles GET /api/v1/admin/settings.
 func (h *AdminHandler) GetSettings(c *fiber.Ctx) error {
 	resp := AdminSettingsResponse{Settings: map[string]interface{}{}}
@@ -852,6 +851,9 @@ func (h *AdminHandler) GetSettings(c *fiber.Ctx) error {
 		var value []byte
 		if err := rows.Scan(&key, &value); err != nil {
 			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to scan setting")
+		}
+		if isSecretPlatformSettingKey(key) {
+			continue
 		}
 		var v interface{}
 		if err := json.Unmarshal(value, &v); err != nil {
@@ -902,6 +904,12 @@ func (h *AdminHandler) PutSettings(c *fiber.Ctx) error {
 			return appresponse.Error(c, fiber.StatusBadRequest, "setting key is required")
 		}
 		raw = map[string]interface{}{key: raw["value"]}
+	}
+
+	for key := range raw {
+		if isSecretPlatformSettingKey(key) {
+			return appresponse.Error(c, fiber.StatusBadRequest, "secret setting key cannot be stored via platform settings")
+		}
 	}
 
 	for key, val := range raw {
@@ -1039,6 +1047,18 @@ func clerkIDSuffix(clerkID string, n int) string {
 
 func formatTimeValue(v interface{}) string {
 	switch t := v.(type) {
+	case time.Time:
+		if !t.IsZero() {
+			return t.UTC().Format(time.RFC3339)
+		}
+	case *time.Time:
+		if t != nil && !t.IsZero() {
+			return t.UTC().Format(time.RFC3339)
+		}
+	case sql.NullTime:
+		if t.Valid && !t.Time.IsZero() {
+			return t.Time.UTC().Format(time.RFC3339)
+		}
 	case string:
 		return t
 	case sql.NullString:
@@ -1050,101 +1070,128 @@ func formatTimeValue(v interface{}) string {
 	}
 	return ""
 }
+
 // GetCommissionTerms handles GET /api/v1/admin/commission-terms.
-// Returns the current commission configuration (rate_bps and fixed_amount_cents).
+// Returns the current commission configuration (rate_bps, fixed_amount_cents, currency).
 func (h *AdminHandler) GetCommissionTerms(c *fiber.Ctx) error {
+	if h.db == nil {
+		return appresponse.Error(c, fiber.StatusServiceUnavailable, "database unavailable")
+	}
 	ctx := c.Context()
-	
-	// Try to get commission terms from platform_settings
+
 	var rateBps int
 	var fixedAmountCents int
-	
+	currency := "COP"
+
 	// Get rate_bps
 	var rateBpsBytes []byte
 	err := h.db.QueryRowContext(ctx, `SELECT value FROM platform_settings WHERE key = 'commission.rate_bps'`).Scan(&rateBpsBytes)
 	if err == nil && len(rateBpsBytes) > 0 {
 		var v interface{}
-		json.Unmarshal(rateBpsBytes, &v)
-		switch val := v.(type) {
-		case float64:
-			rateBps = int(val)
-		case int:
-			rateBps = val
+		if json.Unmarshal(rateBpsBytes, &v) == nil {
+			if f, ok := parseSettingFloat(v); ok {
+				rateBps = int(f)
+			}
 		}
 	}
-	
+
 	// Get fixed_amount_cents
 	var fixedAmountBytes []byte
 	err = h.db.QueryRowContext(ctx, `SELECT value FROM platform_settings WHERE key = 'commission.fixed_amount_cents'`).Scan(&fixedAmountBytes)
 	if err == nil && len(fixedAmountBytes) > 0 {
 		var v interface{}
-		json.Unmarshal(fixedAmountBytes, &v)
-		switch val := v.(type) {
-		case float64:
-			fixedAmountCents = int(val)
-		case int:
-			fixedAmountCents = val
+		if json.Unmarshal(fixedAmountBytes, &v) == nil {
+			if f, ok := parseSettingFloat(v); ok {
+				fixedAmountCents = int(f)
+			}
 		}
 	}
-	
+
+	// Get currency
+	var currencyBytes []byte
+	err = h.db.QueryRowContext(ctx, `SELECT value FROM platform_settings WHERE key = 'commission.currency'`).Scan(&currencyBytes)
+	if err == nil && len(currencyBytes) > 0 {
+		var curr string
+		if json.Unmarshal(currencyBytes, &curr) == nil {
+			if s := strings.TrimSpace(curr); s != "" {
+				currency = s
+			}
+		} else if s := strings.TrimSpace(string(currencyBytes)); s != "" {
+			currency = s
+		}
+	}
+
 	return appresponse.Success(c, map[string]interface{}{
 		"rate_bps":           rateBps,
 		"fixed_amount_cents": fixedAmountCents,
-		"currency":           "COP",
+		"currency":           currency,
 	})
 }
 
 // PutCommissionTerms handles PUT /api/v1/admin/commission-terms.
-// Updates the commission configuration (rate_bps and fixed_amount_cents).
+// Updates the commission configuration (rate_bps, fixed_amount_cents, currency).
 // Rate is in basis points (800 = 8.00%), fixed amount is in cents (300000 = 3000 COP).
 func (h *AdminHandler) PutCommissionTerms(c *fiber.Ctx) error {
+	if h.db == nil {
+		return appresponse.Error(c, fiber.StatusServiceUnavailable, "database unavailable")
+	}
 	ctx := c.Context()
-	
+
 	var req struct {
-		RateBps          *int   `json:"rate_bps"`
-		FixedAmountCents *int   `json:"fixed_amount_cents"`
+		RateBps          *int    `json:"rate_bps"`
+		FixedAmountCents *int    `json:"fixed_amount_cents"`
 		Currency         *string `json:"currency"`
 	}
-	
+
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
-	
-	now := "NOW()"
-	
+
 	if req.RateBps != nil && *req.RateBps >= 0 {
-		_, err := h.db.ExecContext(ctx, `
+		val, err := json.Marshal(*req.RateBps)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to serialize commission rate")
+		}
+		_, err = h.db.ExecContext(ctx, `
 			INSERT INTO platform_settings (key, value, updated_at)
-			VALUES ('commission.rate_bps', $1, $2)
-			ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = $2
-		`, strconv.Itoa(*req.RateBps), now)
+			VALUES ('commission.rate_bps', $1, NOW())
+			ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()
+		`, val)
 		if err != nil {
 			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to save commission rate")
 		}
 	}
-	
+
 	if req.FixedAmountCents != nil && *req.FixedAmountCents >= 0 {
-		_, err := h.db.ExecContext(ctx, `
+		val, err := json.Marshal(*req.FixedAmountCents)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to serialize commission fixed amount")
+		}
+		_, err = h.db.ExecContext(ctx, `
 			INSERT INTO platform_settings (key, value, updated_at)
-			VALUES ('commission.fixed_amount_cents', $1, $2)
-			ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = $2
-		`, strconv.Itoa(*req.FixedAmountCents), now)
+			VALUES ('commission.fixed_amount_cents', $1, NOW())
+			ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()
+		`, val)
 		if err != nil {
 			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to save commission fixed amount")
 		}
 	}
-	
+
 	if req.Currency != nil && *req.Currency != "" {
-		_, err := h.db.ExecContext(ctx, `
+		val, err := json.Marshal(*req.Currency)
+		if err != nil {
+			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to serialize commission currency")
+		}
+		_, err = h.db.ExecContext(ctx, `
 			INSERT INTO platform_settings (key, value, updated_at)
-			VALUES ('commission.currency', $1, $2)
-			ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = $2
-		`, *req.Currency, now)
+			VALUES ('commission.currency', $1, NOW())
+			ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()
+		`, val)
 		if err != nil {
 			return appresponse.Error(c, fiber.StatusInternalServerError, "failed to save commission currency")
 		}
 	}
-	
+
 	return appresponse.Success(c, map[string]interface{}{
 		"rate_bps":           req.RateBps,
 		"fixed_amount_cents": req.FixedAmountCents,

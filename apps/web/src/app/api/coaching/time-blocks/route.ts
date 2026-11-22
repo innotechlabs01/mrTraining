@@ -30,7 +30,7 @@ export async function GET() {
     }
 
     const blocks = await goFetchServer<TimeBlock[]>(
-      `/api/v1/coaches/${userId}/time-blocks`,
+      `/api/v1/coaches/time-blocks`,
       token,
     );
     return NextResponse.json(blocks);
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     }));
 
     await goFetchServer(
-      `/api/v1/coaches/${userId}/time-blocks`,
+      `/api/v1/coaches/time-blocks`,
       token,
       { method: 'POST', body: JSON.stringify({ blocks: normalized }) },
     );

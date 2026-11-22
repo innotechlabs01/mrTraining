@@ -41,13 +41,6 @@ export interface Plan {
   isPopular?: boolean;
 }
 
-interface CancelResponse {
-  membershipId: string;
-  cancelAtPeriodEnd: boolean;
-  status: 'active' | 'canceled';
-  message: string;
-}
-
 /**
  * Obtiene el estado actual de la membresía del athlete.
  * GET /api/v1/athletes/membership/status — sin path param, usa token del auth.
@@ -84,19 +77,6 @@ interface PlanDto {
   price: number;
   currency: string;
   billing_period: string;
-}
-
-/**
- * Cancelar la membresía.
- * PUT /api/v1/memberships/:id/cancel
- */
-export async function cancelMembership(
-  membershipId: string
-): Promise<CancelResponse> {
-  const { data } = await apiClient.put<CancelResponse>(
-    `/memberships/${membershipId}/cancel`
-  );
-  return data;
 }
 
 /**

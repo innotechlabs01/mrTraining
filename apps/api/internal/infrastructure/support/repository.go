@@ -74,13 +74,45 @@ func (r *Repository) ListByCoach(ctx context.Context, coachID string, status *su
 	return tickets, nil
 }
 
+func (r *Repository) ListAll(ctx context.Context, status *supportdomain.TicketStatus) ([]*supportdomain.SupportTicket, error) {
+	query := `SELECT id, ticket_number, subject, category, priority, status, coach_id, athlete_id, assigned_to, unread_count, last_message_at, created_at, updated_at, resolved_at
+		FROM support_tickets`
+	var args []interface{}
+	if status != nil {
+		query += ` WHERE status = $1`
+		args = append(args, *status)
+	}
+	query += ` ORDER BY last_message_at DESC`
+
+	rows, err := r.exec.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list all tickets: %w", err)
+	}
+	defer rows.Close()
+
+	tickets := []*supportdomain.SupportTicket{}
+	for rows.Next() {
+		t, err := scanTicket(rows)
+		if err != nil {
+			return nil, err
+		}
+		tickets = append(tickets, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list all tickets: %w", err)
+	}
+	return tickets, nil
+}
+
 func (r *Repository) ListByAthlete(ctx context.Context, athleteID string, status *supportdomain.TicketStatus) ([]*supportdomain.SupportTicket, error) {
 	query := `SELECT id, ticket_number, subject, category, priority, status, coach_id, athlete_id, assigned_to, unread_count, last_message_at, created_at, updated_at, resolved_at
 		FROM support_tickets WHERE athlete_id = $1`
 	args := []interface{}{athleteID}
+	argIdx := 2
 	if status != nil {
-		query += ` AND status = $4`
+		query += fmt.Sprintf(` AND status = $%d`, argIdx)
 		args = append(args, *status)
+		argIdx++
 	}
 	query += ` ORDER BY last_message_at DESC`
 

@@ -122,11 +122,9 @@ export default function AdminSettingsPage() {
     compactMode: false,
     // Integrations
     wompiPublicKey: '',
-    wompiPrivateKey: '',
     wompiEnv: 'sandbox',
     wompiWebhookUrl: '',
     clerkPublishableKey: '',
-    clerkSecretKey: '',
     // Database
     backupEnabled: true,
     backupFrequency: 'daily',
@@ -150,7 +148,8 @@ export default function AdminSettingsPage() {
         const json = await res.json();
         const remote = json?.data?.settings ?? json?.settings;
         if (mounted && remote && typeof remote === 'object') {
-          setSettings(prev => ({ ...prev, ...remote }));
+          const { wompiPrivateKey: _wpk, clerkSecretKey: _csk, ...safeRemote } = remote as Record<string, unknown>;
+          setSettings(prev => ({ ...prev, ...safeRemote }));
         }
       } catch {
         // Keep defaults if offline
@@ -362,18 +361,14 @@ export default function AdminSettingsPage() {
               <div className="space-y-4">
                 <InputField
                   label="Clerk Publishable Key"
-                  type="password"
+                  type="text"
                   value={settings.clerkPublishableKey}
                   onChange={v => handleSave('clerkPublishableKey', v)}
                   placeholder="pk_test_..."
                 />
-                <InputField
-                  label="Clerk Secret Key"
-                  type="password"
-                  value={settings.clerkSecretKey}
-                  onChange={v => handleSave('clerkSecretKey', v)}
-                  placeholder="sk_test_..."
-                />
+                <p className="text-xs text-text-secondary">
+                  Las claves secretas de servidor se configuran mediante variables de entorno en la API.
+                </p>
               </div>
             </SettingsSection>
           </div>
@@ -481,21 +476,17 @@ export default function AdminSettingsPage() {
         {/* Integrations Tab */}
         {activeTab === 'integrations' && (
           <div className="space-y-6">
+            <p className="text-xs text-text-secondary">
+              Las claves secretas de servidor (Wompi Private Key, Clerk Secret Key) se gestionan únicamente mediante variables de entorno en la API y no se editan ni muestran en el navegador.
+            </p>
             <SettingsSection label="Wompi (Pagos)" icon={<DollarSign size={18} />}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <InputField
                   label="Clave Pública Wompi"
-                  type="password"
+                  type="text"
                   value={settings.wompiPublicKey}
                   onChange={v => handleSave('wompiPublicKey', v)}
                   placeholder="pub_prod_... / pub_test_..."
-                />
-                <InputField
-                  label="Clave Privada Wompi"
-                  type="password"
-                  value={settings.wompiPrivateKey}
-                  onChange={v => handleSave('wompiPrivateKey', v)}
-                  placeholder="prv_prod_... / prv_test_..."
                 />
                 <SelectField
                   label="Entorno Wompi"
@@ -520,17 +511,10 @@ export default function AdminSettingsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <InputField
                   label="Clerk Publishable Key"
-                  type="password"
+                  type="text"
                   value={settings.clerkPublishableKey}
                   onChange={v => handleSave('clerkPublishableKey', v)}
                   placeholder="pk_test_..."
-                />
-                <InputField
-                  label="Clerk Secret Key"
-                  type="password"
-                  value={settings.clerkSecretKey}
-                  onChange={v => handleSave('clerkSecretKey', v)}
-                  placeholder="sk_test_..."
                 />
               </div>
             </SettingsSection>

@@ -55,9 +55,11 @@ export const videoAnalyticsApi = {
   getSummary: () =>
     goFetch<AnalyticsSummary>('/api/v1/video-analytics/summary'),
   
-  getPerExercise: () =>
-    goFetch<ExerciseAnalytics[]>('/api/v1/video-analytics/per-exercise'),
+  getPerExercise: (): Promise<ExerciseAnalytics[]> =>
+    goFetch<{ exercises?: ExerciseAnalytics[] } | ExerciseAnalytics[]>('/api/v1/video-analytics/per-exercise')
+      .then((res) => (Array.isArray(res) ? res : (res?.exercises ?? []))),
   
-  getSessions: (limit: number = 20, offset: number = 0) =>
-    goFetch<SessionAnalysis[]>(`/api/v1/video-analytics/sessions?limit=${limit}&offset=${offset}`),
+  getSessions: (limit: number = 20, offset: number = 0): Promise<SessionAnalysis[]> =>
+    goFetch<{ sessions?: SessionAnalysis[] } | SessionAnalysis[]>(`/api/v1/video-analytics/sessions?limit=${limit}&offset=${offset}`)
+      .then((res) => (Array.isArray(res) ? res : (res?.sessions ?? []))),
 }

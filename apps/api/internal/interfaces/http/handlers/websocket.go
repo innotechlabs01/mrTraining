@@ -20,6 +20,10 @@ import (
 //	app.Get("/ws", middleware.WSAuth(clerkKey), handlers.HandleWebSocket(hub))
 func HandleWebSocket(hub *websocket.Hub) fiber.Handler {
 	return fiberws.New(func(conn *fiberws.Conn) {
+		if hub == nil {
+			conn.Close()
+			return
+		}
 		// The WSAuth middleware verified the JWT and stored the user ID.
 		// Use string(key) because middleware stores with string(UserIDKey).
 		userID, ok := conn.Locals(string(middleware.UserIDKey)).(string)
@@ -46,6 +50,10 @@ func HandleWebSocket(hub *websocket.Hub) fiber.Handler {
 // updated leaderboard to all subscribers of that challenge.
 func HandleChallengeLeaderboardWebSocket(hub *websocket.Hub) fiber.Handler {
 	return fiberws.New(func(conn *fiberws.Conn) {
+		if hub == nil {
+			conn.Close()
+			return
+		}
 		userID, ok := conn.Locals(string(middleware.UserIDKey)).(string)
 		if !ok || userID == "" {
 			conn.Close()
@@ -57,6 +65,10 @@ func HandleChallengeLeaderboardWebSocket(hub *websocket.Hub) fiber.Handler {
 			conn.Close()
 			return
 		}
+
+		logger.L().Info("websocket challenge leaderboard connected",
+			zap.String("user_id", userID),
+			zap.String("challenge_id", challengeID))
 
 		client := websocket.NewClient(hub, userID, conn)
 		hub.Register(client)

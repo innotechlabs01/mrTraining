@@ -9,4 +9,6 @@ type Repository interface {
 	GetOneRM(ctx context.Context, athleteID string) ([]OneRM, error)
 	GetTrainingSummary(ctx context.Context, coachID string) (*TrainingSummary, error)
 	GetEffort(ctx context.Context, athleteID string) ([]Effort, error)
+	GetAthleteTrainingSummary(ctx context.Context, athleteID string, days int) (*AthleteTrainingSummary, error)
+	GetAthleteVideoAnalytics(ctx context.Context, athleteID string) ([]AthleteVideoAnalytics, error)
 }

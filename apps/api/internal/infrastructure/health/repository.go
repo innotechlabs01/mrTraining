@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/innotechlabs01/mr-training-api/internal/domain/health"
+	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
@@ -188,6 +189,29 @@ func (r *Repository) GetDevices(ctx context.Context, athleteID string) ([]*healt
 		out = append(out, d)
 	}
 	return out, nil
+}
+
+// GetDevice returns a single health device by ID.
+func (r *Repository) GetDevice(ctx context.Context, deviceID string) (*health.HealthDevice, error) {
+	d := &health.HealthDevice{}
+	var isActive int
+	var lastSync sql.NullString
+	err := r.exec.QueryRowContext(ctx,
+		`SELECT id, athlete_id, platform, COALESCE(device_name, ''), COALESCE(device_brand, ''), is_active, last_sync_at, created_at
+		 FROM athlete_health_devices WHERE id = $1`, deviceID).
+		Scan(&d.ID, &d.AthleteID, &d.Platform, &d.DeviceName, &d.DeviceBrand, &isActive, &lastSync, &d.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, apperrors.NotFound("health device", deviceID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get health device: %w", err)
+	}
+	d.IsActive = isActive != 0
+	if lastSync.Valid {
+		s := lastSync.String
+		d.LastSyncAt = &s
+	}
+	return d, nil
 }
 
 // RegisterDevice inserts or updates a device.

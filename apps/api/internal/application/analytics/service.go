@@ -66,3 +66,23 @@ func (s *Service) GetEffort(ctx context.Context, athleteID string) ([]analyticsd
 	}
 	return s.repo.GetEffort(ctx, athleteID)
 }
+
+func (s *Service) GetAthleteTrainingSummary(ctx context.Context, athleteID string, days int) (*analyticsdomain.AthleteTrainingSummary, error) {
+	if athleteID == "" {
+		return nil, fmt.Errorf("athleteID is required")
+	}
+	if days <= 0 {
+		days = 28
+	}
+	if days > 365 {
+		days = 365
+	}
+	return s.repo.GetAthleteTrainingSummary(ctx, athleteID, days)
+}
+
+func (s *Service) GetAthleteVideoAnalytics(ctx context.Context, athleteID string) ([]analyticsdomain.AthleteVideoAnalytics, error) {
+	if athleteID == "" {
+		return nil, fmt.Errorf("athleteID is required")
+	}
+	return s.repo.GetAthleteVideoAnalytics(ctx, athleteID)
+}

@@ -38,13 +38,6 @@ export type {
 // Hooks
 export { useExerciseLibrary } from './hooks/useExerciseLibrary'
 export { useWorkoutPlans } from './hooks/useWorkoutPlans'
-export { useSchedule } from './hooks/useSchedule'
-export {
-  useWorkoutExecution,
-  useScheduledWorkouts,
-  useWorkoutHistory,
-  useWorkoutAnalytics
-} from './hooks/useWorkoutExecution'
 
 // Helper functions
 export {

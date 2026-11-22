@@ -41,3 +41,33 @@ type Effort struct {
 	RPE int `json:"rpe"`
 	DurationMinutes int `json:"duration_minutes"`
 }
+
+// RecentTrainingSession summarizes a recent completed workout session for an athlete.
+type RecentTrainingSession struct {
+	Date        string `json:"date"`
+	WorkoutName string `json:"workoutName"`
+	Exercises   int    `json:"exercises"`
+}
+
+// AthleteTrainingSummary summarizes logged training activity for a single athlete
+// over a rolling window of days.
+type AthleteTrainingSummary struct {
+	AthleteID          string                  `json:"athleteId"`
+	WindowDays         int                     `json:"windowDays"`
+	Sessions           int                     `json:"sessions"`
+	AvgSessionsPerWeek float64                 `json:"avgSessionsPerWeek"`
+	TotalSets          int                     `json:"totalSets"`
+	TotalVolumeKg      float64                 `json:"totalVolumeKg"`
+	RecentSessions     []RecentTrainingSession `json:"recentSessions"`
+}
+
+// AthleteVideoAnalytics summarizes video engagement by exercise for one athlete.
+type AthleteVideoAnalytics struct {
+	ExerciseID     string   `json:"exerciseId"`
+	ExerciseName   string   `json:"exerciseName"`
+	TotalViews     int      `json:"totalViews"`
+	CompletedViews int      `json:"completedViews"`
+	CompletionRate *int     `json:"completionRate"`
+	AvgPositionPct *float64 `json:"avgPositionPct"`
+	LastViewedAt   *string  `json:"lastViewedAt"`
+}

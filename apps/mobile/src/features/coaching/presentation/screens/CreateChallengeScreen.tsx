@@ -12,6 +12,15 @@ import { texts } from '../../../../shared/i18n/texts';
 
 const t = texts.screens.createChallengeScreen;
 
+function getDefaultEndDate(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + 7);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function CreateChallengeScreen() {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
@@ -22,6 +31,7 @@ export function CreateChallengeScreen() {
   const [targetSets, setTargetSets] = useState('3');
   const [targetReps, setTargetReps] = useState('10');
   const [durationMinutes, setDurationMinutes] = useState('15');
+  const [endDate, setEndDate] = useState(getDefaultEndDate);
 
   const exerciseTypes = [
     { value: 'squat', label: 'Sentadilla' },
@@ -43,6 +53,7 @@ export function CreateChallengeScreen() {
         target_sets: parseInt(targetSets) || 3,
         target_reps: parseInt(targetReps) || 10,
         duration_minutes: parseInt(durationMinutes) || 15,
+        end_date: endDate.trim(),
       });
       return data;
     },
@@ -145,6 +156,20 @@ export function CreateChallengeScreen() {
           />
         </View>
 
+        {/* End Date */}
+        <View style={styles.field}>
+          <Text style={styles.label}>{t.endDateLabel}</Text>
+          <TextInput
+            style={styles.input}
+            value={endDate}
+            onChangeText={setEndDate}
+            placeholder={t.endDatePlaceholder}
+            placeholderTextColor={colors.textSecondary}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+
         {/* Note about video */}
         <View style={styles.infoCard}>
           <View style={styles.infoTitleRow}>
@@ -162,7 +187,7 @@ export function CreateChallengeScreen() {
           label="Crear desafío"
           onPress={() => createMutation.mutate()}
           loading={createMutation.isPending}
-          disabled={!title || !exerciseType}
+          disabled={!title || !exerciseType || !/^\d{4}-\d{2}-\d{2}$/.test(endDate.trim())}
         />
       </View>
     </SafeAreaView>
@@ -218,11 +243,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   chipTextActive: {
-    color: colors.primary,
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   infoCard: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primarySoft,
     borderRadius: radius.lg,
     padding: spacing.md,
     gap: spacing.xs,

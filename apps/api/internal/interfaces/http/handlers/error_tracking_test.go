@@ -113,3 +113,77 @@ func TestErrorHandler_SuperAdminGuardAndStatsRoute(t *testing.T) {
 		})
 	}
 }
+
+type capturingErrorRepo struct {
+	*stubErrorRepo
+	lastLimit  int
+	lastOffset int
+}
+
+func (r *capturingErrorRepo) List(_ context.Context, _, _, _ string, limit, offset int) ([]*domain.Error, int, error) {
+	r.lastLimit = limit
+	r.lastOffset = offset
+	return []*domain.Error{}, 0, nil
+}
+
+func TestErrorHandler_ListErrors_ClampsLimitAndOffset(t *testing.T) {
+	cases := []struct {
+		name       string
+		query      string
+		wantLimit  int
+		wantOffset int
+		wantPage   float64
+	}{
+		{
+			name:       "limit 0 defaults to 20 without divide by zero",
+			query:      "?limit=0&offset=0",
+			wantLimit:  20,
+			wantOffset: 0,
+			wantPage:   1,
+		},
+		{
+			name:       "negative limit defaults to 20",
+			query:      "?limit=-5&offset=20",
+			wantLimit:  20,
+			wantOffset: 20,
+			wantPage:   2,
+		},
+		{
+			name:       "negative offset clamps to 0",
+			query:      "?limit=10&offset=-10",
+			wantLimit:  10,
+			wantOffset: 0,
+			wantPage:   1,
+		},
+		{
+			name:       "oversized limit clamps to 100",
+			query:      "?limit=200&offset=0",
+			wantLimit:  100,
+			wantOffset: 0,
+			wantPage:   1,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &capturingErrorRepo{stubErrorRepo: &stubErrorRepo{}}
+			svc := errorapp.NewService(repo, nil, "super-admin-1")
+			h := NewErrorHandler(svc)
+
+			app := fiber.New()
+			app.Get("/api/v1/errors", h.ListErrors)
+
+			resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/api/v1/errors"+tc.query, nil))
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.Equal(t, tc.wantLimit, repo.lastLimit)
+			require.Equal(t, tc.wantOffset, repo.lastOffset)
+
+			var body map[string]interface{}
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+			require.Equal(t, float64(tc.wantLimit), body["limit"])
+			require.Equal(t, tc.wantPage, body["page"])
+		})
+	}
+}
+

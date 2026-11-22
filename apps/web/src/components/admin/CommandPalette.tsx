@@ -7,14 +7,9 @@ import {
   LayoutDashboard,
   Users,
   CreditCard,
-  UserCheck,
   Receipt,
   TicketCheck,
-  BarChart3,
-  Columns3,
   Settings,
-  Plus,
-  Sparkles,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -22,15 +17,11 @@ import { cn } from '@/lib/utils';
 interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
-  onOpenLoyaltyModal?: () => void;
-  onOpenKanbanModal?: () => void;
 }
 
 export function CommandPalette({
   open,
   onClose,
-  onOpenLoyaltyModal,
-  onOpenKanbanModal,
 }: CommandPaletteProps) {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -41,11 +32,8 @@ export function CommandPalette({
       { id: 'dashboard', label: 'Dashboard Overview', category: 'Navegación', href: '/admin/dashboard', icon: LayoutDashboard },
       { id: 'coaches', label: 'Seguimiento de Coaches / Entrenadores', category: 'Navegación', href: '/admin/coaches', icon: Users },
       { id: 'plans', label: 'Creación y Gestión de Planes para Coaches', category: 'Navegación', href: '/admin/plans', icon: CreditCard },
-      { id: 'members', label: 'Seguimiento de Miembros y Atletas', category: 'Navegación', href: '/admin/members', icon: UserCheck },
       { id: 'billing', label: 'Facturación y Cobro de Suscripciones', category: 'Navegación', href: '/admin/billing', icon: Receipt },
       { id: 'tickets', label: 'Tickets y Soporte a Coaches', category: 'Navegación', href: '/admin/tickets', icon: TicketCheck },
-      { id: 'kanban', label: 'Tablero Kanban del Equipo', category: 'Navegación', href: '/admin/kanban', icon: Columns3 },
-      { id: 'reports', label: 'Reportes y Analíticas de Plataforma', category: 'Navegación', href: '/admin/reports', icon: BarChart3 },
       { id: 'settings', label: 'Configuración y TRM', category: 'Navegación', href: '/admin/settings', icon: Settings },
     ];
 
@@ -56,30 +44,6 @@ export function CommandPalette({
         category: 'Acciones Rápidas',
         href: '/admin/plans?action=create',
         icon: CreditCard,
-      },
-      {
-        id: 'action-kanban',
-        label: 'Crear nueva tarea interna en Kanban',
-        category: 'Acciones Rápidas',
-        action: () => {
-          onClose();
-          if (onOpenKanbanModal) {
-            onOpenKanbanModal();
-          } else {
-            router.push('/admin/kanban?create=true');
-          }
-        },
-        icon: Plus,
-      },
-      {
-        id: 'action-loyalty',
-        label: 'Configurar programa Loyalty Card para el club',
-        category: 'Acciones Rápidas',
-        action: () => {
-          onClose();
-          onOpenLoyaltyModal?.();
-        },
-        icon: Sparkles,
       },
       {
         id: 'action-settings-trm',
@@ -98,7 +62,7 @@ export function CommandPalette({
         item.label.toLowerCase().includes(lower) ||
         item.category.toLowerCase().includes(lower)
     );
-  }, [query, onClose, onOpenKanbanModal, onOpenLoyaltyModal, router]);
+  }, [query]);
 
   useEffect(() => {
     setSelectedIndex(0);

@@ -92,12 +92,13 @@ export default function AdminTicketsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const superAdminIds = (process.env.NEXT_PUBLIC_SUPER_ADMIN_CLERK_IDS || '').split(',').filter(Boolean);
-  const isSuperAdmin = user?.id && superAdminIds.includes(user.id);
+  const metadataRole = (user?.publicMetadata as Record<string, unknown> | undefined)?.role;
+  const isSuperAdmin = (!!user && superAdminIds.includes(user.id)) || metadataRole === 'super_admin';
   const isLoaded = !!user;
 
   const loadTickets = useCallback(async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/tickets`);
+      const res = await fetch('/api/v1/admin/tickets', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setTickets(Array.isArray(data) ? data : (data.data || []));
@@ -141,7 +142,7 @@ export default function AdminTicketsPage() {
   const addMessage = useCallback(async (body: string, imageUrl?: string) => {
     if (!selected) return;
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/tickets/${selected.id}/messages`, {
+      const res = await fetch(`/api/v1/admin/tickets/${selected.id}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body, image_url: imageUrl }),
@@ -158,7 +159,7 @@ export default function AdminTicketsPage() {
 
   const resolveTicket = useCallback(async (ticketId: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/tickets/${ticketId}/resolve`, {
+      const res = await fetch(`/api/v1/admin/tickets/${ticketId}/resolve`, {
         method: 'POST',
       });
       if (res.ok) {
@@ -171,7 +172,7 @@ export default function AdminTicketsPage() {
 
   const reopenTicket = useCallback(async (ticketId: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/tickets/${ticketId}/reopen`, {
+      const res = await fetch(`/api/v1/admin/tickets/${ticketId}/reopen`, {
         method: 'POST',
       });
       if (res.ok) {
@@ -185,7 +186,7 @@ export default function AdminTicketsPage() {
   const _markAsRead = useCallback(async () => {
     if (!selected) return;
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/tickets/${selected.id}/read`, {
+      await fetch(`/api/v1/admin/tickets/${selected.id}/read`, {
         method: 'POST',
       });
     } catch (err) {
@@ -208,7 +209,7 @@ export default function AdminTicketsPage() {
     image_url?: string;
   }) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/tickets`, {
+      const res = await fetch('/api/v1/admin/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
@@ -729,7 +730,7 @@ function useTicketMessages(ticketId: string) {
     if (!ticketId) return;
     let cancelled = false;
     setLoading(true);
-    fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/admin/tickets/${ticketId}/messages`)
+    fetch(`/api/v1/admin/tickets/${ticketId}/messages`, { cache: 'no-store' })
       .then(res => res.ok ? res.json() : [])
       .then(data => {
         if (!cancelled) setData(Array.isArray(data) ? data : (data.data || []));

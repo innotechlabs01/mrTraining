@@ -9,6 +9,7 @@ import (
 
 	"github.com/innotechlabs01/mr-training-api/internal/domain/athlete"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
+	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
 )
 
 // Service implements athlete-related read operations.
@@ -20,6 +21,18 @@ type Service struct {
 // NewService creates a new athlete application service.
 func NewService(repo athlete.Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetExecutor returns a copy of the service using the given SQL executor
+// (typically *sql.Tx from a UnitOfWork) so RLS applies inside transactions.
+func (s *Service) SetExecutor(exec database.Executor) *Service {
+	if repo, ok := s.repo.(interface{ WithExecutor(database.Executor) athlete.Repository }); ok {
+		return &Service{repo: repo.WithExecutor(exec)}
+	}
+	if repo, ok := s.repo.(interface{ SetExecutor(database.Executor) }); ok {
+		repo.SetExecutor(exec)
+	}
+	return s
 }
 
 // ListWorkouts returns workout summaries for an athlete.

@@ -92,8 +92,9 @@ func RegisterTrainingRoutes(api fiber.Router, handler *handlers.TrainingHandler,
 
 	// Workout templates (coach only)
 	api.Get("/workout-templates", middleware.RequireCoach(), middleware.RequireCoachID(), middleware.Cache(24*time.Hour, "workout-templates"), handler.ListWorkoutTemplates)
-	api.Get("/workout-templates/:id", middleware.Cache(24*time.Hour, "workout-templates"), handler.GetWorkoutTemplate)
+	api.Get("/workout-templates/:id", middleware.RequireCoach(), middleware.RequireCoachID(), middleware.Cache(24*time.Hour, "workout-templates"), handler.GetWorkoutTemplate)
 	api.Put("/workout-templates/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.UpdateWorkoutTemplate)
+	api.Delete("/workout-templates/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.DeleteWorkoutTemplate)
 	api.Post("/workout-templates", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateWorkoutTemplate)
 
 	// Workouts (assignment and tracking)
@@ -329,8 +330,10 @@ func RegisterHealthRoutes(api fiber.Router, handler *handlers.HealthDataHandler)
 
 // RegisterAnalyticsRoutes registers analytics routes.
 func RegisterAnalyticsRoutes(api fiber.Router, handler *handlers.AnalyticsHandler) {
-	api.Get("/coach/dashboard/summary", handler.GetDashboardSummary)
-	api.Get("/coach/training/summary", handler.GetTrainingSummary)
+	api.Get("/coach/dashboard/summary", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetDashboardSummary)
+	api.Get("/coach/training/summary", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetTrainingSummary)
+	api.Get("/coach/athletes/:athleteId/video-analytics", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetAthleteVideoAnalytics)
+	api.Get("/athlete/:athleteId/analytics/training-summary", handler.GetAthleteTrainingSummary)
 	api.Get("/athlete/:athleteId/analytics/hr-zones", handler.GetHRZones)
 	api.Get("/athlete/:athleteId/analytics/fatigue-map", handler.GetFatigueMap)
 	api.Get("/athlete/:athleteId/analytics/one-rm", handler.GetOneRM)
@@ -531,9 +534,9 @@ func RegisterVideoAnalyticsRoutes(api fiber.Router, handler *handlers.VideoAnaly
 func RegisterCoachFeedRoutes(api fiber.Router, handler *handlers.CoachFeedHandler) {
 	feed := api.Group("/coach/feed")
 	feed.Get("", handler.ListPosts)
-	feed.Post("", handler.CreatePost)
+	feed.Post("", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreatePost)
 	feed.Get("/:postId", handler.GetPost)
-	feed.Delete("/:postId", handler.DeletePost)
+	feed.Delete("/:postId", middleware.RequireCoach(), middleware.RequireCoachID(), handler.DeletePost)
 	feed.Post("/:postId/react", handler.AddReaction)
 	feed.Delete("/:postId/react", handler.RemoveReaction)
 	feed.Post("/:postId/comment", handler.AddComment)
@@ -548,7 +551,7 @@ func RegisterFormMetricsRoutes(api fiber.Router, handler *handlers.FormMetricsHa
 	fm.Get("/consent", middleware.RequireAthlete(), handler.GetConsent)
 	fm.Put("/consent", middleware.RequireAthlete(), handler.UpdateConsent)
 	fm.Get("", middleware.RequireAthlete(), handler.GetByAthlete)
-	fm.Get("/athlete/:id", handler.GetAthleteMetrics)
+	fm.Get("/athlete/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetAthleteMetrics)
 }
 
 // RegisterFormRecordingRoutes registers form recording endpoints on the given API group.
@@ -667,6 +670,20 @@ func RegisterSupportRoutes(api fiber.Router, handler *handlers.SupportHandler) {
 	api.Post("/tickets/:ticketId/messages", handler.AddMessage)
 	api.Post("/tickets/:ticketId/read", handler.MarkRead)
 	api.Get("/tickets/:ticketId/unread", handler.GetUnreadCount)
+}
+
+// RegisterAdminSupportRoutes registers platform super-admin support ticket routes.
+func RegisterAdminSupportRoutes(api fiber.Router, handler *handlers.SupportHandler, allowed ...interface{}) {
+	admin := api.Group("/admin/tickets")
+	admin.Use(middleware.RequirePlatformSuperAdmin(allowed...))
+	admin.Get("/", handler.AdminListTickets)
+	admin.Post("/", handler.AdminCreateTicket)
+	admin.Get("/:ticketId", handler.AdminGetTicket)
+	admin.Get("/:ticketId/messages", handler.AdminListMessages)
+	admin.Post("/:ticketId/messages", handler.AdminAddMessage)
+	admin.Post("/:ticketId/resolve", handler.AdminResolveTicket)
+	admin.Post("/:ticketId/reopen", handler.AdminReopenTicket)
+	admin.Post("/:ticketId/read", handler.AdminMarkRead)
 }
 
 // RegisterAllyRoutes registers the Alianzas (ally network) routes on the given
@@ -797,15 +814,15 @@ func RegisterCoachPlatformSubscriptionRoutes(api fiber.Router, handler *handlers
 // Routes: GET/PUT/DELETE /coach/athletes/:id
 func RegisterCoachAthleteRoutes(api fiber.Router, handler *handlers.CoachHandler) {
 	athletes := api.Group("/coach/athletes")
-	athletes.Get("/:id", handler.GetAthleteById)
-	athletes.Put("/:id", handler.SaveAthlete)
-	athletes.Delete("/:id", handler.DeleteAthlete)
+	athletes.Get("/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetAthleteById)
+	athletes.Put("/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.SaveAthlete)
+	athletes.Delete("/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.DeleteAthlete)
 }
 
 // RegisterCoachFormMetricsRoutes registers coach form-metrics aggregate route.
 // Route: GET /coach/form-metrics
 func RegisterCoachFormMetricsRoutes(api fiber.Router, handler *handlers.FormMetricsHandler) {
-	api.Get("/coach/form-metrics", handler.GetCoachFormMetrics)
+	api.Get("/coach/form-metrics", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetCoachFormMetrics)
 }
 
 // RegisterWompiAvailabilityRoutes registers the Wompi availability gate endpoint.

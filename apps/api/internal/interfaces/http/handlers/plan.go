@@ -153,15 +153,10 @@ func (h *PlanHandler) UpdatePlan(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	// Determine coach ID for the update. Super admin can update any plan.
-	coachID := userID
-	if h.isSuperAdmin(userID) {
-		// Super admin: update any plan (coachID stays as userID, but service should allow super admin override)
-		// We pass the userID as coachID; the service layer should handle super admin override
-		coachID = userID
-	}
+	role := middleware.GetUserRole(c)
+	isSuperAdmin := h.isSuperAdmin(userID) || role == "super_admin" || role == "admin"
 
-	plan, err := h.service.UpdatePlan(c.Context(), coachID, id, req)
+	plan, err := h.service.UpdatePlan(c.Context(), userID, id, isSuperAdmin, req)
 	if err != nil {
 		return h.handleError(c, err)
 	}

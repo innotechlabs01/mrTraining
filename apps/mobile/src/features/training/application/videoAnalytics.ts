@@ -117,17 +117,29 @@ export function getCurrentSession(): VideoSession | null {
   return currentSession;
 }
 
+const ACTION_MAP: Record<VideoEvent['type'], 'start' | 'progress' | 'complete'> = {
+  play: 'start',
+  pause: 'progress',
+  progress: 'progress',
+  complete: 'complete',
+};
+
 /**
  * Report event to backend (fire-and-forget).
  */
 function reportToBackend(event: VideoEvent): void {
+  const progressPct =
+    event.durationSec > 0
+      ? Math.min(100, Math.max(0, Math.round((event.positionSec / event.durationSec) * 100)))
+      : 0;
+  const watchDuration = Math.max(0, Math.round(event.positionSec));
+
   apiClient
-    .post('/athlete/video-analytics', {
-      exerciseId: event.exerciseId,
-      action: event.type,
-      positionSec: event.positionSec,
-      durationSec: event.durationSec,
-      timestamp: event.timestamp,
+    .post('/video-views', {
+      exercise_id: event.exerciseId,
+      action: ACTION_MAP[event.type],
+      progress_pct: progressPct,
+      watch_duration: watchDuration,
     })
     .catch(() => {
       // Non-blocking — analytics failure must never disrupt playback.

@@ -5,6 +5,8 @@ import (
 
 	app "github.com/innotechlabs01/mr-training-api/internal/application/routine"
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/routine"
+	"github.com/innotechlabs01/mr-training-api/internal/middleware"
+	appresponse "github.com/innotechlabs01/mr-training-api/pkg/response"
 )
 
 // RoutineHandler handles routine HTTP requests.
@@ -19,7 +21,10 @@ func NewRoutineHandler(service *app.Service) *RoutineHandler {
 
 // ListRoutines returns all routines for the athlete.
 func (h *RoutineHandler) ListRoutines(c *fiber.Ctx) error {
-	athleteID := c.Locals("user_id").(string)
+	athleteID := middleware.GetUserID(c)
+	if athleteID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
 
 	routines, err := h.service.ListRoutines(athleteID)
 	if err != nil {
@@ -35,6 +40,10 @@ func (h *RoutineHandler) ListRoutines(c *fiber.Ctx) error {
 
 // GetRoutine returns a routine by ID.
 func (h *RoutineHandler) GetRoutine(c *fiber.Ctx) error {
+	athleteID := middleware.GetUserID(c)
+	if athleteID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
 	id := c.Params("id")
 
 	routine, err := h.service.GetRoutine(id)
@@ -42,6 +51,9 @@ func (h *RoutineHandler) GetRoutine(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Routine not found",
 		})
+	}
+	if routine.AthleteID != athleteID {
+		return appresponse.Error(c, fiber.StatusForbidden, "not allowed to view this routine")
 	}
 
 	return c.JSON(fiber.Map{
@@ -51,7 +63,10 @@ func (h *RoutineHandler) GetRoutine(c *fiber.Ctx) error {
 
 // CreateRoutine creates a new routine.
 func (h *RoutineHandler) CreateRoutine(c *fiber.Ctx) error {
-	athleteID := c.Locals("user_id").(string)
+	athleteID := middleware.GetUserID(c)
+	if athleteID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
 
 	var routine domain.Routine
 	if err := c.BodyParser(&routine); err != nil {
@@ -74,7 +89,10 @@ func (h *RoutineHandler) CreateRoutine(c *fiber.Ctx) error {
 
 // UpdateRoutine updates an existing routine.
 func (h *RoutineHandler) UpdateRoutine(c *fiber.Ctx) error {
-	athleteID := c.Locals("user_id").(string)
+	athleteID := middleware.GetUserID(c)
+	if athleteID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
 	id := c.Params("id")
 
 	var routine domain.Routine
@@ -99,7 +117,10 @@ func (h *RoutineHandler) UpdateRoutine(c *fiber.Ctx) error {
 
 // DeleteRoutine deletes a routine.
 func (h *RoutineHandler) DeleteRoutine(c *fiber.Ctx) error {
-	athleteID := c.Locals("user_id").(string)
+	athleteID := middleware.GetUserID(c)
+	if athleteID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
 	id := c.Params("id")
 
 	if err := h.service.DeleteRoutine(id, athleteID); err != nil {

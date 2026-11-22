@@ -37,6 +37,19 @@ func (m *mockAthleteRepository) GetMessages(context.Context, string) ([]*athlete
 	return m.messages, m.err
 }
 
+type mockAthleteTenantResolver struct {
+	allow bool
+	err   error
+}
+
+func (r mockAthleteTenantResolver) GetActiveCoachID(context.Context, string) (string, error) {
+	return "", nil
+}
+
+func (r mockAthleteTenantResolver) AthleteHasActiveCoach(context.Context, string, string) (bool, error) {
+	return r.allow, r.err
+}
+
 func setupAthleteTestApp(handler *AthleteHandler) *fiber.App {
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {
@@ -55,7 +68,7 @@ func TestGetWorkoutsHandler(t *testing.T) {
 	repo := &mockAthleteRepository{
 		workouts: []*athlete.WorkoutSummary{{ID: "w-1", Name: "Tempo Run", Status: "scheduled"}},
 	}
-	handler := NewAthleteHandler(athleteapp.NewService(repo))
+	handler := NewAthleteHandler(athleteapp.NewService(repo), nil, nil)
 	app := setupAthleteTestApp(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/athletes/ath-1/workouts", nil)
@@ -81,7 +94,7 @@ func TestGetWorkoutsHandler(t *testing.T) {
 }
 
 func TestGetWorkoutsForbiddenForOtherAthlete(t *testing.T) {
-	handler := NewAthleteHandler(athleteapp.NewService(&mockAthleteRepository{}))
+	handler := NewAthleteHandler(athleteapp.NewService(&mockAthleteRepository{}), nil, nil)
 	app := setupAthleteTestApp(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/athletes/other-athlete/workouts", nil)
@@ -98,7 +111,7 @@ func TestGetWorkoutsForbiddenForOtherAthlete(t *testing.T) {
 
 func TestGetWorkoutsCoachAllowed(t *testing.T) {
 	repo := &mockAthleteRepository{workouts: []*athlete.WorkoutSummary{{ID: "w-1"}}}
-	handler := NewAthleteHandler(athleteapp.NewService(repo))
+	handler := NewAthleteHandler(athleteapp.NewService(repo), nil, mockAthleteTenantResolver{allow: true})
 	app := setupAthleteTestApp(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/athletes/ath-1/workouts", nil)
@@ -117,7 +130,7 @@ func TestGetMetricsHandler(t *testing.T) {
 	repo := &mockAthleteRepository{
 		metrics: []*athlete.MetricPoint{{MetricDate: "2026-01-01", WeightKg: 72.5}},
 	}
-	handler := NewAthleteHandler(athleteapp.NewService(repo))
+	handler := NewAthleteHandler(athleteapp.NewService(repo), nil, nil)
 	app := setupAthleteTestApp(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/athletes/ath-1/metrics", nil)
@@ -143,7 +156,7 @@ func TestGetMessagesHandler(t *testing.T) {
 	repo := &mockAthleteRepository{
 		messages: []*athlete.MessageThread{{ID: "t-1", CoachID: "coach-1", Subject: "Hi"}},
 	}
-	handler := NewAthleteHandler(athleteapp.NewService(repo))
+	handler := NewAthleteHandler(athleteapp.NewService(repo), nil, nil)
 	app := setupAthleteTestApp(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/athletes/ath-1/messages", nil)
@@ -167,7 +180,7 @@ func TestGetMessagesHandler(t *testing.T) {
 
 func TestHandlerRepoErrorMapsTo404(t *testing.T) {
 	repo := &mockAthleteRepository{err: errors.NotFound("Athlete", "ath-1")}
-	handler := NewAthleteHandler(athleteapp.NewService(repo))
+	handler := NewAthleteHandler(athleteapp.NewService(repo), nil, nil)
 	app := setupAthleteTestApp(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/athletes/ath-1/workouts", nil)
@@ -182,7 +195,7 @@ func TestHandlerRepoErrorMapsTo404(t *testing.T) {
 }
 
 func TestMissingAthleteID(t *testing.T) {
-	handler := NewAthleteHandler(athleteapp.NewService(&mockAthleteRepository{}))
+	handler := NewAthleteHandler(athleteapp.NewService(&mockAthleteRepository{}), nil, nil)
 	app := setupAthleteTestApp(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/athletes//workouts", nil)
