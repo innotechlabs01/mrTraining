@@ -55,6 +55,27 @@ jobs:
       - name: Install Mobile dependencies
         run: npm ci
 
+      - name: Read app version from build.gradle
+        id: version
+        run: |
+          VERSION_CODE=$(grep -m1 'versionCode' android/app/build.gradle | awk '{print $2}' | tr -d ' ')
+          VERSION_NAME=$(grep -m1 'versionName' android/app/build.gradle | sed 's/.*versionName "\([^"]*\)".*/\1/')
+          if [ -z "$VERSION_CODE" ] || [ -z "$VERSION_NAME" ]; then
+            echo "❌ No se pudo leer versionCode/versionName de android/app/build.gradle"
+            exit 1
+          fi
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          echo "📦 Versión QA: $VERSION_NAME (code $VERSION_CODE)"
+
+      - name: Get commit author
+        id: author
+        run: |
+          AUTHOR=$(git log -1 --format='%an <%ae>')
+          echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+
       - name: Write QA google-services.json
         env:
           FIREBASE_GOOGLE_SERVICES_JSON_QA: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON_QA }}
@@ -116,5 +137,9 @@ jobs:
           appId: '1:399408860598:android:9dc9797d89afbb9cd10517'
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DEPLOY }}
           groups: ${{ github.event.inputs.tester_groups || 'qa-testers' }}
-          releaseNotes: ${{ github.event.inputs.release_notes || format('QA build {0}', github.sha) }}
+          releaseNotes: |
+            QA Build v${{ env.VERSION_NAME }} (code ${{ env.VERSION_CODE }})
+            Commit: ${{ github.sha }}
+            Autor: ${{ steps.author.outputs.author }}
+            ${{ github.event.inputs.release_notes && format('Notas: {0}', github.event.inputs.release_notes) || '' }}
           file: apps/mobile/android/app/build/outputs/apk/qa/release/app-qa-release.apk
