@@ -9,6 +9,7 @@ import {
   CircleDot, CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SignedMediaImg } from '@/components/media/SignedMedia';
 import {
   EmptyState,
   Modal,
@@ -474,8 +475,7 @@ function TicketDetail({
               </div>
               {m.body && <p className="whitespace-pre-wrap text-sm text-text-primary">{m.body}</p>}
               {m.image_url && (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
+                <SignedMediaImg
                   src={m.image_url}
                   alt="Adjunto"
                   className="mt-2 max-h-48 rounded-lg border border-surface-6 object-cover"
@@ -507,16 +507,20 @@ function TicketDetail({
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => {
+              onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
-                if (file.size > 1_500_000) {
-                  alert('Imagen muy pesada (máx 1.5 MB). Usa una captura más ligera.');
+                if (file.size > 10 * 1024 * 1024) {
+                  alert('Imagen muy pesada (máx 10 MB).');
                   return;
                 }
-                const reader = new FileReader();
-                reader.onload = () => setImg(reader.result as string);
-                reader.readAsDataURL(file);
+                try {
+                  const { uploadMediaToR2 } = await import('@/lib/media/r2-upload');
+                  const res = await uploadMediaToR2(file, 'support_attachment');
+                  setImg(res.mediaRef);
+                } catch (err) {
+                  alert(err instanceof Error ? err.message : 'Error subiendo imagen');
+                }
               }}
             />
             <textarea
@@ -543,7 +547,7 @@ function TicketDetail({
           {img && (
             <div className="mt-2 flex items-center gap-2 rounded-lg border border-surface-6 bg-surface-1 p-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img} alt="preview" className="h-12 w-12 rounded object-cover" />
+              <SignedMediaImg src={img} alt="preview" className="h-12 w-12 rounded object-cover" />
               <span className="flex-1 truncate text-xs text-text-secondary">Imagen lista para enviar</span>
               <button onClick={() => setImg(undefined)} className="text-text-secondary hover:text-text-primary">
                 <X size={15} />
@@ -682,22 +686,26 @@ function NewTicketModal({
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => {
+              onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
-                if (file.size > 1_500_000) {
-                  alert('Imagen muy pesada (máx 1.5 MB).');
+                if (file.size > 10 * 1024 * 1024) {
+                  alert('Imagen muy pesada (máx 10 MB).');
                   return;
                 }
-                const reader = new FileReader();
-                reader.onload = () => setImg(reader.result as string);
-                reader.readAsDataURL(file);
+                try {
+                  const { uploadMediaToR2 } = await import('@/lib/media/r2-upload');
+                  const res = await uploadMediaToR2(file, 'support_attachment');
+                  setImg(res.mediaRef);
+                } catch (err) {
+                  alert(err instanceof Error ? err.message : 'Error subiendo imagen');
+                }
               }}
             />
             {img && (
               <div className="flex items-center gap-2 rounded-lg border border-surface-6 bg-surface-1 p-1.5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img} alt="preview" className="h-9 w-9 rounded object-cover" />
+                <SignedMediaImg src={img} alt="preview" className="h-9 w-9 rounded object-cover" />
                 <button onClick={() => setImg(undefined)} className="text-text-secondary hover:text-text-primary">
                   <X size={14} />
                 </button>

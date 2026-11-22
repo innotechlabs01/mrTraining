@@ -14,6 +14,7 @@ import (
 
 	app "github.com/innotechlabs01/mr-training-api/internal/application/challenge"
 	gamificationapp "github.com/innotechlabs01/mr-training-api/internal/application/gamification"
+	mediaapp "github.com/innotechlabs01/mr-training-api/internal/application/media"
 	notificationapp "github.com/innotechlabs01/mr-training-api/internal/application/notification"
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/challenge"
 	"github.com/innotechlabs01/mr-training-api/internal/infrastructure/database"
@@ -28,7 +29,14 @@ type ChallengeHandler struct {
 	hub             *websocket.Hub
 	gamificationSvc *gamificationapp.Service
 	notifSvc        *notificationapp.Service
+	mediaSvc        *mediaapp.Service
 	db              *sql.DB
+}
+
+// SetMediaService attaches the R2 media service for direct r2:// validation and streaming fallback.
+func (h *ChallengeHandler) SetMediaService(m *mediaapp.Service) *ChallengeHandler {
+	h.mediaSvc = m
+	return h
 }
 
 // NewChallengeHandler creates a new handler.
@@ -366,17 +374,59 @@ func (h *ChallengeHandler) ListAthleteAttempts(c *fiber.Ctx) error {
 }
 
 // UploadAttemptVideo handles POST /athlete/challenges/attempts/:id/video.
-// Accepts a multipart form with a "file" field, stores it on disk, and
-// attaches the resulting URL to the attempt.
+// Primary path: JSON { "video_url": "r2://..." } after direct R2 upload.
+// Legacy fallback: multipart form "file" streamed to R2 (or local disk when R2 is unconfigured).
 func (h *ChallengeHandler) UploadAttemptVideo(c *fiber.Ctx) error {
 	attemptID := c.Params("id")
 	if attemptID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "attempt ID is required"})
 	}
 
+	if strings.Contains(strings.ToLower(c.Get("Content-Type")), "application/json") {
+		var body struct {
+			VideoURL string `json:"video_url"`
+		}
+		if err := c.BodyParser(&body); err != nil || strings.TrimSpace(body.VideoURL) == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "video_url is required"})
+		}
+		videoURL := strings.TrimSpace(body.VideoURL)
+		if h.mediaSvc != nil && h.mediaSvc.Enabled() {
+			normalized, err := h.mediaSvc.NormalizeAndValidateRef(c.Context(), actorFromCtx(c), videoURL)
+			if err != nil {
+				return mapMediaError(c, err)
+			}
+			videoURL = normalized
+		}
+		if _, err := h.service.AttachAttemptVideo(attemptID, videoURL); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(fiber.Map{"data": fiber.Map{"video_url": videoURL}})
+	}
+
 	file, err := c.FormFile("file")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "file is required"})
+	}
+
+	if h.mediaSvc != nil && h.mediaSvc.Enabled() {
+		src, err := file.Open()
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to open uploaded file"})
+		}
+		defer src.Close()
+		ct := file.Header.Get("Content-Type")
+		if ct == "" {
+			ct = "video/mp4"
+		}
+		obj, err := h.mediaSvc.StoreStream(c.Context(), actorFromCtx(c), "challenge_attempt", file.Filename, ct, file.Size, src)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		videoURL := obj.Ref()
+		if _, err := h.service.AttachAttemptVideo(attemptID, videoURL); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(fiber.Map{"data": fiber.Map{"video_url": videoURL}})
 	}
 
 	ext := filepath.Ext(file.Filename)

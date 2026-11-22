@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/gofiber/fiber/v2"
+	mediaapp "github.com/innotechlabs01/mr-training-api/internal/application/media"
 	supportapp "github.com/innotechlabs01/mr-training-api/internal/application/support"
 	supportdomain "github.com/innotechlabs01/mr-training-api/internal/domain/support"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
@@ -15,13 +16,20 @@ import (
 
 // SupportHandler handles support ticket HTTP requests.
 type SupportHandler struct {
-	service *supportapp.Service
-	db      *sql.DB
+	service  *supportapp.Service
+	db       *sql.DB
+	mediaSvc *mediaapp.Service
 }
 
 // NewSupportHandler creates a new support handler.
 func NewSupportHandler(service *supportapp.Service, db *sql.DB) *SupportHandler {
 	return &SupportHandler{service: service, db: db}
+}
+
+// SetMediaService attaches the R2 media service for attachment ownership validation.
+func (h *SupportHandler) SetMediaService(m *mediaapp.Service) *SupportHandler {
+	h.mediaSvc = m
+	return h
 }
 
 func (h *SupportHandler) withTx(c *fiber.Ctx, fn func(*supportapp.Service) error) error {
@@ -115,6 +123,13 @@ func (h *SupportHandler) CreateTicket(c *fiber.Ctx) error {
 	var req dto.CreateTicketRequest
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+	if req.ImageURL != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, req.ImageURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.ImageURL = normalized
 	}
 
 	err := h.withTx(c, func(svc *supportapp.Service) error {
@@ -269,6 +284,13 @@ func (h *SupportHandler) CreateAthleteTicket(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
+	if req.ImageURL != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, req.ImageURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.ImageURL = normalized
+	}
 
 	err := h.withTx(c, func(svc *supportapp.Service) error {
 		ticket, err := svc.CreateAthleteTicket(c.Context(), athleteID, supportapp.CreateAthleteTicketRequest{
@@ -327,6 +349,13 @@ func (h *SupportHandler) AddMessage(c *fiber.Ctx) error {
 	var req dto.AddSupportMessageRequest
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+	if req.ImageURL != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, req.ImageURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.ImageURL = normalized
 	}
 
 	err := h.withTx(c, func(svc *supportapp.Service) error {

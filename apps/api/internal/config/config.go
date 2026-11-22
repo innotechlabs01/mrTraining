@@ -95,6 +95,18 @@ type Config struct {
 	MetricsToken     string // METRICS_TOKEN: optional bearer/header secret protecting GET /metrics
 	EmbeddedWorker   bool   // EMBEDDED_WORKER: run outbox relay + NATS workers inside cmd/api (default true unless split)
 	RateLimitBackend string // RATE_LIMIT_BACKEND: "memory" | "redis" | "auto" (default "auto")
+
+	// Cloudflare R2 (S3-compatible private media storage)
+	R2AccountID            string // R2_ACCOUNT_ID
+	R2AccessKeyID          string // R2_ACCESS_KEY_ID
+	R2SecretAccessKey      string // R2_SECRET_ACCESS_KEY
+	R2Bucket               string // R2_BUCKET
+	R2Endpoint             string // R2_ENDPOINT (optional override; defaults to https://<account_id>.r2.cloudflarestorage.com)
+	R2UploadTTLSeconds     int    // R2_UPLOAD_TTL_SECONDS (default 900)
+	R2ReadTTLSeconds       int    // R2_READ_TTL_SECONDS (default 3600)
+	R2PublicViewTTLSeconds int    // R2_PUBLIC_VIEW_TTL_SECONDS (default 900)
+	R2MaxImageBytes        int64  // R2_MAX_IMAGE_BYTES (default 10MB)
+	R2MaxVideoBytes        int64  // R2_MAX_VIDEO_BYTES (default 100MB)
 }
 
 // Load reads configuration from environment variables and .env file.
@@ -166,6 +178,18 @@ func Load() (*Config, error) {
 		// back. It MUST NOT fall back to APP_URL: that points at this API and
 		// every return URL would 404.
 		WebAppURL:             getEnv("WEB_APP_URL", defaultWebAppURL()),
+
+		// Cloudflare R2
+		R2AccountID:            getEnv("R2_ACCOUNT_ID", ""),
+		R2AccessKeyID:          getEnv("R2_ACCESS_KEY_ID", ""),
+		R2SecretAccessKey:      getEnv("R2_SECRET_ACCESS_KEY", ""),
+		R2Bucket:               getEnv("R2_BUCKET", ""),
+		R2Endpoint:             getEnv("R2_ENDPOINT", ""),
+		R2UploadTTLSeconds:     getEnvInt("R2_UPLOAD_TTL_SECONDS", 900),
+		R2ReadTTLSeconds:       getEnvInt("R2_READ_TTL_SECONDS", 3600),
+		R2PublicViewTTLSeconds: getEnvInt("R2_PUBLIC_VIEW_TTL_SECONDS", 900),
+		R2MaxImageBytes:        int64(getEnvInt("R2_MAX_IMAGE_BYTES", 10*1024*1024)),
+		R2MaxVideoBytes:        int64(getEnvInt("R2_MAX_VIDEO_BYTES", 100*1024*1024)),
 	}
 
 	cfg.PlatformSuperAdminClerkIDs = splitCSV(cfg.PlatformSuperAdminClerkID)

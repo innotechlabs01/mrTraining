@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/notification"
+	apperrors "github.com/innotechlabs01/mr-training-api/internal/errors"
 )
 
 // mockRepository is an in-memory implementation of notification.Repository for testing.
@@ -23,6 +24,20 @@ func newMockRepository() *mockRepository {
 }
 
 func (m *mockRepository) RegisterDevice(_ context.Context, d *domain.Device) error {
+	m.devices[d.ID] = d
+	return nil
+}
+
+func (m *mockRepository) RegisterOrReactivateDevice(_ context.Context, d *domain.Device) error {
+	for _, existing := range m.devices {
+		if existing.Token == d.Token {
+			existing.UserID = d.UserID
+			existing.Platform = d.Platform
+			existing.IsActive = true
+			*d = *existing
+			return nil
+		}
+	}
 	m.devices[d.ID] = d
 	return nil
 }
@@ -56,7 +71,20 @@ func (m *mockRepository) ListDevicesByUser(_ context.Context, userID string) ([]
 func (m *mockRepository) DeactivateDevice(_ context.Context, id string) error {
 	if d, ok := m.devices[id]; ok {
 		d.IsActive = false
+		return nil
 	}
+	return apperrors.NotFound("Device", id)
+}
+
+func (m *mockRepository) DeactivateDeviceForUser(_ context.Context, userID, id string) error {
+	d, ok := m.devices[id]
+	if !ok {
+		return apperrors.NotFound("Device", id)
+	}
+	if d.UserID != userID {
+		return apperrors.Forbidden("device does not belong to user")
+	}
+	d.IsActive = false
 	return nil
 }
 
@@ -102,7 +130,20 @@ func (m *mockRepository) CountNotificationsByUser(_ context.Context, userID stri
 func (m *mockRepository) MarkNotificationRead(_ context.Context, id string) error {
 	if n, ok := m.notifications[id]; ok {
 		n.Read = true
+		return nil
 	}
+	return apperrors.NotFound("Notification", id)
+}
+
+func (m *mockRepository) MarkAsRead(_ context.Context, userID, id string) error {
+	n, ok := m.notifications[id]
+	if !ok {
+		return apperrors.NotFound("Notification", id)
+	}
+	if n.UserID != userID {
+		return apperrors.Forbidden("notification does not belong to user")
+	}
+	n.Read = true
 	return nil
 }
 
@@ -196,7 +237,7 @@ func TestService_RemoveDevice(t *testing.T) {
 	device, _ := svc.RegisterDevice(ctx, "user-1", "token-abc", "ios")
 
 	// Remove it
-	err := svc.RemoveDevice(ctx, device.ID)
+	err := svc.RemoveDevice(ctx, "user-1", device.ID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -288,7 +329,7 @@ func TestService_MarkRead(t *testing.T) {
 
 	notif, _ := svc.SendNotification(ctx, "user-1", "workout", "Title", "Body", "")
 
-	err := svc.MarkRead(ctx, notif.ID)
+	err := svc.MarkRead(ctx, "user-1", notif.ID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

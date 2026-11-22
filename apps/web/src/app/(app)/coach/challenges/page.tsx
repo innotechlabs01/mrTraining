@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Plus, Pencil, Trash2, Play, Trophy, Flame, Clock, BarChart3, Video, X, Award, Gift, Sparkles, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SignedMediaVideo } from '@/components/media/SignedMedia'
 import { goClient } from '@/lib/api/go-client'
 import { toast } from 'sonner'
 import type { Challenge, ScoringType, DifficultyLevel, ChallengeLeaderboardEntry, ChallengeExercise } from '@/features/coach/types'
@@ -474,27 +475,18 @@ export default function CoachChallengesPage() {
                       onChange={async (e) => {
                         const file = e.target.files?.[0]
                         if (!file) return
-                        if (file.size > 50 * 1024 * 1024) {
-                          alert('Archivo muy grande (máx 50 MB)')
+                        if (file.size > 100 * 1024 * 1024) {
+                          alert('Archivo muy grande (máx 100 MB)')
                           return
                         }
-                        const formData = new FormData()
-                        formData.append('file', file)
-                        formData.append('title', form.title || 'Demo')
-                        if (editing) formData.append('challengeId', editing.id)
                         try {
-                          const res = await fetch('/api/coach/challenge-videos/upload', {
-                            method: 'POST',
-                            body: formData,
+                          const { uploadMediaToR2 } = await import('@/lib/media/r2-upload')
+                          const res = await uploadMediaToR2(file, 'challenge_demo', {
+                            resourceId: editing?.id,
                           })
-                          const data = await res.json()
-                          if (data.videoUrl) {
-                            setForm({ ...form, videoUrl: data.videoUrl })
-                          } else {
-                            alert(data.error || 'Error subiendo video')
-                          }
-                        } catch {
-                          alert('Error subiendo video')
+                          setForm({ ...form, videoUrl: res.mediaRef })
+                        } catch (err) {
+                          alert(err instanceof Error ? err.message : 'Error subiendo video')
                         }
                         // reset input
                         e.target.value = ''
@@ -512,14 +504,13 @@ export default function CoachChallengesPage() {
                     )}
                   </div>
                   {form.videoUrl && (
-                    <video
+                    <SignedMediaVideo
                       src={form.videoUrl}
                       className="w-full max-h-48 rounded-lg"
                       controls
-                      muted
                     />
                   )}
-                  <p className="text-[10px] text-white/30">MP4, MOV, WebM · máx 50 MB</p>
+                  <p className="text-[10px] text-white/30">MP4, MOV, WebM · máx 100 MB</p>
                 </div>
               </div>
 
@@ -599,29 +590,20 @@ export default function CoachChallengesPage() {
                           onChange={async (e) => {
                             const file = e.target.files?.[0]
                             if (!file) return
-                            if (file.size > 50 * 1024 * 1024) {
-                              alert('Archivo muy grande (máx 50 MB)')
+                            if (file.size > 100 * 1024 * 1024) {
+                              alert('Archivo muy grande (máx 100 MB)')
                               return
                             }
-                            const formData = new FormData()
-                            formData.append('file', file)
-                            formData.append('title', ex.title || ex.exerciseType || 'Ejercicio')
-                            if (editing) formData.append('challengeId', editing.id)
                             try {
-                              const res = await fetch('/api/coach/challenge-videos/upload', {
-                                method: 'POST',
-                                body: formData,
+                              const { uploadMediaToR2 } = await import('@/lib/media/r2-upload')
+                              const res = await uploadMediaToR2(file, 'challenge_demo', {
+                                resourceId: editing?.id,
                               })
-                              const data = await res.json()
-                              if (data.videoUrl) {
-                                const newExercises = [...form.exercises]
-                                newExercises[idx] = { ...newExercises[idx], videoUrl: data.videoUrl }
-                                setForm({ ...form, exercises: newExercises })
-                              } else {
-                                alert(data.error || 'Error subiendo video')
-                              }
-                            } catch {
-                              alert('Error subiendo video')
+                              const newExercises = [...form.exercises]
+                              newExercises[idx] = { ...newExercises[idx], videoUrl: res.mediaRef }
+                              setForm({ ...form, exercises: newExercises })
+                            } catch (err) {
+                              alert(err instanceof Error ? err.message : 'Error subiendo video')
                             }
                             e.target.value = ''
                           }}
@@ -642,7 +624,7 @@ export default function CoachChallengesPage() {
                         )}
                       </div>
                       {ex.videoUrl && (
-                        <video src={ex.videoUrl} className="w-full max-h-32 rounded" controls muted />
+                        <SignedMediaVideo src={ex.videoUrl} className="w-full max-h-32 rounded" controls />
                       )}
                       <div className="grid grid-cols-3 gap-2 pt-1">
                         <div>

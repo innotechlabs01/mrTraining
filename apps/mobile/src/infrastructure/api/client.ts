@@ -24,7 +24,7 @@ export { CircuitBreaker, CircuitBreakerOpenError, defaultMobileApiBreaker };
 // .env) > app.json extra.goApiUrl (dev LAN default) > localhost. Production
 // builds MUST define EXPO_PUBLIC_GO_API_URL — the LAN IP in app.json is only
 // reachable on the developer's network.
-const GO_API_URL: string =
+export const GO_API_URL: string =
   process.env.EXPO_PUBLIC_GO_API_URL ??
   Constants.expoConfig?.extra?.goApiUrl ??
   'http://localhost:9090';

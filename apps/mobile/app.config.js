@@ -1,27 +1,40 @@
 /** @type {import('expo/config').ExpoConfig} */
+const ANDROID_PACKAGES = {
+  development: 'com.innotechlabssas.mrtraining.dev',
+  qa: 'com.innotechlabssas.mrtraining.qa',
+  production: 'com.innotechlabssas.mrtraining',
+};
+
 module.exports = ({ config }) => {
-  // app.json es la base; lo extendemos con valores de entorno
+  const appVariant = process.env.APP_VARIANT || 'development';
+  const androidPackage =
+    process.env.ANDROID_PACKAGE ||
+    ANDROID_PACKAGES[appVariant] ||
+    config.android?.package;
+
+  // app.json es la base; lo extendemos con valores de entorno preservando fallbacks
   return {
     ...config,
-    // Sobreescribimos/inyectamos extra desde variables de entorno
     extra: {
       ...config.extra,
-      clerkPublishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
-      apiBaseUrl: process.env.EXPO_PUBLIC_GO_API_URL, // apunta a Go API (no Vercel)
-      goApiUrl: process.env.EXPO_PUBLIC_GO_API_URL,
+      clerkPublishableKey:
+        process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || config.extra?.clerkPublishableKey,
+      apiBaseUrl: process.env.EXPO_PUBLIC_GO_API_URL || config.extra?.apiBaseUrl,
+      goApiUrl: process.env.EXPO_PUBLIC_GO_API_URL || config.extra?.goApiUrl,
+      webAppUrl:
+        process.env.EXPO_PUBLIC_WEB_URL ||
+        config.extra?.webAppUrl ||
+        'https://mr-training.vercel.app',
       eas: config.extra?.eas,
     },
-    // iOS bundle identifier dinámico por entorno
     ios: {
       ...config.ios,
       bundleIdentifier: process.env.IOS_BUNDLE_IDENTIFIER || config.ios?.bundleIdentifier,
     },
-    // Android package dinámico por entorno
     android: {
       ...config.android,
-      package: process.env.ANDROID_PACKAGE || config.android?.package,
+      package: androidPackage,
     },
-    // Runtime version / updates para OTA
     runtimeVersion: config.runtimeVersion,
     updates: config.updates,
   };

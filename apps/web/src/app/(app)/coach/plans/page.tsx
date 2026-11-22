@@ -58,7 +58,7 @@ export default function CoachPlansPage() {
   async function loadPlans() {
     try {
       const token = await getToken();
-      const res = await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/coach/plans`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || ''}/api/v1/plans`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) {

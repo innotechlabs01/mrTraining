@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	blogapp "github.com/innotechlabs01/mr-training-api/internal/application/blog"
+	mediaapp "github.com/innotechlabs01/mr-training-api/internal/application/media"
 	"github.com/innotechlabs01/mr-training-api/internal/domain/blog"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
@@ -15,12 +16,19 @@ import (
 
 // BlogHandler handles HTTP requests for the blog domain.
 type BlogHandler struct {
-	service *blogapp.Service
+	service  *blogapp.Service
+	mediaSvc *mediaapp.Service
 }
 
 // NewBlogHandler creates a new BlogHandler with the given application service.
 func NewBlogHandler(service *blogapp.Service) *BlogHandler {
 	return &BlogHandler{service: service}
+}
+
+// SetMediaService attaches the R2 media service for cover image validation.
+func (h *BlogHandler) SetMediaService(m *mediaapp.Service) *BlogHandler {
+	h.mediaSvc = m
+	return h
 }
 
 // ListArticles handles GET /blog.
@@ -100,6 +108,14 @@ func (h *BlogHandler) CreateArticle(c *fiber.Ctx) error {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
+	if req.ImageURL != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, req.ImageURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.ImageURL = normalized
+	}
+
 	article := &blog.Article{
 		Title:           req.Title,
 		Slug:            req.Slug,
@@ -133,6 +149,22 @@ func (h *BlogHandler) UpdateArticle(c *fiber.Ctx) error {
 	var req dto.ArticleRequest
 	if err := c.BodyParser(&req); err != nil {
 		return appresponse.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if req.ImageURL != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, req.ImageURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.ImageURL = normalized
+	}
+
+	if req.ImageURL != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, req.ImageURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.ImageURL = normalized
 	}
 
 	article := &blog.Article{

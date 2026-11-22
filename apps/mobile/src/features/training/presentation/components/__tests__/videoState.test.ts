@@ -27,12 +27,13 @@ describe('videoState utilities', () => {
       expect(getVideoState('https://exa mple.com/video.mp4')).toBe('error');
     });
 
-    it('returns "has-video" for valid absolute http/https URLs', () => {
+    it('returns "has-video" for valid absolute http/https URLs and r2:// refs', () => {
       expect(getVideoState('https://cdn.example.com/video.mp4')).toBe('has-video');
       expect(getVideoState('http://localhost:9090/media/x.mp4')).toBe('has-video');
       expect(getVideoState('https://youtu.be/abc123')).toBe('has-video');
       expect(getVideoState('HTTPS://EXAMPLE.COM/x.mp4')).toBe('has-video');
       expect(getVideoState('https://x.co/a.mp4?token=1#t=2')).toBe('has-video');
+      expect(getVideoState('r2://media/demo/squat.mp4')).toBe('has-video');
     });
   });
 
@@ -47,9 +48,10 @@ describe('videoState utilities', () => {
       expect(hasPlayableVideo('ftp://example.com/video.mp4')).toBe(false);
     });
 
-    it('returns true for valid playable URL', () => {
+    it('returns true for valid playable URL or r2:// ref', () => {
       expect(hasPlayableVideo('https://cdn.example.com/video.mp4')).toBe(true);
       expect(hasPlayableVideo('http://localhost:9090/media/x.mp4')).toBe(true);
+      expect(hasPlayableVideo('r2://media/demo/squat.mp4')).toBe(true);
     });
   });
 });

@@ -20,8 +20,8 @@ type Props = {
 
 function resolveWebBaseUrl(): string {
   const envUrl = process.env.EXPO_PUBLIC_WEB_URL;
-  const extraUrl = Constants.expoConfig?.extra?.apiBaseUrl as string | undefined;
-  return (envUrl || extraUrl || 'http://localhost:3000').replace(/\/$/, '');
+  const extraUrl = Constants.expoConfig?.extra?.webAppUrl as string | undefined;
+  return (envUrl || extraUrl || 'https://mr-training.vercel.app').replace(/\/$/, '');
 }
 
 export function CoachScheduleModal({ visible, coachId, athleteName, onScheduled, onClose }: Props) {

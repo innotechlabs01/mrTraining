@@ -384,7 +384,7 @@ func (r *Repository) ListDeviceConnectionsByUser(ctx context.Context, userID str
 // DeactivateDeviceConnection marks a device connection as inactive.
 func (r *Repository) DeactivateDeviceConnection(ctx context.Context, id string) error {
 	result, err := r.exec.ExecContext(ctx,
-		`UPDATE device_connections SET is_active = 0 WHERE id = $1`, id)
+		`UPDATE device_connections SET is_active = false WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to deactivate device connection: %w", err)
 	}

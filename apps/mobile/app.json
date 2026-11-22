@@ -8,6 +8,7 @@
     "userInterfaceStyle": "dark",
     "scheme": "mrtraining",
     "plugins": [
+      "./plugins/withAndroidFirebaseAppDistribution",
       [
         "expo-splash-screen",
         {

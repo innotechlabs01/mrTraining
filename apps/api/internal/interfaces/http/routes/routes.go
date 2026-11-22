@@ -425,13 +425,13 @@ func RegisterCommunityRoutes(api fiber.Router, handler *handlers.CommunityHandle
 }
 
 // RegisterMessageRoutes registers messaging routes on the given API group.
-func RegisterMessageRoutes(api fiber.Router, handler *handlers.MessageHandler, clerkSecretKey string) {
-	authMw := middleware.RequireAuth(clerkSecretKey)
-	api.Get("/messages", authMw, handler.ListThreads)
-	api.Get("/messages/:id", authMw, handler.GetThread)
-	api.Post("/messages", authMw, handler.CreateThread)
-	api.Post("/messages/:id/messages", authMw, handler.AddMessage)
-	api.Patch("/messages/:id/read", authMw, handler.MarkRead)
+// The calling code must have already applied auth middleware to the api group.
+func RegisterMessageRoutes(api fiber.Router, handler *handlers.MessageHandler, _ string) {
+	api.Get("/messages", handler.ListThreads)
+	api.Get("/messages/:id", handler.GetThread)
+	api.Post("/messages", handler.CreateThread)
+	api.Post("/messages/:id/messages", handler.AddMessage)
+	api.Patch("/messages/:id/read", handler.MarkRead)
 }
 
 // RegisterNutritionRoutes registers nutrition routes on the given API group.
@@ -663,10 +663,10 @@ func RegisterSupportRoutes(api fiber.Router, handler *handlers.SupportHandler) {
 	api.Get("/athlete/tickets/:id", middleware.RequireAthlete(), handler.GetAthleteTicket)
 
 	// Messages (coach, athlete, support)
-	api.Get("/tickets/:ticketId/messages", middleware.RequireAuth(""), handler.ListMessages)
-	api.Post("/tickets/:ticketId/messages", middleware.RequireAuth(""), handler.AddMessage)
-	api.Post("/tickets/:ticketId/read", middleware.RequireAuth(""), handler.MarkRead)
-	api.Get("/tickets/:ticketId/unread", middleware.RequireAuth(""), handler.GetUnreadCount)
+	api.Get("/tickets/:ticketId/messages", handler.ListMessages)
+	api.Post("/tickets/:ticketId/messages", handler.AddMessage)
+	api.Post("/tickets/:ticketId/read", handler.MarkRead)
+	api.Get("/tickets/:ticketId/unread", handler.GetUnreadCount)
 }
 
 // RegisterAllyRoutes registers the Alianzas (ally network) routes on the given
@@ -840,8 +840,8 @@ admin.Put("/commission-terms", handler.PutCommissionTerms)
 
 // RegisterErrorRoutes registers error tracking routes on the auth-protected API group.
 // Super admin only: create, list, get, resolve errors, and stats.
-func RegisterErrorRoutes(api fiber.Router, handler *handlers.ErrorHandler) {
-	handler.RegisterErrorRoutes(api)
+func RegisterErrorRoutes(api fiber.Router, handler *handlers.ErrorHandler, superAdminIDs []string) {
+	handler.RegisterErrorRoutes(api, superAdminIDs)
 }
 
 // RegisterErrorWebhookRoutes registers public error webhook routes outside auth.

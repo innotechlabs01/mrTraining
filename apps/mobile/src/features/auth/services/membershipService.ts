@@ -63,8 +63,8 @@ export async function getMembershipStatus(): Promise<MembershipStatus> {
  * del coach vinculado al atleta (resuelto vía coach_athlete_links).
  */
 export async function getAvailablePlans(): Promise<Plan[]> {
-  const response = await apiClient.get<{ data: PlanDto[] }>('/athletes/membership/plans');
-  const plans = response.data?.data ?? [];
+  const response = await apiClient.get<PlanDto[] | { data?: PlanDto[] }>('/athletes/membership/plans');
+  const plans = Array.isArray(response.data) ? response.data : response.data?.data ?? [];
   return plans.map((p) => ({
     id: p.id,
     name: p.name,

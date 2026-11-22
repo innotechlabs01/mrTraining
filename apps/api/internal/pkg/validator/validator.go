@@ -14,12 +14,15 @@ import (
 // timePattern matches a 24-hour HH:MM time.
 var timePattern = regexp.MustCompile(`^([01]?[0-9]|2[0-3]):[0-5][0-9]$`)
 
-// isValidHTTPURL accepts only absolute http(s) URLs with a non-whitespace host.
-// Guards against dangerous schemes (javascript:, file:) and malformed values
-// being stored as media URLs and later rendered by clients.
-func isValidHTTPURL(raw string) bool {
+// isValidMediaRefOrURL accepts absolute http(s) URLs or canonical r2://<key>
+// references without whitespace or path traversal segments.
+func isValidMediaRefOrURL(raw string) bool {
 	if strings.ContainsAny(raw, " \t\n\r") {
 		return false
+	}
+	if strings.HasPrefix(raw, "r2://") {
+		key := strings.TrimPrefix(raw, "r2://")
+		return key != "" && !strings.Contains(key, "..") && !strings.HasPrefix(key, "/") && !strings.ContainsAny(key, "?#")
 	}
 	u, err := url.Parse(raw)
 	if err != nil {
@@ -176,7 +179,7 @@ func ValidateCreateExercise(req *dto.CreateExerciseRequest) ValidationErrors {
 		}
 	}
 
-	if strings.TrimSpace(req.VideoURL) != "" && !isValidHTTPURL(req.VideoURL) {
+	if strings.TrimSpace(req.VideoURL) != "" && !isValidMediaRefOrURL(req.VideoURL) {
 		errs = append(errs, ValidationError{
 			Field:   "videoUrl",
 			Message: "must be a valid http(s) URL with a host",
@@ -345,7 +348,7 @@ func ValidateUpdateExercise(req *dto.UpdateExerciseRequest) ValidationErrors {
 		}
 	}
 
-	if req.VideoURL != nil && strings.TrimSpace(*req.VideoURL) != "" && !isValidHTTPURL(*req.VideoURL) {
+	if req.VideoURL != nil && strings.TrimSpace(*req.VideoURL) != "" && !isValidMediaRefOrURL(*req.VideoURL) {
 		errs = append(errs, ValidationError{
 			Field:   "videoUrl",
 			Message: "must be a valid http(s) URL with a host",

@@ -31,7 +31,7 @@ const linking = {
   prefixes: [
     'mrtraining://',
     'exp://',
-    'exp+mrtraining://',
+    'exp+mr-training://',
     'exp://localhost',
     'https://mobile.innotechlabssas.lat',
   ],
@@ -201,6 +201,18 @@ function RootNavigator() {
           <Stack.Screen
             name="Membership"
             getComponent={() => require('../features/membership/presentation/screens/MembershipScreen').MembershipScreen}
+          />
+          <Stack.Screen
+            name="MembershipCheck"
+            getComponent={() => require('../features/auth/presentation/screens/MembershipCheckScreen').MembershipCheckScreen}
+          />
+          <Stack.Screen
+            name="MembershipPurchase"
+            getComponent={() => require('../features/auth/presentation/screens/MembershipPurchaseScreen').MembershipPurchaseScreen}
+          />
+          <Stack.Screen
+            name="MembershipPlansList"
+            getComponent={() => require('../features/auth/presentation/screens/MembershipPlansListScreen').MembershipPlansListScreen}
           />
           <Stack.Screen
             name="EventDetail"

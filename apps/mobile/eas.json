@@ -9,6 +9,17 @@
       "distribution": "internal",
       "channel": "development"
     },
+    "qa": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "qa",
+        "ANDROID_PACKAGE": "com.innotechlabssas.mrtraining.qa"
+      },
+      "channel": "qa"
+    },
     "preview": {
       "distribution": "internal",
       "android": {

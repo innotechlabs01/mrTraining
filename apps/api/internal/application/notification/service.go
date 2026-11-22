@@ -41,17 +41,8 @@ func (s *Service) WithOutbox(outbox eventbus.OutboxWriter) *Service {
 }
 
 // RegisterDevice registers a device token for push notifications.
-// If the token already exists for this user, it updates the platform and reactivates.
+// If the token already exists, it updates the user/platform and reactivates it in persistence.
 func (s *Service) RegisterDevice(ctx context.Context, userID, token, platform string) (*domain.Device, error) {
-	// Check if device already exists for this token
-	existing, err := s.repo.GetDeviceByToken(ctx, token)
-	if err == nil && existing != nil {
-		// Token already registered — update platform if changed
-		existing.Platform = platform
-		existing.IsActive = true
-		return existing, nil
-	}
-
 	device := &domain.Device{
 		ID:       uuid.New().String(),
 		UserID:   userID,
@@ -60,16 +51,16 @@ func (s *Service) RegisterDevice(ctx context.Context, userID, token, platform st
 		IsActive: true,
 	}
 
-	if err := s.repo.RegisterDevice(ctx, device); err != nil {
+	if err := s.repo.RegisterOrReactivateDevice(ctx, device); err != nil {
 		return nil, fmt.Errorf("register device: %w", err)
 	}
 
 	return device, nil
 }
 
-// RemoveDevice deactivates a device token so it no longer receives push notifications.
-func (s *Service) RemoveDevice(ctx context.Context, deviceID string) error {
-	if err := s.repo.DeactivateDevice(ctx, deviceID); err != nil {
+// RemoveDevice deactivates a device token owned by userID so it no longer receives push notifications.
+func (s *Service) RemoveDevice(ctx context.Context, userID, deviceID string) error {
+	if err := s.repo.DeactivateDeviceForUser(ctx, userID, deviceID); err != nil {
 		return fmt.Errorf("remove device: %w", err)
 	}
 	return nil
@@ -151,9 +142,9 @@ func (s *Service) GetNotifications(ctx context.Context, userID string, page, lim
 	return notifications, total, nil
 }
 
-// MarkRead marks a single notification as read.
-func (s *Service) MarkRead(ctx context.Context, notificationID string) error {
-	if err := s.repo.MarkNotificationRead(ctx, notificationID); err != nil {
+// MarkRead marks a single notification owned by userID as read.
+func (s *Service) MarkRead(ctx context.Context, userID, notificationID string) error {
+	if err := s.repo.MarkAsRead(ctx, userID, notificationID); err != nil {
 		return fmt.Errorf("mark read: %w", err)
 	}
 	return nil

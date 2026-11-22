@@ -7,6 +7,9 @@ const withNextIntl = require('next-intl/plugin')('./src/i18n/request.ts');
 const nextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
+    remotePatterns: [
+      { protocol: 'https', hostname: '*.r2.cloudflarestorage.com' },
+    ],
   },
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion'],
@@ -32,7 +35,7 @@ const nextConfig = {
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.com https://*.clerk.dev https://*.clerk.accounts.dev https://challenges.cloudflare.com",
-      `connect-src 'self' ${process.env.NEXT_PUBLIC_GO_API_URL || ''} ${process.env.NEXT_PUBLIC_API_URL || ''} https://*.clerk.com https://*.clerk.dev https://*.clerk.accounts.dev https://api.clerk.com https://*.public.blob.vercel-storage.com wss: ws:`,
+      `connect-src 'self' ${process.env.NEXT_PUBLIC_GO_API_URL || ''} ${process.env.NEXT_PUBLIC_API_URL || ''} https://*.clerk.com https://*.clerk.dev https://*.clerk.accounts.dev https://api.clerk.com https://*.r2.cloudflarestorage.com wss: ws:`,
       "img-src 'self' data: blob: https:",
       "media-src 'self' data: blob: https:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",

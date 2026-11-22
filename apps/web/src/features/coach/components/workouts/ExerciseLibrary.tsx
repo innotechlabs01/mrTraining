@@ -328,8 +328,9 @@ function CreateExerciseModal({
                         try {
                           // Opción A: id-agnostic upload — works for BOTH create and edit.
                           const data = await exerciseApi.uploadVideo(file)
-                          if (data?.videoUrl) setForm(p => ({ ...p, videoUrl: data.videoUrl }))
-                          else alert(data?.error || 'No se pudo subir el video')
+                          const ref = data?.videoUrl || data?.url
+                          if (ref) setForm(p => ({ ...p, videoUrl: ref }))
+                          else alert('No se pudo subir el video')
                         } catch (err) {
                           console.error('Video upload failed:', err)
                           alert('No se pudo subir el video')

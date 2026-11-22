@@ -291,7 +291,7 @@ export function StoreSection({ products, hydrated }: { products: Product[]; hydr
               <div key={product.id} className="ig-card ig-product-card">
                 {product.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={product.imageUrl} alt={product.name} className="ig-product-img" />
+                  <img src={mediaUrl(product.imageUrl)} alt={product.name} className="ig-product-img" />
                 ) : (
                   <div className="ig-product-img ig-product-img-placeholder">
                     <Package size={24} />
@@ -347,7 +347,7 @@ export function BlogSection({ posts, hydrated }: { posts: BlogPost[]; hydrated: 
               <Link key={post.id} href={`/blog/${post.slug}`} className="ig-card ig-blog-card">
                 {post.coverImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={post.coverImageUrl} alt={post.title} className="ig-blog-img" />
+                  <img src={mediaUrl(post.coverImageUrl)} alt={post.title} className="ig-blog-img" />
                 ) : (
                   <div className="ig-blog-img ig-blog-img-placeholder">
                     <Book size={24} />

@@ -8,6 +8,7 @@
  * This is the single source of truth for all data.
  */
 import { useQuery } from '@tanstack/react-query'
+import { goClient } from '@/lib/api/go-client'
 
 export interface ExerciseFormStats {
   exercise_id: string
@@ -28,13 +29,12 @@ export function useAthleteFormMetrics(athleteId: string) {
   return useQuery({
     queryKey: ['form-metrics', athleteId],
     queryFn: async (): Promise<ExerciseFormStats[]> => {
-      // Go API endpoint
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9090'
-      const res = await fetch(`${apiUrl}/api/v1/form-metrics/athlete/${athleteId}`)
-      if (!res.ok) throw new Error('Failed to fetch form metrics')
-      const data = await res.json()
-      return data.data || data
+      const res = await goClient.get<{ data?: ExerciseFormStats[] } | ExerciseFormStats[]>(
+        `/api/v1/form-metrics/athlete/${athleteId}`,
+      )
+      return Array.isArray(res) ? res : (res?.data ?? [])
     },
+    enabled: Boolean(athleteId),
     staleTime: 5 * 60 * 1000,
   })
 }

@@ -155,6 +155,10 @@ const GO_MEDIA_BASE = process.env.NEXT_PUBLIC_GO_API_URL || '';
  */
 export function mediaUrl(url?: string): string {
   if (!url) return '';
+  if (url.startsWith('r2://')) {
+    const key = url.slice(5);
+    return `${GO_MEDIA_BASE}/public/media/view?key=${encodeURIComponent(key)}`;
+  }
   if (url.startsWith('/uploads/')) return `${GO_MEDIA_BASE}${url}`;
   return url;
 }

@@ -1,6 +1,22 @@
 # Team Board - MR Training
 
+## TODO
+- [ ] (none)
+
+## In Progress
+- [ ] (none)
+
+## Review
+- [ ] (none)
+
 ## Done
+- [x] T-018: Carga y consulta de videos e imágenes con Cloudflare R2 y firmas autenticadas (Coach Web → R2, Mobile → URL firmada) — Approved by @user 2026-11-21. Spec: `docs/superpowers/specs/T-018-cloudflare-r2-signed-media.md` | Migrations 435 & 435_1 applied (Local + QA) | Go `go build` + `-race` tests PASS | Web `tsc`/`lint`/`test`/`build` PASS | Mobile `tsc` + 95 Jest suites/538 tests PASS.
+- [x] T-019: Android QA buildType (`com.innotechlabssas.mrtraining.qa`), Expo Config Plugin (`google-services` + `firebase-appdistribution-gradle`), `google-services.qa.json` (gitignored), `app.config.js`, `eas.json`, push `projectId` — Approved by @user 2026-11-21. `APP_VARIANT=qa npx expo config` OK | `npx expo prebuild --platform android --clean` OK | `tsc` + 95 Jest suites/538 tests PASS.
+- [x] T-020: Mobile QA CD pipeline (`.github/workflows/cd-mobile-qa.yml`) + CI/CD (`ci-qa.yml`, `ci.yml`, `cd-qa.yml` R2 secrets, root `package.json`) — Approved by @user 2026-11-21.
+- [x] T-021: Missing PostgreSQL schema (`devices`, `notifications`, `notification_preferences`), `BOOLEAN` SQL fixes & notification IDOR — Approved by @user 2026-11-21. Migration 436 synced & applied (Local + QA) | `go build` + `go vet` + `go test -race` PASS.
+- [x] T-022: Go API security hardening (`error_tracking` SuperAdmin guard + `/stats` route order, redundant auth cleanup) — Approved by @user 2026-11-21. `go build` + `go vet` + `go test -race` PASS.
+- [x] T-023: Mobile membership/trial/navigation/Meet URL/WS & lint fixes — Approved by @user 2026-11-21. `tsc` + 95 Jest suites/538 tests + `expo lint` PASS.
+- [x] T-024: Web security (`auth-token` gate, proxy `Cache-Control: private, no-store`), `/coach/plans`, `useFormMetrics` — Approved by @user 2026-11-21. `tsc` + `lint` + `test` + `build` PASS.
 - [x] T-017: Eliminar exposición de Clerk ID en URLs del admin + verificar ingresos wompi_payment_ledger — QA PASS. Code reviewer PASS. Security Hacker PASS (no Critical/High). Approved by @user 2026-11-18. Fix: ToggleSkipSubscription usa coaches.id interno en URL (no Clerk ID), GetDashboard/queryCoaches usan UNION users+coaches, GetRevenueStats c.is_active=1 (INTEGER), frontend toggle usa coach.coach_id, dashboard muestra "ingresos pendientes de confirmación". Commit b094a98, push to dev.
 
 ## Review

@@ -1,4 +1,4 @@
-import { isPlayableVideoUrl } from '../isPlayableVideoUrl';
+import { hasVideoSource, isPlayableVideoUrl } from '../isPlayableVideoUrl';
 
 describe('isPlayableVideoUrl', () => {
   it('accepts absolute http/https URLs with a host', () => {
@@ -31,9 +31,24 @@ describe('isPlayableVideoUrl', () => {
     expect(isPlayableVideoUrl('file:///x.mp4')).toBe(false);
   });
 
-  it('rejects http(s) values without a host', () => {
+  it('rejects http(s) values without a host and r2:// refs', () => {
     expect(isPlayableVideoUrl('http://')).toBe(false);
     expect(isPlayableVideoUrl('https://')).toBe(false);
     expect(isPlayableVideoUrl('http:///path')).toBe(false);
+    expect(isPlayableVideoUrl('r2://media/123.mp4')).toBe(false);
+  });
+});
+
+describe('hasVideoSource', () => {
+  it('accepts both r2:// refs and absolute http(s) URLs', () => {
+    expect(hasVideoSource('r2://media/123.mp4')).toBe(true);
+    expect(hasVideoSource('https://cdn.example.com/video.mp4')).toBe(true);
+  });
+
+  it('rejects empty or invalid values', () => {
+    expect(hasVideoSource('')).toBe(false);
+    expect(hasVideoSource(null)).toBe(false);
+    expect(hasVideoSource(undefined)).toBe(false);
+    expect(hasVideoSource('not-a-url')).toBe(false);
   });
 });

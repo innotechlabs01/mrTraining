@@ -92,6 +92,11 @@ func main() {
 			overrideIfEmpty(&cfg.WompiEventsSecret, "WOMPI_EVENTS_SECRET")
 			overrideIfEmpty(&cfg.WompiIntegritySecret, "WOMPI_INTEGRITY_SECRET")
 			overrideIfEmpty(&cfg.ClerkWebhookSecret, "CLERK_WEBHOOK_SECRET")
+			overrideIfEmpty(&cfg.R2AccountID, "R2_ACCOUNT_ID")
+			overrideIfEmpty(&cfg.R2AccessKeyID, "R2_ACCESS_KEY_ID")
+			overrideIfEmpty(&cfg.R2SecretAccessKey, "R2_SECRET_ACCESS_KEY")
+			overrideIfEmpty(&cfg.R2Bucket, "R2_BUCKET")
+			overrideIfEmpty(&cfg.R2Endpoint, "R2_ENDPOINT")
 			log.Info("Infisical secrets loaded successfully")
 		}
 	}

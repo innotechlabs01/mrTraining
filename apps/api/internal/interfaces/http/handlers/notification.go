@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	stderrors "errors"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -64,14 +65,19 @@ func (h *NotificationHandler) RegisterDevice(c *fiber.Ctx) error {
 }
 
 // RemoveDevice handles DELETE /devices/:id.
-// Deactivates a device so it no longer receives push notifications.
+// Deactivates a device owned by the authenticated user so it no longer receives push notifications.
 func (h *NotificationHandler) RemoveDevice(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
 	deviceID := c.Params("id")
 	if deviceID == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "device ID is required")
 	}
 
-	if err := h.service.RemoveDevice(c.Context(), deviceID); err != nil {
+	if err := h.service.RemoveDevice(c.Context(), userID, deviceID); err != nil {
 		return h.handleError(c, err)
 	}
 
@@ -138,14 +144,19 @@ func (h *NotificationHandler) ListNotifications(c *fiber.Ctx) error {
 }
 
 // MarkRead handles PATCH /notifications/:id/read.
-// Marks a single notification as read.
+// Marks a single notification owned by the authenticated user as read.
 func (h *NotificationHandler) MarkRead(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		return appresponse.Error(c, fiber.StatusUnauthorized, "user not authenticated")
+	}
+
 	notificationID := c.Params("id")
 	if notificationID == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "notification ID is required")
 	}
 
-	if err := h.service.MarkRead(c.Context(), notificationID); err != nil {
+	if err := h.service.MarkRead(c.Context(), userID, notificationID); err != nil {
 		return h.handleError(c, err)
 	}
 
@@ -223,7 +234,8 @@ func toNotificationResponse(n *domain.Notification) dto.NotificationResponse {
 
 // handleError maps application errors to appropriate HTTP responses.
 func (h *NotificationHandler) handleError(c *fiber.Ctx, err error) error {
-	if appErr, ok := err.(*apperrors.AppError); ok {
+	var appErr *apperrors.AppError
+	if stderrors.As(err, &appErr) {
 		return appresponse.Error(c, appErr.Status, appErr.Message)
 	}
 	return appresponse.Error(c, fiber.StatusInternalServerError, "internal server error")

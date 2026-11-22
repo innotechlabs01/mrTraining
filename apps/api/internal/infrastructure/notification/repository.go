@@ -55,6 +55,23 @@ func (r *Repository) RegisterDevice(ctx context.Context, d *domain.Device) error
 	return nil
 }
 
+// RegisterOrReactivateDevice stores a new device token or reactivates/updates an existing token.
+func (r *Repository) RegisterOrReactivateDevice(ctx context.Context, d *domain.Device) error {
+	row := r.exec.QueryRowContext(ctx,
+		`INSERT INTO devices (id, user_id, token, platform, is_active, created_at)
+		 VALUES ($1, $2, $3, $4, $5, NOW())
+		 ON CONFLICT (token) DO UPDATE SET
+		     user_id = EXCLUDED.user_id,
+		     platform = EXCLUDED.platform,
+		     is_active = true
+		 RETURNING id, user_id, token, platform, is_active, created_at`,
+		d.ID, d.UserID, d.Token, d.Platform, d.IsActive)
+	if err := row.Scan(&d.ID, &d.UserID, &d.Token, &d.Platform, &d.IsActive, &d.CreatedAt); err != nil {
+		return fmt.Errorf("failed to register or reactivate device: %w", err)
+	}
+	return nil
+}
+
 // GetDevice retrieves a device by its unique identifier.
 func (r *Repository) GetDevice(ctx context.Context, id string) (*domain.Device, error) {
 	row := r.exec.QueryRowContext(ctx,
@@ -93,7 +110,7 @@ func (r *Repository) GetDeviceByToken(ctx context.Context, token string) (*domai
 func (r *Repository) ListDevicesByUser(ctx context.Context, userID string) ([]*domain.Device, error) {
 	rows, err := r.exec.QueryContext(ctx,
 		`SELECT id, user_id, token, platform, is_active, created_at
-		 FROM devices WHERE user_id = $1 AND is_active = 1`, userID)
+		 FROM devices WHERE user_id = $1 AND is_active = true`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list devices: %w", err)
 	}
@@ -110,10 +127,27 @@ func (r *Repository) ListDevicesByUser(ctx context.Context, userID string) ([]*d
 	return devices, nil
 }
 
-// DeactivateDevice marks a device as inactive.
+// DeactivateDevice marks a device as inactive (system/worker use).
 func (r *Repository) DeactivateDevice(ctx context.Context, id string) error {
 	result, err := r.exec.ExecContext(ctx,
-		`UPDATE devices SET is_active = 0 WHERE id = $1`, id)
+		`UPDATE devices SET is_active = false WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("failed to deactivate device: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return errors.NotFound("Device", id)
+	}
+	return nil
+}
+
+// DeactivateDeviceForUser marks a device as inactive only if it belongs to userID.
+func (r *Repository) DeactivateDeviceForUser(ctx context.Context, userID, id string) error {
+	result, err := r.exec.ExecContext(ctx,
+		`UPDATE devices SET is_active = false WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		return fmt.Errorf("failed to deactivate device: %w", err)
 	}
@@ -202,7 +236,24 @@ func (r *Repository) CountNotificationsByUser(ctx context.Context, userID string
 // MarkNotificationRead marks a single notification as read.
 func (r *Repository) MarkNotificationRead(ctx context.Context, id string) error {
 	result, err := r.exec.ExecContext(ctx,
-		`UPDATE notifications SET is_read = 1 WHERE id = $1`, id)
+		`UPDATE notifications SET is_read = true WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("failed to mark notification read: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return errors.NotFound("Notification", id)
+	}
+	return nil
+}
+
+// MarkAsRead marks a single notification as read only if it belongs to userID.
+func (r *Repository) MarkAsRead(ctx context.Context, userID, id string) error {
+	result, err := r.exec.ExecContext(ctx,
+		`UPDATE notifications SET is_read = true WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		return fmt.Errorf("failed to mark notification read: %w", err)
 	}
@@ -219,7 +270,7 @@ func (r *Repository) MarkNotificationRead(ctx context.Context, id string) error 
 // MarkAllNotificationsRead marks all notifications for a user as read.
 func (r *Repository) MarkAllNotificationsRead(ctx context.Context, userID string) (int64, error) {
 	result, err := r.exec.ExecContext(ctx,
-		`UPDATE notifications SET is_read = 1 WHERE user_id = $1 AND is_read = 0`, userID)
+		`UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false`, userID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to mark all notifications read: %w", err)
 	}

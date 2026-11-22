@@ -50,7 +50,7 @@ export function MembershipPlansListScreen({ navigation }: any) {
   const startTrial = async () => {
     setStartingTrial(true);
     try {
-      await apiClient.post('/athlete/membership/trial', { days: 7 });
+      await apiClient.post('/memberships/trial', { days: 7 });
       showToast('success', 'Prueba iniciada', 'Tenés 7 días de acceso completo.');
       navigation.replace('MembershipCheck');
     } catch {

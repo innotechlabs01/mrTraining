@@ -1,0 +1,144 @@
+const fs = require('fs');
+const path = require('path');
+const {
+  withProjectBuildGradle,
+  withAppBuildGradle,
+  withDangerousMod,
+} = require('@expo/config-plugins');
+
+const GMS_CLASSPATH = "classpath('com.google.gms:google-services:4.4.2')";
+const FIREBASE_APPDIST_CLASSPATH =
+  "classpath('com.google.firebase:firebase-appdistribution-gradle:5.1.1')";
+
+const QA_APP_ID = '1:399408860598:android:9dc9797d89afbb9cd10517';
+
+/**
+ * Adds Google Services and Firebase App Distribution classpaths to android/build.gradle.
+ */
+function withFirebaseProjectGradle(config) {
+  return withProjectBuildGradle(config, (modConfig) => {
+    let contents = modConfig.modResults.contents;
+
+    const depAnchor = /dependencies\s*\{/;
+    if (!contents.includes('com.google.gms:google-services')) {
+      contents = contents.replace(depAnchor, (match) => `${match}\n        ${GMS_CLASSPATH}`);
+    }
+    if (!contents.includes('com.google.firebase:firebase-appdistribution-gradle')) {
+      contents = contents.replace(
+        depAnchor,
+        (match) => `${match}\n        ${FIREBASE_APPDIST_CLASSPATH}`,
+      );
+    }
+
+    modConfig.modResults.contents = contents;
+    return modConfig;
+  });
+}
+
+/**
+ * Configures android/app/build.gradle:
+ * - Applies com.google.firebase.appdistribution
+ * - Conditionally applies com.google.gms.google-services when google-services.json exists
+ * - Supports optional release/qa keystore via ANDROID_KEYSTORE_* env vars
+ * - Adds `qa` buildType with firebaseAppDistribution configuration
+ */
+function withFirebaseAppGradle(config) {
+  return withAppBuildGradle(config, (modConfig) => {
+    let contents = modConfig.modResults.contents;
+
+    if (!contents.includes("apply plugin: 'com.google.firebase.appdistribution'") &&
+        !contents.includes('apply plugin: "com.google.firebase.appdistribution"')) {
+      contents = contents.replace(
+        /(apply plugin:\s*["']com\.android\.application["'])/,
+        `$1\napply plugin: 'com.google.firebase.appdistribution'`,
+      );
+    }
+
+    if (!contents.includes('com.google.gms.google-services')) {
+      contents += `
+if (file('google-services.json').exists() || file('src/qa/google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}
+`;
+    }
+
+    // Add optional release signingConfig backed by ANDROID_KEYSTORE_* env vars.
+    if (!contents.includes('ANDROID_KEYSTORE_PATH')) {
+      const signingConfigsAnchor = /signingConfigs\s*\{/;
+      const releaseSigningBlock = `signingConfigs {
+        release {
+            if (System.getenv("ANDROID_KEYSTORE_PATH")) {
+                storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }`;
+      contents = contents.replace(signingConfigsAnchor, releaseSigningBlock);
+    }
+
+    // Add qa buildType inside android.buildTypes if not already present.
+    if (!contents.includes('firebaseAppDistribution {')) {
+      const buildTypesReleaseAnchor = /buildTypes\s*\{[\s\S]*?release\s*\{[\s\S]*?\n\s*\}/;
+      contents = contents.replace(buildTypesReleaseAnchor, (match) => {
+        const updatedRelease = match.replace(
+          /signingConfig\s+signingConfigs\.debug/,
+          'signingConfig System.getenv("ANDROID_KEYSTORE_PATH") ? signingConfigs.release : signingConfigs.debug',
+        );
+        return `${updatedRelease}
+        qa {
+            initWith release
+            applicationIdSuffix ".qa"
+            matchingFallbacks = ['release']
+            signingConfig System.getenv("ANDROID_KEYSTORE_PATH") ? signingConfigs.release : signingConfigs.debug
+            firebaseAppDistribution {
+                appId = "${QA_APP_ID}"
+                artifactType = "APK"
+                groups = project.findProperty("firebaseTesterGroups") ?: "qa-testers"
+            }
+        }`;
+      });
+    }
+
+    modConfig.modResults.contents = contents;
+    return modConfig;
+  });
+}
+
+/**
+ * Copies google-services.qa.json (or GOOGLE_SERVICES_JSON_QA) into android/app/src/qa/google-services.json.
+ */
+function withQaGoogleServicesFile(config) {
+  return withDangerousMod(config, [
+    'android',
+    async (modConfig) => {
+      const projectRoot = modConfig.modRequest.projectRoot;
+      const platformRoot = modConfig.modRequest.platformProjectRoot;
+      const destDir = path.join(platformRoot, 'app', 'src', 'qa');
+      const destFile = path.join(destDir, 'google-services.json');
+
+      const envSource = process.env.GOOGLE_SERVICES_JSON_QA;
+      const localSource = path.join(projectRoot, 'google-services.qa.json');
+
+      if (envSource && fs.existsSync(envSource)) {
+        fs.mkdirSync(destDir, { recursive: true });
+        fs.copyFileSync(envSource, destFile);
+      } else if (envSource && envSource.trim().startsWith('{')) {
+        fs.mkdirSync(destDir, { recursive: true });
+        fs.writeFileSync(destFile, envSource, 'utf8');
+      } else if (fs.existsSync(localSource)) {
+        fs.mkdirSync(destDir, { recursive: true });
+        fs.copyFileSync(localSource, destFile);
+      }
+
+      return modConfig;
+    },
+  ]);
+}
+
+module.exports = function withAndroidFirebaseAppDistribution(config) {
+  config = withFirebaseProjectGradle(config);
+  config = withFirebaseAppGradle(config);
+  config = withQaGoogleServicesFile(config);
+  return config;
+};

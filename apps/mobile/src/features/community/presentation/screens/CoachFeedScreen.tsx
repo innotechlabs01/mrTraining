@@ -1,8 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import { colors, radius, spacing, typography } from '@shared/theme/tokens';
 import { ChatIcon } from '@shared/components/icons';
+import { useSignedMediaUrl } from '@shared/media/useSignedMediaUrl';
 import { texts } from '../../../../shared/i18n/texts';
 
 const t = texts.screens.coachFeedScreen;
@@ -13,6 +15,20 @@ export interface CoachFeedItem {
   message: string;
   createdAt: string; // ISO date
   type: 'announcement' | 'feedback' | 'reminder' | 'challenge';
+  media_url?: string | null;
+}
+
+function CoachFeedMedia({ mediaUrl }: { mediaUrl: string }) {
+  const { url: signedUrl } = useSignedMediaUrl(mediaUrl);
+  if (!signedUrl) return null;
+  return (
+    <ExpoImage
+      source={{ uri: signedUrl }}
+      style={styles.media}
+      contentFit="cover"
+      transition={200}
+    />
+  );
 }
 
 interface CoachFeedProps {
@@ -50,6 +66,7 @@ const CoachFeedRow = React.memo(function CoachFeedRow({ item }: { item: CoachFee
         </View>
       </View>
       <Text style={styles.message}>{item.message}</Text>
+      {item.media_url ? <CoachFeedMedia mediaUrl={item.media_url} /> : null}
       <Text style={styles.time}>
         {new Date(item.createdAt).toLocaleDateString('es-AR', {
           day: 'numeric',
@@ -138,6 +155,12 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.text,
     lineHeight: 22,
+  },
+  media: {
+    width: '100%',
+    height: 180,
+    borderRadius: radius.md,
+    marginTop: spacing.sm,
   },
   time: {
     ...typography.caption,

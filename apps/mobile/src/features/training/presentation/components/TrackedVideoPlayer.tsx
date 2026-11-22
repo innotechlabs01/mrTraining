@@ -9,11 +9,12 @@
  * All network calls are fire-and-forget; a failed tracking event never blocks playback.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { ActivityIndicator, View, Text, StyleSheet, Pressable } from 'react-native';
 import { useEventListener } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { colors, spacing, typography } from '../../../../shared/theme/tokens';
-import { isPlayableVideoUrl } from '../../../../shared/components/video/isPlayableVideoUrl';
+import { hasVideoSource, isPlayableVideoUrl } from '../../../../shared/components/video/isPlayableVideoUrl';
+import { useSignedMediaUrl } from '../../../../shared/media/useSignedMediaUrl';
 import { recordView } from '../../../videoViews/videoViewService';
 import { PlayIcon } from '../../../../shared/components/icons';
 import { texts } from '../../../../shared/i18n/texts';
@@ -28,8 +29,16 @@ type Props = {
 
 const PROGRESS_MARKS = [0.25, 0.5, 0.75];
 
-export function TrackedVideoPlayer({ videoUrl, exerciseId, athleteId }: Props) {
-  const player = useVideoPlayer({ uri: videoUrl }, (p) => {
+export function TrackedVideoPlayer(props: Props) {
+  if (!hasVideoSource(props.videoUrl)) return null;
+  return <TrackedVideoPlayerInner {...props} />;
+}
+
+function TrackedVideoPlayerInner({ videoUrl, exerciseId, athleteId }: Props) {
+  const { url: signedUrl, isLoading: isSigning, refresh } = useSignedMediaUrl(videoUrl);
+  const playableUrl = isPlayableVideoUrl(signedUrl) ? signedUrl : undefined;
+
+  const player = useVideoPlayer(playableUrl ? { uri: playableUrl } : null, (p) => {
     p.loop = false;
     // Emit timeUpdate at the same cadence expo-av used for status updates (~500ms).
     p.timeUpdateEventInterval = 0.5;
@@ -39,15 +48,17 @@ export function TrackedVideoPlayer({ videoUrl, exerciseId, athleteId }: Props) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'playing' | 'error'>('idle');
   const viewIdRef = useRef<string | null>(null);
   const reportedMarks = useRef(new Set<number>());
-  const sourceRef = useRef(videoUrl);
+  const sourceRef = useRef(playableUrl);
 
   // expo-av reloaded whenever `source` changed — replicate with replaceAsync.
   useEffect(() => {
-    if (sourceRef.current !== videoUrl) {
-      sourceRef.current = videoUrl;
-      void player.replaceAsync({ uri: videoUrl });
+    if (sourceRef.current !== playableUrl) {
+      sourceRef.current = playableUrl;
+      if (playableUrl) {
+        void player.replaceAsync({ uri: playableUrl });
+      }
     }
-  }, [videoUrl, player]);
+  }, [playableUrl, player]);
 
   // Fire-and-forget POST — never blocks the player.
   const track = useCallback((action: string, data: Record<string, unknown> = {}) => {
@@ -115,11 +126,25 @@ export function TrackedVideoPlayer({ videoUrl, exerciseId, athleteId }: Props) {
   const handleRetry = useCallback(() => {
     setStatus('idle');
     setPlaying(false);
-  }, []);
+    void refresh();
+  }, [refresh]);
+
+  if (!hasVideoSource(videoUrl)) return null;
+
+  if (isSigning) {
+    return (
+      <View style={[styles.container, styles.containerPending]}>
+        <View style={styles.playOverlay}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.playLabel}>{texts.common.loading}</Text>
+        </View>
+      </View>
+    );
+  }
 
   // Defense in depth: callers already guard, but never mount VideoView for an
   // unplayable URL (and never reserve the black 16/9 block).
-  if (!isPlayableVideoUrl(videoUrl)) return null;
+  if (!playableUrl) return null;
 
   return (
     <View style={[styles.container, ready ? styles.containerReady : styles.containerPending]}>

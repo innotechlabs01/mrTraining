@@ -1079,11 +1079,10 @@ export const coachingApi = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
-  uploadLandingMedia: (file: File) => {
-    // Go API: POST /api/v1/landing/media — multipart upload to /uploads/landing
-    const form = new FormData()
-    form.append('file', file)
-    return goFetch<{ url: string }>('/api/v1/landing/media', { method: 'POST', body: form })
+  uploadLandingMedia: async (file: File) => {
+    const { uploadMediaToR2 } = await import('@/lib/media/r2-upload')
+    const res = await uploadMediaToR2(file, 'landing_media')
+    return { url: res.mediaRef, previewUrl: res.previewUrl }
   },
 
   // Public Page Config (not in Go API yet — Next.js fallback)
@@ -1640,17 +1639,10 @@ export const exerciseApi = {
     // Go API: DELETE /api/v1/exercises/:id
     goFetch<{ ok: boolean }>(`/api/v1/exercises/${id}`, { method: 'DELETE' }),
 
-  uploadVideo: async (file: File) => {
-    // Video upload uses multipart/form-data; auth relies on the Clerk session
-    // cookie (the route verifies it via auth()) — no token in localStorage.
-    const form = new FormData()
-    form.append('file', file)
-    const res = await fetch('/api/exercises/upload', {
-      method: 'POST',
-      body: form,
-    })
-    if (!res.ok) throw new Error('Upload failed')
-    return res.json()
+  uploadVideo: async (file: File, onProgress?: (percent: number) => void) => {
+    const { uploadMediaToR2 } = await import('@/lib/media/r2-upload')
+    const res = await uploadMediaToR2(file, 'exercise_video', { onProgress })
+    return { url: res.mediaRef, videoUrl: res.mediaRef, previewUrl: res.previewUrl }
   },
 };
 

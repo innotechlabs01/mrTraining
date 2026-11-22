@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	trainingapp "github.com/innotechlabs01/mr-training-api/internal/application/training"
+	mediaapp "github.com/innotechlabs01/mr-training-api/internal/application/media"
 	runningapp "github.com/innotechlabs01/mr-training-api/internal/application/running"
 	trainingdomain "github.com/innotechlabs01/mr-training-api/internal/domain/training"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
@@ -25,14 +26,21 @@ import (
 
 // TrainingHandler handles HTTP requests for the training domain.
 type TrainingHandler struct {
-	service *trainingapp.Service
-	db      *sql.DB
-	outbox  eventbus.OutboxWriter
+	service  *trainingapp.Service
+	db       *sql.DB
+	outbox   eventbus.OutboxWriter
+	mediaSvc *mediaapp.Service
 }
 
 // WithOutbox configures transactional outbox event publication for training actions.
 func (h *TrainingHandler) WithOutbox(outbox eventbus.OutboxWriter) *TrainingHandler {
 	h.outbox = outbox
+	return h
+}
+
+// SetMediaService attaches the R2 media service for exercise video ownership validation.
+func (h *TrainingHandler) SetMediaService(m *mediaapp.Service) *TrainingHandler {
+	h.mediaSvc = m
 	return h
 }
 
@@ -161,6 +169,13 @@ func (h *TrainingHandler) UpdateExercise(c *fiber.Ctx) error {
 	if validationErrs := validator.ValidateUpdateExercise(&req); len(validationErrs) > 0 {
 		return h.handleValidationError(c, validationErrs)
 	}
+	if req.VideoURL != nil && strings.TrimSpace(*req.VideoURL) != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, *req.VideoURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.VideoURL = &normalized
+	}
 
 	exercise, err := h.service.UpdateExercise(middleware.RequestContext(c), userID, c.Params("id"), req)
 	if err != nil {
@@ -207,6 +222,13 @@ func (h *TrainingHandler) CreateExercise(c *fiber.Ctx) error {
 
 	if validationErrs := validator.ValidateCreateExercise(&req); len(validationErrs) > 0 {
 		return h.handleValidationError(c, validationErrs)
+	}
+	if strings.TrimSpace(req.VideoURL) != "" {
+		normalized, err := normalizeMediaRef(c, h.mediaSvc, req.VideoURL)
+		if err != nil {
+			return mapMediaError(c, err)
+		}
+		req.VideoURL = normalized
 	}
 
 	exercise, err := h.service.CreateExercise(middleware.RequestContext(c), userID, req)

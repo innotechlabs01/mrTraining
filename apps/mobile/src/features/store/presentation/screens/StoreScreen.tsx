@@ -15,6 +15,7 @@ import { CartBar } from '../components/CartBar';
 import { CartSheet } from '../components/CartSheet';
 import { StoreIcon, PlusIcon, MinusIcon } from '../../../../shared/components/icons';
 import { texts } from '../../../../shared/i18n/texts';
+import { useSignedMediaUrl } from '../../../../shared/media/useSignedMediaUrl';
 
 const t = texts.screens.storeScreen;
 
@@ -91,6 +92,8 @@ function ProductCard({ product }: { product: StoreProduct }) {
   const add = useCart((s) => s.add);
   const setQty = useCart((s) => s.setQty);
 
+  const { url: imageUrl } = useSignedMediaUrl(product.image_url);
+
   const inCart = items.find((i) => i.product.id === product.id)?.qty ?? 0;
   const stock = product.stock ?? 0;
   const outOfStock = stock <= 0;
@@ -99,9 +102,9 @@ function ProductCard({ product }: { product: StoreProduct }) {
   return (
     <View style={styles.card}>
       <View style={styles.imageArea}>
-        {product.image_url ? (
+        {imageUrl ? (
           <Image
-            source={{ uri: product.image_url }}
+            source={{ uri: imageUrl }}
             style={styles.image}
             contentFit="cover"
             transition={200}
