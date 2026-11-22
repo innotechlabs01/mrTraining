@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "399408860598",
+    "project_id": "mr-training-deploy",
+    "storage_bucket": "mr-training-deploy.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:399408860598:android:9dc9797d89afbb9cd10517",
+        "android_client_info": {
+          "package_name": "com.innotechlabssas.mrtraining.qa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC91SIfdzkJh88BpUswv2fzoJeSPFLoal0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
