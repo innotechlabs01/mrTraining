@@ -74,8 +74,8 @@ jobs:
           FIREBASE_GOOGLE_SERVICES_JSON_QA: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON_QA }}
         run: |
           if [ -z "$FIREBASE_GOOGLE_SERVICES_JSON_QA" ]; then
-            echo "❌ Missing secret FIREBASE_GOOGLE_SERVICES_JSON_QA"
-            exit 1
+            echo "⚠️ Secret FIREBASE_GOOGLE_SERVICES_JSON_QA not set, skipping google-services.qa.json"
+            exit 0
           fi
           printf '%s' "$FIREBASE_GOOGLE_SERVICES_JSON_QA" > google-services.qa.json
 
@@ -99,14 +99,12 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          # Intentar leer projectId de .expo/eas.json (creado por eas init)
-          PROJECT_ID=""
-          if [ -f ".expo/eas.json" ]; then
-            PROJECT_ID=$(node -e "try{console.log(require('./.expo/eas.json').projectId)}catch{e}process.exit(1)")
+          PROJECT_ID=$(node -e "console.log(require('./app.json').expo?.extra?.eas?.projectId || '')")
+          if [ -z "$PROJECT_ID" ] && [ -f ".expo/eas.json" ]; then
+            PROJECT_ID=$(node -e "console.log(require('./.expo/eas.json').projectId || '')")
           fi
           if [ -z "$PROJECT_ID" ]; then
-            echo "❌ No se encontro projectId en .expo/eas.json"
-            echo "   Ejecuta 'npx eas-cli init' en apps/mobile/ y commitea .expo/eas.json"
+            echo "❌ No se encontro projectId en app.json (expo.extra.eas.projectId) ni en .expo/eas.json"
             exit 1
           fi
           echo "project_id=$PROJECT_ID" >> $GITHUB_OUTPUT
@@ -139,7 +137,7 @@ jobs:
           for i in $(seq 1 60); do
             STATUS=$(curl -s -H "Authorization: Bearer $EXPO_TOKEN" \
               "https://api.expo.dev/v2/projects/$PROJECT_ID/builds/$BUILD_ID" \
-              | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).status)}catch{e{console.log('UNKNOWN')}}})")
+              | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).status)}catch(e){console.log('UNKNOWN')}})")
             echo "⏳ Estado del build ($i/60): $STATUS"
             if [ "$STATUS" = "finished" ]; then
               echo "✅ Build terminado"
@@ -164,7 +162,7 @@ jobs:
         run: |
           ARTIFACT_URL=$(curl -s -H "Authorization: Bearer $EXPO_TOKEN" \
             "https://api.expo.dev/v2/projects/$PROJECT_ID/builds/$BUILD_ID" \
-            | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);console.log(j.artifacts?.appArchiveUrl || j.artifacts?.ipaUrl || '')}catch{e{process.exit(1)}}})")
+            | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);console.log(j.artifacts?.appArchiveUrl || j.artifacts?.ipaUrl || '')}catch(e){process.exit(1)}}})")
           if [ -z "$ARTIFACT_URL" ]; then
             echo "❌ No se pudo obtener la URL del artifact de EAS"
             exit 1
