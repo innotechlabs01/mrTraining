@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [in] Git workflow + changelog rules (15-git-workflow-changelog.md) — @orca-team (internal)
 
 ### Changed
+- [in] `.githooks/pre-commit`: restaurados checks rápidos de Go API (`go mod tidy`, `go build`, `go test`) y Web (`pnpm lint`, `pnpm build`) junto con `validate-changelog.sh` — @frg (PR #1)
+- [mo] Actualización de `apps/mobile/plugins/withAndroidFirebaseAppDistribution.js` — @frg (PR #1)
 - [mo] `WorkoutExecutionScreen` + `AiWorkoutScreen`: validación de postura y distancia con cámara IA, calificación por semáforo (Bien/verde, Medio/amarillo, Mal/rojo), gating estricto por modal de Términos y Condiciones (`RecordingConsent`) y recuperación de progreso/consentimiento desde PostgreSQL tras actualizaciones de la app — @dev-react-native (PR pending)
 - [fe] Coach `AthleteRunningPanel` y `/coach/users/[id]/running/[workoutId]`: integración de workouts de running asignados (prescrito vs real + SSE en vivo) y sesiones GPS libres con gráficas de tendencia semanal, PRs y exportación CSV/GPX — @dev-front (PR pending)
 - [be] Persistencia completa de `intervals` y `gpsRoute` en `workout_templates`, `loggedSets` en `GET /api/v1/workouts/:id` y cálculo automático de progreso en PostgreSQL al registrar sets o completar running — @dev-backend (PR pending)
@@ -61,6 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [in] Fitness improvement plan v2 closeout (S0–S11 done) — @dev-backend (PR #?)
 
 ### Changed
+- [in] `.githooks/pre-commit`: restaurados checks rápidos de Go API (`go mod tidy`, `go build`, `go test`) y Web (`pnpm lint`, `pnpm build`) junto con `validate-changelog.sh` — @frg (PR #1)
+- [mo] Actualización de `apps/mobile/plugins/withAndroidFirebaseAppDistribution.js` — @frg (PR #1)
 - [be] gofmt handlers and running service test — @dev-backend (PR #?)
 
 ### Other

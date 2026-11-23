@@ -56,7 +56,7 @@ function withFirebaseAppGradle(config) {
 
     if (!contents.includes('com.google.gms.google-services')) {
       contents += `
-if (file('google-services.json').exists() || file('src/qa/google-services.json').exists()) {
+if (file('google-services.json').exists()) {
     apply plugin: 'com.google.gms.google-services'
 }
 `;
