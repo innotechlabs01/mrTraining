@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- [be] Endpoint `POST /public/checkouts/:id/verify` para verificar transacciones Wompi (`PENDING`, `DECLINED`, `APPROVED`) y emitir `sign_in_token` de Clerk — @frg (PR pending)
+- [fe] Ruta pública `/payment/success` con polling automático, manejo de rechazo Wompi y auto-login transparente con Clerk ticket — @frg (PR pending)
 - [db] Migración `431_wearable_oauth_tokens_and_health_sync_fix.sql`: paridad de columnas `platform`/`scope`/`updated_at` en `wearable_oauth_tokens` + índice único idempotente en `athlete_sleep_logs(athlete_id, date, source)` — @dev-database (PR pending)
 - [be] Endpoints de consentimiento de IA (`GET/PUT /api/v1/form-metrics/consent`), PRs de running para coach (`GET /api/v1/coach/athletes/:id/running/prs`, `GET /api/v1/athlete/:athleteId/analytics/running/prs`) y detalle de sesión GPS (`GET /api/v1/coach/athletes/:id/running/sessions/:sessionId`) — @dev-backend (PR pending)
 - [db] Migración `430_athlete_form_recording_consent.sql` para persistir en PostgreSQL el consentimiento de IA y técnica de los atletas — @dev-database (PR pending)
@@ -41,7 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2026-XX-XX
 
-### Added - Running / GPS (S0–S11)
+### Added
+- [be] Endpoint `POST /public/checkouts/:id/verify` para verificar transacciones Wompi (`PENDING`, `DECLINED`, `APPROVED`) y emitir `sign_in_token` de Clerk — @frg (PR pending)
+- [fe] Ruta pública `/payment/success` con polling automático, manejo de rechazo Wompi y auto-login transparente con Clerk ticket — @frg (PR pending) - Running / GPS (S0–S11)
 - [fe] Running history + detail pages with map, live tracker — @dev-front (PR #?)
 - [fe] Running API client + `RunningRouteMap` SSR-safe — @dev-front (PR #?)
 - [fe] GPS running detail + live-location endpoint — @dev-front (PR #?)
@@ -52,11 +56,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [mo] GPS run recording with offline-first queue — @dev-react-native (PR #?)
 - [mo] Workout detail with AI insights on web and mobile — @dev-react-native (PR #?)
 
-### Added - API / Backend
+### Added
+- [be] Endpoint `POST /public/checkouts/:id/verify` para verificar transacciones Wompi (`PENDING`, `DECLINED`, `APPROVED`) y emitir `sign_in_token` de Clerk — @frg (PR pending)
+- [fe] Ruta pública `/payment/success` con polling automático, manejo de rechazo Wompi y auto-login transparente con Clerk ticket — @frg (PR pending) - API / Backend
 - [be] Secure data migration tool Turso → PostgreSQL — @dev-backend (PR #?)
 - [be] Unit tests + improved resilience for data-migrate — @dev-backend (PR #?)
 
-### Added - Features
+### Added
+- [be] Endpoint `POST /public/checkouts/:id/verify` para verificar transacciones Wompi (`PENDING`, `DECLINED`, `APPROVED`) y emitir `sign_in_token` de Clerk — @frg (PR pending)
+- [fe] Ruta pública `/payment/success` con polling automático, manejo de rechazo Wompi y auto-login transparente con Clerk ticket — @frg (PR pending) - Features
 - [fe] 7-day membership trial — @dev-front (PR #?)
 - [fe] Morning readiness check-in — @dev-front (PR #?)
 - [fe] Garmin manual sync + mobile bridge + Settings wearables — @dev-front (PR #?)

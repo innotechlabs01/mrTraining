@@ -1,8 +1,16 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -39,6 +47,7 @@ func NewCheckoutHandler(svc checkoutService) *CheckoutHandler {
 // protected /api/v1 group.
 func (h *CheckoutHandler) RegisterCheckoutRoutes(api fiber.Router, pub fiber.Router) {
 	pub.Post("/checkouts", middleware.RateLimit(20, 60), h.HandleStart)
+	pub.Post("/checkouts/:id/verify", middleware.RateLimit(30, 60), h.HandleVerify)
 	api.Post("/checkouts/:id/claim", h.HandleClaim)
 	api.Post("/checkouts/:id/recover", h.HandleRecoverPayment)
 }
@@ -166,4 +175,186 @@ func handleCheckoutError(c *fiber.Ctx, err error) error {
 	// is recoverable from the logs.
 	fmt.Printf("checkout error: %v\n", err)
 	return appresponse.Error(c, fiber.StatusInternalServerError, "internal server error")
+}
+
+type verifyCheckoutRequest struct {
+	TransactionID string `json:"transaction_id"`
+	Email         string `json:"email"`
+	Env           string `json:"env"`
+}
+
+// HandleVerify handles POST /public/checkouts/:id/verify.
+// It checks the Wompi transaction status (supporting PENDING polling and
+// DECLINED/ERROR rejection) and, when APPROVED, provisions/finds the Clerk
+// user and issues a single-use sign-in ticket for transparent login.
+func (h *CheckoutHandler) HandleVerify(c *fiber.Ctx) error {
+	var req verifyCheckoutRequest
+	if err := c.BodyParser(&req); err != nil || strings.TrimSpace(req.TransactionID) == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "transaction_id is required")
+	}
+
+	txStatus, txMessage, txEmail, err := fetchWompiTransaction(c.Context(), strings.TrimSpace(req.TransactionID), req.Env)
+	if err != nil {
+		return appresponse.Error(c, fiber.StatusBadGateway, "failed to verify transaction with Wompi")
+	}
+
+	if txStatus == "PENDING" {
+		return appresponse.JSON(c, fiber.StatusOK, fiber.Map{
+			"status": "PENDING",
+		})
+	}
+
+	if txStatus != "APPROVED" {
+		msg := txMessage
+		if msg == "" {
+			msg = "La transacción fue rechazada o no pudo completarse."
+		}
+		return appresponse.JSON(c, fiber.StatusOK, fiber.Map{
+			"status":  txStatus,
+			"message": msg,
+		})
+	}
+
+	email := strings.TrimSpace(req.Email)
+	if email == "" {
+		email = strings.TrimSpace(txEmail)
+	}
+	if email == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "email is required to provision account")
+	}
+
+	token, err := ensureClerkSignInToken(c.Context(), email)
+	if err != nil {
+		fmt.Printf("clerk sign-in token error: %v\n", err)
+		return appresponse.Error(c, fiber.StatusInternalServerError, "could not provision session")
+	}
+
+	return appresponse.JSON(c, fiber.StatusOK, fiber.Map{
+		"status":        "APPROVED",
+		"sign_in_token": token,
+		"email":         email,
+	})
+}
+
+func fetchWompiTransaction(ctx context.Context, txID, env string) (status, message, customerEmail string, err error) {
+	baseURL := "https://production.wompi.co/v1/transactions/"
+	if env == "test" || strings.HasPrefix(os.Getenv("WOMPI_PUBLIC_KEY"), "pub_test_") {
+		baseURL = "https://sandbox.wompi.co/v1/transactions/"
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+url.PathEscape(txID), nil)
+	if err != nil {
+		return "", "", "", err
+	}
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", "", "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return "", "", "", fmt.Errorf("wompi returned status %d", resp.StatusCode)
+	}
+
+	var parsed struct {
+		Data struct {
+			Status        string `json:"status"`
+			StatusMessage string `json:"status_message"`
+			CustomerEmail string `json:"customer_email"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		return "", "", "", err
+	}
+	return parsed.Data.Status, parsed.Data.StatusMessage, parsed.Data.CustomerEmail, nil
+}
+
+func ensureClerkSignInToken(ctx context.Context, email string) (string, error) {
+	secret := strings.TrimSpace(os.Getenv("CLERK_SECRET_KEY"))
+	if secret == "" {
+		return "", fmt.Errorf("CLERK_SECRET_KEY not configured")
+	}
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	// 1. Lookup existing user by email
+	lookupURL := "https://api.clerk.com/v1/users?email_address=" + url.QueryEscape(email)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, lookupURL, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+secret)
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var users []struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+		return "", err
+	}
+
+	var userID string
+	if len(users) > 0 {
+		userID = users[0].ID
+	} else {
+		// 2. Create user transparently
+		createBody, _ := json.Marshal(map[string]any{
+			"email_address":             []string{email},
+			"skip_password_requirement": true,
+		})
+		cReq, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.clerk.com/v1/users", bytes.NewReader(createBody))
+		if err != nil {
+			return "", err
+		}
+		cReq.Header.Set("Authorization", "Bearer "+secret)
+		cReq.Header.Set("Content-Type", "application/json")
+		cResp, err := client.Do(cReq)
+		if err != nil {
+			return "", err
+		}
+		defer cResp.Body.Close()
+		if cResp.StatusCode >= 400 {
+			b, _ := io.ReadAll(cResp.Body)
+			return "", fmt.Errorf("clerk create user failed (%d): %s", cResp.StatusCode, string(b))
+		}
+		var created struct {
+			ID string `json:"id"`
+		}
+		if err := json.NewDecoder(cResp.Body).Decode(&created); err != nil {
+			return "", err
+		}
+		userID = created.ID
+	}
+
+	// 3. Issue single-use sign-in token
+	tokBody, _ := json.Marshal(map[string]any{
+		"user_id":            userID,
+		"expires_in_seconds": 300,
+	})
+	tReq, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.clerk.com/v1/sign_in_tokens", bytes.NewReader(tokBody))
+	if err != nil {
+		return "", err
+	}
+	tReq.Header.Set("Authorization", "Bearer "+secret)
+	tReq.Header.Set("Content-Type", "application/json")
+	tResp, err := client.Do(tReq)
+	if err != nil {
+		return "", err
+	}
+	defer tResp.Body.Close()
+	if tResp.StatusCode >= 400 {
+		b, _ := io.ReadAll(tResp.Body)
+		return "", fmt.Errorf("clerk sign_in_tokens failed (%d): %s", tResp.StatusCode, string(b))
+	}
+	var tok struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(tResp.Body).Decode(&tok); err != nil {
+		return "", err
+	}
+	return tok.Token, nil
 }

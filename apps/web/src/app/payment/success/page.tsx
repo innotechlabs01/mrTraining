@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth, useUser } from '@clerk/nextjs';
+import { useAuth, useSignIn, useUser } from '@clerk/nextjs';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { AuthShell } from '@/features/auth/components/AuthShell';
 import { PlanSummaryCard } from '@/features/auth/components/PlanSummaryCard';
@@ -40,7 +40,12 @@ function PaymentSuccessContent() {
  */
 function CheckoutClaim({ checkoutId }: { checkoutId: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const transactionId = searchParams.get('id');
+  const emailParam = searchParams.get('email') ?? '';
+  const envParam = searchParams.get('env') ?? '';
   const { isSignedIn, isLoaded } = useAuth();
+  const { signIn, setActive, isLoaded: isSignInLoaded } = useSignIn();
   const { user } = useUser();
   const [status, setStatus] = useState<ClaimStatus>('checking');
   const [error, setError] = useState('');
@@ -88,14 +93,67 @@ function CheckoutClaim({ checkoutId }: { checkoutId: string }) {
     }
   }, [checkoutId, router, user]);
 
+  const verifyAndSignIn = useCallback(async (attempt = 1) => {
+    setStatus('claiming');
+    setError('');
+    setAttemptCount(attempt);
+
+    try {
+      const res = await fetch(`/api/checkout/${encodeURIComponent(checkoutId)}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transaction_id: transactionId,
+          email: emailParam,
+          env: envParam,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? 'No se pudo verificar el pago');
+      }
+
+      if (data.status === 'PENDING') {
+        if (attempt < 10) {
+          setTimeout(() => {
+            void verifyAndSignIn(attempt + 1);
+          }, 2000);
+          return;
+        }
+        throw new Error('Tu pago sigue pendiente de confirmación. Intenta de nuevo en unos segundos.');
+      }
+
+      if (data.status !== 'APPROVED') {
+        throw new Error(data.message ?? 'La transacción fue rechazada.');
+      }
+
+      if (!signIn || !setActive || !data.sign_in_token) {
+        throw new Error('No se pudo iniciar sesión automáticamente.');
+      }
+
+      const signInRes = await signIn.create({
+        strategy: 'ticket',
+        ticket: data.sign_in_token,
+      });
+      await setActive({ session: signInRes.createdSessionId });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo verificar el pago');
+      setStatus('error');
+    }
+  }, [checkoutId, transactionId, emailParam, envParam, signIn, setActive]);
+
   useEffect(() => {
     if (!isLoaded) return;
     if (!isSignedIn) {
-      setStatus('needs-account');
+      if (transactionId && isSignInLoaded) {
+        void verifyAndSignIn(1);
+      } else if (!transactionId) {
+        setStatus('needs-account');
+      }
       return;
     }
     void claim(1);
-  }, [isLoaded, isSignedIn, claim]);
+  }, [isLoaded, isSignedIn, isSignInLoaded, transactionId, verifyAndSignIn, claim]);
 
   if (status === 'needs-account') {
     return (
