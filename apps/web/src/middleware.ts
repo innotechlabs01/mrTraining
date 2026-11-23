@@ -27,7 +27,7 @@ import { NextResponse } from 'next/server';
 const SUPPORTED_LOCALES = ['en-US', 'en-GB', 'es-ES', 'es-MX', 'es-AR', 'en', 'es'];
 
 /** Route prefixes that require an authenticated session (matched after stripping any locale prefix). */
-const PRIVATE_PREFIXES = ['/coach', '/nutrition', '/admin', '/payment'];
+const PRIVATE_PREFIXES = ['/coach', '/nutrition', '/admin'];
 
 /** Remove a leading locale segment from a pathname (`/es-AR/coach` → `/coach`). */
 function stripLocale(pathname: string): string {

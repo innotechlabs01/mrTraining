@@ -1,4 +1,4 @@
-name: CD - Mobile Android QA (Firebase App Distribution)
+name: CD - Mobile Android QA (EAS Build + Firebase App Distribution)
 
 on:
   push:
@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   android-qa-distribute:
-    name: Build Android QA APK & Distribute to Firebase
+    name: Build Android QA APK with EAS & Distribute to Firebase
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -43,17 +43,29 @@ jobs:
           cache: 'npm'
           cache-dependency-path: apps/mobile/package-lock.json
 
-      - name: Setup JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
+      - name: Install EAS CLI
+        run: npm install --global eas-cli
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Read app version from build.gradle
+        id: version
+        run: |
+          VERSION_CODE=$(grep -m1 'versionCode' android/app/build.gradle | awk '{print $2}' | tr -d ' ')
+          VERSION_NAME=$(grep -m1 'versionName' android/app/build.gradle | sed 's/.*versionName "\([^"]*\)".*/\1/')
+          if [ -z "$VERSION_CODE" ] || [ -z "$VERSION_NAME" ]; then
+            echo "❌ No se pudo leer versionCode/versionName de android/app/build.gradle"
+            exit 1
+          fi
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          echo "📦 Versión QA: $VERSION_NAME (code $VERSION_CODE)"
 
-      - name: Install Mobile dependencies
-        run: npm ci
+      - name: Get commit author
+        id: author
+        run: |
+          AUTHOR=$(git log -1 --format='%an <%ae>')
+          echo "author=$AUTHOR" >> $GITHUB_OUTPUT
 
       - name: Write QA google-services.json
         env:
@@ -65,49 +77,104 @@ jobs:
           fi
           printf '%s' "$FIREBASE_GOOGLE_SERVICES_JSON_QA" > google-services.qa.json
 
-      - name: Decode Android QA keystore (optional)
+      - name: Configure Expo authentication
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
-            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android-qa.keystore
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "❌ Missing secret EXPO_TOKEN"
+            echo "   Generalo con: eas-cli login (luego eas-cli whoami para ver el token)"
+            exit 1
           fi
+          # Escribir token en el archivo de credenciales de Expo para que eas-cli lo use
+          mkdir -p ~/.expo
+          echo "{\"accessToken\":\"$EXPO_TOKEN\"}" > ~/.expo/credentials.json
+          echo "✅ Expo autenticado"
+          npx eas-cli whoami
 
-      - name: Expo Prebuild Android (QA variant)
+      - name: Get Expo project ID
+        id: project
         env:
-          APP_VARIANT: qa
-          ANDROID_PACKAGE: com.innotechlabssas.mrtraining.qa
-          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.MOBILE_QA_CLERK_PUBLISHABLE_KEY }}
-          EXPO_PUBLIC_GO_API_URL: ${{ secrets.MOBILE_QA_GO_API_URL }}
-          EXPO_PUBLIC_API_URL: ${{ secrets.MOBILE_QA_GO_API_URL }}
-          EXPO_PUBLIC_WEB_URL: ${{ secrets.MOBILE_QA_WEB_URL }}
-        run: npx expo prebuild --platform android --clean --non-interactive
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          # Intentar leer projectId de .expo/eas.json (creado por eas init)
+          PROJECT_ID=""
+          if [ -f ".expo/eas.json" ]; then
+            PROJECT_ID=$(node -e "try{console.log(require('./.expo/eas.json').projectId)}catch{e}process.exit(1)")
+          fi
+          if [ -z "$PROJECT_ID" ]; then
+            echo "❌ No se encontro projectId en .expo/eas.json"
+            echo "   Ejecuta 'npx eas-cli init' en apps/mobile/ y commitea .expo/eas.json"
+            exit 1
+          fi
+          echo "project_id=$PROJECT_ID" >> $GITHUB_OUTPUT
+          echo "📋 Proyecto EAS: $PROJECT_ID"
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-qa-${{ runner.os }}-${{ hashFiles('apps/mobile/android/gradle/wrapper/gradle-wrapper.properties', 'apps/mobile/android/build.gradle', 'apps/mobile/android/app/build.gradle') }}
-          restore-keys: |
-            gradle-qa-${{ runner.os }}-
+      - name: Install Mobile dependencies
+        run: npm ci
 
-      - name: Build QA Release APK
-        working-directory: apps/mobile/android
+      - name: Build Android QA APK with EAS
+        id: build
         env:
-          ANDROID_KEYSTORE_PATH: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && '../android-qa.keystore' || '' }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew assembleQaRelease --no-daemon
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          BUILD_OUTPUT=$(npx eas-cli build --platform android --profile qa --non-interactive 2>&1)
+          echo "$BUILD_OUTPUT"
+          BUILD_ID=$(echo "$BUILD_OUTPUT" | grep -oE '[a-f0-9-]{36}' | head -1)
+          if [ -z "$BUILD_ID" ]; then
+            echo "❌ No se pudo obtener el build ID de EAS"
+            exit 1
+          fi
+          echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
+          echo "🆔 Build ID: $BUILD_ID"
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mr-training-qa-apk
-          path: apps/mobile/android/app/build/outputs/apk/qa/release/*.apk
-          retention-days: 14
+      - name: Wait for EAS build to complete
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          PROJECT_ID: ${{ steps.project.outputs.project_id }}
+          BUILD_ID: ${{ steps.build.outputs.build_id }}
+        run: |
+          for i in $(seq 1 60); do
+            STATUS=$(curl -s -H "Authorization: Bearer $EXPO_TOKEN" \
+              "https://api.expo.dev/v2/projects/$PROJECT_ID/builds/$BUILD_ID" \
+              | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).status)}catch{e{console.log('UNKNOWN')}}})")
+            echo "⏳ Estado del build ($i/60): $STATUS"
+            if [ "$STATUS" = "finished" ]; then
+              echo "✅ Build terminado"
+              exit 0
+            elif [ "$STATUS" = "errored" ] || [ "$STATUS" = "failed" ]; then
+              echo "❌ Build falló"
+              exit 1
+            elif [ "$STATUS" = "canceled" ]; then
+              echo "❌ Build cancelado"
+              exit 1
+            fi
+            sleep 30
+          done
+          echo "❌ Timeout esperando el build de EAS"
+          exit 1
+
+      - name: Download APK artifact from EAS
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          PROJECT_ID: ${{ steps.project.outputs.project_id }}
+          BUILD_ID: ${{ steps.build.outputs.build_id }}
+        run: |
+          ARTIFACT_URL=$(curl -s -H "Authorization: Bearer $EXPO_TOKEN" \
+            "https://api.expo.dev/v2/projects/$PROJECT_ID/builds/$BUILD_ID" \
+            | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);console.log(j.artifacts?.appArchiveUrl || j.artifacts?.ipaUrl || '')}catch{e{process.exit(1)}}})")
+          if [ -z "$ARTIFACT_URL" ]; then
+            echo "❌ No se pudo obtener la URL del artifact de EAS"
+            exit 1
+          fi
+          echo "⬇️  Descargando APK desde EAS..."
+          curl -L -H "Authorization: Bearer $EXPO_TOKEN" -o app-qa-release.apk "$ARTIFACT_URL"
+          if [ ! -f app-qa-release.apk ] || [ ! -s app-qa-release.apk ]; then
+            echo "❌ El APK descargado esta vacio o no existe"
+            exit 1
+          fi
+          echo "✅ APK descargado: $(wc -c < app-qa-release.apk) bytes"
+          echo "APP_APK_PATH=$PWD/app-qa-release.apk" >> $GITHUB_ENV
 
       - name: Distribute to Firebase App Distribution
         if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DEPLOY != '' }}
@@ -116,5 +183,9 @@ jobs:
           appId: '1:399408860598:android:9dc9797d89afbb9cd10517'
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DEPLOY }}
           groups: ${{ github.event.inputs.tester_groups || 'qa-testers' }}
-          releaseNotes: ${{ github.event.inputs.release_notes || format('QA build {0}', github.sha) }}
-          file: apps/mobile/android/app/build/outputs/apk/qa/release/app-qa-release.apk
+          releaseNotes: |
+            QA Build v${{ env.VERSION_NAME }} (code ${{ env.VERSION_CODE }})
+            Commit: ${{ github.sha }}
+            Autor: ${{ steps.author.outputs.author }}
+            ${{ github.event.inputs.release_notes && format('Notas: {0}', github.event.inputs.release_notes) || '' }}
+          file: ${{ env.APP_APK_PATH }}
