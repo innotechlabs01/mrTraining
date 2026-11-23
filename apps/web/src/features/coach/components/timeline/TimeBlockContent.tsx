@@ -21,7 +21,7 @@ export function TimeBlockContent({ children, isLoading }: TimeBlockContentProps)
         >
           <div className="flex flex-col items-center gap-3">
             <div className="w-6 h-6 rounded-full border-2 border-brand-primary/30 border-t-brand-primary animate-spin" />
-            <span className="text-xs text-[#6B7280]">Loading...</span>
+            <span className="text-xs text-[#9CA3AF]">Loading...</span>
           </div>
         </motion.div>
       ) : (

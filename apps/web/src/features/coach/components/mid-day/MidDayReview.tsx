@@ -78,7 +78,7 @@ export default function MidDayReview() {
         animate={{ opacity: 1, y: 0 }}
         className="glass-card rounded-lg p-8 text-center"
       >
-        <Sun className="w-12 h-12 text-[#6B7280] mx-auto mb-4" />
+        <Sun className="w-12 h-12 text-[#9CA3AF] mx-auto mb-4" />
         <h3 className="text-lg font-semibold mb-2">Morning complete, no afternoon sessions</h3>
         <p className="text-sm text-secondary">
           Your morning is done and there&apos;s nothing scheduled for the afternoon. Enjoy the rest of your day!
@@ -115,7 +115,7 @@ export default function MidDayReview() {
           icon={Flag}
           label="Flags"
           value={flaggedAthletes.length}
-          color={flaggedAthletes.length > 0 ? 'text-warning' : 'text-[#6B7280]'}
+          color={flaggedAthletes.length > 0 ? 'text-warning' : 'text-[#9CA3AF]'}
         />
       </motion.div>
 
@@ -126,7 +126,7 @@ export default function MidDayReview() {
           transition={{ delay: 0.1 }}
           className="space-y-2"
         >
-          <p className="text-xs text-[#6B7280] font-medium uppercase tracking-wider">Completed Sessions</p>
+          <p className="text-xs text-[#9CA3AF] font-medium uppercase tracking-wider">Completed Sessions</p>
           {completedSessions.map((s) => (
             <div key={s.id} className="glass-card rounded-lg p-3 flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-success shrink-0" />
@@ -134,7 +134,7 @@ export default function MidDayReview() {
                 <p className="text-sm font-medium text-white truncate">{s.name}</p>
                 <p className="text-xs text-secondary">{s.location}</p>
               </div>
-              <span className="text-xs text-[#6B7280]">{s.athleteIds.length} athletes</span>
+              <span className="text-xs text-[#9CA3AF]">{s.athleteIds.length} athletes</span>
             </div>
           ))}
         </motion.div>
@@ -147,7 +147,7 @@ export default function MidDayReview() {
           transition={{ delay: 0.2 }}
           className="space-y-2"
         >
-          <p className="text-xs text-[#6B7280] font-medium uppercase tracking-wider">Afternoon Sessions</p>
+          <p className="text-xs text-[#9CA3AF] font-medium uppercase tracking-wider">Afternoon Sessions</p>
           {afternoonSessions.map((s) => (
             <div key={s.id} className="glass-card rounded-lg p-3 flex items-center gap-3">
               <Calendar className="w-4 h-4 text-brand-primary shrink-0" />
@@ -155,7 +155,7 @@ export default function MidDayReview() {
                 <p className="text-sm font-medium text-white truncate">{s.name}</p>
                 <p className="text-xs text-secondary">{s.time} · {s.location}</p>
               </div>
-              <span className="text-xs text-[#6B7280]">{s.athleteIds.length} athletes</span>
+              <span className="text-xs text-[#9CA3AF]">{s.athleteIds.length} athletes</span>
             </div>
           ))}
         </motion.div>

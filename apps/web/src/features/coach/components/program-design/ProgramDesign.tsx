@@ -104,11 +104,11 @@ export default function ProgramDesign() {
     return (
       <div className="flex flex-col items-center justify-center gap-6 rounded-xl bg-surface-1 p-12">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-3">
-          <Dumbbell className="h-8 w-8 text-[#6B7280]" />
+          <Dumbbell className="h-8 w-8 text-[#9CA3AF]" />
         </div>
         <div className="text-center">
           <p className="text-base font-medium text-white">No program yet</p>
-          <p className="mt-1 text-sm text-[#6B7280]">Generate or build one to get started</p>
+          <p className="mt-1 text-sm text-[#9CA3AF]">Generate or build one to get started</p>
         </div>
         <div className="flex gap-3">
           <button
@@ -188,7 +188,7 @@ export default function ProgramDesign() {
             type="button"
             className={cn(
               'flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-white/10 px-4 py-4',
-              'text-sm font-medium text-[#6B7280]',
+              'text-sm font-medium text-[#9CA3AF]',
               'transition-all duration-200 hover:border-white/20 hover:text-secondary',
             )}
           >

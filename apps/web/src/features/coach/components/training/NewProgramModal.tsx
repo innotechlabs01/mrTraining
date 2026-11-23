@@ -241,7 +241,7 @@ export default function NewProgramModal({ open, onClose, onSave }: NewProgramMod
         <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-hide">
           {/* Modality */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7280] mb-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF] mb-2">
               Modalidad
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -265,7 +265,7 @@ export default function NewProgramModal({ open, onClose, onSave }: NewProgramMod
                     <span className={cn('text-sm font-medium', selected ? 'text-white' : 'text-secondary')}>
                       {m.label}
                     </span>
-                    <span className="text-[10px] text-[#6B7280] leading-tight">{m.hint}</span>
+                    <span className="text-[10px] text-[#9CA3AF] leading-tight">{m.hint}</span>
                   </button>
                 );
               })}
@@ -463,7 +463,7 @@ export default function NewProgramModal({ open, onClose, onSave }: NewProgramMod
                   <NumberInput value={virtualDays} onChange={(v) => setVirtualDays(Number(v))} min={0} max={7} />
                 </Field>
               </div>
-              <p className="text-xs text-[#6B7280]">
+              <p className="text-xs text-[#9CA3AF]">
                 Total: {inPersonDays + virtualDays} días/sem
                 {inPersonDays + virtualDays !== sessionsPerWeek && (
                   <span className="text-amber-400"> · no coincide con “Sesiones/sem” ({sessionsPerWeek})</span>
@@ -487,7 +487,7 @@ export default function NewProgramModal({ open, onClose, onSave }: NewProgramMod
               'flex-1 h-11 rounded-md font-semibold text-sm transition-colors',
               valid
                 ? 'bg-brand-primary hover:bg-brand-primary-hover text-white'
-                : 'bg-surface-5 text-[#6B7280] cursor-not-allowed',
+                : 'bg-surface-5 text-[#9CA3AF] cursor-not-allowed',
             )}
           >
             Crear Programa
@@ -499,12 +499,12 @@ export default function NewProgramModal({ open, onClose, onSave }: NewProgramMod
 }
 
 const inputClass =
-  'w-full bg-surface-4 border border-white/10 rounded-md px-3 py-2 text-sm text-white placeholder:text-[#6B7280] outline-none focus:border-brand-primary/50 transition-colors';
+  'w-full bg-surface-4 border border-white/10 rounded-md px-3 py-2 text-sm text-white placeholder:text-[#9CA3AF] outline-none focus:border-brand-primary/50 transition-colors';
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-xs text-[#6B7280] mb-1.5">{label}</span>
+      <span className="block text-xs text-[#9CA3AF] mb-1.5">{label}</span>
       {children}
     </label>
   );

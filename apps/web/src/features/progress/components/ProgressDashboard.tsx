@@ -78,7 +78,7 @@ function ProgressDashboardBase({ sportScores, trends, insights, className }: Pro
     <div className={className}>
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight">Progress Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-text-secondary mt-1">
           Multi-sport performance comparison and insights
         </p>
       </div>

@@ -79,7 +79,7 @@ export default function AthleteCheckIn() {
         animate={{ opacity: 1, y: 0 }}
         className="glass-card rounded-lg p-8 text-center"
       >
-        <Users className="w-12 h-12 text-[#6B7280] mx-auto mb-4" />
+        <Users className="w-12 h-12 text-[#9CA3AF] mx-auto mb-4" />
         <h3 className="text-lg font-semibold font-display mb-2">No athletes today</h3>
         <p className="text-sm text-secondary">
           Athletes will appear here once they&apos;re assigned to today&apos;s sessions.

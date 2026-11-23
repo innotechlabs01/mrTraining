@@ -66,11 +66,11 @@ export default function QuickNoteModal({ athleteName, onClose, onSave }: QuickNo
             onChange={(e) => setNote(e.target.value)}
             placeholder="Type your note..."
             rows={4}
-            className="w-full bg-surface-4 border border-white/10 rounded-md p-3 text-sm text-white placeholder:text-[#6B7280] resize-none outline-none focus:border-brand-primary/50 transition-colors"
+            className="w-full bg-surface-4 border border-white/10 rounded-md p-3 text-sm text-white placeholder:text-[#9CA3AF] resize-none outline-none focus:border-brand-primary/50 transition-colors"
           />
 
           <div>
-            <p className="text-xs text-[#6B7280] mb-2">Tags</p>
+            <p className="text-xs text-[#9CA3AF] mb-2">Tags</p>
             <div className="flex flex-wrap gap-2">
               {PRESET_TAGS.map((tag) => {
                 const selected = selectedTags.includes(tag)
@@ -101,7 +101,7 @@ export default function QuickNoteModal({ athleteName, onClose, onSave }: QuickNo
               'w-full h-11 rounded-md font-semibold text-sm transition-colors',
               note.trim()
                 ? 'bg-brand-primary hover:bg-brand-primary-hover text-white'
-                : 'bg-surface-5 text-[#6B7280] cursor-not-allowed',
+                : 'bg-surface-5 text-[#9CA3AF] cursor-not-allowed',
             )}
           >
             Save Note

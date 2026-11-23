@@ -43,7 +43,7 @@ export class ProgressErrorBoundary extends Component<Props, State> {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-text-secondary">
               {this.state.error?.message || 'An unexpected error occurred while loading the progress dashboard.'}
             </p>
             <button

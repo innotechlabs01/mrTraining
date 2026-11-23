@@ -33,7 +33,7 @@ export function LivePreview({
   return (
     <div className="coach-live-preview min-h-full bg-surface-0">
       {sections.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-full text-text-muted">
+        <div className="flex flex-col items-center justify-center h-full text-text-secondary">
           <p className="text-sm">El lienzo esta vacio. Agrega un bloque desde la paleta.</p>
         </div>
       ) : (

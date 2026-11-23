@@ -49,7 +49,7 @@ export default function EveningRecap() {
           </div>
           <div>
             <h2 className="text-xl font-semibold font-display text-white">Evening Recap</h2>
-            <p className="text-sm text-[#6B7280]">No hay resumen del dia aun.</p>
+            <p className="text-sm text-[#9CA3AF]">No hay resumen del dia aun.</p>
           </div>
         </motion.div>
       </motion.div>
@@ -71,7 +71,7 @@ export default function EveningRecap() {
         </div>
         <div>
           <h2 className="text-xl font-semibold font-display text-white">Evening Recap</h2>
-          <p className="text-sm text-[#6B7280]">
+          <p className="text-sm text-[#9CA3AF]">
             Cierre del día · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
         </div>
@@ -84,7 +84,7 @@ export default function EveningRecap() {
           </div>
           <div>
             <p className="text-lg font-semibold text-white">{completedSessions.length}</p>
-            <p className="text-xs text-[#6B7280]">Sesiones completadas</p>
+            <p className="text-xs text-[#9CA3AF]">Sesiones completadas</p>
           </div>
         </div>
         <div className="glass-card flex items-center gap-3 rounded-xl p-4">
@@ -93,7 +93,7 @@ export default function EveningRecap() {
           </div>
           <div>
             <p className="text-lg font-semibold text-white">{summary.notesCount}</p>
-            <p className="text-xs text-[#6B7280]">Notas registradas</p>
+            <p className="text-xs text-[#9CA3AF]">Notas registradas</p>
           </div>
         </div>
       </motion.div>

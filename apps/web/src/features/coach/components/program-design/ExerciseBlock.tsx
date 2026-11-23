@@ -24,7 +24,7 @@ export default function ExerciseBlock({ exercise, day }: ExerciseBlockProps) {
         'transition-all duration-200 cursor-default',
       )}
     >
-      <div className="shrink-0 cursor-grab text-[#6B7280]/40 transition-colors group-hover:text-[#6B7280]/70">
+      <div className="shrink-0 cursor-grab text-[#9CA3AF]/40 transition-colors group-hover:text-[#9CA3AF]/70">
         <GripVertical className="h-4 w-4" />
       </div>
 
@@ -36,7 +36,7 @@ export default function ExerciseBlock({ exercise, day }: ExerciseBlockProps) {
           </span>
         </div>
 
-        <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-[#6B7280]">
+        <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-[#9CA3AF]">
           <span>
             {exercise.sets} × {exercise.reps} reps
           </span>
@@ -54,7 +54,7 @@ export default function ExerciseBlock({ exercise, day }: ExerciseBlockProps) {
       </div>
 
       {exercise.notes && (
-        <span className="hidden shrink-0 text-xs text-[#6B7280]/60 sm:block">
+        <span className="hidden shrink-0 text-xs text-[#9CA3AF]/60 sm:block">
           {exercise.notes}
         </span>
       )}

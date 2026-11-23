@@ -92,7 +92,7 @@ export function CoachLandingCanvas(): JSX.Element {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full text-text-muted">
+      <div className="flex items-center justify-center h-full text-text-secondary">
         Cargando landings...
       </div>
     );
@@ -179,7 +179,7 @@ export function CoachLandingCanvas(): JSX.Element {
 
   if (!currentDoc) {
     return (
-      <div className="flex items-center justify-center h-full text-text-muted">
+      <div className="flex items-center justify-center h-full text-text-secondary">
         Selecciona una landing para editar.
       </div>
     );

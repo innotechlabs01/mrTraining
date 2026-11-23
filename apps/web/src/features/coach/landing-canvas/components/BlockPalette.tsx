@@ -43,7 +43,7 @@ export function BlockPalette({ onAdd }: BlockPaletteProps): JSX.Element {
               'bg-surface-2 border border-surface-3 text-text-secondary hover:bg-surface-3 hover:text-text-primary',
             )}
           >
-            <span className="text-text-muted">{blockTypeLabel(type)}</span>
+            <span className="text-text-secondary">{blockTypeLabel(type)}</span>
           </button>
         ))}
       </div>

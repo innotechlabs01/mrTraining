@@ -129,15 +129,15 @@ export default function CommunicationHub() {
 
           {!isLoading && threads.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16">
-              <Mail className="mb-3 h-10 w-10 text-[#6B7280]" />
-              <p className="text-sm text-[#6B7280]">No messages yet</p>
+              <Mail className="mb-3 h-10 w-10 text-[#9CA3AF]" />
+              <p className="text-sm text-[#9CA3AF]">No messages yet</p>
             </div>
           )}
 
           {!isLoading && filteredThreads.length === 0 && threads.length > 0 && (
             <div className="flex flex-col items-center justify-center py-16">
-              <MailOpen className="mb-3 h-10 w-10 text-[#6B7280]" />
-              <p className="text-sm text-[#6B7280]">No {activeTab} messages</p>
+              <MailOpen className="mb-3 h-10 w-10 text-[#9CA3AF]" />
+              <p className="text-sm text-[#9CA3AF]">No {activeTab} messages</p>
             </div>
           )}
 
@@ -170,7 +170,7 @@ export default function CommunicationHub() {
                           className="h-full w-full rounded-full object-cover"
                         />
                       ) : (
-                        <User className="h-4 w-4 text-[#6B7280]" />
+                        <User className="h-4 w-4 text-[#9CA3AF]" />
                       )}
                     </div>
                   ))}
@@ -184,14 +184,14 @@ export default function CommunicationHub() {
                       <span className="h-2 w-2 shrink-0 rounded-full bg-brand-primary" />
                     )}
                   </div>
-                  <p className="mt-0.5 truncate text-sm text-[#6B7280]">
+                  <p className="mt-0.5 truncate text-sm text-[#9CA3AF]">
                     {thread.lastMessage.content}
                   </p>
-                  <p className="mt-0.5 text-xs text-[#6B7280]/60">
+                  <p className="mt-0.5 text-xs text-[#9CA3AF]/60">
                     {thread.lastMessage.timestamp}
                   </p>
                 </div>
-                <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[#6B7280]" />
+                <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[#9CA3AF]" />
               </motion.button>
             ))}
         </div>
@@ -204,7 +204,7 @@ export default function CommunicationHub() {
                 AI-Suggested Messages
               </span>
             </div>
-            <p className="text-xs text-[#6B7280]">
+            <p className="text-xs text-[#9CA3AF]">
               Based on today&apos;s performance, consider sending:
             </p>
             <AnimatePresence>

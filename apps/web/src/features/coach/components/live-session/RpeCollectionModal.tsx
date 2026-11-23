@@ -111,7 +111,7 @@ export default function RpeCollectionModal({ athletes, onClose, onSubmit }: RpeC
               'w-full h-11 rounded-md font-semibold text-sm transition-colors',
               allRated
                 ? 'bg-brand-primary hover:bg-brand-primary-hover text-white'
-                : 'bg-surface-5 text-[#6B7280] cursor-not-allowed',
+                : 'bg-surface-5 text-[#9CA3AF] cursor-not-allowed',
             )}
           >
             {allRated

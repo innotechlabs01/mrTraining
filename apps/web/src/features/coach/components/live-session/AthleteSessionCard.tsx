@@ -58,21 +58,21 @@ export default function AthleteSessionCard({
               {currentExercise.name} · Set {currentExerciseIndex + 1}/{currentExercise.sets}
             </p>
           ) : status === 'complete' ? (
-            <p className="text-xs text-[#6B7280]">All exercises complete</p>
+            <p className="text-xs text-[#9CA3AF]">All exercises complete</p>
           ) : (
-            <p className="text-xs text-[#6B7280]">Waiting for next exercise</p>
+            <p className="text-xs text-[#9CA3AF]">Waiting for next exercise</p>
           )}
         </div>
 
         <div className="flex flex-col items-end gap-1 shrink-0">
           <span className={cn(
             'text-xs uppercase tracking-wider',
-            status === 'active' ? 'text-success' : status === 'resting' ? 'text-warning' : 'text-[#6B7280]',
+            status === 'active' ? 'text-success' : status === 'resting' ? 'text-warning' : 'text-[#9CA3AF]',
           )}>
             {cfg.label}
           </span>
           {hr !== undefined && (
-            <span className="text-xs text-[#6B7280] tabular-nums">{hr} bpm</span>
+            <span className="text-xs text-[#9CA3AF] tabular-nums">{hr} bpm</span>
           )}
         </div>
       </div>
