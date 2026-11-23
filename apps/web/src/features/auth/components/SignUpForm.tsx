@@ -11,6 +11,11 @@ import { CodeInput } from './CodeInput';
 import { ErrorState } from './ErrorState';
 import { translateClerkError, ClerkApiError } from '../clerk-errors';
 import { useSelectedPlan, formatPlanPrice } from '../hooks/useSelectedPlan';
+import {
+  signUpEmailSchema,
+  signUpPasswordSchema,
+  signInCodeSchema,
+} from '@/lib/validators/auth';
 
 interface SignUpFormProps {
   onSuccess?: () => void;
@@ -75,8 +80,6 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
   // Note: Clerk automatically abandons previous sign-up when create() is called with a different email
   // No explicit abandon() method needed on SignUpResource
 
-  const validateEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
-
   const startResendCountdown = useCallback(() => {
     setResendCountdown(60);
   }, []);
@@ -92,8 +95,9 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
 
   const handleEmailSubmit = async () => {
     if (!isLoaded || !signUp) return;
-    if (!validateEmail(email)) {
-      setError('Please enter a valid email address');
+    const parsed = signUpEmailSchema.safeParse({ email });
+    if (!parsed.success) {
+      setError(parsed.error.errors[0]?.message ?? 'Correo inválido.');
       return;
     }
 
@@ -161,7 +165,12 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
   };
 
   const handleVerify = useCallback(async (verificationCode: string) => {
-    if (!isLoaded || !signUp || verificationCode.length < 6) return;
+    if (!isLoaded || !signUp) return;
+    const parsed = signInCodeSchema.safeParse({ code: verificationCode });
+    if (!parsed.success) {
+      setError(parsed.error.errors[0]?.message ?? 'Código inválido.');
+      return;
+    }
 
     setIsLoading(true);
     setError('');

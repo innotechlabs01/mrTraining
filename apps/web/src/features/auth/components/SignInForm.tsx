@@ -9,6 +9,11 @@ import { useSignIn, useClerk } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
 import { ErrorState } from './ErrorState';
 import { translateClerkError } from '../clerk-errors';
+import {
+  signInEmailSchema,
+  signInPasswordSchema,
+  signInCodeSchema,
+} from '@/lib/validators/auth';
 
 interface SignInFormProps {
   onSuccess?: () => void;
@@ -67,8 +72,6 @@ export function SignInForm({
     }
   }, [isLoaded, signIn]);
 
-  const validateEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
-
   const handleOAuth = async (strategy: 'oauth_google' | 'oauth_apple') => {
     if (!isLoaded || !signIn) return;
     try {
@@ -84,8 +87,9 @@ export function SignInForm({
 
   const handleEmailSubmit = async () => {
     if (!isLoaded || !signIn) return;
-    if (!validateEmail(email)) {
-      setError('Please enter a valid email address');
+    const parsed = signInEmailSchema.safeParse({ email });
+    if (!parsed.success) {
+      setError(parsed.error.errors[0]?.message ?? 'Correo inválido.');
       return;
     }
 
@@ -128,8 +132,9 @@ export function SignInForm({
 
   const handlePasswordSubmit = async () => {
     if (!isLoaded || !signIn || !setActive) return;
-    if (!password) {
-      setError('Ingresa tu contraseña.');
+    const parsed = signInPasswordSchema.safeParse({ password });
+    if (!parsed.success) {
+      setError(parsed.error.errors[0]?.message ?? 'Contraseña inválida.');
       return;
     }
 
@@ -178,6 +183,11 @@ export function SignInForm({
 
   const handleCodeSubmit = async () => {
     if (!isLoaded || !signIn || !setActive) return;
+    const parsed = signInCodeSchema.safeParse({ code });
+    if (!parsed.success) {
+      setError(parsed.error.errors[0]?.message ?? 'Código inválido.');
+      return;
+    }
 
     setIsLoading(true);
     setError('');
