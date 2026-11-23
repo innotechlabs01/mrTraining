@@ -1,10 +1,9 @@
 name: Security & Code Quality Audit
 
 on:
-  push:
-    branches: [main, dev, qa]
   pull_request:
-    branches: [main, dev, qa]
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -137,8 +136,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "pnpm"
-          cache-dependency-path: pnpm-lock.yaml
 
       - name: Audit JS/TS dependencies (High/Critical CVEs)
         run: |

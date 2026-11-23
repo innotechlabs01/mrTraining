@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - [in] `.githooks/pre-commit`: restaurados checks rápidos de Go API (`go mod tidy`, `go build`, `go test`) y Web (`pnpm lint`, `pnpm build`) junto con `validate-changelog.sh` — @frg (PR #1)
+- [in] Limpieza de CI: eliminado `ci.yml` duplicado, limitado `security-review.yml` a PRs hacia `main` / manual y removido `cache: "pnpm"` roto en `dependency-audit` — @frg (PR #1)
 - [mo] Actualización de `apps/mobile/plugins/withAndroidFirebaseAppDistribution.js` — @frg (PR #1)
 - [mo] `WorkoutExecutionScreen` + `AiWorkoutScreen`: validación de postura y distancia con cámara IA, calificación por semáforo (Bien/verde, Medio/amarillo, Mal/rojo), gating estricto por modal de Términos y Condiciones (`RecordingConsent`) y recuperación de progreso/consentimiento desde PostgreSQL tras actualizaciones de la app — @dev-react-native (PR pending)
 - [fe] Coach `AthleteRunningPanel` y `/coach/users/[id]/running/[workoutId]`: integración de workouts de running asignados (prescrito vs real + SSE en vivo) y sesiones GPS libres con gráficas de tendencia semanal, PRs y exportación CSV/GPX — @dev-front (PR pending)
@@ -64,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - [in] `.githooks/pre-commit`: restaurados checks rápidos de Go API (`go mod tidy`, `go build`, `go test`) y Web (`pnpm lint`, `pnpm build`) junto con `validate-changelog.sh` — @frg (PR #1)
+- [in] Limpieza de CI: eliminado `ci.yml` duplicado, limitado `security-review.yml` a PRs hacia `main` / manual y removido `cache: "pnpm"` roto en `dependency-audit` — @frg (PR #1)
 - [mo] Actualización de `apps/mobile/plugins/withAndroidFirebaseAppDistribution.js` — @frg (PR #1)
 - [be] gofmt handlers and running service test — @dev-backend (PR #?)
 
