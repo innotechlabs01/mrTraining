@@ -29,6 +29,8 @@ jobs:
   android-qa-distribute:
     name: Build Android QA APK with EAS & Distribute to Firebase
     runs-on: ubuntu-latest
+    env:
+      HAS_FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DEPLOY != '' }}
     defaults:
       run:
         working-directory: apps/mobile
@@ -177,7 +179,7 @@ jobs:
           echo "APP_APK_PATH=$PWD/app-qa-release.apk" >> $GITHUB_ENV
 
       - name: Distribute to Firebase App Distribution
-        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DEPLOY != '' }}
+        if: env.HAS_FIREBASE_SA == 'true'
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: '1:399408860598:android:9dc9797d89afbb9cd10517'
