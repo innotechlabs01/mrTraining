@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [fe] Esquemas de validación Zod para formularios de auth (sign-in, sign-up, verificación de código) — @frg (PR pending)
 - [fe] Labels explícitos en inputs de formularios de auth (accesibilidad y claridad UX) — @frg (PR pending)
 - [fe] sitemap.xml y robots.txt generados dinámicamente; metadata Open Graph, Twitter y alternates de idioma en root layout — @frg (PR pending)
+- [fix(web)] Contraste WCAG AA: --text-tertiary y --text-muted corregidos en dark y light mode (erano 3.5:1, ahora ≥4.5:1) — @frg (PR pending)
 - [be] Endpoint `POST /public/checkouts/:id/verify` para verificar transacciones Wompi (`PENDING`, `DECLINED`, `APPROVED`) y emitir `sign_in_token` de Clerk — @frg (PR pending)
 - [fe] Ruta pública `/payment/success` con polling automático, manejo de rechazo Wompi y auto-login transparente con Clerk ticket — @frg (PR pending)
 - [db] Migración `431_wearable_oauth_tokens_and_health_sync_fix.sql`: paridad de columnas `platform`/`scope`/`updated_at` en `wearable_oauth_tokens` + índice único idempotente en `athlete_sleep_logs(athlete_id, date, source)` — @dev-database (PR pending)
