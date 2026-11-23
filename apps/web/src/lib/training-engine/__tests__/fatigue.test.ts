@@ -88,7 +88,7 @@ describe('fatigue', () => {
         workout(2, [{ id: 'row', target: { muscleGroups: ['back'] }, sets: [{ completed: 1, weightKg: 100, reps: 10 }] }]),
         workout(40, [{ id: 'old-squat', target: { muscleGroups: ['legs'] }, sets: [{ completed: 1, weightKg: 500, reps: 10 }] }]),
       ]
-      const rows = [...balanceByMuscle(history, 7).values()]
+      const rows = [...balanceByMuscle(history, 7, FIXED_NOW).values()]
       const sum = rows.reduce((a, r) => a + r.share, 0)
       expect(rows.map(r => r.muscle).sort()).toEqual(['back', 'chest']) // 40-day session outside window
       expect(sum).toBeCloseTo(1, 6)
@@ -97,7 +97,7 @@ describe('fatigue', () => {
       const history: TrainingHistory = [workout(1, [
         { id: 'bench', target: { muscleGroups: ['chest'] }, sets: [{ completed: 1, weightKg: 80, reps: 8 }] },
       ])]
-      expect(neglectedMuscles(['Chest', 'Legs ', 'Back'], history, 7)).toEqual(['legs', 'back'])
+      expect(neglectedMuscles(['Chest', 'Legs ', 'Back'], history, 7, FIXED_NOW)).toEqual(['legs', 'back'])
     })
   })
 })

@@ -30,7 +30,10 @@ jest.mock('../useRunningAudio', () => ({
 }));
 
 function setOnline(online: boolean): void {
-  Object.defineProperty(navigator, 'onLine', {
+  if (typeof globalThis.navigator === 'undefined') {
+    (globalThis as unknown as { navigator: { onLine: boolean } }).navigator = { onLine: online };
+  }
+  Object.defineProperty(globalThis.navigator, 'onLine', {
     configurable: true,
     value: online,
   });
