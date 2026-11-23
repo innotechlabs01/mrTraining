@@ -28,7 +28,7 @@ interface AthleteDetailData {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg bg-white/[0.02] border border-white/5 p-4 space-y-3">
-      <h4 className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider">{title}</h4>
+      <h4 className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider">{title}</h4>
       {children}
     </div>
   )
@@ -37,8 +37,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
     <div className="flex items-center gap-3">
-      <Icon size={14} className="text-[#6B7280] shrink-0" />
-      <span className="text-xs text-[#6B7280] w-16 shrink-0">{label}</span>
+      <Icon size={14} className="text-[#9CA3AF] shrink-0" />
+      <span className="text-xs text-[#9CA3AF] w-16 shrink-0">{label}</span>
       <span className="text-sm text-white truncate">{value}</span>
     </div>
   )
@@ -113,7 +113,7 @@ function AthleteSection({
           { label: 'Recuperación', value: d.readiness?.recovery != null ? `${d.readiness.recovery}%` : '-', sub: (d.readiness?.recovery ?? 0) >= 70 ? 'Óptima' : 'Crítica', color: (d.readiness?.recovery ?? 0) >= 70 ? 'text-green-400' : 'text-red-400' },
         ].map((item) => (
           <div key={item.label} className="rounded-lg bg-white/[0.03] border border-white/5 p-3 text-center">
-            <div className="text-xs text-[#6B7280] uppercase tracking-wider mb-1">{item.label}</div>
+            <div className="text-xs text-[#9CA3AF] uppercase tracking-wider mb-1">{item.label}</div>
             <div className={`text-lg font-bold font-display ${item.color}`}>{item.value}</div>
             <div className={`text-[10px] mt-0.5 ${item.color}`}>{item.sub}</div>
           </div>
@@ -124,7 +124,7 @@ function AthleteSection({
         <InfoRow icon={Mail} label="Email" value={d.email ?? '-'} />
         <InfoRow icon={Phone} label="Teléfono" value={d.phone ?? '-'} />
         <InfoRow icon={CalendarDays} label="Desde" value={d.startDate ?? '-'} />
-        <div className="pt-1 text-[10px] text-[#6B7280] uppercase tracking-wider flex items-center gap-1">
+        <div className="pt-1 text-[10px] text-[#9CA3AF] uppercase tracking-wider flex items-center gap-1">
           <AlertTriangle size={10} />
           Contacto de emergencia: {d.emergencyContact ?? '-'}
         </div>
@@ -149,7 +149,7 @@ function AthleteSection({
               <CalendarDays size={14} className="text-brand-primary" />
               {d.schedule.days}
             </div>
-            <span className="text-xs text-[#6B7280]">·</span>
+            <span className="text-xs text-[#9CA3AF]">·</span>
             <span className="text-sm text-[#9CA3AF]">{d.schedule.time}</span>
           </div>
         </Section>
@@ -159,7 +159,7 @@ function AthleteSection({
         <div className="overflow-x-auto -mx-1">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-[#6B7280] uppercase tracking-wider border-b border-white/5">
+              <tr className="text-[#9CA3AF] uppercase tracking-wider border-b border-white/5">
                 <th className="text-left py-2 pr-2 font-medium">Mes</th>
                 <th className="text-right px-2 py-2 font-medium">Peso</th>
                 <th className="text-right px-2 py-2 font-medium">M. Muscular</th>
@@ -205,7 +205,7 @@ function AthleteSection({
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 text-[11px] text-[#6B7280]">
+            <div className="flex items-center gap-2 text-[11px] text-[#9CA3AF]">
               <Bluetooth size={10} />
               Última sincronización: {d.runningDevice.lastSync}
             </div>
@@ -297,7 +297,7 @@ function PanelContent() {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-center">
-                <p className="text-sm text-[#6B7280]">Select a conversation</p>
+                <p className="text-sm text-[#9CA3AF]">Select a conversation</p>
               </div>
             )}
           </div>
@@ -328,7 +328,7 @@ function PanelContent() {
 
           {location && (
             <div className="glass-card rounded-lg p-3">
-              <p className="text-xs text-[#6B7280] uppercase tracking-wider mb-1">Location</p>
+              <p className="text-xs text-[#9CA3AF] uppercase tracking-wider mb-1">Location</p>
               <p className="text-sm text-white">{location}</p>
             </div>
           )}

@@ -64,12 +64,12 @@ export default function AthleteReadinessCard({ athlete, onClick }: AthleteReadin
               <span className="shrink-0" title={flag.message}>
                 <Flag className={cn(
                   'w-3.5 h-3.5',
-                  flag.severity === 'high' ? 'text-error' : flag.severity === 'medium' ? 'text-warning' : 'text-[#6B7280]'
+                  flag.severity === 'high' ? 'text-error' : flag.severity === 'medium' ? 'text-warning' : 'text-[#9CA3AF]'
                 )} />
               </span>
             )}
           </div>
-          <p className="text-xs text-[#6B7280] truncate">{sport}</p>
+          <p className="text-xs text-[#9CA3AF] truncate">{sport}</p>
         </div>
 
         <div className={cn(
@@ -110,7 +110,7 @@ function MiniBar({ label, value, max, unit }: { label: string; value: number; ma
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-[#6B7280] w-14 shrink-0">{label}</span>
+      <span className="text-xs text-[#9CA3AF] w-14 shrink-0">{label}</span>
       <div className="flex-1 h-1.5 rounded-full bg-surface-5 overflow-hidden">
         <motion.div
           initial={{ width: 0 }}

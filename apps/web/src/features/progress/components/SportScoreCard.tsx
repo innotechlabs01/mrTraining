@@ -24,7 +24,7 @@ export function SportScoreCard({ sportLabel, icon: Icon, color, score, metrics, 
       <CardContent className="pt-4">
         <div className="flex items-baseline gap-2 mb-3">
           <span className="text-3xl font-bold" style={{ color }}>{score}</span>
-          <span className="text-sm text-muted-foreground">/ 100</span>
+          <span className="text-sm text-text-secondary">/ 100</span>
         </div>
         <div className="w-full bg-secondary rounded-full h-2.5 mb-3">
           <div
@@ -35,7 +35,7 @@ export function SportScoreCard({ sportLabel, icon: Icon, color, score, metrics, 
         <div className="space-y-1">
           {metrics.map((metric) => (
             <div key={metric.label} className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{metric.label}</span>
+              <span className="text-text-secondary">{metric.label}</span>
               <span className="font-medium">{metric.value}</span>
             </div>
           ))}

@@ -49,12 +49,12 @@ export function TimeBlockCard({ block, isActive, onClick }: TimeBlockCardProps) 
         isActive
           ? 'bg-surface-3 border-l-2 border-brand-primary text-white'
           : block.status === 'past'
-            ? 'text-[#6B7280] opacity-60 hover:opacity-80 hover:bg-surface-2'
+            ? 'text-[#9CA3AF] opacity-60 hover:opacity-80 hover:bg-surface-2'
             : 'text-[#9CA3AF] hover:text-white hover:bg-surface-2',
       )}
     >
       <span className="w-9 shrink-0 text-right">
-        <span className={cn('text-[11px] font-medium leading-tight', isActive ? 'text-white' : 'text-[#6B7280]')}>
+        <span className={cn('text-[11px] font-medium leading-tight', isActive ? 'text-white' : 'text-[#9CA3AF]')}>
           {block.time}
         </span>
       </span>

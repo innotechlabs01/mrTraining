@@ -24,7 +24,7 @@ export function ProgressTrendChart({ data, sportLabel, color, trend, className }
           <CardTitle className="text-lg">{sportLabel} Trend</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">No trend data available.</p>
+          <p className="text-sm text-text-secondary">No trend data available.</p>
         </CardContent>
       </Card>
     );
@@ -88,7 +88,7 @@ export function ProgressTrendChart({ data, sportLabel, color, trend, className }
           </svg>
         </div>
         {data.length > 1 && (
-          <div className="flex justify-between text-xs text-muted-foreground mt-1">
+          <div className="flex justify-between text-xs text-text-secondary mt-1">
             <span>{data[0].date}</span>
             <span>{data[data.length - 1].date}</span>
           </div>

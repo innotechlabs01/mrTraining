@@ -85,7 +85,7 @@ export default function ComposeMessageModal({ onClose, onSend }: ComposeMessageM
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-1.5 text-[#6B7280] transition-colors hover:bg-surface-3 hover:text-white"
+              className="rounded-lg p-1.5 text-[#9CA3AF] transition-colors hover:bg-surface-3 hover:text-white"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
@@ -140,7 +140,7 @@ export default function ComposeMessageModal({ onClose, onSend }: ComposeMessageM
 
               <div className="max-h-40 overflow-y-auto space-y-1.5 rounded-lg bg-surface-2 p-2">
                 {athletes.length === 0 && (
-                  <p className="py-4 text-center text-sm text-[#6B7280]">No athletes found</p>
+                  <p className="py-4 text-center text-sm text-[#9CA3AF]">No athletes found</p>
                 )}
                 {athletes.map((athlete) => (
                   <button
@@ -176,7 +176,7 @@ export default function ComposeMessageModal({ onClose, onSend }: ComposeMessageM
               </div>
 
               {selectedNames.length > 0 && (
-                <p className="mt-2 text-xs text-[#6B7280]">
+                <p className="mt-2 text-xs text-[#9CA3AF]">
                   To: {selectedNames.join(', ')}
                 </p>
               )}
@@ -192,7 +192,7 @@ export default function ComposeMessageModal({ onClose, onSend }: ComposeMessageM
                 placeholder="Type your message..."
                 rows={4}
                 className={cn(
-                  'w-full resize-none rounded-lg border border-white/10 bg-surface-3 px-4 py-3 text-sm text-white placeholder:text-[#6B7280]',
+                  'w-full resize-none rounded-lg border border-white/10 bg-surface-3 px-4 py-3 text-sm text-white placeholder:text-[#9CA3AF]',
                   'focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary',
                   'transition-all duration-200',
                 )}
@@ -204,7 +204,7 @@ export default function ComposeMessageModal({ onClose, onSend }: ComposeMessageM
                 className={cn(
                   'mt-2 flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200',
                   assisting
-                    ? 'bg-surface-3 text-[#6B7280] cursor-not-allowed'
+                    ? 'bg-surface-3 text-[#9CA3AF] cursor-not-allowed'
                     : 'glass-card text-brand-primary hover:bg-white/[0.08]',
                 )}
               >
@@ -228,7 +228,7 @@ export default function ComposeMessageModal({ onClose, onSend }: ComposeMessageM
                 'transition-all duration-200',
                 canSend
                   ? 'bg-brand-primary hover:bg-brand-primary-hover'
-                  : 'bg-surface-3 text-[#6B7280] cursor-not-allowed',
+                  : 'bg-surface-3 text-[#9CA3AF] cursor-not-allowed',
               )}
             >
               <Send className="h-4 w-4" />

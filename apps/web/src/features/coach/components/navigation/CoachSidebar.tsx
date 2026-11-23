@@ -113,7 +113,7 @@ export function CoachSidebar({ open, onClose, membershipStatus }: { open: boolea
             Coach OS
           </span>
         </div>
-        <button onClick={onClose} className="lg:hidden p-1.5 rounded-lg text-text-muted hover:text-text-secondary hover:bg-surface-3 transition-colors">
+        <button onClick={onClose} className="lg:hidden p-1.5 rounded-lg text-text-secondary hover:text-text-secondary hover:bg-surface-3 transition-colors">
           <X size={18} />
         </button>
       </div>
@@ -136,7 +136,7 @@ export function CoachSidebar({ open, onClose, membershipStatus }: { open: boolea
                 >
                   <div className={cn(
                     'flex items-center justify-center w-8 h-8 rounded-lg transition-colors',
-                    hasActiveChild ? 'bg-brand-primary/20 text-brand-primary' : 'bg-surface-3 text-text-muted group-hover:text-text-secondary',
+                    hasActiveChild ? 'bg-brand-primary/20 text-brand-primary' : 'bg-surface-3 text-text-secondary group-hover:text-text-secondary',
                   )}>
                     <item.icon size={17} />
                   </div>
@@ -144,7 +144,7 @@ export function CoachSidebar({ open, onClose, membershipStatus }: { open: boolea
                   <ChevronDown
                     size={14}
                     className={cn(
-                      'transition-transform duration-200 text-text-muted',
+                      'transition-transform duration-200 text-text-secondary',
                       isOpen && 'rotate-180',
                     )}
                   />
@@ -161,7 +161,7 @@ export function CoachSidebar({ open, onClose, membershipStatus }: { open: boolea
                             'w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all duration-200',
                             active
                               ? 'text-brand-primary bg-brand-primary/10 font-medium'
-                              : 'text-text-muted hover:text-text-secondary hover:bg-surface-3',
+                              : 'text-text-secondary hover:text-text-secondary hover:bg-surface-3',
                           )}
                         >
                           {active && <div className="w-1 h-1 rounded-full bg-brand-primary" />}
@@ -187,7 +187,7 @@ export function CoachSidebar({ open, onClose, membershipStatus }: { open: boolea
             >
               <div className={cn(
                 'flex items-center justify-center w-8 h-8 rounded-lg transition-colors',
-                active ? 'bg-brand-primary/20 text-brand-primary' : 'bg-surface-3 text-text-muted',
+                active ? 'bg-brand-primary/20 text-brand-primary' : 'bg-surface-3 text-text-secondary',
               )}>
                 <item.icon size={17} />
               </div>
@@ -200,7 +200,7 @@ export function CoachSidebar({ open, onClose, membershipStatus }: { open: boolea
 
         <div className="mx-3 mt-auto p-3 rounded-xl bg-surface-2 border border-surface-3">
           <div className="flex items-center gap-2 text-xs font-medium">
-            <span className="text-text-muted">Membresía</span>
+            <span className="text-text-secondary">Membresía</span>
             <span className={cn(
               'px-2 py-0.5 rounded-full text-xs font-semibold',
               membershipStatus === 'active' 

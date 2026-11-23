@@ -54,7 +54,7 @@ function TrendIcon({ trend }: { trend: 'improving' | 'declining' | 'stable' }) {
 function MetricBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-[#6B7280] w-16">{label}</span>
+      <span className="text-xs text-[#9CA3AF] w-16">{label}</span>
       <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
         <div
           className="h-full rounded-full"
@@ -164,7 +164,7 @@ export function FormMetricsDashboard() {
   if (stats.length === 0) {
     return (
       <div className="text-center py-12">
-        <Target size={48} className="text-[#6B7280] mx-auto mb-4" />
+        <Target size={48} className="text-[#9CA3AF] mx-auto mb-4" />
         <h3 className="text-white font-semibold mb-2">Sin datos de métricas</h3>
         <p className="text-[#9CA3AF] text-sm">
           Los atletas aún no han registrado métricas de forma.
@@ -220,26 +220,26 @@ export function FormMetricsDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-sm font-semibold text-white">{s.exerciseName}</h4>
-                <p className="text-xs text-[#6B7280]">{s.athleteName}</p>
+                <p className="text-xs text-[#9CA3AF]">{s.athleteName}</p>
               </div>
               <div className="flex items-center gap-2">
                 <TrendIcon trend={s.trend} />
-                <span className="text-xs text-[#6B7280]">{s.sessions} sesiones</span>
+                <span className="text-xs text-[#9CA3AF]">{s.sessions} sesiones</span>
               </div>
             </div>
 
             {/* Score summary */}
             <div className="grid grid-cols-3 gap-2 text-center">
               <div>
-                <p className="text-[10px] text-[#6B7280] uppercase">Mejor</p>
+                <p className="text-[10px] text-[#9CA3AF] uppercase">Mejor</p>
                 <ScoreBadge value={s.bestScore} />
               </div>
               <div>
-                <p className="text-[10px] text-[#6B7280] uppercase">Promedio</p>
+                <p className="text-[10px] text-[#9CA3AF] uppercase">Promedio</p>
                 <ScoreBadge value={s.avgScore} />
               </div>
               <div>
-                <p className="text-[10px] text-[#6B7280] uppercase">Peor</p>
+                <p className="text-[10px] text-[#9CA3AF] uppercase">Peor</p>
                 <ScoreBadge value={s.worstScore} />
               </div>
             </div>

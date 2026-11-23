@@ -33,7 +33,7 @@ export function ActionableInsights({ insights, className }: ActionableInsightsPr
       </CardHeader>
       <CardContent className="space-y-3">
         {insights.length === 0 && (
-          <p className="text-sm text-muted-foreground">No insights available yet.</p>
+          <p className="text-sm text-text-secondary">No insights available yet.</p>
         )}
         {insights.map((insight, index) => {
           const config = insightConfig[insight.type];

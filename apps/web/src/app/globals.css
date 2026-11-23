@@ -25,8 +25,9 @@
     --border: #E2E8F0;
     --text: #0F172A;
     --text-secondary: #475569;
-    --text-tertiary: #8A8A8A;
-    --text-muted: #94A3B8;
+    /* WCAG AA: text on #F8FAFC needs ≥4.5:1. #8A8A8A/#94A3B8 fail. #6B7280 passes. */
+    --text-tertiary: #6B7280;
+    --text-muted: #6B7280;
     /* Text sitting ON the blue accent. Design system §1.1: never white on blue
        in dark mode. */
     --text-inverse: #FFFFFF;
@@ -46,8 +47,9 @@
     --border: #1C1C1C;
     --text: #FFFFFF;
     --text-secondary: #9CA3AF;
-    --text-tertiary: #6B7280;
-    --text-muted: #6B7280;
+    /* WCAG AA: text on #0A0B0D needs ≥4.5:1. #6B7280 = 3.5:1 (fail). #9CA3AF = 6.2:1 (pass). */
+    --text-tertiary: #9CA3AF;
+    --text-muted: #9CA3AF;
     --text-inverse: #111214;
 
     /* Elevation scale (design system §1.1 — dark). */

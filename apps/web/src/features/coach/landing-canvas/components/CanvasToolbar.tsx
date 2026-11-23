@@ -46,7 +46,7 @@ export function CanvasToolbar({
           className={cn(
             'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50',
             isSaving
-              ? 'bg-surface-2 text-text-muted border border-surface-3'
+              ? 'bg-surface-2 text-text-secondary border border-surface-3'
               : 'bg-brand-primary text-white hover:bg-brand-primary/90 border-transparent',
           )}
         >
@@ -64,7 +64,7 @@ export function CanvasToolbar({
           className={cn(
             'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50',
             isSaving
-              ? 'bg-surface-2 text-text-muted border border-surface-3'
+              ? 'bg-surface-2 text-text-secondary border border-surface-3'
               : isPublished
                 ? 'bg-emerald-500 text-white hover:bg-emerald-400 border-transparent'
                 : 'bg-brand-primary text-white hover:bg-brand-primary/90 border-transparent',

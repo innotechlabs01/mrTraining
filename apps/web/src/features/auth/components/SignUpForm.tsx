@@ -11,6 +11,11 @@ import { CodeInput } from './CodeInput';
 import { ErrorState } from './ErrorState';
 import { translateClerkError, ClerkApiError } from '../clerk-errors';
 import { useSelectedPlan, formatPlanPrice } from '../hooks/useSelectedPlan';
+import {
+  signUpEmailSchema,
+  signUpPasswordSchema,
+  signInCodeSchema,
+} from '@/lib/validators/auth';
 
 interface SignUpFormProps {
   onSuccess?: () => void;
@@ -75,8 +80,6 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
   // Note: Clerk automatically abandons previous sign-up when create() is called with a different email
   // No explicit abandon() method needed on SignUpResource
 
-  const validateEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
-
   const startResendCountdown = useCallback(() => {
     setResendCountdown(60);
   }, []);
@@ -92,8 +95,9 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
 
   const handleEmailSubmit = async () => {
     if (!isLoaded || !signUp) return;
-    if (!validateEmail(email)) {
-      setError('Please enter a valid email address');
+    const parsed = signUpEmailSchema.safeParse({ email });
+    if (!parsed.success) {
+      setError(parsed.error.errors[0]?.message ?? 'Correo inválido.');
       return;
     }
 
@@ -161,7 +165,12 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
   };
 
   const handleVerify = useCallback(async (verificationCode: string) => {
-    if (!isLoaded || !signUp || verificationCode.length < 6) return;
+    if (!isLoaded || !signUp) return;
+    const parsed = signInCodeSchema.safeParse({ code: verificationCode });
+    if (!parsed.success) {
+      setError(parsed.error.errors[0]?.message ?? 'Código inválido.');
+      return;
+    }
 
     setIsLoading(true);
     setError('');
@@ -289,8 +298,12 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
             className="flex flex-col gap-4"
           >
             <div className="relative">
+              <label htmlFor="email" className="sr-only">
+                Correo electrónico
+              </label>
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" />
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(''); }}
@@ -355,13 +368,18 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
               <p className="text-body-sm font-medium text-text-primary mt-1">{email}</p>
             </div>
 
-            <CodeInput
-              value={code}
-              onChange={handleCodeChange}
-              onComplete={handleVerify}
-              error={error}
-              isLoading={isLoading}
-            />
+            <div className="flex flex-col items-center gap-2">
+              <label htmlFor="verification-code" className="sr-only">
+                Código de verificación
+              </label>
+              <CodeInput
+                value={code}
+                onChange={handleCodeChange}
+                onComplete={handleVerify}
+                error={error}
+                isLoading={isLoading}
+              />
+            </div>
 
             <div className="text-center">
               {resendCountdown > 0 ? (
@@ -403,8 +421,12 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
             className="flex flex-col gap-4"
           >
             <div className="relative">
+              <label htmlFor="password" className="sr-only">
+                Contraseña
+              </label>
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" />
               <input
+                id="password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(''); }}

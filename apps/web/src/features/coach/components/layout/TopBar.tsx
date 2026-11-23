@@ -40,7 +40,7 @@ export function TopBar({ onMenuClick, user, membershipStatus }: { onMenuClick: (
         </button>
         <div className="hidden lg:block w-16 flex-shrink-0" />
         <h1 className="text-sm font-semibold text-text-primary tracking-tight flex-shrink-0">Today</h1>
-        <span className="hidden md:inline-flex items-center gap-1.5 text-xs text-text-muted whitespace-nowrap truncate shrink-0">
+        <span className="hidden md:inline-flex items-center gap-1.5 text-xs text-text-secondary whitespace-nowrap truncate shrink-0">
           <Clock size={12} className="flex-shrink-0" />
           {formatWeekday()}
         </span>
@@ -51,7 +51,7 @@ export function TopBar({ onMenuClick, user, membershipStatus }: { onMenuClick: (
           <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-2 border border-surface-3 shrink-0">
             <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[currentBlock.status]}`} />
             <span className="text-xs text-text-secondary font-medium">{currentBlock.label}</span>
-            <span className="text-[10px] text-text-muted">{currentBlock.time}</span>
+            <span className="text-[10px] text-text-secondary">{currentBlock.time}</span>
           </div>
         )}
 
@@ -94,7 +94,7 @@ export function TopBar({ onMenuClick, user, membershipStatus }: { onMenuClick: (
               await signOut();
               window.location.href = '/';
             }}
-            className="p-1.5 rounded-lg text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all"
+            className="p-1.5 rounded-lg text-text-secondary hover:text-red-400 hover:bg-red-500/10 transition-all"
             aria-label="Cerrar sesion"
           >
             <LogOut size={15} />

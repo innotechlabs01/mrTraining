@@ -103,7 +103,7 @@ export default function LiveSession() {
         animate={{ opacity: 1, y: 0 }}
         className="glass-card rounded-lg p-8 text-center"
       >
-        <Clock className="w-12 h-12 text-[#6B7280] mx-auto mb-4" />
+        <Clock className="w-12 h-12 text-[#9CA3AF] mx-auto mb-4" />
         <h3 className="text-lg font-semibold mb-2">No Active Sessions Yet</h3>
         <p className="text-sm text-secondary">
           Live sessions will appear here once they start. Currently in the preparation phase.
@@ -124,7 +124,7 @@ export default function LiveSession() {
         animate={{ opacity: 1, y: 0 }}
         className="glass-card rounded-lg p-8 text-center"
       >
-        <Activity className="w-12 h-12 text-[#6B7280] mx-auto mb-4" />
+        <Activity className="w-12 h-12 text-[#9CA3AF] mx-auto mb-4" />
         <h3 className="text-lg font-semibold mb-2">No Sessions In Progress</h3>
         <p className="text-sm text-secondary">
           There are no live sessions at the moment. Start a session to see athletes here.

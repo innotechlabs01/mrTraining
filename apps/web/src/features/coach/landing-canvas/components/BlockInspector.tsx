@@ -47,7 +47,7 @@ export function BlockInspector({
   if (!block) {
     return (
       <div className="coach-inspector p-4 bg-surface-1 border-l border-surface-3">
-        <p className="text-sm text-text-muted">
+        <p className="text-sm text-text-secondary">
           Selecciona un bloque para editar sus propiedades.
         </p>
       </div>
@@ -64,7 +64,7 @@ export function BlockInspector({
         </span>
         <button
           onClick={onDeselect}
-          className="text-xs text-text-muted hover:text-text-primary underline"
+          className="text-xs text-text-secondary hover:text-text-primary underline"
         >
           Deseleccionar
         </button>

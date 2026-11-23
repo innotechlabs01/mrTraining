@@ -16,7 +16,7 @@ const statusConfig: Record<CoachSession['status'], { label: string; className: s
   planned: { label: 'Planned', className: 'bg-surface-5 text-secondary' },
   ready: { label: 'Ready', className: 'bg-brand-primary/10 text-brand-primary' },
   'in-progress': { label: 'In Progress', className: 'bg-success/10 text-success' },
-  completed: { label: 'Completed', className: 'bg-surface-5 text-[#6B7280]' },
+  completed: { label: 'Completed', className: 'bg-surface-5 text-[#9CA3AF]' },
 }
 
 function Skeleton() {
@@ -115,7 +115,7 @@ export default function SessionPrep() {
         animate={{ opacity: 1, y: 0 }}
         className="glass-card rounded-lg p-8 text-center"
       >
-        <Calendar className="w-12 h-12 text-[#6B7280] mx-auto mb-4" />
+        <Calendar className="w-12 h-12 text-[#9CA3AF] mx-auto mb-4" />
         <h3 className="text-lg font-semibold font-display mb-2">No sessions planned</h3>
         <p className="text-sm text-secondary">
           Sessions will appear here once they&apos;re scheduled for today.
@@ -211,17 +211,17 @@ export default function SessionPrep() {
 
                       {session.exercises.length > 0 && (
                         <div className="space-y-1.5 mb-3">
-                          <p className="text-xs text-[#6B7280] font-medium uppercase tracking-wider">Exercises</p>
+                          <p className="text-xs text-[#9CA3AF] font-medium uppercase tracking-wider">Exercises</p>
                           {session.exercises.map((ex) => (
                             <div
                               key={ex.id}
                               className="flex items-center gap-2 text-xs text-secondary"
                             >
-                              <Dumbbell className="w-3 h-3 text-[#6B7280] shrink-0" />
+                              <Dumbbell className="w-3 h-3 text-[#9CA3AF] shrink-0" />
                               <span className="flex-1">{ex.name}</span>
                               <span className="tabular-nums">{ex.sets}×{ex.reps}</span>
-                              {ex.weight && <span className="text-[#6B7280]">{ex.weight}kg</span>}
-                              <span className="text-[#6B7280]">{ex.rest}s rest</span>
+                              {ex.weight && <span className="text-[#9CA3AF]">{ex.weight}kg</span>}
+                              <span className="text-[#9CA3AF]">{ex.rest}s rest</span>
                             </div>
                           ))}
                         </div>
@@ -230,7 +230,7 @@ export default function SessionPrep() {
                       {session.aiAdjustments && session.aiAdjustments.length > 0 && (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <p className="text-xs text-[#6B7280] font-medium uppercase tracking-wider">AI Adjustments</p>
+                            <p className="text-xs text-[#9CA3AF] font-medium uppercase tracking-wider">AI Adjustments</p>
                             {activeAdjustments.length > 1 && (
                               <button
                                 onClick={() => applyAll(session)}
@@ -307,7 +307,7 @@ function AdjustmentCard({
           </div>
         </div>
       </div>
-      <p className="text-xs text-[#6B7280] italic">&quot;{suggestion.reasoning}&quot;</p>
+      <p className="text-xs text-[#9CA3AF] italic">&quot;{suggestion.reasoning}&quot;</p>
       <div className="flex items-center gap-2">
         <button
           onClick={onApply}

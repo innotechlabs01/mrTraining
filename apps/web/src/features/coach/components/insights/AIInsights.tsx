@@ -151,11 +151,11 @@ export default function AIInsights() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 rounded-xl bg-surface-1 p-12">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-3">
-          <Brain className="h-8 w-8 text-[#6B7280]" />
+          <Brain className="h-8 w-8 text-[#9CA3AF]" />
         </div>
         <div className="text-center">
           <p className="text-base font-medium text-white">All caught up</p>
-          <p className="mt-1 text-sm text-[#6B7280]">
+          <p className="mt-1 text-sm text-[#9CA3AF]">
             No new insights at this time
           </p>
         </div>
@@ -214,7 +214,7 @@ export default function AIInsights() {
                     'mt-3 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium',
                     'transition-all duration-200',
                     insight.actionLabel === 'Dismiss'
-                      ? 'bg-surface-3 text-[#6B7280] hover:text-white'
+                      ? 'bg-surface-3 text-[#9CA3AF] hover:text-white'
                       : 'bg-brand-primary/15 text-brand-primary hover:bg-brand-primary/25',
                   )}
                 >

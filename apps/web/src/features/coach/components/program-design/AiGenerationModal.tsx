@@ -126,7 +126,7 @@ export default function AiGenerationModal({ onClose, onApply }: AiGenerationModa
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-1.5 text-[#6B7280] transition-colors hover:bg-surface-3 hover:text-white"
+              className="rounded-lg p-1.5 text-[#9CA3AF] transition-colors hover:bg-surface-3 hover:text-white"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
@@ -256,7 +256,7 @@ export default function AiGenerationModal({ onClose, onApply }: AiGenerationModa
                   />
                 </div>
                 <p className="text-sm font-medium text-white">Generating your program...</p>
-                <p className="mt-1 text-xs text-[#6B7280]">
+                <p className="mt-1 text-xs text-[#9CA3AF]">
                   AI is designing {selectedDays.length}-day {focus} program
                 </p>
               </div>
@@ -288,7 +288,7 @@ export default function AiGenerationModal({ onClose, onApply }: AiGenerationModa
                             className="flex items-center justify-between rounded-md bg-surface-3 px-3 py-2"
                           >
                             <span className="text-sm text-white">{ex.name}</span>
-                            <span className="text-xs text-[#6B7280]">
+                            <span className="text-xs text-[#9CA3AF]">
                               {ex.sets}×{ex.reps} @ {ex.rest}s
                             </span>
                           </div>

@@ -119,7 +119,7 @@ export default function DailySummaryComponent() {
           className="text-center"
         >
           <h2 className="text-xl font-semibold font-display text-white">Today&apos;s Summary</h2>
-          <p className="mt-1 text-sm text-[#6B7280]">
+          <p className="mt-1 text-sm text-[#9CA3AF]">
             {new Date().toLocaleDateString('en-US', {
               weekday: 'long',
               month: 'long',
@@ -139,7 +139,7 @@ export default function DailySummaryComponent() {
           </div>
           <div>
             <p className="text-lg font-semibold text-white">{summary.athleteCount}</p>
-            <p className="text-xs text-[#6B7280]">Athletes trained</p>
+            <p className="text-xs text-[#9CA3AF]">Athletes trained</p>
           </div>
         </div>
         <div className="glass-card flex items-center gap-3 rounded-xl p-4">
@@ -148,7 +148,7 @@ export default function DailySummaryComponent() {
           </div>
           <div>
             <p className="text-lg font-semibold text-white">{summary.completedSessions}</p>
-            <p className="text-xs text-[#6B7280]">Sessions completed</p>
+            <p className="text-xs text-[#9CA3AF]">Sessions completed</p>
           </div>
         </div>
         <div className="glass-card flex items-center gap-3 rounded-xl p-4">
@@ -157,7 +157,7 @@ export default function DailySummaryComponent() {
           </div>
           <div>
             <p className="text-lg font-semibold text-white">{summary.messageCount}</p>
-            <p className="text-xs text-[#6B7280]">Messages sent</p>
+            <p className="text-xs text-[#9CA3AF]">Messages sent</p>
           </div>
         </div>
         <div className="glass-card flex items-center gap-3 rounded-xl p-4">
@@ -166,7 +166,7 @@ export default function DailySummaryComponent() {
           </div>
           <div>
             <p className="text-lg font-semibold text-white">{summary.notesCount}</p>
-            <p className="text-xs text-[#6B7280]">Notes logged</p>
+            <p className="text-xs text-[#9CA3AF]">Notes logged</p>
           </div>
         </div>
       </motion.div>
@@ -178,7 +178,7 @@ export default function DailySummaryComponent() {
         </div>
         <div className="space-y-2">
           {summary.highlights.length === 0 && (
-            <p className="py-4 text-center text-sm text-[#6B7280]">No highlights recorded today</p>
+            <p className="py-4 text-center text-sm text-[#9CA3AF]">No highlights recorded today</p>
           )}
           {summary.highlights.map((highlight, i) => (
             <motion.div
@@ -205,13 +205,13 @@ export default function DailySummaryComponent() {
           </div>
           <div className="mb-3 flex gap-4">
             <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-[#6B7280]" />
+              <Users className="h-4 w-4 text-[#9CA3AF]" />
               <span className="text-sm text-secondary">
                 {summary.tomorrowPreview.athleteCount} athletes
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <CalendarCheck className="h-4 w-4 text-[#6B7280]" />
+              <CalendarCheck className="h-4 w-4 text-[#9CA3AF]" />
               <span className="text-sm text-secondary">
                 {summary.tomorrowPreview.sessionCount} sessions
               </span>

@@ -60,7 +60,7 @@ export default function MessageThread({ thread, onBack }: MessageThreadProps) {
           <button
             type="button"
             onClick={onBack}
-            className="rounded-lg p-1.5 text-[#6B7280] transition-colors hover:bg-surface-3 hover:text-white"
+            className="rounded-lg p-1.5 text-[#9CA3AF] transition-colors hover:bg-surface-3 hover:text-white"
             aria-label="Back"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -75,7 +75,7 @@ export default function MessageThread({ thread, onBack }: MessageThreadProps) {
               {p.avatarUrl ? (
                 <img src={p.avatarUrl} alt={p.name} className="h-full w-full rounded-full object-cover" />
               ) : (
-                <User className="h-4 w-4 text-[#6B7280]" />
+                <User className="h-4 w-4 text-[#9CA3AF]" />
               )}
             </div>
           ))}
@@ -106,13 +106,13 @@ export default function MessageThread({ thread, onBack }: MessageThreadProps) {
                   )}
                 >
                   {!isCoach && (
-                    <p className="mb-0.5 text-xs font-medium text-[#6B7280]">{msg.senderName}</p>
+                    <p className="mb-0.5 text-xs font-medium text-[#9CA3AF]">{msg.senderName}</p>
                   )}
                   <p className="text-sm">{msg.content}</p>
                   <p
                     className={cn(
                       'mt-1 text-right text-xs',
-                      isCoach ? 'text-white/60' : 'text-[#6B7280]',
+                      isCoach ? 'text-white/60' : 'text-[#9CA3AF]',
                     )}
                   >
                     {msg.timestamp}
@@ -135,7 +135,7 @@ export default function MessageThread({ thread, onBack }: MessageThreadProps) {
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             className={cn(
-              'flex-1 rounded-lg bg-surface-3 px-4 py-2.5 text-sm text-white placeholder:text-[#6B7280]',
+              'flex-1 rounded-lg bg-surface-3 px-4 py-2.5 text-sm text-white placeholder:text-[#9CA3AF]',
               'border border-white/10 focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary',
               'transition-all duration-200',
             )}
@@ -148,7 +148,7 @@ export default function MessageThread({ thread, onBack }: MessageThreadProps) {
               'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-all duration-200',
               newMessage.trim()
                 ? 'bg-brand-primary text-white hover:bg-brand-primary-hover'
-                : 'bg-surface-3 text-[#6B7280]',
+                : 'bg-surface-3 text-[#9CA3AF]',
             )}
             aria-label="Send message"
           >

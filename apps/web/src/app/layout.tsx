@@ -30,26 +30,62 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://mr-training.vercel.app';
+
 export const metadata: Metadata = {
   title: {
-    default: 'MR Training — Unified Coaching Platform',
+    default: 'MR Training — El sistema operativo para entrenamiento deportivo',
     template: '%s | MR Training',
   },
   description:
-    'The unified coaching platform for modern coaches and their athletes. AI-powered programs, performance analytics, events, nutrition, and team communication.',
+    'MR Training es la plataforma unificada para coaches y atletas. Programas con IA, analítica de rendimiento, eventos, nutrición y comunicación en equipo.',
   keywords: [
-    'coaching platform',
-    'training software',
-    'athlete management',
-    'AI coaching',
-    'performance analytics',
+    'plataforma de entrenamiento',
+    'software para coaches',
+    'gestión de atletas',
+    'entrenamiento con IA',
+    'analítica de rendimiento',
+    'MR Training',
   ],
+  authors: [{ name: 'MR Training Inc.' }],
+  creator: 'MR Training Inc.',
+  publisher: 'MR Training Inc.',
   openGraph: {
-    title: 'MR Training — Unified Coaching Platform',
+    title: 'MR Training — El sistema operativo para entrenamiento deportivo',
     description:
-      'The unified coaching platform for modern coaches and their athletes.',
+      'MR Training es la plataforma unificada para coaches y atletas. Programas con IA, analítica de rendimiento, eventos, nutrición y comunicación en equipo.',
     type: 'website',
-    locale: 'es_US',
+    locale: 'es_ES',
+    alternateLocale: ['en_US', 'es_MX', 'es_AR', 'es_ES'],
+    url: SITE_URL,
+    siteName: 'MR Training',
+    images: [
+      {
+        url: `${SITE_URL}/images/og/og-default.png`,
+        width: 1200,
+        height: 630,
+        alt: 'MR Training — plataforma de entrenamiento deportivo',
+        type: 'image/png',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'MR Training — El sistema operativo para entrenamiento deportivo',
+    description:
+      'MR Training es la plataforma unificada para coaches y atletas.',
+    images: [`${SITE_URL}/images/og/og-default.png`],
+  },
+  alternates: {
+    canonical: SITE_URL,
+    languages: {
+      'es-ES': `${SITE_URL}`,
+      'es-MX': `${SITE_URL}/es-MX`,
+      'es-AR': `${SITE_URL}/es-AR`,
+      'en-US': `${SITE_URL}/en-US`,
+      en: `${SITE_URL}/en`,
+      es: `${SITE_URL}/es`,
+    },
   },
   icons: {
     icon: '/images/icon/icon_mr_rp.png',
