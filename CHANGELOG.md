@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- [fe] Componentes compartidos de error boundary, not-found y loading para todas las rutas de la web — @frg (PR pending)
 - [be] Endpoint `POST /public/checkouts/:id/verify` para verificar transacciones Wompi (`PENDING`, `DECLINED`, `APPROVED`) y emitir `sign_in_token` de Clerk — @frg (PR pending)
 - [fe] Ruta pública `/payment/success` con polling automático, manejo de rechazo Wompi y auto-login transparente con Clerk ticket — @frg (PR pending)
 - [db] Migración `431_wearable_oauth_tokens_and_health_sync_fix.sql`: paridad de columnas `platform`/`scope`/`updated_at` en `wearable_oauth_tokens` + índice único idempotente en `athlete_sleep_logs(athlete_id, date, source)` — @dev-database (PR pending)
