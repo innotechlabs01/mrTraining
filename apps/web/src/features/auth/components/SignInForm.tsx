@@ -342,8 +342,12 @@ export function SignInForm({
             className="flex flex-col gap-4"
           >
             <div className="relative">
+              <label htmlFor="email" className="sr-only">
+                Correo electrónico
+              </label>
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" />
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(''); }}
@@ -410,8 +414,12 @@ export function SignInForm({
             </button>
 
             <div className="relative">
+              <label htmlFor="password" className="sr-only">
+                Contraseña
+              </label>
               <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" />
               <input
+                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(''); }}
@@ -489,8 +497,12 @@ export function SignInForm({
             </div>
 
             <div className="relative">
+              <label htmlFor="code" className="sr-only">
+                Código de verificación
+              </label>
               <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" />
               <input
+                id="code"
                 type="text"
                 value={code}
                 onChange={(e) => { setCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(''); }}

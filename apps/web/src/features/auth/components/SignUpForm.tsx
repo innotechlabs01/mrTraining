@@ -298,8 +298,12 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
             className="flex flex-col gap-4"
           >
             <div className="relative">
+              <label htmlFor="email" className="sr-only">
+                Correo electrónico
+              </label>
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" />
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(''); }}
@@ -364,13 +368,18 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
               <p className="text-body-sm font-medium text-text-primary mt-1">{email}</p>
             </div>
 
-            <CodeInput
-              value={code}
-              onChange={handleCodeChange}
-              onComplete={handleVerify}
-              error={error}
-              isLoading={isLoading}
-            />
+            <div className="flex flex-col items-center gap-2">
+              <label htmlFor="verification-code" className="sr-only">
+                Código de verificación
+              </label>
+              <CodeInput
+                value={code}
+                onChange={handleCodeChange}
+                onComplete={handleVerify}
+                error={error}
+                isLoading={isLoading}
+              />
+            </div>
 
             <div className="text-center">
               {resendCountdown > 0 ? (
@@ -412,8 +421,12 @@ export function SignUpForm({ onSuccess, onBack }: SignUpFormProps) {
             className="flex flex-col gap-4"
           >
             <div className="relative">
+              <label htmlFor="password" className="sr-only">
+                Contraseña
+              </label>
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" />
               <input
+                id="password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(''); }}
