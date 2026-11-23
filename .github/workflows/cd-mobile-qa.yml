@@ -48,13 +48,13 @@ jobs:
       - name: Install EAS CLI
         run: npm install --global eas-cli
 
-      - name: Read app version from build.gradle
+      - name: Read app version from app.json
         id: version
         run: |
-          VERSION_CODE=$(grep -m1 'versionCode' android/app/build.gradle | awk '{print $2}' | tr -d ' ')
-          VERSION_NAME=$(grep -m1 'versionName' android/app/build.gradle | sed 's/.*versionName "\([^"]*\)".*/\1/')
+          VERSION_NAME=$(node -e "console.log(require('./app.json').expo.version || '')")
+          VERSION_CODE=$(node -e "console.log(require('./app.json').expo.android?.versionCode || process.env.GITHUB_RUN_NUMBER || '1')")
           if [ -z "$VERSION_CODE" ] || [ -z "$VERSION_NAME" ]; then
-            echo "❌ No se pudo leer versionCode/versionName de android/app/build.gradle"
+            echo "❌ No se pudo leer version/versionCode de app.json"
             exit 1
           fi
           echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
