@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- [in] Fix `cd-mobile-qa.yml`: imprime salida real de `eas-cli build` antes de fallar y agrega `--no-wait --json` para generar APK QA — @frg (PR #53)
 - [fe] Banner de periodo de prueba de 5 días con botón "Pagar membresía" y bloqueo del panel del coach al expirar los 5 días sin pago (`CoachLayout`), más badge/CTA de 5 días gratis por plan en `PlansSection` — @frg (PR #53)
 - [be] Trial de plataforma para coaches ajustado a 5 días por defecto según el plan seleccionado (`StartTrial`) — @frg (PR #53)
 - [be] Fix flujo checkout Wompi QA: `fetchWompiTransaction` respeta `WOMPI_ENV=sandbox`, `HandleVerify` marca `pending_checkouts` como `paid`, `assertPaymentApproved` acepta referencias de Payment Links, `EnsureUser` usa default de `is_active`, y normalización de `/` final en `CORS_ORIGINS` y `WEB_APP_URL` — @frg (PR pending)
@@ -56,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-XX-XX
 
 ### Added
+- [in] Fix `cd-mobile-qa.yml`: imprime salida real de `eas-cli build` antes de fallar y agrega `--no-wait --json` para generar APK QA — @frg (PR #53)
 - [fe] Banner de periodo de prueba de 5 días con botón "Pagar membresía" y bloqueo del panel del coach al expirar los 5 días sin pago (`CoachLayout`), más badge/CTA de 5 días gratis por plan en `PlansSection` — @frg (PR #53)
 - [be] Trial de plataforma para coaches ajustado a 5 días por defecto según el plan seleccionado (`StartTrial`) — @frg (PR #53)
 - [be] Fix flujo checkout Wompi QA: `fetchWompiTransaction` respeta `WOMPI_ENV=sandbox`, `HandleVerify` marca `pending_checkouts` como `paid`, `assertPaymentApproved` acepta referencias de Payment Links, `EnsureUser` usa default de `is_active`, y normalización de `/` final en `CORS_ORIGINS` y `WEB_APP_URL` — @frg (PR pending)
@@ -72,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [mo] Workout detail with AI insights on web and mobile — @dev-react-native (PR #?)
 
 ### Added
+- [in] Fix `cd-mobile-qa.yml`: imprime salida real de `eas-cli build` antes de fallar y agrega `--no-wait --json` para generar APK QA — @frg (PR #53)
 - [fe] Banner de periodo de prueba de 5 días con botón "Pagar membresía" y bloqueo del panel del coach al expirar los 5 días sin pago (`CoachLayout`), más badge/CTA de 5 días gratis por plan en `PlansSection` — @frg (PR #53)
 - [be] Trial de plataforma para coaches ajustado a 5 días por defecto según el plan seleccionado (`StartTrial`) — @frg (PR #53)
 - [be] Fix flujo checkout Wompi QA: `fetchWompiTransaction` respeta `WOMPI_ENV=sandbox`, `HandleVerify` marca `pending_checkouts` como `paid`, `assertPaymentApproved` acepta referencias de Payment Links, `EnsureUser` usa default de `is_active`, y normalización de `/` final en `CORS_ORIGINS` y `WEB_APP_URL` — @frg (PR pending)
@@ -81,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [be] Unit tests + improved resilience for data-migrate — @dev-backend (PR #?)
 
 ### Added
+- [in] Fix `cd-mobile-qa.yml`: imprime salida real de `eas-cli build` antes de fallar y agrega `--no-wait --json` para generar APK QA — @frg (PR #53)
 - [fe] Banner de periodo de prueba de 5 días con botón "Pagar membresía" y bloqueo del panel del coach al expirar los 5 días sin pago (`CoachLayout`), más badge/CTA de 5 días gratis por plan en `PlansSection` — @frg (PR #53)
 - [be] Trial de plataforma para coaches ajustado a 5 días por defecto según el plan seleccionado (`StartTrial`) — @frg (PR #53)
 - [be] Fix flujo checkout Wompi QA: `fetchWompiTransaction` respeta `WOMPI_ENV=sandbox`, `HandleVerify` marca `pending_checkouts` como `paid`, `assertPaymentApproved` acepta referencias de Payment Links, `EnsureUser` usa default de `is_active`, y normalización de `/` final en `CORS_ORIGINS` y `WEB_APP_URL` — @frg (PR pending)

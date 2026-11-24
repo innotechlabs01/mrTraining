@@ -118,8 +118,15 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          BUILD_OUTPUT=$(npx eas-cli build --platform android --profile qa --non-interactive 2>&1)
+          set +e
+          BUILD_OUTPUT=$(npx eas-cli build --platform android --profile qa --non-interactive --no-wait --json 2>&1)
+          BUILD_EXIT=$?
+          set -e
           echo "$BUILD_OUTPUT"
+          if [ "$BUILD_EXIT" -ne 0 ]; then
+            echo "❌ eas-cli build falló con código $BUILD_EXIT"
+            exit "$BUILD_EXIT"
+          fi
           BUILD_ID=$(echo "$BUILD_OUTPUT" | grep -oE '[a-f0-9-]{36}' | head -1)
           if [ -z "$BUILD_ID" ]; then
             echo "❌ No se pudo obtener el build ID de EAS"
