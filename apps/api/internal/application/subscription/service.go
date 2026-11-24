@@ -467,13 +467,13 @@ type StartTrialCommand struct {
 	TrialDays int
 }
 
-// StartTrial provisions a trial subscription (default 7 days) for the coach.
+// StartTrial provisions a trial subscription (default 5 days) for the coach.
 func (s *Service) StartTrial(ctx context.Context, cmd StartTrialCommand) (*subscription.Subscription, error) {
 	if cmd.CoachID == "" {
 		return nil, errors.BadRequest("coach_id is required")
 	}
 	if cmd.TrialDays <= 0 {
-		cmd.TrialDays = 7
+		cmd.TrialDays = 5
 	}
 
 	existing, err := s.subRepo.FindByAthlete(ctx, cmd.CoachID)
@@ -491,7 +491,7 @@ func (s *Service) StartTrial(ctx context.Context, cmd StartTrialCommand) (*subsc
 			if time.Now().UTC().Before(existing.CurrentPeriodEnd) {
 				return existing, nil
 			}
-			return nil, errors.BadRequest("el periodo de prueba de 7 días ya ha finalizado. Por favor adquiere un plan para continuar.")
+			return nil, errors.BadRequest("el periodo de prueba de 5 días ya ha finalizado. Por favor adquiere un plan para continuar.")
 		}
 	}
 

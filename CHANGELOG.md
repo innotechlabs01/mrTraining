@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- [fe] Banner de periodo de prueba de 5 días con botón "Pagar membresía" y bloqueo del panel del coach al expirar los 5 días sin pago (`CoachLayout`), más badge/CTA de 5 días gratis por plan en `PlansSection` — @frg (PR #53)
+- [be] Trial de plataforma para coaches ajustado a 5 días por defecto según el plan seleccionado (`StartTrial`) — @frg (PR #53)
 - [be] Fix flujo checkout Wompi QA: `fetchWompiTransaction` respeta `WOMPI_ENV=sandbox`, `HandleVerify` marca `pending_checkouts` como `paid`, `assertPaymentApproved` acepta referencias de Payment Links, `EnsureUser` usa default de `is_active`, y normalización de `/` final en `CORS_ORIGINS` y `WEB_APP_URL` — @frg (PR pending)
 - [fe] Componentes compartidos de error boundary, not-found y loading para todas las rutas de la web — @frg (PR pending)
 - [fe] Esquemas de validación Zod para formularios de auth (sign-in, sign-up, verificación de código) — @frg (PR pending)
@@ -54,6 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-XX-XX
 
 ### Added
+- [fe] Banner de periodo de prueba de 5 días con botón "Pagar membresía" y bloqueo del panel del coach al expirar los 5 días sin pago (`CoachLayout`), más badge/CTA de 5 días gratis por plan en `PlansSection` — @frg (PR #53)
+- [be] Trial de plataforma para coaches ajustado a 5 días por defecto según el plan seleccionado (`StartTrial`) — @frg (PR #53)
 - [be] Fix flujo checkout Wompi QA: `fetchWompiTransaction` respeta `WOMPI_ENV=sandbox`, `HandleVerify` marca `pending_checkouts` como `paid`, `assertPaymentApproved` acepta referencias de Payment Links, `EnsureUser` usa default de `is_active`, y normalización de `/` final en `CORS_ORIGINS` y `WEB_APP_URL` — @frg (PR pending)
 - [be] Endpoint `POST /public/checkouts/:id/verify` para verificar transacciones Wompi (`PENDING`, `DECLINED`, `APPROVED`) y emitir `sign_in_token` de Clerk — @frg (PR pending)
 - [fe] Ruta pública `/payment/success` con polling automático, manejo de rechazo Wompi y auto-login transparente con Clerk ticket — @frg (PR pending) - Running / GPS (S0–S11)
@@ -68,6 +72,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [mo] Workout detail with AI insights on web and mobile — @dev-react-native (PR #?)
 
 ### Added
+- [fe] Banner de periodo de prueba de 5 días con botón "Pagar membresía" y bloqueo del panel del coach al expirar los 5 días sin pago (`CoachLayout`), más badge/CTA de 5 días gratis por plan en `PlansSection` — @frg (PR #53)
+- [be] Trial de plataforma para coaches ajustado a 5 días por defecto según el plan seleccionado (`StartTrial`) — @frg (PR #53)
 - [be] Fix flujo checkout Wompi QA: `fetchWompiTransaction` respeta `WOMPI_ENV=sandbox`, `HandleVerify` marca `pending_checkouts` como `paid`, `assertPaymentApproved` acepta referencias de Payment Links, `EnsureUser` usa default de `is_active`, y normalización de `/` final en `CORS_ORIGINS` y `WEB_APP_URL` — @frg (PR pending)
 - [be] Endpoint `POST /public/checkouts/:id/verify` para verificar transacciones Wompi (`PENDING`, `DECLINED`, `APPROVED`) y emitir `sign_in_token` de Clerk — @frg (PR pending)
 - [fe] Ruta pública `/payment/success` con polling automático, manejo de rechazo Wompi y auto-login transparente con Clerk ticket — @frg (PR pending) - API / Backend
@@ -75,6 +81,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [be] Unit tests + improved resilience for data-migrate — @dev-backend (PR #?)
 
 ### Added
+- [fe] Banner de periodo de prueba de 5 días con botón "Pagar membresía" y bloqueo del panel del coach al expirar los 5 días sin pago (`CoachLayout`), más badge/CTA de 5 días gratis por plan en `PlansSection` — @frg (PR #53)
+- [be] Trial de plataforma para coaches ajustado a 5 días por defecto según el plan seleccionado (`StartTrial`) — @frg (PR #53)
 - [be] Fix flujo checkout Wompi QA: `fetchWompiTransaction` respeta `WOMPI_ENV=sandbox`, `HandleVerify` marca `pending_checkouts` como `paid`, `assertPaymentApproved` acepta referencias de Payment Links, `EnsureUser` usa default de `is_active`, y normalización de `/` final en `CORS_ORIGINS` y `WEB_APP_URL` — @frg (PR pending)
 - [be] Endpoint `POST /public/checkouts/:id/verify` para verificar transacciones Wompi (`PENDING`, `DECLINED`, `APPROVED`) y emitir `sign_in_token` de Clerk — @frg (PR pending)
 - [fe] Ruta pública `/payment/success` con polling automático, manejo de rechazo Wompi y auto-login transparente con Clerk ticket — @frg (PR pending) - Features

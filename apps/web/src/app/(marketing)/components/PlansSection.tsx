@@ -113,9 +113,9 @@ export function PlansSection({ plans, loading }: { plans: Plan[]; loading: boole
                     Recomendado
                   </div>
                 )}
-                {isStarter && (
+                {!isPro && (
                   <div className="absolute top-0 right-0 bg-brand-primary/15 border-b border-l border-brand-primary/30 text-brand-primary text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider">
-                    7 días gratis
+                    5 días gratis
                   </div>
                 )}
 
@@ -164,7 +164,7 @@ export function PlansSection({ plans, loading }: { plans: Plan[]; loading: boole
                     href={`/sign-up?trial=true&plan=${encodeURIComponent(plan.id)}`}
                     className="text-xs text-center text-gray-400 hover:text-white transition-colors py-1"
                   >
-                    O prueba gratis por 7 días →
+                    O prueba gratis por 5 días →
                   </Link>
                 </div>
               </div>
