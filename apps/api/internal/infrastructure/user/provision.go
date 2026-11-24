@@ -31,9 +31,11 @@ func (r *Repository) EnsureUser(ctx context.Context, id, email, name, role strin
 		return fmt.Errorf("ensure user: set rls context: %w", err)
 	}
 
+	// Omit is_active so PostgreSQL applies the column's DEFAULT (works whether
+	// users.is_active is INTEGER DEFAULT 1 or BOOLEAN DEFAULT true).
 	_, err = tx.ExecContext(ctx,
-		`INSERT INTO users (id, email, name, avatar_url, role, is_active, created_at, updated_at)
-		 VALUES ($1, $2, $3, '', $4, true, NOW(), NOW())
+		`INSERT INTO users (id, email, name, avatar_url, role, created_at, updated_at)
+		 VALUES ($1, $2, $3, '', $4, NOW(), NOW())
 		 ON CONFLICT (id) DO NOTHING`,
 		id, email, name, role)
 	if err != nil {
