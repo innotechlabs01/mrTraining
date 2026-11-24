@@ -206,7 +206,7 @@
       "apiBaseUrl": "https://mr-training-backend-fybayujyeq-uc.a.run.app",
       "goApiUrl": "https://mr-training-backend-fybayujyeq-uc.a.run.app",
       "eas": {
-        "projectId": "c4e4a8cc-bcf6-43cd-8d13-33bd46e6fea7"
+        "projectId": "ac276a6e-a4ef-41cc-96bd-a7ceed2f7c36"
       }
     },
     "owner": "innotechlabssas",
@@ -214,7 +214,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/c4e4a8cc-bcf6-43cd-8d13-33bd46e6fea7"
+      "url": "https://u.expo.dev/ac276a6e-a4ef-41cc-96bd-a7ceed2f7c36"
     }
   }
 }
