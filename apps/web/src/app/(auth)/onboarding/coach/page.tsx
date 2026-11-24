@@ -12,7 +12,7 @@ export default function CoachOnboardingPage() {
   // The profile is saved by the onboarding itself; the only thing left to do
   // is to land the coach in the coach area — never in the public landing.
   const handleComplete = () => {
-    router.push('/coach/plan');
+    router.push('/coach');
   };
 
   return (
@@ -20,7 +20,7 @@ export default function CoachOnboardingPage() {
       <CoachOnboarding
         selectedPlan={plan || undefined}
         onComplete={handleComplete}
-        onSkip={() => router.push('/coach/plan')}
+        onSkip={() => router.push('/coach')}
       />
     </AuthShell>
   );

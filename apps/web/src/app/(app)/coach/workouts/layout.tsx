@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils'
 const TABS = [
   { label: 'Ejercicios', href: '/coach/workouts/exercises' },
   { label: 'Creador', href: '/coach/workouts/builder' },
-  { label: 'Agenda', href: '/coach/workouts/schedule' },
 ]
 
 export default function WorkoutsLayout({ children }: { children: React.ReactNode }) {

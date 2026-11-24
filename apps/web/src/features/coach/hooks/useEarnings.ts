@@ -25,12 +25,21 @@ export function useEarnings() {
 
   const earnings: EarningsSummary | null = data ?? null
 
-  // Derived display values
-  const totalEarningsUsd = earnings ? earnings.totalEarningsCents / 100 : 0
-  const ownProfitUsd = earnings ? earnings.ownProfitCents / 100 : 0
-  const commissionTotalUsd = earnings ? earnings.commissionTotalCents / 100 : 0
-  const pendingUsd = earnings ? earnings.pendingCents / 100 : 0
-  const ownSalesTotalUsd = earnings ? earnings.ownSalesTotalCents / 100 : 0
+  // Derived display values (guard against missing/undefined fields to avoid NaN)
+  const toUsd = (cents: unknown) => {
+    const n = Number(cents)
+    return Number.isFinite(n) ? n / 100 : 0
+  }
+  const toCount = (val: unknown) => {
+    const n = Number(val)
+    return Number.isFinite(n) ? n : 0
+  }
+
+  const totalEarningsUsd = toUsd(earnings?.totalEarningsCents)
+  const ownProfitUsd = toUsd(earnings?.ownProfitCents)
+  const commissionTotalUsd = toUsd(earnings?.commissionTotalCents)
+  const pendingUsd = toUsd(earnings?.pendingCents)
+  const ownSalesTotalUsd = toUsd(earnings?.ownSalesTotalCents)
 
   return {
     earnings,
@@ -41,9 +50,9 @@ export function useEarnings() {
     commissionTotal: commissionTotalUsd,
     pending: pendingUsd,
     ownSalesTotal: ownSalesTotalUsd,
-    ownSalesCount: earnings?.ownSalesCount ?? 0,
-    commissionCount: earnings?.commissionCount ?? 0,
-    byAlly: earnings?.byAlly ?? [],
+    ownSalesCount: toCount(earnings?.ownSalesCount),
+    commissionCount: toCount(earnings?.commissionCount),
+    byAlly: Array.isArray(earnings?.byAlly) ? earnings.byAlly : [],
     refresh: loadEarnings,
   }
 }

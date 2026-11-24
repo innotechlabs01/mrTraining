@@ -600,30 +600,56 @@ export function CoachOnboarding({ onComplete, onSkip, selectedPlan }: CoachOnboa
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <span className="text-caption font-semibold text-text-primary uppercase tracking-wider">
-                  Tamaño del equipo
-                </span>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    aria-label="Quitar un atleta"
-                    onClick={() => setTeamSize((prev) => Math.max(1, prev - 1))}
-                    className="flex h-12 w-12 items-center justify-center rounded-md border border-surface-6 bg-surface-2 text-text-secondary hover:text-text-primary hover:border-surface-5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
-                  >
-                    <Minus className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                  <div className="flex h-12 flex-1 items-center justify-center rounded-md border border-surface-6 bg-surface-2 px-4">
-                    <span className="text-body font-semibold text-text-primary">{teamSize}</span>
-                  </div>
-                  <button
-                    type="button"
-                    aria-label="Añadir un atleta"
-                    onClick={() => setTeamSize((prev) => Math.min(999, prev + 1))}
-                    className="flex h-12 w-12 items-center justify-center rounded-md border border-surface-6 bg-surface-2 text-text-secondary hover:text-text-primary hover:border-surface-5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
-                  >
-                    <Plus className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                </div>
+                {(() => {
+                  const activePlan = plans.find((p) => p.id === planId);
+                  const maxTeamSize = activePlan?.max_athletes && activePlan.max_athletes > 0 ? activePlan.max_athletes : 999;
+                  const clampedSize = Math.min(teamSize, maxTeamSize);
+                  if (clampedSize !== teamSize) {
+                    setTeamSize(clampedSize);
+                  }
+                  return (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-caption font-semibold text-text-primary uppercase tracking-wider">
+                          Tamaño del equipo
+                        </span>
+                        {activePlan && (
+                          <span className="text-xs text-text-secondary">
+                            Máx. {maxTeamSize} atletas ({activePlan.name})
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          aria-label="Quitar un atleta"
+                          disabled={teamSize <= 1}
+                          onClick={() => setTeamSize((prev) => Math.max(1, prev - 1))}
+                          className="flex h-12 w-12 items-center justify-center rounded-md border border-surface-6 bg-surface-2 text-text-secondary hover:text-text-primary hover:border-surface-5 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                        >
+                          <Minus className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                        <div className="flex h-12 flex-1 items-center justify-center rounded-md border border-surface-6 bg-surface-2 px-4">
+                          <span className="text-body font-semibold text-text-primary">{clampedSize}</span>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label="Añadir un atleta"
+                          disabled={teamSize >= maxTeamSize}
+                          onClick={() => setTeamSize((prev) => Math.min(maxTeamSize, prev + 1))}
+                          className="flex h-12 w-12 items-center justify-center rounded-md border border-surface-6 bg-surface-2 text-text-secondary hover:text-text-primary hover:border-surface-5 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                        >
+                          <Plus className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      </div>
+                      {activePlan && teamSize >= maxTeamSize && (
+                        <p className="text-xs text-amber-400">
+                          Alcanzaste el límite de {maxTeamSize} atletas de {activePlan.name}. Si cambias de plan podrás ampliar el límite.
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="flex flex-col gap-1.5">
