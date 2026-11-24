@@ -127,6 +127,11 @@ function CheckoutClaim({ checkoutId }: { checkoutId: string }) {
         throw new Error(data.message ?? 'La transacción fue rechazada.');
       }
 
+      if (isSignedIn) {
+        void claim(1);
+        return;
+      }
+
       if (!signIn || !setActive || !data.sign_in_token) {
         throw new Error('No se pudo iniciar sesión automáticamente.');
       }
@@ -140,16 +145,18 @@ function CheckoutClaim({ checkoutId }: { checkoutId: string }) {
       setError(err instanceof Error ? err.message : 'No se pudo verificar el pago');
       setStatus('error');
     }
-  }, [checkoutId, transactionId, emailParam, envParam, signIn, setActive]);
+  }, [checkoutId, transactionId, emailParam, envParam, isSignedIn, signIn, setActive, claim]);
 
   useEffect(() => {
     if (!isLoaded) return;
-    if (!isSignedIn) {
-      if (transactionId && isSignInLoaded) {
+    if (transactionId) {
+      if (isSignedIn || isSignInLoaded) {
         void verifyAndSignIn(1);
-      } else if (!transactionId) {
-        setStatus('needs-account');
       }
+      return;
+    }
+    if (!isSignedIn) {
+      setStatus('needs-account');
       return;
     }
     void claim(1);
