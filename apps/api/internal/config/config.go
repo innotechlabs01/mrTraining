@@ -133,7 +133,7 @@ func Load() (*Config, error) {
 		FirebaseClientEmail: getEnv("FIREBASE_CLIENT_EMAIL", ""),
 		FirebasePrivateKey:  getEnv("FIREBASE_PRIVATE_KEY", ""),
 
-		CORSOrigins: getEnv("CORS_ORIGINS", "*"),
+		CORSOrigins: normalizeCORSOrigins(getEnv("CORS_ORIGINS", "*")),
 
 		RedisURL: getEnv("REDIS_URL", ""),
 
@@ -177,7 +177,7 @@ func Load() (*Config, error) {
 		// The frontend base URL is where the payment provider sends the payer
 		// back. It MUST NOT fall back to APP_URL: that points at this API and
 		// every return URL would 404.
-		WebAppURL:             getEnv("WEB_APP_URL", defaultWebAppURL()),
+		WebAppURL:             strings.TrimRight(strings.TrimSpace(getEnv("WEB_APP_URL", defaultWebAppURL())), "/"),
 
 		// Cloudflare R2
 		R2AccountID:            getEnv("R2_ACCOUNT_ID", ""),
@@ -289,4 +289,20 @@ func splitCSV(raw string) []string {
 		}
 	}
 	return out
+}
+
+// normalizeCORSOrigins trims whitespace and strips trailing slashes from each
+// comma-separated origin so values like "https://app.example.com/" match the
+// browser Origin header ("https://app.example.com").
+func normalizeCORSOrigins(raw string) string {
+	parts := splitCSV(raw)
+	if len(parts) == 0 {
+		return strings.TrimSpace(raw)
+	}
+	for i, p := range parts {
+		if p != "*" {
+			parts[i] = strings.TrimRight(p, "/")
+		}
+	}
+	return strings.Join(parts, ",")
 }

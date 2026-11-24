@@ -215,6 +215,18 @@ func (h *CheckoutHandler) HandleVerify(c *fiber.Ctx) error {
 		})
 	}
 
+	// Mark the pending checkout as paid immediately once Wompi confirms APPROVED
+	// so /claim does not fail with 409 if the webhook is delayed or not configured.
+	if marker, ok := h.svc.(interface {
+		MarkPaid(ctx context.Context, checkoutID, providerPaymentID string, amount float64, currency string) error
+	}); ok {
+		if checkoutID := strings.TrimSpace(c.Params("id")); checkoutID != "" {
+			if markErr := marker.MarkPaid(c.Context(), checkoutID, strings.TrimSpace(req.TransactionID), 0, ""); markErr != nil {
+				fmt.Printf("checkout verify mark paid warning (%s): %v\n", checkoutID, markErr)
+			}
+		}
+	}
+
 	email := strings.TrimSpace(req.Email)
 	if email == "" {
 		email = strings.TrimSpace(txEmail)
@@ -238,7 +250,9 @@ func (h *CheckoutHandler) HandleVerify(c *fiber.Ctx) error {
 
 func fetchWompiTransaction(ctx context.Context, txID, env string) (status, message, customerEmail string, err error) {
 	baseURL := "https://production.wompi.co/v1/transactions/"
-	if env == "test" || strings.HasPrefix(os.Getenv("WOMPI_PUBLIC_KEY"), "pub_test_") {
+	if env == "test" ||
+		strings.EqualFold(strings.TrimSpace(os.Getenv("WOMPI_ENV")), "sandbox") ||
+		strings.HasPrefix(os.Getenv("WOMPI_PUBLIC_KEY"), "pub_test_") {
 		baseURL = "https://sandbox.wompi.co/v1/transactions/"
 	}
 

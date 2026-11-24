@@ -332,7 +332,13 @@ func (s *Service) assertPaymentApproved(ctx context.Context, co *checkoutdomain.
 		return errors.Conflict("the payment was not approved")
 	}
 	// The payment must belong to THIS checkout.
-	if expected := co.Reference(); !strings.EqualFold(payment.ExternalReference, expected) {
+	// Direct API transactions carry ExternalReference == "checkout:<id>";
+	// Wompi Payment Links generate a transaction reference prefixed with the
+	// payment link ID (co.ProviderReference, e.g. "test_yzoKGa_<ts>_...").
+	expected := co.Reference()
+	matchesRef := strings.EqualFold(payment.ExternalReference, expected)
+	matchesLink := co.ProviderReference != "" && strings.HasPrefix(payment.ExternalReference, co.ProviderReference)
+	if !matchesRef && !matchesLink {
 		return errors.Conflict("the payment does not belong to this checkout")
 	}
 	return nil
