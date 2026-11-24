@@ -127,7 +127,20 @@ jobs:
             echo "❌ eas-cli build falló con código $BUILD_EXIT"
             exit "$BUILD_EXIT"
           fi
-          BUILD_ID=$(echo "$BUILD_OUTPUT" | grep -oE '[a-f0-9-]{36}' | head -1)
+          BUILD_ID=$(echo "$BUILD_OUTPUT" | node -e "
+            const raw = require('fs').readFileSync(0, 'utf8');
+            const start = raw.indexOf('[');
+            const objStart = raw.indexOf('{');
+            let parsed = null;
+            try {
+              if (start !== -1) parsed = JSON.parse(raw.slice(start));
+              else if (objStart !== -1) parsed = JSON.parse(raw.slice(objStart));
+            } catch {}
+            const item = Array.isArray(parsed) ? parsed[0] : parsed;
+            if (item && item.id) { console.log(item.id); process.exit(0); }
+            const m = raw.match(/[a-f0-9-]{36}/);
+            if (m) console.log(m[0]);
+          ")
           if [ -z "$BUILD_ID" ]; then
             echo "❌ No se pudo obtener el build ID de EAS"
             exit 1
@@ -138,19 +151,18 @@ jobs:
       - name: Wait for EAS build to complete
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          PROJECT_ID: ${{ steps.project.outputs.project_id }}
           BUILD_ID: ${{ steps.build.outputs.build_id }}
         run: |
           for i in $(seq 1 60); do
-            STATUS=$(curl -s -H "Authorization: Bearer $EXPO_TOKEN" \
-              "https://api.expo.dev/v2/projects/$PROJECT_ID/builds/$BUILD_ID" \
-              | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).status)}catch(e){console.log('UNKNOWN')}})")
+            STATUS=$(npx eas-cli build:view "$BUILD_ID" --json 2>/dev/null \
+              | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const s=d.indexOf('{');const j=JSON.parse(s>=0?d.slice(s):d);console.log(String(j.status||'UNKNOWN').toLowerCase())}catch(e){console.log('unknown')}})")
             echo "⏳ Estado del build ($i/60): $STATUS"
             if [ "$STATUS" = "finished" ]; then
               echo "✅ Build terminado"
               exit 0
             elif [ "$STATUS" = "errored" ] || [ "$STATUS" = "failed" ]; then
               echo "❌ Build falló"
+              npx eas-cli build:view "$BUILD_ID" || true
               exit 1
             elif [ "$STATUS" = "canceled" ]; then
               echo "❌ Build cancelado"
@@ -164,18 +176,16 @@ jobs:
       - name: Download APK artifact from EAS
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          PROJECT_ID: ${{ steps.project.outputs.project_id }}
           BUILD_ID: ${{ steps.build.outputs.build_id }}
         run: |
-          ARTIFACT_URL=$(curl -s -H "Authorization: Bearer $EXPO_TOKEN" \
-            "https://api.expo.dev/v2/projects/$PROJECT_ID/builds/$BUILD_ID" \
-            | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);console.log(j.artifacts?.appArchiveUrl || j.artifacts?.ipaUrl || '')}catch(e){process.exit(1)}}})")
+          ARTIFACT_URL=$(npx eas-cli build:view "$BUILD_ID" --json 2>/dev/null \
+            | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const s=d.indexOf('{');const j=JSON.parse(s>=0?d.slice(s):d);console.log(j.artifacts?.buildUrl || j.artifacts?.applicationArchiveUrl || j.artifacts?.appArchiveUrl || '')}catch(e){process.exit(1)}})")
           if [ -z "$ARTIFACT_URL" ]; then
             echo "❌ No se pudo obtener la URL del artifact de EAS"
             exit 1
           fi
           echo "⬇️  Descargando APK desde EAS..."
-          curl -L -H "Authorization: Bearer $EXPO_TOKEN" -o app-qa-release.apk "$ARTIFACT_URL"
+          curl -fL -o app-qa-release.apk "$ARTIFACT_URL"
           if [ ! -f app-qa-release.apk ] || [ ! -s app-qa-release.apk ]; then
             echo "❌ El APK descargado esta vacio o no existe"
             exit 1
