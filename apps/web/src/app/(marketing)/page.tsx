@@ -110,7 +110,7 @@ export default function MarketingLandingPage() {
         setCtaChecking(false);
         setCtaDestination(
           result === 'paid'
-            ? '/coach/plan'
+            ? '/coach'
             : '/payment/interstitial?plan=plan-seed-starter',
         );
       }).catch(() => {
