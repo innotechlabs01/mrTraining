@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- [fe] Sincronizado el periodo de prueba a 7 días gratis en `PlansSection` y `CoachLayout` (banner y bloqueo al vencer) — @frg (PR #56)
+- [be] Sincronizado `StartTrial` a 7 días por defecto en `apps/api` — @frg (PR #56)
 - [fe] Fixes QA coach dashboard: límite de tamaño de equipo según `max_athletes` del plan en `CoachOnboarding` (+ redirect a `/coach`), ocultada pestaña duplicada `Agenda` en `/coach/workouts`, corregidos `NaN` en `/coach/earnings` y modal responsive con scroll interno en `/coach/ventas` (`ProductDialog`) — @frg (PR pending)
 - [fe] Fix `/payment/success`: llama siempre a `/verify` cuando hay `transaction_id` (incluso con sesión activa) para confirmar con Wompi antes de `/claim`, y CTA de landing redirige al coach a `/coach` — @frg (PR pending)
 - [in] Fix `cd-mobile-qa.yml`: imprime salida real de `eas-cli build` antes de fallar y agrega `--no-wait --json` para generar APK QA — @frg (PR #53)
@@ -59,6 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-XX-XX
 
 ### Added
+- [fe] Sincronizado el periodo de prueba a 7 días gratis en `PlansSection` y `CoachLayout` (banner y bloqueo al vencer) — @frg (PR #56)
+- [be] Sincronizado `StartTrial` a 7 días por defecto en `apps/api` — @frg (PR #56)
 - [fe] Fixes QA coach dashboard: límite de tamaño de equipo según `max_athletes` del plan en `CoachOnboarding` (+ redirect a `/coach`), ocultada pestaña duplicada `Agenda` en `/coach/workouts`, corregidos `NaN` en `/coach/earnings` y modal responsive con scroll interno en `/coach/ventas` (`ProductDialog`) — @frg (PR pending)
 - [fe] Fix `/payment/success`: llama siempre a `/verify` cuando hay `transaction_id` (incluso con sesión activa) para confirmar con Wompi antes de `/claim`, y CTA de landing redirige al coach a `/coach` — @frg (PR pending)
 - [in] Fix `cd-mobile-qa.yml`: imprime salida real de `eas-cli build` antes de fallar y agrega `--no-wait --json` para generar APK QA — @frg (PR #53)
@@ -78,6 +82,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [mo] Workout detail with AI insights on web and mobile — @dev-react-native (PR #?)
 
 ### Added
+- [fe] Sincronizado el periodo de prueba a 7 días gratis en `PlansSection` y `CoachLayout` (banner y bloqueo al vencer) — @frg (PR #56)
+- [be] Sincronizado `StartTrial` a 7 días por defecto en `apps/api` — @frg (PR #56)
 - [fe] Fixes QA coach dashboard: límite de tamaño de equipo según `max_athletes` del plan en `CoachOnboarding` (+ redirect a `/coach`), ocultada pestaña duplicada `Agenda` en `/coach/workouts`, corregidos `NaN` en `/coach/earnings` y modal responsive con scroll interno en `/coach/ventas` (`ProductDialog`) — @frg (PR pending)
 - [fe] Fix `/payment/success`: llama siempre a `/verify` cuando hay `transaction_id` (incluso con sesión activa) para confirmar con Wompi antes de `/claim`, y CTA de landing redirige al coach a `/coach` — @frg (PR pending)
 - [in] Fix `cd-mobile-qa.yml`: imprime salida real de `eas-cli build` antes de fallar y agrega `--no-wait --json` para generar APK QA — @frg (PR #53)
@@ -90,6 +96,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [be] Unit tests + improved resilience for data-migrate — @dev-backend (PR #?)
 
 ### Added
+- [fe] Sincronizado el periodo de prueba a 7 días gratis en `PlansSection` y `CoachLayout` (banner y bloqueo al vencer) — @frg (PR #56)
+- [be] Sincronizado `StartTrial` a 7 días por defecto en `apps/api` — @frg (PR #56)
 - [fe] Fixes QA coach dashboard: límite de tamaño de equipo según `max_athletes` del plan en `CoachOnboarding` (+ redirect a `/coach`), ocultada pestaña duplicada `Agenda` en `/coach/workouts`, corregidos `NaN` en `/coach/earnings` y modal responsive con scroll interno en `/coach/ventas` (`ProductDialog`) — @frg (PR pending)
 - [fe] Fix `/payment/success`: llama siempre a `/verify` cuando hay `transaction_id` (incluso con sesión activa) para confirmar con Wompi antes de `/claim`, y CTA de landing redirige al coach a `/coach` — @frg (PR pending)
 - [in] Fix `cd-mobile-qa.yml`: imprime salida real de `eas-cli build` antes de fallar y agrega `--no-wait --json` para generar APK QA — @frg (PR #53)

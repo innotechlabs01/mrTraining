@@ -104,7 +104,7 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
             {isInTrial && (
               <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-xs sm:text-sm text-amber-200">
-                  Estás en tu periodo de prueba de 5 días
+                  Estás en tu periodo de prueba de 7 días
                   {platformSub?.plan_name ? ` (${platformSub.plan_name})` : ''}. Paga tu membresía para evitar el bloqueo de tu cuenta.
                 </p>
                 <Link
@@ -124,7 +124,7 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
                   </div>
                   <h1 className="text-xl font-bold text-white">Periodo de prueba finalizado</h1>
                   <p className="mt-2 text-sm text-gray-300">
-                    Han pasado más de 5 días desde que iniciaste tu prueba
+                    Han pasado más de 7 días desde que iniciaste tu prueba
                     {platformSub?.plan_name ? ` de ${platformSub.plan_name}` : ''} sin completar el pago.
                     Tu panel está bloqueado hasta activar tu membresía.
                   </p>
