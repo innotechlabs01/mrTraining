@@ -52,7 +52,7 @@ Si no sabes que regla aplica, lee `apps/rules/MASTER_PROMPT.md` primero.
 
 Si un cambio requiere modificar la base de datos (tabla, columna, índice, restricción, FK), el agente debe:
 1. Crear el archivo de migración correspondiente en `apps/api/migrations/postgres/`.
-2. Sincronizar y aplicar migraciones tanto localmente como en Supabase ejecutando `bash scripts/migrate-all.sh`. El hook de pre-commit (`.git/hooks/pre-commit`) ejecuta esta sincronización y aplicación automáticamente antes de cada commit.
+2. Sincronizar y aplicar migraciones tanto localmente como en Supabase ejecutando `bash scripts/migrate-all.sh`. El hook activo de pre-commit (`.githooks/pre-commit`, configurado con `core.hooksPath=.githooks`) ejecuta esta sincronización y aplicación automáticamente antes de cada commit, con `REQUIRE_LOCAL_DB=1` para no omitir la base local.
 3. Verificar que `go build ./...` y los tests unitarios correspondientes pasen.
 4. Solo entonces tocar el código Go/TypeScript que dependa de ese esquema.
 

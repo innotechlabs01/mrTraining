@@ -332,6 +332,11 @@ func TestCreateWorkoutTemplate(t *testing.T) {
 	if len(template.Exercises) != 2 {
 		t.Errorf("expected 2 exercises, got %d", len(template.Exercises))
 	}
+	for i, exercise := range template.Exercises {
+		if exercise.TemplateID != template.ID {
+			t.Errorf("expected exercise %d template ID %q, got %q", i, template.ID, exercise.TemplateID)
+		}
+	}
 }
 
 // TestAssignWorkout verifies that AssignWorkout creates an assignment.

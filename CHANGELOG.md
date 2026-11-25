@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- [in] T-041a: `.githooks/pre-commit` sincroniza y aplica migraciones en PostgreSQL local y Supabase QA en cada commit (`REQUIRE_LOCAL_DB=1`), auto-stagea los SQL sincronizados y `make install-hooks` activa `core.hooksPath=.githooks` — @frg (PR #61)
 - [db] Fix migración `438_coach_payout_accounts_and_public_event_registrations.sql`: comparación `e.is_public::text IN ('1', 'true', 't')` compatible con `INTEGER` y `BOOLEAN` (resuelve `SQLSTATE 42883` en `cd-qa.yml`) — @frg (PR pending)
 - [fe] Fix `/coach/ally`: normalización de respuestas en sobre `{ data }` con `toArray` para evitar `TypeError: e.map is not a function` — @frg (PR pending)
 - [db] T-038a: Migración `438_coach_payout_accounts_and_public_event_registrations.sql` con tablas `coach_payout_accounts` y `public_event_registrations` (RLS + grants `mr_training_app`) — @dev-backend-3 (PR #59)
@@ -62,6 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [in] Added dev-database role to orca-team pipeline and 14-team-workflow.md — @orca-team (internal)
 
 ### Fixed
+- [be] T-039a: Fix `POST /api/v1/workout-templates` 500 (`SQLSTATE 23503`, `workout_template_exercises_template_id_fkey`); `CreateWorkoutTemplate` now assigns the generated template ID to each exercise, with a regression test — @frg (PR #61, pending QA deploy)
+- [mo] T-040a: Fix build Android QA: `minSdkVersion: 26` moved to committed `app.json` so EAS manifest merge satisfies `androidx.health.connect:connect-client:1.1.0` (previous local override was gitignored), with a regression test — @frg (PR #61)
 - [in] Fix `scripts/migrate-all.sh`: conexión a Supabase QA vía Session Pooler IPv4 (`aws-0-us-east-2.pooler.supabase.com:5432`) y fallo explícito si QA falla — @dev-database (PR pending)
 - [be] Fix wearable/health PostgreSQL queries (`health/repository.go`: removidas funciones SQLite `datetime('now')`/`date('now')` y bug `$12`), URLs de Garmin (`?` en lugar de `$10`/`$11` en `garmin_provider.go`) y soporte dual `snake_case`/`camelCase` en `health_data.go` — @dev-backend (PR pending)
 - [fe] Fix `trainingApi.getHealth`: ruta `/api/v1/health/*` con normalización de `{metrics, sleepLogs, devices}` para mostrar Apple Watch, Garmin, HRV, RHR, sueño, pasos y VO2max en `AthleteHealthPanels` y badge de dispositivo en `AthleteRunningPanel` — @dev-front (PR pending)

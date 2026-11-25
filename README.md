@@ -107,7 +107,7 @@ Mobile / Web  ◀──  Go API (Fiber)  ◀──  Base de Datos
    ```bash
    bash scripts/migrate-all.sh
    ```
-3. El hook de pre-commit (`.git/hooks/pre-commit`) valida y ejecuta la sincronización antes de cada commit.
+3. El hook activo de pre-commit (`.githooks/pre-commit`) sincroniza y aplica las migraciones en PostgreSQL local y Supabase QA antes de cada commit (`REQUIRE_LOCAL_DB=1`); falla el commit si alguna base no está disponible o la migración falla.
 4. En CI de QA (`ci-qa.yml`), solo se compila y prueban unit tests estáticos (`go build ./...` y `go test ./internal/... -race -count=1`). La base de datos no se inicializa en los runners de CI.
 
 ---
