@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- [in] T-041a: `.githooks/pre-commit` sincroniza y aplica migraciones en PostgreSQL local y Supabase QA en cada commit (`REQUIRE_LOCAL_DB=1`), auto-stagea los SQL sincronizados y `make install-hooks` activa `core.hooksPath=.githooks` — @frg (PR #61)
 - [db] Fix migración `438_coach_payout_accounts_and_public_event_registrations.sql`: comparación `e.is_public::text IN ('1', 'true', 't')` compatible con `INTEGER` y `BOOLEAN` (resuelve `SQLSTATE 42883` en `cd-qa.yml`) — @frg (PR pending)
 - [fe] Fix `/coach/ally`: normalización de respuestas en sobre `{ data }` con `toArray` para evitar `TypeError: e.map is not a function` — @frg (PR pending)
 - [db] T-038a: Migración `438_coach_payout_accounts_and_public_event_registrations.sql` con tablas `coach_payout_accounts` y `public_event_registrations` (RLS + grants `mr_training_app`) — @dev-backend-3 (PR #59)

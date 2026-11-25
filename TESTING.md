@@ -29,13 +29,14 @@ make test-all
 ## Pre-commit Hook (`.githooks/pre-commit`)
 
 Runs automatically on `git commit`:
+- `scripts/migrate-all.sh` (sync + apply migrations on local PostgreSQL and Supabase QA, with `REQUIRE_LOCAL_DB=1`)
 - `go mod tidy` check
 - `go build ./...` 
 - Go unit tests (short)
 - `pnpm lint`
 - `pnpm build` (type check)
 
-Install: `cp .githooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit`
+Install: `git config core.hooksPath .githooks` (or `make install-hooks`)
 
 ## E2E Tests Requirements
 

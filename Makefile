@@ -73,8 +73,7 @@ dev-web:
 # Install hooks
 install-hooks:
 	@echo "📦 Installing git hooks..."
-	cp .githooks/pre-commit .git/hooks/pre-commit
-	chmod +x .git/hooks/pre-commit
+	git config core.hooksPath .githooks
 	@echo "✅ Hooks installed"
 
 # Full CI simulation locally
