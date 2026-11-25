@@ -33,11 +33,18 @@ export default function AllyDashboard() {
           listCoachCommissionEntries().catch(() => [] as CommissionEntry[]),
           listCoachSettlements().catch(() => [] as CoachSettlement[]),
         ]);
+        const toArray = <T,>(v: unknown): T[] => {
+          if (Array.isArray(v)) return v as T[];
+          if (v && typeof v === 'object' && Array.isArray((v as { data?: unknown }).data)) {
+            return (v as { data: T[] }).data;
+          }
+          return [];
+        };
         if (!cancelled) {
-          setAllies(alliesData);
-          setOperations(opsData);
-          setCommissions(commData);
-          setSettlements(settData);
+          setAllies(toArray<Ally>(alliesData));
+          setOperations(toArray<AllyOperation>(opsData));
+          setCommissions(toArray<CommissionEntry>(commData));
+          setSettlements(toArray<CoachSettlement>(settData));
         }
       } catch (err: unknown) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Error cargando aliados');

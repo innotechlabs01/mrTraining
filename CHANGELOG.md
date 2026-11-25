@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- [db] Fix migración `438_coach_payout_accounts_and_public_event_registrations.sql`: comparación `e.is_public::text IN ('1', 'true', 't')` compatible con `INTEGER` y `BOOLEAN` (resuelve `SQLSTATE 42883` en `cd-qa.yml`) — @frg (PR pending)
+- [fe] Fix `/coach/ally`: normalización de respuestas en sobre `{ data }` con `toArray` para evitar `TypeError: e.map is not a function` — @frg (PR pending)
 - [db] T-038a: Migración `438_coach_payout_accounts_and_public_event_registrations.sql` con tablas `coach_payout_accounts` y `public_event_registrations` (RLS + grants `mr_training_app`) — @dev-backend-3 (PR #59)
 - [be] T-038a: Endpoints `GET/PUT /api/v1/coach/payout-account` (cuenta bancaria del coach), `GET /public/events/:id`, `POST /public/events/:id/register` (inscripción pública sin login con rate-limit) y `GET /api/v1/events/:id/public-registrations` — @dev-backend-3 (PR #59)
 - [fe] T-038b: Formulario **Cuenta bancaria para pagos** en `/coach/earnings`, inscripción pública sin login en `/event/[id]`, contraste de botones Google/Apple en `/sign-in` y typo corregido en `/onboarding/coach` — @dev-front-3 (PR #59)
@@ -72,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-XX-XX
 
 ### Added
+- [db] Fix migración `438_coach_payout_accounts_and_public_event_registrations.sql`: comparación `e.is_public::text IN ('1', 'true', 't')` compatible con `INTEGER` y `BOOLEAN` (resuelve `SQLSTATE 42883` en `cd-qa.yml`) — @frg (PR pending)
+- [fe] Fix `/coach/ally`: normalización de respuestas en sobre `{ data }` con `toArray` para evitar `TypeError: e.map is not a function` — @frg (PR pending)
 - [db] T-038a: Migración `438_coach_payout_accounts_and_public_event_registrations.sql` con tablas `coach_payout_accounts` y `public_event_registrations` (RLS + grants `mr_training_app`) — @dev-backend-3 (PR #59)
 - [be] T-038a: Endpoints `GET/PUT /api/v1/coach/payout-account` (cuenta bancaria del coach), `GET /public/events/:id`, `POST /public/events/:id/register` (inscripción pública sin login con rate-limit) y `GET /api/v1/events/:id/public-registrations` — @dev-backend-3 (PR #59)
 - [fe] T-038b: Formulario **Cuenta bancaria para pagos** en `/coach/earnings`, inscripción pública sin login en `/event/[id]`, contraste de botones Google/Apple en `/sign-in` y typo corregido en `/onboarding/coach` — @dev-front-3 (PR #59)
@@ -104,6 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [mo] Workout detail with AI insights on web and mobile — @dev-react-native (PR #?)
 
 ### Added
+- [db] Fix migración `438_coach_payout_accounts_and_public_event_registrations.sql`: comparación `e.is_public::text IN ('1', 'true', 't')` compatible con `INTEGER` y `BOOLEAN` (resuelve `SQLSTATE 42883` en `cd-qa.yml`) — @frg (PR pending)
+- [fe] Fix `/coach/ally`: normalización de respuestas en sobre `{ data }` con `toArray` para evitar `TypeError: e.map is not a function` — @frg (PR pending)
 - [db] T-038a: Migración `438_coach_payout_accounts_and_public_event_registrations.sql` con tablas `coach_payout_accounts` y `public_event_registrations` (RLS + grants `mr_training_app`) — @dev-backend-3 (PR #59)
 - [be] T-038a: Endpoints `GET/PUT /api/v1/coach/payout-account` (cuenta bancaria del coach), `GET /public/events/:id`, `POST /public/events/:id/register` (inscripción pública sin login con rate-limit) y `GET /api/v1/events/:id/public-registrations` — @dev-backend-3 (PR #59)
 - [fe] T-038b: Formulario **Cuenta bancaria para pagos** en `/coach/earnings`, inscripción pública sin login en `/event/[id]`, contraste de botones Google/Apple en `/sign-in` y typo corregido en `/onboarding/coach` — @dev-front-3 (PR #59)
@@ -129,6 +135,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [be] Unit tests + improved resilience for data-migrate — @dev-backend (PR #?)
 
 ### Added
+- [db] Fix migración `438_coach_payout_accounts_and_public_event_registrations.sql`: comparación `e.is_public::text IN ('1', 'true', 't')` compatible con `INTEGER` y `BOOLEAN` (resuelve `SQLSTATE 42883` en `cd-qa.yml`) — @frg (PR pending)
+- [fe] Fix `/coach/ally`: normalización de respuestas en sobre `{ data }` con `toArray` para evitar `TypeError: e.map is not a function` — @frg (PR pending)
 - [db] T-038a: Migración `438_coach_payout_accounts_and_public_event_registrations.sql` con tablas `coach_payout_accounts` y `public_event_registrations` (RLS + grants `mr_training_app`) — @dev-backend-3 (PR #59)
 - [be] T-038a: Endpoints `GET/PUT /api/v1/coach/payout-account` (cuenta bancaria del coach), `GET /public/events/:id`, `POST /public/events/:id/register` (inscripción pública sin login con rate-limit) y `GET /api/v1/events/:id/public-registrations` — @dev-backend-3 (PR #59)
 - [fe] T-038b: Formulario **Cuenta bancaria para pagos** en `/coach/earnings`, inscripción pública sin login en `/event/[id]`, contraste de botones Google/Apple en `/sign-in` y typo corregido en `/onboarding/coach` — @dev-front-3 (PR #59)
