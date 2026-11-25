@@ -3,7 +3,8 @@ import { auth } from '@clerk/nextjs/server';
 
 export const dynamic = 'force-dynamic'
 
-const GO_API_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:9090';
+const GO_API_URL = process.env.GO_API_URL || process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:9090';
+const NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store' };
 
 async function getAuthToken(request: NextRequest) {
   // Intento 1: token de sesión de Clerk (SSR)
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
   try {
     const token = await getAuthToken(request);
     if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE_HEADERS });
     }
 
     const res = await fetch(`${GO_API_URL}/api/v1/admin/plans`, {
@@ -41,15 +42,15 @@ export async function GET(request: NextRequest) {
     });
 
     if (!res.ok) {
-      return NextResponse.json({ error: 'Failed to fetch plans' }, { status: res.status });
+      return NextResponse.json({ error: 'Failed to fetch plans' }, { status: res.status, headers: NO_STORE_HEADERS });
     }
 
     const data = await res.json();
     const plans = data && data.data ? data.data : data && data.Data ? data.Data : (Array.isArray(data) ? data : []);
-    return NextResponse.json(plans);
+    return NextResponse.json(plans, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('Error fetching plans:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
 
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
   try {
     const token = await getAuthToken(request);
     if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE_HEADERS });
     }
 
     const body = await request.json();
@@ -73,13 +74,13 @@ export async function POST(request: NextRequest) {
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({ error: 'Failed to create plan' }));
-      return NextResponse.json(error, { status: res.status });
+      return NextResponse.json(error, { status: res.status, headers: NO_STORE_HEADERS });
     }
 
     const data = await res.json();
-    return NextResponse.json(data, { status: 201 });
+    return NextResponse.json(data, { status: 201, headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('Error creating plan:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }

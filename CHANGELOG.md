@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- [se] T-036a: Cerrado account takeover en `POST /public/checkouts/:id/verify` (entorno Wompi solo por config servidor, validación de referencia/monto/moneda con soporte USD→COP en sandbox, email solo desde `co.Email`, bloqueo de `sign_in_token` para super-admin), eliminado bypass `"checkout:"` en `assertPaymentApproved`, y rate-limit + sanitización 500 en `/webhooks/errors` — @dev-backend (PR pending)
+- [fe] T-036b: Corregido redirect `checkout_url` en `/api/coach/subscription/checkout`, estandarizados `GO_API_URL` + `Cache-Control: private, no-store` + `encodeURIComponent` en BFFs autenticados, `/api/athlete/progress/summary` conectado al Go API y eliminado `env` cliente en `/payment/success` — @dev-front (PR pending)
+- [mo] T-036c: Mapeos explícitos `/athlete/membership/status` y `/plans` (longest-first) + limpieza de `:id` muertos en `GO_API_PATH_MAP`, y variables QA en `eas.json` — @dev-react-native (PR pending)
+- [in] T-036d: Endurecidos `cd-qa.yml`, `cd-mobile-qa.yml` (gate `typecheck` + `test`) y `ci-qa.yml` (`go vet ./...`) — @dev-backend (PR pending)
 - [mo] Corregido `owner` en `apps/mobile/app.json` (`innotechlabssass-team`) para coincidir con `projectId` `ac276a6e-a4ef-41cc-96bd-a7ceed2f7c36` y endurecido el polling/descarga de APK en `cd-mobile-qa.yml` con `eas-cli build:view --json` — @frg (PR pending)
 - [mo] Actualizado `extra.eas.projectId` y `updates.url` en `apps/mobile/app.json` a `ac276a6e-a4ef-41cc-96bd-a7ceed2f7c36` para alinear con `EXPO_TOKEN` en QA — @frg (PR #56)
 - [fe] Sincronizado el periodo de prueba a 7 días gratis en `PlansSection` y `CoachLayout` (banner y bloqueo al vencer) — @frg (PR #56)
@@ -63,6 +67,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-XX-XX
 
 ### Added
+- [se] T-036a: Cerrado account takeover en `POST /public/checkouts/:id/verify` (entorno Wompi solo por config servidor, validación de referencia/monto/moneda con soporte USD→COP en sandbox, email solo desde `co.Email`, bloqueo de `sign_in_token` para super-admin), eliminado bypass `"checkout:"` en `assertPaymentApproved`, y rate-limit + sanitización 500 en `/webhooks/errors` — @dev-backend (PR pending)
+- [fe] T-036b: Corregido redirect `checkout_url` en `/api/coach/subscription/checkout`, estandarizados `GO_API_URL` + `Cache-Control: private, no-store` + `encodeURIComponent` en BFFs autenticados, `/api/athlete/progress/summary` conectado al Go API y eliminado `env` cliente en `/payment/success` — @dev-front (PR pending)
+- [mo] T-036c: Mapeos explícitos `/athlete/membership/status` y `/plans` (longest-first) + limpieza de `:id` muertos en `GO_API_PATH_MAP`, y variables QA en `eas.json` — @dev-react-native (PR pending)
+- [in] T-036d: Endurecidos `cd-qa.yml`, `cd-mobile-qa.yml` (gate `typecheck` + `test`) y `ci-qa.yml` (`go vet ./...`) — @dev-backend (PR pending)
 - [mo] Corregido `owner` en `apps/mobile/app.json` (`innotechlabssass-team`) para coincidir con `projectId` `ac276a6e-a4ef-41cc-96bd-a7ceed2f7c36` y endurecido el polling/descarga de APK en `cd-mobile-qa.yml` con `eas-cli build:view --json` — @frg (PR pending)
 - [mo] Actualizado `extra.eas.projectId` y `updates.url` en `apps/mobile/app.json` a `ac276a6e-a4ef-41cc-96bd-a7ceed2f7c36` para alinear con `EXPO_TOKEN` en QA — @frg (PR #56)
 - [fe] Sincronizado el periodo de prueba a 7 días gratis en `PlansSection` y `CoachLayout` (banner y bloqueo al vencer) — @frg (PR #56)
@@ -86,6 +94,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [mo] Workout detail with AI insights on web and mobile — @dev-react-native (PR #?)
 
 ### Added
+- [se] T-036a: Cerrado account takeover en `POST /public/checkouts/:id/verify` (entorno Wompi solo por config servidor, validación de referencia/monto/moneda con soporte USD→COP en sandbox, email solo desde `co.Email`, bloqueo de `sign_in_token` para super-admin), eliminado bypass `"checkout:"` en `assertPaymentApproved`, y rate-limit + sanitización 500 en `/webhooks/errors` — @dev-backend (PR pending)
+- [fe] T-036b: Corregido redirect `checkout_url` en `/api/coach/subscription/checkout`, estandarizados `GO_API_URL` + `Cache-Control: private, no-store` + `encodeURIComponent` en BFFs autenticados, `/api/athlete/progress/summary` conectado al Go API y eliminado `env` cliente en `/payment/success` — @dev-front (PR pending)
+- [mo] T-036c: Mapeos explícitos `/athlete/membership/status` y `/plans` (longest-first) + limpieza de `:id` muertos en `GO_API_PATH_MAP`, y variables QA en `eas.json` — @dev-react-native (PR pending)
+- [in] T-036d: Endurecidos `cd-qa.yml`, `cd-mobile-qa.yml` (gate `typecheck` + `test`) y `ci-qa.yml` (`go vet ./...`) — @dev-backend (PR pending)
 - [mo] Corregido `owner` en `apps/mobile/app.json` (`innotechlabssass-team`) para coincidir con `projectId` `ac276a6e-a4ef-41cc-96bd-a7ceed2f7c36` y endurecido el polling/descarga de APK en `cd-mobile-qa.yml` con `eas-cli build:view --json` — @frg (PR pending)
 - [mo] Actualizado `extra.eas.projectId` y `updates.url` en `apps/mobile/app.json` a `ac276a6e-a4ef-41cc-96bd-a7ceed2f7c36` para alinear con `EXPO_TOKEN` en QA — @frg (PR #56)
 - [fe] Sincronizado el periodo de prueba a 7 días gratis en `PlansSection` y `CoachLayout` (banner y bloqueo al vencer) — @frg (PR #56)
@@ -102,6 +114,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [be] Unit tests + improved resilience for data-migrate — @dev-backend (PR #?)
 
 ### Added
+- [se] T-036a: Cerrado account takeover en `POST /public/checkouts/:id/verify` (entorno Wompi solo por config servidor, validación de referencia/monto/moneda con soporte USD→COP en sandbox, email solo desde `co.Email`, bloqueo de `sign_in_token` para super-admin), eliminado bypass `"checkout:"` en `assertPaymentApproved`, y rate-limit + sanitización 500 en `/webhooks/errors` — @dev-backend (PR pending)
+- [fe] T-036b: Corregido redirect `checkout_url` en `/api/coach/subscription/checkout`, estandarizados `GO_API_URL` + `Cache-Control: private, no-store` + `encodeURIComponent` en BFFs autenticados, `/api/athlete/progress/summary` conectado al Go API y eliminado `env` cliente en `/payment/success` — @dev-front (PR pending)
+- [mo] T-036c: Mapeos explícitos `/athlete/membership/status` y `/plans` (longest-first) + limpieza de `:id` muertos en `GO_API_PATH_MAP`, y variables QA en `eas.json` — @dev-react-native (PR pending)
+- [in] T-036d: Endurecidos `cd-qa.yml`, `cd-mobile-qa.yml` (gate `typecheck` + `test`) y `ci-qa.yml` (`go vet ./...`) — @dev-backend (PR pending)
 - [mo] Corregido `owner` en `apps/mobile/app.json` (`innotechlabssass-team`) para coincidir con `projectId` `ac276a6e-a4ef-41cc-96bd-a7ceed2f7c36` y endurecido el polling/descarga de APK en `cd-mobile-qa.yml` con `eas-cli build:view --json` — @frg (PR pending)
 - [mo] Actualizado `extra.eas.projectId` y `updates.url` en `apps/mobile/app.json` a `ac276a6e-a4ef-41cc-96bd-a7ceed2f7c36` para alinear con `EXPO_TOKEN` en QA — @frg (PR #56)
 - [fe] Sincronizado el periodo de prueba a 7 días gratis en `PlansSection` y `CoachLayout` (banner y bloqueo al vencer) — @frg (PR #56)

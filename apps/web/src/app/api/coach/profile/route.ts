@@ -3,13 +3,14 @@ import { auth } from '@clerk/nextjs/server';
 
 export const dynamic = 'force-dynamic'
 
-const GO_API_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:9090';
+const GO_API_URL = process.env.GO_API_URL || process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:9090';
+const NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store' };
 
 
 async function forwardToGoApi(path: string, options: RequestInit = {}) {
   const { userId } = await auth();
   if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE_HEADERS });
   }
 
   // Get the Clerk token to forward to Go API
@@ -30,15 +31,18 @@ async function forwardToGoApi(path: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Go API error' }));
-    return NextResponse.json({ error: error.error || `Go API error: ${response.status}` }, { status: response.status });
+    return NextResponse.json(
+      { error: error.error || `Go API error: ${response.status}` },
+      { status: response.status, headers: NO_STORE_HEADERS },
+    );
   }
 
   if (response.status === 204) {
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true }, { headers: NO_STORE_HEADERS });
   }
 
   const data = await response.json();
-  return NextResponse.json(data);
+  return NextResponse.json(data, { headers: NO_STORE_HEADERS });
 }
 
 export async function GET() {
@@ -46,7 +50,7 @@ export async function GET() {
     return await forwardToGoApi('/api/v1/users/me', { method: 'GET' });
   } catch (error) {
     console.error('Error fetching coach profile:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
 
@@ -59,6 +63,6 @@ export async function PUT(req: Request) {
     });
   } catch (error) {
     console.error('Error updating coach profile:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }

@@ -3,7 +3,8 @@ import { auth } from '@clerk/nextjs/server';
 
 export const dynamic = 'force-dynamic'
 
-const GO_API_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:9090';
+const GO_API_URL = process.env.GO_API_URL || process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:9090';
+const NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store' };
 
 
 /**
@@ -18,17 +19,23 @@ export async function GET(request: NextRequest) {
     const { userId, getToken } = await auth();
 
     if (!userId) {
-      return NextResponse.redirect(new URL('/sign-in?redirect_url=/payment/interstitial', request.url));
+      return NextResponse.redirect(new URL('/sign-in?redirect_url=/payment/interstitial', request.url), {
+        headers: NO_STORE_HEADERS,
+      });
     }
 
     const token = await getToken?.();
     if (!token) {
-      return NextResponse.redirect(new URL('/sign-in?redirect_url=/payment/interstitial', request.url));
+      return NextResponse.redirect(new URL('/sign-in?redirect_url=/payment/interstitial', request.url), {
+        headers: NO_STORE_HEADERS,
+      });
     }
 
     const planId = request.nextUrl.searchParams.get('planId');
     if (!planId) {
-      return NextResponse.redirect(new URL('/payment/interstitial?error=missing_plan', request.url));
+      return NextResponse.redirect(new URL('/payment/interstitial?error=missing_plan', request.url), {
+        headers: NO_STORE_HEADERS,
+      });
     }
 
     // Call Go API to create coach platform subscription checkout
@@ -46,25 +53,29 @@ export async function GET(request: NextRequest) {
       console.error('Coach subscription checkout failed:', error);
       return NextResponse.redirect(
         new URL(`/payment/interstitial?plan=${encodeURIComponent(planId)}&error=checkout_failed`, request.url),
+        { headers: NO_STORE_HEADERS },
       );
     }
 
     const data = await response.json();
+    const checkoutUrl = data.checkout_url ?? data.checkoutUrl;
 
-    if (data.checkoutUrl) {
+    if (checkoutUrl) {
       // Redirect to Wompi checkout
-      return NextResponse.redirect(data.checkoutUrl);
+      return NextResponse.redirect(checkoutUrl, { headers: NO_STORE_HEADERS });
     }
 
     // Fallback if no checkout URL
     return NextResponse.redirect(
       new URL(`/payment/interstitial?plan=${encodeURIComponent(planId)}&error=no_checkout_url`, request.url),
+      { headers: NO_STORE_HEADERS },
     );
   } catch (error) {
     console.error('Coach subscription checkout error:', error);
     const planId = request.nextUrl.searchParams.get('planId') ?? '';
     return NextResponse.redirect(
       new URL(`/payment/interstitial?plan=${encodeURIComponent(planId)}&error=server_error`, request.url),
+      { headers: NO_STORE_HEADERS },
     );
   }
 }

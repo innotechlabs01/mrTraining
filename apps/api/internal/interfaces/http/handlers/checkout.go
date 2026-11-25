@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -15,6 +17,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	checkoutapp "github.com/innotechlabs01/mr-training-api/internal/application/checkout"
+	checkoutdomain "github.com/innotechlabs01/mr-training-api/internal/domain/checkout"
 	"github.com/innotechlabs01/mr-training-api/internal/errors"
 	"github.com/innotechlabs01/mr-training-api/internal/interfaces/http/dto"
 	"github.com/innotechlabs01/mr-training-api/internal/middleware"
@@ -26,6 +29,8 @@ import (
 type checkoutService interface {
 	Start(ctx context.Context, cmd checkoutapp.StartCommand) (*checkoutapp.StartResult, error)
 	Claim(ctx context.Context, cmd checkoutapp.ClaimCommand) (*checkoutapp.ClaimResult, error)
+	GetByID(ctx context.Context, checkoutID string) (*checkoutdomain.Checkout, error)
+	MarkPaid(ctx context.Context, checkoutID, providerPaymentID string, amount float64, currency string) error
 	RecoverPayment(ctx context.Context, userID, checkoutID string) error
 }
 
@@ -177,66 +182,132 @@ func handleCheckoutError(c *fiber.Ctx, err error) error {
 	return appresponse.Error(c, fiber.StatusInternalServerError, "internal server error")
 }
 
+var (
+	wompiProdBaseURL    = "https://production.wompi.co/v1/transactions/"
+	wompiSandboxBaseURL = "https://sandbox.wompi.co/v1/transactions/"
+	clerkAPIBaseURL     = "https://api.clerk.com/v1"
+
+	errSuperAdminSignInForbidden = stderrors.New("cannot mint sign-in token for platform super admin")
+)
+
 type verifyCheckoutRequest struct {
 	TransactionID string `json:"transaction_id"`
-	Email         string `json:"email"`
-	Env           string `json:"env"`
+}
+
+type wompiTransaction struct {
+	Status        string `json:"status"`
+	StatusMessage string `json:"status_message"`
+	CustomerEmail string `json:"customer_email"`
+	Reference     string `json:"reference"`
+	AmountInCents int64  `json:"amount_in_cents"`
+	Currency      string `json:"currency"`
 }
 
 // HandleVerify handles POST /public/checkouts/:id/verify.
 // It checks the Wompi transaction status (supporting PENDING polling and
-// DECLINED/ERROR rejection) and, when APPROVED, provisions/finds the Clerk
-// user and issues a single-use sign-in ticket for transparent login.
+// DECLINED/ERROR rejection), verifies that the transaction matches the pending
+// checkout (reference, amount, currency), and when APPROVED, provisions/finds
+// the Clerk user and issues a single-use sign-in ticket for unclaimed checkouts.
 func (h *CheckoutHandler) HandleVerify(c *fiber.Ctx) error {
+	checkoutID := strings.TrimSpace(c.Params("id"))
+	if checkoutID == "" {
+		return appresponse.Error(c, fiber.StatusBadRequest, "checkout id is required")
+	}
+
 	var req verifyCheckoutRequest
 	if err := c.BodyParser(&req); err != nil || strings.TrimSpace(req.TransactionID) == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "transaction_id is required")
 	}
 
-	txStatus, txMessage, txEmail, err := fetchWompiTransaction(c.Context(), strings.TrimSpace(req.TransactionID), req.Env)
+	co, err := h.svc.GetByID(middleware.RequestContext(c), checkoutID)
+	if err != nil {
+		return handleCheckoutError(c, err)
+	}
+
+	txID := strings.TrimSpace(req.TransactionID)
+	tx, err := fetchWompiTransaction(c.Context(), txID)
 	if err != nil {
 		return appresponse.Error(c, fiber.StatusBadGateway, "failed to verify transaction with Wompi")
 	}
 
-	if txStatus == "PENDING" {
+	if tx.Status == "PENDING" {
 		return appresponse.JSON(c, fiber.StatusOK, fiber.Map{
 			"status": "PENDING",
 		})
 	}
 
-	if txStatus != "APPROVED" {
-		msg := txMessage
+	if tx.Status != "APPROVED" {
+		msg := tx.StatusMessage
 		if msg == "" {
 			msg = "La transacción fue rechazada o no pudo completarse."
 		}
 		return appresponse.JSON(c, fiber.StatusOK, fiber.Map{
-			"status":  txStatus,
+			"status":  tx.Status,
 			"message": msg,
 		})
 	}
 
-	// Mark the pending checkout as paid immediately once Wompi confirms APPROVED
-	// so /claim does not fail with 409 if the webhook is delayed or not configured.
-	if marker, ok := h.svc.(interface {
-		MarkPaid(ctx context.Context, checkoutID, providerPaymentID string, amount float64, currency string) error
-	}); ok {
-		if checkoutID := strings.TrimSpace(c.Params("id")); checkoutID != "" {
-			if markErr := marker.MarkPaid(c.Context(), checkoutID, strings.TrimSpace(req.TransactionID), 0, ""); markErr != nil {
-				fmt.Printf("checkout verify mark paid warning (%s): %v\n", checkoutID, markErr)
+	// Verify the Wompi transaction belongs to this pending checkout.
+	expectedRef := co.Reference()
+	matchesRef := strings.EqualFold(tx.Reference, expectedRef)
+	matchesLink := co.ProviderReference != "" && strings.HasPrefix(tx.Reference, co.ProviderReference)
+	if !matchesRef && !matchesLink {
+		return appresponse.Error(c, fiber.StatusConflict, "transaction reference does not match checkout")
+	}
+
+	// Verify currency and amount match the pending checkout.
+	// In Wompi sandbox, non-COP plans (e.g. USD) are converted to COP via TRM
+	// by wompi/adapter.go; accept COP with positive amount in that case, while
+	// keeping strict currency + amount equality for production and same-currency checkouts.
+	sandboxCOPConversion := isWompiSandbox() &&
+		co.Currency != "" &&
+		!strings.EqualFold(co.Currency, "COP") &&
+		strings.EqualFold(strings.TrimSpace(tx.Currency), "COP")
+
+	if sandboxCOPConversion {
+		if tx.AmountInCents <= 0 {
+			return appresponse.Error(c, fiber.StatusConflict, "transaction amount does not match checkout")
+		}
+	} else {
+		if co.Currency != "" && !strings.EqualFold(strings.TrimSpace(tx.Currency), co.Currency) {
+			return appresponse.Error(c, fiber.StatusConflict, "transaction currency does not match checkout")
+		}
+		if co.Amount > 0 {
+			expectedCents := int64(math.Round(co.Amount * 100))
+			if tx.AmountInCents != expectedCents {
+				return appresponse.Error(c, fiber.StatusConflict, "transaction amount does not match checkout")
 			}
 		}
 	}
 
-	email := strings.TrimSpace(req.Email)
-	if email == "" {
-		email = strings.TrimSpace(txEmail)
+	txAmount := float64(tx.AmountInCents) / 100.0
+	txCurrency := strings.ToUpper(strings.TrimSpace(tx.Currency))
+
+	// Mark the pending checkout as paid immediately once Wompi confirms APPROVED
+	// so /claim does not fail with 409 if the webhook is delayed or not configured.
+	if markErr := h.svc.MarkPaid(middleware.RequestContext(c), checkoutID, txID, txAmount, txCurrency); markErr != nil {
+		fmt.Printf("checkout verify mark paid warning (%s): %v\n", checkoutID, markErr)
 	}
+
+	// Derive email strictly from the pending checkout (never from client input).
+	email := strings.TrimSpace(co.Email)
 	if email == "" {
 		return appresponse.Error(c, fiber.StatusBadRequest, "email is required to provision account")
 	}
 
+	// Only issue a sign-in token for unclaimed checkouts without an attached user.
+	if co.Status == checkoutdomain.StatusClaimed || co.UserID != "" {
+		return appresponse.JSON(c, fiber.StatusOK, fiber.Map{
+			"status": "APPROVED",
+			"email":  email,
+		})
+	}
+
 	token, err := ensureClerkSignInToken(c.Context(), email)
 	if err != nil {
+		if stderrors.Is(err, errSuperAdminSignInForbidden) {
+			return appresponse.Error(c, fiber.StatusForbidden, "sign-in token not permitted for this account")
+		}
 		fmt.Printf("clerk sign-in token error: %v\n", err)
 		return appresponse.Error(c, fiber.StatusInternalServerError, "could not provision session")
 	}
@@ -248,40 +319,60 @@ func (h *CheckoutHandler) HandleVerify(c *fiber.Ctx) error {
 	})
 }
 
-func fetchWompiTransaction(ctx context.Context, txID, env string) (status, message, customerEmail string, err error) {
-	baseURL := "https://production.wompi.co/v1/transactions/"
-	if env == "test" ||
-		strings.EqualFold(strings.TrimSpace(os.Getenv("WOMPI_ENV")), "sandbox") ||
-		strings.HasPrefix(os.Getenv("WOMPI_PUBLIC_KEY"), "pub_test_") {
-		baseURL = "https://sandbox.wompi.co/v1/transactions/"
+func isWompiSandbox() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("WOMPI_ENV")), "sandbox") ||
+		strings.HasPrefix(os.Getenv("WOMPI_PUBLIC_KEY"), "pub_test_") ||
+		!strings.EqualFold(strings.TrimSpace(os.Getenv("APP_ENV")), "production")
+}
+
+func wompiTransactionBaseURL() string {
+	if isWompiSandbox() {
+		return wompiSandboxBaseURL
 	}
+	return wompiProdBaseURL
+}
+
+func fetchWompiTransaction(ctx context.Context, txID string) (*wompiTransaction, error) {
+	baseURL := wompiTransactionBaseURL()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+url.PathEscape(txID), nil)
 	if err != nil {
-		return "", "", "", err
+		return nil, err
 	}
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", "", "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		return "", "", "", fmt.Errorf("wompi returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("wompi returned status %d", resp.StatusCode)
 	}
 
 	var parsed struct {
-		Data struct {
-			Status        string `json:"status"`
-			StatusMessage string `json:"status_message"`
-			CustomerEmail string `json:"customer_email"`
-		} `json:"data"`
+		Data wompiTransaction `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return "", "", "", err
+		return nil, err
 	}
-	return parsed.Data.Status, parsed.Data.StatusMessage, parsed.Data.CustomerEmail, nil
+	return &parsed.Data, nil
+}
+
+func isPlatformSuperAdminID(userID string) bool {
+	if userID == "" {
+		return false
+	}
+	raw := strings.TrimSpace(os.Getenv("PLATFORM_SUPER_ADMIN_CLERK_ID"))
+	if raw == "" {
+		return false
+	}
+	for _, id := range strings.Split(raw, ",") {
+		if strings.TrimSpace(id) == userID {
+			return true
+		}
+	}
+	return false
 }
 
 func ensureClerkSignInToken(ctx context.Context, email string) (string, error) {
@@ -292,7 +383,7 @@ func ensureClerkSignInToken(ctx context.Context, email string) (string, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	// 1. Lookup existing user by email
-	lookupURL := "https://api.clerk.com/v1/users?email_address=" + url.QueryEscape(email)
+	lookupURL := clerkAPIBaseURL + "/users?email_address=" + url.QueryEscape(email)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, lookupURL, nil)
 	if err != nil {
 		return "", err
@@ -320,7 +411,7 @@ func ensureClerkSignInToken(ctx context.Context, email string) (string, error) {
 			"email_address":             []string{email},
 			"skip_password_requirement": true,
 		})
-		cReq, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.clerk.com/v1/users", bytes.NewReader(createBody))
+		cReq, err := http.NewRequestWithContext(ctx, http.MethodPost, clerkAPIBaseURL+"/users", bytes.NewReader(createBody))
 		if err != nil {
 			return "", err
 		}
@@ -344,12 +435,17 @@ func ensureClerkSignInToken(ctx context.Context, email string) (string, error) {
 		userID = created.ID
 	}
 
+	// Never mint a sign-in token for a platform super admin account.
+	if isPlatformSuperAdminID(userID) {
+		return "", errSuperAdminSignInForbidden
+	}
+
 	// 3. Issue single-use sign-in token
 	tokBody, _ := json.Marshal(map[string]any{
 		"user_id":            userID,
 		"expires_in_seconds": 300,
 	})
-	tReq, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.clerk.com/v1/sign_in_tokens", bytes.NewReader(tokBody))
+	tReq, err := http.NewRequestWithContext(ctx, http.MethodPost, clerkAPIBaseURL+"/sign_in_tokens", bytes.NewReader(tokBody))
 	if err != nil {
 		return "", err
 	}

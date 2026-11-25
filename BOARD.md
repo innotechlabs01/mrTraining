@@ -3,9 +3,6 @@
 ## TODO
 - [ ] (none)
 
-## TODO
-- [ ] (none)
-
 ## In Progress
 - [ ] (none)
 
@@ -13,6 +10,10 @@
 - [ ] (none)
 
 ## Done
+- [x] T-036a [P0]: Close Checkout Account Takeover (`/public/checkouts/:id/verify`), Free-Subscription Bypass (`/checkouts/:id/recover`) & Error Webhook Hardening — Approved by @user 2026-11-24. `go build/vet/test -race` PASS (8 new security/sandbox tests).
+- [x] T-036b [P1]: Fix Coach Checkout Redirect (`checkout_url`), Harden Auth BFF Headers/Env & Proxy Progress Summary — Approved by @user 2026-11-24. `tsc`, `lint` (0 errs), 36/36 suites / 269/269 tests PASS.
+- [x] T-036c [P1]: Mobile QA `eas.json` Parity & `GO_API_PATH_MAP` Prefix-Collision Hardening — Approved by @user 2026-11-24. `tsc`, 97/97 suites / 550/550 tests PASS.
+- [x] T-036d [P2]: CI/CD Workflow Hardening (`cd-qa.yml`, `cd-mobile-qa.yml`, `ci-qa.yml`) — Approved by @user 2026-11-24. 4/4 YAML valid.
 - [x] T-025: Support & Admin Tickets End-to-End Contract + Coach Support Page Fix — Approved by @user 2026-11-21. Go `admin/tickets` + SuperAdmin guard + `$4`→`$2` fix | Web auth + 6 BFF proxies + `coach/support` activeTicketId | Go/Web tests & build PASS.
 - [x] T-026: PostgreSQL Missing Tables, Missing Columns & SQLite-isms Remediation (`landing.go`, `exercise_repository.go`, migration 437) — Approved by @user 2026-11-21. Migration 437 synced & applied (Local + QA) | Go tests PASS.
 - [x] T-027: Challenge Leaderboard WebSocket Mount, Multi-Connection Hub & Mobile WS Auth Fix — Approved by @user 2026-11-21. `/challenges/:id/leaderboard/ws` mounted + multi-socket Hub (`-race` PASS) + Mobile `useWsSubscription.ts` (`GO_API_URL` + `?token=`) PASS.

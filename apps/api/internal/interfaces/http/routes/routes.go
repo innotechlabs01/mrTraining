@@ -864,7 +864,7 @@ func RegisterErrorRoutes(api fiber.Router, handler *handlers.ErrorHandler, super
 // RegisterErrorWebhookRoutes registers public error webhook routes outside auth.
 // Used by web/mobile/cron to report errors without Clerk token.
 func RegisterErrorWebhookRoutes(app fiber.Router, handler *handlers.ErrorHandler) {
-	app.Post("/webhooks/errors", handler.CreateError)
+	app.Post("/webhooks/errors", middleware.RateLimit(30, 60), handler.CreateError)
 }
 
 // RegisterCRMRoutes registers super admin CRM routes on the auth-protected API group.

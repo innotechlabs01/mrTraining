@@ -315,11 +315,6 @@ func (s *Service) assertPaymentApproved(ctx context.Context, co *checkoutdomain.
 	if co.ProviderPaymentID == "" {
 		return errors.Conflict("the payment has not been confirmed yet")
 	}
-	// If the checkout was manually recovered by its verified payer, the provider
-	// payment ID matches the checkout reference. Trust this validated state.
-	if strings.HasPrefix(co.ProviderPaymentID, "checkout:") && co.ProviderPaymentID == co.Reference() {
-		return nil
-	}
 	if s.provider == nil {
 		return errors.Internal("the payment provider is not configured")
 	}
@@ -342,6 +337,18 @@ func (s *Service) assertPaymentApproved(ctx context.Context, co *checkoutdomain.
 		return errors.Conflict("the payment does not belong to this checkout")
 	}
 	return nil
+}
+
+// GetByID loads a pending checkout by its ID.
+func (s *Service) GetByID(ctx context.Context, checkoutID string) (*checkoutdomain.Checkout, error) {
+	co, err := s.repo.GetByID(ctx, checkoutID)
+	if err != nil {
+		return nil, fmt.Errorf("get pending checkout: %w", err)
+	}
+	if co == nil {
+		return nil, errors.NotFound("PendingCheckout", checkoutID)
+	}
+	return co, nil
 }
 
 // MarkPaid records a confirmed payment for a pending checkout. It is called
