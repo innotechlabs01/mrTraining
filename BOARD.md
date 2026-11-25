@@ -7,7 +7,7 @@
 - [ ] (none)
 
 ## Review
-- [ ] (none)
+- [ ] T-039a [P0]: Reopen T-037a — `POST /api/v1/workout-templates` still 500 (request_id `450a0bd3-...`): FK 23503 on `workout_template_exercises_template_id_fkey`; `CreateWorkoutTemplate` did not set `TemplateID` on new exercises. Fix + regression test added; `go build`, `go vet`, `go test ./internal/... -race` PASS. Pending QA deploy + E2E re-test.
 
 ## Done
 - [x] T-038a [P1]: Migration `438` (`coach_payout_accounts`, `public_event_registrations`) + Go API `GET/PUT /api/v1/coach/payout-account`, `GET/POST /public/events/:id(/register)`, `GET /api/v1/events/:id/public-registrations` — `go build/vet/test -race` PASS (2026-11-24).

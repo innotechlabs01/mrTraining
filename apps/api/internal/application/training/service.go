@@ -211,10 +211,20 @@ func (s *Service) CreateWorkoutTemplate(ctx context.Context, coachID string, req
 		return nil, errors.BadRequest("template name is required")
 	}
 
-	exercises := make([]training.WorkoutExercise, len(req.Exercises))
+	template := &training.WorkoutTemplate{
+		ID:                      uuid.New().String(),
+		CoachID:                 coachID,
+		Name:                    strings.TrimSpace(req.Name),
+		Description:             req.Description,
+		Goal:                    req.Goal,
+		EstimatedDurationMinutes: req.EstimatedDurationMinutes,
+	}
+
+	template.Exercises = make([]training.WorkoutExercise, len(req.Exercises))
 	for i, ex := range req.Exercises {
-		exercises[i] = training.WorkoutExercise{
+		template.Exercises[i] = training.WorkoutExercise{
 			ID:                uuid.New().String(),
+			TemplateID:        template.ID,
 			Name:              ex.Name,
 			Sets:              ex.Sets,
 			Reps:              ex.Reps,
@@ -231,16 +241,6 @@ func (s *Service) CreateWorkoutTemplate(ctx context.Context, coachID string, req
 			GPSRoute:          ex.GPSRoute,
 			Intervals:         toDomainRunningIntervals(ex.Intervals),
 		}
-	}
-
-	template := &training.WorkoutTemplate{
-		ID:                      uuid.New().String(),
-		CoachID:                 coachID,
-		Name:                    strings.TrimSpace(req.Name),
-		Description:             req.Description,
-		Goal:                    req.Goal,
-		EstimatedDurationMinutes: req.EstimatedDurationMinutes,
-		Exercises:               exercises,
 	}
 
 	if err := s.workoutRepo.CreateTemplate(ctx, template); err != nil {
