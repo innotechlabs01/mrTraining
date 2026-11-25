@@ -59,7 +59,7 @@ CREATE POLICY policy_public_event_registrations_select ON public.public_event_re
             SELECT 1 FROM public.events e
             WHERE e.id = public_event_registrations.event_id
               AND (
-                  e.is_public = true
+                  e.is_public::text IN ('1', 'true', 't')
                   OR e.coach_id = NULLIF(current_setting('app.current_coach_id', true)::text, '')
                   OR e.coach_id = NULLIF(current_setting('app.current_user_id', true)::text, '')
               )
@@ -74,7 +74,7 @@ CREATE POLICY policy_public_event_registrations_insert ON public.public_event_re
         EXISTS (
             SELECT 1 FROM public.events e
             WHERE e.id = public_event_registrations.event_id
-              AND e.is_public = true
+              AND e.is_public::text IN ('1', 'true', 't')
         )
         OR NULLIF(current_setting('app.current_role', true)::text, '') IN ('admin', 'super_admin', 'system_worker')
     );
