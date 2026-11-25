@@ -7,7 +7,8 @@
 - [ ] (none)
 
 ## Review
-- [ ] T-039a [P0]: Reopen T-037a — `POST /api/v1/workout-templates` still 500 (request_id `450a0bd3-...`): FK 23503 on `workout_template_exercises_template_id_fkey`; `CreateWorkoutTemplate` did not set `TemplateID` on new exercises. Fix + regression test added; `go build`, `go vet`, `go test ./internal/... -race` PASS. Pending QA deploy + E2E re-test.
+- [ ] T-039a [P0]: Reopen T-037a — `POST /api/v1/workout-templates` still 500 (request_id `450a0bd3-...`): FK 23503 on `workout_template_exercises_template_id_fkey`; `CreateWorkoutTemplate` did not set `TemplateID` on new exercises. Fix + regression test added; `go build`, `go vet`, `go test ./internal/... -race` PASS. PR #61 (`dev → qa`) open. Pending QA deploy + E2E re-test.
+- [ ] T-040a [P1]: `cd-mobile-qa` APK build failure — EAS regenerated `minSdkVersion 24` because `android/` is gitignored, below `androidx.health.connect:connect-client:1.1.0` requirement 26. Committed `minSdkVersion: 26` in `app.json` + regression test; `tsc` and 98 suites / 551 tests PASS. PR #61 (`dev → qa`) open. Pending QA build re-run.
 
 ## Done
 - [x] T-038a [P1]: Migration `438` (`coach_payout_accounts`, `public_event_registrations`) + Go API `GET/PUT /api/v1/coach/payout-account`, `GET/POST /public/events/:id(/register)`, `GET /api/v1/events/:id/public-registrations` — `go build/vet/test -race` PASS (2026-11-24).

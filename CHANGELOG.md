@@ -62,8 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [in] Added dev-database role to orca-team pipeline and 14-team-workflow.md — @orca-team (internal)
 
 ### Fixed
-- [be] T-039a: Fix `POST /api/v1/workout-templates` 500 (`SQLSTATE 23503`, `workout_template_exercises_template_id_fkey`); `CreateWorkoutTemplate` now assigns the generated template ID to each exercise, with a regression test — @frg (pending QA deploy)
-- [mo] Fix build Android QA: `minSdkVersion: 26` moved to committed `app.json` so EAS manifest merge satisfies `androidx.health.connect:connect-client:1.1.0` (previous local override was gitignored), with a regression test — @frg (PR pending)
+- [be] T-039a: Fix `POST /api/v1/workout-templates` 500 (`SQLSTATE 23503`, `workout_template_exercises_template_id_fkey`); `CreateWorkoutTemplate` now assigns the generated template ID to each exercise, with a regression test — @frg (PR #61, pending QA deploy)
+- [mo] T-040a: Fix build Android QA: `minSdkVersion: 26` moved to committed `app.json` so EAS manifest merge satisfies `androidx.health.connect:connect-client:1.1.0` (previous local override was gitignored), with a regression test — @frg (PR #61)
 - [in] Fix `scripts/migrate-all.sh`: conexión a Supabase QA vía Session Pooler IPv4 (`aws-0-us-east-2.pooler.supabase.com:5432`) y fallo explícito si QA falla — @dev-database (PR pending)
 - [be] Fix wearable/health PostgreSQL queries (`health/repository.go`: removidas funciones SQLite `datetime('now')`/`date('now')` y bug `$12`), URLs de Garmin (`?` en lugar de `$10`/`$11` en `garmin_provider.go`) y soporte dual `snake_case`/`camelCase` en `health_data.go` — @dev-backend (PR pending)
 - [fe] Fix `trainingApi.getHealth`: ruta `/api/v1/health/*` con normalización de `{metrics, sleepLogs, devices}` para mostrar Apple Watch, Garmin, HRV, RHR, sueño, pasos y VO2max en `AthleteHealthPanels` y badge de dispositivo en `AthleteRunningPanel` — @dev-front (PR pending)
