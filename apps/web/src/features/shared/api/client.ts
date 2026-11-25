@@ -840,6 +840,18 @@ export const coachingApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  registerPublicEvent: (eventId: string, data: {
+    full_name: string;
+    email: string;
+    phone?: string;
+    notes?: string;
+  }) =>
+    // Go API: POST /public/events/:id/register (unauthenticated public registration)
+    goFetch<{ id?: string; status?: string; message?: string }>(`/public/events/${eventId}/register`, {
+      auth: false,
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
   getEventFormResponses: (eventId: string) =>
     // Go API: GET /api/v1/events/:id/form-responses (coach-scoped)
     goFetch<{

@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"database/sql"
+	stderrors "errors"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -20,9 +21,10 @@ import (
 
 // EventHandler handles HTTP requests for the event domain.
 type EventHandler struct {
-	service *eventapp.Service
-	hub     *websocket.Hub
-	db      *sql.DB
+	service     *eventapp.Service
+	hub         *websocket.Hub
+	db          *sql.DB
+	pubRegStore PublicEventRegistrationStore
 }
 
 // NewEventHandler creates a new EventHandler with the given application service.
@@ -247,13 +249,17 @@ func (h *EventHandler) GetPublicEvent(c *fiber.Ctx) error {
 	if err != nil {
 		return h.handleError(c, err)
 	}
-	if !event.IsPublic {
-		return errors.NotFound("Event", id)
+	if !event.IsPublic || event.Status == "cancelled" {
+		return h.handleError(c, errors.NotFound("Event", id))
 	}
 
 	resp := toEventResponse(event)
 	resp.CoachID = ""
-	return appresponse.Success(c, resp)
+	pubCount, _ := h.publicRegStore().CountByEvent(c.Context(), id)
+	return appresponse.Success(c, &PublicEventResponse{
+		EventResponse:     resp,
+		RegistrationCount: event.AcceptedCount + pubCount,
+	})
 }
 
 // RsvpEventPublic handles POST /api/v1/public/events/:id/rsvp.
@@ -626,7 +632,8 @@ func (h *EventHandler) handleValidationError(c *fiber.Ctx, validationErrs []stri
 
 // handleError maps application errors to appropriate HTTP responses.
 func (h *EventHandler) handleError(c *fiber.Ctx, err error) error {
-	if appErr, ok := err.(*errors.AppError); ok {
+	var appErr *errors.AppError
+	if stderrors.As(err, &appErr) {
 		return appresponse.Error(c, appErr.Status, appErr.Message)
 	}
 	return appresponse.Error(c, fiber.StatusInternalServerError, "internal server error")

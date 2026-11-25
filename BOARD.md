@@ -10,6 +10,8 @@
 - [ ] (none)
 
 ## Done
+- [x] T-038a [P1]: Migration `438` (`coach_payout_accounts`, `public_event_registrations`) + Go API `GET/PUT /api/v1/coach/payout-account`, `GET/POST /public/events/:id(/register)`, `GET /api/v1/events/:id/public-registrations` — `go build/vet/test -race` PASS (2026-11-24).
+- [x] T-038b [P1]: Web UI for Coach Payout Bank Account (`/coach/earnings`), Public Event Registration (`/event/[id]` without login), `/sign-in` OAuth contrast & onboarding typo fix — `tsc`, `lint` (0 errs), 36/36 suites / 269/269 tests PASS (2026-11-24).
 - [x] T-037a [P0]: Fix HTTP 500s on `POST /api/v1/exercises`, `POST /api/v1/workout-templates`, `POST /api/v1/products`, `POST /api/v1/plans` camelCase/snake_case & `earnings-live` SSE auth — `go build/vet/test -race` PASS (2026-11-24).
 - [x] T-037b [P1]: Real `/coach/plan` (Mi Membresía + historial + Wompi) + Sidebar link + fixes in `/coach/earnings` (JSX literal), `/coach/ventas` (modal/toast), `/coach/planes` (TRM/payload), `/coach/landing-canvas` (Hero title/subtitle) & `/coach/ally` (`/api/v1/` prefixes) — `tsc`, `lint` (0 errs), 36/36 suites / 269/269 tests PASS (2026-11-24).
 - [x] T-036a [P0]: Close Checkout Account Takeover (`/public/checkouts/:id/verify`), Free-Subscription Bypass (`/checkouts/:id/recover`) & Error Webhook Hardening — Approved by @user 2026-11-24. `go build/vet/test -race` PASS (8 new security/sandbox tests).

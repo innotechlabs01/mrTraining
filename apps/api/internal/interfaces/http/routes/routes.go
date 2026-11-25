@@ -71,6 +71,12 @@ func RegisterEarningsRoutes(api fiber.Router, handler *handlers.EarningsHandler)
 	api.Get("/coach/earnings-live", middleware.RequireCoach(), middleware.RequireCoachID(), handler.EarningsLive)
 }
 
+// RegisterCoachPayoutAccountRoutes registers coach payout bank account routes.
+func RegisterCoachPayoutAccountRoutes(api fiber.Router, handler *handlers.CoachPayoutAccountHandler) {
+	api.Get("/coach/payout-account", middleware.RequireCoach(), middleware.RequireCoachID(), handler.GetPayoutAccount)
+	api.Put("/coach/payout-account", middleware.RequireCoach(), middleware.RequireCoachID(), handler.UpsertPayoutAccount)
+}
+
 // RegisterTrainingAIRoutes registers the workout AI-insights endpoint
 // (athlete-scoped; ownership is checked in the handler).
 func RegisterTrainingAIRoutes(api fiber.Router, handler *handlers.TrainingAIHandler, statusReader middleware.MembershipStatusReader) {
@@ -179,6 +185,7 @@ func RegisterEventRoutes(api fiber.Router, handler *handlers.EventHandler) {
 	api.Get("/events", middleware.Cache(5*time.Minute, "events"), handler.ListEvents)
 	api.Get("/events/:id", middleware.Cache(5*time.Minute, "events"), handler.GetEvent)
 	api.Get("/events/:id/registrations", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListEventRegistrations)
+	api.Get("/events/:id/public-registrations", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListPublicEventRegistrations)
 	api.Get("/events/:id/form-responses", middleware.RequireCoach(), middleware.RequireCoachID(), handler.ListEventFormResponses)
 	api.Post("/events", middleware.RequireCoach(), middleware.RequireCoachID(), handler.CreateEvent)
 	api.Put("/events/:id", middleware.RequireCoach(), middleware.RequireCoachID(), handler.UpdateEvent)
@@ -622,6 +629,7 @@ func RegisterChallengeRoutes(api fiber.Router, handler *handlers.ChallengeHandle
 func RegisterPublicEventRoutes(api fiber.Router, handler *handlers.EventHandler) {
 	api.Get("/events/:id", handler.GetPublicEvent)
 	api.Post("/events/:id/rsvp", handler.RsvpEventPublic)
+	api.Post("/events/:id/register", middleware.RateLimit(20, 60), handler.RegisterPublicEvent)
 }
 
 // RegisterPlanRoutes registers plan-related routes on the given API group.

@@ -1,110 +1,101 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 import { coachingApi } from '@/features/shared/api/client';
-import type { CoachEvent, EventFormField } from '@/features/coach/types';
+import type { CoachEvent } from '@/features/coach/types';
 
-type Phase = 'idle' | 'confirmed' | 'cancelled';
-
-function tokenKey(eventId: string) {
-  return `event-rsvp:${eventId}`;
+function registeredKey(eventId: string) {
+  return `event-registered:${eventId}`;
 }
-function statusKey(eventId: string) {
-  return `event-rsvp-status:${eventId}`;
+
+interface StoredRegistration {
+  full_name: string;
+  email: string;
 }
 
 const inputClass =
   'w-full bg-surface-1 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:border-brand-primary';
 
 export function EventRsvp({ event, isFull = false }: { event: CoachEvent; isFull?: boolean }) {
-  const [phase, setPhase] = useState<Phase>('idle');
+  const [confirmed, setConfirmed] = useState<StoredRegistration | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState('');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [category, setCategory] = useState('');
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const customFields = event.formFields ?? [];
-  const raceCategories = event.running?.categories ?? [];
-
   useEffect(() => {
-    const token = localStorage.getItem(tokenKey(event.id));
-    const status = localStorage.getItem(statusKey(event.id));
-    if (token && (status === 'accepted' || status === 'cancelled')) {
-      setPhase(status === 'accepted' ? 'confirmed' : 'cancelled');
+    try {
+      const saved = localStorage.getItem(registeredKey(event.id));
+      if (saved) {
+        const parsed = JSON.parse(saved) as StoredRegistration;
+        if (parsed?.full_name && parsed?.email) {
+          setConfirmed(parsed);
+        }
+      }
+    } catch {
+      // Ignore malformed localStorage entries
     }
   }, [event.id]);
 
-  const missingRequired = (fields: EventFormField[]) =>
-    fields.filter((f) => f.required && !(answers[f.id] ?? '').trim());
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedName = fullName.trim();
+    const trimmedEmail = email.trim();
+    if (!trimmedName || !trimmedEmail) {
+      setError('Por favor completa tu nombre completo y correo electrónico.');
+      return;
+    }
 
-  const submit = async (status: 'accepted' | 'cancelled') => {
     setSubmitting(true);
     setError(null);
     try {
-      const token = localStorage.getItem(tokenKey(event.id)) ?? undefined;
-      const payloadAnswers = status === 'accepted'
-        ? customFields
-            .filter((f) => (answers[f.id] ?? '').trim() !== '')
-            .map((f) => ({ field_id: f.id, value: answers[f.id].trim() }))
-        : [];
-      const res = await coachingApi.rsvpEvent(event.id, {
-        token,
-        status,
-        name: name.trim() || undefined,
-        email: email.trim() || undefined,
+      await coachingApi.registerPublicEvent(event.id, {
+        full_name: trimmedName,
+        email: trimmedEmail,
         phone: phone.trim() || undefined,
-        category: category || undefined,
-        answers: payloadAnswers,
+        notes: notes.trim() || undefined,
       });
-      localStorage.setItem(tokenKey(event.id), res.token);
-      localStorage.setItem(statusKey(event.id), res.status);
-      setPhase(res.status === 'accepted' ? 'confirmed' : 'cancelled');
+      const record: StoredRegistration = { full_name: trimmedName, email: trimmedEmail };
+      try {
+        localStorage.setItem(registeredKey(event.id), JSON.stringify(record));
+      } catch {
+        // Ignore storage quota errors
+      }
+      setConfirmed(record);
       setShowForm(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo enviar la respuesta.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo completar el registro. Inténtalo de nuevo.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (phase === 'confirmed') {
+  if (confirmed) {
     return (
-      <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-4">
-        <div className="flex items-center gap-2 text-green-400 text-sm font-medium">
-          <CheckCircle2 className="w-5 h-5" />
-          Asistencia confirmada
+      <div
+        className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2"
+        role="status"
+        aria-live="polite"
+      >
+        <div className="flex items-center gap-2 text-emerald-400 text-sm font-semibold">
+          <CheckCircle2 className="w-5 h-5 shrink-0" />
+          ¡Inscripción confirmada!
         </div>
-        <p className="text-xs text-white/50 mt-1">Te esperamos. Guardamos tu confirmación.</p>
-        <button
-          onClick={() => submit('cancelled')}
-          disabled={submitting}
-          className="mt-3 text-xs text-white/50 hover:text-red-400 transition-colors disabled:opacity-50"
-        >
-          Cancelar mi asistencia
-        </button>
-      </div>
-    );
-  }
-
-  if (phase === 'cancelled') {
-    return (
-      <div className="rounded-xl border border-white/10 bg-surface-2 p-4">
-        <div className="flex items-center gap-2 text-white/60 text-sm font-medium">
-          <XCircle className="w-5 h-5" />
-          Cancelaste tu asistencia
+        <p className="text-xs text-white/70">
+          Registramos tu participación en <span className="font-medium text-white">{event.title}</span>.
+        </p>
+        <div className="text-xs text-white/50 pt-1 border-t border-white/10 space-y-0.5">
+          <p>
+            Nombre: <span className="text-white/80">{confirmed.full_name}</span>
+          </p>
+          <p>
+            Correo: <span className="text-white/80">{confirmed.email}</span>
+          </p>
         </div>
-        <button
-          onClick={() => submit('accepted')}
-          disabled={submitting}
-          className="mt-3 text-xs text-brand-primary hover:underline disabled:opacity-50"
-        >
-          Volver a confirmar
-        </button>
       </div>
     );
   }
@@ -119,45 +110,59 @@ export function EventRsvp({ event, isFull = false }: { event: CoachEvent; isFull
     }
     return (
       <button
+        type="button"
         onClick={() => setShowForm(true)}
         className="w-full py-3 rounded-xl bg-brand-primary text-white text-sm font-semibold hover:bg-brand-primary-hover transition-colors"
       >
-        Confirmar asistencia
+        Inscribirme al evento
       </button>
     );
   }
 
-  const requiredPending = missingRequired(customFields);
-  const categoryMissing = raceCategories.length > 0 && !category;
-
   return (
-    <div className="rounded-xl border border-white/10 bg-surface-2 p-4 space-y-3">
-      <p className="text-sm font-medium text-white">Confirmar asistencia</p>
+    <form onSubmit={handleSubmit} className="rounded-xl border border-white/10 bg-surface-2 p-4 space-y-3">
+      <p className="text-sm font-medium text-white">Registro al evento</p>
+
       <div>
-        <label className="block text-xs font-medium text-white/50 mb-1.5">Nombre *</label>
+        <label htmlFor="event-reg-full-name" className="block text-xs font-medium text-white/60 mb-1.5">
+          Nombre completo <span className="text-red-400">*</span>
+        </label>
         <input
-          id="rsvp-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Tu nombre"
+          id="event-reg-full-name"
+          name="full_name"
+          type="text"
+          required
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          placeholder="Tu nombre completo"
           className={inputClass}
         />
       </div>
+
       <div>
-        <label className="block text-xs font-medium text-white/50 mb-1.5">Email</label>
+        <label htmlFor="event-reg-email" className="block text-xs font-medium text-white/60 mb-1.5">
+          Correo electrónico <span className="text-red-400">*</span>
+        </label>
         <input
-          id="rsvp-email"
+          id="event-reg-email"
+          name="email"
           type="email"
+          required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="tu@email.com"
           className={inputClass}
         />
       </div>
+
       <div>
-        <label className="block text-xs font-medium text-white/50 mb-1.5">Teléfono</label>
+        <label htmlFor="event-reg-phone" className="block text-xs font-medium text-white/60 mb-1.5">
+          Teléfono
+        </label>
         <input
-          id="rsvp-phone"
+          id="event-reg-phone"
+          name="phone"
+          type="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="+57 300 000 0000"
@@ -165,108 +170,38 @@ export function EventRsvp({ event, isFull = false }: { event: CoachEvent; isFull
         />
       </div>
 
-      {raceCategories.length > 0 && (
-        <div>
-          <label className="block text-xs font-medium text-white/50 mb-1.5">
-            Categoría / Distancia <span className="text-red-400">*</span>
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {raceCategories.map((cat) => {
-              const selected = category === cat;
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setCategory(selected ? '' : cat)}
-                  className={
-                    selected
-                      ? 'px-3 py-1.5 rounded-full text-xs font-medium bg-amber-500 text-black'
-                      : 'px-3 py-1.5 rounded-full text-xs font-medium bg-surface-1 border border-white/10 text-white/70 hover:border-white/25'
-                  }
-                >
-                  {cat}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      <div>
+        <label htmlFor="event-reg-notes" className="block text-xs font-medium text-white/60 mb-1.5">
+          Notas o comentarios
+        </label>
+        <textarea
+          id="event-reg-notes"
+          name="notes"
+          rows={3}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Categoría, talla de camiseta o cualquier comentario adicional"
+          className={inputClass}
+        />
+      </div>
+
+      {error && (
+        <p className="text-xs text-red-400" role="alert">
+          {error}
+        </p>
       )}
 
-      {customFields.map((f) => (
-        <div key={f.id}>
-          <label className="block text-xs font-medium text-white/50 mb-1.5">
-            {f.label}
-            {f.required && <span className="text-red-400 ml-0.5">*</span>}
-          </label>
-          {f.kind === 'select' ? (
-            <div className="flex flex-wrap gap-2">
-              {(f.options ?? []).map((opt) => {
-                const selected = answers[f.id] === opt;
-                return (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setAnswers((prev) => ({ ...prev, [f.id]: selected ? '' : opt }))}
-                    className={
-                      selected
-                        ? 'px-3 py-1.5 rounded-full text-xs font-medium bg-brand-primary text-white'
-                        : 'px-3 py-1.5 rounded-full text-xs font-medium bg-surface-1 border border-white/10 text-white/70 hover:border-white/20'
-                    }
-                  >
-                    {opt}
-                  </button>
-                );
-              })}
-            </div>
-          ) : f.kind === 'multiple' ? (
-            <div className="flex flex-wrap gap-2">
-              {(f.options ?? []).map((opt) => {
-                const current = (answers[f.id] ?? '').split('\u0001').filter(Boolean);
-                const selected = current.includes(opt);
-                return (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() =>
-                      setAnswers((prev) => {
-                        const next = selected ? current.filter((v) => v !== opt) : [...current, opt];
-                        return { ...prev, [f.id]: next.join('\u0001') };
-                      })
-                    }
-                    className={
-                      selected
-                        ? 'px-3 py-1.5 rounded-full text-xs font-medium bg-brand-primary text-white'
-                        : 'px-3 py-1.5 rounded-full text-xs font-medium bg-surface-1 border border-white/10 text-white/70 hover:border-white/20'
-                    }
-                  >
-                    {opt}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <input
-              type="text"
-              value={answers[f.id] ?? ''}
-              onChange={(e) => setAnswers((prev) => ({ ...prev, [f.id]: e.target.value }))}
-              placeholder="Escribe tu respuesta"
-              className={inputClass}
-            />
-          )}
-        </div>
-      ))}
-
-      {error && <p className="text-xs text-red-400">{error}</p>}
-      <div className="flex gap-2">
+      <div className="flex gap-2 pt-1">
         <button
-          onClick={() => submit('accepted')}
-          disabled={submitting || name.trim() === '' || requiredPending.length > 0 || categoryMissing}
+          type="submit"
+          disabled={submitting || fullName.trim() === '' || email.trim() === ''}
           className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-brand-primary text-white text-sm font-medium hover:bg-brand-primary-hover transition-colors disabled:opacity-50"
         >
           {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-          Confirmar
+          {submitting ? 'Enviando...' : 'Confirmar inscripción'}
         </button>
         <button
+          type="button"
           onClick={() => setShowForm(false)}
           disabled={submitting}
           className="px-4 py-2.5 rounded-lg border border-white/10 text-sm text-white/60 hover:border-white/20 transition-colors disabled:opacity-50"
@@ -274,6 +209,6 @@ export function EventRsvp({ event, isFull = false }: { event: CoachEvent; isFull
           Cancelar
         </button>
       </div>
-    </div>
+    </form>
   );
 }
