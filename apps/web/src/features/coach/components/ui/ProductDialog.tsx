@@ -11,7 +11,7 @@ interface ProductDialogProps {
   open: boolean
   initial?: Product | null
   onOpenChange: (open: boolean) => void
-  onSave: (p: Product) => void
+  onSave: (p: Product) => void | Promise<void>
 }
 
 export function ProductDialog({ open, initial, onOpenChange, onSave }: ProductDialogProps) {
@@ -122,52 +122,63 @@ export function ProductDialog({ open, initial, onOpenChange, onSave }: ProductDi
     setImageUrl('')
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const id = initial?.id || `prod_${Date.now()}`
     const createdAt = initial?.createdAt || new Date().toISOString()
     const gross = Math.max(price, received)
-    onSave({
-      id,
-      name,
-      brand,
-      imageUrl: imageUrl || undefined,
-      price,
-      received,
-      gross,
-      stock,
-      lowStockThreshold,
-      description,
-      category,
-      isShop,
-      createdAt,
-    })
-    onOpenChange(false)
-    // reset fields
-    setName('')
-    setBrand('')
-    setImageUrl('')
-    setImagePreview(null)
-    setPrice(0)
-    setReceived(0)
-    setStock(0)
-    setLowStockThreshold(1)
+    try {
+      await onSave({
+        id,
+        name,
+        brand,
+        imageUrl: imageUrl || undefined,
+        price,
+        received,
+        gross,
+        stock,
+        lowStockThreshold,
+        description,
+        category,
+        isShop,
+        createdAt,
+      })
+      onOpenChange(false)
+      // reset fields
+      setName('')
+      setBrand('')
+      setImageUrl('')
+      setImagePreview(null)
+      setPrice(0)
+      setReceived(0)
+      setStock(0)
+      setLowStockThreshold(1)
+    } catch {
+      // Error toast is handled by caller; keep dialog open so user can retry.
+    }
   }
 
   const margin = price > 0 ? ((price - received) / price) * 100 : 0
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onOpenChange(false)
+      }}
+    >
       <motion.form
+        role="dialog"
+        aria-modal="true"
         onSubmit={handleSubmit}
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-2xl rounded-lg border border-white/10 bg-surface-1 shadow-2xl overflow-hidden"
+        className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-lg border border-white/10 bg-surface-1 shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 border-b border-white/5 bg-white/[0.02] px-6 py-4">
+        <div className="shrink-0 flex items-center justify-between gap-3 border-b border-white/5 bg-white/[0.02] px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-brand-primary/15 p-2 text-brand-primary">
               <Package size={20} />
@@ -178,6 +189,7 @@ export function ProductDialog({ open, initial, onOpenChange, onSave }: ProductDi
           </div>
           <button
             type="button"
+            aria-label="Cerrar modal"
             onClick={() => onOpenChange(false)}
             className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
           >
@@ -185,7 +197,7 @@ export function ProductDialog({ open, initial, onOpenChange, onSave }: ProductDi
           </button>
         </div>
 
-        <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: Image + Basic Info */}
           <div className="lg:col-span-1 space-y-4">
             {/* Image Upload Area */}
@@ -414,7 +426,7 @@ export function ProductDialog({ open, initial, onOpenChange, onSave }: ProductDi
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 border-t border-white/5 bg-white/[0.02] px-6 py-4">
+        <div className="shrink-0 flex items-center justify-end gap-3 border-t border-white/5 bg-white/[0.02] px-6 py-4">
           <button
             type="button"
             onClick={() => onOpenChange(false)}

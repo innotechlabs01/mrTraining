@@ -208,7 +208,7 @@ export default function CoachEarningsPage() {
             (comisiones generadas pero aún no liquidadas en un settlement)
           </li>
           <li>
-            {'Total: <span className="font-bold text-white">{formatMoney(totalEarnings)}</span>'}
+            Total: <span className="font-bold text-white">{formatMoney(totalEarnings)}</span>
           </li>
         </ul>
       </div>

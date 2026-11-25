@@ -110,18 +110,26 @@ func (r *WorkoutRepository) GetTemplate(ctx context.Context, id string) (*traini
 
 // CreateTemplate inserts a new workout template with its exercises.
 func (r *WorkoutRepository) CreateTemplate(ctx context.Context, t *training.WorkoutTemplate) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+	var tx *sql.Tx
+	ownTx := false
+	if existingTx, ok := r.exec.(*sql.Tx); ok {
+		tx = existingTx
+	} else {
+		var err error
+		tx, err = r.db.BeginTx(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("failed to begin transaction: %w", err)
+		}
+		defer tx.Rollback()
+		ownTx = true
 	}
-	defer tx.Rollback()
 
 	var estimatedDuration sql.NullInt64
 	if t.EstimatedDurationMinutes != nil {
 		estimatedDuration = sql.NullInt64{Int64: int64(*t.EstimatedDurationMinutes), Valid: true}
 	}
 
-	_, err = tx.ExecContext(ctx,
+	_, err := tx.ExecContext(ctx,
 		`INSERT INTO workout_templates (id, coach_id, name, description, goal, estimated_duration_minutes)
 		 VALUES ($1, $2, $3, $4, $5, $6)`,
 		t.ID, t.CoachID, t.Name, t.Description, t.Goal, estimatedDuration)
@@ -135,16 +143,27 @@ func (r *WorkoutRepository) CreateTemplate(ctx context.Context, t *training.Work
 		}
 	}
 
-	return tx.Commit()
+	if ownTx {
+		return tx.Commit()
+	}
+	return nil
 }
 
 // UpdateTemplate updates an existing workout template and replaces its exercises.
 func (r *WorkoutRepository) UpdateTemplate(ctx context.Context, t *training.WorkoutTemplate) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+	var tx *sql.Tx
+	ownTx := false
+	if existingTx, ok := r.exec.(*sql.Tx); ok {
+		tx = existingTx
+	} else {
+		var err error
+		tx, err = r.db.BeginTx(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("failed to begin transaction: %w", err)
+		}
+		defer tx.Rollback()
+		ownTx = true
 	}
-	defer tx.Rollback()
 
 	var estimatedDuration sql.NullInt64
 	if t.EstimatedDurationMinutes != nil {
@@ -177,7 +196,10 @@ func (r *WorkoutRepository) UpdateTemplate(ctx context.Context, t *training.Work
 		}
 	}
 
-	return tx.Commit()
+	if ownTx {
+		return tx.Commit()
+	}
+	return nil
 }
 
 // AssignWorkout assigns a workout template to an athlete.
@@ -511,13 +533,15 @@ func (r *WorkoutRepository) insertTemplateExercise(ctx context.Context, tx *sql.
 		speed = sql.NullFloat64{Float64: ex.Speed, Valid: true}
 	}
 
-	var repsMin, repsMax, durationSec sql.NullInt64
+	repsMin := 0
 	if ex.RepsMin != nil {
-		repsMin = sql.NullInt64{Int64: int64(*ex.RepsMin), Valid: true}
+		repsMin = *ex.RepsMin
 	}
+	repsMax := 0
 	if ex.RepsMax != nil {
-		repsMax = sql.NullInt64{Int64: int64(*ex.RepsMax), Valid: true}
+		repsMax = *ex.RepsMax
 	}
+	var durationSec sql.NullInt64
 	if ex.DurationSeconds != 0 {
 		durationSec = sql.NullInt64{Int64: int64(ex.DurationSeconds), Valid: true}
 	}

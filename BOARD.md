@@ -10,6 +10,8 @@
 - [ ] (none)
 
 ## Done
+- [x] T-037a [P0]: Fix HTTP 500s on `POST /api/v1/exercises`, `POST /api/v1/workout-templates`, `POST /api/v1/products`, `POST /api/v1/plans` camelCase/snake_case & `earnings-live` SSE auth — `go build/vet/test -race` PASS (2026-11-24).
+- [x] T-037b [P1]: Real `/coach/plan` (Mi Membresía + historial + Wompi) + Sidebar link + fixes in `/coach/earnings` (JSX literal), `/coach/ventas` (modal/toast), `/coach/planes` (TRM/payload), `/coach/landing-canvas` (Hero title/subtitle) & `/coach/ally` (`/api/v1/` prefixes) — `tsc`, `lint` (0 errs), 36/36 suites / 269/269 tests PASS (2026-11-24).
 - [x] T-036a [P0]: Close Checkout Account Takeover (`/public/checkouts/:id/verify`), Free-Subscription Bypass (`/checkouts/:id/recover`) & Error Webhook Hardening — Approved by @user 2026-11-24. `go build/vet/test -race` PASS (8 new security/sandbox tests).
 - [x] T-036b [P1]: Fix Coach Checkout Redirect (`checkout_url`), Harden Auth BFF Headers/Env & Proxy Progress Summary — Approved by @user 2026-11-24. `tsc`, `lint` (0 errs), 36/36 suites / 269/269 tests PASS.
 - [x] T-036c [P1]: Mobile QA `eas.json` Parity & `GO_API_PATH_MAP` Prefix-Collision Hardening — Approved by @user 2026-11-24. `tsc`, 97/97 suites / 550/550 tests PASS.

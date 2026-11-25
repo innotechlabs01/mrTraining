@@ -145,7 +145,7 @@ export default function AllyDashboard() {
           Ver operaciones
         </Link>
         <Link
-          href="/coach/ally/settlements"
+          href="/coach/earnings"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-white/80 text-sm font-medium hover:bg-white/10 transition-colors"
         >
           Liquidaciones y pagos

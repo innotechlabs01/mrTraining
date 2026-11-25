@@ -26,6 +26,7 @@ import { CanvasToolbar } from '@/features/coach/landing-canvas/components/Canvas
 import {
   defaultCanvasConfig,
   createBlockForType,
+  createHeroBlock,
 } from '@/features/coach/landing-canvas/utils/block-utils';
 import { toast } from 'sonner';
 
@@ -125,7 +126,12 @@ export function CoachLandingCanvas(): JSX.Element {
                 title,
                 subtitle: subtitle || '',
                 config: JSON.stringify(defaultCanvasConfig()),
-                sections: JSON.stringify([createBlockForType('hero')]),
+                sections: JSON.stringify([
+                  createHeroBlock({
+                    headline: title.trim(),
+                    ...(subtitle?.trim() ? { subheadline: subtitle.trim() } : {}),
+                  }),
+                ]),
                 images: JSON.stringify([]),
               };
               void createLanding(input);

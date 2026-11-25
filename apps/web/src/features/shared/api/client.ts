@@ -868,18 +868,74 @@ export const coachingApi = {
     // No fallback to Next.js API to avoid leaking plans of other coaches on public pages.
     goFetch<{ data?: GoPlan[] }>('/api/v1/plans')
       .then((res) => (Array.isArray(res) ? res : (res.data ?? []).map(mapGoPlan))),
-  savePlan: <T>(_data: unknown) =>
+  savePlan: <T>(_data: unknown) => {
+    const p = (_data ?? {}) as Record<string, unknown>;
+    const discount = (p.discount ?? null) as Record<string, unknown> | null;
+    const payload = {
+      name: p.name,
+      description: p.description ?? '',
+      price: p.price,
+      currency: p.currency ?? 'COP',
+      billing_period: p.billing_period ?? p.billingPeriod ?? 'monthly',
+      max_athletes: p.max_athletes ?? p.maxAthletes ?? 0,
+      max_sessions_per_week: p.max_sessions_per_week ?? p.maxSessionsPerWeek ?? 0,
+      is_active: p.is_active ?? p.isActive ?? false,
+      trm: p.trm ?? 0,
+      ...(discount
+        ? {
+            discount_type: discount.type ?? '',
+            discount_value: discount.value ?? 0,
+            discount_label: discount.label ?? '',
+            discount_valid_from: discount.validFrom ?? discount.valid_from ?? '',
+            discount_valid_until: discount.validUntil ?? discount.valid_until ?? '',
+            discount_code: discount.code ?? '',
+          }
+        : {}),
+    };
     // Go API: POST /api/v1/plans
-    goFetch<{ id: string }>('/api/v1/plans', {
+    return goFetch<{ id: string }>('/api/v1/plans', {
       method: 'POST',
-      body: JSON.stringify(_data),
-    }) as Promise<T & { id: string }>,
-  updatePlan: <T>(id: string, data: unknown) =>
+      body: JSON.stringify(payload),
+    }) as Promise<T & { id: string }>;
+  },
+  updatePlan: <T>(id: string, data: unknown) => {
+    const p = (data ?? {}) as Record<string, unknown>;
+    const discount = (p.discount ?? null) as Record<string, unknown> | null;
+    const payload: Record<string, unknown> = {
+      ...(p.name !== undefined ? { name: p.name } : {}),
+      ...(p.description !== undefined ? { description: p.description } : {}),
+      ...(p.price !== undefined ? { price: p.price } : {}),
+      ...(p.currency !== undefined ? { currency: p.currency } : {}),
+      ...((p.billing_period ?? p.billingPeriod) !== undefined
+        ? { billing_period: p.billing_period ?? p.billingPeriod }
+        : {}),
+      ...((p.max_athletes ?? p.maxAthletes) !== undefined
+        ? { max_athletes: p.max_athletes ?? p.maxAthletes }
+        : {}),
+      ...((p.max_sessions_per_week ?? p.maxSessionsPerWeek) !== undefined
+        ? { max_sessions_per_week: p.max_sessions_per_week ?? p.maxSessionsPerWeek }
+        : {}),
+      ...((p.is_active ?? p.isActive) !== undefined
+        ? { is_active: p.is_active ?? p.isActive }
+        : {}),
+      ...(p.trm !== undefined ? { trm: p.trm } : {}),
+      ...(discount
+        ? {
+            discount_type: discount.type ?? '',
+            discount_value: discount.value ?? 0,
+            discount_label: discount.label ?? '',
+            discount_valid_from: discount.validFrom ?? discount.valid_from ?? '',
+            discount_valid_until: discount.validUntil ?? discount.valid_until ?? '',
+            discount_code: discount.code ?? '',
+          }
+        : {}),
+    };
     // Go API: PUT /api/v1/plans/:id
-    goFetch<{ ok: boolean }>(`/api/v1/plans/${id}`, {
+    return goFetch<{ ok: boolean }>(`/api/v1/plans/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(data),
-    }) as Promise<T & { ok: boolean }>,
+      body: JSON.stringify(payload),
+    }) as Promise<T & { ok: boolean }>;
+  },
   deletePlan: <T>(id: string) =>
     // Go API: DELETE /api/v1/plans/:id
     goFetch<{ ok: boolean }>(`/api/v1/plans/${id}`, {

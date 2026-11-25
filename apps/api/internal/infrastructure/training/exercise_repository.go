@@ -76,12 +76,14 @@ func (r *ExerciseRepository) List(ctx context.Context, filter training.ExerciseF
 		e := &training.ExerciseEntry{}
 		var bodyPart, equipment, difficulty, category, videoURL, imageURL, coachID sql.NullString
 		var defaultSec sql.NullInt64
+		var isCustom int
 		if err := rows.Scan(&e.ID, &e.Slug, &e.Name, &e.Description, &e.Mode, &bodyPart,
 			&e.MuscleGroups, &e.SecondaryMuscles, &equipment, &difficulty, &category,
-			&e.Instructions, &defaultSec, &videoURL, &imageURL, &e.IsCustom, &coachID,
+			&e.Instructions, &defaultSec, &videoURL, &imageURL, &isCustom, &coachID,
 			&e.CreatedAt, &e.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan exercise: %w", err)
 		}
+		e.IsCustom = isCustom != 0
 		if bodyPart.Valid {
 			e.BodyPart = bodyPart.String
 		}
@@ -123,9 +125,10 @@ func (r *ExerciseRepository) GetByID(ctx context.Context, id string) (*training.
 	e := &training.ExerciseEntry{}
 	var bodyPart, equipment, difficulty, category, videoURL, imageURL, coachID sql.NullString
 	var defaultSec sql.NullInt64
+	var isCustom int
 	err := row.Scan(&e.ID, &e.Slug, &e.Name, &e.Description, &e.Mode, &bodyPart,
 		&e.MuscleGroups, &e.SecondaryMuscles, &equipment, &difficulty, &category,
-		&e.Instructions, &defaultSec, &videoURL, &imageURL, &e.IsCustom, &coachID,
+		&e.Instructions, &defaultSec, &videoURL, &imageURL, &isCustom, &coachID,
 		&e.CreatedAt, &e.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, errors.NotFound("Exercise", id)
@@ -133,6 +136,7 @@ func (r *ExerciseRepository) GetByID(ctx context.Context, id string) (*training.
 	if err != nil {
 		return nil, fmt.Errorf("failed to get exercise: %w", err)
 	}
+	e.IsCustom = isCustom != 0
 	if bodyPart.Valid {
 		e.BodyPart = bodyPart.String
 	}
@@ -191,6 +195,11 @@ func (r *ExerciseRepository) Create(ctx context.Context, e *training.ExerciseEnt
 		defaultSec = sql.NullInt64{Int64: int64(*e.DefaultSec), Valid: true}
 	}
 
+	isCustom := 0
+	if e.IsCustom {
+		isCustom = 1
+	}
+
 	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO exercise_library
 		 (id, slug, name, description, mode, body_part, muscle_groups, secondary_muscles,
@@ -199,7 +208,7 @@ func (r *ExerciseRepository) Create(ctx context.Context, e *training.ExerciseEnt
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW())`,
 		e.ID, e.Slug, e.Name, e.Description, e.Mode, bodyPart, e.MuscleGroups,
 		e.SecondaryMuscles, equipment, difficulty, category, e.Instructions,
-		defaultSec, videoURL, imageURL, e.IsCustom, coachID)
+		defaultSec, videoURL, imageURL, isCustom, coachID)
 	if err != nil {
 		return fmt.Errorf("failed to create exercise: %w", err)
 	}
@@ -236,6 +245,11 @@ func (r *ExerciseRepository) Update(ctx context.Context, e *training.ExerciseEnt
 		defaultSec = sql.NullInt64{Int64: int64(*e.DefaultSec), Valid: true}
 	}
 
+	isCustom := 0
+	if e.IsCustom {
+		isCustom = 1
+	}
+
 	res, err := r.exec.ExecContext(ctx,
 		`UPDATE exercise_library
 		 SET slug = $1, name = $2, description = $3, mode = $4, body_part = $5, muscle_groups = $6,
@@ -245,7 +259,7 @@ func (r *ExerciseRepository) Update(ctx context.Context, e *training.ExerciseEnt
 		 WHERE id = $17`,
 		e.Slug, e.Name, e.Description, e.Mode, bodyPart, e.MuscleGroups,
 		e.SecondaryMuscles, equipment, difficulty, category, e.Instructions,
-		defaultSec, videoURL, imageURL, e.IsCustom, coachID, e.ID)
+		defaultSec, videoURL, imageURL, isCustom, coachID, e.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update exercise: %w", err)
 	}
