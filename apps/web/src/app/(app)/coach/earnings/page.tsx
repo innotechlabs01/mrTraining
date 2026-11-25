@@ -2,10 +2,30 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { DollarSign, ShoppingCart, Users, Clock, TrendingUp, AlertCircle } from 'lucide-react'
+import { DollarSign, ShoppingCart, Users, Clock, TrendingUp, Landmark, Loader2, Save } from 'lucide-react'
+import { toast } from 'sonner'
 import { useEarnings } from '@/features/coach/hooks/useEarnings'
 import { subscribeEarningsLive } from '@/features/shared/api/client'
+import { goFetch } from '@/lib/api/go-client'
 import { formatMoney } from '@/lib/utils'
+
+interface PayoutAccountForm {
+  bank_name: string
+  account_type: 'savings' | 'checking' | 'nequi' | 'daviplata'
+  account_number: string
+  account_holder_name: string
+  document_type: 'CC' | 'NIT' | 'CE' | 'PAS'
+  document_number: string
+}
+
+const DEFAULT_PAYOUT_ACCOUNT: PayoutAccountForm = {
+  bank_name: '',
+  account_type: 'savings',
+  account_number: '',
+  account_holder_name: '',
+  document_type: 'CC',
+  document_number: '',
+}
 
 export default function CoachEarningsPage() {
   const {
@@ -187,6 +207,9 @@ export default function CoachEarningsPage() {
         </div>
       </div>
 
+      {/* Cuenta bancaria para pagos */}
+      <PayoutAccountCard />
+
       <div className="bg-white/5 rounded-xl p-6 border border-white/5">
         <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-4">
           ¿Cómo se calcula?
@@ -208,10 +231,214 @@ export default function CoachEarningsPage() {
             (comisiones generadas pero aún no liquidadas en un settlement)
           </li>
           <li>
-            {'Total: <span className="font-bold text-white">{formatMoney(totalEarnings)}</span>'}
+            Total: <span className="font-bold text-white">{formatMoney(totalEarnings)}</span>
           </li>
         </ul>
       </div>
+    </div>
+  )
+}
+
+function PayoutAccountCard() {
+  const [form, setForm] = useState<PayoutAccountForm>(DEFAULT_PAYOUT_ACCOUNT)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    goFetch<Partial<PayoutAccountForm> | { data?: Partial<PayoutAccountForm> }>(
+      '/api/v1/coach/payout-account',
+    )
+      .then((res) => {
+        if (!active || !res) return
+        const data = 'data' in res && res.data ? res.data : (res as Partial<PayoutAccountForm>)
+        setForm({
+          bank_name: data.bank_name ?? '',
+          account_type: (data.account_type as PayoutAccountForm['account_type']) ?? 'savings',
+          account_number: data.account_number ?? '',
+          account_holder_name: data.account_holder_name ?? '',
+          document_type: (data.document_type as PayoutAccountForm['document_type']) ?? 'CC',
+          document_number: data.document_number ?? '',
+        })
+      })
+      .catch(() => {
+        // Account may not be configured yet; leave empty defaults
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.bank_name.trim() || !form.account_number.trim() || !form.account_holder_name.trim() || !form.document_number.trim()) {
+      toast.error('Por favor completa todos los campos obligatorios.')
+      return
+    }
+    setSaving(true)
+    try {
+      await goFetch('/api/v1/coach/payout-account', {
+        method: 'PUT',
+        body: JSON.stringify({
+          bank_name: form.bank_name.trim(),
+          account_type: form.account_type,
+          account_number: form.account_number.trim(),
+          account_holder_name: form.account_holder_name.trim(),
+          document_type: form.document_type,
+          document_number: form.document_number.trim(),
+        }),
+      })
+      toast.success('Cuenta bancaria guardada correctamente.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo guardar la cuenta bancaria.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputClass =
+    'w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:border-brand-primary'
+
+  return (
+    <div className="bg-white/5 rounded-xl p-6 border border-white/5">
+      <div className="flex items-center gap-2 mb-1">
+        <Landmark size={18} className="text-brand-primary" />
+        <h2 className="text-base font-semibold text-white">Cuenta bancaria para pagos</h2>
+      </div>
+      <p className="text-xs text-white/50 mb-5">
+        Configura la cuenta donde recibirás tus liquidaciones y comisiones.
+      </p>
+
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-pulse">
+          <div className="h-10 bg-white/10 rounded-lg" />
+          <div className="h-10 bg-white/10 rounded-lg" />
+          <div className="h-10 bg-white/10 rounded-lg" />
+          <div className="h-10 bg-white/10 rounded-lg" />
+        </div>
+      ) : (
+        <form onSubmit={handleSave} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="payout-bank-name" className="block text-xs font-medium text-white/70 mb-1.5">
+                Banco
+              </label>
+              <input
+                id="payout-bank-name"
+                type="text"
+                required
+                value={form.bank_name}
+                onChange={(e) => setForm((prev) => ({ ...prev, bank_name: e.target.value }))}
+                placeholder="Ej. Bancolombia, Davivienda, Nequi"
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="payout-account-type" className="block text-xs font-medium text-white/70 mb-1.5">
+                Tipo de cuenta
+              </label>
+              <select
+                id="payout-account-type"
+                value={form.account_type}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    account_type: e.target.value as PayoutAccountForm['account_type'],
+                  }))
+                }
+                className={inputClass}
+              >
+                <option value="savings" className="bg-neutral-900">Ahorros</option>
+                <option value="checking" className="bg-neutral-900">Corriente</option>
+                <option value="nequi" className="bg-neutral-900">Nequi</option>
+                <option value="daviplata" className="bg-neutral-900">Daviplata</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="payout-account-number" className="block text-xs font-medium text-white/70 mb-1.5">
+                Número de cuenta
+              </label>
+              <input
+                id="payout-account-number"
+                type="text"
+                required
+                value={form.account_number}
+                onChange={(e) => setForm((prev) => ({ ...prev, account_number: e.target.value }))}
+                placeholder="Número de cuenta o celular"
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="payout-account-holder" className="block text-xs font-medium text-white/70 mb-1.5">
+                Titular
+              </label>
+              <input
+                id="payout-account-holder"
+                type="text"
+                required
+                value={form.account_holder_name}
+                onChange={(e) => setForm((prev) => ({ ...prev, account_holder_name: e.target.value }))}
+                placeholder="Nombre completo del titular"
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="payout-doc-type" className="block text-xs font-medium text-white/70 mb-1.5">
+                Tipo de documento
+              </label>
+              <select
+                id="payout-doc-type"
+                value={form.document_type}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    document_type: e.target.value as PayoutAccountForm['document_type'],
+                  }))
+                }
+                className={inputClass}
+              >
+                <option value="CC" className="bg-neutral-900">CC</option>
+                <option value="NIT" className="bg-neutral-900">NIT</option>
+                <option value="CE" className="bg-neutral-900">CE</option>
+                <option value="PAS" className="bg-neutral-900">PAS</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="payout-doc-number" className="block text-xs font-medium text-white/70 mb-1.5">
+                Número de documento
+              </label>
+              <input
+                id="payout-doc-number"
+                type="text"
+                required
+                value={form.document_number}
+                onChange={(e) => setForm((prev) => ({ ...prev, document_number: e.target.value }))}
+                placeholder="Ej. 1020304050"
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-sm font-semibold text-white transition-colors disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              {saving ? 'Guardando...' : 'Guardar cuenta bancaria'}
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   )
 }

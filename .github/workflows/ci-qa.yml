@@ -26,6 +26,8 @@ jobs:
       - run: git diff --exit-code go.mod go.sum
       - name: Compile Go API
         run: go build ./...
+      - name: Vet Go API
+        run: go vet ./...
       - name: Run Go Unit Tests
         env:
           APP_ENV: development

@@ -82,11 +82,15 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*productdomain.Pro
 
 // Create inserts a new product record.
 func (r *Repository) Create(ctx context.Context, p *productdomain.Product) error {
+	isShop := 0
+	if p.IsShop {
+		isShop = 1
+	}
 	_, err := r.exec.ExecContext(ctx,
 		`INSERT INTO products (id, name, brand, image_url, price, received, gross, stock, low_stock_threshold, description, category, is_shop, coach_id)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
 		p.ID, p.Name, p.Brand, p.ImageURL, p.Price, p.Received, p.Gross,
-		p.Stock, p.LowStockThreshold, p.Description, p.Category, p.IsShop, p.CoachID)
+		p.Stock, p.LowStockThreshold, p.Description, p.Category, isShop, p.CoachID)
 	if err != nil {
 		return fmt.Errorf("failed to create product: %w", err)
 	}
@@ -95,12 +99,16 @@ func (r *Repository) Create(ctx context.Context, p *productdomain.Product) error
 
 // Update modifies an existing product record.
 func (r *Repository) Update(ctx context.Context, p *productdomain.Product) error {
+	isShop := 0
+	if p.IsShop {
+		isShop = 1
+	}
 	result, err := r.exec.ExecContext(ctx,
 		`UPDATE products SET name=$1, brand=$2, image_url=$3, price=$4, received=$5, gross=$6,
 		 stock=$7, low_stock_threshold=$8, description=$9, category=$10, is_shop=$11,
 		 updated_at=NOW() WHERE id=$12`,
 		p.Name, p.Brand, p.ImageURL, p.Price, p.Received, p.Gross,
-		p.Stock, p.LowStockThreshold, p.Description, p.Category, p.IsShop, p.ID)
+		p.Stock, p.LowStockThreshold, p.Description, p.Category, isShop, p.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update product: %w", err)
 	}
@@ -133,7 +141,7 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 // UpdateStock adjusts the stock of a product by the given delta.
 func (r *Repository) UpdateStock(ctx context.Context, id string, delta int) error {
 	result, err := r.exec.ExecContext(ctx,
-		`UPDATE products SET stock = MAX(0, stock + $1), updated_at = NOW() WHERE id = $2`,
+		`UPDATE products SET stock = GREATEST(0, stock + $1), updated_at = NOW() WHERE id = $2`,
 		delta, id)
 	if err != nil {
 		return fmt.Errorf("failed to update stock: %w", err)
@@ -183,7 +191,7 @@ func (r *Repository) CreateSale(ctx context.Context, sale *productdomain.Sale) e
 
 	// Decrement stock
 	if _, err := r.exec.ExecContext(ctx,
-		`UPDATE products SET stock = MAX(0, stock - $1), updated_at = NOW() WHERE id = $2`,
+		`UPDATE products SET stock = GREATEST(0, stock - $1), updated_at = NOW() WHERE id = $2`,
 		sale.Quantity, sale.ProductID); err != nil {
 		return fmt.Errorf("failed to decrement stock: %w", err)
 	}

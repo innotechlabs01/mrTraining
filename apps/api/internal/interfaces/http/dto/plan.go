@@ -1,5 +1,7 @@
 package dto
 
+import "encoding/json"
+
 // PlanDiscountDTO embeds discount fields in a plan response.
 type PlanDiscountDTO struct {
 	Type  string  `json:"type"`
@@ -48,6 +50,63 @@ type CreatePlanRequest struct {
 	DiscountCode       string  `json:"discount_code"`
 }
 
+// UnmarshalJSON accepts both snake_case and camelCase keys for plan creation payloads.
+func (r *CreatePlanRequest) UnmarshalJSON(data []byte) error {
+	type alias CreatePlanRequest
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*r = CreatePlanRequest(a)
+
+	var camel struct {
+		BillingPeriod      string  `json:"billingPeriod"`
+		MaxAthletes        *int    `json:"maxAthletes"`
+		MaxSessionsPerWeek *int    `json:"maxSessionsPerWeek"`
+		IsActive           *bool   `json:"isActive"`
+		DiscountType       string  `json:"discountType"`
+		DiscountValue      float64 `json:"discountValue"`
+		DiscountLabel      string  `json:"discountLabel"`
+		DiscountValidFrom  string  `json:"discountValidFrom"`
+		DiscountValidUntil string  `json:"discountValidUntil"`
+		DiscountCode       string  `json:"discountCode"`
+	}
+	if err := json.Unmarshal(data, &camel); err != nil {
+		return nil
+	}
+	if r.BillingPeriod == "" && camel.BillingPeriod != "" {
+		r.BillingPeriod = camel.BillingPeriod
+	}
+	if r.MaxAthletes == 0 && camel.MaxAthletes != nil {
+		r.MaxAthletes = *camel.MaxAthletes
+	}
+	if r.MaxSessionsPerWeek == 0 && camel.MaxSessionsPerWeek != nil {
+		r.MaxSessionsPerWeek = *camel.MaxSessionsPerWeek
+	}
+	if !r.IsActive && camel.IsActive != nil {
+		r.IsActive = *camel.IsActive
+	}
+	if r.DiscountType == "" && camel.DiscountType != "" {
+		r.DiscountType = camel.DiscountType
+	}
+	if r.DiscountValue == 0 && camel.DiscountValue != 0 {
+		r.DiscountValue = camel.DiscountValue
+	}
+	if r.DiscountLabel == "" && camel.DiscountLabel != "" {
+		r.DiscountLabel = camel.DiscountLabel
+	}
+	if r.DiscountValidFrom == "" && camel.DiscountValidFrom != "" {
+		r.DiscountValidFrom = camel.DiscountValidFrom
+	}
+	if r.DiscountValidUntil == "" && camel.DiscountValidUntil != "" {
+		r.DiscountValidUntil = camel.DiscountValidUntil
+	}
+	if r.DiscountCode == "" && camel.DiscountCode != "" {
+		r.DiscountCode = camel.DiscountCode
+	}
+	return nil
+}
+
 // UpdatePlanRequest is the payload for updating a plan. All fields optional.
 type UpdatePlanRequest struct {
 	Name               *string  `json:"name,omitempty"`
@@ -65,6 +124,63 @@ type UpdatePlanRequest struct {
 	DiscountValidFrom  *string  `json:"discount_valid_from,omitempty"`
 	DiscountValidUntil *string  `json:"discount_valid_until,omitempty"`
 	DiscountCode       *string  `json:"discount_code,omitempty"`
+}
+
+// UnmarshalJSON accepts both snake_case and camelCase keys for plan update payloads.
+func (r *UpdatePlanRequest) UnmarshalJSON(data []byte) error {
+	type alias UpdatePlanRequest
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*r = UpdatePlanRequest(a)
+
+	var camel struct {
+		BillingPeriod      *string  `json:"billingPeriod,omitempty"`
+		MaxAthletes        *int     `json:"maxAthletes,omitempty"`
+		MaxSessionsPerWeek *int     `json:"maxSessionsPerWeek,omitempty"`
+		IsActive           *bool    `json:"isActive,omitempty"`
+		DiscountType       *string  `json:"discountType,omitempty"`
+		DiscountValue      *float64 `json:"discountValue,omitempty"`
+		DiscountLabel      *string  `json:"discountLabel,omitempty"`
+		DiscountValidFrom  *string  `json:"discountValidFrom,omitempty"`
+		DiscountValidUntil *string  `json:"discountValidUntil,omitempty"`
+		DiscountCode       *string  `json:"discountCode,omitempty"`
+	}
+	if err := json.Unmarshal(data, &camel); err != nil {
+		return nil
+	}
+	if r.BillingPeriod == nil && camel.BillingPeriod != nil {
+		r.BillingPeriod = camel.BillingPeriod
+	}
+	if r.MaxAthletes == nil && camel.MaxAthletes != nil {
+		r.MaxAthletes = camel.MaxAthletes
+	}
+	if r.MaxSessionsPerWeek == nil && camel.MaxSessionsPerWeek != nil {
+		r.MaxSessionsPerWeek = camel.MaxSessionsPerWeek
+	}
+	if r.IsActive == nil && camel.IsActive != nil {
+		r.IsActive = camel.IsActive
+	}
+	if r.DiscountType == nil && camel.DiscountType != nil {
+		r.DiscountType = camel.DiscountType
+	}
+	if r.DiscountValue == nil && camel.DiscountValue != nil {
+		r.DiscountValue = camel.DiscountValue
+	}
+	if r.DiscountLabel == nil && camel.DiscountLabel != nil {
+		r.DiscountLabel = camel.DiscountLabel
+	}
+	if r.DiscountValidFrom == nil && camel.DiscountValidFrom != nil {
+		r.DiscountValidFrom = camel.DiscountValidFrom
+	}
+	if r.DiscountValidUntil == nil && camel.DiscountValidUntil != nil {
+		r.DiscountValidUntil = camel.DiscountValidUntil
+	}
+	if r.DiscountCode == nil && camel.DiscountCode != nil {
+		r.DiscountCode = camel.DiscountCode
+	}
+	return nil
 }
 
 // TRMResponse is the JSON shape for the current TRM rate.

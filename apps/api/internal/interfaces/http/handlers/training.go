@@ -239,8 +239,12 @@ func (h *TrainingHandler) CreateExercise(c *fiber.Ctx) error {
 		req.VideoURL = normalized
 	}
 
-	exercise, err := h.service.CreateExercise(middleware.RequestContext(c), userID, req)
-	if err != nil {
+	var exercise *trainingdomain.ExerciseEntry
+	if err := h.withTx(c, func(svc *trainingapp.Service) error {
+		var cerr error
+		exercise, cerr = svc.CreateExercise(middleware.RequestContext(c), userID, req)
+		return cerr
+	}); err != nil {
 		return h.handleError(c, err)
 	}
 
@@ -343,8 +347,12 @@ func (h *TrainingHandler) CreateWorkoutTemplate(c *fiber.Ctx) error {
 		return h.handleValidationError(c, validationErrs)
 	}
 
-	template, err := h.service.CreateWorkoutTemplate(middleware.RequestContext(c), userID, req)
-	if err != nil {
+	var template *trainingdomain.WorkoutTemplate
+	if err := h.withTx(c, func(svc *trainingapp.Service) error {
+		var cerr error
+		template, cerr = svc.CreateWorkoutTemplate(middleware.RequestContext(c), userID, req)
+		return cerr
+	}); err != nil {
 		return h.handleError(c, err)
 	}
 

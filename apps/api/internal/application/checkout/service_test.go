@@ -659,8 +659,10 @@ func TestRecoverPayment_NotFound(t *testing.T) {
 	}
 }
 
-// Claim after RecoverPayment succeeds without needing Wompi payment ID lookup.
-func TestClaim_AfterRecoverPayment_SuccessfullyClaims(t *testing.T) {
+// Claim after RecoverPayment must NOT succeed without Wompi-verified payment
+// proof: the "checkout:" trust bypass was removed so an unpaid checkout cannot
+// be flipped to paid and claimed without provider confirmation.
+func TestClaim_AfterRecoverPayment_RefusesWithoutProviderProof(t *testing.T) {
 	repo := newFakeCheckoutRepo()
 	plan := newPlan()
 	coaches := &fakeCoaches{}
@@ -677,11 +679,39 @@ func TestClaim_AfterRecoverPayment_SuccessfullyClaims(t *testing.T) {
 		t.Fatalf("RecoverPayment failed: %v", err)
 	}
 
-	res, err := svc.Claim(context.Background(), ClaimCommand{CheckoutID: created.CheckoutID, UserID: "user_1", Email: "coach@example.com"})
-	if err != nil {
-		t.Fatalf("Claim failed: %v", err)
+	_, err = svc.Claim(context.Background(), ClaimCommand{CheckoutID: created.CheckoutID, UserID: "user_1", Email: "coach@example.com"})
+	if err == nil {
+		t.Fatal("expected Claim to fail without provider-verified payment proof")
 	}
-	if res.CoachCode != "MR-TEST" {
-		t.Fatalf("expected coach code MR-TEST, got %s", res.CoachCode)
+	appErr, ok := err.(*apperrors.AppError)
+	if !ok || appErr.Status != 409 {
+		t.Fatalf("expected 409 Conflict, got %v", err)
+	}
+	if len(coaches.calls) != 0 {
+		t.Errorf("coach must not be provisioned without provider proof, got %v", coaches.calls)
+	}
+}
+
+func TestGetByID_ReturnsCheckoutAndNotFound(t *testing.T) {
+	repo := newFakeCheckoutRepo()
+	svc := NewService(testConfig(), repo, &fakeProvider{}, &fakePlanRepo{plan: newPlan()}, &fakeCoaches{}, &fakeSubscriptions{})
+
+	created, err := svc.Start(context.Background(), StartCommand{PlanID: "plan_1", Email: "coach@example.com"})
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	co, err := svc.GetByID(context.Background(), created.CheckoutID)
+	if err != nil {
+		t.Fatalf("GetByID failed: %v", err)
+	}
+	if co.ID != created.CheckoutID || co.Email != "coach@example.com" {
+		t.Errorf("unexpected checkout: %+v", co)
+	}
+
+	_, err = svc.GetByID(context.Background(), "missing_id")
+	appErr, ok := err.(*apperrors.AppError)
+	if !ok || appErr.Status != 404 {
+		t.Fatalf("expected 404 NotFound, got %v", err)
 	}
 }

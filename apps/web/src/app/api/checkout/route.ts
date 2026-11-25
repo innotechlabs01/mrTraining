@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const GO_API_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:9090';
+const GO_API_URL = process.env.GO_API_URL || process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:9090';
+const NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store' };
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'Cuerpo inválido' }, { status: 400 });
+    return NextResponse.json({ error: 'Cuerpo inválido' }, { status: 400, headers: NO_STORE_HEADERS });
   }
 
   try {
@@ -31,11 +32,11 @@ export async function POST(req: NextRequest) {
         typeof data?.error === 'string'
           ? data.error
           : data?.error?.message ?? 'No se pudo iniciar el pago';
-      return NextResponse.json({ error: message }, { status: res.status });
+      return NextResponse.json({ error: message }, { status: res.status, headers: NO_STORE_HEADERS });
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(data, { headers: NO_STORE_HEADERS });
   } catch {
-    return NextResponse.json({ error: 'No se pudo iniciar el pago' }, { status: 500 });
+    return NextResponse.json({ error: 'No se pudo iniciar el pago' }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }

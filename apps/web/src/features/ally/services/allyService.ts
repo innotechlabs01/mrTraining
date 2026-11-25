@@ -123,14 +123,14 @@ export interface CoachSettlement {
  * Lista los aliados del coach autenticado.
  */
 export async function listCoachAllies(): Promise<Ally[]> {
-  return goFetch<Ally[]>('/coach/allies', { auth: true });
+  return goFetch<Ally[]>('/api/v1/coach/allies', { auth: true });
 }
 
 /**
  * Crea un nuevo aliado (requiere rol coach).
  */
 export async function createAlly(data: CreateAllyRequest): Promise<Ally> {
-  return goFetch<Ally>('/coach/allies', {
+  return goFetch<Ally>('/api/v1/coach/allies', {
     auth: true,
     method: 'POST',
     body: JSON.stringify(data),
@@ -141,21 +141,21 @@ export async function createAlly(data: CreateAllyRequest): Promise<Ally> {
  * Obtiene un aliado específico por ID (requiere rol coach).
  */
 export async function getCoachAlly(allyId: string): Promise<Ally> {
-  return goFetch<Ally>(`/coach/allies/${allyId}`, { auth: true });
+  return goFetch<Ally>(`/api/v1/coach/allies/${allyId}`, { auth: true });
 }
 
 /**
  * Lista los productos del catálogo del aliado autenticado.
  */
 export async function listAllyProducts(): Promise<AllyProduct[]> {
-  return goFetch<AllyProduct[]>('/ally/products', { auth: true });
+  return goFetch<AllyProduct[]>('/api/v1/ally/products', { auth: true });
 }
 
 /**
  * Crea un producto en el catálogo del aliado (requiere rol ally).
  */
 export async function createAllyProduct(data: CreateAllyProductRequest): Promise<AllyProduct> {
-  return goFetch<AllyProduct>('/ally/products', {
+  return goFetch<AllyProduct>('/api/v1/ally/products', {
     auth: true,
     method: 'POST',
     body: JSON.stringify(data),
@@ -166,33 +166,33 @@ export async function createAllyProduct(data: CreateAllyProductRequest): Promise
  * Lista los servicios del catálogo del aliado autenticado.
  */
 export async function listAllyServices(): Promise<AllyProduct[]> {
-  return goFetch<AllyProduct[]>('/ally/services', { auth: true });
+  return goFetch<AllyProduct[]>('/api/v1/ally/services', { auth: true });
 }
 
 /**
  * Lista las operaciones del aliado autenticado.
  */
 export async function listAllyOperations(): Promise<AllyOperation[]> {
-  return goFetch<AllyOperation[]>('/ally/operations', { auth: true });
+  return goFetch<AllyOperation[]>('/api/v1/ally/operations', { auth: true });
 }
 
 /**
  * Lista las declaraciones de pago del aliado autenticado.
  */
 export async function listAllyPaymentDeclarations(): Promise<AllyPaymentDeclaration[]> {
-  return goFetch<AllyPaymentDeclaration[]>('/ally/payment-declarations', { auth: true });
+  return goFetch<AllyPaymentDeclaration[]>('/api/v1/ally/payment-declarations', { auth: true });
 }
 
 /**
  * Lista las comisiones del coach autenticado.
  */
 export async function listCoachCommissionEntries(): Promise<CommissionEntry[]> {
-  return goFetch<CommissionEntry[]>('/coach/commission-entries', { auth: true });
+  return goFetch<CommissionEntry[]>('/api/v1/coach/commission-entries', { auth: true });
 }
 
 /**
  * Lista las liquidaciones del coach autenticado.
  */
 export async function listCoachSettlements(): Promise<CoachSettlement[]> {
-  return goFetch<CoachSettlement[]>('/coach/settlements', { auth: true });
+  return goFetch<CoachSettlement[]>('/api/v1/coach/settlements', { auth: true });
 }

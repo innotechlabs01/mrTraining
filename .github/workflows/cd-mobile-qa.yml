@@ -113,6 +113,12 @@ jobs:
       - name: Install Mobile dependencies
         run: npm ci
 
+      - name: Typecheck Mobile app
+        run: npm run typecheck
+
+      - name: Run Mobile unit tests
+        run: npm test -- --watchAll=false
+
       - name: Build Android QA APK with EAS
         id: build
         env:

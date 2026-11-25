@@ -143,15 +143,20 @@ export default function SalesPage() {
   const lowStockCount = products.filter((p) => p.stock <= p.lowStockThreshold).length
   const outOfStockCount = products.filter((p) => p.stock <= 0).length
 
-  const handleSave = (p: Product) => {
-    if (editing) {
-      updateProduct(editing.id, p)
-      toast.success(`Producto "${p.name}" actualizado`)
-    } else {
-      addProduct(p)
-      toast.success(`Producto "${p.name}" agregado`)
+  const handleSave = async (p: Product) => {
+    try {
+      if (editing) {
+        await updateProduct(editing.id, p)
+        toast.success(`Producto "${p.name}" actualizado`)
+      } else {
+        await addProduct(p)
+        toast.success(`Producto "${p.name}" agregado`)
+      }
+      setEditing(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al guardar el producto')
+      throw err
     }
-    setEditing(null)
   }
 
   const handleEdit = (p: Product) => {
@@ -159,10 +164,14 @@ export default function SalesPage() {
     setDialogOpen(true)
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const p = products.find((p) => p.id === id)
-    removeProduct(id)
-    if (p) toast.success(`Producto "${p.name}" eliminado`)
+    try {
+      await removeProduct(id)
+      if (p) toast.success(`Producto "${p.name}" eliminado`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar el producto')
+    }
   }
 
   const handleSort = (key: keyof Product) => {

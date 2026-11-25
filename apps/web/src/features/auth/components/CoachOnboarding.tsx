@@ -100,7 +100,7 @@ const EXPERIENCE_LEVELS = [
   {
     id: 'elite',
     title: 'Élite (10+ años)',
-    description: 'Coach de alto nivel en la cima de laprofession',
+    description: 'Coach de alto nivel en la cima de la profesión',
     icon: Award,
   },
 ];

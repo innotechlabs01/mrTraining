@@ -90,15 +90,12 @@ jobs:
       # Usa Google Secret Manager (--set-secrets) con el SA cloud-run-api + Infisical remoto (https://secrets.innotechlabssas.lat).
       - name: Deploy Cloud Run service
         env:
-          CORS_ORIGINS_QA: ${{ secrets.CORS_ORIGINS_QA }}
           CLERK_JWKS_URL_QA: ${{ secrets.CLERK_JWKS_URL_QA }}
           WEB_APP_URL_QA: ${{ secrets.WEB_APP_URL_QA }}
           INFISICAL_BASE_URL_QA: ${{ secrets.INFISICAL_BASE_URL_QA }}
           INFISICAL_CLIENT_ID_QA: ${{ secrets.INFISICAL_CLIENT_ID_QA }}
           INFISICAL_CLIENT_SECRET_QA: ${{ secrets.INFISICAL_CLIENT_SECRET_QA }}
           INFISICAL_PROJECT_ID_QA: ${{ secrets.INFISICAL_PROJECT_ID_QA }}
-          REDIS_URL_QA: ${{ secrets.REDIS_URL_QA }}
-          PLATFORM_SUPER_ADMIN_CLERK_ID_QA: ${{ secrets.PLATFORM_SUPER_ADMIN_CLERK_ID_QA }}
         run: |
           INFISICAL_URL="${INFISICAL_BASE_URL_QA:-https://secrets.innotechlabssas.lat}"
           INFISICAL_URL="${INFISICAL_URL%/}"
@@ -192,5 +189,5 @@ jobs:
           echo "  Proyecto: ${{ env.PROJECT_ID }}"
           echo "  Puerto: 8080"
           echo "  Autenticación: WIF (sin claves JSON)"
-          echo "  Secret Manager: 0 secretos (sin gastos)"
+          echo "  Secret Manager: configurado (--set-secrets)"
           echo "============================================================"

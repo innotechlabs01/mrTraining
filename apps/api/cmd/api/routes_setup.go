@@ -475,6 +475,8 @@ func registerProtectedRoutesWithDeps(
 	earningsService := earningsapp.NewService(productRepo, commissionEntryRepo)
 	earningsHandler := handlers.NewEarningsHandler(earningsService)
 	routes.RegisterEarningsRoutes(api, earningsHandler)
+	coachPayoutAccountHandler := handlers.NewCoachPayoutAccountHandler(stdlibDB)
+	routes.RegisterCoachPayoutAccountRoutes(api, coachPayoutAccountHandler)
 
 	// --- Ally Purchase ---
 	allyPurchaseService := allypurchaseapp.NewService(inviteRepo, allyCatalogRepo, allyRepo, allyOpsRepo, commissionEntryRepo, log).

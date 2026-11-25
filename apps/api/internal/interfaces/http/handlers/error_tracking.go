@@ -3,6 +3,8 @@
 package handlers
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 
 	domain "github.com/innotechlabs01/mr-training-api/internal/domain/error_tracking"
@@ -60,7 +62,8 @@ func (h *ErrorHandler) CreateError(c *fiber.Ctx) error {
 		if appErr, ok := err.(*errors.AppError); ok {
 			return appresponse.Error(c, appErr.Status, appErr.Message)
 		}
-		return appresponse.Error(c, fiber.StatusInternalServerError, err.Error())
+		fmt.Printf("create error failed: %v\n", err)
+		return appresponse.Error(c, fiber.StatusInternalServerError, "internal server error")
 	}
 
 	return appresponse.Success(c, e)

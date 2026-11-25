@@ -197,16 +197,26 @@ func RequireAuth(clerkSecretKey string) fiber.Handler {
 	clerk.SetKey(clerkSecretKey)
 
 	return func(c *fiber.Ctx) error {
-		// Extract Bearer token from Authorization header
+		// Extract Bearer token from Authorization header, falling back to ?token=
+		// query parameter or Clerk's __session cookie (required for EventSource/SSE
+		// endpoints such as GET /api/v1/coach/earnings-live where browsers cannot
+		// attach custom Authorization headers).
+		var token string
 		authHeader := c.Get("Authorization")
-		if authHeader == "" {
-			return fiber.NewError(fiber.StatusUnauthorized, "missing authorization header")
-		}
-
-		token := strings.TrimPrefix(authHeader, "Bearer ")
-		if token == authHeader {
-			// No "Bearer " prefix found — format is invalid
-			return fiber.NewError(fiber.StatusUnauthorized, "invalid authorization format, expected 'Bearer <token>'")
+		if authHeader != "" {
+			token = strings.TrimPrefix(authHeader, "Bearer ")
+			if token == authHeader {
+				// No "Bearer " prefix found — format is invalid
+				return fiber.NewError(fiber.StatusUnauthorized, "invalid authorization format, expected 'Bearer <token>'")
+			}
+		} else {
+			token = c.Query("token")
+			if token == "" {
+				token = c.Cookies("__session")
+			}
+			if token == "" {
+				return fiber.NewError(fiber.StatusUnauthorized, "missing authorization header")
+			}
 		}
 
 		// Verify the JWT using Clerk's JWKS-based verification

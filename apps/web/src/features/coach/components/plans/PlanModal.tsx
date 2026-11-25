@@ -74,7 +74,7 @@ export function PlanModal({ open, plan, onClose, onSave }: PlanModalProps) {
     setTrmError(null)
     try {
       const res = await coachingApi.getTRM<{ value: number; vigencia_desde: string }>()
-      setTrm(res.value)
+      setTrm(Math.round(res.value))
     } catch {
       setTrmError('No se pudo obtener el TRM automáticamente')
     } finally {
@@ -263,7 +263,7 @@ export function PlanModal({ open, plan, onClose, onSave }: PlanModalProps) {
                   <input
                     id="plan-trm"
                     inputMode="decimal"
-                    value={trm?.toString() ?? ''}
+                    value={trm != null ? Math.round(trm).toString() : ''}
                     readOnly
                     className={cn(inputClass, 'tabular-nums py-1.5 text-white/80 bg-surface-1', trmLoading && 'opacity-60 cursor-wait')}
                     aria-describedby="plan-trm-help"
@@ -272,7 +272,7 @@ export function PlanModal({ open, plan, onClose, onSave }: PlanModalProps) {
                     {trmLoading ? 'Obteniendo TRM de referencia…' : trmError ? (
                       <span className="text-red-400">{trmError}</span>
                     ) : trm ? (
-                      <>TRM de referencia: ${formatPlanPrice(trm, 'COP')} — actualizado hace instantes</>
+                      <>TRM de referencia: {formatPlanPrice(trm, 'COP')} — actualizado hace instantes</>
                     ) : (
                       'TRM no disponible'
                     )}

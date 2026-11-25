@@ -47,30 +47,25 @@ const GO_API_PATH_MAP: Record<string, string> = {
   '/athlete/checkins': '/athletes/checkins',
   '/athlete/sessions': '/athletes/sessions',
   '/athlete/events': '/athletes/events',
+  '/athlete/membership/status': '/athletes/membership/status',
+  '/athlete/membership/plans': '/athletes/membership/plans',
   '/athlete/membership': '/memberships',
   '/athlete/notifications': '/notifications',
   '/athlete/push-tokens': '/devices',
   '/athlete/tickets': '/athlete/tickets',
   '/athlete/tickets/create': '/athlete/tickets',
   '/tickets': '/tickets',
-  '/tickets/:id': '/tickets/:id',
-  '/tickets/:id/messages': '/tickets/:id/messages',
-  '/tickets/:id/read': '/tickets/:id/read',
-  '/tickets/:id/unread': '/tickets/:id/unread',
-  // Coach endpoints for athlete running data
-  '/coach/athletes/:id/running/sessions': '/coach/athletes/:id/running/sessions',
-  '/coach/athletes/:id/running/stats': '/coach/athletes/:id/running/stats',
-  '/coach/athletes/:id/running/weekly-trend': '/coach/athletes/:id/running/weekly-trend',
-  '/coach/athletes/:id/running/export': '/coach/athletes/:id/running/export',
-  // Running workout completion
-  '/workouts/:id/complete-running': '/workouts/:id/complete-running',
-  '/workouts/:id/running-complete': '/workouts/:id/running-complete',
   // Structured running workouts (templates, assignments, guided sessions)
   '/running/workouts/templates': '/running/workouts/templates',
   '/running/workouts/assignments': '/running/workouts/assignments',
   '/running/workouts/sessions/start': '/running/workouts/sessions/start',
-  '/running/workouts/sessions/:id/complete': '/running/workouts/sessions/:id/complete',
 };
+
+// Pre-sorted longest-first so specific sub-paths (e.g. /athlete/membership/status)
+// always win over shorter parent prefixes (e.g. /athlete/membership).
+const GO_API_PATH_ENTRIES: [string, string][] = Object.entries(GO_API_PATH_MAP).sort(
+  ([a], [b]) => b.length - a.length,
+);
 
 // Paths that stay in Next.js (not in Go API)
 // All main endpoints are now in Go API
@@ -89,8 +84,8 @@ export function toGoApiPath(path: string): string | null {
   if (GO_API_PATH_MAP[path]) {
     return GO_API_PATH_MAP[path];
   }
-  // Check prefix match (for paths with query params or IDs)
-  for (const [mobilePath, goPath] of Object.entries(GO_API_PATH_MAP)) {
+  // Check prefix match longest-first (for paths with query params or IDs)
+  for (const [mobilePath, goPath] of GO_API_PATH_ENTRIES) {
     if (path.startsWith(mobilePath + '/') || path.startsWith(mobilePath + '?')) {
       return path.replace(mobilePath, goPath);
     }

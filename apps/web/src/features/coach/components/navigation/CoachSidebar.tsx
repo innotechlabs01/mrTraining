@@ -23,6 +23,7 @@ import {
   Flame,
   Globe,
   Store,
+  Crown,
 } from 'lucide-react'
 
 interface NavItemConfig {
@@ -49,6 +50,7 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: 'agendamiento', label: 'Agendamiento', icon: Calendar, href: '/coach/agendamiento' },
   { id: 'challenges', label: 'Desafíos', icon: Flame, href: '/coach/challenges' },
   { id: 'planes', label: 'Planes', icon: CreditCard, href: '/coach/planes' },
+  { id: 'membership', label: 'Mi Membresía', icon: Crown, href: '/coach/plan' },
   { id: 'aliados', label: 'Aliados', icon: Store, href: '/coach/ally' },
   { id: 'ventas', label: 'Ventas', icon: ShoppingCart, href: '/coach/ventas' },
   { id: 'earnings', label: 'Ganancias', icon: DollarSign, href: '/coach/earnings' },
@@ -198,7 +200,11 @@ export function CoachSidebar({ open, onClose, membershipStatus }: { open: boolea
 
         <div className="my-3 mx-2 h-px bg-gradient-to-r from-transparent via-surface-3 to-transparent" />
 
-        <div className="mx-3 mt-auto p-3 rounded-xl bg-surface-2 border border-surface-3">
+        <button
+          type="button"
+          onClick={() => handleNav('/coach/plan')}
+          className="w-full text-left mx-3 mt-auto p-3 rounded-xl bg-surface-2 border border-surface-3 hover:border-brand-primary/40 transition-colors"
+        >
           <div className="flex items-center gap-2 text-xs font-medium">
             <span className="text-text-secondary">Membresía</span>
             <span className={cn(
@@ -210,7 +216,7 @@ export function CoachSidebar({ open, onClose, membershipStatus }: { open: boolea
               {membershipStatus === 'active' ? 'Activa' : 'Omitida'}
             </span>
           </div>
-        </div>
+        </button>
       </nav>
     </div>
   )

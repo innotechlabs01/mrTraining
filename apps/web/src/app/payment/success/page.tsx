@@ -43,7 +43,6 @@ function CheckoutClaim({ checkoutId }: { checkoutId: string }) {
   const searchParams = useSearchParams();
   const transactionId = searchParams.get('id');
   const emailParam = searchParams.get('email') ?? '';
-  const envParam = searchParams.get('env') ?? '';
   const { isSignedIn, isLoaded } = useAuth();
   const { signIn, setActive, isLoaded: isSignInLoaded } = useSignIn();
   const { user } = useUser();
@@ -105,7 +104,6 @@ function CheckoutClaim({ checkoutId }: { checkoutId: string }) {
         body: JSON.stringify({
           transaction_id: transactionId,
           email: emailParam,
-          env: envParam,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -145,7 +143,7 @@ function CheckoutClaim({ checkoutId }: { checkoutId: string }) {
       setError(err instanceof Error ? err.message : 'No se pudo verificar el pago');
       setStatus('error');
     }
-  }, [checkoutId, transactionId, emailParam, envParam, isSignedIn, signIn, setActive, claim]);
+  }, [checkoutId, transactionId, emailParam, isSignedIn, signIn, setActive, claim]);
 
   useEffect(() => {
     if (!isLoaded) return;
