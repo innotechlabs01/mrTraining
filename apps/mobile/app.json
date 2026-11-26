@@ -8,6 +8,14 @@
     "userInterfaceStyle": "dark",
     "scheme": "mrtraining",
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ],
       "./plugins/withAndroidFirebaseAppDistribution",
       [
         "expo-splash-screen",
@@ -129,7 +137,6 @@
       }
     },
     "android": {
-      "minSdkVersion": 26,
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundColor": "#000000"

@@ -5,9 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-11-25
 
 ### Added
+- Ajustamos el flujo de QA mobile, para que se pueda desplegar una nueva versión de la app en cualquier momento
 - [db] Migración `439_workout_template_exercises_and_child_tables_rls.sql`: agrega política RLS `policy_workout_template_exercises_tenant_isolation` y grants `mr_training_app` en `workout_template_exercises` (sincronizada en Local + Supabase QA) — @frg (PR pending)
 - [in] T-041a: `.githooks/pre-commit` sincroniza y aplica migraciones en PostgreSQL local y Supabase QA en cada commit (`REQUIRE_LOCAL_DB=1`), auto-stagea los SQL sincronizados y `make install-hooks` activa `core.hooksPath=.githooks` — @frg (PR #61)
 - [db] Fix migración `438_coach_payout_accounts_and_public_event_registrations.sql`: comparación `e.is_public::text IN ('1', 'true', 't')` compatible con `INTEGER` y `BOOLEAN` (resuelve `SQLSTATE 42883` en `cd-qa.yml`) — @frg (PR pending)
