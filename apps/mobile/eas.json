@@ -18,7 +18,8 @@
       },
       "env": {
         "APP_VARIANT": "qa",
-        "ANDROID_PACKAGE": "com.innotechlabssas.mrtraining.dev",
+        "ANDROID_PACKAGE": "com.innotechlabssas.mrtraining.qa",
+        "IOS_BUNDLE_IDENTIFIER": "com.innotechlabssas.mrtraining.qa",
         "EXPO_PUBLIC_GO_API_URL": "https://mr-training-backend-fybayujyeq-uc.a.run.app",
         "EXPO_PUBLIC_WEB_URL": "https://mr-training-git-qa-innotechlabs-projects.vercel.app"
       },

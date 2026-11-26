@@ -49,7 +49,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: apps/mobile/package-lock.json
 
@@ -58,6 +58,9 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+          expo-cache: false
+          eas-cache: false
+          packager: npm
 
       - name: Install dependencies
         run: npm ci
@@ -79,6 +82,8 @@ jobs:
 
       - name: Build Android APK with EAS
         id: build
+        env:
+          GOOGLE_SERVICES_JSON_QA: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON_QA }}
         run: |
           set -euo pipefail
           # stdout (JSON) va al archivo; stderr (logs) queda visible en la consola

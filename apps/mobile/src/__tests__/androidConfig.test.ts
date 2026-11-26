@@ -1,4 +1,5 @@
 import appConfig from '../../app.json';
+import easConfig from '../../eas.json';
 
 const HEALTH_CONNECT_MIN_SDK = 26;
 const BUILD_PROPERTIES_PLUGIN = 'expo-build-properties';
@@ -58,6 +59,15 @@ describe('Android build config', () => {
   it('sets minSdkVersion high enough for Health Connect via expo-build-properties', () => {
     const props = findBuildProperties(appConfig.expo.plugins);
     expect(props?.android?.minSdkVersion ?? 0).toBeGreaterThanOrEqual(HEALTH_CONNECT_MIN_SDK);
+  });
+
+  it('points the QA profile at the QA package and Cloud Run API', () => {
+    const qaEnv = easConfig.build.qa.env;
+    expect(qaEnv.ANDROID_PACKAGE).toBe('com.innotechlabssas.mrtraining.qa');
+    expect(qaEnv.IOS_BUNDLE_IDENTIFIER).toBe('com.innotechlabssas.mrtraining.qa');
+    expect(qaEnv.EXPO_PUBLIC_GO_API_URL).toBe(
+      'https://mr-training-backend-fybayujyeq-uc.a.run.app',
+    );
   });
 
   it.each(['qa', 'preview'])('limits %s builds to arm64-v8a', (appVariant) => {
