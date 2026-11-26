@@ -53,6 +53,36 @@ jobs:
           cache: 'npm'
           cache-dependency-path: apps/mobile/package-lock.json
 
+      - name: Validate Firebase service account
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DEPLOY }}
+        run: |
+          node - <<'NODE'
+          const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+          if (!raw) {
+            console.error('::error::Falta el secret FIREBASE_SERVICE_ACCOUNT_DEPLOY');
+            process.exit(1);
+          }
+
+          let credentials;
+          try {
+            credentials = JSON.parse(raw);
+          } catch {
+            console.error('::error::FIREBASE_SERVICE_ACCOUNT_DEPLOY no es JSON válido');
+            process.exit(1);
+          }
+
+          const expectedProjectId = 'mr-training-deploy';
+          if (credentials.project_id !== expectedProjectId) {
+            console.error(
+              `::error::El service account pertenece al proyecto ${credentials.project_id ?? 'desconocido'}; se espera ${expectedProjectId}`,
+            );
+            process.exit(1);
+          }
+
+          console.log(`Firebase SA: ${credentials.client_email} (project ${credentials.project_id})`);
+          NODE
+
       - name: Setup EAS CLI
         uses: expo/expo-github-action@v8
         with:
