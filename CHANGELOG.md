@@ -79,7 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.0] - 2026-XX-XX
+## [1.0.0] - 25-11-2026
 
 ### Added
 - [db] Migración `439_workout_template_exercises_and_child_tables_rls.sql`: agrega política RLS `policy_workout_template_exercises_tenant_isolation` y grants `mr_training_app` en `workout_template_exercises` (sincronizada en Local + Supabase QA) — @frg (PR pending)
