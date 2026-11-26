@@ -4,6 +4,32 @@ const ANDROID_PACKAGES = {
   qa: 'com.innotechlabssas.mrtraining.qa',
   production: 'com.innotechlabssas.mrtraining',
 };
+const ARM64_ONLY_VARIANTS = new Set(['qa', 'preview']);
+const INTERNAL_BUILD_ARCHS = ['arm64-v8a'];
+
+function withInternalBuildArchs(plugins, appVariant) {
+  if (!ARM64_ONLY_VARIANTS.has(appVariant)) {
+    return plugins;
+  }
+
+  return (plugins ?? []).map((plugin) => {
+    if (!Array.isArray(plugin) || plugin[0] !== 'expo-build-properties') {
+      return plugin;
+    }
+
+    const [, props] = plugin;
+    return [
+      'expo-build-properties',
+      {
+        ...props,
+        android: {
+          ...props?.android,
+          buildArchs: INTERNAL_BUILD_ARCHS,
+        },
+      },
+    ];
+  });
+}
 
 module.exports = ({ config }) => {
   const appVariant = process.env.APP_VARIANT || 'development';
@@ -11,10 +37,12 @@ module.exports = ({ config }) => {
     process.env.ANDROID_PACKAGE ||
     ANDROID_PACKAGES[appVariant] ||
     config.android?.package;
+  const plugins = withInternalBuildArchs(config.plugins, appVariant);
 
   // app.json es la base; lo extendemos con valores de entorno preservando fallbacks
   return {
     ...config,
+    plugins,
     extra: {
       ...config.extra,
       clerkPublishableKey:

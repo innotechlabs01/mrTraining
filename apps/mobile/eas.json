@@ -11,12 +11,14 @@
     },
     "qa": {
       "distribution": "internal",
+      "developmentClient": false,
+      "autoIncrement": true,
       "android": {
         "buildType": "apk"
       },
       "env": {
         "APP_VARIANT": "qa",
-        "ANDROID_PACKAGE": "com.innotechlabssas.mrtraining.qa",
+        "ANDROID_PACKAGE": "com.innotechlabssas.mrtraining.dev",
         "EXPO_PUBLIC_GO_API_URL": "https://mr-training-backend-fybayujyeq-uc.a.run.app",
         "EXPO_PUBLIC_WEB_URL": "https://mr-training-git-qa-innotechlabs-projects.vercel.app"
       },
@@ -26,6 +28,9 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "preview"
       },
       "channel": "preview"
     },
