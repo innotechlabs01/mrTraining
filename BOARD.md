@@ -4,13 +4,14 @@
 - [ ] (none)
 
 ## In Progress
-- [ ] T-042 [P1]: Mobile Crashlytics SDK — QA-scoped Android + iOS config plugins, runtime JS error handlers, regression tests | architect plan: QA-only RNFB plugins + guarded runtime init + firebase.json chaining off | direct execution (Orca runtime unavailable)
+- [ ] (none)
 
 ## Review
-- [ ] T-039a [P0]: Reopen T-037a — `POST /api/v1/workout-templates` still 500 (request_id `450a0bd3-...`): FK 23503 on `workout_template_exercises_template_id_fkey`; `CreateWorkoutTemplate` did not set `TemplateID` on new exercises. Fix + regression test added; `go build`, `go vet`, `go test ./internal/... -race` PASS. PR #61 (`dev → qa`) open. Pending QA deploy + E2E re-test.
 - [ ] T-040a [P1]: `cd-mobile-qa` APK build failure — EAS regenerated `minSdkVersion 24` because `android/` is gitignored, below `androidx.health.connect:connect-client:1.1.0` requirement 26. Committed `minSdkVersion: 26` in `app.json` + regression test; `tsc` and 98 suites / 551 tests PASS. PR #61 (`dev → qa`) open. Pending QA build re-run.
 
 ## Done
+- [x] T-042 [P1]: Mobile Crashlytics SDK — QA-scoped Android + iOS config plugins (app, crashlytics, perf v27.2.0), guarded JS runtime init, `firebase.json` chaining off, regression tests + version `0.0.2`. Approved by @user (2026-11-26). `tsc`, 101 suites / 569 tests, ESLint, `expo prebuild` Android/iOS, `plutil -lint` PASS; CI `45764465809` PASS; PR #67 (`dev → qa`) open. Runtime telemetry verification in Firebase Console pending.
+- [x] T-039a [P0]: Reopen T-037a — `POST /api/v1/workout-templates` FK 23503 fix (`CreateWorkoutTemplate` sets `TemplateID`) + regression test. Approved by @user (2026-11-26). `go build`, `go vet`, `go test ./internal/... -race` PASS; PR #61 (`dev → qa`) MERGED (`2026-11-25`). QA E2E re-test pending.
 - [x] T-041a [P1]: Active `.githooks/pre-commit` syncs/applies migrations on local PostgreSQL and Supabase QA (`REQUIRE_LOCAL_DB=1`) and auto-stages synced SQL; `make install-hooks` uses `core.hooksPath=.githooks`. Migration `438` synced and applied locally. Approved by @user (2026-11-24); commit `9604e0a`, PR #61 (`dev → qa`).
 - [x] T-038a [P1]: Migration `438` (`coach_payout_accounts`, `public_event_registrations`) + Go API `GET/PUT /api/v1/coach/payout-account`, `GET/POST /public/events/:id(/register)`, `GET /api/v1/events/:id/public-registrations` — `go build/vet/test -race` PASS (2026-11-24).
 - [x] T-038b [P1]: Web UI for Coach Payout Bank Account (`/coach/earnings`), Public Event Registration (`/event/[id]` without login), `/sign-in` OAuth contrast & onboarding typo fix — `tsc`, `lint` (0 errs), 36/36 suites / 269/269 tests PASS (2026-11-24).
