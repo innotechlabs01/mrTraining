@@ -73,6 +73,7 @@ mobile_package="$(node -p "require('./apps/mobile/package.json').version")"
 web_package="$(node -p "require('./apps/web/package.json').version")"
 web_health="$(sed -nE "s/.*version: '([^']+)'.*/\1/p" apps/web/src/app/api/health/route.ts | head -n 1)"
 api_version="$(sed -nE 's/^var Version = "([^"]+)".*/\1/p' apps/api/cmd/api/main.go | head -n 1)"
+worker_version="$(sed -nE 's/^var Version = "([^"]+)".*/\1/p' apps/api/cmd/worker/main.go | head -n 1)"
 
 version_sources=(
   "apps/mobile/app.json=$mobile_expo"
@@ -80,7 +81,13 @@ version_sources=(
   "apps/web/package.json=$web_package"
   "apps/web/src/app/api/health/route.ts=$web_health"
   "apps/api/cmd/api/main.go=$api_version"
+  "apps/api/cmd/worker/main.go=$worker_version"
 )
+
+if grep -q 'Version: "[0-9]' apps/api/internal/handlers/health.go; then
+  echo "❌ /health usa una versión hardcodeada; debe recibir la versión inyectada en el build"
+  exit 1
+fi
 
 for source in "${version_sources[@]}"; do
   file="${source%%=*}"

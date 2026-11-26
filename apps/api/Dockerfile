@@ -17,7 +17,7 @@ RUN go mod download
 # Copy source and build server + async worker binaries
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=${APP_VERSION}" -o /app/server ./cmd/api && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/worker ./cmd/worker
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=${APP_VERSION}" -o /app/worker ./cmd/worker
 
 # ============================================
 # Stage 2: Runtime
