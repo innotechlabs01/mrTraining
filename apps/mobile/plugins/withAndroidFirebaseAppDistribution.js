@@ -106,29 +106,49 @@ if (file('google-services.json').exists()) {
 }
 
 /**
- * Copies google-services.qa.json (or GOOGLE_SERVICES_JSON_QA) into android/app/src/qa/google-services.json.
+ * Reads the QA google-services.json from GOOGLE_SERVICES_JSON_QA (inline JSON
+ * or file path) or from google-services.qa.json in the project root.
+ */
+function readQaGoogleServices(projectRoot) {
+  const envSource = process.env.GOOGLE_SERVICES_JSON_QA;
+  const localSource = path.join(projectRoot, 'google-services.qa.json');
+
+  if (envSource && envSource.trim().startsWith('{')) {
+    return envSource;
+  }
+  if (envSource && fs.existsSync(envSource)) {
+    return fs.readFileSync(envSource, 'utf8');
+  }
+  if (fs.existsSync(localSource)) {
+    return fs.readFileSync(localSource, 'utf8');
+  }
+  return null;
+}
+
+/**
+ * Copies the QA google-services.json into the qa source set. For QA builds
+ * using `android.buildType: apk`, also copy it into the main app source set so
+ * the release artifact includes the Firebase config.
  */
 function withQaGoogleServicesFile(config) {
   return withDangerousMod(config, [
     'android',
     async (modConfig) => {
-      const projectRoot = modConfig.modRequest.projectRoot;
-      const platformRoot = modConfig.modRequest.platformProjectRoot;
-      const destDir = path.join(platformRoot, 'app', 'src', 'qa');
-      const destFile = path.join(destDir, 'google-services.json');
+      const contents = readQaGoogleServices(modConfig.modRequest.projectRoot);
+      if (!contents) {
+        return modConfig;
+      }
+      JSON.parse(contents);
 
-      const envSource = process.env.GOOGLE_SERVICES_JSON_QA;
-      const localSource = path.join(projectRoot, 'google-services.qa.json');
+      const appDir = path.join(modConfig.modRequest.platformProjectRoot, 'app');
+      const destinations = [path.join(appDir, 'src', 'qa')];
+      if (process.env.APP_VARIANT === 'qa') {
+        destinations.push(appDir);
+      }
 
-      if (envSource && fs.existsSync(envSource)) {
+      for (const destDir of destinations) {
         fs.mkdirSync(destDir, { recursive: true });
-        fs.copyFileSync(envSource, destFile);
-      } else if (envSource && envSource.trim().startsWith('{')) {
-        fs.mkdirSync(destDir, { recursive: true });
-        fs.writeFileSync(destFile, envSource, 'utf8');
-      } else if (fs.existsSync(localSource)) {
-        fs.mkdirSync(destDir, { recursive: true });
-        fs.copyFileSync(localSource, destFile);
+        fs.writeFileSync(path.join(destDir, 'google-services.json'), contents, 'utf8');
       }
 
       return modConfig;
