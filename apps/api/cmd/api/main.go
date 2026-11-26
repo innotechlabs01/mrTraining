@@ -34,7 +34,7 @@ import (
 )
 
 // Version is set at build time via ldflags.
-var Version = "0.1.0"
+var Version = "0.0.2"
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

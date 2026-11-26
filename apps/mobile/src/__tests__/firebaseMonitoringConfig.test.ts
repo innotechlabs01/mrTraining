@@ -7,6 +7,7 @@ const QA_ANDROID_PACKAGE = 'com.innotechlabssas.mrtraining.qa';
 const QA_IOS_BUNDLE_IDENTIFIER = 'com.innotechlabssas.mrtraining.qa';
 const FIREBASE_APP_PLUGIN = '@react-native-firebase/app';
 const FIREBASE_CRASHLYTICS_PLUGIN = '@react-native-firebase/crashlytics';
+const FIREBASE_PERFORMANCE_PLUGIN = '@react-native-firebase/perf';
 const BUILD_PROPERTIES_PLUGIN = 'expo-build-properties';
 
 type BuildProperties = {
@@ -81,22 +82,26 @@ const qaEnv: EnvOverrides = {
   IOS_BUNDLE_IDENTIFIER: QA_IOS_BUNDLE_IDENTIFIER,
 };
 
-describe('Crashlytics config', () => {
+describe('Firebase monitoring config', () => {
   it('wires Firebase config and plugins only for the QA app', () => {
     const qa = resolveConfig(qaEnv);
     const dev = resolveConfig({ APP_VARIANT: 'development' });
 
     expect(qa.plugins).toContain(FIREBASE_APP_PLUGIN);
     expect(qa.plugins).toContain(FIREBASE_CRASHLYTICS_PLUGIN);
+    expect(qa.plugins).toContain(FIREBASE_PERFORMANCE_PLUGIN);
     expect(qa.android?.googleServicesFile).toBe('./google-services.qa.json');
     expect(qa.ios?.googleServicesFile).toBe('./GoogleService-Info.qa.plist');
     expect(qa.extra?.crashlyticsEnabled).toBe(true);
+    expect(qa.extra?.performanceMonitoringEnabled).toBe(true);
 
     expect(dev.plugins).not.toContain(FIREBASE_APP_PLUGIN);
     expect(dev.plugins).not.toContain(FIREBASE_CRASHLYTICS_PLUGIN);
+    expect(dev.plugins).not.toContain(FIREBASE_PERFORMANCE_PLUGIN);
     expect(dev.android?.googleServicesFile).toBeUndefined();
     expect(dev.ios?.googleServicesFile).toBeUndefined();
     expect(dev.extra?.crashlyticsEnabled).toBe(false);
+    expect(dev.extra?.performanceMonitoringEnabled).toBe(false);
   });
 
   it('does not enable Firebase for preview despite limiting build architectures', () => {
@@ -125,5 +130,15 @@ describe('Crashlytics config', () => {
     expect(firebaseJson['react-native']?.crashlytics_javascript_exception_handler_chaining_enabled).toBe(
       false,
     );
+  });
+
+  it('keeps automatic performance collection enabled in QA builds', () => {
+    const firebaseJsonPath = path.resolve(__dirname, '../../firebase.json');
+    const firebaseJson = JSON.parse(fs.readFileSync(firebaseJsonPath, 'utf8')) as {
+      'react-native'?: Record<string, unknown>;
+    };
+
+    expect(firebaseJson['react-native']?.perf_auto_collection_enabled).toBeUndefined();
+    expect(firebaseJson['react-native']?.perf_collection_deactivated).toBeUndefined();
   });
 });

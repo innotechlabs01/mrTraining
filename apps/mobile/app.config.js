@@ -13,10 +13,11 @@ const QA_IOS_GOOGLE_SERVICE_FILE = './GoogleService-Info.qa.plist';
 const BUILD_PROPERTIES_PLUGIN = 'expo-build-properties';
 const FIREBASE_APP_PLUGIN = '@react-native-firebase/app';
 const FIREBASE_CRASHLYTICS_PLUGIN = '@react-native-firebase/crashlytics';
+const FIREBASE_PERFORMANCE_PLUGIN = '@react-native-firebase/perf';
 
-function withBuildProperties(plugins, appVariant, crashlyticsEnabled) {
+function withBuildProperties(plugins, appVariant, firebaseMonitoringEnabled) {
   const limitArchs = ARM64_ONLY_VARIANTS.has(appVariant);
-  if (!limitArchs && !crashlyticsEnabled) {
+  if (!limitArchs && !firebaseMonitoringEnabled) {
     return plugins;
   }
 
@@ -38,7 +39,7 @@ function withBuildProperties(plugins, appVariant, crashlyticsEnabled) {
               },
             }
           : {}),
-        ...(crashlyticsEnabled
+        ...(firebaseMonitoringEnabled
           ? {
               ios: {
                 ...props?.ios,
@@ -60,11 +61,13 @@ module.exports = ({ config }) => {
   const iosBundleIdentifier =
     process.env.IOS_BUNDLE_IDENTIFIER ||
     (appVariant === 'qa' ? QA_IOS_BUNDLE_IDENTIFIER : config.ios?.bundleIdentifier);
-  const crashlyticsEnabled =
+  const firebaseMonitoringEnabled =
     androidPackage === QA_ANDROID_PACKAGE && iosBundleIdentifier === QA_IOS_BUNDLE_IDENTIFIER;
   const plugins = [
-    ...withBuildProperties(config.plugins, appVariant, crashlyticsEnabled),
-    ...(crashlyticsEnabled ? [FIREBASE_APP_PLUGIN, FIREBASE_CRASHLYTICS_PLUGIN] : []),
+    ...withBuildProperties(config.plugins, appVariant, firebaseMonitoringEnabled),
+    ...(firebaseMonitoringEnabled
+      ? [FIREBASE_APP_PLUGIN, FIREBASE_CRASHLYTICS_PLUGIN, FIREBASE_PERFORMANCE_PLUGIN]
+      : []),
   ];
 
   const iosConfig = {
@@ -79,7 +82,7 @@ module.exports = ({ config }) => {
     ...config.android,
     package: androidPackage,
   };
-  if (crashlyticsEnabled) {
+  if (firebaseMonitoringEnabled) {
     androidConfig.googleServicesFile = QA_ANDROID_GOOGLE_SERVICE_FILE;
   }
 
@@ -99,7 +102,8 @@ module.exports = ({ config }) => {
         'https://mr-training.vercel.app',
       eas: config.extra?.eas,
       appVariant,
-      crashlyticsEnabled,
+      crashlyticsEnabled: firebaseMonitoringEnabled,
+      performanceMonitoringEnabled: firebaseMonitoringEnabled,
     },
     ios: iosConfig,
     android: androidConfig,

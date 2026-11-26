@@ -2,59 +2,110 @@
 #
 # validate-changelog.sh
 #
-# Pre-commit hook para la rama `dev`.
-# Bloquea el commit si se toca código de producción (apps/mobile, apps/web, apps/api)
-# y CHANGELOG.md no se actualiza con una entrada válida:
-#   - sección de versión presente (## [Unreleased] o ## [X.Y.Z])
-#   - al menos una entrada con formato: [área] descripción — @usuario (PR #n)
+# Valida la entrada de release del CHANGELOG y que todas las apps consuman la
+# misma versión:
+#   - sección de versión: ## [X.Y.Z] - dd-mm-YYYY
+#   - al menos una entrada: [área] descripción — @usuario (PR #n)
+#   - versiones sincronizadas en mobile, web y API Go
 #
-# Uso: se instala como .githooks/pre-commit y se activa con
-#   git config core.hooksPath .githooks
+# Modos:
+#   (sin args)  usado por .githooks/pre-commit sobre cambios staged en dev
+#   --ci       usado por PRs a QA; exige una sección de release nueva
 #
 set -euo pipefail
 
-# --- Solo aplica en la rama dev --------------------------------------------
-current_branch="$(git rev-parse --abbrev-ref HEAD)"
-if [ "$current_branch" != "dev" ]; then
-  exit 0
-fi
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
 
-# --- Detectar si hay cambios en código de producción -----------------------
-prod_changed=0
-if git diff --cached --name-only | grep -Eq '^(apps/mobile/|apps/web/|apps/api/)'; then
-  prod_changed=1
-fi
-
-if [ "$prod_changed" -eq 0 ]; then
-  # No toca código de producción: no exige changelog
-  exit 0
-fi
-
-# --- CHANGELOG.md debe estar modificado ------------------------------------
-if ! git diff --cached --name-only | grep -qx 'CHANGELOG.md'; then
-  echo "❌ Pre-commit: se detectaron cambios en código de producción pero CHANGELOG.md no está incluido en el commit."
-  echo "   Agrega CHANGELOG.md con una entrada del formato: [mo|fe|be|db|in|se|ux] descripción — @usuario (PR #n)"
-  exit 1
-fi
-
+mode="${1:-}"
 changelog="CHANGELOG.md"
-
-# --- Debe haber una sección de versión -------------------------------------
-if ! grep -Eq '^## \[(Unreleased|[0-9]+\.[0-9]+\.[0-9]+)\]' "$changelog"; then
-  echo "❌ Pre-commit: CHANGELOG.md no tiene una sección de versión (## [Unreleased] o ## [X.Y.Z])."
-  exit 1
-fi
-
-# --- Debe haber al menos una entrada con formato válido --------------------
-# Formato esperado: - [área] descripción — @usuario (PR #n)
+release_re='^## \[([0-9]+\.[0-9]+\.[0-9]+)\] - ([0-9]{2}-[0-9]{2}-[0-9]{4})$'
 valid_entry_re='^\- \[(fe|be|db|mo|in|se|ux)\].*— @[A-Za-z0-9_-]+ \(PR #?[0-9]+\)'
 
+# --- En commits de dev, solo aplica si el commit toca código de producción ---
+if [ "$mode" != "--ci" ]; then
+  current_branch="$(git rev-parse --abbrev-ref HEAD)"
+  if [ "$current_branch" != "dev" ]; then
+    exit 0
+  fi
+  if ! git diff --cached --name-only | grep -Eq '^(apps/mobile/|apps/web/|apps/api/)'; then
+    exit 0
+  fi
+  if ! git diff --cached --name-only | grep -qx "$changelog"; then
+    echo "❌ Pre-commit: cambios en código de producción sin CHANGELOG.md en el commit."
+    echo "   Agregá una entrada: - [área] descripción — @usuario (PR #n)"
+    exit 1
+  fi
+fi
+
+if [ ! -f "$changelog" ]; then
+  echo "❌ No existe $changelog"
+  exit 1
+fi
+
 if ! grep -Eq "$valid_entry_re" "$changelog"; then
-  echo "❌ Pre-commit: CHANGELOG.md no contiene ninguna entrada con formato válido."
+  echo "❌ CHANGELOG.md no contiene ninguna entrada con formato válido."
   echo "   Formato requerido: - [área] descripción — @usuario (PR #n)"
   echo "   Áreas válidas: fe, be, db, mo, in, se, ux"
   exit 1
 fi
 
-echo "✅ Pre-commit: CHANGELOG.md válido (versión + entrada con área, autor y PR)."
+release_line="$(grep -Em1 "$release_re" "$changelog" || true)"
+if [ -z "$release_line" ]; then
+  if [ "$mode" = "--ci" ]; then
+    echo "❌ CHANGELOG.md necesita una sección de release: ## [X.Y.Z] - dd-mm-YYYY"
+    exit 1
+  fi
+  echo "✅ Pre-commit: CHANGELOG.md válido (sin release section; acumulando en Unreleased)."
+  exit 0
+fi
+
+release_version="$(printf '%s\n' "$release_line" | sed -E 's/^## \[([^]]+)\].*/\1/')"
+release_date="$(printf '%s\n' "$release_line" | sed -E 's/.* - ([0-9-]+)$/\1/')"
+
+if [[ ! "$release_date" =~ ^[0-9]{2}-[0-9]{2}-[0-9]{4}$ ]]; then
+  echo "❌ Fecha de release inválida: $release_date (formato requerido: dd-mm-YYYY)"
+  exit 1
+fi
+
+mobile_expo="$(node -p "require('./apps/mobile/app.json').expo.version")"
+mobile_package="$(node -p "require('./apps/mobile/package.json').version")"
+web_package="$(node -p "require('./apps/web/package.json').version")"
+web_health="$(sed -nE "s/.*version: '([^']+)'.*/\1/p" apps/web/src/app/api/health/route.ts | head -n 1)"
+api_version="$(sed -nE 's/^var Version = "([^"]+)".*/\1/p' apps/api/cmd/api/main.go | head -n 1)"
+
+version_sources=(
+  "apps/mobile/app.json=$mobile_expo"
+  "apps/mobile/package.json=$mobile_package"
+  "apps/web/package.json=$web_package"
+  "apps/web/src/app/api/health/route.ts=$web_health"
+  "apps/api/cmd/api/main.go=$api_version"
+)
+
+for source in "${version_sources[@]}"; do
+  file="${source%%=*}"
+  value="${source#*=}"
+  if [ "$value" != "$release_version" ]; then
+    echo "❌ Versión desincronizada: CHANGELOG=$release_version pero $file=$value"
+    exit 1
+  fi
+done
+
+if [ "$mode" = "--ci" ] && [ -n "${GITHUB_BASE_REF:-}" ]; then
+  base_ref="origin/$GITHUB_BASE_REF"
+  if ! git cat-file -e "${base_ref}:${changelog}" 2>/dev/null; then
+    echo "❌ No se pudo leer $changelog desde $base_ref (usa checkout con fetch-depth: 0)"
+    exit 1
+  fi
+  if git diff --quiet "${base_ref}...HEAD" -- "$changelog"; then
+    echo "❌ El PR a QA debe agregar una sección de versión nueva en CHANGELOG.md"
+    exit 1
+  fi
+  if git show "${base_ref}:${changelog}" | grep -Fqx "$release_line"; then
+    echo "❌ La sección $release_line ya existe en $base_ref; subí la versión para este PR a QA"
+    exit 1
+  fi
+fi
+
+echo "✅ CHANGELOG.md válido: $release_line (versiones sincronizadas en mobile, web y API)."
 exit 0

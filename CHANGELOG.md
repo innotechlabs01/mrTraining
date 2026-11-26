@@ -5,9 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2026-11-25
+## [0.0.2] - 26-11-2026
 
 ### Added
+- [mo] T-043: Firebase Performance Monitoring limitado a QA en Android e iOS (plugin `@react-native-firebase/perf`, colección automática habilitada y tests de configuración) — @frg (PR #67)
+- [in] Versionado unificado de release: `CHANGELOG.md` es la fuente de versión/fecha (`dd-mm-YYYY`), validado por CI en PRs a QA y sincronizado en mobile (Expo/package), web (package/health) y API Go — @frg (PR #67)
 - [mo] T-042: Firebase Crashlytics limitado a QA en Android e iOS (plugins RNFB, configs versionadas, init runtime guarded y tests), con CI/CD mobile en Node 24 y override de `@grpc/grpc-js` parcheado — @frg (PR #67)
 - Ajustamos el flujo de QA mobile, para que se pueda desplegar una nueva versión de la app en cualquier momento
 - [db] Migración `439_workout_template_exercises_and_child_tables_rls.sql`: agrega política RLS `policy_workout_template_exercises_tenant_isolation` y grants `mr_training_app` en `workout_template_exercises` (sincronizada en Local + Supabase QA) — @frg (PR pending)

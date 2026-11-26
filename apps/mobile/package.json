@@ -1,6 +1,6 @@
 {
   "name": "@mrtraining/mobile",
-  "version": "1.0.0",
+  "version": "0.0.2",
   "main": "index.ts",
   "packageManager": "npm@10.9.0",
   "scripts": {
@@ -22,6 +22,7 @@
     "@react-native-community/netinfo": "^12.0.1",
     "@react-native-firebase/app": "27.2.0",
     "@react-native-firebase/crashlytics": "27.2.0",
+    "@react-native-firebase/perf": "27.2.0",
     "@react-native-picker/picker": "^2.11.4",
     "@react-native-vector-icons/ionicons": "^13.1.5",
     "@react-native/jest-preset": "^0.86.3",
