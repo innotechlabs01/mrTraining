@@ -49,7 +49,7 @@ import (
 )
 
 // Version is injected at build time via -ldflags -X main.Version.
-var Version = "0.0.2"
+var Version = "0.0.3"
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
