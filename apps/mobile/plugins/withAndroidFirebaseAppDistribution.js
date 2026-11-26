@@ -113,14 +113,14 @@ function readQaGoogleServices(projectRoot) {
   const envSource = process.env.GOOGLE_SERVICES_JSON_QA;
   const localSource = path.join(projectRoot, 'google-services.qa.json');
 
+  if (fs.existsSync(localSource)) {
+    return fs.readFileSync(localSource, 'utf8');
+  }
   if (envSource && envSource.trim().startsWith('{')) {
     return envSource;
   }
   if (envSource && fs.existsSync(envSource)) {
     return fs.readFileSync(envSource, 'utf8');
-  }
-  if (fs.existsSync(localSource)) {
-    return fs.readFileSync(localSource, 'utf8');
   }
   return null;
 }
