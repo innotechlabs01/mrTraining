@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-11-25
 
 ### Added
+- [mo] T-042: Firebase Crashlytics limitado a QA en Android e iOS (plugins RNFB, configs versionadas, init runtime guarded y tests), con CI/CD mobile en Node 24 y override de `@grpc/grpc-js` parcheado — @frg (PR #67)
 - Ajustamos el flujo de QA mobile, para que se pueda desplegar una nueva versión de la app en cualquier momento
 - [db] Migración `439_workout_template_exercises_and_child_tables_rls.sql`: agrega política RLS `policy_workout_template_exercises_tenant_isolation` y grants `mr_training_app` en `workout_template_exercises` (sincronizada en Local + Supabase QA) — @frg (PR pending)
 - [in] T-041a: `.githooks/pre-commit` sincroniza y aplica migraciones en PostgreSQL local y Supabase QA en cada commit (`REQUIRE_LOCAL_DB=1`), auto-stagea los SQL sincronizados y `make install-hooks` activa `core.hooksPath=.githooks` — @frg (PR #61)

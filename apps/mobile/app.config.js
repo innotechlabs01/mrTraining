@@ -6,28 +6,46 @@ const ANDROID_PACKAGES = {
 };
 const ARM64_ONLY_VARIANTS = new Set(['qa', 'preview']);
 const INTERNAL_BUILD_ARCHS = ['arm64-v8a'];
+const QA_ANDROID_PACKAGE = ANDROID_PACKAGES.qa;
+const QA_ANDROID_GOOGLE_SERVICE_FILE = './google-services.qa.json';
 const QA_IOS_BUNDLE_IDENTIFIER = 'com.innotechlabssas.mrtraining.qa';
 const QA_IOS_GOOGLE_SERVICE_FILE = './GoogleService-Info.qa.plist';
+const BUILD_PROPERTIES_PLUGIN = 'expo-build-properties';
+const FIREBASE_APP_PLUGIN = '@react-native-firebase/app';
+const FIREBASE_CRASHLYTICS_PLUGIN = '@react-native-firebase/crashlytics';
 
-function withInternalBuildArchs(plugins, appVariant) {
-  if (!ARM64_ONLY_VARIANTS.has(appVariant)) {
+function withBuildProperties(plugins, appVariant, crashlyticsEnabled) {
+  const limitArchs = ARM64_ONLY_VARIANTS.has(appVariant);
+  if (!limitArchs && !crashlyticsEnabled) {
     return plugins;
   }
 
   return (plugins ?? []).map((plugin) => {
-    if (!Array.isArray(plugin) || plugin[0] !== 'expo-build-properties') {
+    if (!Array.isArray(plugin) || plugin[0] !== BUILD_PROPERTIES_PLUGIN) {
       return plugin;
     }
 
     const [, props] = plugin;
     return [
-      'expo-build-properties',
+      BUILD_PROPERTIES_PLUGIN,
       {
         ...props,
-        android: {
-          ...props?.android,
-          buildArchs: INTERNAL_BUILD_ARCHS,
-        },
+        ...(limitArchs
+          ? {
+              android: {
+                ...props?.android,
+                buildArchs: INTERNAL_BUILD_ARCHS,
+              },
+            }
+          : {}),
+        ...(crashlyticsEnabled
+          ? {
+              ios: {
+                ...props?.ios,
+                useFrameworks: 'dynamic',
+              },
+            }
+          : {}),
       },
     ];
   });
@@ -42,7 +60,12 @@ module.exports = ({ config }) => {
   const iosBundleIdentifier =
     process.env.IOS_BUNDLE_IDENTIFIER ||
     (appVariant === 'qa' ? QA_IOS_BUNDLE_IDENTIFIER : config.ios?.bundleIdentifier);
-  const plugins = withInternalBuildArchs(config.plugins, appVariant);
+  const crashlyticsEnabled =
+    androidPackage === QA_ANDROID_PACKAGE && iosBundleIdentifier === QA_IOS_BUNDLE_IDENTIFIER;
+  const plugins = [
+    ...withBuildProperties(config.plugins, appVariant, crashlyticsEnabled),
+    ...(crashlyticsEnabled ? [FIREBASE_APP_PLUGIN, FIREBASE_CRASHLYTICS_PLUGIN] : []),
+  ];
 
   const iosConfig = {
     ...config.ios,
@@ -50,6 +73,14 @@ module.exports = ({ config }) => {
   };
   if (iosBundleIdentifier === QA_IOS_BUNDLE_IDENTIFIER) {
     iosConfig.googleServicesFile = QA_IOS_GOOGLE_SERVICE_FILE;
+  }
+
+  const androidConfig = {
+    ...config.android,
+    package: androidPackage,
+  };
+  if (crashlyticsEnabled) {
+    androidConfig.googleServicesFile = QA_ANDROID_GOOGLE_SERVICE_FILE;
   }
 
   // app.json es la base; lo extendemos con valores de entorno preservando fallbacks
@@ -67,12 +98,11 @@ module.exports = ({ config }) => {
         config.extra?.webAppUrl ||
         'https://mr-training.vercel.app',
       eas: config.extra?.eas,
+      appVariant,
+      crashlyticsEnabled,
     },
     ios: iosConfig,
-    android: {
-      ...config.android,
-      package: androidPackage,
-    },
+    android: androidConfig,
     runtimeVersion: config.runtimeVersion,
     updates: config.updates,
   };

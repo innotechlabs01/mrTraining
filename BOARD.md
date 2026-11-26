@@ -4,7 +4,7 @@
 - [ ] (none)
 
 ## In Progress
-- [ ] (none)
+- [ ] T-042 [P1]: Mobile Crashlytics SDK — QA-scoped Android + iOS config plugins, runtime JS error handlers, regression tests | architect plan: QA-only RNFB plugins + guarded runtime init + firebase.json chaining off | direct execution (Orca runtime unavailable)
 
 ## Review
 - [ ] T-039a [P0]: Reopen T-037a — `POST /api/v1/workout-templates` still 500 (request_id `450a0bd3-...`): FK 23503 on `workout_template_exercises_template_id_fkey`; `CreateWorkoutTemplate` did not set `TemplateID` on new exercises. Fix + regression test added; `go build`, `go vet`, `go test ./internal/... -race` PASS. PR #61 (`dev → qa`) open. Pending QA deploy + E2E re-test.
