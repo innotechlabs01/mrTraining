@@ -5,7 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2026-11-25
+## [0.0.3] - 26-11-2026
+
+### Added
+- [mo] T-043: Firebase Performance Monitoring limitado a QA en Android e iOS (plugin `@react-native-firebase/perf`, colección automática habilitada y tests de configuración) — @frg (PR #67)
+- [in] Versionado unificado de release: `CHANGELOG.md` es la fuente de versión/fecha (`dd-mm-YYYY`), validado por CI en PRs a QA y sincronizado en mobile (Expo/package), web (package/health) y API Go — @frg (PR #67)
+- [mo] T-042: Firebase Crashlytics limitado a QA en Android e iOS (plugins RNFB, configs versionadas, init runtime guarded y tests), con CI/CD mobile en Node 24 y override de `@grpc/grpc-js` parcheado — @frg (PR #67)
+
+---
+
+## [0.0.2] - 25-11-2026
 
 ### Added
 - Ajustamos el flujo de QA mobile, para que se pueda desplegar una nueva versión de la app en cualquier momento
@@ -65,7 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [in] Added dev-database role to orca-team pipeline and 14-team-workflow.md — @orca-team (internal)
 
 ### Fixed
-- [be] T-039a: Fix `POST /api/v1/workout-templates` 500 (`SQLSTATE 23503`, `workout_template_exercises_template_id_fkey`); `CreateWorkoutTemplate` now assigns the generated template ID to each exercise, with a regression test — @frg (PR #61, pending QA deploy)
+- [be] `/health` y `/ready` del worker reportan la versión inyectada en el build (`APP_VERSION`) en lugar de `0.1.0`; `-ldflags -X main.Version` aplica también al worker y el validador de changelog rechaza versiones hardcodeadas — @frg (PR #67)
+- [be] T-039a: Fix `POST /api/v1/workout-templates` 500 (`SQLSTATE 23503`, `workout_template_exercises_template_id_fkey`); `CreateWorkoutTemplate` now assigns the generated template ID to each exercise, with a regression test — @frg (PR #61, merged)
 - [mo] T-040a: Fix build Android QA: `minSdkVersion: 26` moved to committed `app.json` so EAS manifest merge satisfies `androidx.health.connect:connect-client:1.1.0` (previous local override was gitignored), with a regression test — @frg (PR #61)
 - [in] Fix `scripts/migrate-all.sh`: conexión a Supabase QA vía Session Pooler IPv4 (`aws-0-us-east-2.pooler.supabase.com:5432`) y fallo explícito si QA falla — @dev-database (PR pending)
 - [be] Fix wearable/health PostgreSQL queries (`health/repository.go`: removidas funciones SQLite `datetime('now')`/`date('now')` y bug `$12`), URLs de Garmin (`?` en lugar de `$10`/`$11` en `garmin_provider.go`) y soporte dual `snake_case`/`camelCase` en `health_data.go` — @dev-backend (PR pending)
@@ -76,7 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.0] - 2026-XX-XX
+## [1.0.0] - 25-11-2026
 
 ### Added
 - [db] Migración `439_workout_template_exercises_and_child_tables_rls.sql`: agrega política RLS `policy_workout_template_exercises_tenant_isolation` y grants `mr_training_app` en `workout_template_exercises` (sincronizada en Local + Supabase QA) — @frg (PR pending)

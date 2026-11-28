@@ -12,6 +12,7 @@ import { AppNavigator } from './Navigation';
 import { setClerkInstance, setOnSessionExpired } from '../infrastructure/auth/clerk';
 import { useAppFonts } from '../shared/theme/fonts';
 import { registerBackgroundSync } from '../infrastructure/health/background-sync';
+import { initializeCrashlytics } from '../infrastructure/monitoring/crashlytics';
 import { registerForPushNotifications } from '../infrastructure/notifications/push';
 import {
   createMMKVPersister,
@@ -79,6 +80,7 @@ function QueryCachePersistor() {
 // Runs at module scope so it executes before the first render, even if the
 // Clerk key check below throws.
 SplashScreen.preventAutoHideAsync().catch(() => {});
+initializeCrashlytics();
 
 const CLERK_KEY = Constants.expoConfig?.extra?.clerkPublishableKey || process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || process.env.CLERK_PUBLISH_KEY;
 

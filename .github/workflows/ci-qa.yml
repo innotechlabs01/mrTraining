@@ -7,6 +7,19 @@ on:
     branches: [qa]
 
 jobs:
+  version-sync:
+    name: Changelog + version sync (QA)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Validate release section and synced app versions
+        run: bash scripts/validate-changelog.sh --ci
+
   go-api:
     name: Go API (QA)
     runs-on: ubuntu-latest
@@ -64,7 +77,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
       - run: npm ci
       - run: npm run typecheck
       - run: npm test -- --watchAll=false

@@ -83,8 +83,10 @@ Cada PR que toque **código de producción** (no solo docs/config) debe actualiz
 - **Una línea por cambio significativo** (no un commit = una línea)
 
 ### Versionado
-- `dev` merge → `Unreleased` se acumula
-- Release tag `vX.Y.Z` → mover `Unreleased` a `## [X.Y.Z] - YYYY-MM-DD`
+- Todo PR `dev → QA` debe agregar una sección nueva: `## [X.Y.Z] - dd-mm-YYYY`
+- `CHANGELOG.md` es la fuente de verdad de la versión de release; `scripts/validate-changelog.sh --ci` valida la sección nueva en cada PR a QA
+- La versión debe quedar sincronizada en `apps/mobile/app.json`, `apps/mobile/package.json`, `apps/web/package.json`, `apps/web/src/app/api/health/route.ts` y `apps/api/cmd/api/main.go`
+- Release tag `vX.Y.Z` → mover `Unreleased` a `## [X.Y.Z] - dd-mm-YYYY`
 - `main` siempre refleja último release
 
 ## 4. Responsabilidades por Rol

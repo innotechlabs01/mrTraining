@@ -16,7 +16,7 @@ func setupTestApp() *fiber.App {
 	app := fiber.New()
 	app.Use(middleware.RequestID())
 
-	app.Get("/health", handlers.HealthCheck("test-api", "test"))
+	app.Get("/health", handlers.HealthCheck("test-api", "test", "test-version"))
 	app.Get("/ready", handlers.ReadinessCheck(nil))
 
 	return app
@@ -54,6 +54,9 @@ func TestHealthCheck(t *testing.T) {
 	}
 	if result["env"] != "test" {
 		t.Errorf("expected env 'test', got '%v'", result["env"])
+	}
+	if result["version"] != "test-version" {
+		t.Errorf("expected version 'test-version', got '%v'", result["version"])
 	}
 }
 

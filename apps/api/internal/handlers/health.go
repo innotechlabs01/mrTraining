@@ -35,14 +35,14 @@ type ReadinessDeps struct {
 }
 
 // HealthCheck handles GET /health and always returns 200 OK.
-// It reports application name, environment, and version for uptime monitoring.
-func HealthCheck(appName, env string) fiber.Handler {
+// It reports application name, environment, and the build-injected version.
+func HealthCheck(appName, env, version string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		return response.Success(c, HealthResponse{
 			Status:  "ok",
 			App:     appName,
 			Env:     env,
-			Version: "0.1.0",
+			Version: version,
 		})
 	}
 }

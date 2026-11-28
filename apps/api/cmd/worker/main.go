@@ -48,6 +48,9 @@ import (
 	"github.com/innotechlabs01/mr-training-api/pkg/metrics"
 )
 
+// Version is injected at build time via -ldflags -X main.Version.
+var Version = "0.0.3"
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -238,7 +241,7 @@ func main() {
 		healthPort = "9092"
 	}
 	healthApp := fiber.New(fiber.Config{DisableStartupMessage: true})
-	healthApp.Get("/health", handlers.HealthCheck(cfg.AppName+"-worker", cfg.AppEnv))
+	healthApp.Get("/health", handlers.HealthCheck(cfg.AppName+"-worker", cfg.AppEnv, Version))
 	var redisPing func(context.Context) error
 	if redisCache != nil {
 		redisPing = redisCache.Ping

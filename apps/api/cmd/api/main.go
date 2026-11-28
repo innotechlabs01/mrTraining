@@ -34,7 +34,7 @@ import (
 )
 
 // Version is set at build time via ldflags.
-var Version = "0.1.0"
+var Version = "0.0.3"
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -177,7 +177,7 @@ func main() {
 	}
 
 	// Observability & health endpoints (no auth on /health and /ready; optional METRICS_TOKEN on /metrics).
-	server.App.Get("/health", handlers.HealthCheck(cfg.AppName, cfg.AppEnv))
+	server.App.Get("/health", handlers.HealthCheck(cfg.AppName, cfg.AppEnv, Version))
 	server.App.Get("/ready", handlers.ReadinessCheckWithDeps(handlers.ReadinessDeps{
 		DB:        stdlibDB,
 		RedisPing: redisPing,

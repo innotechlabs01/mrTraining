@@ -7,14 +7,17 @@ RUN apk add --no-cache git
 
 WORKDIR /app
 
+# Release version comes from the newest CHANGELOG.md section via CD build-arg.
+ARG APP_VERSION=0.0.2
+
 # Download dependencies first for layer caching
 COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy source and build server + async worker binaries
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/server ./cmd/api && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/worker ./cmd/worker
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=${APP_VERSION}" -o /app/server ./cmd/api && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=${APP_VERSION}" -o /app/worker ./cmd/worker
 
 # ============================================
 # Stage 2: Runtime
